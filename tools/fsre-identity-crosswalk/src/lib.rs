@@ -15,11 +15,12 @@ const RELATIONS: [&str; 8] = [
     "UNRESOLVED",
 ];
 
-const EVIDENCE_CLASSES: [&str; 4] = [
+const EVIDENCE_CLASSES: [&str; 5] = [
     "OFFICIAL_CROSSWALK",
     "SOURCE_NATIVE_CHANGE",
     "OPERATOR_RECORD",
     "INDEPENDENT_FIELD",
+    "SYNTHETIC",
 ];
 
 const REVIEW_STATES: [&str; 5] = [
@@ -396,9 +397,14 @@ fn render(report: &Report) -> String {
     output.push_str(&format!("accepted_transition_groups={accepted}\n"));
     output.push_str(&format!("unresolved_identity_groups={unresolved}\n"));
     output.push_str(&format!("merge_or_split_groups={multi_event}\n"));
-    output.push_str("claim_scope=SYNTHETIC_SCHEMA_AND_CARDINALITY_CONFORMANCE_ONLY\n");
-    output.push_str("real_system_identity_linkage=NOT_ESTABLISHED\n");
-    output.push_str("source_authenticity=NOT_ASSESSED\n");
+    let claim_scope = if report.fixture_kind == "SYNTHETIC_ONLY" {
+        "SYNTHETIC_SCHEMA_AND_CARDINALITY_CONFORMANCE_ONLY"
+    } else {
+        "SOURCE_BACKED_CONTRACT_CONFORMANCE_ONLY"
+    };
+    output.push_str(&format!("claim_scope={claim_scope}\n"));
+    output.push_str("real_system_identity_linkage=NOT_ESTABLISHED_BY_THIS_TOOL\n");
+    output.push_str("source_authenticity=NOT_AUTHENTICATED_BY_THIS_TOOL\n");
     output.push_str("operational_authority=NONE\n");
     output
 }
