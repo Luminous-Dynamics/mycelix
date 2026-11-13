@@ -110,8 +110,10 @@ fn coalition_access_does_not_compromise_oversight_when_an_independent_quorum_als
         case.receipt.disposition,
         CaptureDisposition::NoCaptureObserved
     );
-    for domain in [institutional_assurance::capture::ControlDomain::Audit,
-                   institutional_assurance::capture::ControlDomain::Appeal] {
+    for domain in [
+        institutional_assurance::capture::ControlDomain::Audit,
+        institutional_assurance::capture::ControlDomain::Appeal,
+    ] {
         let assessment = case
             .receipt
             .domain_assessments
