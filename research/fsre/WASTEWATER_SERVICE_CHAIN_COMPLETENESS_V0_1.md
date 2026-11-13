@@ -27,7 +27,7 @@ The DWS statement published 1 April 2026 reports that the 2025 Green Drop report
 
 Source: https://www.gov.za/news/media-statements/water-and-sanitation-crowns-steve-tshwete-local-municipality-2025-green-drop
 
-The executable fixture is `tools/fsre-green-drop-replay/fixtures/ZA_GREEN_DROP_PUBLIC_SUMMARY_2025.psv`. Its Rust validator checks the 2025 rounded percentages against the reported 848-system denominator. The 2022 denominator is not published in this summary and remains unknown. The 2022-to-2025 rate differences are shown only as source-reported percentage-point comparisons; comparability has not been independently reassessed. Count differences are not interpreted because the 2022 denominator is absent.
+The executable fixture is `tools/fsre-green-drop-replay/fixtures/ZA_GREEN_DROP_PUBLIC_SUMMARY_2025.psv`. Its Rust validator checks both report vintages' rounded percentages: 334/850 and 118/850 in 2022; 396/848 and 66/848 in 2025. The two sources and the report-boundary change are retained. System identity linkage and denominator-consistent longitudinal reassessment remain pending.
 
 The WRO catalogue describes the 2025 Green Drop report as a PDF collection and states that system-level tables were not extracted into machine-readable form. The dataset page displays CC BY 4.0, but the individual 2025 PDF resource record says "No License Provided". Treat the PDF resource-level licence as unresolved pending confirmation; do not infer permission from the parent package metadata.
 
