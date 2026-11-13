@@ -1,0 +1,14 @@
+[package]
+name = "johannesburg-water-event-graph-validator"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Read-only source binding and temporal lineage validator for Johannesburg water notice event graphs"
+
+# Isolated from the Mycelix and Mycelix Commons workspaces.
+[workspace]
+
+[dependencies]
+serde_json = "=1.0.150"
+sha2 = "=0.10.9"
