@@ -375,12 +375,12 @@
             "kind": "scheduled_interval",
             "start_text": "29 October 2026 14:00",
             "end_text": "30 October 2026 04:00",
-            "note": "Published schedule, not a verified closure execution or restoration observation."
+            "note": "This is a planned outlet-closure interval, not an estimated time of restoration or a verified actual closure/reopening."
           },
           "reported_metrics": [],
           "restoration_time_estimate": {
-            "status": "provided",
-            "text": "Scheduled closure 14:00 Thursday 29 October to 04:00 Friday 30 October."
+            "status": "not_applicable",
+            "text": null
           },
           "interpretation_limitations": [
             "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
