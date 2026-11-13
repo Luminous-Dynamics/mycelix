@@ -1,6 +1,4 @@
-use institutional_assurance::{
-    conflict_of_interest_suite, Decision, ReasonCode, SUITE_ID,
-};
+use institutional_assurance::{Decision, ReasonCode, SUITE_ID, conflict_of_interest_suite};
 
 #[test]
 fn all_s2_fixture_expectations_match() {
@@ -29,7 +27,10 @@ fn conflicted_and_unauthorized_attempts_are_denied_for_distinct_reasons() {
         .find(|case| case.scenario_id == "s2-negative-missing-authority")
         .expect("missing-authority negative control exists");
     assert_eq!(missing_authority.receipt.decision, Decision::Deny);
-    assert_eq!(missing_authority.receipt.reason, ReasonCode::MissingAuthority);
+    assert_eq!(
+        missing_authority.receipt.reason,
+        ReasonCode::MissingAuthority
+    );
 }
 
 #[test]
@@ -73,10 +74,22 @@ fn independent_authorized_approver_is_a_positive_control() {
 fn proposal_and_authority_boundary_controls_are_denied() {
     let report = conflict_of_interest_suite();
     let expected = [
-        ("s2-negative-proposal-substitution", ReasonCode::ProposalMismatch),
-        ("s2-negative-authority-holder-mismatch", ReasonCode::AuthorityHolderMismatch),
-        ("s2-negative-authority-not-yet-valid", ReasonCode::AuthorityNotYetValid),
-        ("s2-negative-invalid-authority-window", ReasonCode::InvalidAuthorityWindow),
+        (
+            "s2-negative-proposal-substitution",
+            ReasonCode::ProposalMismatch,
+        ),
+        (
+            "s2-negative-authority-holder-mismatch",
+            ReasonCode::AuthorityHolderMismatch,
+        ),
+        (
+            "s2-negative-authority-not-yet-valid",
+            ReasonCode::AuthorityNotYetValid,
+        ),
+        (
+            "s2-negative-invalid-authority-window",
+            ReasonCode::InvalidAuthorityWindow,
+        ),
         ("s2-negative-zero-amount", ReasonCode::InvalidAmount),
     ];
 
