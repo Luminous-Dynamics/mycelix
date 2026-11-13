@@ -14,9 +14,7 @@ use sha2::{Digest, Sha256};
 pub const CAPTURE_RECEIPT_SCHEMA: &str = "lise.ipb.capture-receipt.v0";
 pub const CAPTURE_SUITE_ID: &str = "IPB-S3-ICAP-v0";
 
-#[derive(
-    Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ControlDomain {
     Agenda,
@@ -164,7 +162,9 @@ fn digest<T: Serialize>(value: &T) -> String {
     encoded
 }
 
-fn validate(scenario: &CaptureScenario) -> Result<BTreeMap<ControlDomain, &DomainControl>, CaptureInputError> {
+fn validate(
+    scenario: &CaptureScenario,
+) -> Result<BTreeMap<ControlDomain, &DomainControl>, CaptureInputError> {
     if scenario.scenario_id.trim().is_empty() {
         return Err(CaptureInputError::MissingScenarioId);
     }
@@ -180,7 +180,10 @@ fn validate(scenario: &CaptureScenario) -> Result<BTreeMap<ControlDomain, &Domai
     if scenario.policy.oversight_domains.is_empty() {
         return Err(CaptureInputError::EmptyOversightDomains);
     }
-    if scenario.policy.minimum_independent_oversight_controllers_per_domain == 0
+    if scenario
+        .policy
+        .minimum_independent_oversight_controllers_per_domain
+        == 0
         || scenario.policy.minimum_compromised_oversight_domains == 0
         || scenario.policy.minimum_compromised_oversight_domains
             > scenario.policy.oversight_domains.len()
@@ -242,9 +245,7 @@ struct CaptureReceiptMaterial<'a> {
 
 /// Evaluate a declared coalition against the thresholds supplied by a
 /// synthetic constitution/scenario. No threshold is universal or inferred.
-pub fn evaluate_capture(
-    scenario: &CaptureScenario,
-) -> Result<CaptureReceipt, CaptureInputError> {
+pub fn evaluate_capture(scenario: &CaptureScenario) -> Result<CaptureReceipt, CaptureInputError> {
     let by_domain = validate(scenario)?;
     let mut domain_assessments = Vec::with_capacity(by_domain.len());
 
@@ -262,8 +263,7 @@ pub fn evaluate_capture(
             .policy
             .minimum_independent_oversight_controllers_per_domain
             .max(control.required_signers);
-        let independent_oversight_ready =
-            independent_available_count >= minimum_independent;
+        let independent_oversight_ready = independent_available_count >= minimum_independent;
         let is_oversight_domain = scenario.policy.oversight_domains.contains(domain);
         let oversight_compromised = is_oversight_domain && !independent_oversight_ready;
 
@@ -297,9 +297,9 @@ pub fn evaluate_capture(
         .iter()
         .copied()
         .filter(|domain| {
-            domain_assessments.iter().any(|assessment| {
-                assessment.domain == *domain && assessment.coalition_can_exercise
-            })
+            domain_assessments
+                .iter()
+                .any(|assessment| assessment.domain == *domain && assessment.coalition_can_exercise)
         })
         .collect();
 
@@ -309,9 +309,9 @@ pub fn evaluate_capture(
         .iter()
         .copied()
         .filter(|domain| {
-            domain_assessments.iter().any(|assessment| {
-                assessment.domain == *domain && assessment.oversight_compromised
-            })
+            domain_assessments
+                .iter()
+                .any(|assessment| assessment.domain == *domain && assessment.oversight_compromised)
         })
         .collect();
 
@@ -321,8 +321,8 @@ pub fn evaluate_capture(
             .expect("validation guarantees every execution domain exists");
         control.available_controllers.len() < control.required_signers
     });
-    let execution_captured = coalition_controlled_execution_domains.len()
-        == scenario.policy.execution_domains.len();
+    let execution_captured =
+        coalition_controlled_execution_domains.len() == scenario.policy.execution_domains.len();
     let oversight_captured = compromised_oversight_domains.len()
         >= scenario.policy.minimum_compromised_oversight_domains;
 
@@ -412,7 +412,12 @@ fn distributed_execution_domains(
     required_signers: usize,
 ) -> Vec<DomainControl> {
     vec![
-        control(ControlDomain::Agenda, authorized, available, required_signers),
+        control(
+            ControlDomain::Agenda,
+            authorized,
+            available,
+            required_signers,
+        ),
         control(
             ControlDomain::Appointments,
             authorized,
@@ -435,11 +440,8 @@ fn distributed_execution_domains(
 }
 
 fn captured_scenario(scenario_id: &str) -> CaptureScenario {
-    let mut domains = distributed_execution_domains(
-        &["cartel-a", "cartel-b"],
-        &["cartel-a", "cartel-b"],
-        2,
-    );
+    let mut domains =
+        distributed_execution_domains(&["cartel-a", "cartel-b"], &["cartel-a", "cartel-b"], 2);
     domains.push(control(
         ControlDomain::Audit,
         &["cartel-a", "cartel-b"],
@@ -487,14 +489,15 @@ pub fn adversarial_capture_suite() -> CaptureSuiteReport {
 
     let mut quorum_suppression = captured_scenario("s3-attack-quorum-suppression");
     for domain in &mut quorum_suppression.domains {
-        domain.authorized_controllers.extend(set(&["independent-c", "independent-d"]));
+        domain
+            .authorized_controllers
+            .extend(set(&["independent-c", "independent-d"]));
         // Independents retain nominal authority but are unavailable at the
         // declared cutoff; this models absence/quorum suppression, not coercion.
     }
     cases.push(quorum_suppression);
 
-    let mut independent_oversight =
-        captured_scenario("s3-control-independent-audit-and-appeal");
+    let mut independent_oversight = captured_scenario("s3-control-independent-audit-and-appeal");
     for domain in &mut independent_oversight.domains {
         if matches!(domain.domain, ControlDomain::Audit | ControlDomain::Appeal) {
             domain.authorized_controllers = set(&["independent-c", "independent-d"]);
@@ -504,10 +507,13 @@ pub fn adversarial_capture_suite() -> CaptureSuiteReport {
     }
     cases.push(independent_oversight);
 
-    let mut dual_quorum =
-        captured_scenario("s3-control-dual-independent-oversight-quorums");
+    let mut dual_quorum = captured_scenario("s3-control-dual-independent-oversight-quorums");
     for domain in &mut dual_quorum.domains {
-        if dual_quorum.policy.oversight_domains.contains(&domain.domain) {
+        if dual_quorum
+            .policy
+            .oversight_domains
+            .contains(&domain.domain)
+        {
             domain.authorized_controllers =
                 set(&["cartel-a", "cartel-b", "independent-c", "independent-d"]);
             domain.available_controllers =
@@ -522,8 +528,7 @@ pub fn adversarial_capture_suite() -> CaptureSuiteReport {
     for domain in &mut fragmented.domains {
         if fragmented.policy.execution_domains.contains(&domain.domain) {
             domain.authorized_controllers = set(&["cartel-a", "independent-c", "independent-d"]);
-            domain.available_controllers =
-                set(&["cartel-a", "independent-c", "independent-d"]);
+            domain.available_controllers = set(&["cartel-a", "independent-c", "independent-d"]);
             domain.required_signers = 2;
         } else if fragmented.policy.oversight_domains.contains(&domain.domain) {
             domain.authorized_controllers = set(&["independent-c", "independent-d"]);
@@ -535,14 +540,21 @@ pub fn adversarial_capture_suite() -> CaptureSuiteReport {
     let mut below_threshold = captured_scenario("s3-control-coalition-below-execution-quorum");
     below_threshold.coalition_members = set(&["cartel-a"]);
     for domain in &mut below_threshold.domains {
-        if below_threshold.policy.execution_domains.contains(&domain.domain) {
-            domain.authorized_controllers =
-                set(&["cartel-a", "independent-c", "independent-d"]);
+        if below_threshold
+            .policy
+            .execution_domains
+            .contains(&domain.domain)
+        {
+            domain.authorized_controllers = set(&["cartel-a", "independent-c", "independent-d"]);
             domain.available_controllers =
                 set(&["cartel-a", "independent-c", "independent-d"]);
             domain.required_signers = 2;
         }
-        if below_threshold.policy.oversight_domains.contains(&domain.domain) {
+        if below_threshold
+            .policy
+            .oversight_domains
+            .contains(&domain.domain)
+        {
             domain.authorized_controllers = set(&["independent-c", "independent-d"]);
             domain.available_controllers = set(&["independent-c", "independent-d"]);
             domain.required_signers = 2;
@@ -552,7 +564,11 @@ pub fn adversarial_capture_suite() -> CaptureSuiteReport {
 
     let mut oversight_only = captured_scenario("s3-control-oversight-captured-without-execution");
     for domain in &mut oversight_only.domains {
-        if oversight_only.policy.execution_domains.contains(&domain.domain) {
+        if oversight_only
+            .policy
+            .execution_domains
+            .contains(&domain.domain)
+        {
             domain.authorized_controllers = set(&["independent-c", "independent-d"]);
             domain.available_controllers = set(&["independent-c", "independent-d"]);
             domain.required_signers = 2;
@@ -567,7 +583,9 @@ pub fn adversarial_capture_suite() -> CaptureSuiteReport {
         .iter_mut()
         .find(|domain| domain.domain == ControlDomain::Agenda)
         .expect("agenda fixture exists");
-    agenda.authorized_controllers.extend(set(&["independent-c", "independent-d"]));
+    agenda
+        .authorized_controllers
+        .extend(set(&["independent-c", "independent-d"]));
     agenda.available_controllers = set(&["cartel-a"]);
     cases.push(execution_unavailable);
 
