@@ -901,6 +901,79 @@ mod tests {
     }
 
     #[test]
+    fn every_nonqualified_disposition_fails_closed() {
+        let dispositions = [
+            Disposition::Unknown,
+            Disposition::NotIndependent,
+            Disposition::Unavailable,
+            Disposition::Expired,
+            Disposition::Revoked,
+            Disposition::WrongScope,
+            Disposition::OutOfDomain,
+            Disposition::Conflict,
+        ];
+        for disposition in dispositions {
+            let mut records = all_qualified();
+            records[2] = evidence(
+                PredicateKind::DependencyIndependence,
+                disposition,
+                500,
+            );
+            let result = evaluate(&scenario(), &[option(100)], &[], &records).unwrap();
+            assert_eq!(
+                result.options[0].disposition,
+                "NOT_QUALIFIED",
+                "disposition {} must fail closed",
+                disposition.as_str()
+            );
+            assert!(result.options[0].reason_codes.contains(&format!(
+                "PREDICATE_NOT_QUALIFIED:dependency_independence:{}",
+                disposition.as_str()
+            )));
+        }
+    }
+
+    #[test]
+    fn report_is_invariant_to_irrelevant_input_order() {
+        let mut debt = vec![
+            DebtItem {
+                debt_id: "d1".to_owned(),
+                service_id: "water-a".to_owned(),
+                dimension: "maintenance".to_owned(),
+                status: "QUALIFIED_DEFICIENCY".to_owned(),
+                source_owner: "operator".to_owned(),
+                evidence_ref: "synthetic:work-order-1".to_owned(),
+                time_basis_id: "synthetic-clock-v1".to_owned(),
+                observed_at_seconds: 10,
+                valid_until_seconds: 500,
+                clock_uncertainty_seconds: 0,
+            },
+            DebtItem {
+                debt_id: "d2".to_owned(),
+                service_id: "water-b".to_owned(),
+                dimension: "workforce_competence".to_owned(),
+                status: "QUALIFIED_DEFICIENCY".to_owned(),
+                source_owner: "operator".to_owned(),
+                evidence_ref: "synthetic:roster-2".to_owned(),
+                time_basis_id: "synthetic-clock-v1".to_owned(),
+                observed_at_seconds: 11,
+                valid_until_seconds: 600,
+                clock_uncertainty_seconds: 0,
+            },
+        ];
+        let mut records = all_qualified();
+        let first = evaluate(&scenario(), &[option(100)], &debt, &records)
+            .unwrap()
+            .render();
+        debt.reverse();
+        records.reverse();
+        let second = evaluate(&scenario(), &[option(100)], &debt, &records)
+            .unwrap()
+            .render();
+        assert_eq!(first, second);
+    }
+
+    #[test]
     fn unknown_dependency_disposition_blocks_qualification() {
         let mut records = all_qualified();
         records[2] = evidence(
