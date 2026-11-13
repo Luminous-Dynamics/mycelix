@@ -253,8 +253,7 @@ pub fn evaluate_capture(
         let independent_oversight_ready =
             independent_available_count >= minimum_independent;
         let is_oversight_domain = scenario.policy.oversight_domains.contains(domain);
-        let oversight_compromised = is_oversight_domain
-            && (coalition_can_exercise || !independent_oversight_ready);
+        let oversight_compromised = is_oversight_domain && !independent_oversight_ready;
 
         domain_assessments.push(DomainAssessment {
             domain: *domain,
@@ -474,6 +473,19 @@ pub fn adversarial_capture_suite() -> CaptureSuiteReport {
     }
     cases.push(independent_oversight);
 
+    let mut dual_quorum =
+        captured_scenario("s3-control-dual-independent-oversight-quorums");
+    for domain in &mut dual_quorum.domains {
+        if dual_quorum.policy.oversight_domains.contains(&domain.domain) {
+            domain.authorized_controllers =
+                set(&["cartel-a", "cartel-b", "independent-c", "independent-d"]);
+            domain.available_controllers =
+                set(&["cartel-a", "cartel-b", "independent-c", "independent-d"]);
+            domain.required_signers = 2;
+        }
+    }
+    cases.push(dual_quorum);
+
     let mut fragmented = captured_scenario("s3-control-fragmented-execution-control");
     fragmented.coalition_members = set(&["cartel-a"]);
     for domain in &mut fragmented.domains {
@@ -598,6 +610,43 @@ mod unit_tests {
         assert_eq!(
             evaluate_capture(&scenario),
             Err(CaptureInputError::DuplicateDomain)
+        );
+    }
+
+    #[test]
+    fn renaming_actor_labels_preserves_capture_disposition() {
+        let scenario = captured_scenario("s3-permutation-invariance");
+        let original = evaluate_capture(&scenario).expect("original scenario is valid");
+
+        let mut renamed = scenario.clone();
+        renamed.coalition_id = "renamed-coalition".to_owned();
+        renamed.coalition_members = scenario
+            .coalition_members
+            .iter()
+            .map(|actor| format!("renamed-{actor}"))
+            .collect();
+        for domain in &mut renamed.domains {
+            domain.authorized_controllers = domain
+                .authorized_controllers
+                .iter()
+                .map(|actor| format!("renamed-{actor}"))
+                .collect();
+            domain.available_controllers = domain
+                .available_controllers
+                .iter()
+                .map(|actor| format!("renamed-{actor}"))
+                .collect();
+        }
+
+        let permuted = evaluate_capture(&renamed).expect("renamed scenario is valid");
+        assert_eq!(original.disposition, permuted.disposition);
+        assert_eq!(
+            original.coalition_controlled_execution_domains,
+            permuted.coalition_controlled_execution_domains
+        );
+        assert_eq!(
+            original.compromised_oversight_domains,
+            permuted.compromised_oversight_domains
         );
     }
 
