@@ -1,6 +1,4 @@
-use institutional_assurance::capture::{
-    adversarial_capture_suite, CaptureDisposition,
-};
+use institutional_assurance::capture::{CaptureDisposition, adversarial_capture_suite};
 
 #[test]
 fn all_s3_known_answer_cases_match_their_expected_disposition() {
@@ -74,9 +72,7 @@ fn oversight_capture_without_execution_control_is_not_full_capture() {
     let case = report
         .cases
         .iter()
-        .find(|case| {
-            case.scenario_id == "s3-control-oversight-captured-without-execution"
-        })
+        .find(|case| case.scenario_id == "s3-control-oversight-captured-without-execution")
         .expect("oversight-only control exists");
     assert_eq!(
         case.receipt.disposition,
@@ -91,9 +87,7 @@ fn unavailable_execution_is_not_misreported_as_capture_resistance() {
     let case = report
         .cases
         .iter()
-        .find(|case| {
-            case.scenario_id == "s3-stress-independent-execution-quorum-unavailable"
-        })
+        .find(|case| case.scenario_id == "s3-stress-independent-execution-quorum-unavailable")
         .expect("unavailable-execution control exists");
     assert_eq!(
         case.receipt.disposition,
