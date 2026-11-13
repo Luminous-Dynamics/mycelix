@@ -44,7 +44,7 @@ Each domain declares:
 - which authorized controllers are available in the attack window;
 - the number of distinct signers required to exercise the domain.
 
-The scenario declares coalition membership as synthetic ground truth. For each domain, the evaluator records available coalition members, available non-coalition controllers, whether the coalition can satisfy the configured quorum alone, and whether independent oversight capacity remains.
+The scenario declares coalition membership as synthetic ground truth. For each domain, the evaluator records explicit scenario-local identifiers for the authorized set, available set, coalition-available set and independent-available set, as well as counts and quorum results. The receipt also carries the policy ID/version and sorted coalition-member identifiers so an independent reviewer can inspect the declared control topology. In any real evaluation, identifiers must be approved pseudonyms; personal identity data must not be published. This is a benchmark output projection, not a new identity store.
 
 The current capture predicate is intentionally explicit:
 - every critical execution domain can be exercised by the coalition; **and**
