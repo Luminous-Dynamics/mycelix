@@ -528,7 +528,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn bounded_exhaustive_observation_matrix_preserves_accounting_invariants() {
         let service_fractions = [0.0, 0.5, 1.0];
@@ -556,8 +555,7 @@ mod tests {
                         service_contract.max_observation_hold_seconds =
                             max_observation_hold_seconds;
                         service_contract.quality_required = quality_required;
-                        service_contract.recovery_stability_seconds =
-                            recovery_stability_seconds;
+                        service_contract.recovery_stability_seconds = recovery_stability_seconds;
 
                         let result = evaluate(&service_contract, &observations).unwrap();
                         assert_eq!(
@@ -573,8 +571,7 @@ mod tests {
                             "service-state accounting failed for case {case}"
                         );
                         assert!(
-                            result.below_minimum_service_seconds
-                                <= result.unsafe_service_seconds,
+                            result.below_minimum_service_seconds <= result.unsafe_service_seconds,
                             "below-floor service must be unsafe for case {case}"
                         );
                         assert!(
@@ -582,8 +579,7 @@ mod tests {
                             "quality exposure exceeds known time for case {case}"
                         );
                         assert!(
-                            result.longest_unsafe_episode_seconds
-                                <= result.unsafe_service_seconds,
+                            result.longest_unsafe_episode_seconds <= result.unsafe_service_seconds,
                             "longest unsafe episode exceeds total unsafe time for case {case}"
                         );
                         assert!(
