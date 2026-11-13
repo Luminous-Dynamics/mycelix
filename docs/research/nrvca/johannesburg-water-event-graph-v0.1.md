@@ -65,6 +65,51 @@ Reference points:
 - AWWA 2026 survey, *Model or Digital Twin?*: https://doi.org/10.1002/awwa.70075
 - OGC 26-050, *Building Blocks for Interoperable, AI-Ready Geospatial Data* (12 August 2026): https://docs.ogc.org/techpaper/26-050/26-050.html
 
+## Industry and SOTA comparison: compete at the missing layer
+
+### What established platforms already do well
+
+Bentley describes OpenFlows WaterSight as integrating SCADA, GIS, hydraulic models, IoT, AMI/CRM and customer analytics into a live water-network environment. Its stated scope includes anomaly monitoring, burst/leak geolocation, pump optimization, water balances and emergency-response scenario simulation. OpenFlows Water provides steady/extended-period hydraulic analysis, calibration against measured field data, scenario comparisons and transient analysis.
+
+That is a substantial operational-engineering stack. We should not claim to outperform it on live utility integrations, hydraulic-model maturity, asset coverage, calibrated forecasts or deployed response capability. The correct approach is interoperability and qualification around existing owner/vendor systems.
+
+### Capability boundary
+
+| Capability | Established utility / commercial stack | Luminous target layer |
+|---|---|---|
+| Hydraulic computation | EPANET/WNTR and commercial solvers; owner models | Reuse the qualified solver; no duplicate hydraulic engine |
+| Live SCADA/GIS/AMI integration | Mature commercial capability; depends on utility configuration and data access | Permissioned source adapters with explicit source/time/unit/provenance contracts |
+| Leak/burst analytics | Commercial monitoring and anomaly/geolocation features | Do not replace leak models; qualify the evidence linking notice, event, asset, observation and repair |
+| Event identity | Often embedded in vendor/operator workflows; exact semantics vary by implementation | Explicit append-only assertions, typed relations, versioned identity decisions and conflict preservation |
+| Temporal semantics | Operational time-series and event records available where instrumented | Keep publication time, physical valid time, observation time and ingestion time separate |
+| Evidence quality | Calibration/model governance available in mature deployments; varies by source | Explicit evidence class, calibration/timebase/coverage/rights status and fail-closed abstention |
+| Community service floors | Usually requires local utility policy and separate service-equity analysis | Non-compensatory household/community service vectors and no hidden averaging |
+| Governance / sovereignty | Tenant and vendor controls; utility-specific data agreements | Open, federated and rights-aware evidence exchange; no automated allocation or actuation |
+
+### What current field research says
+
+- The AWWA *Model or Digital Twin?* article (first published 15 April 2026) summarizes a 2024 water-utility survey. It reports interest in AI, digital twins and predictive analytics, while many utilities still lacked well-defined implementation plans. This supports a staged, interoperable adoption path rather than declaring a full city twin from public notices.
+- The European Commission's 2026 Water Management Digitalisation plan identifies open semantic models and linked-data approaches, including WaterML 2.0, HY_Features, SAREF4WATR, Smart Data Models and ETSI NGSI-LD. It also identifies technological, economic, social and regulatory barriers, including cybersecurity and citizen empowerment.
+- Bentley's product descriptions establish a real commercial comparator for connected hydraulic operations; they do not establish independent accuracy or guarantee performance for a particular utility. Vendor capability statements are not independent benchmark results.
+
+### Defensible differentiation hypothesis
+
+Luminous can attempt to outperform incumbent stacks on *evidence integrity per unit of integration cost*, not by pretending to have more telemetry or a better hydraulic solver. Candidate differentiators are:
+1. a cross-vendor, source-role-preserving evidence graph that never rewrites the operator's original assertion;
+2. deterministic event lineage and temporal reasoning with measured false-merge / false-split tradeoffs;
+3. explicit coverage, rights, calibration, method, topology and uncertainty receipts at every boundary;
+4. safe abstention when identity, geometry, event time or service outcome is unresolved;
+5. non-compensatory service floors, so city-wide averages cannot hide a community's water, sanitation or energy shortfall;
+6. low-cost staged adoption that starts from public/permissioned evidence and only progresses to live shadow mode after independent validation.
+
+This is a hypothesis to test, not a present product advantage. Demonstration requires matched source populations, measured integration cost, adjudicated event links, independent observations and external review.
+
+Primary references:
+- Bentley OpenFlows WaterSight: https://www.bentley.com/en/products/openflows-watersight/
+- Bentley OpenFlows Water: https://www.bentley.com/products/openflows-water/
+- Chenevey & Cooper (2026), *Model or Digital Twin? AWWA Survey on Water Distribution Technology*: https://doi.org/10.1002/awwa.70075
+- European Commission, *Water Management Digitalisation — Rolling Plan 2026*: https://interoperable-europe.ec.europa.eu/collection/rolling-plan-ict-standardisation/water-management-digitalisation-rp-2026
+
 ## Benchmark design
 
 Do not benchmark this layer with hydraulic-model RMSE or leak-detection accuracy. Its outputs are different. Use the following qualification tracks:
