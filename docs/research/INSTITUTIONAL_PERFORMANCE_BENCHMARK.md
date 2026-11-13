@@ -201,16 +201,16 @@ A CI job queued, skipped or unavailable is not a pass. Never infer a pass from t
 
 A Rust crate now exists at
 mycelix-governance/crates/institutional-assurance and is included in the
-existing mycelix-governance Cargo workspace. It implements ten deterministic
+existing mycelix-governance Cargo workspace. It implements fifteen deterministic
 S2 cases:
 
 - one positive control: an independent approver with a valid, scoped grant;
 - negative controls for beneficiary self-approval and proposer self-approval;
 - a seeded conflict-of-interest denial;
 - fail-closed behavior when conflict screening is incomplete;
-- missing and expired authority;
-- wrong authority scope and resource;
-- an expenditure amount above the grant limit.
+- missing, expired, future-dated and malformed authority windows;
+- wrong authority holder, scope and resource;
+- proposal substitution, zero-value requests and an amount above the grant limit.
 
 Each case emits a machine-readable receipt containing the policy version,
 scenario and actor identifiers, decision and reason, plus SHA-256 digests of
