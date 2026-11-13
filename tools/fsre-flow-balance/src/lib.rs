@@ -250,9 +250,19 @@ fn parse(source: &str) -> Result<(Metadata, Vec<FlowTerm>), String> {
             || term.source_ref.is_empty()
             || term.source_schema.is_empty()
             || term.method_id.is_empty()
-            || term.admissibility.is_empty()
+            || !matches!(
+                term.admissibility.as_str(),
+                "AUTHENTICATED_BY_OWNER"
+                    | "OWNER_ASSERTED_NOT_INDEPENDENTLY_VERIFIED"
+                    | "SYNTHETIC"
+                    | "PUBLIC_SOURCE_NOT_EXTRACTED"
+                    | "EXTRACTED_UNREVIEWED"
+                    | "DISPUTED"
+                    | "STALE"
+                    | "UNKNOWN"
+            )
         {
-            return Err(format!("missing source or method lineage for {}", term.term_id));
+            return Err(format!("missing or unsupported source lineage for {}", term.term_id));
         }
         if term.time_basis_id != parsed_metadata.time_basis_id
             || term.geography_id != parsed_metadata.geography_id
@@ -407,6 +417,35 @@ mod tests {
         let report = validate_and_report(&source).expect("positive residual case should validate");
         assert!(report.contains("unaccounted_residual_interval=[20,20] m3"));
         assert!(report.contains("residual_causal_attribution=NONE"));
+    }
+
+    #[test]
+    fn interval_that_spans_zero_does_not_claim_residual_sign() {
+        let source = BALANCED.replace("treated|OBSERVED_INTERVAL|80|80", "treated|OBSERVED_INTERVAL|70|90");
+        let report = validate_and_report(&source).expect("bounded uncertainty case should validate");
+        assert!(report.contains("unaccounted_residual_interval=[-10,10] m3"));
+        assert!(report.contains("residual_interpretation=SIGN_OR_ZERO_NOT_IDENTIFIABLE"));
+    }
+
+    #[test]
+    fn not_applicable_without_boundary_rationale_is_rejected() {
+        let mutated = BALANCED.replace("excluded by boundary", "not measured");
+        assert!(validate_and_report(&mutated).is_err());
+    }
+
+    #[test]
+    fn unknown_terms_cannot_smuggle_numeric_bounds() {
+        let mutated = UNKNOWN_BYPASS.replace(
+            "bypass|UNKNOWN|||synthetic-operator",
+            "bypass|UNKNOWN|0|0|synthetic-operator",
+        );
+        assert!(validate_and_report(&mutated).is_err());
+    }
+
+    #[test]
+    fn unsupported_admissibility_is_rejected() {
+        let mutated = BALANCED.replace("|SYNTHETIC|", "|TRUST_ME|");
+        assert!(validate_and_report(&mutated).is_err());
     }
 
     #[test]
