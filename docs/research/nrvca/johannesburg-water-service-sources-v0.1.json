@@ -177,7 +177,7 @@
         "geocoding_status": "not_geocoded"
       },
       "source_role": "operator_customer_notice_publication",
-      "reported_context": "The Johannesburg Water customer-notices archive links a dated customer-notice page. The page contains 0 image attachment(s) in the HTML listing as reviewed on 13 November 2026. Attachment contents have not been transcribed, geocoded or treated as event facts.",
+      "reported_context": "The Johannesburg Water customer-notices archive links a dated customer-notice page. The page contains 6 image attachment(s) in the HTML listing as reviewed on 13 November 2026. Attachment contents have not been transcribed, geocoded or treated as event facts.",
       "reported_numeric_context": [],
       "content_acquisition": "public_html_reviewed_exact_bytes_not_pinned",
       "content_sha256": null,
