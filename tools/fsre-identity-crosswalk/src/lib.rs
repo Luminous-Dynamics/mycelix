@@ -2,7 +2,22 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-const HEADER: &str = "transition_id|relation|source_system|source_record_id|target_system|target_record_id|effective_date|evidence_ref|evidence_class|review_state";
+const HEADER: &str = "transition_id|relation|source_system|source_record_id|source_population_scope|source_owner_class|target_system|target_record_id|target_population_scope|target_owner_class|effective_date|evidence_ref|evidence_class|review_state";
+
+const POPULATION_SCOPES: [&str; 4] = [
+    "MUNICIPAL_SYSTEMS",
+    "ALL_SECTOR_WORKS",
+    "WATER_SERVICE_AUTHORITIES",
+    "UNKNOWN",
+];
+
+const OWNER_CLASSES: [&str; 5] = [
+    "MUNICIPAL",
+    "DPWI",
+    "PRIVATE",
+    "OTHER_PUBLIC",
+    "UNKNOWN",
+];
 
 const RELATIONS: [&str; 8] = [
     "CONTINUITY",
@@ -37,14 +52,20 @@ struct Metadata {
     scope: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct Endpoint {
+    system: String,
+    record_id: String,
+    population_scope: String,
+    owner_class: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Transition {
     id: String,
     relation: String,
-    source_system: Option<String>,
-    source_id: Option<String>,
-    target_system: Option<String>,
-    target_id: Option<String>,
+    source: Option<Endpoint>,
+    target: Option<Endpoint>,
     effective_date: String,
     evidence_ref: String,
     evidence_class: String,
@@ -120,39 +141,52 @@ fn parse_metadata(metadata: &mut BTreeMap<String, String>) -> Result<Metadata, S
     Ok(parsed)
 }
 
-fn optional_pair(
-    system: &str,
-    record: &str,
-    label: &str,
-) -> Result<(Option<String>, Option<String>), String> {
-    match (system.is_empty(), record.is_empty()) {
-        (true, true) => Ok((None, None)),
-        (false, false) if valid_identifier(system) && valid_identifier(record) => {
-            Ok((Some(system.to_owned()), Some(record.to_owned())))
-        }
-        _ => Err(format!("{label} system and record ID must both be present or both be empty")),
+fn optional_endpoint(fields: &[&str], label: &str) -> Result<Option<Endpoint>, String> {
+    if fields.len() != 4 {
+        return Err(format!("{label} endpoint requires four fields"));
     }
+    if fields.iter().all(|value| value.is_empty()) {
+        return Ok(None);
+    }
+    if fields.iter().any(|value| value.is_empty()) {
+        return Err(format!(
+            "{label} endpoint system, record, population scope and owner class must be present together"
+        ));
+    }
+    if !valid_identifier(fields[0])
+        || !valid_identifier(fields[1])
+        || !POPULATION_SCOPES.contains(&fields[2])
+        || !OWNER_CLASSES.contains(&fields[3])
+    {
+        return Err(format!("{label} endpoint has an invalid namespace, ID, population scope or owner class"));
+    }
+    Ok(Some(Endpoint {
+        system: fields[0].to_owned(),
+        record_id: fields[1].to_owned(),
+        population_scope: fields[2].to_owned(),
+        owner_class: fields[3].to_owned(),
+    }))
 }
 
 fn parse_transition(line: &str, line_number: usize) -> Result<Transition, String> {
     let fields: Vec<&str> = line.split('|').map(str::trim).collect();
-    if fields.len() != 10 {
-        return Err(format!("line {line_number}: expected 10 transition fields"));
+    if fields.len() != 14 {
+        return Err(format!("line {line_number}: expected 14 transition fields"));
     }
 
     if !valid_identifier(fields[0]) || !RELATIONS.contains(&fields[1]) {
         return Err(format!("line {line_number}: invalid transition ID or relation"));
     }
-    let (source_system, source_id) = optional_pair(fields[2], fields[3], "source")?;
-    let (target_system, target_id) = optional_pair(fields[4], fields[5], "target")?;
-    if !valid_date(fields[6]) {
+    let source = optional_endpoint(&fields[2..6], "source")?;
+    let target = optional_endpoint(&fields[6..10], "target")?;
+    if !valid_date(fields[10]) {
         return Err(format!("line {line_number}: invalid effective_date"));
     }
-    if fields[7].is_empty() || !EVIDENCE_CLASSES.contains(&fields[8]) {
+    if fields[11].is_empty() || !EVIDENCE_CLASSES.contains(&fields[12]) {
         return Err(format!("line {line_number}: evidence reference/class is missing or unsupported"));
     }
-    if !REVIEW_STATES.contains(&fields[9]) {
-        return Err(format!("line {line_number}: unsupported review_state {}", fields[9]));
+    if !REVIEW_STATES.contains(&fields[13]) {
+        return Err(format!("line {line_number}: unsupported review_state {}", fields[13]));
     }
 
     let source_required = !matches!(fields[1], "CREATED");
@@ -161,52 +195,61 @@ fn parse_transition(line: &str, line_number: usize) -> Result<Transition, String
         "CONTINUITY" | "RENAMED" | "TRANSFERRED" | "MERGED_INTO" | "SPLIT_INTO"
             | "CREATED"
     );
-    if source_required != source_id.is_some() || target_required != target_id.is_some() {
+    if source_required != source.is_some() || target_required != target.is_some() {
         return Err(format!(
             "line {line_number}: source/target presence is invalid for relation {}",
             fields[1]
         ));
     }
     if fields[1] == "UNRESOLVED"
-        && !matches!(fields[9], "UNRESOLVED" | "DISPUTED" | "PROVISIONAL" | "SYNTHETIC_ONLY")
+        && !matches!(fields[13], "UNRESOLVED" | "DISPUTED" | "PROVISIONAL" | "SYNTHETIC_ONLY")
     {
         return Err(format!(
             "line {line_number}: unresolved identity cannot be marked {}",
-            fields[9]
+            fields[13]
         ));
     }
-    if fields[8] == "SYNTHETIC" && fields[9] != "SYNTHETIC_ONLY" {
+    if fields[12] == "SYNTHETIC" && fields[13] != "SYNTHETIC_ONLY" {
         return Err(format!(
             "line {line_number}: synthetic evidence must remain SYNTHETIC_ONLY"
         ));
     }
-    if fields[9] == "SYNTHETIC_ONLY" && fields[8] != "SYNTHETIC" {
+    if fields[13] == "SYNTHETIC_ONLY" && fields[12] != "SYNTHETIC" {
         return Err(format!(
             "line {line_number}: SYNTHETIC_ONLY review state requires SYNTHETIC evidence"
         ));
     }
-    if fields[9] == "ACCEPTED"
-        && !matches!(
-            fields[8],
+    if fields[13] == "ACCEPTED" {
+        if !matches!(
+            fields[12],
             "OFFICIAL_CROSSWALK" | "SOURCE_NATIVE_CHANGE" | "INDEPENDENT_FIELD"
-        )
-    {
-        return Err(format!(
-            "line {line_number}: accepted transition lacks admissible source evidence"
-        ));
+        ) {
+            return Err(format!(
+                "line {line_number}: accepted transition lacks admissible source evidence"
+            ));
+        }
+        if source
+            .iter()
+            .chain(target.iter())
+            .any(|endpoint| {
+                endpoint.population_scope == "UNKNOWN" || endpoint.owner_class == "UNKNOWN"
+            })
+        {
+            return Err(format!(
+                "line {line_number}: accepted transition requires known population scope and owner class"
+            ));
+        }
     }
 
     Ok(Transition {
         id: fields[0].to_owned(),
         relation: fields[1].to_owned(),
-        source_system,
-        source_id,
-        target_system,
-        target_id,
-        effective_date: fields[6].to_owned(),
-        evidence_ref: fields[7].to_owned(),
-        evidence_class: fields[8].to_owned(),
-        review_state: fields[9].to_owned(),
+        source,
+        target,
+        effective_date: fields[10].to_owned(),
+        evidence_ref: fields[11].to_owned(),
+        evidence_class: fields[12].to_owned(),
+        review_state: fields[13].to_owned(),
     })
 }
 
@@ -225,26 +268,42 @@ fn group_transitions(rows: Vec<Transition>) -> Result<Vec<Group>, String> {
                 || row.evidence_ref != first.evidence_ref
                 || row.evidence_class != first.evidence_class
                 || row.review_state != first.review_state
-                || row.source_system != first.source_system
-                || row.target_system != first.target_system
+                || row.source.as_ref().map(|endpoint| &endpoint.system)
+                    != first.source.as_ref().map(|endpoint| &endpoint.system)
+                || row.target.as_ref().map(|endpoint| &endpoint.system)
+                    != first.target.as_ref().map(|endpoint| &endpoint.system)
         }) {
-            return Err(format!("transition group {id} has inconsistent relation, scope, date, evidence or review state"));
+            return Err(format!("transition group {id} has inconsistent relation, namespace, date, evidence or review state"));
         }
 
         let sources: BTreeSet<&str> = rows
             .iter()
-            .filter_map(|row| row.source_id.as_deref())
+            .filter_map(|row| row.source.as_ref().map(|endpoint| endpoint.record_id.as_str()))
             .collect();
         let targets: BTreeSet<&str> = rows
             .iter()
-            .filter_map(|row| row.target_id.as_deref())
+            .filter_map(|row| row.target.as_ref().map(|endpoint| endpoint.record_id.as_str()))
             .collect();
         let valid_shape = match first.relation.as_str() {
             "CONTINUITY" | "RENAMED" | "TRANSFERRED" => {
                 rows.len() == 1 && sources.len() == 1 && targets.len() == 1
             }
-            "MERGED_INTO" => rows.len() >= 2 && sources.len() >= 2 && targets.len() == 1,
-            "SPLIT_INTO" => rows.len() >= 2 && sources.len() == 1 && targets.len() >= 2,
+            "MERGED_INTO" => {
+                rows.len() >= 2
+                    && sources.len() >= 2
+                    && targets.len() == 1
+                    && rows.iter().all(|row| row.target == first.target)
+                    && rows.iter().all(|row| {
+                        row.source.as_ref().map(|endpoint| &endpoint.population_scope)
+                            == first.source.as_ref().map(|endpoint| &endpoint.population_scope)
+                    })
+            }
+            "SPLIT_INTO" => {
+                rows.len() >= 2
+                    && sources.len() == 1
+                    && targets.len() >= 2
+                    && rows.iter().all(|row| row.source == first.source)
+            }
             "DECOMMISSIONED" | "UNRESOLVED" => {
                 rows.len() == 1 && sources.len() == 1 && targets.is_empty()
             }
@@ -253,7 +312,7 @@ fn group_transitions(rows: Vec<Transition>) -> Result<Vec<Group>, String> {
         };
         if !valid_shape {
             return Err(format!(
-                "transition group {id} has invalid cardinality for relation {}",
+                "transition group {id} has invalid cardinality or endpoint-scope consistency for relation {}",
                 first.relation
             ));
         }
@@ -263,28 +322,49 @@ fn group_transitions(rows: Vec<Transition>) -> Result<Vec<Group>, String> {
         });
     }
 
-    let mut source_assignments = BTreeMap::<(String, String, String), String>::new();
-    let mut target_assignments = BTreeMap::<(String, String, String), String>::new();
+    let mut source_assignments =
+        BTreeMap::<(String, String, String), (String, String, String)>::new();
+    let mut target_assignments =
+        BTreeMap::<(String, String, String), (String, String, String)>::new();
     for group in &groups {
+        let group_id = group.rows.first().expect("group has rows").id.clone();
         for row in &group.rows {
-            if let (Some(system), Some(record)) = (&row.source_system, &row.source_id) {
-                let key = (system.clone(), record.clone(), row.effective_date.clone());
-                if let Some(previous) = source_assignments.insert(key, group.id.clone()) {
-                    if previous != group.id {
+            if let Some(endpoint) = &row.source {
+                let key = (
+                    endpoint.system.clone(),
+                    endpoint.record_id.clone(),
+                    row.effective_date.clone(),
+                );
+                let claim = (
+                    group_id.clone(),
+                    endpoint.population_scope.clone(),
+                    endpoint.owner_class.clone(),
+                );
+                if let Some(previous) = source_assignments.insert(key, claim.clone()) {
+                    if previous != claim {
                         return Err(format!(
-                            "source identity is assigned to competing transitions {previous} and {} on {}",
-                            group.id, row.effective_date
+                            "source identity is assigned to competing or scope-conflicting transitions {} and {} on {}",
+                            previous.0, group_id, row.effective_date
                         ));
                     }
                 }
             }
-            if let (Some(system), Some(record)) = (&row.target_system, &row.target_id) {
-                let key = (system.clone(), record.clone(), row.effective_date.clone());
-                if let Some(previous) = target_assignments.insert(key, group.id.clone()) {
-                    if previous != group.id {
+            if let Some(endpoint) = &row.target {
+                let key = (
+                    endpoint.system.clone(),
+                    endpoint.record_id.clone(),
+                    row.effective_date.clone(),
+                );
+                let claim = (
+                    group_id.clone(),
+                    endpoint.population_scope.clone(),
+                    endpoint.owner_class.clone(),
+                );
+                if let Some(previous) = target_assignments.insert(key, claim.clone()) {
+                    if previous != claim {
                         return Err(format!(
-                            "target identity is assigned from competing transitions {previous} and {} on {}",
-                            group.id, row.effective_date
+                            "target identity is assigned from competing or scope-conflicting transitions {} and {} on {}",
+                            previous.0, group_id, row.effective_date
                         ));
                     }
                 }
@@ -400,9 +480,34 @@ fn render(report: &Report) -> String {
         .iter()
         .filter(|group| matches!(group.relation.as_str(), "MERGED_INTO" | "SPLIT_INTO"))
         .count();
+    let population_scope_changes = report
+        .groups
+        .iter()
+        .filter(|group| {
+            group.rows.iter().any(|row| {
+                row.source.as_ref().zip(row.target.as_ref()).map_or(false, |(source, target)| {
+                    source.population_scope != target.population_scope
+                })
+            })
+        })
+        .count();
+    let owner_class_changes = report
+        .groups
+        .iter()
+        .filter(|group| {
+            group.rows.iter().any(|row| {
+                row.source.as_ref().zip(row.target.as_ref()).map_or(false, |(source, target)| {
+                    source.owner_class != target.owner_class
+                })
+            })
+        })
+        .count();
     output.push_str(&format!("accepted_transition_groups={accepted}\n"));
     output.push_str(&format!("unresolved_identity_groups={unresolved}\n"));
     output.push_str(&format!("merge_or_split_groups={multi_event}\n"));
+    output.push_str(&format!("population_scope_change_groups={population_scope_changes}\n"));
+    output.push_str(&format!("owner_class_change_groups={owner_class_changes}\n"));
+    output.push_str("scope_changes_are_cohort_changes=REQUIRE_SEPARATE_COMPARABILITY_REVIEW\n");
     let claim_scope = if report.fixture_kind == "SYNTHETIC_ONLY" {
         "SYNTHETIC_SCHEMA_AND_CARDINALITY_CONFORMANCE_ONLY"
     } else {
