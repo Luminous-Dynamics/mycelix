@@ -141,8 +141,35 @@
     {
       "id": "nist-ir-8536-reference-implementation",
       "repository": "https://github.com/usnistgov/ir8536-reference-implementation",
-      "disposition": "future_research_reference_pending_license_revision_dependency_audit",
-      "executed": false
+      "disposition": "research_reference_only_reported_public_but_repository_not_resolvable_and_not_production_grade",
+      "executed": false,
+      "repository_access_observation": {
+        "linked_in_final_report_appendix": "F.4",
+        "url": "https://github.com/usnistgov/ir8536-reference-implementation",
+        "github_api_get_repo": "404 Not Found on 2026-11-13",
+        "github_repository_search": "no matching repository on 2026-11-13",
+        "nist_publication_announcement": "2026-09-09 announcement said the repository would become publicly available following completion of its approval process",
+        "status": "reported_in_final_ir_but_not_resolvable_in_current_github_access_path"
+      },
+      "reported_maturity": "NIST IR 8536 Appendix F explicitly describes the implementation as an early-stage research artifact for laboratory experimentation, prototyping and exploration, not production-grade software.",
+      "reported_architecture": [
+        "three illustrative ecosystems: microelectronics manufacturer ME-001, OT integrator OT-001 and critical-infrastructure acquirer CI-001",
+        "simple text files are the default trusted data repositories, with NoSQL as an optional configuration",
+        "lightweight Python web server dashboard for viewing ecosystem records and traversing traceability links",
+        "example event sequence: Make and Ship; Receive and Assemble; Employ"
+      ],
+      "sources": [
+        "https://csrc.nist.gov/pubs/ir/8536/final",
+        "https://www.nist.gov/news-events/news/2026/09/finalized-manufacturing-supply-chain-traceability-meta-framework",
+        "https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=962361"
+      ],
+      "limitations": [
+        "Final IR Appendix F.4 names a public GitHub repository, but the connected GitHub API returned 404 and repository search returned no result at this snapshot.",
+        "NIST's 2026-09-09 announcement had stated that the GitHub repository would be made public after approval; reconcile this publication/access discrepancy before claiming source availability.",
+        "Appendix F explicitly limits the implementation to lab experimentation/prototyping and says it is not production-grade.",
+        "The illustrated implementation uses a simplified three-ecosystem scenario and basic file/optional NoSQL repositories; it is a conceptual research comparator, not an independent EPCIS repository/server.",
+        "No commit, license file, dependencies, test suite or release history could be inspected because the repository was not retrievable."
+      ]
     }
   ],
   "qualification_order": [
