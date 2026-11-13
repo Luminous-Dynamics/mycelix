@@ -266,3 +266,77 @@ Keep one benchmark schema and one scenario registry. Repositories should impleme
 The LISE research branch contains a Rust institutional-assurance crate with ten deterministic S2 conflict-of-interest cases, a JSON runner, evidence receipts and integration tests. It is a synthetic reference fixture and is not yet connected to production Holochain authorization. Its test sources have been committed; execution and CI evidence remain pending.
 
 The current governance-threshold discrepancy has been documented separately. No production threshold behavior was changed by the LISE prototype.
+
+
+## 11. Digital-twin prior art and LISE's novelty boundary
+
+Institutional and organizational digital twins are already being researched. LISE must not claim to invent the general concept:
+
+- Edrisi et al. published a Digital Twin of the Organization architecture in IEEE Access in 2024.
+- A 2025 Data & Policy study, using a German public-administration case, describes limited governance adoption and barriers including institutional readiness, privacy and fragmented institutional responsibilities.
+- Choudhury, Du and Lawrence posted Learning-by-Twinning: Organizational Digital Twins and the Future of Search as a working paper on 1 October 2026. It combines firm-specific digital traces, AI-based behavioural simulation and governance rules for strategic search.
+
+The potential LISE distinction is therefore not "an organization has a digital replica." It is a **rights-aware, constitution-linked, plural and independently evaluated institutional twin** for institutions that must coordinate across legal and governance boundaries.
+
+Research features to test:
+
+1. A capability and authority graph tied to source clauses and versioned policies.
+2. A process model that distinguishes formal rules from observed rules-in-use.
+3. Explicit dissent, uncertainty and disagreement between stakeholder-specific models.
+4. Cross-organization dependencies, negotiated contracts, liability and exit.
+5. Privacy and consent boundaries for every observation stream.
+6. Held-out predictive validation and comparison against simpler baselines.
+7. Counterfactual interventions with no automated authority to execute the proposed intervention.
+
+### Plural institutional twin ensemble
+
+Do not build one canonical simulation that claims to represent the whole institution. Investigate an ensemble of models with different scopes and accountable assumptions:
+
+- operational twin: queues, approvals, resource and service flows;
+- authority twin: roles, grants, delegation, policies and constitutional constraints;
+- participant twin: heterogeneous needs, access barriers, participation costs and bounded rationality;
+- economic twin: budgets, distribution, incentives and externalities;
+- ecological/spatial twin: place-based resource and service dependencies;
+- adversarial twin: capture, coercion, collusion, insider and provider-failure strategies.
+
+The ensemble should preserve disagreement between models, identify assumptions that cause divergence and show sensitivity to missing data. A decision-maker should see a range of plausible consequences, not a single synthetic answer presented as objective truth.
+
+A key research measure is **counterfactual calibration**: when the model predicts an outcome distribution, compare it against held-out real outcomes and report calibration, interval coverage, subgroup error and drift. Also measure how often different models disagree materially and whether that disagreement changes a proposed intervention.
+
+## 12. Formal rules, rules-in-use and institutional reality
+
+LISE builds on the Institutional Analysis and Development (IAD) tradition rather than replacing it. The IAD framework examines actors, action situations, rules, incentives, interactions and outcomes. Scholarship on IAD distinguishes formal legal rules from working rules: in practice, the two may align, interact with social norms or diverge.
+
+This creates a necessary LISE evidence layer:
+
+- declared rule: authoritative text, source, jurisdiction and version;
+- interpreted rule: authorized interpretation and unresolved ambiguity;
+- implemented rule: policy code and workflow;
+- observed rule: what participants and operators actually do;
+- enforced rule: what is consistently rewarded, blocked or sanctioned;
+- experienced rule: what affected participants believe the rule to be, measured through suitable qualitative and quantitative methods.
+
+A mismatch is not automatically proof of misconduct. It can indicate lawful discretion, local adaptation, tacit coordination, an outdated constitution, selective enforcement or an illegitimate bypass. Benchmark it with a human-reviewed taxonomy and inter-rater reliability rather than treating every deviation as the same kind of failure.
+
+A proposed metric is the **Formal-to-Operational Rule Gap (FORG)**: the share of sampled action situations where declared, implemented and observed rules materially diverge, reported by rule type and divergence category. The metric must not score institutions negatively merely for lawful local variation; it is a diagnostic and investigation trigger.
+
+Potential data sources include process logs, case-file sampling, participant interviews, observation and independent review. Use consent, purpose limitation, data minimization and protections against retaliation. Do not turn institutional observability into surveillance of community members.
+
+## 13. Current standards and research status to track
+
+- W3C Verifiable Credentials Data Model 2.0 is a Recommendation. Version 2.1 appeared as a Working Draft on 30 September 2026; do not describe the draft as a finalized standard. Both versions distinguish cryptographic verification from contextual validation of claims.
+- NIST states that AI RMF 1.0 is being revised. It also released a concept note on 7 April 2026 for a Trustworthy AI in Critical Infrastructure profile. Track the revision rather than freezing LISE's AI governance mapping at version 1.0.
+- ISO 37000:2021 was reviewed and confirmed current in August 2026. ISO 37004:2023 is the current published governance maturity guidance.
+- The World Bank's 2025 GTMI covers 197 economies and 48 indicators and explicitly is not a ranking or an assessment of GovTech performance.
+- OECD participation guidance requires more than attendance or comment volume: processes should have room for actual influence, resources, a clear response to contributions and evaluation.
+
+These status notes are dated 13 November 2026 and should be revisited before publication or standards-conformance claims.
+
+### Added research references
+
+- Edrisi et al., Developing and Evolving a Digital Twin of the Organization (IEEE Access, 2024): https://doi.org/10.1109/ACCESS.2024.3381778
+- Lost in translation: why digital twins thrive in research but falter in politics and public administration (Data & Policy, 2025): https://doi.org/10.1017/dap.2025.10027
+- Choudhury, Du and Lawrence, Learning-by-Twinning (working paper, 1 October 2026): https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7547723
+- Cole, Laws, norms, and the Institutional Analysis and Development framework (2017): https://doi.org/10.1017/S1744137416000486
+- W3C VC Data Model 2.1 Working Draft (30 September 2026): https://www.w3.org/TR/2026/WD-vc-data-model-2.1-20260930/
+- NIST AI RMF current status: https://www.nist.gov/itl/ai-risk-management-framework
