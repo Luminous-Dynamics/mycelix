@@ -4,8 +4,8 @@ use institutional_assurance::{Decision, ReasonCode, SUITE_ID, conflict_of_intere
 fn all_s2_fixture_expectations_match() {
     let report = conflict_of_interest_suite();
     assert_eq!(report.suite_id, SUITE_ID);
-    assert_eq!(report.total_cases, 15);
-    assert_eq!(report.passed_cases, 15);
+    assert_eq!(report.total_cases, 20);
+    assert_eq!(report.passed_cases, 20);
     assert_eq!(report.failed_cases, 0);
 }
 
@@ -101,5 +101,22 @@ fn proposal_and_authority_boundary_controls_are_denied() {
             .unwrap_or_else(|| panic!("missing negative control: {scenario_id}"));
         assert_eq!(case.receipt.decision, Decision::Deny);
         assert_eq!(case.receipt.reason, reason);
+    }
+}
+
+#[test]
+fn all_positive_controls_are_permitted() {
+    let report = conflict_of_interest_suite();
+    let positive: Vec<_> = report
+        .cases
+        .iter()
+        .filter(|case| case.scenario_id.contains("-positive-"))
+        .collect();
+
+    assert_eq!(positive.len(), 6);
+    for case in positive {
+        assert!(case.passed, "positive control failed: {}", case.scenario_id);
+        assert_eq!(case.receipt.decision, Decision::Permit);
+        assert_eq!(case.receipt.reason, ReasonCode::Authorized);
     }
 }
