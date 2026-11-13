@@ -104,6 +104,8 @@ Primary measures include decision regret, correction of initially wrong decision
 
 The scientific motivation is supported by 2026 water-resources work on decision-relevant information selection (Zaniolo et al., DOI 10.1029/2025WR042745) and a 2026 systematic review documenting inconsistent water-distribution leak-detection benchmarks (Farah & Shahrour, DOI 10.3390/w18182267). Those findings motivate better task definitions; they do not establish FSRE superiority.
 
+A first executable, dependency-free Rust reference now exists at `tools/fsre-decision-value`. It computes finite-case EVSI from integer prior/likelihood weights and integer loss/cost units, emits baseline and outcome-conditioned actions, and blocks unauthorised or unsafe measurements before producing an EVSI. It requires an admissible `NO_ACTION` option, rejects malformed likelihood totals and zero-probability outcome rows, and checks exact rational results. The current API keeps the action-admissibility set fixed before measurement; it is not a calibrated Bayesian model, full decision policy, or independent implementation of Symthaea. Its focused workflow is a fresh check, not yet an established pass.
+
 ## 3. Baselines and ablations
 
 Every evaluation should compare the same frozen inputs and scenario set against at least:
