@@ -639,12 +639,10 @@ mod tests {
 
     #[test]
     fn accepted_transition_requires_known_population_scope_and_owner_class() {
-        let accepted = FIXTURE
-            .replace("# fixture_kind=SYNTHETIC_ONLY", "# fixture_kind=SOURCE_BACKED")
-            .replace("SYNTHETIC|SYNTHETIC_ONLY", "OFFICIAL_CROSSWALK|ACCEPTED")
-            .replace("MUNICIPAL_SYSTEMS|MUNICIPAL", "UNKNOWN|UNKNOWN");
-        assert!(accepted != FIXTURE);
-        assert!(validate_and_report(&accepted)
+        let source = format!(
+            "# fixture_kind=SOURCE_BACKED\n# scope=one source-backed synthetic test record\n{HEADER}\ntest|CONTINUITY|source-registry|system-a|UNKNOWN|UNKNOWN|target-registry|system-a|MUNICIPAL_SYSTEMS|MUNICIPAL|2025-01-01|official:crosswalk|OFFICIAL_CROSSWALK|ACCEPTED\n"
+        );
+        assert!(validate_and_report(&source)
             .unwrap_err()
             .contains("accepted transition requires known population scope and owner class"));
     }
