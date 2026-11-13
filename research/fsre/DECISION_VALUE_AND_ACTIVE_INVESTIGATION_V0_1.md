@@ -77,7 +77,11 @@ A query that cannot plausibly change the safe action set or expected service out
 
 The policy operates as a controlled investigation loop:
 
-`evidence snapshot → competing hypotheses → admissible measurements → expected decision value → authorised acquisition → observation receipt → independent update → stop / continue / abstain`
+`evidence snapshot → competing hypotheses → admissible measurements → expected decision value → select one next measurement → authorised acquisition → owner-qualified observation receipt → posterior update → re-rank / stop / abstain`
+
+A measurement's EVSI is conditional on the current evidence snapshot. The values of multiple measurements evaluated against that same prior are not additive: their information and decision effects may overlap. The v0.1 Rust reference therefore marks only the single highest strictly positive net-EVSI candidate as selected. Ties are deterministic. After an authorised, safe observation is actually received, the reference can condition integer hypothesis weights on the observed outcome and re-evaluate the next candidate set. It drops impossible outcomes from conditional recommendations rather than assigning them a fictitious action.
+
+This is a greedy one-step policy. It is not claimed to be globally optimal over a multi-step budget; a finite-horizon dynamic-programming or policy-search comparator should be added before any claim of optimal sequential sensing.
 
 At each step it must:
 
@@ -238,4 +242,4 @@ The decision-value hypothesis is weakened or falsified if:
 5. Have an independent reviewer inspect loss functions, probability calibration, rights/safety constraints and sealed-case generation.
 6. Only after synthetic evaluation, seek operator-approved historical replay and read-only shadow evaluation. Any prospective measurement, installation or intervention requires explicit operator and data-owner permission.
 
-**Current status:** the protocol is implemented as research text, and `tools/fsre-decision-value` provides an initial exact finite-case Rust reference with synthetic unit tests. The reference is not yet connected to Symthaea, has no independently sealed 50-case challenge corpus, and has no calibrated model, field decision, sensor deployment or intervention result. Its focused workflow must pass before its software conformance can be claimed.
+**Current status:** the protocol is implemented as research text, and `tools/fsre-decision-value` provides an exact finite-case Rust reference with 20 synthetic unit tests. It now selects one highest-positive next measurement per frozen snapshot and exposes exact posterior reconditioning after a safe, authorised outcome. The reference is not yet connected to Symthaea, has no independently sealed 50-case challenge corpus or finite-horizon policy comparator, and has no calibrated model, field decision, sensor deployment or intervention result. Its focused workflow must pass before its software conformance can be claimed.
