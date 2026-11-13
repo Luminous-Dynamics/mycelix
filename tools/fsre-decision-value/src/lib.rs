@@ -783,6 +783,102 @@ mod tests {
     }
 
     #[test]
+    fn fifty_case_prior_and_signal_matrix_preserves_evsi_invariants() {
+        for prior_hypothesis_a in (10_u64..=90).step_by(10) {
+            for signal_quality in (60_u64..=100).step_by(10) {
+                let case = DecisionCase {
+                    likelihood_scale: 100,
+                    hypotheses: vec![
+                        Hypothesis {
+                            id: "cause-a".to_owned(),
+                            prior_weight: prior_hypothesis_a,
+                        },
+                        Hypothesis {
+                            id: "cause-b".to_owned(),
+                            prior_weight: 100 - prior_hypothesis_a,
+                        },
+                    ],
+                    actions: vec![
+                        Action {
+                            id: "ACTION_A".to_owned(),
+                            loss_by_hypothesis: vec![0, 100],
+                            admissible: true,
+                        },
+                        Action {
+                            id: "ACTION_B".to_owned(),
+                            loss_by_hypothesis: vec![100, 0],
+                            admissible: true,
+                        },
+                        Action {
+                            id: "NO_ACTION".to_owned(),
+                            loss_by_hypothesis: vec![60, 60],
+                            admissible: true,
+                        },
+                    ],
+                };
+                let measurement = Measurement {
+                    id: format!("prior-{prior_hypothesis_a}-signal-{signal_quality}"),
+                    authorised: true,
+                    safe: true,
+                    acquisition_cost: 3,
+                    delay_cost: 2,
+                    outcomes: vec![
+                        Outcome {
+                            id: "red".to_owned(),
+                            likelihood_weight_by_hypothesis: vec![
+                                signal_quality,
+                                100 - signal_quality,
+                            ],
+                        },
+                        Outcome {
+                            id: "blue".to_owned(),
+                            likelihood_weight_by_hypothesis: vec![
+                                100 - signal_quality,
+                                signal_quality,
+                            ],
+                        },
+                    ],
+                };
+
+                let result = &evaluate(&case, &[measurement])
+                    .expect("matrix case should validate")[0];
+                let baseline = result.baseline_expected_loss.expect("baseline loss");
+                let post = result
+                    .expected_post_measurement_loss
+                    .expect("post-measurement loss");
+                let gross = result.gross_evsi.expect("gross EVSI");
+                let net = result.net_evsi.expect("net EVSI");
+
+                assert!(
+                    post.numerator * baseline.denominator
+                        <= baseline.numerator * post.denominator,
+                    "information increased expected loss for prior {prior_hypothesis_a}, signal {signal_quality}"
+                );
+                assert_eq!(
+                    gross.numerator,
+                    baseline.numerator * 100 - post.numerator,
+                    "gross EVSI mismatch for prior {prior_hypothesis_a}, signal {signal_quality}"
+                );
+                assert_eq!(
+                    net.numerator,
+                    i128::try_from(gross.numerator).unwrap()
+                        - i128::try_from(5_u128 * gross.denominator).unwrap(),
+                    "net EVSI cost mismatch for prior {prior_hypothesis_a}, signal {signal_quality}"
+                );
+                assert_eq!(result.outcome_choices.len(), 2);
+                assert_eq!(
+                    result
+                        .outcome_choices
+                        .iter()
+                        .map(|choice| choice.predictive_mass)
+                        .sum::<u128>(),
+                    10_000
+                );
+            }
+        }
+    }
+
+    #[test]
     fn measurement_order_does_not_change_results() {
         let case = decision_case();
         let first = discriminating_measurement("z-check");
