@@ -31,7 +31,7 @@ Accepted records require an official crosswalk, a source-native change record or
 
 ## 3. Executable reference
 
-The dependency-free Rust crate at tools/fsre-identity-crosswalk validates transition event shape and cardinality. Its ten-row synthetic fixture includes continuity, rename, transfer, a two-to-one merge, a one-to-two split, decommissioning, creation and unresolved identity. A bounded generated test also exercises 50 synthetic transition groups (62 rows) across the eight event types. The 19-test suite additionally rejects grouped transitions that disagree on relation, source namespace, effective date, evidence reference or review state. The fixture contains no actual municipal or treatment-works identifiers. The generated sweep is not an independent sealed challenge set and says nothing about real-world matching accuracy. Its output explicitly states that real identity linkage is not established, source authenticity is not authenticated and operational authority is none.
+The dependency-free Rust crate at tools/fsre-identity-crosswalk validates transition event shape and cardinality. Its ten-row synthetic fixture includes continuity, rename, transfer, a two-to-one merge, a one-to-two split, decommissioning, creation and unresolved identity. A bounded generated test also exercises 50 synthetic transition groups (62 rows) across the eight event types. The 22-test suite additionally rejects grouped transitions that disagree on relation, source namespace, effective date, evidence reference or review state; merges across population scopes; and accepted links with unknown endpoint scope or owner class. The synthetic fixture's DPWI/all-sector to municipal transfer is reported as both a population-scope change and an owner-class change. The fixture contains no actual municipal or treatment-works identifiers. The generated sweep is not an independent sealed challenge set and says nothing about real-world matching accuracy. Its output explicitly states that real identity linkage is not established, source authenticity is not authenticated and operational authority is none.
 
 This reference is a contract validator, not an entity-resolution model. It does not ingest Green Drop PDFs, match names, geocode facilities, infer ownership, validate legal transfer or decide whether two real records refer to the same facility.
 
@@ -43,6 +43,9 @@ Use synthetic, independently prepared cases covering all eight event types, miss
 
 Targets:
 - 100% correct relation cardinality on a sealed deterministic challenge set;
+- 100% of source/target endpoints carry explicit population scope and owner class;
+- 0 accepted links with unknown population scope or owner class;
+- 100% of population-scope and owner-class changes reported separately from identity continuity;
 - 100% of endpoints carry explicit population scope and owner class;
 - 0 accepted identity claims with unknown population scope or owner class;
 - 100% of scope/owner-class changes are reported separately from identity continuity;
