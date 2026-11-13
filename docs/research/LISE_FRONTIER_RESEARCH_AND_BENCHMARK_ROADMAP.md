@@ -137,7 +137,7 @@ Test mutual recognition between organizations with different constitutions and l
 | OECD Citizen Participation Guidelines | Participation process design, inclusion, accountability and evaluation | Test whether participant input actually affects decisions and receives reasoned disposition |
 | World Bank GTMI 2025 | Comparative GovTech maturity across economies | Do not turn maturity indicators into organization-level performance rankings; test task-level interoperability |
 | NIST AI RMF | Govern, Map, Measure and Manage AI risk | Apply risk controls to AI-assisted institutional workflows while retaining accountable human authority |
-| W3C VC Data Model 2.0 | Interoperable credential representation and verification | Add contextual authority, claim sufficiency, evidence quality, revocation, contestability and recourse |
+| W3C VC Data Model 2.0 and 2.1 draft | Interoperable credential representation and issuer/holder/verifier roles | Add contextual authority, claim sufficiency, evidence quality, revocation, contestability and recourse; track draft changes without prematurely adopting them |
 | Ostrom IAD / SES research | Analysis of actors, action situations, rules-in-use, context and outcomes | Connect institutional analysis to executable scenarios and evidence-backed field evaluation |
 
 These are foundations, not straw-man competitors. LISE should preserve the distinction between principle guidance, maturity assessment, technical conformance, behavioral robustness and observed outcomes.
@@ -258,6 +258,9 @@ Keep one benchmark schema and one scenario registry. Repositories should impleme
 - OECD Guidelines for Citizen Participation Processes (2022): https://www.oecd.org/en/publications/oecd-guidelines-for-citizen-participation-processes_f765caf6-en.html
 - NIST AI Risk Management Framework 1.0: https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf
 - W3C Verifiable Credentials Data Model v2.0: https://www.w3.org/TR/vc-data-model/
+- W3C Securing Verifiable Credentials using JOSE and COSE Recommendation (13 October 2026): https://www.w3.org/TR/2026/REC-vc-jose-cose-20261013/
+- W3C Verifiable Credentials Data Model v2.1 Working Draft (22 October 2026): https://www.w3.org/TR/2026/WD-vc-data-model-2.1-20261022/
+- W3C Verifiable Credential Confidence Methods v1.0 Working Draft (22 October 2026): https://www.w3.org/TR/2026/WD-vc-confidence-method-20261022/
 - Ostrom, Beyond Markets and States: Polycentric Governance of Complex Economic Systems (2010): https://doi.org/10.1126/science.1191665
 - Ostrom, Understanding Institutional Diversity (2005): https://press.princeton.edu/books/paperback/9780691120475/understanding-institutional-diversity
 
@@ -324,8 +327,8 @@ Potential data sources include process logs, case-file sampling, participant int
 
 ## 13. Current standards and research status to track
 
-- W3C Verifiable Credentials Data Model 2.0 is a Recommendation. Version 2.1 appeared as a Working Draft on 30 September 2026; do not describe the draft as a finalized standard. Both versions distinguish cryptographic verification from contextual validation of claims.
-- NIST states that AI RMF 1.0 is being revised. It also released a concept note on 7 April 2026 for a Trustworthy AI in Critical Infrastructure profile. Track the revision rather than freezing LISE's AI governance mapping at version 1.0.
+- W3C Verifiable Credentials Data Model 2.0 is a Recommendation. Version 2.1's latest published Working Draft in the current research snapshot is dated 22 October 2026; do not describe the draft as a finalized standard. W3C published Securing Verifiable Credentials using JOSE and COSE as a Recommendation on 13 October 2026, and Verifiable Credential Confidence Methods v1.0 as a Working Draft on 22 October 2026. Cryptographic verification, presenter-to-subject confidence and substantive claim validation are distinct questions.
+- NIST states that AI RMF 1.0 is being revised and is developing a Trustworthy AI in Critical Infrastructure profile. Its concept note highlights deterministic behavior, graceful degradation and fail-safe operation. Track the revision and profile rather than freezing LISE's AI governance mapping at version 1.0.
 - ISO 37000:2021 was reviewed and confirmed current in August 2026. ISO 37004:2023 is the current published governance maturity guidance.
 - The World Bank's 2025 GTMI covers 197 economies and 48 indicators and explicitly is not a ranking or an assessment of GovTech performance.
 - OECD participation guidance requires more than attendance or comment volume: processes should have room for actual influence, resources, a clear response to contributions and evaluation.
@@ -338,5 +341,7 @@ These status notes are dated 13 November 2026 and should be revisited before pub
 - Lost in translation: why digital twins thrive in research but falter in politics and public administration (Data & Policy, 2025): https://doi.org/10.1017/dap.2025.10027
 - Choudhury, Du and Lawrence, Learning-by-Twinning (working paper, 1 October 2026): https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7547723
 - Cole, Laws, norms, and the Institutional Analysis and Development framework (2017): https://doi.org/10.1017/S1744137416000486
-- W3C VC Data Model 2.1 Working Draft (30 September 2026): https://www.w3.org/TR/2026/WD-vc-data-model-2.1-20260930/
+- W3C VC Data Model 2.1 Working Draft (22 October 2026): https://www.w3.org/TR/2026/WD-vc-data-model-2.1-20261022/
+- W3C Securing Verifiable Credentials using JOSE and COSE Recommendation (13 October 2026): https://www.w3.org/TR/2026/REC-vc-jose-cose-20261013/
+- W3C Verifiable Credential Confidence Methods v1.0 Working Draft (22 October 2026): https://www.w3.org/TR/2026/WD-vc-confidence-method-20261022/
 - NIST AI RMF current status: https://www.nist.gov/itl/ai-risk-management-framework
