@@ -84,6 +84,12 @@ pub struct CaptureScenario {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct DomainAssessment {
     pub domain: ControlDomain,
+    /// Stable scenario-local identifiers; real evaluations must use approved
+    /// pseudonyms and never publish personal identity data.
+    pub authorized_controllers: Vec<String>,
+    pub available_controllers: Vec<String>,
+    pub coalition_available_controllers: Vec<String>,
+    pub independent_available_controllers: Vec<String>,
     pub available_controller_count: usize,
     pub required_signers: usize,
     pub coalition_available_count: usize,
@@ -99,6 +105,9 @@ pub struct CaptureReceipt {
     pub suite_id: String,
     pub scenario_id: String,
     pub coalition_id: String,
+    pub coalition_members: Vec<String>,
+    pub policy_id: String,
+    pub policy_version: u32,
     pub disposition: CaptureDisposition,
     pub coalition_controlled_execution_domains: Vec<ControlDomain>,
     pub compromised_oversight_domains: Vec<ControlDomain>,
@@ -257,6 +266,18 @@ pub fn evaluate_capture(
 
         domain_assessments.push(DomainAssessment {
             domain: *domain,
+            authorized_controllers: control.authorized_controllers.iter().cloned().collect(),
+            available_controllers: control.available_controllers.iter().cloned().collect(),
+            coalition_available_controllers: control
+                .available_controllers
+                .intersection(&scenario.coalition_members)
+                .cloned()
+                .collect(),
+            independent_available_controllers: control
+                .available_controllers
+                .difference(&scenario.coalition_members)
+                .cloned()
+                .collect(),
             available_controller_count: control.available_controllers.len(),
             required_signers: control.required_signers,
             coalition_available_count,
@@ -312,11 +333,15 @@ pub fn evaluate_capture(
 
     let policy_sha256 = digest(&scenario.policy);
     let input_sha256 = digest(scenario);
+    let coalition_members: Vec<String> = scenario.coalition_members.iter().cloned().collect();
     let material = CaptureReceiptMaterial {
         schema: CAPTURE_RECEIPT_SCHEMA,
         suite_id: CAPTURE_SUITE_ID,
         scenario_id: &scenario.scenario_id,
         coalition_id: &scenario.coalition_id,
+        coalition_members: &coalition_members,
+        policy_id: &scenario.policy.policy_id,
+        policy_version: scenario.policy.version,
         disposition,
         coalition_controlled_execution_domains: &coalition_controlled_execution_domains,
         compromised_oversight_domains: &compromised_oversight_domains,
@@ -331,6 +356,9 @@ pub fn evaluate_capture(
         suite_id: CAPTURE_SUITE_ID.to_owned(),
         scenario_id: scenario.scenario_id.clone(),
         coalition_id: scenario.coalition_id.clone(),
+        coalition_members,
+        policy_id: scenario.policy.policy_id.clone(),
+        policy_version: scenario.policy.version,
         disposition,
         coalition_controlled_execution_domains,
         compromised_oversight_domains,
