@@ -344,6 +344,11 @@ pub fn evaluate(
             let predictive_mass = joint_weights
                 .iter()
                 .try_fold(0_u128, |sum, mass| checked_add(sum, *mass, "predictive mass"))?;
+            // Outcomes impossible under the current posterior contribute no expected loss.
+            // They are omitted from the conditional recommendation, not treated as errors.
+            if predictive_mass == 0 {
+                continue;
+            }
             let (action_id, best_joint_loss) = minimum_loss_action(case, &joint_weights)?;
             post_measurement_loss_numerator = checked_add(
                 post_measurement_loss_numerator,
@@ -417,11 +422,33 @@ pub fn evaluate(
                 numerator: net_numerator,
                 denominator: combined_denominator,
             }),
-            selected: net_numerator > 0,
+            selected: false,
         });
     }
 
     results.sort_by(|left, right| left.measurement_id.cmp(&right.measurement_id));
+
+    // All candidates are evaluated against the same frozen evidence snapshot.
+    // Their individual net values are not additive. Select only the best strictly
+    // positive candidate; sorted IDs provide a deterministic lexical tie-break.
+    let mut best_positive_index: Option<(usize, i128)> = None;
+    for (index, result) in results.iter().enumerate() {
+        let Some(net) = result.net_evsi else {
+            continue;
+        };
+        if net.numerator <= 0 {
+            continue;
+        }
+        if best_positive_index
+            .map(|(_, best_numerator)| net.numerator > best_numerator)
+            .unwrap_or(true)
+        {
+            best_positive_index = Some((index, net.numerator));
+        }
+    }
+    if let Some((index, _)) = best_positive_index {
+        results[index].selected = true;
+    }
     Ok(results)
 }
 
