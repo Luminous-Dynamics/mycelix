@@ -69,7 +69,9 @@ Implementation rules:
 
 ### 4.2 DWS Green Drop / Blue Drop / No Drop
 
-The DWS IRIS results page is the official discovery point for current published results. The Water Research Observatory's Green Drop 2009–2025 collection points to the published report PDFs and states that system-level tables have not been extracted into machine-readable form. Its metadata displays inconsistent licensing fields (the page says no licence is provided while a later metadata field lists CC BY 4.0). Confirm rights and attribution directly with DWS before redistributing files or derived tables.
+The DWS IRIS results page is the official discovery point for current published results. The Water Research Observatory's Green Drop 2009–2025 collection points to the published report PDFs and states that system-level tables have not been extracted into machine-readable form. As checked on 13 November 2026, both the WRO dataset page and the individual 2025 PDF resource page state `No License Provided`; do not assume download, extraction or redistribution rights. Resolve rights directly with the DWS custodian before using the PDF.
+
+Keep Green Drop audit populations distinct. The WRO catalog describes the 2022 full audit as 995 works across municipal, Department of Public Works and private ownership. SAnews' 1 April 2026 account describes 850 municipal systems in the 2022 comparison and explains that 848 municipal systems were audited in 2025 after some systems were decommissioned or merged. The published critical/good-excellent rates (334/850 and 118/850 in 2022; 396/848 and 66/848 in 2025) are therefore stored with the municipal denominators, never with 995. No system-level identity crosswalk or fixed-cohort comparison has been performed.
 
 Implementation rules:
 1. Store the exact source report, retrieval date, publication date, assessment period and report revision.
