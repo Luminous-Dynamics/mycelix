@@ -253,6 +253,39 @@ impl std::ops::Deref for VerifiedProfile {
     }
 }
 
+fn known_identities(disposition: &DomainDisposition) -> Option<BTreeSet<Digest>> {
+    match disposition {
+        DomainDisposition::Distinct(identity)
+        | DomainDisposition::SharedAccepted { identity, .. } => {
+            Some(BTreeSet::from([*identity]))
+        }
+        DomainDisposition::KnownDependencies { identities, .. } => Some(identities.clone()),
+        DomainDisposition::NotApplicable { .. } | DomainDisposition::Unknown => None,
+    }
+}
+
+fn disposition_is_complete(disposition: &DomainDisposition) -> bool {
+    match disposition {
+        DomainDisposition::Distinct(_) | DomainDisposition::SharedAccepted { .. } => true,
+        DomainDisposition::KnownDependencies { completeness, .. } => {
+            *completeness == DependencySetCompleteness::Complete
+        }
+        DomainDisposition::NotApplicable { .. } | DomainDisposition::Unknown => false,
+    }
+}
+
+fn disposition_is_explicitly_shared(disposition: &DomainDisposition) -> bool {
+    match disposition {
+        DomainDisposition::SharedAccepted { .. } => true,
+        DomainDisposition::KnownDependencies { shared_rationale, .. } => {
+            shared_rationale.is_some()
+        }
+        DomainDisposition::Distinct(_)
+        | DomainDisposition::NotApplicable { .. }
+        | DomainDisposition::Unknown => false,
+    }
+}
+
 pub fn check_profile(
     profile: &ThreatProfile,
     policy: &AssurancePolicy,
@@ -330,19 +363,29 @@ pub fn check_profile(
                     reasons.insert(ProfileReason::RequiredDimensionMissing);
                 }
                 Some(DomainDisposition::Distinct(_)) => {}
-                Some(DomainDisposition::SharedAccepted {
-                    identity,
-                    rationale,
-                }) => {
+                Some(DomainDisposition::SharedAccepted { rationale, .. }) => {
                     if rationale.trim().is_empty() {
                         return Err(ProfileError::SharedDimensionRequiresRationale);
                     }
-                    accepted_shared_dependencies.push(SharedDependencyFinding {
-                        role: role.clone(),
-                        dimension,
-                        identity: *identity,
-                        rationale: rationale.clone(),
-                    });
+                }
+                Some(DomainDisposition::KnownDependencies {
+                    identities,
+                    completeness,
+                    shared_rationale,
+                }) => {
+                    if identities.is_empty() {
+                        return Err(ProfileError::EmptyKnownDependencySet);
+                    }
+                    if shared_rationale
+                        .as_ref()
+                        .is_some_and(|rationale| rationale.trim().is_empty())
+                    {
+                        return Err(ProfileError::SharedDimensionRequiresRationale);
+                    }
+                    if *completeness == DependencySetCompleteness::Partial {
+                        reasons.insert(ProfileReason::KnownDependencyRemainderUnknown);
+                        unknown_dimensions.push((role.clone(), dimension));
+                    }
                 }
                 Some(DomainDisposition::NotApplicable { rationale }) => {
                     if rationale.trim().is_empty() {
@@ -372,28 +415,40 @@ pub fn check_profile(
             .get(&requirement.right_role)
             .and_then(|domains| domains.get(&requirement.dimension));
 
-        let distinct_identities_observed = match (left, right) {
-            (Some(DomainDisposition::Distinct(left)), Some(DomainDisposition::Distinct(right))) => {
-                if left == right {
-                    reasons.insert(ProfileReason::RequiredSeparationIdentityEqual);
-                    false
-                } else {
-                    true
+        let distinct_identities_observed = if matches!(
+            left,
+            Some(DomainDisposition::NotApplicable { .. })
+        ) || matches!(right, Some(DomainDisposition::NotApplicable { .. }))
+        {
+            reasons.insert(ProfileReason::RequiredSeparationNotApplicable);
+            false
+        } else if left.is_some_and(disposition_is_explicitly_shared)
+            || right.is_some_and(disposition_is_explicitly_shared)
+        {
+            reasons.insert(ProfileReason::RequiredSeparationShared);
+            false
+        } else {
+            match (
+                left.and_then(known_identities),
+                right.and_then(known_identities),
+            ) {
+                (Some(left_ids), Some(right_ids)) => {
+                    if !left_ids.is_disjoint(&right_ids) {
+                        reasons.insert(ProfileReason::RequiredSeparationIdentityEqual);
+                        false
+                    } else if left.is_some_and(disposition_is_complete)
+                        && right.is_some_and(disposition_is_complete)
+                    {
+                        true
+                    } else {
+                        reasons.insert(ProfileReason::RequiredSeparationUnknown);
+                        false
+                    }
                 }
-            }
-            (Some(DomainDisposition::SharedAccepted { .. }), _)
-            | (_, Some(DomainDisposition::SharedAccepted { .. })) => {
-                reasons.insert(ProfileReason::RequiredSeparationShared);
-                false
-            }
-            (Some(DomainDisposition::NotApplicable { .. }), _)
-            | (_, Some(DomainDisposition::NotApplicable { .. })) => {
-                reasons.insert(ProfileReason::RequiredSeparationNotApplicable);
-                false
-            }
-            _ => {
-                reasons.insert(ProfileReason::RequiredSeparationUnknown);
-                false
+                _ => {
+                    reasons.insert(ProfileReason::RequiredSeparationUnknown);
+                    false
+                }
             }
         };
         separation_findings.push(SeparationFinding {
@@ -404,39 +459,96 @@ pub fn check_profile(
 
     let mut identity_roles =
         BTreeMap::<(FaultDomainDimension, Digest), BTreeSet<String>>::new();
+    let mut accepted_shared_by_identity =
+        BTreeMap::<(FaultDomainDimension, Digest), BTreeMap<String, String>>::new();
+    let mut accepted_shared_by_dimension =
+        BTreeMap::<(FaultDomainDimension, String), String>::new();
+
     for (role, domains) in &profile.role_domains {
         for (dimension, disposition) in domains {
-            let identity = match disposition {
-                DomainDisposition::Distinct(identity)
-                | DomainDisposition::SharedAccepted { identity, .. } => Some(*identity),
-                DomainDisposition::NotApplicable { .. } | DomainDisposition::Unknown => None,
-            };
-            if let Some(identity) = identity {
-                identity_roles
-                    .entry((*dimension, identity))
-                    .or_default()
-                    .insert(role.clone());
+            match disposition {
+                DomainDisposition::Distinct(identity) => {
+                    identity_roles
+                        .entry((*dimension, *identity))
+                        .or_default()
+                        .insert(role.clone());
+                }
+                DomainDisposition::SharedAccepted {
+                    identity,
+                    rationale,
+                } => {
+                    identity_roles
+                        .entry((*dimension, *identity))
+                        .or_default()
+                        .insert(role.clone());
+                    accepted_shared_by_identity
+                        .entry((*dimension, *identity))
+                        .or_default()
+                        .insert(role.clone(), rationale.clone());
+                }
+                DomainDisposition::KnownDependencies {
+                    identities,
+                    shared_rationale,
+                    ..
+                } => {
+                    for identity in identities {
+                        identity_roles
+                            .entry((*dimension, *identity))
+                            .or_default()
+                            .insert(role.clone());
+                    }
+                    if let Some(rationale) = shared_rationale {
+                        accepted_shared_by_dimension
+                            .insert((*dimension, role.clone()), rationale.clone());
+                    }
+                }
+                DomainDisposition::NotApplicable { .. } | DomainDisposition::Unknown => {}
             }
         }
     }
-    let declared_shared_keys: BTreeSet<_> = profile
-        .role_domains
-        .values()
-        .flat_map(|domains| domains.iter())
-        .filter_map(|(dimension, disposition)| match disposition {
-            DomainDisposition::SharedAccepted { identity, .. } => {
-                Some((*dimension, *identity))
-            }
-            _ => None,
-        })
-        .collect();
-    if declared_shared_keys.iter().any(|key| {
-        identity_roles
+
+    for (key, declarations) in &accepted_shared_by_identity {
+        if identity_roles
             .get(key)
             .is_none_or(|roles| roles.len() < 2)
-    }) {
-        reasons.insert(ProfileReason::SharedIdentityNotObserved);
+        {
+            reasons.insert(ProfileReason::SharedIdentityNotObserved);
+        } else {
+            for (role, rationale) in declarations {
+                accepted_shared_dependencies.push(SharedDependencyFinding {
+                    role: role.clone(),
+                    dimension: key.0,
+                    identity: key.1,
+                    rationale: rationale.clone(),
+                });
+            }
+        }
     }
+
+    for ((dimension, role), rationale) in &accepted_shared_by_dimension {
+        let shared_ids: Vec<_> = identity_roles
+            .iter()
+            .filter_map(|((candidate_dimension, identity), roles)| {
+                (*candidate_dimension == *dimension
+                    && roles.len() > 1
+                    && roles.contains(role))
+                    .then_some(*identity)
+            })
+            .collect();
+        if shared_ids.is_empty() {
+            reasons.insert(ProfileReason::SharedIdentityNotObserved);
+        } else {
+            for identity in shared_ids {
+                accepted_shared_dependencies.push(SharedDependencyFinding {
+                    role: role.clone(),
+                    dimension: *dimension,
+                    identity,
+                    rationale: rationale.clone(),
+                });
+            }
+        }
+    }
+
     let observed_shared_dependencies = identity_roles
         .into_iter()
         .filter_map(|((dimension, identity), roles)| {
