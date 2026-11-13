@@ -61,6 +61,13 @@ fn run() -> Result<i32, String> {
         .or_else(|_| env::var("GITHUB_SHA"))
         .ok()
         .filter(|value| valid_revision(value));
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let lock_path = manifest_dir.join("Cargo.lock");
+    let lock_bytes = fs::read(&lock_path)
+        .map_err(|error| format!("read {}: {error}", lock_path.display()))?;
+    let manifest_path = manifest_dir.join("Cargo.toml");
+    let manifest_bytes = fs::read(&manifest_path)
+        .map_err(|error| format!("read {}: {error}", manifest_path.display()))?;
     let receipt = json!({
         "schema_version": "johannesburg-water-event-graph-run-v0.1",
         "verification_state": evaluation["verification_state"],
@@ -70,6 +77,8 @@ fn run() -> Result<i32, String> {
         "graph_sha256": sha256_hex(&graph_bytes),
         "negative_controls_sha256": sha256_hex(&negative_bytes),
         "schema_sha256": sha256_hex(&schema_bytes),
+        "cargo_manifest_sha256": sha256_hex(&manifest_bytes),
+        "cargo_lock_sha256": sha256_hex(&lock_bytes),
         "evaluation": evaluation
     });
 
