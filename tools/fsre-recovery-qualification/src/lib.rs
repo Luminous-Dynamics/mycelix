@@ -901,7 +901,7 @@ mod tests {
     }
 
     #[test]
-    fn every_nonqualified_disposition_fails_closed() {
+    fn every_nonqualified_disposition_fails_closed_for_every_predicate() {
         let dispositions = [
             Disposition::Unknown,
             Disposition::NotIndependent,
@@ -912,20 +912,59 @@ mod tests {
             Disposition::OutOfDomain,
             Disposition::Conflict,
         ];
-        for disposition in dispositions {
+        for (index, predicate) in REQUIRED_PREDICATES.iter().enumerate() {
+            for disposition in dispositions {
+                let mut records = all_qualified();
+                records[index] = evidence(*predicate, disposition, 500);
+                let result = evaluate(&scenario(), &[option(100)], &[], &records).unwrap();
+                assert_eq!(
+                    result.options[0].disposition,
+                    "NOT_QUALIFIED",
+                    "{} disposition {} must fail closed",
+                    predicate.as_str(),
+                    disposition.as_str()
+                );
+                assert!(result.options[0].reason_codes.contains(&format!(
+                    "PREDICATE_NOT_QUALIFIED:{}:{}",
+                    predicate.as_str(),
+                    disposition.as_str()
+                )));
+            }
+        }
+    }
+
+    #[test]
+    fn omission_of_each_required_predicate_blocks_qualification() {
+        for (index, predicate) in REQUIRED_PREDICATES.iter().enumerate() {
             let mut records = all_qualified();
-            records[2] = evidence(PredicateKind::DependencyIndependence, disposition, 500);
+            records.remove(index);
             let result = evaluate(&scenario(), &[option(100)], &[], &records).unwrap();
-            assert_eq!(
-                result.options[0].disposition,
-                "NOT_QUALIFIED",
-                "disposition {} must fail closed",
-                disposition.as_str()
-            );
-            assert!(result.options[0].reason_codes.contains(&format!(
-                "PREDICATE_NOT_QUALIFIED:dependency_independence:{}",
-                disposition.as_str()
-            )));
+            assert_eq!(result.options[0].disposition, "NOT_QUALIFIED");
+            assert!(result.options[0]
+                .reason_codes
+                .contains(&format!("MISSING_PREDICATE:{}", predicate.as_str())));
+        }
+    }
+
+    #[test]
+    fn stale_evidence_for_each_required_predicate_blocks_qualification() {
+        for (index, predicate) in REQUIRED_PREDICATES.iter().enumerate() {
+            let mut records = all_qualified();
+            records[index] = evidence(*predicate, Disposition::Qualified, 100);
+            let result = evaluate(&scenario(), &[option(100)], &[], &records).unwrap();
+            assert_eq!(result.options[0].disposition, "NOT_QUALIFIED");
+            assert!(result.options[0]
+                .reason_codes
+                .contains(&format!("STALE_EVIDENCE:{}", predicate.as_str())));
+        }
+    }
+
+    #[test]
+    fn wrong_owner_for_each_predicate_is_rejected() {
+        for (index, _) in REQUIRED_PREDICATES.iter().enumerate() {
+            let mut records = all_qualified();
+            records[index].source_owner = "wrong-owner".to_owned();
+            assert!(evaluate(&scenario(), &[option(100)], &[], &records).is_err());
         }
     }
 
@@ -1036,6 +1075,25 @@ mod tests {
     fn future_dated_evidence_is_rejected() {
         let mut records = all_qualified();
         records[0].observed_at_seconds = 101;
+        assert!(evaluate(&scenario(), &[option(100)], &[], &records).is_err());
+    }
+
+    #[test]
+    fn duplicate_option_ids_are_rejected() {
+        let duplicate = option(100);
+        assert!(evaluate(
+            &scenario(),
+            &[duplicate.clone(), duplicate],
+            &[],
+            &[]
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn evidence_for_an_unknown_option_is_rejected() {
+        let mut records = all_qualified();
+        records[0].option_id = "other-option".to_owned();
         assert!(evaluate(&scenario(), &[option(100)], &[], &records).is_err());
     }
 
