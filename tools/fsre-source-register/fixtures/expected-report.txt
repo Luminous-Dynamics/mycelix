@@ -1,5 +1,6 @@
 report_schema=fsre-source-register-report.v0.1
-source_records=11
-ingestion_states=2
+source_records=14
+ingestion_states=3
+state=BLOCKED_RIGHTS_OR_GAP|1
 state=DISCOVERED_NOT_EXTRACTED|10
-state=EXTRACTED_UNREVIEWED|1
+state=EXTRACTED_UNREVIEWED|3
