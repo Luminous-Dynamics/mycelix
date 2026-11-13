@@ -6,8 +6,8 @@ use institutional_assurance::{
 fn all_s2_fixture_expectations_match() {
     let report = conflict_of_interest_suite();
     assert_eq!(report.suite_id, SUITE_ID);
-    assert_eq!(report.total_cases, 10);
-    assert_eq!(report.passed_cases, 10);
+    assert_eq!(report.total_cases, 15);
+    assert_eq!(report.passed_cases, 15);
     assert_eq!(report.failed_cases, 0);
 }
 
@@ -67,4 +67,26 @@ fn independent_authorized_approver_is_a_positive_control() {
     assert!(positive.passed);
     assert_eq!(positive.receipt.decision, Decision::Permit);
     assert_eq!(positive.receipt.reason, ReasonCode::Authorized);
+}
+
+#[test]
+fn proposal_and_authority_boundary_controls_are_denied() {
+    let report = conflict_of_interest_suite();
+    let expected = [
+        ("s2-negative-proposal-substitution", ReasonCode::ProposalMismatch),
+        ("s2-negative-authority-holder-mismatch", ReasonCode::AuthorityHolderMismatch),
+        ("s2-negative-authority-not-yet-valid", ReasonCode::AuthorityNotYetValid),
+        ("s2-negative-invalid-authority-window", ReasonCode::InvalidAuthorityWindow),
+        ("s2-negative-zero-amount", ReasonCode::InvalidAmount),
+    ];
+
+    for (scenario_id, reason) in expected {
+        let case = report
+            .cases
+            .iter()
+            .find(|case| case.scenario_id == scenario_id)
+            .unwrap_or_else(|| panic!("missing negative control: {scenario_id}"));
+        assert_eq!(case.receipt.decision, Decision::Deny);
+        assert_eq!(case.receipt.reason, reason);
+    }
 }
