@@ -192,4 +192,4 @@ No owner should inherit authority merely because it can read another owner's evi
 6. Obtain flow, pump, bypass, effluent and receiving-water observations before claiming a measured service-chain residual.
 7. Preregister sealed missingness, meter-drift, common-cause and hidden-flow benchmarks before evaluating localisation.
 
-**Current status:** Tier A national summary replay is implemented as a parser/arithmetic check. Tiers B–E are proposed; no system-level extraction, catchment flow reconstruction, operator partnership, field result or causal effect has been completed.
+**Current status:** Tier A national-summary replay is implemented as a parser/arithmetic check using the DWS release and a separately cited SAnews denominator/boundary statement. `tools/fsre-flow-balance` provides a synthetic interval-accounting reference with fail-closed unknown handling and explicit residual non-attribution; it is not real catchment flow reconstruction or a hydraulic model. Tiers B–E are proposed; no system-level extraction, observed catchment-flow balance, operator partnership, field result or causal effect has been completed.
