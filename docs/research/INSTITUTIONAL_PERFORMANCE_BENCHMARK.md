@@ -272,10 +272,13 @@ the policy, input and receipt material. Fixture time is fixed; the runner uses
 no RNG, wall clock, network or external service.
 
 **Evidence status:** implementation and test source are present on the research
-branch. Test execution has not yet been independently evidenced. Do not label
-this slice Tested or production-integrated until the exact revision has passed
-the named Cargo commands and the fixture has been mapped to the real Holochain
-zome boundary.
+branch. The first exact-head governance workspace compile reached this crate
+and found E0505 borrow/move errors in receipt construction; the source was
+reordered to compute the receipt digest before moving the digest strings. The
+twenty-case revision still requires a successful exact-head format, workspace
+test and runner result. Do not label this slice Tested or production-integrated
+until those commands pass and the fixture is mapped to the real Holochain zome
+boundary.
 
 Run from mycelix-governance:
 
