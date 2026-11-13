@@ -69,6 +69,12 @@ the runner, fixture and test source. Those differences were applied from the
 hosted formatter output. The initial formatter failure is retained in CI
 history; it is not relabeled as a pass.
 
-The corrected source still requires a fresh exact-head run of formatting and
-the governance workspace tests. Until those jobs complete successfully, the
-implementation status is **authored; validation pending**.
+A later exact-head governance workspace run reached the new crate and
+reported Rust E0505 borrow/move errors: the receipt material borrowed the
+policy/input digest strings before the output receipt moved them. The code was
+reordered to compute the receipt digest before constructing the output
+struct. That correction and the expansion to twenty cases have not yet
+received a successful exact-head workspace test result.
+
+The implementation status is **authored; formatter previously passed on an
+earlier head; compile/test validation pending on the current head**.
