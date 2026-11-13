@@ -396,6 +396,9 @@ fn render(metadata: &Metadata, terms: &[FlowTerm]) -> String {
         "distinct_correlation_groups={}\n",
         correlations.len()
     ));
+    for group in &correlations {
+        output.push_str(&format!("correlation_group={group}\n"));
+    }
     output.push_str("interval_method=CONSERVATIVE_OUTER_BOUND;DEPENDENCE_NOT_MODELLED\n");
 
     if unknown.is_empty() {
@@ -455,6 +458,14 @@ mod tests {
         let report = validate_and_report(BALANCED).expect("balanced fixture should validate");
         assert!(report.contains("unaccounted_residual_interval=[0,0] m3"));
         assert!(report.contains("residual_interpretation=ZERO_RESIDUAL_WITHIN_DECLARED_INTERVALS"));
+    }
+
+    #[test]
+    fn report_preserves_correlation_group_identifiers() {
+        let report = validate_and_report(BALANCED).expect("balanced fixture should validate");
+        assert!(report.contains("correlation_group=cohort-estimator-a"));
+        assert!(report.contains("correlation_group=metering-system-a"));
+        assert!(report.contains("correlation_group=metering-system-b"));
     }
 
     #[test]
