@@ -484,6 +484,33 @@ mod tests {
     }
 
     #[test]
+    fn merge_group_cannot_disagree_on_source_namespace() {
+        let invalid = FIXTURE.replace(
+            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|dws-2025|sys-merged|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-merge|MERGED_INTO|other-registry|sys-b-old|dws-2025|sys-merged|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
+        );
+        assert!(parse(&invalid).unwrap_err().contains("inconsistent"));
+    }
+
+    #[test]
+    fn merge_group_cannot_disagree_on_evidence_reference() {
+        let invalid = FIXTURE.replace(
+            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|dws-2025|sys-merged|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|dws-2025|sys-merged|2023-07-01|synthetic:other-source|SYNTHETIC|SYNTHETIC_ONLY",
+        );
+        assert!(parse(&invalid).unwrap_err().contains("inconsistent"));
+    }
+
+    #[test]
+    fn transition_group_cannot_mix_relation_types() {
+        let invalid = FIXTURE.replace(
+            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|dws-2025|sys-merged|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-merge|SPLIT_INTO|dws-2022|sys-b-old|dws-2025|sys-merged|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
+        );
+        assert!(parse(&invalid).unwrap_err().contains("inconsistent"));
+    }
+
+    #[test]
     fn source_cannot_be_assigned_to_competing_transitions_on_same_date() {
         let extra = "tr-competing|RENAMED|dws-2022|sys-a|dws-2025|sys-other|2023-07-01|synthetic:competing|SYNTHETIC|SYNTHETIC_ONLY";
         assert!(parse(&format!("{FIXTURE}{extra}\n"))
