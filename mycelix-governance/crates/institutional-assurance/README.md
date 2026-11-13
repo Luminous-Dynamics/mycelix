@@ -23,10 +23,16 @@ network calls or wall-clock time.
 
 ## Run
 
-From the mycelix-governance directory:
+From the repository root:
 
+    cd mycelix-governance
+    cargo fmt --all -- --check
     cargo test -p institutional-assurance
     cargo run -p institutional-assurance --bin ipb-run
+    cargo clippy -p institutional-assurance --all-targets -- -D warnings
+
+The governance workspace Cargo.lock includes the crate and pins the resolved
+dependency graph. Use --locked in CI and preserve the exact-head run manifest.
 
 The runner prints a JSON suite report. Its process exits non-zero when one or
 more expected outcomes do not match.
