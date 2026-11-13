@@ -1,4 +1,8 @@
-use institutional_assurance::capture::{CaptureDisposition, adversarial_capture_suite};
+use std::process::Command;
+
+use institutional_assurance::capture::{
+    CaptureDisposition, CaptureSuiteReport, adversarial_capture_suite,
+};
 
 #[test]
 fn all_s3_known_answer_cases_match_their_expected_disposition() {
@@ -26,6 +30,25 @@ fn all_s3_known_answer_cases_match_their_expected_disposition() {
     assert_eq!(captured, 3);
     assert_eq!(controls, 5);
     assert_eq!(unavailable, 1);
+}
+
+#[test]
+fn ipb_s3_cli_emits_a_complete_machine_readable_report() {
+    let output = Command::new(env!("CARGO_BIN_EXE_ipb-s3-run"))
+        .output()
+        .expect("S3 runner binary starts");
+
+    assert!(
+        output.status.success(),
+        "S3 runner must exit successfully; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let report: CaptureSuiteReport =
+        serde_json::from_slice(&output.stdout).expect("S3 runner emits valid JSON");
+    assert_eq!(report.total_cases, 9);
+    assert_eq!(report.passed_cases, 9);
+    assert_eq!(report.failed_cases, 0);
 }
 
 #[test]
