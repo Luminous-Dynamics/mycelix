@@ -24,7 +24,6 @@ struct Metadata {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum MetricKind {
     PublishedCount,
-    PublishedRoundedPercent,
     PublishedRoundedPercentWithDenominator,
 }
 
@@ -122,7 +121,6 @@ fn parse_fact(line: &str, line_number: usize) -> Result<Fact, String> {
 
     let kind = match columns[3] {
         "PUBLISHED_COUNT" => MetricKind::PublishedCount,
-        "PUBLISHED_ROUNDED_PERCENT" => MetricKind::PublishedRoundedPercent,
         "PUBLISHED_ROUNDED_PERCENT_WITH_DENOMINATOR" => {
             MetricKind::PublishedRoundedPercentWithDenominator
         }
@@ -150,11 +148,6 @@ fn parse_fact(line: &str, line_number: usize) -> Result<Fact, String> {
         MetricKind::PublishedCount => {
             if columns[5] != "systems" || numerator.is_some() || denominator.is_some() {
                 return Err(format!("line {line_number}: count rows require systems and no ratio fields"));
-            }
-        }
-        MetricKind::PublishedRoundedPercent => {
-            if columns[5] != "percent" || numerator.is_some() || denominator.is_some() || reported_value > 100 {
-                return Err(format!("line {line_number}: denominator-free percentage must be 0..=100 with no ratio fields"));
             }
         }
         MetricKind::PublishedRoundedPercentWithDenominator => {
@@ -293,12 +286,6 @@ fn render(metadata: &Metadata, facts: &[Fact]) -> String {
             MetricKind::PublishedCount => {
                 output.push_str(&format!(
                     "fact.{}.derivation=SOURCE_REPORTED_COUNT\n",
-                    fact.fact_id
-                ));
-            }
-            MetricKind::PublishedRoundedPercent => {
-                output.push_str(&format!(
-                    "fact.{}.derivation=SOURCE_REPORTED_PERCENT;DENOMINATOR_NOT_PUBLISHED\n",
                     fact.fact_id
                 ));
             }
