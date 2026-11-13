@@ -18,6 +18,7 @@ It is not a new civic-governance programme, a second civilization simulator, an 
 - [Option-preserving resilience benchmark](OPTION_PRESERVING_RESILIENCE_V0_1.md) — service trajectories, qualified recovery options, graceful degradation and falsification tests.
 - [Resilience debt and option-preserving investment](RESILIENCE_DEBT_AND_PORTFOLIO_V0_1.md) — derived resilience liabilities, workforce/supplier/maintenance constraints and multi-objective investment portfolios.
 - [Service-trajectory reference evaluator](../../tools/fsre-service-trajectory/README.md) — a dependency-free Rust metric evaluator for one service/cohort time series.
+- [Recovery-option qualification reference](../../tools/fsre-recovery-qualification/README.md) — a dependency-free Rust evaluator that composes owner-qualified feasibility, spatial, dependency, staffing, resource, authority and safety dispositions without duplicating subsystem engines.
 - [South African municipal water cascade fixture](scenarios/ZA_MUNICIPAL_WATER_CASCADE_SYNTHETIC_V0_1.json) — a fully synthetic graph for deterministic failure-propagation tests.
 - [South African resilience-debt fixture](scenarios/ZA_RESILIENCE_DEBT_SYNTHETIC_V0_1.json) — synthetic maintenance, dependency, workforce, supplier, evidence and authority deficiencies with recovery-option dispositions.
 
