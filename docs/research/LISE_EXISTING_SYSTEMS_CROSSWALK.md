@@ -162,7 +162,7 @@ Counter-metrics remain mandatory: false positives, legitimate-action acceptance,
 
 ## 8. Current gaps and next actions
 
-1. Execute the 15-case S2 crate on a Rust-enabled runner and repair any compile/test failures.
+1. Execute the 20-case S2 crate on a Rust-enabled runner and repair any compile/test failures.
 2. Review the S2 fixture policy with a governance/legal reviewer before claiming constitutional interpretation.
 3. Map S2 inputs and outputs to #2953 and #3117 without turning the local fixture receipt into a canonical event.
 4. Extend the evaluator to use #4835's separation requirements and #6069's as-of reconstruction rules.
