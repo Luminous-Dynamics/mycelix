@@ -723,10 +723,23 @@ pub fn minimal_cut_sets(
             let classifications =
                 (known_count > 0) as usize + (not_applicable.is_some()) as usize + unknown as usize;
 
-            if classifications != 1 || known_count > 1 {
+            // Multiple known identities in one dimension are valid and
+            // remain distinct FaultDomainKeys. Unknown is always unresolved,
+            // including the case where no known identity exists in that
+            // dimension; known + unknown is retained but never treated as
+            // a complete inventory.
+            if classifications != 1 || unknown {
                 unresolved.insert(dimension);
             }
             if not_applicable.is_some_and(|rationale| rationale.trim().is_empty()) {
+                unresolved.insert(dimension);
+            }
+            if role
+                .accepted_shared_rationales
+                .get(&dimension)
+                .is_some_and(|rationale| rationale.trim().is_empty())
+                || (role.accepted_shared_rationales.contains_key(&dimension) && known_count == 0)
+            {
                 unresolved.insert(dimension);
             }
         }
@@ -901,18 +914,50 @@ pub fn analyze_profile_cut_sets(
         let mut expected = RoleDependencies {
             role: role.clone(),
             known_domains: BTreeSet::new(),
+            accepted_shared_rationales: BTreeMap::new(),
             not_applicable_dimensions: BTreeMap::new(),
             unknown_dimensions: BTreeSet::new(),
         };
 
         for dimension in FaultDomainDimension::ALL {
             match profile_domains.get(&dimension) {
-                Some(DomainDisposition::Distinct(identity))
-                | Some(DomainDisposition::SharedAccepted { identity, .. }) => {
+                Some(DomainDisposition::Distinct(identity)) => {
                     expected.known_domains.insert(FaultDomainKey {
                         dimension,
                         identity: *identity,
                     });
+                }
+                Some(DomainDisposition::SharedAccepted {
+                    identity,
+                    rationale,
+                }) => {
+                    expected.known_domains.insert(FaultDomainKey {
+                        dimension,
+                        identity: *identity,
+                    });
+                    expected
+                        .accepted_shared_rationales
+                        .insert(dimension, rationale.clone());
+                }
+                Some(DomainDisposition::KnownDependencies {
+                    identities,
+                    completeness,
+                    shared_rationale,
+                }) => {
+                    for identity in identities {
+                        expected.known_domains.insert(FaultDomainKey {
+                            dimension,
+                            identity: *identity,
+                        });
+                    }
+                    if let Some(rationale) = shared_rationale {
+                        expected
+                            .accepted_shared_rationales
+                            .insert(dimension, rationale.clone());
+                    }
+                    if *completeness == DependencySetCompleteness::Partial {
+                        expected.unknown_dimensions.insert(dimension);
+                    }
                 }
                 Some(DomainDisposition::NotApplicable { rationale }) => {
                     expected
@@ -1023,6 +1068,7 @@ mod tests {
             .iter()
             .map(|role| {
                 let mut known_domains = BTreeSet::new();
+                let mut accepted_shared_rationales = BTreeMap::new();
                 let mut not_applicable_dimensions = BTreeMap::new();
                 let mut unknown_dimensions = BTreeSet::new();
                 for dimension in FaultDomainDimension::ALL {
@@ -1031,12 +1077,39 @@ mod tests {
                         .get(role)
                         .and_then(|domains| domains.get(&dimension))
                     {
-                        Some(DomainDisposition::Distinct(identity))
-                        | Some(DomainDisposition::SharedAccepted { identity, .. }) => {
+                        Some(DomainDisposition::Distinct(identity)) => {
                             known_domains.insert(FaultDomainKey {
                                 dimension,
                                 identity: *identity,
                             });
+                        }
+                        Some(DomainDisposition::SharedAccepted {
+                            identity,
+                            rationale,
+                        }) => {
+                            known_domains.insert(FaultDomainKey {
+                                dimension,
+                                identity: *identity,
+                            });
+                            accepted_shared_rationales.insert(dimension, rationale.clone());
+                        }
+                        Some(DomainDisposition::KnownDependencies {
+                            identities,
+                            completeness,
+                            shared_rationale,
+                        }) => {
+                            for identity in identities {
+                                known_domains.insert(FaultDomainKey {
+                                    dimension,
+                                    identity: *identity,
+                                });
+                            }
+                            if let Some(rationale) = shared_rationale {
+                                accepted_shared_rationales.insert(dimension, rationale.clone());
+                            }
+                            if *completeness == DependencySetCompleteness::Partial {
+                                unknown_dimensions.insert(dimension);
+                            }
                         }
                         Some(DomainDisposition::NotApplicable { rationale }) => {
                             not_applicable_dimensions.insert(dimension, rationale.clone());
@@ -1049,6 +1122,7 @@ mod tests {
                 RoleDependencies {
                     role: role.clone(),
                     known_domains,
+                    accepted_shared_rationales,
                     not_applicable_dimensions,
                     unknown_dimensions,
                 }
@@ -1095,6 +1169,7 @@ mod tests {
         RoleDependencies {
             role: role.to_owned(),
             known_domains,
+            accepted_shared_rationales: BTreeMap::new(),
             not_applicable_dimensions,
             unknown_dimensions: BTreeSet::new(),
         }
