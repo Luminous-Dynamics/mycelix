@@ -102,7 +102,7 @@ pub fn parse_register(source: &str) -> Result<Vec<SourceRecord>, RegisterError> 
             )));
         }
         let fields: Vec<String> = fields.iter().map(|value| value.trim().to_owned()).collect();
-        if let Some(index) = fields.iter().position(String::is_empty) {
+        if let Some(index) = fields.iter().position(|field| field.is_empty()) {
             return Err(RegisterError(format!(
                 "line {line_number}: field {} must not be empty",
                 index + 1
@@ -150,7 +150,9 @@ pub fn parse_register(source: &str) -> Result<Vec<SourceRecord>, RegisterError> 
     }
 
     if records.is_empty() {
-        return Err(RegisterError("source register contains no records".to_owned()));
+        return Err(RegisterError(
+            "source register contains no records".to_owned(),
+        ));
     }
 
     Ok(records)
