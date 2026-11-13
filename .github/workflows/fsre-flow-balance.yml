@@ -1,0 +1,46 @@
+name: FSRE wastewater interval flow balance
+on:
+  pull_request:
+    paths:
+      - "tools/fsre-flow-balance/**"
+      - ".github/workflows/fsre-flow-balance.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/fsre-flow-balance/**"
+      - ".github/workflows/fsre-flow-balance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  flow-balance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/fsre-flow-balance/Cargo.toml --all -- --check
+      - name: Run deterministic interval and negative-control tests
+        run: cargo test --locked --offline --manifest-path tools/fsre-flow-balance/Cargo.toml
+      - name: Verify balanced accounting fixture
+        shell: bash
+        run: |
+          output="$(mktemp)"
+          trap 'rm -f "$output"' EXIT
+          cargo run --locked --offline --manifest-path tools/fsre-flow-balance/Cargo.toml -- tools/fsre-flow-balance/fixtures/synthetic-balanced.psv > "$output"
+          diff -u tools/fsre-flow-balance/fixtures/synthetic-balanced.expected.txt "$output"
+      - name: Verify unknown-flow abstention fixture
+        shell: bash
+        run: |
+          output="$(mktemp)"
+          trap 'rm -f "$output"' EXIT
+          cargo run --locked --offline --manifest-path tools/fsre-flow-balance/Cargo.toml -- tools/fsre-flow-balance/fixtures/synthetic-unknown-bypass.psv > "$output"
+          diff -u tools/fsre-flow-balance/fixtures/synthetic-unknown-bypass.expected.txt "$output"
+      - name: Run Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/fsre-flow-balance/Cargo.toml --all-targets -- -D warnings
