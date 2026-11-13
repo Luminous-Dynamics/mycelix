@@ -10,6 +10,9 @@ struct Metadata {
     source_id: String,
     source_owner: String,
     source_ref: String,
+    secondary_source_owner: String,
+    secondary_source_ref: String,
+    secondary_publication_date: String,
     publication_date: String,
     observation_period: String,
     geographic_scope: String,
@@ -68,6 +71,9 @@ fn parse_metadata(
         source_id: take_required(metadata, "source_id")?,
         source_owner: take_required(metadata, "source_owner")?,
         source_ref: take_required(metadata, "source_ref")?,
+        secondary_source_owner: take_required(metadata, "secondary_source_owner")?,
+        secondary_source_ref: take_required(metadata, "secondary_source_ref")?,
+        secondary_publication_date: take_required(metadata, "secondary_publication_date")?,
         publication_date: take_required(metadata, "publication_date")?,
         observation_period: take_required(metadata, "observation_period")?,
         geographic_scope: take_required(metadata, "geographic_scope")?,
@@ -81,6 +87,9 @@ fn parse_metadata(
     if !valid_identifier(&parsed.source_id)
         || parsed.source_owner.is_empty()
         || !parsed.source_ref.starts_with("https://")
+        || parsed.secondary_source_owner.is_empty()
+        || !parsed.secondary_source_ref.starts_with("https://")
+        || !parse_date(&parsed.secondary_publication_date)
         || !parse_date(&parsed.publication_date)
         || parsed.observation_period.is_empty()
         || parsed.geographic_scope.is_empty()
@@ -245,6 +254,18 @@ fn render(metadata: &Metadata, facts: &[Fact]) -> String {
     output.push_str(&format!("source_id={}\n", metadata.source_id));
     output.push_str(&format!("source_owner={}\n", metadata.source_owner));
     output.push_str(&format!("source_ref={}\n", metadata.source_ref));
+    output.push_str(&format!(
+        "secondary_source_owner={}\n",
+        metadata.secondary_source_owner
+    ));
+    output.push_str(&format!(
+        "secondary_source_ref={}\n",
+        metadata.secondary_source_ref
+    ));
+    output.push_str(&format!(
+        "secondary_publication_date={}\n",
+        metadata.secondary_publication_date
+    ));
     output.push_str(&format!("publication_date={}\n", metadata.publication_date));
     output.push_str(&format!("observation_period={}\n", metadata.observation_period));
     output.push_str(&format!("geographic_scope={}\n", metadata.geographic_scope));
@@ -315,8 +336,8 @@ fn render(metadata: &Metadata, facts: &[Fact]) -> String {
 
     output.push_str("claim_class=PUBLISHED_OFFICIAL_SUMMARY_ONLY\n");
     output.push_str("comparison_basis=SOURCE_REPORTED;NOT_INDEPENDENTLY_REASSESSED\n");
-    output.push_str("2022_SYSTEM_DENOMINATOR=UNKNOWN\n");
-    output.push_str("COUNT_DIFFERENCE_INTERPRETATION=WITHHELD_DIFFERING_OR_UNPUBLISHED_DENOMINATORS\n");
+    output.push_str("2022_SYSTEM_DENOMINATOR=850\n");
+    output.push_str("COUNT_DIFFERENCE_INTERPRETATION=BOUNDARY_CHANGED;2022_SYSTEMS=850;2025_SYSTEMS=848;SYSTEMS_DECOMMISSIONED_OR_MERGED=SOURCE_REPORTED;NOT_LONGITUDINALLY_LINKED\n");
     output.push_str("SYSTEM_LEVEL_REPLAY=NOT_PERFORMED\n");
     output.push_str("CAUSAL_EFFECT=NOT_ESTABLISHED\n");
     output.push_str("INTERVENTION_AUTHORITY=NONE\n");
@@ -340,7 +361,7 @@ mod tests {
         let (metadata, facts) = parse(FIXTURE).expect("fixture should validate");
         assert_eq!(metadata.source_status, "PUBLISHED_OFFICIAL_SUMMARY");
         assert_eq!(metadata.system_level_records, "NOT_EXTRACTED");
-        assert_eq!(facts.len(), 11);
+        assert_eq!(facts.len(), 12);
     }
 
     #[test]
@@ -354,16 +375,14 @@ mod tests {
     }
 
     #[test]
-    fn denominator_free_2022_rates_are_not_reconstructed() {
-        let (report, _) = parse(FIXTURE).expect("fixture should validate");
-        assert_eq!(report.observation_period, "2023/24 municipal financial year");
-        let critical = FIXTURE
-            .lines()
-            .find(|line| line.starts_with("critical_share_2022|"))
-            .expect("2022 critical share exists");
-        let fields: Vec<&str> = critical.split('|').collect();
-        assert!(fields[6].is_empty());
-        assert!(fields[7].is_empty());
+    fn both_reported_rates_recompute_against_their_separately_reported_denominators() {
+        assert_eq!((334_u128 * 100 + 850 / 2) / 850, 39);
+        assert_eq!((118_u128 * 100 + 850 / 2) / 850, 14);
+        assert_eq!((396_u128 * 100 + 848 / 2) / 848, 47);
+        assert_eq!((66_u128 * 100 + 848 / 2) / 848, 8);
+        let (metadata, facts) = parse(FIXTURE).expect("fixture should validate");
+        assert_eq!(metadata.secondary_source_owner, "sanews-gcis");
+        assert_eq!(lookup(&facts, "audited_systems", 2022), Some(850));
     }
 
     #[test]
@@ -421,6 +440,8 @@ mod tests {
         assert!(report.contains("CAUSAL_EFFECT=NOT_ESTABLISHED"));
         assert!(report.contains("INTERVENTION_AUTHORITY=NONE"));
         assert!(report.contains("SYSTEM_LEVEL_REPLAY=NOT_PERFORMED"));
+        assert!(report.contains("2022_SYSTEM_DENOMINATOR=850"));
+        assert!(report.contains("SYSTEMS_DECOMMISSIONED_OR_MERGED=SOURCE_REPORTED"));
         assert!(report.contains("critical_share_change_percentage_points=8"));
         assert!(report.contains("good_or_excellent_share_change_percentage_points=-6"));
     }
