@@ -40,4 +40,4 @@ cargo run --locked --offline --manifest-path tools/fsre-green-drop-replay/Cargo.
   tools/fsre-green-drop-replay/fixtures/ZA_GREEN_DROP_PUBLIC_SUMMARY_2025.psv
 ```
 
-The path-specific workflow checks formatting, tests, the byte-for-byte golden report and Clippy. A skipped workflow is not a pass.
+The reference currently has 11 unit tests covering both report-vintage denominators, all four rounded rates, missing/zero denominator controls, arithmetic mismatch and prohibited field/causal claims. The path-specific workflow checks formatting, tests, the byte-for-byte golden report and Clippy. A skipped workflow is not a pass.
