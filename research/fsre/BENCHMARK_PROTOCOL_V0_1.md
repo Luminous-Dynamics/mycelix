@@ -92,6 +92,18 @@ The six-term balance is a transparent accounting surface, not a hydraulic solver
 
 The national-summary replay checks only arithmetic and source-reported boundaries. It preserves the 2022 denominator as unknown, identifies the Green Drop 2025 report's 2023/24 observation period and does not turn national system percentages into household-level outcomes. System-level historical replay requires source rights, extracted source rows and dual transcription/reconciliation; prospective work requires operator-authorised read-only access.
 
+## 2.3 Decision-value and active-investigation benchmark
+
+FSRE's next research question is not only whether the model can identify a likely fault, but whether it can choose the next authorised observation that most improves a safe decision under a matched acquisition budget. The dedicated protocol is [Decision Value and Active Investigation v0.1](DECISION_VALUE_AND_ACTIVE_INVESTIGATION_V0_1.md), aligned with Symthaea causal diagnosis and experiment selection [#10366](https://github.com/Luminous-Dynamics/symthaea/issues/10366).
+
+The benchmark distinguishes information gain from decision value. Its EVSI estimate includes the expected change in the best **admissible** decision after a candidate observation, minus measurement cost and delay. Physical feasibility, rights, privacy, operator authority and safety are hard filters, not soft penalties. The policy must be able to choose no measurement, no intervention, or abstention.
+
+Matched-cost baselines include existing operator practice, fixed-cadence monitoring, random admissible sampling, maximum-entropy sampling, maximum-prediction-uncertainty sampling, incident-risk ranking, expert prioritisation, and a synthetic-only information oracle. All policies receive the same initial evidence, candidate measurement catalogue, cost/delay model, authority limits and compute budget.
+
+Primary measures include decision regret, correction of initially wrong decisions, verified decision improvement per total acquisition cost, unnecessary acquisition rate, time-to-decision-quality evidence, safe-abstention precision/coverage, calibration, false attribution/localisation, option preservation and distribution of measurement burden/service benefits. The first target is at least 50 independently specified synthetic challenge cases with held-out sealed cases; confirmatory set size must be powered for the claimed failure bound.
+
+The scientific motivation is supported by 2026 water-resources work on decision-relevant information selection (Zaniolo et al., DOI 10.1029/2025WR042745) and a 2026 systematic review documenting inconsistent water-distribution leak-detection benchmarks (Farah & Shahrour, DOI 10.3390/w18182267). Those findings motivate better task definitions; they do not establish FSRE superiority.
+
 ## 3. Baselines and ablations
 
 Every evaluation should compare the same frozen inputs and scenario set against at least:
