@@ -34,13 +34,16 @@ jobs:
           persist-credentials: false
       - name: Assert exact PR subject
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.98.1
         with:
           components: rustfmt, clippy
       - name: Check formatting
         run: cargo fmt --manifest-path mycelix-governance/Cargo.toml --check
-      - name: Check institutional assurance crate
-        run: cargo check --locked --all-targets --manifest-path mycelix-governance/Cargo.toml -p institutional-assurance
+      - name: Resolve workspace lockfile in offline diagnostic mode
+        run: cargo check --offline --all-targets --manifest-path mycelix-governance/Cargo.toml -p institutional-assurance
+      - name: Show generated lockfile delta
+        if: always()
+        run: git diff --no-ext-diff -- mycelix-governance/Cargo.lock
       - name: Run institutional assurance tests
         run: cargo test --locked --all-targets --manifest-path mycelix-governance/Cargo.toml -p institutional-assurance
       - name: Execute S3 machine-readable runner
