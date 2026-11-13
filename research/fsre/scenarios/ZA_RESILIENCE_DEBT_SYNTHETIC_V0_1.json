@@ -440,11 +440,9 @@
         "debt_water_quality_sample_gap",
         "debt_hydraulic_model_out_of_domain"
       ],
-      "expected_service_lanes_with_at_least_one_qualified_option": [
-        "household_water_service",
-        "hospital_water_service"
-      ],
-      "claim_ceiling": "Synthetic portfolio hypothesis only. A qualified option would still require an explicit physical, spatial, resource, staffing, safety and authority evidence bundle; the fixture does not model real infrastructure or prove an intervention effect."
+      "expected_service_lanes_with_at_least_one_qualified_option": [],
+      "claim_ceiling": "Synthetic portfolio hypothesis only. These remediation candidates do not establish that any recovery option is qualified; a separate post-remediation evidence bundle, physical/resource checks, dependency snapshot, staffing, spatial access, safety and current authority must be evaluated before any option can qualify.",
+      "post_remediation_qualification": "NOT_EVALUATED"
     }
   ],
   "fixture_assertions": [
