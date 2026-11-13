@@ -48,7 +48,9 @@ The scenario declares coalition membership as synthetic ground truth. For each d
 
 The current capture predicate is intentionally explicit:
 - every critical execution domain can be exercised by the coalition; **and**
-- at least the policy-configured number of oversight domains are compromised, where an oversight domain is compromised if the coalition can exercise it alone or if enough independent controllers are unavailable to satisfy the independent oversight quorum.
+- at least the policy-configured number of oversight domains lack an independently available quorum.
+
+Coalition access to an oversight function is reported separately from independence. If the coalition can meet the same configured quorum but an independent non-coalition group can also meet it, the oversight domain is **not** marked compromised by this bounded predicate. This avoids equating coalition capability with exclusive control. It does not yet model agenda capture inside oversight, coercion, information control, retaliation or common-cause dependencies; those require the held-out adversarial and dependency-closure extensions.
 
 The disposition is one of:
 - `capture_detected`;
@@ -59,7 +61,7 @@ Malformed input, missing domains, duplicate domains, unauthorized available cont
 
 ## 4. Initial known-answer cases
 
-The Rust suite currently includes eight deterministic fixtures:
+The Rust suite currently includes nine deterministic fixtures:
 
 | Fixture | Expected disposition | Why |
 |---|---|---|
@@ -67,6 +69,7 @@ The Rust suite currently includes eight deterministic fixtures:
 | Single-actor role concentration | Capture detected | One actor meets every configured execution and oversight quorum |
 | Quorum suppression | Capture detected | Independent controllers retain nominal authority but are unavailable at the scenario cutoff |
 | Independent audit and appeal | No capture observed | Coalition controls execution, but independent oversight can independently satisfy its quorum |
+| Dual independent oversight quorums | No capture observed | Coalition and independent controllers can each meet the oversight quorum; coalition capability alone is not exclusive capture |
 | Fragmented execution control | No capture observed | Coalition cannot meet each critical execution quorum |
 | Coalition below execution quorum | No capture observed | One coalition member cannot meet the two-person critical quorums |
 | Oversight captured without execution control | No capture observed | Oversight control alone does not satisfy the declared full-capture predicate |
@@ -140,6 +143,7 @@ A baseline should not be marked as failed because it lacks a feature it was neve
 - 0 false capture findings on the locked benign-control fixtures.
 - 100% typed rejection of malformed/missing critical inputs.
 - Permutation invariance under actor-label renaming.
+- Dual-quorum control: coalition access must not imply oversight capture when independent non-coalition controllers can also satisfy the configured quorum.
 - Monotonicity checks: adding coalition control must not make a previously detected capture disappear; restoring sufficient independent oversight must not create a capture finding when all other inputs remain fixed.
 - Replay of every receipt from frozen policy and scenario inputs.
 - At least three independent implementations or evaluators before any interoperability or comparative-performance claim.
