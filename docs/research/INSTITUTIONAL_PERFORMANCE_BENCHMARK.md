@@ -122,6 +122,36 @@ contradictory, bypassed or unknown. Use independent human coding and report
 inter-rater agreement. A gap is a diagnostic signal, not automatic proof of
 misconduct.
 
+### S13 — AI-mediated deliberation and steering
+
+Compare distinct interventions rather than one generic AI-assisted condition:
+- no AI / platform-native workflow;
+- trained human facilitation;
+- non-directive private pre-deliberation reflection;
+- retrospective summarization or argument mapping;
+- in-conversation AI facilitation;
+- explicit recommendation, counterargument or agenda-setting assistance.
+
+Use group/session-level randomization where spillovers require it. Measure argument justification, counterargument engagement, participant comprehension, private-to-public opinion changes, allocation effects, perceived inclusion, observed influence, participation equity, minority-position retention, trust calibration and decision-maker follow-through. Include controls for framing, omitted arguments, fabricated consensus signals, unequal access, AI overconfidence and strategic agenda manipulation.
+
+A stance change is not automatically harm; agreement is not automatically quality; participant satisfaction is not proof of neutrality. Use human-adjudicated measures and appropriate ethics review for human-subject studies.
+
+### S14 — Formal authority versus effective institutional power
+
+Use institutions with matched nominal voting weights but vary agenda control, delegation, evidence issuance/verification, approval/disbursement, veto, emergency powers and appeal adjudication.
+
+Measure nominal voting share separately from formal power indices (e.g. Banzhaf and Shapley–Shubik where the declared voting game permits exact calculation), minimal winning coalitions, blocking power, role concentration, separation-of-duties conflicts, appeal independence and removal/recall resilience. Add operational observations of wealth, lobbying, coercion, information access or social influence only when those are independently evidenced.
+
+Test proposer/self-approval, issuer-as-only-verifier, agenda-controller-as-record-editor, disburser-as-sole-approver, non-independent appeal and correlated absenteeism. Report formal-game results separately from observed informal influence. A power index is not a democracy, legitimacy or justice score.
+
+### S15 — Institutional feedback, lock-in and intergenerational burden
+
+Run identical starting worlds with alternative institutional responses to scarcity, service outage, concentrated dependency, emergency centralization, care burden and ecological depletion.
+
+Test whether an intervention that improves short-term service shifts costs into later dependency, reduced exit viability, maintenance debt, unpaid care, ecological loss or future-cohort obligations. Include a countervailing rights-floor/capacity-building intervention and cases where centralization or market-based responses legitimately perform better.
+
+Use the existing Civilization Twin, power/dependency observables and physical accounting owners. Report short-, medium- and long-horizon trajectories, impulse response, recovery time, effective alternatives, switching cost, rights-floor breaches, cohort-incidence and unresolved model disagreement. Do not build a second simulator or universal flourishing score.
+
 ## 5. Baselines
 
 For each task, compare at least:
