@@ -131,7 +131,9 @@ impl Disposition {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Scenario {
     pub scenario_id: String,
+    pub time_basis_id: String,
     pub evaluation_time_seconds: u64,
+    pub clock_uncertainty_seconds: u64,
     pub horizon_seconds: u64,
 }
 
@@ -149,8 +151,10 @@ pub struct PredicateEvidence {
     pub disposition: Disposition,
     pub source_owner: String,
     pub evidence_ref: String,
+    pub time_basis_id: String,
     pub observed_at_seconds: u64,
     pub valid_until_seconds: u64,
+    pub clock_uncertainty_seconds: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -161,8 +165,10 @@ pub struct DebtItem {
     pub status: String,
     pub source_owner: String,
     pub evidence_ref: String,
+    pub time_basis_id: String,
     pub observed_at_seconds: u64,
     pub valid_until_seconds: u64,
+    pub clock_uncertainty_seconds: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -311,9 +317,14 @@ pub fn parse_scenario_and_options(
 ) -> Result<(Scenario, Vec<RecoveryOption>), InputError> {
     let mut metadata = parse_metadata(source)?;
     let scenario_id = required_metadata(&mut metadata, "scenario_id")?;
+    let time_basis_id = required_metadata(&mut metadata, "time_basis_id")?;
     let evaluation_time_seconds = parse_u64(
         &required_metadata(&mut metadata, "evaluation_time_seconds")?,
         "evaluation_time_seconds",
+    )?;
+    let clock_uncertainty_seconds = parse_u64(
+        &required_metadata(&mut metadata, "clock_uncertainty_seconds")?,
+        "clock_uncertainty_seconds",
     )?;
     let horizon_seconds = parse_u64(
         &required_metadata(&mut metadata, "horizon_seconds")?,
@@ -346,7 +357,9 @@ pub fn parse_scenario_and_options(
     Ok((
         Scenario {
             scenario_id,
+            time_basis_id,
             evaluation_time_seconds,
+            clock_uncertainty_seconds,
             horizon_seconds,
         },
         options,
@@ -356,8 +369,8 @@ pub fn parse_scenario_and_options(
 pub fn parse_debt_items(source: &str) -> Result<Vec<DebtItem>, InputError> {
     let rows = parse_rows(
         source,
-        "debt_id|service_id|dimension|status|source_owner|evidence_ref|observed_at_seconds|valid_until_seconds",
-        8,
+        "debt_id|service_id|dimension|status|source_owner|evidence_ref|time_basis_id|observed_at_seconds|valid_until_seconds|clock_uncertainty_seconds",
+        10,
     )?;
     let mut seen = BTreeSet::new();
     let mut items = Vec::with_capacity(rows.len());
@@ -375,8 +388,10 @@ pub fn parse_debt_items(source: &str) -> Result<Vec<DebtItem>, InputError> {
             status: row[3].clone(),
             source_owner: row[4].clone(),
             evidence_ref: row[5].clone(),
-            observed_at_seconds: parse_u64(&row[6], "observed_at_seconds")?,
-            valid_until_seconds: parse_u64(&row[7], "valid_until_seconds")?,
+            time_basis_id: row[6].clone(),
+            observed_at_seconds: parse_u64(&row[7], "observed_at_seconds")?,
+            valid_until_seconds: parse_u64(&row[8], "valid_until_seconds")?,
+            clock_uncertainty_seconds: parse_u64(&row[9], "clock_uncertainty_seconds")?,
         });
     }
     Ok(items)
@@ -385,8 +400,8 @@ pub fn parse_debt_items(source: &str) -> Result<Vec<DebtItem>, InputError> {
 pub fn parse_predicate_evidence(source: &str) -> Result<Vec<PredicateEvidence>, InputError> {
     let rows = parse_rows(
         source,
-        "option_id|predicate|disposition|source_owner|evidence_ref|observed_at_seconds|valid_until_seconds",
-        7,
+        "option_id|predicate|disposition|source_owner|evidence_ref|time_basis_id|observed_at_seconds|valid_until_seconds|clock_uncertainty_seconds",
+        9,
     )?;
     let mut seen = BTreeSet::new();
     let mut evidence = Vec::with_capacity(rows.len());
@@ -405,11 +420,54 @@ pub fn parse_predicate_evidence(source: &str) -> Result<Vec<PredicateEvidence>, 
             disposition: Disposition::parse(&row[2])?,
             source_owner: row[3].clone(),
             evidence_ref: row[4].clone(),
-            observed_at_seconds: parse_u64(&row[5], "observed_at_seconds")?,
-            valid_until_seconds: parse_u64(&row[6], "valid_until_seconds")?,
+            time_basis_id: row[5].clone(),
+            observed_at_seconds: parse_u64(&row[6], "observed_at_seconds")?,
+            valid_until_seconds: parse_u64(&row[7], "valid_until_seconds")?,
+            clock_uncertainty_seconds: parse_u64(&row[8], "clock_uncertainty_seconds")?,
         });
     }
     Ok(evidence)
+}
+
+fn evidence_is_current(
+    scenario: &Scenario,
+    time_basis_id: &str,
+    observed_at_seconds: u64,
+    valid_until_seconds: u64,
+    clock_uncertainty_seconds: u64,
+    record_id: &str,
+) -> Result<bool, InputError> {
+    if time_basis_id != scenario.time_basis_id {
+        return Err(InputError(format!(
+            "time-basis mismatch for {record_id}: expected {}, received {time_basis_id}",
+            scenario.time_basis_id
+        )));
+    }
+    let earliest_evaluation = scenario
+        .evaluation_time_seconds
+        .checked_sub(scenario.clock_uncertainty_seconds)
+        .ok_or_else(|| InputError("scenario clock uncertainty exceeds evaluation time".to_owned()))?;
+    let latest_evaluation = scenario
+        .evaluation_time_seconds
+        .checked_add(scenario.clock_uncertainty_seconds)
+        .ok_or_else(|| InputError("scenario evaluation-time bound overflow".to_owned()))?;
+    let latest_observation = observed_at_seconds
+        .checked_add(clock_uncertainty_seconds)
+        .ok_or_else(|| InputError(format!("observation-time bound overflow for {record_id}")))?;
+    let earliest_valid_until = valid_until_seconds
+        .checked_sub(clock_uncertainty_seconds)
+        .ok_or_else(|| InputError(format!("validity-time bound underflow for {record_id}")))?;
+    if latest_observation >= earliest_evaluation {
+        return Err(InputError(format!(
+            "evidence is not proven to predate evaluation for {record_id}"
+        )));
+    }
+    if earliest_valid_until <= latest_observation {
+        return Err(InputError(format!(
+            "evidence validity interval is empty under clock uncertainty for {record_id}"
+        )));
+    }
+    Ok(earliest_valid_until > latest_evaluation)
 }
 
 pub fn evaluate(
@@ -418,8 +476,16 @@ pub fn evaluate(
     debt_items: &[DebtItem],
     evidence: &[PredicateEvidence],
 ) -> Result<EvaluationReport, InputError> {
-    if scenario.scenario_id.trim().is_empty() || scenario.horizon_seconds == 0 {
+    if scenario.scenario_id.trim().is_empty()
+        || scenario.time_basis_id.trim().is_empty()
+        || scenario.horizon_seconds == 0
+    {
         return Err(InputError("invalid scenario contract".to_owned()));
+    }
+    if scenario.clock_uncertainty_seconds > scenario.evaluation_time_seconds {
+        return Err(InputError(
+            "scenario clock uncertainty exceeds evaluation time".to_owned(),
+        ));
     }
 
     let option_ids: BTreeSet<&str> = options.iter().map(|option| option.option_id.as_str()).collect();
@@ -452,20 +518,14 @@ pub fn evaluate(
                 record.option_id
             )));
         }
-        if record.observed_at_seconds > scenario.evaluation_time_seconds {
-            return Err(InputError(format!(
-                "future-dated evidence for {} on {}",
-                record.predicate.as_str(),
-                record.option_id
-            )));
-        }
-        if record.valid_until_seconds < record.observed_at_seconds {
-            return Err(InputError(format!(
-                "invalid evidence validity interval for {} on {}",
-                record.predicate.as_str(),
-                record.option_id
-            )));
-        }
+        evidence_is_current(
+            scenario,
+            &record.time_basis_id,
+            record.observed_at_seconds,
+            record.valid_until_seconds,
+            record.clock_uncertainty_seconds,
+            &format!("{}:{}", record.option_id, record.predicate.as_str()),
+        )?;
         let option_records = evidence_by_option
             .entry(record.option_id.clone())
             .or_default();
@@ -484,23 +544,15 @@ pub fn evaluate(
         if !debt_ids.insert(item.debt_id.as_str()) {
             return Err(InputError(format!("duplicate debt_id: {}", item.debt_id)));
         }
-        if item.observed_at_seconds > scenario.evaluation_time_seconds {
-            return Err(InputError(format!(
-                "future-dated debt evidence: {}",
-                item.debt_id
-            )));
-        }
-        if item.valid_until_seconds < item.observed_at_seconds {
-            return Err(InputError(format!(
-                "invalid debt evidence validity interval: {}",
-                item.debt_id
-            )));
-        }
-        let freshness = if item.valid_until_seconds <= scenario.evaluation_time_seconds {
-            "STALE"
-        } else {
-            "CURRENT"
-        };
+        let current = evidence_is_current(
+            scenario,
+            &item.time_basis_id,
+            item.observed_at_seconds,
+            item.valid_until_seconds,
+            item.clock_uncertainty_seconds,
+            &item.debt_id,
+        )?;
+        let freshness = if current { "CURRENT" } else { "STALE" };
         debt_groups
             .entry((
                 item.dimension.clone(),
@@ -513,11 +565,15 @@ pub fn evaluate(
 
     let mut grouped_counts = BTreeMap::<(String, String, String), usize>::new();
     for item in debt_items {
-        let freshness = if item.valid_until_seconds <= scenario.evaluation_time_seconds {
-            "STALE"
-        } else {
-            "CURRENT"
-        };
+        let current = evidence_is_current(
+            scenario,
+            &item.time_basis_id,
+            item.observed_at_seconds,
+            item.valid_until_seconds,
+            item.clock_uncertainty_seconds,
+            &item.debt_id,
+        )?;
+        let freshness = if current { "CURRENT" } else { "STALE" };
         *grouped_counts
             .entry((
                 item.dimension.clone(),
@@ -561,7 +617,15 @@ pub fn evaluate(
                     record.disposition.as_str()
                 ));
             }
-            if record.valid_until_seconds <= scenario.evaluation_time_seconds {
+            let current = evidence_is_current(
+                scenario,
+                &record.time_basis_id,
+                record.observed_at_seconds,
+                record.valid_until_seconds,
+                record.clock_uncertainty_seconds,
+                &format!("{}:{}", option.option_id, predicate.as_str()),
+            )?;
+            if !current {
                 reasons.insert(format!("STALE_EVIDENCE:{}", predicate.as_str()));
             }
         }
@@ -600,7 +664,9 @@ mod tests {
     fn scenario() -> Scenario {
         Scenario {
             scenario_id: "synthetic-test".to_owned(),
+            time_basis_id: "synthetic-clock-v1".to_owned(),
             evaluation_time_seconds: 100,
+            clock_uncertainty_seconds: 0,
             horizon_seconds: 1_000,
         }
     }
@@ -624,8 +690,10 @@ mod tests {
             disposition,
             source_owner: predicate.expected_owner().to_owned(),
             evidence_ref: format!("synthetic:{}:backup-a", predicate.as_str()),
+            time_basis_id: "synthetic-clock-v1".to_owned(),
             observed_at_seconds: 10,
             valid_until_seconds,
+            clock_uncertainty_seconds: 0,
         }
     }
 
@@ -729,8 +797,10 @@ mod tests {
                 status: "QUALIFIED_DEFICIENCY".to_owned(),
                 source_owner: "operator".to_owned(),
                 evidence_ref: "synthetic:roster-1".to_owned(),
+                time_basis_id: "synthetic-clock-v1".to_owned(),
                 observed_at_seconds: 10,
                 valid_until_seconds: 500,
+                clock_uncertainty_seconds: 0,
             },
             DebtItem {
                 debt_id: "d2".to_owned(),
@@ -739,8 +809,10 @@ mod tests {
                 status: "QUALIFIED_DEFICIENCY".to_owned(),
                 source_owner: "operator".to_owned(),
                 evidence_ref: "synthetic:roster-2".to_owned(),
+                time_basis_id: "synthetic-clock-v1".to_owned(),
                 observed_at_seconds: 10,
                 valid_until_seconds: 100,
+                clock_uncertainty_seconds: 0,
             },
         ];
         let report = evaluate(&scenario(), &[], &debt, &[]).unwrap();
@@ -752,7 +824,7 @@ mod tests {
 
     #[test]
     fn scenario_and_options_parser_requires_explicit_metadata() {
-        let source = "# scenario_id=fixture\n# evaluation_time_seconds=100\n# horizon_seconds=1000\noption_id|service_id|mobilisation_seconds\no1|water-a|10\n";
+        let source = "# scenario_id=fixture\n# time_basis_id=synthetic-clock-v1\n# evaluation_time_seconds=100\n# clock_uncertainty_seconds=0\n# horizon_seconds=1000\noption_id|service_id|mobilisation_seconds\no1|water-a|10\n";
         let (parsed_scenario, options) = parse_scenario_and_options(source).unwrap();
         assert_eq!(parsed_scenario.scenario_id, "fixture");
         assert_eq!(options.len(), 1);
@@ -760,14 +832,14 @@ mod tests {
 
     #[test]
     fn predicate_parser_rejects_duplicate_semantics() {
-        let header = "option_id|predicate|disposition|source_owner|evidence_ref|observed_at_seconds|valid_until_seconds";
-        let source = format!("{header}\no1|authority|QUALIFIED|mycelix|synthetic:grant|1|100\no1|authority|QUALIFIED|mycelix|synthetic:grant-2|1|100\n");
+        let header = "option_id|predicate|disposition|source_owner|evidence_ref|time_basis_id|observed_at_seconds|valid_until_seconds|clock_uncertainty_seconds";
+        let source = format!("{header}\no1|authority|QUALIFIED|mycelix|synthetic:grant|synthetic-clock-v1|1|100|0\no1|authority|QUALIFIED|mycelix|synthetic:grant-2|synthetic-clock-v1|1|100|0\n");
         assert!(parse_predicate_evidence(&source).is_err());
     }
 
     #[test]
     fn debt_parser_rejects_unknown_states() {
-        let source = "debt_id|service_id|dimension|status|source_owner|evidence_ref|observed_at_seconds|valid_until_seconds\nd1|water-a|maintenance|MAGICALLY_FIXED|operator|synthetic:wo|1|100\n";
+        let source = "debt_id|service_id|dimension|status|source_owner|evidence_ref|time_basis_id|observed_at_seconds|valid_until_seconds|clock_uncertainty_seconds\nd1|water-a|maintenance|MAGICALLY_FIXED|operator|synthetic:wo|synthetic-clock-v1|1|100|0\n";
         assert!(parse_debt_items(source).is_err());
     }
 }
