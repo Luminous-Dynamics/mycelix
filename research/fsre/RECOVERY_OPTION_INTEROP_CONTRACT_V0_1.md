@@ -45,11 +45,14 @@ Production adapters should emit an immutable result with at least:
 |---|---|
 | `schema_id` / `schema_version` | Exact version of the predicate contract |
 | `option_id` | Stable identifier for this candidate recovery option |
+| `service_id` / `cohort_id` | Exact service and protected service lane the evidence qualifies |
+| `scenario_id` / `scenario_digest` | Exact disruption scenario and immutable revision |
 | `service_id` / `cohort_id` | Declared service and protected service lane |
 | `scenario_id` / `scenario_digest` | Exact frozen disruption and boundary |
 | `predicate` | One of the seven required predicate families |
 | `disposition` | `QUALIFIED`, `UNKNOWN`, `NOT_INDEPENDENT`, `UNAVAILABLE`, `EXPIRED`, `REVOKED`, `WRONG_SCOPE`, `OUT_OF_DOMAIN`, or `CONFLICT` |
 | `source_owner` | Canonical subsystem / operator that owns the assertion |
+| `source_schema_version` | Exact schema/version of the owner's evidence contract; non-empty and validated |
 | `source_record_ref` | Exact opaque record identifier in that owner's system |
 | `source_schema_version` | Exact source record schema version |
 | `evidence_digest` | Digest of the canonical source record/evidence bundle, not a model-generated replacement |
@@ -59,7 +62,7 @@ Production adapters should emit an immutable result with at least:
 | `claim_scope` | Exact service, jurisdiction, failure-domain, model and validity scope |
 | `reason_codes` | Machine-readable reasons, including missing evidence and unresolved dependencies |
 
-The local reference evaluator v0.1 consumes the subset in its PSV fixtures: option/predicate, disposition, owner, opaque evidence reference, time-basis identifier, observation time, exclusive validity end and clock-uncertainty bound. It does not authenticate the referenced source record. Production integration must resolve the owner record and independently verify its digest and schema before treating the disposition as authoritative.
+The local reference evaluator v0.1 consumes a subset in its PSV fixtures: option ID, service ID, scenario ID/digest, source schema version, predicate, disposition, owner, opaque evidence reference, time-basis identifier, observation time, exclusive validity end and clock-uncertainty bound. It rejects cross-service, cross-scenario and missing-schema reuse. It does not authenticate the referenced source record. Production integration must resolve the owner record and independently verify its digest and schema before treating the disposition as authoritative.
 
 ## 4. Time and uncertainty rules
 
