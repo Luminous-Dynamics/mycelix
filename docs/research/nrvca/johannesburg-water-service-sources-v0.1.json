@@ -1374,9 +1374,9 @@
           ],
           "event_time": {
             "kind": "unknown",
-            "start_text": "3 November 2026",
-            "end_text": "3 November 2026",
-            "note": "Operator reports an operation conducted on 3 November; exact start/end not stated."
+            "start_text": null,
+            "end_text": null,
+            "note": "The publication says an operation took place on 3 November 2026 but does not provide its start or end time; leave event interval unknown."
           },
           "reported_metrics": [],
           "restoration_time_estimate": {
