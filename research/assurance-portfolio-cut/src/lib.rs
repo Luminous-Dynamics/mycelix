@@ -56,7 +56,7 @@ impl FaultDomainDimension {
     ];
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum DependencySetCompleteness {
     /// Every claim-critical dependency identity in this dimension is known.
     Complete,
