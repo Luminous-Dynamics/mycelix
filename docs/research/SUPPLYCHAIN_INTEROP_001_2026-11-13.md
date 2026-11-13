@@ -114,8 +114,9 @@ The candidate selection and exact revision pins are in [SUPPLYCHAIN_INTEROP_BASE
 1. Official GS1 EPCIS/CBV normative artefacts at the exact versions named by the conformance clauses.
 2. FasTnT EPCIS as the first independent server candidate for a bounded compatibility profile; source inspection shows capture, event-query and named-query routes, but no proven 2.0.1 conformance.
 3. OpenEPCIS Community Edition as a second server implementation candidate, subject to a pinned source revision and protocol probe.
-4. Mycelix native checkpoint flow and Mycelix adapter/VC/transparency profiles.
-5. NIST IR 8536 reference implementation only after its revision, licence, dependency and maturity review.
+4. GS1 EPCIS Sandbox as an official fixture/diagnostic tool only (not a server or independent judge); FreEPCIS only for legacy EPCIS 1.2 compatibility, not EPCIS 2.0 performance.
+5. Mycelix native checkpoint flow and Mycelix adapter/VC/transparency profiles.
+6. NIST IR 8536 reference implementation only after its revision, licence, dependency and maturity review.
 
 OpenEPCIS Event Sentry and its document-validation service are same-family diagnostics, not independent judges. Candidate servers must pass the normative artifact, protocol, semantic round-trip and adversarial gates before a performance comparison.
 
