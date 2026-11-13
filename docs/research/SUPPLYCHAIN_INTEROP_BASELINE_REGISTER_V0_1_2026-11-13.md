@@ -34,6 +34,8 @@ The exact 2.0.0 JSON Schema is currently retrievable and declares JSON Schema Dr
 
 Do not silently substitute a 2.0.1 artefact for a 2.0.0 URL named by the normative text. Resolve, capture and hash the exact bytes, final URLs and media types with an independent HTTP client. Run the JSON Schema under its declared Draft 07, JSON-LD expansion against the exact context, and SHACL against the selected shapes as separate validation stages and receipts. The custom Mycelix cross-invariant verifier remains a distinct fourth stage.
 
+The 2026-11-13 page/PDF/schema comparison is recorded in the [GS1 artifact-version differential audit](GS1_EPCIS_ARTIFACT_VERSION_DIFFERENTIAL_AUDIT_2026-11-13.md) and its [machine-readable record](GS1_EPCIS_ARTIFACT_VERSION_DIFFERENTIAL_AUDIT_2026-11-13.json). In particular, the current index exposes a 2.0.1 JSON Schema (its declared `$id` names 2.0.1), while the linked EPCIS PDF identifies itself internally as Release 2.0 / June 2022 and section 10.3 names the 2.0.0 JSON Schema and SHACL URLs. Both source sets remain separate; no raw artifact hashes or validator outputs are claimed.
+
 ## 3. Implementation candidates
 
 ### A. FasTnT EPCIS — first independent server candidate
@@ -102,16 +104,6 @@ Sources:
 - Final IR: https://csrc.nist.gov/pubs/ir/8536/final
 - NIST announcement: https://www.nist.gov/news-events/news/2026/09/finalized-manufacturing-supply-chain-traceability-meta-framework
 - IR PDF Appendix F: https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=962361
-
-### C. Official GS1 artefacts — normative validator inputs, not a server
-
-Use the exact artifact set specified by the relevant normative clause, with per-file URL, redirect chain/final URL, media type, retrieval time, byte length, SHA-256, license/rights decision, validator version and receipt. The official JSON Schema declares Draft 07; do not feed it to a validator configured only for Draft 2020-12.
-
-A versioned artifact index is not a payload snapshot. Until all required byte captures and validator outputs exist, the normative gate is open.
-
-### D. NIST IR 8536 reference implementation — later research baseline
-
-NIST IR 8536 is a manufacturing traceability meta-framework, not a product certification or a single mandatory API. NIST's published material described its reference implementation as early-stage research / lab work. Before using it as a baseline, confirm its public artifact revision, license, dependencies, data model, tests and maintenance state. It is not a substitute for a GS1 EPCIS server.
 
 ## 4. Qualification sequence
 
