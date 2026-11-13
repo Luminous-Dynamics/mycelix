@@ -509,6 +509,16 @@ pub fn parse_predicate_evidence(source: &str) -> Result<Vec<PredicateEvidence>, 
     Ok(evidence)
 }
 
+fn is_sha256_digest(value: &str) -> bool {
+    let Some(hex) = value.strip_prefix("sha256:") else {
+        return false;
+    };
+    hex.len() == 64
+        && hex
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
 fn evidence_is_current(
     scenario: &Scenario,
     time_basis_id: &str,
@@ -559,7 +569,7 @@ pub fn evaluate(
     evidence: &[PredicateEvidence],
 ) -> Result<EvaluationReport, InputError> {
     if scenario.scenario_id.trim().is_empty()
-        || scenario.scenario_digest.trim().is_empty()
+        || !is_sha256_digest(&scenario.scenario_digest)
         || scenario.time_basis_id.trim().is_empty()
         || scenario.horizon_seconds == 0
     {
@@ -818,7 +828,7 @@ mod tests {
         Scenario {
             scenario_id: "synthetic-test".to_owned(),
             scenario_digest:
-                "sha256:f77fcc28f2a68ef2bdbbc16b36d85d475a5bae3293e1c944b44734630328e579".to_owned(),
+                "sha256:3e405cc6dd8d56fb68ad1378ad3f510070d32210a02c7d38cde47dd92a8cc98d".to_owned(),
             time_basis_id: "synthetic-clock-v1".to_owned(),
             evaluation_time_seconds: 100,
             clock_uncertainty_seconds: 0,
@@ -871,6 +881,13 @@ mod tests {
         assert!(rendered.contains("claim_scope=DECLARED_SCENARIO_ONLY"));
         assert!(rendered.contains("execution_authority=NONE"));
         assert!(rendered.contains("operational_actuation=NOT_AUTHORISED"));
+    }
+
+    #[test]
+    fn scenario_digest_must_be_sha256_hex() {
+        let mut invalid_scenario = scenario();
+        invalid_scenario.scenario_digest = "sha256:not-a-digest".to_owned();
+        assert!(evaluate(&invalid_scenario, &[option(100)], &[], &all_qualified()).is_err());
     }
 
     #[test]
@@ -1051,7 +1068,7 @@ mod tests {
     #[test]
     fn scenario_revision_mismatch_is_rejected() {
         let mut records = all_qualified();
-        records[0].scenario_digest = "synthetic:scenario-digest:older-v0".to_owned();
+        records[0].scenario_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_owned();
         assert!(evaluate(&scenario(), &[option(100)], &[], &records).is_err());
     }
 
