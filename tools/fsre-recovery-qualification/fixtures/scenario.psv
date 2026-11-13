@@ -1,0 +1,11 @@
+# scenario_id=synthetic-water-compound-disruption
+# evaluation_time_seconds=1000
+# horizon_seconds=43200
+option_id|service_id|mobilisation_seconds
+backup_independent|household_water_service|3600
+feeder_transfer|household_water_service|1800
+manual_fallback|household_water_service|900
+mobile_treatment|hospital_water_service|10800
+mutual_aid|hospital_water_service|3600
+stale_spatial_backup|household_water_service|1200
+supplier_delivery|household_water_service|172800
