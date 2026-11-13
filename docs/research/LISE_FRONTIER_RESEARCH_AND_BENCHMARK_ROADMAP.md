@@ -384,3 +384,8 @@ The intended innovation is a conditional map of when interventions damp harmful 
 - Li et al., *Improving Group Deliberation through AI-Guided Self-Reflection* (preprint, 27 October 2026): https://arxiv.org/abs/2610.37862
 
 These are motivating studies, not LISE results. Independent replication and context-specific evaluation remain necessary.
+
+
+## 15. IPB-S3 — adversarial institutional capture
+
+See [IPB-S3 research specification](IPB_S3_ADVERSARIAL_CAPTURE.md) and [Mycelix issue #6114](https://github.com/Luminous-Dynamics/mycelix/issues/6114). The first authored implementation includes eight deterministic scenarios with capture-detected, no-capture-observed and execution-unavailable outcomes. It composes the Symtropy #3684 power-analysis owner and Symthaea #3054/#1872 adversarial-agent owners; it does not duplicate those engines. Exact-head hosted validation remains pending.
