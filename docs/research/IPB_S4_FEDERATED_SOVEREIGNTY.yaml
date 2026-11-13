@@ -1,0 +1,216 @@
+schema: lise.ipb.scenario-manifest.v0
+suite_id: IPB-S4-FED-SOV-v0
+scenario_id: bilateral-resource-service-evidence-exchange
+scenario_version: 1
+claim_scope: synthetic_interinstitutional_authority_and_data_use_fixture
+evidence_tier: deterministic_software_benchmark_specification
+status: frozen_reference_specification_draft
+
+scenario_principle:
+  sovereignty: each institution retains its own constitution and local authority
+  peer_assertion: evidence_only_unless_locally_accepted_under_local_rule
+  delegation_conservation: delegated capability cannot exceed source authority or bilateral mandate
+  data_use: purpose_and_field_limited
+  uncertainty: unknown_or_contested_never_becomes_permit
+  exit: no_new_work_after_effective_exit; in_flight_work_requires_reconciliation
+
+fixture_clock:
+  unit: millisecond
+  origin: 0
+  wall_clock_dependency: false
+
+institutions:
+  - institution_id: institution-a
+    role: resource_owner
+    constitution_id: constitution-a
+    constitution_version: 1
+    local_authority_owner: a-resource-steward
+    resource_id: community-fund-a
+  - institution_id: institution-b
+    role: service_provider
+    constitution_id: constitution-b
+    constitution_version: 1
+    local_authority_owner: b-service-steward
+    resource_id: service-operations-b
+
+bilateral_mandate:
+  mandate_id: mandate-a-b-001
+  mandate_version: 1
+  issuer_institution: institution-a
+  recipient_institution: institution-b
+  accepted_by_b: true
+  purpose: verify_completion_of_service_order
+  resources:
+    - service-order-0042
+  permitted_data_fields:
+    - service_order_id
+    - service_completion_status
+    - completion_time_ms
+    - itemized_service_receipt_digest
+  prohibited_data_categories:
+    - unrelated_member_identity
+    - unrelated_financial_history
+    - unrelated_health_or_personal_data
+  permitted_actions:
+    - submit_service_completion_evidence
+    - answer_service_order_status_query
+  prohibited_actions:
+    - authorize_institution_a_treasury_payment
+    - change_institution_a_budget
+    - amend_institution_a_constitution
+    - appoint_or_remove_institution_a_officers
+    - subdelegate_institution_a_authority
+  subdelegation:
+    permitted: false
+  validity:
+    valid_from_ms_inclusive: 0
+    valid_until_ms_exclusive: 60000
+  revocation:
+    revocation_epoch: 0
+    effective_at_ms: null
+  dispute:
+    forum_id: bilateral-review-panel-001
+    unresolved_claim_disposition: contested_or_indeterminate
+  exit:
+    new_work_after_effective_exit: prohibited
+    in_flight_outcome: reconcile_before_mutation
+    preserve_audit_and_remedy_references: true
+
+canonical_service_evidence:
+  service_order_id: service-order-0042
+  service_completion_status: completed
+  completion_time_ms: 12000
+  itemized_service_receipt_digest: sha256:fixture-service-receipt
+  source_institution: institution-b
+  source_credential_subject: b-service-attestor
+  source_credential_scope: attest_service_completion
+  target_institution: institution-a
+  evidence_only: true
+
+local_authorization_boundary:
+  institution_a_payment_policy:
+    policy_id: policy-a-payment-v1
+    requires_local_authorization: true
+    authorized_actor: a-resource-steward
+    partner_attestation_sufficient: false
+    maximum_amount_minor: 10000
+  benchmark_rule:
+    - service evidence may support A's decision
+    - only A's own current local authority may authorize A's treasury action
+    - B's credential or decision is not transitive authority
+
+case_expectations:
+  - case_id: s4-positive-bounded-evidence-exchange
+    class: positive_control
+    expected_disposition: evidence_exchange_accepted
+    expected_local_payment_authority: not_evaluated
+    mutations: []
+  - case_id: s4-negative-peer-credential-as-local-authority
+    class: negative_control
+    expected_disposition: missing_local_authority
+    mutations:
+      - replay B service attestation as if it authorized A treasury payment
+  - case_id: s4-negative-delegation_amplification
+    class: negative_control
+    expected_disposition: scope_mismatch
+    mutations:
+      - B subdelegates an A treasury capability it does not hold
+  - case_id: s4-negative-purpose-creep
+    class: negative_control
+    expected_disposition: purpose_mismatch
+    mutations:
+      - reuse service evidence for unrelated credit_scoring purpose
+  - case_id: s4-positive-data-minimization
+    class: positive_control
+    expected_disposition: evidence_exchange_accepted
+    mutations:
+      - request permitted fields only
+  - case_id: s4-negative-excess-data-disclosure
+    class: negative_control
+    expected_disposition: disclosure_denied_or_minimized
+    mutations:
+      - request unrelated member identity and financial history
+  - case_id: s4-negative-expired-mandate
+    class: negative_boundary_control
+    expected_disposition: expired
+    mutations:
+      - request at_ms = 60000
+  - case_id: s4-negative-revoked-mandate-replay
+    class: negative_control
+    expected_disposition: revoked
+    mutations:
+      - set revocation_epoch = 1
+      - replay assertion carrying revocation_epoch = 0
+      - attempt after effective revocation
+  - case_id: s4-positive-bitemporal-local-policy-change
+    class: positive_reconstruction_control
+    expected_disposition: both_policy_versions_preserved
+    mutations:
+      - institution_a constitution version changes from 1 to 2 at event_time_ms = 20000
+      - institution_b remains on constitution version 1
+      - reconstruct both event-time and as-known-at views without rewriting prior events
+  - case_id: s4-negative-constitutional-incompatibility
+    class: negative_control
+    expected_disposition: contested_or_indeterminate
+    mutations:
+      - B mandate interpretation conflicts with a non-waivable local A constraint
+  - case_id: s4-stress-unknown-delivery-outcome
+    class: safety_control
+    expected_disposition: reconciliation_required
+    mutations:
+      - submit payment execution attempt
+      - transport times out after possible mutation
+      - do not retry or issue a second mutation before independent reconciliation
+  - case_id: s4-positive-safe-partner-exit
+    class: positive_lifecycle_control
+    expected_disposition: partner_exited_new_work_prohibited
+    mutations:
+      - effective_exit_ms = 30000
+      - preserve audit/remedy references
+      - reconcile all in_flight operations
+  - case_id: s4-stress-incomplete-common-cause-inventory
+    class: indeterminate_control
+    expected_disposition: indeterminate
+    mutations:
+      - A and B share an identity issuer and evidence custodian
+      - dependency closure is incomplete
+      - do not claim independent verification
+  - case_id: s4-negative-valid-signature-invalid-authority
+    class: negative_control
+    expected_disposition: evidence_authenticity_supported_authority_missing
+    mutations:
+      - B credential signature is cryptographically valid
+      - issuer is valid for service-attestation claims only
+      - attempt to use it for A payment authorization
+  - case_id: s4-negative-replay-duplicate-operation
+    class: negative_control
+    expected_disposition: replay_rejected_or_reconciled
+    mutations:
+      - reuse the same mandate/operation id after completed or unknown result
+      - never create duplicate side effect
+
+expected_case_count: 14
+suite_invariants:
+  authority_non_transitivity: true
+  delegation_amplification: false
+  excess_data_disclosure: false
+  stale_or_revoked_assertions_authorize_new_work: false
+  unknown_execution_outcome_allows_new_mutation: false
+  unilateral_partner_policy_rewrite: false
+  exit_allows_new_work: false
+  incomplete_dependency_closure_proves_independence: false
+  cryptographic_signature_alone_grants_authority: false
+  random_seed: none
+  wall_clock_dependency: false
+  network_dependency: none_for_reference_fixture
+
+evidence_ceiling:
+  demonstrates:
+    - conformance_to_this_synthetic_scenario_contract
+    - deterministic_expected_dispositions_when_executed
+  does_not_demonstrate:
+    - legal_or_constitutional_compliance
+    - production_holochain_enforcement
+    - privacy_regulatory_compliance
+    - real_world_institutional_effectiveness
+    - absence_of_unknown_shared_dependencies
