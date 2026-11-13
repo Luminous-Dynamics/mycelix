@@ -20,6 +20,7 @@ This is a research hypothesis about an implementation gap, not a proven claim th
 | ISO 22316:2017 / ISO/FDIS 22316 Edition 2 | Organisational resilience guidance; the second edition is a Final Draft International Standard in approval with planned publication in January 2027 | Map organisational resilience capabilities to explicit service dependencies, recovery options and measured outcomes | A replacement for organisational resilience policy or guidance, or a claim that the 2027 edition is already published |
 | ISO 22336:2024 | Guidance for resilience policy, strategy, implementation priorities and coordinated organisational capability | Use as a policy/strategy alignment reference; FSRE tests whether selected interventions work in bounded service contexts | That an executable profile alone establishes organisational resilience |
 | EU Critical Entities Resilience Directive (EU) 2022/2557 | Requires covered critical entities to assess relevant risks, including cross-sector and cross-border dependencies, and implement proportionate resilience measures | Potential evidence and workflow support for covered entities operating under the Directive | Legal compliance, designation as a critical entity, or applicability outside the relevant legal scope |
+| European Commission CER Guidelines C/2026/3712 (13 July 2026) | Non-binding guidance under Article 13(5), emphasising continuity of essential services, dependencies beyond direct suppliers, manual operation if automation fails, workforce recovery and appropriate/proportionate measures | FSRE can structure service-specific evidence and qualify whether a declared fallback is feasible, staffed, authorised and evidenced | Legal compliance, designation, or substitution for the entity's own risk assessment/resilience plan; the Guidelines are non-binding |
 | NIST SP 800-160 Vol. 2 Rev. 1 | Cyber-resiliency engineering for systems that anticipate, withstand, recover from and adapt to adverse cyber conditions | Reuse systems-engineering and cyber-resilience concepts; extend the service study across physical, institutional, economic and ecological dependencies | Replacement for NIST guidance or proof of cyber/physical safety |
 | UNDRR Disaster Resilience Scorecard for Cities | City-level governance, risk, planning, infrastructure, response and recovery assessment structured around the Ten Essentials | Use as a city/planning assessment input; connect selected gaps to operational tests and measured service outcomes | Replacement for the Scorecard, disaster-risk assessment or local emergency authority |
 | GovStack / GovSpecs | Composable, interoperable digital-government building blocks and functional specifications | Integrate with existing building blocks; use them for identity, payments, registries and other shared digital services where appropriate | A competing national digital-government platform or a new mandatory building-block stack |
@@ -30,6 +31,8 @@ This is a research hypothesis about an implementation gap, not a proven claim th
 | OECD Digital Government Outlook 2026 | Evidence on digital-government capability, interoperability adoption and AI governance/impact assessment | Use as evidence that infrastructure presence, institutional use and impact evaluation are different dimensions | A global estimate or a claim that the OECD figures describe every country |
 
 ## 3. Evidence corrections and dated context
+
+The European Commission's 13 July 2026 non-binding CER guidelines explicitly encourage entities to shift from protecting assets alone to ensuring continuity of essential services, consider dependencies beyond direct ones, and include manual operating capability and workforce recovery in resilience measures. They also state that existing measures/documents under other applicable laws should be reused where possible to avoid duplication. This reinforces FSRE's service-centred, reuse-first profile but does not constitute an FSRE certification or legal compliance claim.
 
 The OECD Digital Government Outlook 2026 reports:
 
@@ -95,6 +98,7 @@ Before making a product-market-gap claim:
 - ISO 22316 current revision status: https://www.iso.org/standard/86493.html
 - ISO 22336:2024: https://www.iso.org/standard/50073.html
 - EU Critical Entities Resilience Directive: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022L2557
+- European Commission CER Guidelines C/2026/3712 (13 July 2026): https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX%3A52026XC03712
 - NIST SP 800-160 Vol. 2 Rev. 1: https://csrc.nist.gov/pubs/sp/800/160/v2/r1/final
 - UNDRR Disaster Resilience Scorecard for Cities: https://www.unisdr.org/campaign/resilientcities/assets/toolkit/documents/UNDRR_Disaster%20resilience%20scorecard%20for%20cities_Detailed_English_Jan2021.pdf
 - GovStack / ITU GovSpecs: https://www.itu.int/en/ITU-D/ICT-Applications/Pages/GovStack-GovSpecs.aspx
