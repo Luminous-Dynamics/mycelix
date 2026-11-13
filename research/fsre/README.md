@@ -15,6 +15,10 @@ It is not a new civic-governance programme, a second civilization simulator, an 
 - [Standards and industry crosswalk](FRAMEWORK_CROSSWALK_V0_1.md) — positioning against existing resilience, critical-entity and digital-government frameworks.
 - [Competitive landscape](COMPETITIVE_LANDSCAPE_V0_1.md) — direct comparison with enterprise ontology, asset-performance, infrastructure-twin and water-operations products, with testable differentiation hypotheses.
 - [South African public-data inventory](ZA_PUBLIC_DATA_INVENTORY_V0_1.md) — dated water/sanitation data sources, admissibility, missingness and the minimum operator evidence needed for a qualified service study.
+- [South African public source register](ZA_PUBLIC_SOURCE_REGISTER_V0_1.psv) — machine-readable discovery register with source release, observation period, grain, denominator, currentness and extraction state.
+- [South African public-data replay protocol](ZA_PUBLIC_DATA_REPLAY_PROTOCOL_V0_1.md) — exact Treasury cube/item taxonomy and extraction, null, pagination, identity and DWS/Stats SA admissibility rules.
+- [Recovery-option interoperability contract](RECOVERY_OPTION_INTEROP_CONTRACT_V0_1.md) — seven owner-qualified predicates, conservative federated time semantics, revalidation and authority boundaries.
+- [Investment portfolio evaluation protocol](INVESTMENT_PORTFOLIO_EVALUATION_PROTOCOL_V0_1.md) — pre-registered matched portfolios, service/economic/distribution measures, causal design and falsification rules.
 - [Option-preserving resilience benchmark](OPTION_PRESERVING_RESILIENCE_V0_1.md) — service trajectories, qualified recovery options, graceful degradation and falsification tests.
 - [Resilience debt and option-preserving investment](RESILIENCE_DEBT_AND_PORTFOLIO_V0_1.md) — derived resilience liabilities, workforce/supplier/maintenance constraints and multi-objective investment portfolios.
 - [Service-trajectory reference evaluator](../../tools/fsre-service-trajectory/README.md) — a dependency-free Rust metric evaluator for one service/cohort time series.
