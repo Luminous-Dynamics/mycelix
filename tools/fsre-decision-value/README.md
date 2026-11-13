@@ -51,4 +51,6 @@ All quantities are returned as exact rational numerators and denominators. Costs
 cargo test --locked --offline --manifest-path tools/fsre-decision-value/Cargo.toml
 ```
 
+The v0.1 library currently has 13 unit tests covering exact positive EVSI, high-information/zero-decision-value observations, authorisation and safety blocks, malformed likelihoods, excluded actions, duplicate identities, deterministic ordering, scale invariance and acquisition/delay cost thresholds. The focused workflow runs formatting, tests and Clippy; queued or skipped is not a pass.
+
 The v0.1 tool is a deterministic finite-case reference, not a calibrated model, sensor scheduler, causal engine or operational policy. Its unit tests use declared synthetic values only. The API accepts already qualified case inputs; it does not gather data, authorize measurements or actuate systems.
