@@ -1982,7 +1982,7 @@ mod tests {
         assert_eq!(cut_report.disposition, CutSetDisposition::Incomplete);
         assert!(cut_report.minimal_cut_sets.is_empty());
         assert_eq!(cut_report.minimum_cut_cardinality, None);
-        assert!(
+        assert_eq!(
             analyze_profile_cut_sets(&checked, &manifest, 100_000)
                 .expect_err("incomplete profile cannot be promoted"),
             ProfileCutSetError::ProfileNotComplete
