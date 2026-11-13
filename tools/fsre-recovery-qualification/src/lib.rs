@@ -854,7 +854,7 @@ mod tests {
             service_id: "water-service-a".to_owned(),
             scenario_id: "synthetic-test".to_owned(),
             scenario_digest:
-                "sha256:f77fcc28f2a68ef2bdbbc16b36d85d475a5bae3293e1c944b44734630328e579".to_owned(),
+                "sha256:3e405cc6dd8d56fb68ad1378ad3f510070d32210a02c7d38cde47dd92a8cc98d".to_owned(),
             source_schema_version: format!("{}.predicate.v0.1", predicate.expected_owner()),
             predicate,
             disposition,
