@@ -392,7 +392,8 @@ mod tests {
             option: "option-a".to_owned(),
             service: "service-a".to_owned(),
             scenario: "scenario-a".to_owned(),
-            digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
+            digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                .to_owned(),
             schema: "mycelix.authority.v0.1".to_owned(),
             kind: "authority".to_owned(),
             disposition: "QUALIFIED".to_owned(),
