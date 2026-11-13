@@ -18,6 +18,7 @@ It is not a new civic-governance programme, a second civilization simulator, an 
 - [South African public source register](ZA_PUBLIC_SOURCE_REGISTER_V0_1.psv) — machine-readable discovery register with source release, observation period, grain, denominator, currentness and extraction state.
 - [South African public-data replay protocol](ZA_PUBLIC_DATA_REPLAY_PROTOCOL_V0_1.md) — exact Treasury cube/item taxonomy and extraction, null, pagination, identity and DWS/Stats SA admissibility rules.
 - [Recovery-option interoperability contract](RECOVERY_OPTION_INTEROP_CONTRACT_V0_1.md) — seven owner-qualified predicates, conservative federated time semantics, revalidation and authority boundaries.
+- [Claim qualification profile](CLAIM_QUALIFICATION_PROFILE_V0_1.md) — distinguishes synthetic conformance, public-source reporting, model outputs, operator observations, causal effects and independent service-outcome verification.
 - [Investment portfolio evaluation protocol](INVESTMENT_PORTFOLIO_EVALUATION_PROTOCOL_V0_1.md) — pre-registered matched portfolios, service/economic/distribution measures, causal design and falsification rules.
 - [Option-preserving resilience benchmark](OPTION_PRESERVING_RESILIENCE_V0_1.md) — service trajectories, qualified recovery options, graceful degradation and falsification tests.
 - [Resilience debt and option-preserving investment](RESILIENCE_DEBT_AND_PORTFOLIO_V0_1.md) — derived resilience liabilities, workforce/supplier/maintenance constraints and multi-objective investment portfolios.
