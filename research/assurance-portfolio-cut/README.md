@@ -166,11 +166,11 @@ A passing result establishes only that the exact finite manifest, profile rules 
 The standalone Rust crate in this directory implements the first finite research slice:
 
 - The claimed tier resolves to mandatory evaluator roles and pairwise role/domain separation obligations from a **separately supplied, caller-pinned assurance policy**. The caller's expected policy digest is an independent function argument; both the policy object and candidate profile must match it. The candidate profile cannot provide or weaken its own mandatory separation list; a policy-digest mismatch and unknown tier are rejected. The trusted caller remains responsible for verifying that the supplied policy bytes actually hash to the pinned digest before constructing the policy value.
-- The profile checker requires every policy-required role to be represented and each role manifest to account for all 15 dimensions. Missing/unknown dimensions make the profile incomplete for this v0.1 strict tier. Shared and not-applicable declarations require non-empty rationales. Profile validity uses the half-open interval `valid_from <= now < valid_until` when an expiry is present; empty or reversed windows are rejected.
+- The profile checker requires every policy-required role to be represented and each role manifest to account for all 15 dimensions. A dimension can contain multiple exact dependency identities; a complete multi-value set is accepted, while a partial set retains known identities but makes the profile incomplete. Missing/unknown dimensions also make the profile incomplete. Shared and not-applicable declarations require non-empty rationales. Profile validity uses the half-open interval `valid_from <= now < valid_until` when an expiry is present; empty or reversed windows are rejected.
 - Required pairwise role/domain separations pass only when both sides supply known, unequal digest identities. Equal, unknown, shared or not-applicable identities cannot satisfy a mandatory separation. A profile cannot remove a required role to weaken the policy.
 - Repeated domain identities across roles are reported as observed shared domains even if an input labels them `Distinct`; an explicit shared label without a matching cross-role identity is incomplete. The report does not infer independence from different executable hashes.
 - A dependency-free incremental minimal-hitting-set reference enumerates every minimal set of domain compromises that hits every role dependency set under the explicit assumption that compromise of any listed dependency invalidates that role's output.
-- Each dependency role must classify every dimension as exactly one of known, not-applicable (with a non-empty rationale), or unknown. Unknown, omitted, contradictory or empty dependency manifests return `Incomplete` with no cut-set cardinality. State-budget exhaustion returns `BudgetExceeded` with no partial cut sets. It never publishes a partial list as a complete result.
+- Each dependency role must classify every dimension as exactly one of a complete non-empty known-identity set, not-applicable (with a non-empty rationale), or unknown. A partial known-identity set is represented explicitly as known-plus-unknown, preserving observed overlap but returning `Incomplete` with no cut-set cardinality. Unknown-only dimensions, omitted, contradictory or empty dependency manifests likewise return `Incomplete`. State-budget exhaustion returns `BudgetExceeded` with no partial cut sets. It never publishes a partial list as a complete result.
 - Cut-set reports bind the claim ID, subject digest, dependency-manifest digest and attack-model digest.
 
 Run from the repository root:
@@ -234,3 +234,17 @@ The current dependency manifest model treats a dependency key as a single point 
 
 The added v0.2 tests also verify that a complete profile can only be combined with its exact dependency manifest, that substituted domain identities fail even when the digest labels are left unchanged, that incomplete profiles cannot be promoted into cut-set analysis, and that candidate-extension accounting is invariant under role input order.
 
+
+
+## Multi-valued dependency extension (draft, 2026-11-13)
+
+The follow-on branch `research/assurance-multivalue-dependencies-v0` extends the existing finite model for #5762/#5695; it does not create a second graph or cut-set engine.
+
+- A role/dimension can now retain multiple exact `(dimension, identity)` dependency keys. Two host, source, registry or execution dependencies in the same canonical dimension are no longer collapsed or rejected simply because there is more than one.
+- `KnownDependencies::Complete` says the full claim-critical inventory for that dimension is declared. `KnownDependencies::Partial` retains its known identities while recording an unresolved remainder. A partial set makes the profile incomplete and cannot yield a numeric minimum cut cardinality.
+- An explicitly `Unknown` dimension now always blocks a numeric cut-set result, even if other dimensions in the role have known dependencies. This closes a validator gap where an unknown-only dimension could previously be counted as fully classified.
+- Cross-role overlap is reported using each exact dimension-qualified identity. Identical digest bytes in different dimensions remain different fault-domain keys.
+- Profile-to-manifest binding expands every listed identity and retains completeness and accepted-sharing rationale. A digest label alone cannot conceal a substituted identity.
+- Regression tests cover multi-value same-dimension overlap, partial known-plus-unknown inventories, retained known dependencies in incomplete reports, dimension-qualified key collisions, and exact agreement with the independent brute-force enumerator on a generated 48-case panel spanning two to five roles.
+
+The model remains conditional on the supplied inventory and the any-listed-key-compromise fault semantics. It does not yet ingest the canonical transitive dependency graph from #1243; cycle detection, dangling-edge/stale-evidence checks and graph-derived closure remain a separate owner-native integration. This branch is still a research increment stacked on draft PR #5696 and has no hosted validation result yet. The crate currently contains 33 unit tests; the multi-value extension is queued for an exact-head workflow on its stacked pull request.
