@@ -83,6 +83,8 @@ A measurement's EVSI is conditional on the current evidence snapshot. The values
 
 This is a greedy one-step policy. It is not claimed to be globally optimal over a multi-step budget; a finite-horizon dynamic-programming or policy-search comparator should be added before any claim of optimal sequential sensing.
 
+For sewer use, evaluate policies on held-out catchment and WSA topologies, not random time rows from a graph seen during tuning. Separate known-event detection from unseen-source localisation and unseen-network transfer. The candidate measurement catalogue must include realistic sensor installation, access, maintenance, communications and sampling costs; compare against operator placements, entropy placement and TDFI/SBS where applicable. Record per-catchment decision regret, localisation error, false alarm and abstention, total lifecycle cost and service/environment outcomes. A good policy may select no new sensor where existing data cannot change the admissible decision.
+
 At each step it must:
 
 1. Freeze the current evidence frontier and exact time/scope basis.
