@@ -105,6 +105,8 @@ Missing rows yield explicit `MISSING_PREDICATE:<name>` reasons. They are not par
 
 A qualified result should include the exact input/owner record references and digests, the scenario and evaluator versions, and the full reason set. It does not grant permission to dispatch, spend, contract, operate equipment or perform work.
 
+The evaluator's report is an evidence-carrying, scenario-scoped qualification statement. It includes the scenario digest, per-option reason codes, individual debt source references and the predicate owner/schema/evidence/time fields consumed. It also explicitly emits `execution_authority=NONE` and `operational_actuation=NOT_AUTHORISED`. A downstream system must not treat the report as an action token, dispatch order or approval to spend/contract.
+
 ## 6. Revalidation and authority separation
 
 Qualification is time-bounded and scenario-scoped. Before an operator performs a consequential action, the action path must independently revalidate:
