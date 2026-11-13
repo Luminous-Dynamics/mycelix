@@ -4,7 +4,7 @@ use institutional_assurance::capture::{CaptureDisposition, adversarial_capture_s
 fn all_s3_known_answer_cases_match_their_expected_disposition() {
     let report = adversarial_capture_suite();
     assert_eq!(report.total_cases, 9);
-    assert_eq!(report.passed_cases, 8);
+    assert_eq!(report.passed_cases, 9);
     assert_eq!(report.failed_cases, 0);
 
     let captured = report
@@ -40,18 +40,20 @@ fn receipts_expose_the_declared_controller_topology() {
 
     assert_eq!(receipt.policy_id, "ipb-s3-fixture-policy");
     assert_eq!(receipt.policy_version, 1);
-    assert_eq!(receipt.coalition_members, vec!["cartel-a", "cartel-b"]);
+    assert_eq!(receipt.coalition_members, vec!["cartel-a".to_owned(), "cartel-b".to_owned()]);
 
     let agenda = receipt
         .domain_assessments
         .iter()
-        .find(|assessment| assessment.domain == institutional_assurance::capture::ControlDomain::Agenda)
+        .find(|assessment| {
+            assessment.domain == institutional_assurance::capture::ControlDomain::Agenda
+        })
         .expect("agenda assessment exists");
-    assert_eq!(agenda.authorized_controllers, vec!["cartel-a", "cartel-b"]);
-    assert_eq!(agenda.available_controllers, vec!["cartel-a", "cartel-b"]);
+    assert_eq!(agenda.authorized_controllers, vec!["cartel-a".to_owned(), "cartel-b".to_owned()]);
+    assert_eq!(agenda.available_controllers, vec!["cartel-a".to_owned(), "cartel-b".to_owned()]);
     assert_eq!(
         agenda.coalition_available_controllers,
-        vec!["cartel-a", "cartel-b"]
+        vec!["cartel-a".to_owned(), "cartel-b".to_owned()]
     );
     assert!(agenda.independent_available_controllers.is_empty());
     assert_eq!(
