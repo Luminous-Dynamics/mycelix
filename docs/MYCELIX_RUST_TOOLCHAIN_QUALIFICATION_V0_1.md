@@ -107,3 +107,23 @@ No compiler or application performance advantage is claimed until matched data e
 - Rust compiler performance testing: https://rustc-dev-guide.rust-lang.org/tests/perf.html
 - Cargo timings: https://doc.rust-lang.org/cargo/reference/timings.html
 - Holochain developer documentation: https://developer.holochain.org/
+
+
+## Per-toolchain WASM artifact identity
+
+The current workflow extends the release-WASM build from a pass/fail signal into a reproducible artifact receipt. It captures Cargo `compiler-artifact` JSON events and emits one record per reported `.wasm` output with:
+
+- exact package identity;
+- Cargo target metadata;
+- artifact filename;
+- file size in bytes;
+- SHA-256 digest;
+- source commit and per-cluster Cargo.lock digest in the workflow summary.
+
+The manifest is uploaded separately for every matrix cell:
+
+`Finance × {1.96.0, 1.99.1, 1.100.0}` and `Governance × {1.96.0, 1.99.1, 1.100.0}`.
+
+This lets us compare per-zome artifact identity/size across compiler versions without assuming Cargo's internal intermediate directory layout. Cross-toolchain hash changes are not automatically failures: they must be interpreted against build flags, target triple, linker, source, dependency lock and runtime semantics. Same-toolchain independent-build hash comparison is a separate reproducibility experiment.
+
+A WASM artifact manifest is still not a production qualification. A later conductor-level campaign must bind the exact DNA, Holochain version, conductor configuration, storage backend, network/topology and request corpus, then measure validation cost, execution latency, throughput and tail behavior. No DNA deployment or network mutation is performed by this workflow.
