@@ -105,7 +105,7 @@ fn parse_optional_integer(value: &str, label: &str, line: usize) -> Result<Optio
 
 fn parse_fact(line: &str, line_number: usize) -> Result<Fact, String> {
     let columns: Vec<&str> = line.split('|').map(str::trim).collect();
-    if columns.len() != 9 || columns.iter().any(|value| value.is_empty() && value != &columns[6] && value != &columns[7]) {
+    if columns.len() != 9 || columns.iter().enumerate().any(|(index, value)| value.is_empty() && index != 6 && index != 7) {
         return Err(format!(
             "line {line_number}: expected 9 fields; only numerator and denominator may be empty"
         ));
