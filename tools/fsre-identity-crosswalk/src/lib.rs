@@ -53,9 +53,7 @@ struct Transition {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Group {
-    id: String,
     relation: String,
-    effective_date: String,
     rows: Vec<Transition>,
 }
 
@@ -177,16 +175,6 @@ fn parse_transition(line: &str, line_number: usize) -> Result<Transition, String
             fields[9]
         ));
     }
-    if fields[9] == "ACCEPTED"
-        && !matches!(
-            fields[8],
-            "OFFICIAL_CROSSWALK" | "SOURCE_NATIVE_CHANGE" | "INDEPENDENT_FIELD"
-        )
-    {
-        return Err(format!(
-            "line {line_number}: accepted transition lacks admissible source evidence"
-        ));
-    }
     if fields[8] == "SYNTHETIC" && fields[9] != "SYNTHETIC_ONLY" {
         return Err(format!(
             "line {line_number}: synthetic evidence must remain SYNTHETIC_ONLY"
@@ -195,6 +183,16 @@ fn parse_transition(line: &str, line_number: usize) -> Result<Transition, String
     if fields[9] == "SYNTHETIC_ONLY" && fields[8] != "SYNTHETIC" {
         return Err(format!(
             "line {line_number}: SYNTHETIC_ONLY review state requires SYNTHETIC evidence"
+        ));
+    }
+    if fields[9] == "ACCEPTED"
+        && !matches!(
+            fields[8],
+            "OFFICIAL_CROSSWALK" | "SOURCE_NATIVE_CHANGE" | "INDEPENDENT_FIELD"
+        )
+    {
+        return Err(format!(
+            "line {line_number}: accepted transition lacks admissible source evidence"
         ));
     }
 
@@ -260,9 +258,7 @@ fn group_transitions(rows: Vec<Transition>) -> Result<Vec<Group>, String> {
             ));
         }
         groups.push(Group {
-            id,
             relation: first.relation.clone(),
-            effective_date: first.effective_date.clone(),
             rows,
         });
     }
