@@ -23,6 +23,8 @@ cargo run --locked --offline --manifest-path tools/fsre-recovery-reference/Cargo
 
 Compare the output byte-for-byte with `fixtures/expected-options.txt`. The separate recovery qualification workflow performs this comparison.
 
+The crate has four deterministic unit tests for digest shape and conservative clock-boundary handling. On the current qualified revision, its independent output matched all seven frozen synthetic candidate dispositions byte-for-byte.
+
 ## Independence boundary
 
 This is independent implementation, not independent evidence. Both evaluators consume the same files and share the same written contract and owner map. It can detect implementation/parser differences but cannot detect an incorrect specification, an unauthenticated upstream record or a shared fixture error. A separate reviewer and independently prepared challenge inputs remain necessary.
