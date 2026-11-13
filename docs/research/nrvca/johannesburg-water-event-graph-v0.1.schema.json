@@ -1,0 +1,492 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/nrvca/johannesburg-water-event-graph-v0.1.schema.json",
+  "title": "Johannesburg Water Evidence Event Graph v0.1",
+  "description": "Append-only, source-linked graph of water-service notice assertions, provisional event identities, operating schedules and status snapshots. It does not establish measured customer service.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ledger_id",
+    "as_of_date",
+    "source_snapshot",
+    "assertions",
+    "events",
+    "relations",
+    "interpretation_rules",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "ledger_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "as_of_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "source_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "register_id",
+        "register_path",
+        "register_git_blob_sha1",
+        "register_as_of_date"
+      ],
+      "properties": {
+        "register_id": {
+          "const": "nrvca-johannesburg-water-service-sources-v0.1"
+        },
+        "register_path": {
+          "const": "docs/research/nrvca/johannesburg-water-service-sources-v0.1.json"
+        },
+        "register_git_blob_sha1": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "register_as_of_date": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
+    "assertions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "assertion_id",
+          "source_id",
+          "media_index",
+          "media_uri",
+          "publisher",
+          "notice_class",
+          "published_at_text",
+          "event_time",
+          "reported_subject",
+          "reported_areas",
+          "reported_assets",
+          "reported_claim",
+          "reported_metrics",
+          "source_bytes_sha256",
+          "claim_level"
+        ],
+        "properties": {
+          "assertion_id": {
+            "type": "string",
+            "pattern": "^[A-Z0-9][A-Z0-9._-]{2,63}$"
+          },
+          "source_id": {
+            "type": "string",
+            "pattern": "^[A-Z0-9][A-Z0-9._-]{2,63}$"
+          },
+          "media_index": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "media_uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "publisher": {
+            "type": "string",
+            "minLength": 1
+          },
+          "notice_class": {
+            "enum": [
+              "system_status_update",
+              "scheduled_reservoir_closure",
+              "unplanned_burst_repair",
+              "infrastructure_security_notice"
+            ]
+          },
+          "published_at_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "event_time": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "start_text",
+              "end_text",
+              "recurrence_text",
+              "timezone_status",
+              "semantics_note"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "unknown",
+                  "incident_reported_at",
+                  "snapshot_at",
+                  "scheduled_interval",
+                  "recurring_schedule"
+                ]
+              },
+              "start_text": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "end_text": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "recurrence_text": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "timezone_status": {
+                "enum": [
+                  "not_normalized",
+                  "explicit_in_source",
+                  "normalized_from_explicit_local_context",
+                  "unknown"
+                ]
+              },
+              "semantics_note": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "reported_subject": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reported_areas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reported_assets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reported_claim": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reported_metrics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "metric_name",
+                "value",
+                "unit",
+                "method_status",
+                "comparability_status",
+                "source_wording"
+              ],
+              "properties": {
+                "metric_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "unit": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "method_status": {
+                  "enum": [
+                    "method_supplied",
+                    "method_not_supplied",
+                    "unknown"
+                  ]
+                },
+                "comparability_status": {
+                  "enum": [
+                    "established",
+                    "not_established",
+                    "not_applicable",
+                    "unknown"
+                  ]
+                },
+                "source_wording": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "source_bytes_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "claim_level": {
+            "const": "publisher_assertion_not_independent_measurement"
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "event_kind",
+          "identity_state",
+          "identity_basis",
+          "assertion_ids",
+          "event_time",
+          "reported_geography",
+          "reported_assets",
+          "service_impact_status",
+          "restoration_status",
+          "notes"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^[A-Z0-9][A-Z0-9._-]{2,63}$"
+          },
+          "event_kind": {
+            "enum": [
+              "unplanned_physical_incident",
+              "scheduled_operating_rule",
+              "system_status_snapshot",
+              "infrastructure_security_activity"
+            ]
+          },
+          "identity_state": {
+            "enum": [
+              "provisional",
+              "source_asserted",
+              "corroborated",
+              "independently_resolved",
+              "rejected"
+            ]
+          },
+          "identity_basis": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "assertion_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "event_time": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "start_text",
+              "end_text",
+              "recurrence_text",
+              "timezone_status",
+              "semantics_note"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "unknown",
+                  "incident_reported_at",
+                  "snapshot_at",
+                  "scheduled_interval",
+                  "recurring_schedule"
+                ]
+              },
+              "start_text": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "end_text": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "recurrence_text": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "timezone_status": {
+                "enum": [
+                  "not_normalized",
+                  "explicit_in_source",
+                  "normalized_from_explicit_local_context",
+                  "unknown"
+                ]
+              },
+              "semantics_note": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "reported_geography": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "raw_labels",
+              "geometry_status",
+              "geometry_uri",
+              "crs"
+            ],
+            "properties": {
+              "raw_labels": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "geometry_status": {
+                "enum": [
+                  "not_available",
+                  "candidate_unverified",
+                  "source_geometry_verified",
+                  "independently_verified"
+                ]
+              },
+              "geometry_uri": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "crs": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "reported_assets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "service_impact_status": {
+            "enum": [
+              "unknown",
+              "reported_only",
+              "measured",
+              "independently_verified"
+            ]
+          },
+          "restoration_status": {
+            "enum": [
+              "unknown",
+              "operator_reported",
+              "instrument_observed",
+              "independently_verified",
+              "not_applicable"
+            ]
+          },
+          "notes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "relation_id",
+          "from_assertion_id",
+          "to_assertion_id",
+          "relation_type",
+          "adjudication_status",
+          "basis"
+        ],
+        "properties": {
+          "relation_id": {
+            "type": "string",
+            "pattern": "^[A-Z0-9][A-Z0-9._-]{2,63}$"
+          },
+          "from_assertion_id": {
+            "type": "string"
+          },
+          "to_assertion_id": {
+            "type": "string"
+          },
+          "relation_type": {
+            "enum": [
+              "updates",
+              "continuation_of",
+              "announces_schedule_for",
+              "snapshot_about",
+              "corroborates",
+              "contradicts",
+              "supersedes",
+              "same_reported_incident_as"
+            ]
+          },
+          "adjudication_status": {
+            "enum": [
+              "manual_source_review",
+              "proposed_unverified",
+              "independently_corroborated",
+              "unresolved"
+            ]
+          },
+          "basis": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "interpretation_rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
