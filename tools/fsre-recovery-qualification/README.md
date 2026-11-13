@@ -40,7 +40,7 @@ cargo run --locked --offline --manifest-path tools/fsre-recovery-qualification/C
 
 Inputs are strict pipe-delimited text (no quoting or embedded pipe characters). Each source begins with an exact header. The scenario file has three required metadata comments: `scenario_id`, `evaluation_time_seconds` and `horizon_seconds`.
 
-Debt rows retain source owner, opaque evidence reference, observation time and exclusive validity end. Predicate rows do the same for each option/predicate pair. All timestamps use the same declared scenario clock. `valid_until_seconds` is exclusive: evidence with an end time equal to the evaluation time is stale.
+Debt rows retain source owner, opaque evidence reference, observation time and exclusive validity end. Predicate rows do the same for each option/predicate pair. Every record carries a `time_basis_id` and bounded `clock_uncertainty_seconds`; these must be reconciled to the scenario's declared time basis by the canonical temporal owner before entering this reference evaluator. A time-basis mismatch, future/overlapping observation interval or invalid uncertainty bound is rejected. Freshness is conservative: the earliest possible `valid_until_seconds` must be later than the latest possible evaluation time. The validity end is exclusive. The evaluator does not perform clock-domain conversion or create a clock service; it consumes already-normalised assertions and their uncertainty bounds.
 
 Missing predicate records are not silently defaulted; they generate `MISSING_PREDICATE` reasons. Duplicate option IDs, duplicate predicate rows, unknown status values, wrong owners and future timestamps are rejected as invalid inputs.
 
@@ -57,4 +57,4 @@ The golden report is `fixtures/expected-report.txt`. It is checked by the path-s
 
 ## Qualification limits
 
-The unit tests cover owner binding, unknown/expired/stale/missing dispositions, future evidence, duplicate predicates, mobilisation limits and debt grouping. The CLI golden test checks deterministic end-to-end report output. None of these tests authenticates evidence, validates source systems, proves model adequacy or establishes physical safety.
+The unit tests cover owner binding, unknown/expired/stale/missing dispositions, future evidence, time-basis mismatch, clock uncertainty, duplicate predicates, mobilisation limits and debt grouping. The CLI golden test checks deterministic end-to-end report output. None of these tests authenticates evidence, validates source systems, proves model adequacy or establishes physical safety.
