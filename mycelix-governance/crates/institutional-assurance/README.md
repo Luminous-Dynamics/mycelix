@@ -8,7 +8,7 @@ Engineering (LISE) and Institutional Performance Benchmark (IPB) programme.
 The initial suite implements IPB scenario S2 (conflict of interest) as a
 deterministic policy fixture. It checks:
 
-- independent, authorized approval as a positive control;
+- six positive controls covering independent approval, exact amount limits, inclusive start and pre-expiry boundaries, substitute approval after proposer recusal, and resource-specific authority;
 - beneficiary and proposer self-approval as negative controls;
 - an independently seeded conflict of interest;
 - fail-closed behavior when conflict screening is incomplete;
@@ -40,7 +40,7 @@ more expected outcomes do not match.
 ## Evidence boundary
 
 This is a synthetic assurance fixture. A passing suite means only that this
-crate's specified policy behavior matches its fifteen fixture expectations on the
+crate's specified policy behavior matches its twenty fixture expectations on the
 tested revision. It does not demonstrate that:
 
 - the production Holochain zomes enforce the same policy;
