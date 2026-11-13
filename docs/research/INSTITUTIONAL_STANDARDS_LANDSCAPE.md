@@ -53,15 +53,27 @@ OECD's 2026 Digital Government Outlook describes a gap between infrastructure av
 
 ### AI risk governance
 
-NIST AI RMF organizes AI risk work around GOVERN, MAP, MEASURE and MANAGE, with governance cross-cutting the lifecycle. Its measurement guidance includes uncertainty, benchmarks, documentation and independent review.
+NIST AI RMF 1.0 organizes AI risk work around GOVERN, MAP, MEASURE and MANAGE. As of 13 November 2026, NIST says AI RMF 1.0 is being revised and has released a 7 April 2026 concept note for a Trustworthy AI in Critical Infrastructure profile. LISE should track the revision and any relevant profile rather than implying that version 1.0 is the final future state.
 
-**Implication:** Symthaea-assisted governance should inherit these risk-management disciplines. The institutional layer must also address who is accountable for accepting, rejecting or acting on AI-generated recommendations.
+**Implication:** Symthaea-assisted governance should inherit lifecycle risk-management, measurement, documentation and independent-review disciplines. The institutional layer must additionally identify who is accountable for accepting, rejecting or acting on AI-generated recommendations.
 
 ### Verifiable credentials
 
-W3C VC Data Model 2.0 defines a three-party ecosystem of issuers, holders and verifiers. A credential proves that an issuer made a claim under a particular security model; it does not by itself establish that the claim is true, current, legally sufficient or relevant to a particular decision.
+W3C Verifiable Credentials Data Model 2.0 is a Recommendation. Its verification step establishes the authenticity and currentness of an issuer's statement under the relevant proof and status mechanisms; it explicitly does not establish the truth of the claims. A verifier separately validates whether the issuer and claims are acceptable for its purpose. A W3C VC Data Model 2.1 Working Draft was published in September 2026; it is work in progress and must not be represented as a Recommendation.
 
-**Implication:** Mycelix should distinguish credential validity, issuer authority, claim freshness, revocation status, context and relying-party policy.
+**Implication:** Mycelix should distinguish proof verification from claim validation, issuer authority, evidence quality, claim freshness, revocation, purpose and relying-party policy. It should record why a relying party accepted or rejected a claim, with a route to challenge that decision.
+
+### Organizational and public-sector digital twins
+
+Organizational digital twins are already an active research topic. Edrisi et al. describe a Digital Twin of the Organization in IEEE Access (2024). A 2025 Data & Policy study finds that digital-twin adoption in public administration remains limited and identifies institutional readiness, privacy and fragmented governance as barriers. A working paper posted in October 2026, Learning-by-Twinning, studies organizational digital twins combining firm-specific traces, AI-based behavioural simulation and governance rules.
+
+**Implication:** LISE must not claim to invent organizational digital twins. Its proposed contribution should be narrower and testable: rights-aware, constitution-linked twins for plural and federated institutions, with explicit authority, rule-in-use observations, contestability, exit and independent validation. The twin must not become a single authoritative representation of the institution.
+
+### Institutional analysis and rules-in-use
+
+The Ostrom Institutional Analysis and Development (IAD) framework is an established foundation for examining actors, action situations, rules, incentives, interactions and outcomes. Later analysis of IAD highlights a crucial distinction between formal legal rules and working rules: the two can align, partly overlap or diverge in practice.
+
+**Implication:** LISE must model both the declared constitution and observed rules-in-use. A policy engine can verify that software follows a formal rule; it cannot establish that people actually follow that rule, that informal norms are legitimate, or that the formal rule is appropriate.
 
 ## 4. LISE's proposed engineering contribution
 
@@ -111,8 +123,14 @@ A framework can be strong at principle alignment while weak at operational confo
 - OECD Guidelines for Citizen Participation Processes (2022): https://www.oecd.org/en/publications/oecd-guidelines-for-citizen-participation-processes_f765caf6-en.html
 - OECD Digital Government Outlook 2026: https://www.oecd.org/en/publications/digital-government-outlook_0496b2bc-en.html
 - World Bank GovTech Maturity Index 2025 Update: https://www.worldbank.org/en/programs/govtech/gtmi-2025-update
-- NIST AI Risk Management Framework 1.0: https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf
-- W3C Verifiable Credentials Data Model v2.0: https://www.w3.org/TR/vc-data-model/
+- NIST AI Risk Management Framework 1.0 and current revision status: https://www.nist.gov/itl/ai-risk-management-framework
+- W3C Verifiable Credentials Data Model v2.0 Recommendation: https://www.w3.org/TR/vc-data-model/
+- W3C Verifiable Credentials Data Model v2.1 Working Draft (30 September 2026): https://www.w3.org/TR/2026/WD-vc-data-model-2.1-20260930/
+- Edrisi et al., Developing and Evolving a Digital Twin of the Organization (IEEE Access, 2024): https://doi.org/10.1109/ACCESS.2024.3381778
+- Lost in translation: why digital twins thrive in research but falter in politics and public administration (Data & Policy, 2025): https://doi.org/10.1017/dap.2025.10027
+- Choudhury, Du and Lawrence, Learning-by-Twinning: Organizational Digital Twins and the Future of Search (working paper, posted 1 October 2026): https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7547723
+- Cole, Laws, norms, and the Institutional Analysis and Development framework (2017): https://doi.org/10.1017/S1744137416000486
+- Ostrom Workshop, IAD Framework: https://ostrom.indiana.edu/courses-teaching/teaching-tools/iad-framework/index.html
 
 ## 8. Research integrity
 
