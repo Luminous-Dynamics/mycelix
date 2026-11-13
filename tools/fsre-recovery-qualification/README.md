@@ -1,6 +1,6 @@
 # FSRE recovery-option qualification reference
 
-A dependency-free Rust reference implementation that composes upstream owner-qualified dispositions for a declared scenario. It also emits a multidimensional, read-only summary of resilience-debt records.
+A dependency-free Rust reference implementation that composes upstream owner-qualified dispositions for a declared scenario. It also emits a multidimensional, read-only summary of resilience-debt records. The v0.2 report includes the exact scenario digest, individual debt source references, predicate owner/schema/evidence/time references, and explicit `execution_authority=NONE` / `operational_actuation=NOT_AUTHORISED` fields.
 
 ## What it does
 
@@ -57,4 +57,4 @@ The golden report is `fixtures/expected-report.txt`. It is checked by the path-s
 
 ## Qualification limits
 
-The unit tests cover owner binding, wrong service/scenario/schema binding, unknown/expired/stale/missing dispositions, future evidence, time-basis mismatch, clock uncertainty, duplicate predicates, mobilisation limits and debt grouping. The CLI golden test checks deterministic end-to-end report output. None of these tests authenticates evidence, validates source systems, proves model adequacy or establishes physical safety.
+The unit tests cover owner binding, wrong service/scenario/schema binding, unknown/expired/stale/missing dispositions, future evidence, time-basis mismatch, clock uncertainty, duplicate predicates, mobilisation limits and debt grouping. The CLI golden test checks deterministic end-to-end report output, including 14 debt records and all 49 predicate evidence references. None of these tests authenticates evidence, validates source systems, proves model adequacy or establishes physical safety.
