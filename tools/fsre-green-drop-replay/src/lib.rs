@@ -13,6 +13,8 @@ struct Metadata {
     secondary_source_owner: String,
     secondary_source_ref: String,
     secondary_publication_date: String,
+    tertiary_source_owner: String,
+    tertiary_source_ref: String,
     publication_date: String,
     observation_period: String,
     geographic_scope: String,
@@ -73,6 +75,8 @@ fn parse_metadata(
         secondary_source_owner: take_required(metadata, "secondary_source_owner")?,
         secondary_source_ref: take_required(metadata, "secondary_source_ref")?,
         secondary_publication_date: take_required(metadata, "secondary_publication_date")?,
+        tertiary_source_owner: take_required(metadata, "tertiary_source_owner")?,
+        tertiary_source_ref: take_required(metadata, "tertiary_source_ref")?,
         publication_date: take_required(metadata, "publication_date")?,
         observation_period: take_required(metadata, "observation_period")?,
         geographic_scope: take_required(metadata, "geographic_scope")?,
@@ -89,6 +93,8 @@ fn parse_metadata(
         || parsed.secondary_source_owner.is_empty()
         || !parsed.secondary_source_ref.starts_with("https://")
         || !parse_date(&parsed.secondary_publication_date)
+        || parsed.tertiary_source_owner.is_empty()
+        || !parsed.tertiary_source_ref.starts_with("https://")
         || !parse_date(&parsed.publication_date)
         || parsed.observation_period.is_empty()
         || parsed.geographic_scope.is_empty()
@@ -259,6 +265,8 @@ fn render(metadata: &Metadata, facts: &[Fact]) -> String {
         "secondary_publication_date={}\n",
         metadata.secondary_publication_date
     ));
+    output.push_str(&format!("tertiary_source_owner={}\n", metadata.tertiary_source_owner));
+    output.push_str(&format!("tertiary_source_ref={}\n", metadata.tertiary_source_ref));
     output.push_str(&format!("publication_date={}\n", metadata.publication_date));
     output.push_str(&format!("observation_period={}\n", metadata.observation_period));
     output.push_str(&format!("geographic_scope={}\n", metadata.geographic_scope));
@@ -323,8 +331,11 @@ fn render(metadata: &Metadata, facts: &[Fact]) -> String {
 
     output.push_str("claim_class=PUBLISHED_OFFICIAL_SUMMARY_ONLY\n");
     output.push_str("comparison_basis=SOURCE_REPORTED;NOT_INDEPENDENTLY_REASSESSED\n");
-    output.push_str("2022_SYSTEM_DENOMINATOR=850\n");
-    output.push_str("COUNT_DIFFERENCE_INTERPRETATION=BOUNDARY_CHANGED;2022_SYSTEMS=850;2025_SYSTEMS=848;SYSTEMS_DECOMMISSIONED_OR_MERGED=SOURCE_REPORTED;NOT_LONGITUDINALLY_LINKED\n");
+    output.push_str("2022_MUNICIPAL_SYSTEM_DENOMINATOR=850\n");
+    output.push_str("2022_ALL_SECTOR_WORKS=995\n");
+    output.push_str("2022_ALL_SECTOR_SCOPE_NOTE=INCLUDES_MUNICIPAL_DPWI_AND_PRIVATE;NOT_THE_MUNICIPAL_RATE_DENOMINATOR\n");
+    output.push_str("2025_MUNICIPAL_SYSTEM_DENOMINATOR=848\n");
+    output.push_str("COUNT_DIFFERENCE_INTERPRETATION=BOUNDARY_CHANGED;2022_MUNICIPAL_SYSTEMS=850;2025_MUNICIPAL_SYSTEMS=848;DECOMMISSIONED_OR_MERGED=SOURCE_REPORTED;NOT_LONGITUDINALLY_LINKED\n");
     output.push_str("SYSTEM_LEVEL_REPLAY=NOT_PERFORMED\n");
     output.push_str("CAUSAL_EFFECT=NOT_ESTABLISHED\n");
     output.push_str("INTERVENTION_AUTHORITY=NONE\n");
