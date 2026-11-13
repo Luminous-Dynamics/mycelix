@@ -84,9 +84,24 @@ Exact sources:
 
 The older [FRE E PCIS service](https://freepcis.gs1.org/) is not a current EPCIS 2.0 comparator. Its current FAQ states that it is a development/test repository limited to 25 events and supports EPCIS 1.2; GS1's architecture material characterizes it as a legacy, no-longer-maintained tool superseded by EPCIS Sandbox. Retain it only as an optional EPCIS 1.2 backward-compatibility probe. Do not include it in EPCIS 2.0/2.0.1 performance comparisons.
 
-### D. NIST IR 8536 reference implementation — later research baseline
+### D. NIST IR 8536 reference implementation — research reference, access unresolved
 
-NIST IR 8536 is a manufacturing traceability meta-framework, not a product certification or a single mandatory API. NIST's published material described its reference implementation as early-stage research / lab work. Before using it as a baseline, confirm its public artifact revision, license, dependencies, data model, tests and maintenance state. It is not a substitute for a GS1 EPCIS server.
+NIST IR 8536 is a manufacturing traceability meta-framework, not a product certification or one mandatory API. Its final September 2026 Appendix F describes a minimum viable reference implementation jointly developed by NIST and MITRE. It is explicitly an **early-stage research artifact for laboratory experimentation, prototyping and exploration, not production-grade software**.
+
+The final report says the illustrative MVP:
+- models three independent ecosystems: a microelectronics manufacturer (ME-001), an operational-technology integrator (OT-001), and a critical-infrastructure acquirer (CI-001);
+- defaults to simple text files as trusted repositories, with NoSQL available as an option;
+- includes a lightweight Python web dashboard to view ecosystem records and navigate traceability links;
+- demonstrates Make / Ship / Receive / Assemble / Employ event sequences.
+
+Appendix F.4 links the source repository: https://github.com/usnistgov/ir8536-reference-implementation. However, on 2026-11-13 the connected GitHub API returned 404 for the repository, and GitHub repository search returned no result. NIST's 2026-09-09 announcement had said the repository would be made publicly available following the approval process. This is an **unresolved publication/access discrepancy**, not proof that the source does not exist or that NIST's link is erroneous.
+
+**Disposition:** keep the NIST RI as a conceptual and lab-reference target only. Do not make it a runnable benchmark arm until the repository is retrievable and its exact commit/tag, source bytes, license, dependencies, tests and maintenance state are inspected. It is not a substitute for an independently implemented GS1 EPCIS repository/server.
+
+Sources:
+- Final IR: https://csrc.nist.gov/pubs/ir/8536/final
+- NIST announcement: https://www.nist.gov/news-events/news/2026/09/finalized-manufacturing-supply-chain-traceability-meta-framework
+- IR PDF Appendix F: https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=962361
 
 ### C. Official GS1 artefacts — normative validator inputs, not a server
 
