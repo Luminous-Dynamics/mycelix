@@ -13,7 +13,8 @@ The fixture transcribes the national comparisons stated in the Department of Wat
 
 The published 2025 counts and percentages are arithmetically checked against 848. The source release does not provide a 2022 denominator in this summary. The fixture leaves it absent; the replay does not infer it. The output compares the source-reported rounded rates only, labels the comparison as not independently reassessed, and withholds an interpretation of the raw count differences.
 
-Source: https://www.gov.za/news/media-statements/water-and-sanitation-crowns-steve-tshwete-local-municipality-2025-green-drop
+Primary source: https://www.gov.za/news/media-statements/water-and-sanitation-crowns-steve-tshwete-local-municipality-2025-green-drop
+Secondary source for the 2022 denominator and system-boundary change: https://www.sanews.gov.za/south-africa/majodina-calls-accountability-and-collective-action-protect-water-resources
 
 The full report is referenced through the DWS IRIS portal. A WRO catalog collection records the report as a PDF and describes the collection as published PDF reports with no system-level tables extracted. Its dataset landing page displays a CC BY 4.0 licence while the individual 2025 PDF resource record says "No License Provided". This licence discrepancy is unresolved; this tool uses the government release facts and does not redistribute or parse that PDF.
 
