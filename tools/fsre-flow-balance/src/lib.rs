@@ -428,6 +428,35 @@ mod tests {
     }
 
     #[test]
+    fn interval_outer_bound_contains_all_sixty_four_corner_evaluations() {
+        let source = BALANCED
+            .replace("generation|ESTIMATED_INTERVAL|100|100", "generation|ESTIMATED_INTERVAL|100|110")
+            .replace("treated|OBSERVED_INTERVAL|80|80", "treated|OBSERVED_INTERVAL|70|80")
+            .replace("bypass|OBSERVED_INTERVAL|10|10", "bypass|OBSERVED_INTERVAL|3|5")
+            .replace("reuse|OBSERVED_INTERVAL|10|10", "reuse|OBSERVED_INTERVAL|2|4")
+            .replace("storage_change|ESTIMATED_INTERVAL|0|0", "storage_change|ESTIMATED_INTERVAL|-2|3");
+        let report = validate_and_report(&source).expect("interval fixture should validate");
+        assert!(report.contains("unaccounted_residual_interval=[8,37] m3"));
+
+        let ranges = [(100_i128, 110_i128), (0, 0), (70, 80), (3, 5), (2, 4), (-2, 3)];
+        for mask in 0_u8..64 {
+            let values: Vec<i128> = ranges
+                .iter()
+                .enumerate()
+                .map(|(index, (lower, upper))| {
+                    if mask & (1 << index) == 0 {
+                        *lower
+                    } else {
+                        *upper
+                    }
+                })
+                .collect();
+            let exact = values[0] + values[1] - values[2] - values[3] - values[4] - values[5];
+            assert!((8..=37).contains(&exact), "corner {mask} produced {exact}");
+        }
+    }
+
+    #[test]
     fn not_applicable_without_boundary_rationale_is_rejected() {
         let mutated = BALANCED.replace("excluded by boundary", "not measured");
         assert!(validate_and_report(&mutated).is_err());
