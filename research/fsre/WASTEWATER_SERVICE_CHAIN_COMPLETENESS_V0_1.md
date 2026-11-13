@@ -167,7 +167,7 @@ IN-CORE is identified in the 2026 comparative study as having broad coverage of 
 
 ### Sewer-specific sensor-placement comparators
 
-Do not treat sensor placement as an unexplored FSRE contribution. A 2026 *Water Research* paper proposes topology-derived flow inference (TDFI) to estimate pipe-specific minimum detectable inflow/infiltration from upstream sensors, then uses deterministic Sequential Backward Selection (SBS) to construct sensor layouts. It evaluates one synthetic and two real-life sewer-network case studies and reports SBS results close to a differential-evolution optimiser. A 2025 *Water Research* study also proposes entropy-based I&I sensor placement and reports 7–15% higher detection reliability against its compared methods. These are direct sewer-network comparators, not proof of universal superiority across utilities.
+Do not treat sensor placement as an unexplored FSRE contribution. A 2026 *Water Research* paper proposes topology-derived flow inference (TDFI) to estimate pipe-specific minimum detectable inflow/infiltration from upstream sensors, then uses deterministic Sequential Backward Selection (SBS) to construct sensor layouts. It evaluates one synthetic and two real sewer-network case studies and reports SBS results close to a differential-evolution optimiser. A 2025 *Water Research* study proposes entropy-based I&I sensor placement and reports 7–15% higher detection reliability against its compared methods. A further 2026 *Water Research* paper proposes an LSTM–GCN pipeline using one downstream water-level sensor, SWMM baseline simulations and a weighted sewer graph; it reports the true source in the top two candidates in over 90% of single-source synthetic events and top-one localisation on its 39-junction real-world subnetwork. These are strong, task-specific sewer comparators, not evidence of universal superiority across utilities.
 
 References:
 - “A topology-derived flow inference approach to optimize sensor placement for effective inflow and infiltration detection in sewer networks”, *Water Research* 302 (2026), 126140, DOI: https://doi.org/10.1016/j.watres.2026.126140
@@ -178,12 +178,13 @@ A fair wastewater experiment should compare, on identical network topology, sens
 2. uniform/random placement;
 3. entropy-based placement;
 4. TDFI + SBS;
-5. full physical-model or optimisation baseline where calibrated and available;
-6. FSRE active investigation using expected decision value, owner authority and service-cohort outcomes.
+5. LSTM–GCN graph localisation using the same downstream sensor and SWMM baseline inputs where the model and data can be reproduced;
+6. full physical-model or optimisation baseline where calibrated and available;
+7. FSRE active investigation using expected decision value, owner authority and service-cohort outcomes.
 
-Measure minimum detectable I&I, false alarms per sensor-day and per network length/time, event detection delay, pipe/catchment localisation error, false attribution, sensor lifecycle and maintenance cost, operator effort, SCADA/GIS integration burden, and verified service/environment decision value. Do not compare a drinking-water distribution leak benchmark directly with wastewater sewer-network I&I without a matched task definition.
+Measure minimum detectable I&I, false alarms per sensor-day and per network length/time, event detection delay, top-1/top-2/top-k branch ranking, network-distance localisation error, false attribution, confidence calibration, abstention, sensor lifecycle and maintenance cost, operator effort, SCADA/GIS integration burden, and verified service/environment decision value. Do not compare a drinking-water distribution leak benchmark directly with wastewater sewer-network I&I without a matched task definition.
 
-A 2026 review of 86 drinking-water leak-detection studies identifies operational false-alarm rates, computational feasibility and SCADA/GIS integration as important evaluation requirements, and highlights the gap between simulated and operational settings. This supports explicit operational metrics; it does not establish wastewater performance.
+A 2026 PRISMA systematic review of 90 machine-learning and deep-learning water-distribution leak-detection studies finds substantial inconsistency in datasets, split design, leak-scenario definitions, metrics and validation practice. It reports that only 7 studies used cross-validation and 9 used temporal or independent holdouts, while 42 did not report a reconstructible validation procedure. This is adjacent evidence from water-distribution networks (not sewer I&I); it reinforces the need for sealed spatial/temporal splits and independent network holdouts rather than random-row validation. Ref: Farah & Shahrour, *Water* 18(18), 2267 (2026), https://doi.org/10.3390/w18182267.
 
 ## 8. Falsification conditions
 
