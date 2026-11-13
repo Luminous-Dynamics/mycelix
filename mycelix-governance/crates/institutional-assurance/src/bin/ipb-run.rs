@@ -4,8 +4,7 @@ fn main() {
     let report = conflict_of_interest_suite();
     println!(
         "{}",
-        serde_json::to_string_pretty(&report)
-            .expect("benchmark report serializes to JSON")
+        serde_json::to_string_pretty(&report).expect("benchmark report serializes to JSON")
     );
 
     if report.failed_cases != 0 {
