@@ -36,3 +36,9 @@ A deterministic receipt binds the source register, graph, schema, negative corpu
 The implementation validates source binding and event-graph semantics only. It does not acquire image bytes, assess copyright or data rights, read telemetry, geocode streets, qualify hydraulic state, measure customer service or authorize utility actuation.
 
 The receipt deliberately reports `qualification_status: NotRun`. A structurally matched metadata graph is not a complete incident register, service measurement, hydraulic boundary condition or operational digital twin.
+
+## Exact-head workflow and receipt
+
+The path-filtered workflow at `.github/workflows/johannesburg-water-event-graph.yml` runs formatting, Rust tests, strict Clippy and the CLI against the exact checked-out revision. Cargo generates the standalone workspace lockfile during the first build; the workflow uploads it alongside the four frozen inputs and the receipt. The receipt hashes the lockfile and package manifest as well as the source register, event graph, schema and negative-control corpus.
+
+The current Rust validator checks the Draft 2020-12 schema declaration and required top-level contract fields, then performs its own semantic checks. It does **not** implement the complete JSON Schema 2020-12 specification. Full schema-engine validation remains a separate qualification step.
