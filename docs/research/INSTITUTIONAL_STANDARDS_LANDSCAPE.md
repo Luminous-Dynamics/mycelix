@@ -44,7 +44,12 @@ ISO 37000:2021 applies to organizations regardless of type, size, location, stru
 
 OECD participation guidance emphasizes that participation should only be used where people can meaningfully influence the decision. It also stresses clear expected outcomes, inclusive recruitment, accessible methods, feedback to participants, evaluation, privacy and adequate resourcing.
 
-**Implication:** A benchmark must detect performative participation. Attendance, comment volume or token voting alone cannot establish meaningful influence.
+Recent empirical work reinforces why these dimensions must be separated:
+
+- Parisi et al., FAccT 2026, studied 879 participants in two incentive-compatible group-deliberation studies. Their tested LLM facilitators did not significantly improve consensus, yet participants preferred facilitated discussion. Some facilitation strategies shifted selected charity allocations by up to 5.5 percentage points, while measured participation equity did not improve. Perceived inclusion and measured influence were therefore not interchangeable in this setting.
+- Li et al., posted 27 October 2026, report a randomized experiment with 1,173 U.S. participants across 391 small-group deliberations. Non-directive AI-guided self-reflection before group discussion improved Discourse Quality Index scores compared with no reflection and unassisted reflection in their studied conditions (reported Cohen's d=0.31 and 0.27 respectively). This is promising evidence for a distinct intervention, not a general claim that AI facilitation improves governance.
+
+**Implication:** A benchmark must distinguish pre-deliberation reflection from in-conversation facilitation, summarization, agenda setting and voting advice. Measure reason quality, counterargument engagement, input influence, allocation outcomes, participation equity, participant perceptions, trust calibration, dissent retention and decision-maker follow-through separately. Attendance, comment volume, satisfaction or token voting alone cannot establish meaningful influence.
 
 ### Digital government and institutional interoperability
 
@@ -124,6 +129,8 @@ A framework can be strong at principle alignment while weak at operational confo
 - ISO 37000:2021, Governance of organizations — Guidance: https://www.iso.org/standard/65036.html
 - ISO 37004:2023, Governance of organizations — Governance maturity model — Guidance: https://www.iso.org/standard/65037.html
 - OECD Guidelines for Citizen Participation Processes (2022): https://www.oecd.org/en/publications/oecd-guidelines-for-citizen-participation-processes_f765caf6-en.html
+- Parisi et al., Real-Time Group Dynamics with LLM Facilitation (FAccT 2026): https://deepmind.google/research/publications/224297/
+- Li et al., Improving Group Deliberation through AI-Guided Self-Reflection (preprint, 27 October 2026): https://arxiv.org/abs/2610.37862
 - OECD Digital Government Outlook 2026: https://www.oecd.org/en/publications/digital-government-outlook_0496b2bc-en.html
 - World Bank GovTech Maturity Index 2025 Update: https://www.worldbank.org/en/programs/govtech/gtmi-2025-update
 - NIST AI Risk Management Framework 1.0 and current revision status: https://www.nist.gov/itl/ai-risk-management-framework
