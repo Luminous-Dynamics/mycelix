@@ -30,8 +30,7 @@ fn run() -> Result<(), String> {
     let (scenario, options) =
         parse_scenario_and_options(&scenario_source).map_err(|error| error.to_string())?;
     let debt_items = parse_debt_items(&debt_source).map_err(|error| error.to_string())?;
-    let evidence =
-        parse_predicate_evidence(&evidence_source).map_err(|error| error.to_string())?;
+    let evidence = parse_predicate_evidence(&evidence_source).map_err(|error| error.to_string())?;
     let report =
         evaluate(&scenario, &options, &debt_items, &evidence).map_err(|error| error.to_string())?;
     print!("{}", report.render());
