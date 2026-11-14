@@ -202,7 +202,7 @@ metrics:
     - "A claim of common-cause independence from this S3 fixture."
 
 next_expansion:
-  target_metapmorphic_relations: 20
+  target_metamorphic_relations: 20
   target_semantic_mutants: 30
   target_role_count: [2, 3, 4, 5]
   target_event_count: [2, 3, 4, 5, 6, 7, 8]
