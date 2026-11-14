@@ -61,7 +61,7 @@ The Rust reference at tools/fsre-decision-time-replay is a read-only evidence-ve
 - rejects duplicate revisions, changes to claim identity/subject/predicate/owner across revisions, backwards transaction time, invalid time intervals, and records persisted before their source observation;
 - preserves owner and evidence references and reports the number of later revisions excluded.
 
-It does not authenticate evidence, prove assertions true, establish that all required claims were submitted, decide whether an authority is legitimate, or authorise an operational action. Its ALL_SUBMITTED_EVIDENCE_VALID_AT_DECISION disposition applies only to submitted evidence IDs, not to an independently established complete claim universe.
+It does not authenticate evidence, prove assertions true, establish that all required claims were submitted, decide whether an authority is legitimate, or authorise an operational action. A separately authored Rust oracle and byte-for-byte differential workflow are now included; they share the v0.1 contract and fixture, so an independently authored sealed challenge set remains necessary. Its ALL_SUBMITTED_EVIDENCE_VALID_AT_DECISION disposition applies only to submitted evidence IDs, not to an independently established complete claim universe.
 
 ## 5. Challenge families
 
