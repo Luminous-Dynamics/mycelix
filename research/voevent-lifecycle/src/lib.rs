@@ -132,18 +132,6 @@ impl fmt::Display for ManifestError {
 
 impl Error for ManifestError {}
 
-fn is_ivoid_lexeme(value: &str) -> bool {
-    value.starts_with("ivo://")
-        && value.len() > "ivo://".len()
-        && !value
-            .chars()
-            .any(|character| character.is_control() || character.is_whitespace())
-}
-
-fn is_sha256_hex(value: &str) -> bool {
-    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
-}
-
 const MAX_VOEVENT_PACKET_BYTES: usize = 2 * 1024 * 1024;
 
 /// Parse the exact source bytes and derive every packet field from that parse.
@@ -597,6 +585,27 @@ mod tests {
             after.edges[0].asserting_packet_sha256,
             after.visible_packets[1].packet_sha256
         );
+    }
+
+    #[test]
+    fn checked_in_source_packet_fixture_replays_without_a_metadata_projection() {
+        let manifest: ReplayManifest = serde_json::from_str(include_str!(
+            "../tests/fixtures/parser-projection-thread.json"
+        ))
+        .expect("raw source packet fixture");
+        let historical = replay_manifest(manifest.clone()).expect("historical fixture replay");
+        assert_eq!(historical.visible_packets.len(), 1);
+        assert!(historical.edges.is_empty());
+
+        let mut later = manifest;
+        later.cutoff_unix_ms = 300;
+        let complete = replay_manifest(later).expect("complete fixture replay");
+        assert_eq!(complete.visible_packets.len(), 2);
+        assert_eq!(complete.edges.len(), 1);
+        assert_eq!(complete.edges[0].relation, CitationRelation::Supersedes);
+        assert!(complete.visible_packets.iter().all(|packet| {
+            packet.packet_sha256.as_ref().is_some_and(|digest| digest.len() == 64)
+        }));
     }
 
     #[test]
