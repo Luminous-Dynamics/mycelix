@@ -131,6 +131,18 @@ FIRE-Bench (ICML 2026, PMLR 306) evaluates full-cycle rediscovery of documented 
 
 AgentIdeaBench (September 2026) compares static observation with active exploration across 33 models, 40 subfields and five disciplines. Active exploration improved grounding, feasibility, clarity and specificity, while measured originality did not improve under its critics. Our scientific-investigation scorecard must therefore separate novelty/originality from falsifiability, grounding, feasibility, experimental execution and verified outcome. An idea that is practical but not novel, or novel but not testable, must not be collapsed into one quality score.
 
+EarthShift (arXiv:2605.29330, 28 May 2026) is a particularly relevant geospatial OOD comparator. It evaluates 8 geospatial foundation models across 11 tasks and five natural distribution-shift families: spatial scale, temporal, geographic, sensor/modality and data-source shift. Its reported OOD performance is 15–20% lower on average. It found temporal shift less damaging than geographic, scale, sensor and source shifts; domain-specific pretraining did not create a consistent robustness advantage over generic vision or fully supervised baselines. It also includes a South Africa season-to-season agricultural segmentation task.
+
+For the Earth-observation adapter and downstream models, add a matched EarthShift-style track:
+- reproduce the published ID/OOD splits where dataset rights and access permit; do not assume public discoverability grants redistribution rights;
+- compare at least one classical supervised baseline, a generic vision foundation baseline and multiple geospatial foundation baselines;
+- report ID score, OOD score, absolute degradation and effective robustness relative to the fitted ID→OOD baseline, separately for all five shift families;
+- use geography, scale, sensor/modality and source shifts as primary stress tests; include temporal/seasonal controls;
+- report worst-shift and worst-region performance, uncertainty calibration, abstention and adaptation budget; never publish only the mean;
+- keep scene, region, campaign and acquisition clusters disjoint across splits to prevent leakage.
+
+EarthShift is an external comparator, not a claim that our adapter or detector currently matches or exceeds it. Our contribution should be evidence-preserving replay, source/rights-aware cross-domain provenance, common-cause controls and decision-grade investigation under OOD—not a new in-domain F1 record alone.
+
 IVOA VOEvent 2.1 already standardizes event packets and lifecycle citations. This work should interoperate with that standard, not invent a competing astronomy packet format. The additional contribution is an auditable, receipt-time-aware evidence and decision layer around source-native packets. VOEvent itself does not define the transport layer, publisher policy or intellectual-property/rights policy; those remain explicit system responsibilities.
 
 ## 9. Industry comparison: integrate with alert brokers, do not clone them
