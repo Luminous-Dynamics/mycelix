@@ -87,7 +87,7 @@ The shared parser derives packet identity, role, publisher attribution, source c
 
 Run the CLI:
 
-    cargo run --manifest-path research/voevent-lifecycle/Cargo.toml --bin voevent-lifecycle-replay -- research/voevent-lifecycle/tests/fixtures/parser-projection-thread.json
+    cargo run --manifest-path research/voevent-lifecycle/Cargo.toml --bin voevent-lifecycle-replay -- research/voevent-lifecycle/tests/fixtures/source-packet-thread.json
 
 The JSON output contains visible packets, lifecycle edges, unresolved citations, effects and diagnostics. Future receipts are excluded before XML parsing, so malformed future packets do not poison historical views; they are parsed and rejected when a later cutoff includes them.
 
