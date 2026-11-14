@@ -248,10 +248,17 @@ fn derive_query(packet: &Value, query: &Value) -> Result<Derived, Box<dyn Error>
             if is_supported_claim(claim, "custody") { add_claim(&mut result, claim); }
         }
         let permitted = eligible_observation(packet, query, "permitted_use", None);
-        let use_allowed = permitted.and_then(|c|c.get("value"))
-            .and_then(|v|v.get("commercial_occupancy_allowed"))
-            .and_then(Value::as_bool);
-        if let Some(claim) = permitted { add_claim(&mut result, claim); }
+        let permitted_is_usable = permitted.map(|claim| is_supported_claim(claim, "permitted_use")).unwrap_or(false);
+        let use_allowed = if permitted_is_usable {
+            permitted.and_then(|c|c.get("value"))
+                .and_then(|v|v.get("commercial_occupancy_allowed"))
+                .and_then(Value::as_bool)
+        } else {
+            None
+        };
+        if permitted_is_usable {
+            if let Some(claim) = permitted { add_claim(&mut result, claim); }
+        }
         match use_allowed {
             Some(true) => {
                 result.permitted_use = "commercial_allowed".to_owned();
@@ -802,6 +809,12 @@ mod tests {
         let boundaries=vec![json!({"action":"approve_commercial_lease","purpose":"new_tenant_commercial_lease","asset_ref":"PROPERTY-001","actor_ref":"ACTOR-A","fields":["lease_submission_request"],"authorization_ref":"AUTHZ-1","possible_external_side_effect":true})];
         assert!(!write_is_authorized(&write,&boundaries));
     }
+    #[test]
+    fn contested_permitted_use_is_not_promoted_to_a_decision_fact() {
+        let claim=json!({"dimension":"permitted_use","disposition":"contested","competent_for":["permitted_use"]});
+        assert!(!is_supported_claim(&claim,"permitted_use"));
+    }
+
     #[test]
     fn unrelated_condition_claim_does_not_change_requirement_dimension() {
         let claim=json!({"dimension":"condition","disposition":"supported_within_scope","competent_for":["condition"]});
