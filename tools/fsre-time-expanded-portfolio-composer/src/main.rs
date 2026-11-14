@@ -4,7 +4,11 @@ use std::{env, fs, process};
 fn main() {
     let mut args = env::args().skip(1);
     let Some(plan_path) = args.next() else {
-        eprintln!("usage: fsre-time-expanded-portfolio-composer <plan.psv> <resource-stock-flow.psv> [...]");
+        eprintln!("usage: fsre-time-expanded-portfolio-composer <plan.psv> <asof-evidence.psv> <resource-stock-flow.psv> [...]");
+        process::exit(2);
+    };
+    let Some(asof_path) = args.next() else {
+        eprintln!("an as-of evidence file is required");
         process::exit(2);
     };
     let stock_paths: Vec<String> = args.collect();
@@ -19,6 +23,13 @@ fn main() {
             process::exit(2);
         }
     };
+    let asof = match fs::read_to_string(&asof_path) {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("could not read {asof_path}: {error}");
+            process::exit(2);
+        }
+    };
     let mut stocks = Vec::new();
     for path in &stock_paths {
         match fs::read_to_string(path) {
@@ -29,7 +40,7 @@ fn main() {
             }
         }
     }
-    match validate_and_report(&plan, &stocks) {
+    match validate_and_report(&asof, &plan, &stocks) {
         Ok(report) => print!("{report}"),
         Err(error) => {
             eprintln!("invalid time-expanded portfolio input: {error}");
