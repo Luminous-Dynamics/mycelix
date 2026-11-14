@@ -216,3 +216,51 @@ The differentiator to prove is the assurance composition:
 - independent evaluation, reproducible receipts and auditable claim limits.
 
 This is a narrower product surface with a more defensible claim. The benchmark should determine whether that composition measurably improves assurance and reviewer effort, not assume that it does.
+
+
+## 10. Industry capability boundaries and integration strategy
+
+The following are the capabilities to respect when selecting comparators. Vendor product descriptions establish what the vendors say they provide; they are not independent evaluations of implementation quality.
+
+| System | Documented strength | Fair LISE comparison boundary |
+|---|---|---|
+| Siemens Polarion ALM | LiveDocs paragraph-level traceability, workflows, electronic signatures, audit trails, project time-machine/history, and change/configuration traceability | Do not claim traceability or historical browsing as unique. Test whether requirement changes are linked to owner-native authority, exact external operations and effect reconciliation across systems. |
+| Jama Connect | Jama Connect Advisor for requirement language quality, batch analysis, and structured traceable test-case generation with reviewer oversight | Do not claim AI-assisted requirement/test drafting as unique. Compare omission/false-clear rate, source-span grounding, modality preservation, and downstream invalidation against the same reviewer budget. |
+| Addepar | Aggregation and analysis of liquid/private-market holdings, alternative-investment document ingestion, benchmarks and forward-looking portfolio projections | Do not replace portfolio aggregation. Test claim-scoped truth, source freshness, entity/authority boundaries and historical reconstruction across its owner-native data. |
+| Masttro | Family-office wealth visibility, entity/ownership maps, alternative-asset handling and large custodian-feed aggregation | Do not replace the reporting/dashboard layer. Test whether each title/custody/rights/value/insurance claim is separately supported and whether the institution can reconstruct authority and external-effect decisions. |
+| OPA | Embeddable policy evaluation and decision logs | Compare the full policy-enforcement-point integration, not the policy engine in isolation. Decision logs can be dropped by rate/buffer limits; absence of a log is not proof that no decision or effect occurred. |
+| Cedar / Amazon Verified Permissions | Schema-aware principal/action/resource/context policy evaluation, permit/forbid composition, diagnostics and application authorization APIs | Preserve Cedar's documented skip-on-error semantics. Test whether an application's mandatory guardrail integration holds on relevant diagnostics; do not label Cedar's deliberate policy semantics a defect. |
+| Zanzibar-style authorization | Consistency-aware relationship authorization at production scale | Use as the consistency/latency/availability comparator. Do not imply that relationship authorization alone provides provider-side effect finality or institutional adjudication. |
+
+Primary product and technical references:
+- Siemens Polarion ALM and LiveDocs/time machine: https://www.siemens.com/en-gb/products/polarion/requirements/ and https://www.siemens.com/en-gb/products/polarion/application-lifecycle-management-alm/
+- Jama Connect Advisor and test-case generation: https://www.jamasoftware.com/platform/jama-connect/features/ and https://support.jamasoftware.com/hc/en-us/articles/45294879572365-Test-Case-Generation
+- Addepar alternatives data, benchmarks and forward projections: https://addepar.com/alternatives
+- Masttro family-office and custodian aggregation: https://masttro.com/about and https://masttro.com/platform/data-aggregation
+- OPA dropped decision-log counters and buffer/rate-limit configuration: https://www.openpolicyagent.org/docs/monitoring and https://www.openpolicyagent.org/docs/configuration
+- Cedar skip-on-error and diagnostics: https://docs.cedarpolicy.com/auth/authorization.html
+- Amazon Verified Permissions application integration: https://docs.aws.amazon.com/verifiedpermissions/latest/userguide/what-is-avp.html
+- Zanzibar: https://www.usenix.org/conference/atc19/presentation/pang
+
+### Requirements engineering standards boundary
+
+As of 14 November 2026, ISO/IEC/IEEE 29148:2018 remains the published current edition; ISO records it as confirmed in 2024. Edition 3 is a Draft International Standard in the enquiry phase and is intended to replace the 2018 edition. Align the Institutional Intent Compiler to the published 2018 reference while tracking the draft separately. Do not claim conformance to an unpublished draft, certification or standard approval.
+
+References: https://www.iso.org/standard/72089.html and https://www.iso.org/standard/94091.html
+
+## 11. Mutation coverage and typed quantity semantics
+
+Fixed examples are not enough. The confirmatory suite must include metamorphic pairs in which exactly one fact changes and the expected relation is preregistered: removing evidence cannot improve permission; a reachable bypass cannot improve mediation; an active grant cannot reduce trajectory privilege; a retroactive correction changes the current projection but cannot rewrite an earlier as-known reconstruction; and loss of retry-safety evidence cannot preserve a retry permit.
+
+Amount limits must be dimensionally typed. Currency minor units are not scalars that can be added across currencies. The LISE reference now represents trajectory amount limits by currency, preserves currency-scoped unbounded grants, rejects bounded limits without currency, and tests currency substitution across delegation. It performs no exchange-rate conversion. An adapter that requires cross-currency comparison must provide a versioned valuation policy, rate source, valuation timestamp and rounding rule. This source change is authored in draft PR #6163; exact-head CI and domain review remain required.
+
+For the confirmatory panel, report:
+- mutation kill rate by dimension and interaction class;
+- surviving high-severity mutants (all must be disclosed);
+- false permit on each mutation;
+- benign metamorphic invariance rate;
+- oracle disagreement and adjudication rate;
+- minimum counterexample size and time to reproduce;
+- unsupported dimensions separately from candidate errors.
+
+A high mutation kill rate is not a population safety estimate. It establishes resistance to the published mutation family only. Keep the hidden confirmatory generator, seed and oracle separate from candidate inputs.
