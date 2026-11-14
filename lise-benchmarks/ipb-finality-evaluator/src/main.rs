@@ -151,6 +151,21 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
     let lineage = actual.get("source_lineage_state").and_then(Value::as_str).unwrap_or("");
     let independence = actual.get("independence_claim_state").and_then(Value::as_str).unwrap_or("");
     let replay = actual.get("replay_state").and_then(Value::as_str).unwrap_or("");
+    let operation_digest = actual.get("operation_digest_state").and_then(Value::as_str).unwrap_or("");
+    let constitution_digest = actual.get("constitution_digest_state").and_then(Value::as_str).unwrap_or("");
+    let grant_inventory = actual.get("grant_inventory_state").and_then(Value::as_str).unwrap_or("");
+    let authority_recheck = actual.get("authority_recheck_state").and_then(Value::as_str).unwrap_or("");
+    let action_scope = actual.get("action_scope_state").and_then(Value::as_str).unwrap_or("");
+    let field_scope = actual.get("field_scope_state").and_then(Value::as_str).unwrap_or("");
+    let resource_scope = actual.get("resource_scope_state").and_then(Value::as_str).unwrap_or("");
+    let purpose_state = actual.get("purpose_state").and_then(Value::as_str).unwrap_or("");
+    let expiry_state = actual.get("expiry_state").and_then(Value::as_str).unwrap_or("");
+    let scope_check = actual.get("scope_check_state").and_then(Value::as_str).unwrap_or("");
+    let ownership_check = actual.get("ownership_check_state").and_then(Value::as_str).unwrap_or("");
+    let revocation_effective = actual.get("revocation_effective_state").and_then(Value::as_str).unwrap_or("");
+    let revocation_knowledge = actual.get("revocation_knowledge_state").and_then(Value::as_str).unwrap_or("");
+    let approved_epoch = actual.get("approved_constitution_epoch").and_then(Value::as_u64);
+    let current_epoch = actual.get("current_constitution_epoch").and_then(Value::as_u64);
     let dispatch = actual.get("provider_dispatch_count").and_then(Value::as_u64).unwrap_or(u64::MAX);
     let mutations = actual.get("mutation_count").and_then(Value::as_u64).unwrap_or(u64::MAX);
     let retries = actual.get("retry_count").and_then(Value::as_u64).unwrap_or(u64::MAX);
@@ -163,27 +178,35 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
         | "exact_action_resource_purpose_match" | "exact_target_match" | "preserve_operation_identity" =>
             operation == "exact",
         "same_idempotency_key" => idempotency == "same_key_bound",
-        "exact_digest_comparison" => constitution == "mismatch" && disposition == "DENY",
+        "exact_digest_comparison" => constitution_digest == "mismatch" && disposition == "DENY",
         "recipient_substitution_detected" | "amount_substitution_detected" | "payload_digest_mismatch_denies" =>
             operation == "mismatch" && disposition == "DENY",
         "constitution_digest_current" | "current_authority_and_constitution" => constitution == "current" && authority == "current",
         "constitution_digest_mismatch_denies" | "friendly_id_and_epoch_number_insufficient" =>
-            constitution == "mismatch" && disposition == "DENY",
-        "authority_current_at_effectuation" | "authority_rechecked" | "local_authority_current" => authority == "current",
+            constitution == "mismatch" && constitution_digest == "mismatch" && disposition == "DENY",
+        "authority_current_at_effectuation" | "local_authority_current" => authority == "current",
+        "authority_rechecked" => authority_recheck == "performed" && authority == "current",
         "revoked_authority_denies" | "ready_does_not_preserve_old_grant" =>
             authority == "revoked" && disposition == "DENY",
         "ready_is_not_execution_lease" =>
             matches!(execution_lease, "absent" | "stale") && disposition == "DENY",
         "resource_precondition_matched" => resource == "matches",
-        "resource_precondition_mismatch_denies" | "target_ownership_rechecked" =>
-            resource == "mismatch" && disposition == "DENY",
-        "delegation_is_attenuated" | "delegation_non_amplification" | "child_scope_subset"
-        | "grandchild_subset_of_immediate_parent" | "action_scope_non_amplification"
-        | "field_scope_non_amplification" | "purpose_match" | "expiry_not_exceeded" | "local_scope_check" =>
+        "resource_precondition_mismatch_denies" => resource == "mismatch" && disposition == "DENY",
+        "target_ownership_rechecked" => ownership_check == "rechecked",
+        "delegation_is_attenuated" | "child_scope_subset" | "grandchild_subset_of_immediate_parent" =>
+            delegation == "attenuated",
+        "delegation_non_amplification" =>
             delegation == "attenuated" || (delegation == "amplified" && disposition == "DENY"),
+        "action_scope_non_amplification" =>
+            action_scope == "subset" || (action_scope == "amplified" && disposition == "DENY"),
+        "field_scope_non_amplification" =>
+            field_scope == "subset" || (field_scope == "amplified" && disposition == "DENY"),
+        "purpose_match" => purpose_state == "matches",
+        "expiry_not_exceeded" => expiry_state == "valid",
+        "local_scope_check" => scope_check == "performed" && delegation != "amplified",
         "trajectory_privilege_union_exceeds_task" | "excess_privilege_not_ignored_because_unused" =>
             privilege == "exceeds_task" && disposition == "DENY",
-        "all_active_grants_included" => privilege != "unknown" && privilege != "unsupported",
+        "all_active_grants_included" => grant_inventory == "complete",
         "reachable_bypass_detected" => mediation == "bypass",
         "inventory_incompleteness_explicit" => mediation == "inventory_incomplete",
         "complete_mediation_claim_rejected" | "no_complete_mediation_claim" | "no_unverified_bypass_assumption" =>
@@ -217,7 +240,9 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
         "explicit_unsupported_provider_semantics" => provider == "unsupported_explicit",
         "no_guarantee_invention" => provider != "invented",
         "idempotency_bound" => idempotency == "same_key_bound",
-        "new_authorization_binds_epoch_8" => approval == "new_authorization" && constitution == "current",
+        "new_authorization_binds_epoch_8" =>
+            approval == "new_authorization" && constitution == "current"
+                && approved_epoch == Some(8) && current_epoch == Some(8),
         "new_authorization_binds_exact_operation" => approval == "new_authorization" && operation == "exact",
         "old_approval_not_carried_forward" => approval == "new_authorization",
         "human_operation_approval_separate_from_task_request" => approval == "new_authorization",
@@ -230,8 +255,8 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
         "valid_signature_not_enough" => subject == "mismatch" && disposition == "DENY",
         "session_epoch_matches_authority_epoch" => session_epoch == "current",
         "stale_session_epoch_detected" => session_epoch == "stale" && matches!(disposition, "DENY" | "INDETERMINATE"),
-        "revocation_effective_before_action" | "revocation_known_before_action" =>
-            revocation_timing == "effective_and_known",
+        "revocation_effective_before_action" => revocation_effective == "before_action",
+        "revocation_known_before_action" => revocation_knowledge == "known_before_action",
         "mandatory_policy_error_not_silently_ignored" | "missing_required_context_not_treated_as_satisfied" =>
             policy == "mandatory_error" && disposition == "INDETERMINATE",
         "diagnostics_preserved" => diagnostics == "preserved",
@@ -285,11 +310,14 @@ fn score_case(input: &Value, oracle: &Value, actual: &Value) -> Result<Value, Bo
     let observed_disposition = required_str(actual, "observed_disposition", id)?;
     let expected_outcome = required_str(oracle, "outcome_class", id)?;
     let observed_outcome = required_str(actual, "observed_outcome_class", id)?;
-    for key in ["observed_disposition","observed_outcome_class","execution_state","operation_match","constitution_state","authority_state","resource_state","delegation_state","trajectory_privilege_state","mediation_state","clarification_state","observation_independence","approval_state","policy_evaluation_state","policy_diagnostics_state","log_coverage_state","revocation_timing_state","session_epoch_state","execution_lease_state","fencing_state","credential_subject_state","action_observation_state","expected_action_set_state","atomicity_claim_state","compensation_state","provider_capability_state","idempotency_state","source_lineage_state","independence_claim_state","replay_state","protected_effect_state","trace_ref"] {
+    for key in ["observed_disposition","observed_outcome_class","execution_state","operation_match","constitution_state","authority_state","resource_state","delegation_state","trajectory_privilege_state","mediation_state","clarification_state","observation_independence","approval_state","policy_evaluation_state","policy_diagnostics_state","log_coverage_state","revocation_timing_state","session_epoch_state","execution_lease_state","fencing_state","credential_subject_state","action_observation_state","expected_action_set_state","atomicity_claim_state","compensation_state","provider_capability_state","idempotency_state","source_lineage_state","independence_claim_state","replay_state","protected_effect_state","operation_digest_state","constitution_digest_state","grant_inventory_state","authority_recheck_state","action_scope_state","field_scope_state","resource_scope_state","purpose_state","expiry_state","scope_check_state","ownership_check_state","revocation_effective_state","revocation_knowledge_state","trace_ref"] {
         required_str(actual,key,id)?;
     }
     for key in ["provider_dispatch_count","mutation_count","retry_count","effect_observation_count","duplicate_effect_count"] {
         required_u64(actual,key,id)?;
+    }
+    for key in ["approved_constitution_epoch","current_constitution_epoch"] {
+        let _ = nullable_u64(actual,key,id)?;
     }
     require_sha256(actual,"trace_sha256",id)?;
     let required = string_set(oracle, "required_assertions", id)?;
@@ -592,6 +620,21 @@ mod tests {
             "revocation_timing_state":"not_applicable",
             "session_epoch_state":"current",
             "execution_lease_state":"absent",
+            "operation_digest_state":"exact",
+            "constitution_digest_state":"matches",
+            "grant_inventory_state":"complete",
+            "authority_recheck_state":"performed",
+            "action_scope_state":"subset",
+            "field_scope_state":"subset",
+            "resource_scope_state":"subset",
+            "purpose_state":"matches",
+            "expiry_state":"valid",
+            "scope_check_state":"performed",
+            "ownership_check_state":"rechecked",
+            "revocation_effective_state":"not_applicable",
+            "revocation_knowledge_state":"not_applicable",
+            "approved_constitution_epoch":8,
+            "current_constitution_epoch":8,
             "fencing_state":"current",
             "credential_subject_state":"matches",
             "action_observation_state":"complete",
@@ -632,6 +675,40 @@ mod tests {
         assert_eq!(nullable_u64(&value,"calls","test").unwrap(),Some(0));
         assert!(nullable_u64(&value,"missing","test").is_err());
         assert!(nullable_u64(&json!({"x":"unknown"}),"x","test").is_err());
+    }
+    #[test]
+    fn digest_assertions_use_explicit_digest_state() {
+        let mismatch=json!({"constitution_digest_state":"mismatch","observed_disposition":"DENY"});
+        let unknown=json!({"constitution_digest_state":"unknown","observed_disposition":"DENY"});
+        assert!(required_assertion_satisfied("exact_digest_comparison",&mismatch));
+        assert!(!required_assertion_satisfied("exact_digest_comparison",&unknown));
+    }
+    #[test]
+    fn constitution_epoch_eight_requires_both_approved_and_current_epoch_eight() {
+        let valid=json!({"approval_state":"new_authorization","constitution_state":"current","approved_constitution_epoch":8,"current_constitution_epoch":8});
+        let stale=json!({"approval_state":"new_authorization","constitution_state":"current","approved_constitution_epoch":7,"current_constitution_epoch":8});
+        assert!(required_assertion_satisfied("new_authorization_binds_epoch_8",&valid));
+        assert!(!required_assertion_satisfied("new_authorization_binds_epoch_8",&stale));
+    }
+    #[test]
+    fn revocation_effective_and_knowledge_times_are_independent() {
+        let only_effective=json!({"revocation_effective_state":"before_action","revocation_knowledge_state":"known_after_action"});
+        assert!(required_assertion_satisfied("revocation_effective_before_action",&only_effective));
+        assert!(!required_assertion_satisfied("revocation_known_before_action",&only_effective));
+    }
+    #[test]
+    fn scope_and_ownership_assertions_require_their_own_evidence() {
+        let v=json!({"action_scope_state":"subset","field_scope_state":"amplified","purpose_state":"matches","expiry_state":"valid","scope_check_state":"performed","ownership_check_state":"not_rechecked","observed_disposition":"DENY"});
+        assert!(required_assertion_satisfied("action_scope_non_amplification",&v));
+        assert!(required_assertion_satisfied("field_scope_non_amplification",&v));
+        assert!(required_assertion_satisfied("purpose_match",&v));
+        assert!(required_assertion_satisfied("expiry_not_exceeded",&v));
+        assert!(!required_assertion_satisfied("target_ownership_rechecked",&v));
+    }
+    #[test]
+    fn grant_inventory_completeness_is_explicit() {
+        assert!(required_assertion_satisfied("all_active_grants_included",&json!({"grant_inventory_state":"complete"})));
+        assert!(!required_assertion_satisfied("all_active_grants_included",&json!({"grant_inventory_state":"unknown"})));
     }
     #[test]
     fn required_assertion_recall_is_exactly_covered() {
