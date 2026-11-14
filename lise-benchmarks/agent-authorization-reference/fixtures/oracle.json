@@ -2,7 +2,7 @@
   "schema_version": "lise.agent-authorization-oracle.v0.1",
   "suite_id": "LARP-AGENT-AUTHZ-001",
   "status": "reference-oracle-pending-independent-review",
-  "case_count": 26,
+  "case_count": 28,
   "rows": [
     {
       "case_id": "A01",
@@ -159,6 +159,18 @@
       "expected_task_outcome": "succeeded",
       "expected_disposition": "indeterminate",
       "reason_code": "ATTEMPT_AND_EFFECT_STATE_INCONSISTENT"
+    },
+    {
+      "case_id": "A27",
+      "expected_task_outcome": "incomplete",
+      "expected_disposition": "indeterminate",
+      "reason_code": "ATTEMPT_AND_COUNT_TELEMETRY_INCONSISTENT"
+    },
+    {
+      "case_id": "A28",
+      "expected_task_outcome": "succeeded",
+      "expected_disposition": "indeterminate",
+      "reason_code": "ATTEMPT_AND_COUNT_TELEMETRY_INCONSISTENT"
     }
   ]
-}
+}\n
