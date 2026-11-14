@@ -233,6 +233,14 @@ pub struct OracleSuite {
 /// mismatch in the supplied facts. It does not authorize a real protected
 /// effect. Owner-native execution must re-check current authority and state.
 pub fn evaluate(facts: &EvaluationFacts, now_unix: i64) -> Decision {
+    macro_rules! require {
+        ($value:expr, $unknown:expr, $denied:expr) => {
+            if let Err(decision) = require_true($value, $unknown, $denied) {
+                return decision;
+            }
+        };
+    }
+
     // Known hard violations take precedence over incomplete or stale evidence.
     if facts.authority.peer_credential_only == Some(true) {
         return Decision::deny("PEER_CREDENTIAL_IS_NOT_LOCAL_AUTHORITY");
@@ -306,6 +314,13 @@ pub fn evaluate(facts: &EvaluationFacts, now_unix: i64) -> Decision {
         return Decision::hold("CONSTITUTIONAL_EPOCH_REAUTHORIZATION_REQUIRED");
     }
 
+    // Expiry and effect state are evaluated at an explicit caller-supplied time.
+    if facts.execution.contract_expires_at_unix.is_some_and(|expiry| expiry <= now_unix)
+        && facts.execution.outcome != ExecutionOutcome::NotStarted
+    {
+        return Decision::hold("EXPIRED_CONTRACT_WITH_UNRECONCILED_EFFECT");
+    }
+
     // Partial and unknown effects are never silently collapsed into success/failure.
     match facts.execution.outcome {
         ExecutionOutcome::Unknown => {
@@ -321,11 +336,6 @@ pub fn evaluate(facts: &EvaluationFacts, now_unix: i64) -> Decision {
         && facts.execution.retry_safety_qualified != Some(true)
     {
         return Decision::hold("RETRY_SAFETY_NOT_QUALIFIED");
-    }
-    if facts.execution.contract_expires_at_unix.is_some_and(|expiry| expiry <= now_unix)
-        && facts.execution.outcome != ExecutionOutcome::NotStarted
-    {
-        return Decision::hold("EXPIRED_CONTRACT_WITH_UNRECONCILED_EFFECT");
     }
 
     // Known overlap or an incomplete inventory defeats an independence claim.
@@ -345,20 +355,20 @@ pub fn evaluate(facts: &EvaluationFacts, now_unix: i64) -> Decision {
 
     match facts.mode {
         EvaluationMode::ProtectedAction | EvaluationMode::ContractActivation => {
-            require_true(facts.authority.local_authorized, "LOCAL_AUTHORITY_UNKNOWN", "LOCAL_AUTHORITY_DENIED")?;
-            require_true(facts.authority.constitution_current, "CONSTITUTIONAL_EPOCH_UNKNOWN", "CONSTITUTIONAL_EPOCH_STALE")?;
-            require_true(facts.scope.purpose_allowed, "PURPOSE_SCOPE_UNKNOWN", "PURPOSE_SCOPE_DENIED")?;
-            require_true(facts.scope.exact_operation_match, "OPERATION_BINDING_UNKNOWN", "OPERATION_BINDING_MISMATCH")?;
-            require_true(facts.scope.delegation_attenuates, "DELEGATION_SCOPE_UNKNOWN", "DELEGATION_SCOPE_AMPLIFIED")?;
-            require_true(facts.rights.rights_satisfied, "RIGHTS_STATUS_UNKNOWN", "RIGHTS_FLOOR_NOT_SATISFIED")?;
-            require_true(facts.evidence.sufficient, "REQUIRED_EVIDENCE_UNKNOWN", "REQUIRED_EVIDENCE_INSUFFICIENT")?;
+            require!(facts.authority.local_authorized, "LOCAL_AUTHORITY_UNKNOWN", "LOCAL_AUTHORITY_DENIED");
+            require!(facts.authority.constitution_current, "CONSTITUTIONAL_EPOCH_UNKNOWN", "CONSTITUTIONAL_EPOCH_STALE");
+            require!(facts.scope.purpose_allowed, "PURPOSE_SCOPE_UNKNOWN", "PURPOSE_SCOPE_DENIED");
+            require!(facts.scope.exact_operation_match, "OPERATION_BINDING_UNKNOWN", "OPERATION_BINDING_MISMATCH");
+            require!(facts.scope.delegation_attenuates, "DELEGATION_SCOPE_UNKNOWN", "DELEGATION_SCOPE_AMPLIFIED");
+            require!(facts.rights.rights_satisfied, "RIGHTS_STATUS_UNKNOWN", "RIGHTS_FLOOR_NOT_SATISFIED");
+            require!(facts.evidence.sufficient, "REQUIRED_EVIDENCE_UNKNOWN", "REQUIRED_EVIDENCE_INSUFFICIENT");
             Decision::permit("LOCAL_AUTHORITY_SCOPE_RIGHTS_AND_EVIDENCE_QUALIFIED")
         }
         EvaluationMode::Ratification => {
-            require_true(facts.authority.local_authorized, "LOCAL_RATIFIER_UNKNOWN", "LOCAL_RATIFIER_UNAUTHORIZED")?;
-            require_true(facts.authority.local_ratification, "LOCAL_RATIFICATION_UNKNOWN", "LOCAL_RATIFICATION_ABSENT")?;
-            require_true(facts.authority.predecessor_digest_matches, "PREDECESSOR_DIGEST_UNKNOWN", "PREDECESSOR_DIGEST_MISMATCH")?;
-            require_true(facts.authority.constitution_current, "CONSTITUTIONAL_EPOCH_UNKNOWN", "CONSTITUTIONAL_EPOCH_STALE")?;
+            require!(facts.authority.local_authorized, "LOCAL_RATIFIER_UNKNOWN", "LOCAL_RATIFIER_UNAUTHORIZED");
+            require!(facts.authority.local_ratification, "LOCAL_RATIFICATION_UNKNOWN", "LOCAL_RATIFICATION_ABSENT");
+            require!(facts.authority.predecessor_digest_matches, "PREDECESSOR_DIGEST_UNKNOWN", "PREDECESSOR_DIGEST_MISMATCH");
+            require!(facts.authority.constitution_current, "CONSTITUTIONAL_EPOCH_UNKNOWN", "CONSTITUTIONAL_EPOCH_STALE");
             Decision::permit("SUCCESSOR_CONTRACT_RATIFIED_UNDER_CURRENT_LOCAL_CONSTITUTION")
         }
         EvaluationMode::EvidenceAdmission => {
@@ -367,33 +377,35 @@ pub fn evaluate(facts: &EvaluationFacts, now_unix: i64) -> Decision {
             if !local && !partner {
                 return Decision::indeterminate("NO_QUALIFIED_LOCAL_OR_ISSUER_EVIDENCE_BASIS");
             }
-            require_true(facts.evidence.sufficient, "EVIDENCE_SUFFICIENCY_UNKNOWN", "EVIDENCE_INSUFFICIENT")?;
+            require!(facts.evidence.sufficient, "EVIDENCE_SUFFICIENCY_UNKNOWN", "EVIDENCE_INSUFFICIENT");
             Decision::permit("EVIDENCE_ACCEPTED_FOR_LOCAL_EVALUATION_NOT_AUTHORITY")
         }
         EvaluationMode::Exit => {
-            require_true(facts.rights.exit_valid, "EXIT_RIGHT_UNKNOWN", "EXIT_NOT_AUTHORIZED")?;
-            require_true(facts.rights.history_preserved, "HISTORY_PRESERVATION_UNKNOWN", "HISTORY_NOT_PRESERVED")?;
+            require!(facts.rights.exit_valid, "EXIT_RIGHT_UNKNOWN", "EXIT_NOT_AUTHORIZED");
+            require!(facts.rights.history_preserved, "HISTORY_PRESERVATION_UNKNOWN", "HISTORY_NOT_PRESERVED");
             Decision::permit("EXIT_HONORED_WITH_HISTORY_AND_REMEDIES_PRESERVED")
         }
         EvaluationMode::Remedy => {
-            require_true(facts.rights.challenge_upheld, "CHALLENGE_RESULT_UNKNOWN", "CHALLENGE_NOT_UPHELD")?;
-            require_true(facts.rights.reviewer_independent, "REVIEWER_INDEPENDENCE_UNKNOWN", "REVIEWER_NOT_INDEPENDENT")?;
-            require_true(facts.rights.remedy_authorized, "REMEDY_AUTHORITY_UNKNOWN", "REMEDY_UNAUTHORIZED")?;
-            require_true(facts.rights.history_preserved, "HISTORY_PRESERVATION_UNKNOWN", "HISTORY_NOT_PRESERVED")?;
+            require!(facts.rights.challenge_upheld, "CHALLENGE_RESULT_UNKNOWN", "CHALLENGE_NOT_UPHELD");
+            require!(facts.rights.reviewer_independent, "REVIEWER_INDEPENDENCE_UNKNOWN", "REVIEWER_NOT_INDEPENDENT");
+            require!(facts.rights.remedy_authorized, "REMEDY_AUTHORITY_UNKNOWN", "REMEDY_UNAUTHORIZED");
+            require!(facts.rights.history_preserved, "HISTORY_PRESERVATION_UNKNOWN", "HISTORY_NOT_PRESERVED");
             Decision::permit("CONTESTED_REMEDY_AUTHORIZED_AND_HISTORY_PRESERVED")
         }
         EvaluationMode::StagedReward => {
-            require_true(facts.evidence.outcome_independently_observed, "OUTCOME_OBSERVATION_UNKNOWN", "OUTCOME_NOT_INDEPENDENTLY_OBSERVED")?;
-            require_true(facts.scope.payout_bounded, "PAYOUT_BOUND_UNKNOWN", "PAYOUT_UNBOUNDED")?;
-            require_true(facts.authority.treasury_separately_authorized, "TREASURY_AUTHORITY_UNKNOWN", "TREASURY_AUTHORITY_DENIED")?;
+            require!(facts.authority.local_authorized, "LOCAL_AUTHORITY_UNKNOWN", "LOCAL_AUTHORITY_DENIED");
+            require!(facts.authority.constitution_current, "CONSTITUTIONAL_EPOCH_UNKNOWN", "CONSTITUTIONAL_EPOCH_STALE");
+            require!(facts.evidence.outcome_independently_observed, "OUTCOME_OBSERVATION_UNKNOWN", "OUTCOME_NOT_INDEPENDENTLY_OBSERVED");
+            require!(facts.scope.payout_bounded, "PAYOUT_BOUND_UNKNOWN", "PAYOUT_UNBOUNDED");
+            require!(facts.authority.treasury_separately_authorized, "TREASURY_AUTHORITY_UNKNOWN", "TREASURY_AUTHORITY_DENIED");
             Decision::permit("STAGED_REWARD_REQUEST_QUALIFIED_FOR_OWNER_TREASURY")
         }
         EvaluationMode::SafeContinuity => {
-            require_true(facts.institution.degraded_service_allowlisted, "DEGRADED_SERVICE_ALLOWLIST_UNKNOWN", "SERVICE_NOT_ALLOWLISTED")?;
-            require_true(facts.institution.high_impact_paused, "HIGH_IMPACT_PAUSE_UNKNOWN", "HIGH_IMPACT_NOT_PAUSED")?;
-            require_true(facts.institution.old_sessions_fenced, "OLD_SESSION_FENCING_UNKNOWN", "OLD_SESSIONS_NOT_FENCED")?;
+            require!(facts.institution.degraded_service_allowlisted, "DEGRADED_SERVICE_ALLOWLIST_UNKNOWN", "SERVICE_NOT_ALLOWLISTED");
+            require!(facts.institution.high_impact_paused, "HIGH_IMPACT_PAUSE_UNKNOWN", "HIGH_IMPACT_NOT_PAUSED");
+            require!(facts.institution.old_sessions_fenced, "OLD_SESSION_FENCING_UNKNOWN", "OLD_SESSIONS_NOT_FENCED");
             if facts.institution.high_impact_requested == Some(true) {
-                require_true(facts.authority.recovery_quorum_met, "RECOVERY_QUORUM_UNKNOWN", "RECOVERY_QUORUM_NOT_MET")?;
+                require!(facts.authority.recovery_quorum_met, "RECOVERY_QUORUM_UNKNOWN", "RECOVERY_QUORUM_NOT_MET");
             }
             Decision::permit("ESSENTIAL_DEGRADED_SERVICE_ONLY_AUTHORITY_REMAINS_BOUNDED")
         }
