@@ -671,17 +671,16 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
         }
     }
     for ((service, cohort), floor) in &floors {
-        if !service_eval.contains_key(&(service.clone(), cohort.clone())) {
+        if let std::collections::btree_map::Entry::Vacant(entry) =
+            service_eval.entry((service.clone(), cohort.clone()))
+        {
             let floor_quantity = floor.quantity.expect("validated service floor");
-            service_eval.insert(
-                (service.clone(), cohort.clone()),
-                ServiceEval {
-                    allocated: 0,
-                    floor: Some(floor_quantity),
-                    unit: floor.unit.clone(),
-                    unknown: false,
-                },
-            );
+            entry.insert(ServiceEval {
+                allocated: 0,
+                floor: Some(floor_quantity),
+                unit: floor.unit.clone(),
+                unknown: false,
+            });
             if floor_quantity > 0 {
                 infeasible = true;
             }
@@ -753,7 +752,7 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
     }
 
     let mut domain_members = BTreeMap::<String, BTreeSet<String>>::new();
-    for (key, profile) in &domain_profiles {
+    for key in domain_profiles.keys() {
         if allocated_options.contains(key) {
             // Even partial mappings are retained as observed common-cause links.
             // An incomplete profile still forces NOT_ESTIMABLE above.
