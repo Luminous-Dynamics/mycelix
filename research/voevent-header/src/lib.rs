@@ -80,6 +80,8 @@ pub enum ParseError {
     MultipleRootElements,
     #[error("the XML document ended before the root element was closed")]
     IncompleteDocument,
+    #[error("mismatched XML element: expected closing {expected}, found {found}")]
+    MismatchedElement { expected: String, found: String },
     #[error("non-whitespace text occurs outside the root element")]
     TextOutsideRoot,
     #[error("required root attribute is missing: {0}")]
@@ -175,7 +177,7 @@ pub fn parse_header(packet: &[u8]) -> Result<VoEventHeader, ParseError> {
     let mut reader = Reader::from_reader(Cursor::new(packet));
     reader.config_mut().trim_text(true);
     let mut buffer = Vec::new();
-    let mut depth = 0usize;
+    let mut element_stack: Vec<Vec<u8>> = Vec::new();
     let mut root_seen = false;
     let mut root_closed = false;
     let mut header: Option<VoEventHeader> = None;
@@ -187,19 +189,17 @@ pub fn parse_header(packet: &[u8]) -> Result<VoEventHeader, ParseError> {
 
         match event {
             Event::Start(element) => {
-                if depth == 0 {
+                if element_stack.is_empty() {
                     if root_seen {
                         return Err(ParseError::MultipleRootElements);
                     }
                     header = Some(parse_root_attributes(&element)?);
                     root_seen = true;
                 }
-                depth = depth.checked_add(1).ok_or_else(|| {
-                    ParseError::MalformedXml("XML nesting depth overflow".to_owned())
-                })?;
+                element_stack.push(element.name().as_ref().to_vec());
             }
             Event::Empty(element) => {
-                if depth == 0 {
+                if element_stack.is_empty() {
                     if root_seen {
                         return Err(ParseError::MultipleRootElements);
                     }
@@ -208,18 +208,24 @@ pub fn parse_header(packet: &[u8]) -> Result<VoEventHeader, ParseError> {
                     root_closed = true;
                 }
             }
-            Event::End(_) => {
-                if depth == 0 {
+            Event::End(element) => {
+                let Some(opening_name) = element_stack.pop() else {
                     return Err(ParseError::MalformedXml(
                         "closing element without an open element".to_owned(),
                     ));
+                };
+                let closing_name = element.name();
+                if opening_name.as_slice() != closing_name.as_ref() {
+                    return Err(ParseError::MismatchedElement {
+                        expected: String::from_utf8_lossy(&opening_name).into_owned(),
+                        found: String::from_utf8_lossy(closing_name.as_ref()).into_owned(),
+                    });
                 }
-                depth -= 1;
-                if depth == 0 {
+                if element_stack.is_empty() {
                     root_closed = true;
                 }
             }
-            Event::Text(text) if depth == 0 => {
+            Event::Text(text) if element_stack.is_empty() => {
                 let decoded = text
                     .decode()
                     .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
@@ -227,7 +233,7 @@ pub fn parse_header(packet: &[u8]) -> Result<VoEventHeader, ParseError> {
                     return Err(ParseError::TextOutsideRoot);
                 }
             }
-            Event::CData(text) if depth == 0 => {
+            Event::CData(text) if element_stack.is_empty() => {
                 let decoded = text
                     .decode()
                     .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
@@ -236,7 +242,7 @@ pub fn parse_header(packet: &[u8]) -> Result<VoEventHeader, ParseError> {
                 }
             }
             Event::DocType(_) => return Err(ParseError::DoctypeNotAllowed),
-            Event::GeneralRef(_) if depth == 0 => {
+            Event::GeneralRef(_) if element_stack.is_empty() => {
                 return Err(ParseError::MalformedXml(
                     "entity reference outside root".to_owned(),
                 ));
@@ -248,7 +254,7 @@ pub fn parse_header(packet: &[u8]) -> Result<VoEventHeader, ParseError> {
         buffer.clear();
     }
 
-    if !root_seen || !root_closed || depth != 0 {
+    if !root_seen || !root_closed || !element_stack.is_empty() {
         return Err(ParseError::IncompleteDocument);
     }
 
@@ -367,6 +373,15 @@ mod tests {
         assert!(matches!(
             parse_header(incomplete),
             Err(ParseError::IncompleteDocument | ParseError::MalformedXml(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_mismatched_nested_element_names() {
+        let mismatched = br#"<VOEvent ivorn="ivo://example.org/a" version="2.1"><Who></What></VOEvent>"#;
+        assert!(matches!(
+            parse_header(mismatched),
+            Err(ParseError::MismatchedElement { .. })
         ));
     }
 
