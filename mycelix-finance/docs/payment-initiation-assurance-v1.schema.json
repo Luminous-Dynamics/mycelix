@@ -1,0 +1,401 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.luminousdynamics.io/schemas/payment-initiation-assurance-v1.schema.json",
+  "title": "Payment initiation assurance corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "as_of",
+    "external_effects_enabled",
+    "execution_enabled",
+    "qr_plus_profile",
+    "rulebook_references",
+    "required_lifecycle_order",
+    "cases"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.payment-initiation-assurance-corpus/v1"
+    },
+    "corpus_id": {
+      "const": "PAYMENT-INITIATION-ADVERSARIAL-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_reference_only"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "execution_enabled": {
+      "const": false
+    },
+    "qr_plus_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "state",
+        "execution_rail",
+        "pilot_state",
+        "source_url"
+      ],
+      "properties": {
+        "version": {
+          "const": "1.2"
+        },
+        "state": {
+          "const": "published_standard"
+        },
+        "execution_rail": {
+          "const": "selected_provider_rail"
+        },
+        "pilot_state": {
+          "enum": [
+            "unverified_future_milestone",
+            "operationally_verified"
+          ]
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "rulebook_references": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "url",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "role": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "required_lifecycle_order": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 33,
+      "maxItems": 33,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "category",
+        "expected",
+        "input",
+        "dispatch_allowed",
+        "required_evidence",
+        "negative_controls"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^QR-PI-[0-9]{3}$"
+        },
+        "category": {
+          "enum": [
+            "qr_payload_parsed_only",
+            "verified_payee_presented",
+            "payee_substitution",
+            "amount_after_confirmation",
+            "static_qr_no_amount",
+            "currency_scale_substitution",
+            "expired_dynamic_qr",
+            "exact_scan_replay",
+            "same_nonce_changed_fingerprint",
+            "untrusted_display_name",
+            "stale_directory_result",
+            "invalid_provider_signature",
+            "wrong_provider_audience",
+            "resolution_rate_limit",
+            "user_cancel_before_dispatch",
+            "payment_timeout_unknown",
+            "provider_accepted_without_settlement",
+            "standard_published_pilot_unverified",
+            "recipient_mismatch_requires_new_consent",
+            "vop_exact_match",
+            "vop_close_match",
+            "vop_no_match",
+            "vop_unavailable",
+            "vop_other",
+            "vop_stale_result",
+            "vop_wrong_audience",
+            "vop_cross_subject_replay",
+            "vop_account_type_mismatch",
+            "vop_match_without_collection_authority",
+            "vop_alias_resolved_vop_unavailable",
+            "vop_subject_changed_after_query",
+            "vop_local_fuzzy_promotion",
+            "vop_privacy_overdisclosure"
+          ]
+        },
+        "expected": {
+          "enum": [
+            "parsed_unverified",
+            "awaiting_payer_authorisation",
+            "rejected",
+            "requires_payer_amount",
+            "idempotent_same_intent",
+            "conflict",
+            "awaiting_provider_resolution",
+            "indeterminate_unverified",
+            "throttled",
+            "cancelled_no_effect",
+            "indeterminate_same_operation_id",
+            "provider_accepted_not_settled",
+            "standard_published_pilot_unverified",
+            "reauthorisation_required",
+            "vop_match_result_bound",
+            "vop_close_match_requires_payer_decision",
+            "vop_no_match_requires_payer_decision",
+            "vop_unavailable_indeterminate",
+            "vop_other_indeterminate",
+            "vop_stale_result_indeterminate",
+            "vop_wrong_audience_rejected",
+            "vop_cross_subject_replay_rejected",
+            "vop_account_type_mismatch_disclosed",
+            "vop_match_not_collection_authority",
+            "vop_alias_resolved_vop_unavailable",
+            "vop_subject_change_requires_requery",
+            "vop_local_match_promotion_rejected",
+            "vop_privacy_overdisclosure_rejected"
+          ]
+        },
+        "input": {
+          "type": "object"
+        },
+        "dispatch_allowed": {
+          "const": false
+        },
+        "required_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "negative_controls": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "payee_verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scheme_profile",
+            "participant",
+            "issuer",
+            "audience",
+            "result",
+            "query_subject_ref",
+            "response_subject_ref",
+            "intent_subject_ref",
+            "requested_account_type",
+            "returned_account_type",
+            "provider_signature_state",
+            "audience_matches",
+            "is_current",
+            "observed_at",
+            "valid_until",
+            "payer_notified",
+            "payer_decision",
+            "collection_authority_state",
+            "collection_authority_inferred_from_name_match",
+            "match_engine",
+            "client_asserted_result",
+            "disclosure_state",
+            "response_digest",
+            "source_refs",
+            "fraud_inference"
+          ],
+          "properties": {
+            "scheme_profile": {
+              "enum": [
+                "EU_IPR_VOP",
+                "UK_FPS_COP",
+                "ZA_NPU_PROPOSAL_ONLY",
+                "PROVIDER_SPECIFIC_UNKNOWN"
+              ]
+            },
+            "participant": {
+              "type": "string",
+              "minLength": 1
+            },
+            "issuer": {
+              "type": "string",
+              "minLength": 1
+            },
+            "audience": {
+              "type": "string",
+              "minLength": 1
+            },
+            "result": {
+              "enum": [
+                "match",
+                "close_match",
+                "no_match",
+                "unavailable",
+                "other",
+                "unknown"
+              ]
+            },
+            "query_subject_ref": {
+              "type": "string",
+              "pattern": "^opaque:[A-Za-z0-9_-]{1,96}$"
+            },
+            "response_subject_ref": {
+              "type": "string",
+              "pattern": "^opaque:[A-Za-z0-9_-]{1,96}$"
+            },
+            "intent_subject_ref": {
+              "type": "string",
+              "pattern": "^opaque:[A-Za-z0-9_-]{1,96}$"
+            },
+            "requested_account_type": {
+              "enum": [
+                "individual",
+                "business",
+                "not_specified"
+              ]
+            },
+            "returned_account_type": {
+              "enum": [
+                "individual",
+                "business",
+                "unknown"
+              ]
+            },
+            "provider_signature_state": {
+              "enum": [
+                "valid",
+                "invalid",
+                "unknown",
+                "unsupported"
+              ]
+            },
+            "audience_matches": {
+              "type": "boolean"
+            },
+            "is_current": {
+              "type": "boolean"
+            },
+            "observed_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "valid_until": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "payer_notified": {
+              "type": "boolean"
+            },
+            "payer_decision": {
+              "enum": [
+                "none",
+                "continue_after_warning",
+                "cancel",
+                "review"
+              ]
+            },
+            "collection_authority_state": {
+              "enum": [
+                "verified",
+                "not_verified",
+                "unknown",
+                "not_applicable"
+              ]
+            },
+            "collection_authority_inferred_from_name_match": {
+              "type": "boolean"
+            },
+            "match_engine": {
+              "enum": [
+                "provider_authoritative",
+                "client_fuzzy",
+                "unknown"
+              ]
+            },
+            "client_asserted_result": {
+              "enum": [
+                "match",
+                "close_match",
+                "no_match",
+                "none"
+              ]
+            },
+            "disclosure_state": {
+              "enum": [
+                "minimal_result",
+                "provider_permitted_name",
+                "overdisclosed"
+              ]
+            },
+            "response_digest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            "source_refs": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "fraud_inference": {
+              "type": "string",
+              "enum": [
+                "not_inferred",
+                "unknown"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
