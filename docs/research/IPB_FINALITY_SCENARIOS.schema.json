@@ -169,6 +169,10 @@
               "type": "string"
             },
             "minItems": 1
+          },
+          "policy_engine_comparator": {
+            "type": "object",
+            "additionalProperties": true
           }
         },
         "additionalProperties": false
