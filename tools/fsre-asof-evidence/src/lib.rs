@@ -733,6 +733,43 @@ mod tests {
             let expected = if valid_until > 7200 { "ADMISSIBLE" } else { "EXPIRED" };
             assert!(report.contains(&format!("e-pump-1|pump_capacity|{expected}")));
         }
+        for effective_at in [7199_u64, 7200, 7201] {
+            let source = FIXTURE.replace(
+                "EVIDENCE|e-pending|pending_permit|synthetic-water-shock|6800|6900|6700|10000|7600|7000",
+                &format!(
+                    "EVIDENCE|e-pending|pending_permit|synthetic-water-shock|6800|6900|6700|10000|{effective_at}|7000"
+                ),
+            );
+            let report = validate_and_report(&source).expect("revocation effective-time sweep");
+            let expected = if effective_at <= 7200 {
+                "REVOKED_AS_KNOWN"
+            } else {
+                "REVOCATION_PENDING"
+            };
+            assert!(
+                report.contains(&format!("e-pending|pending_permit|{expected}")),
+                "revocation effective-time boundary {effective_at}"
+            );
+        }
+        for known_at in [7199_u64, 7200, 7201] {
+            let source = FIXTURE.replace(
+                "EVIDENCE|e-telemetry|telemetry|synthetic-water-shock|6800|6900|6000|9500|6500|7600",
+                &format!(
+                    "EVIDENCE|e-telemetry|telemetry|synthetic-water-shock|6800|6900|6000|9500|6500|{known_at}"
+                ),
+            );
+            let report = validate_and_report(&source).expect("revocation knowledge-time sweep");
+            let expected = if known_at <= 7200 {
+                "REVOKED_AS_KNOWN"
+            } else {
+                "ADMISSIBLE_WITH_HINDSIGHT_REVOCATION"
+            };
+            assert!(
+                report.contains(&format!("e-telemetry|telemetry|{expected}")),
+                "revocation knowledge-time boundary {known_at}"
+            );
+        }
+
         for observed_at in [3599_u64, 3600, 3601] {
             let source = FIXTURE.replace(
                 "EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|6000|6100|5900|9000|||ASSERTED",
