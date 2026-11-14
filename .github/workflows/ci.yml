@@ -80,9 +80,9 @@ jobs:
               - 'mycelix-manufacturing/Cargo.toml'
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
+              - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
             scientific_observability:
               - 'research/voevent-header/**'
-              - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
 
   # Format check (always runs when CI is admitted)
   format:
