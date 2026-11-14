@@ -1026,6 +1026,95 @@ mod tests {
     }
 
     #[test]
+    fn extracts_who_author_ivoid_and_source_created_at_without_authenticating_them() {
+        let bytes = packet_with_body(
+            r#"<Who><AuthorIVORN>ivo://publisher.example/stream</AuthorIVORN><Date>2026-11-14T10:15:00Z</Date></Who><What/>"#,
+        );
+        let parsed = parse_packet(&bytes).expect("packet");
+        assert!(parsed.who.present);
+        assert_eq!(
+            parsed.who.author_ivoid.as_deref(),
+            Some("ivo://publisher.example/stream")
+        );
+        assert_eq!(
+            parsed.who.source_created_at.as_deref(),
+            Some("2026-11-14T10:15:00Z")
+        );
+    }
+
+    #[test]
+    fn who_metadata_absence_and_partial_fields_remain_explicit() {
+        let absent = parse_packet(&packet_with_body("<What/>")).expect("packet without Who");
+        assert!(!absent.who.present);
+        assert_eq!(absent.who.author_ivoid, None);
+        assert_eq!(absent.who.source_created_at, None);
+
+        let partial = parse_packet(&packet_with_body("<Who><Author/></Who>"))
+            .expect("partial Who");
+        assert!(partial.who.present);
+        assert_eq!(partial.who.author_ivoid, None);
+        assert_eq!(partial.who.source_created_at, None);
+    }
+
+    #[test]
+    fn rejects_duplicate_or_invalid_who_curation_fields() {
+        let duplicate_who = packet_with_body("<Who/><Who/>");
+        assert_eq!(parse_packet(&duplicate_who), Err(ParseError::DuplicateWho));
+
+        let duplicate_author = packet_with_body(
+            "<Who><AuthorIVORN>ivo://publisher.example/a</AuthorIVORN><AuthorIVORN>ivo://publisher.example/b</AuthorIVORN></Who>",
+        );
+        assert_eq!(
+            parse_packet(&duplicate_author),
+            Err(ParseError::DuplicateWhoAuthorIvoid)
+        );
+
+        let duplicate_date = packet_with_body(
+            "<Who><Date>2026-11-14T10:00:00Z</Date><Date>2026-11-14T11:00:00Z</Date></Who>",
+        );
+        assert_eq!(
+            parse_packet(&duplicate_date),
+            Err(ParseError::DuplicateWhoDate)
+        );
+
+        let invalid_author = packet_with_body(
+            "<Who><AuthorIVORN>https://publisher.example/stream</AuthorIVORN></Who>",
+        );
+        assert!(matches!(
+            parse_packet(&invalid_author),
+            Err(ParseError::InvalidWhoAuthorIvoid(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_empty_or_nested_who_identity_and_date_content() {
+        let empty_author =
+            packet_with_body("<Who><AuthorIVORN/></Who>");
+        assert_eq!(
+            parse_packet(&empty_author),
+            Err(ParseError::InvalidWhoAuthorIvoid(String::new()))
+        );
+
+        let empty_date = packet_with_body("<Who><Date/></Who>");
+        assert_eq!(parse_packet(&empty_date), Err(ParseError::EmptyWhoDate));
+
+        let nested_author = packet_with_body(
+            "<Who><AuthorIVORN><Name>ivo://publisher.example/stream</Name></AuthorIVORN></Who>",
+        );
+        assert!(matches!(
+            parse_packet(&nested_author),
+            Err(ParseError::NestedWhoElement(_))
+        ));
+
+        let nested_empty_date =
+            packet_with_body("<Who><Date><Unit/></Date></Who>");
+        assert!(matches!(
+            parse_packet(&nested_empty_date),
+            Err(ParseError::NestedWhoElement(_))
+        ));
+    }
+
+    #[test]
     fn packet_without_citations_preserves_new_event_semantics() {
         let bytes = packet_with_body("<Who/><What/>");
         let parsed = parse_packet(&bytes).expect("packet");
