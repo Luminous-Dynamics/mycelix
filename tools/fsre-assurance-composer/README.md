@@ -12,7 +12,7 @@ The composer then verifies that the scenario and evidence snapshot IDs match and
 
 ## Input and output
 
-The CLI accepts two pipe-separated files: decision evidence and portfolio plan. The synthetic decision fixture is generated from each portfolio record's source owner and evidence reference. The output reports component dispositions, matching scope, matched/unmatched/nonvalid evidence-reference counts and a non-authorisation statement.
+The CLI accepts two pipe-separated files: decision evidence and portfolio plan. The synthetic decision fixture is generated from each portfolio record's source owner and evidence reference. The output reports component dispositions, matching scope, matched/unmatched/nonvalid evidence-reference counts and a non-authorisation statement. Composition is invariant to the ordering of input rows.
 
 The combined positive state is deliberately named SUBMITTED_EVIDENCE_LINKED_AND_PORTFOLIO_FEASIBLE_FOR_DECLARED_DECISION. It does not establish that the submitted references are a complete claim set, that owners are authentic, that assertions are true, or that a service outcome occurred. It is a software-level composition result only.
 
