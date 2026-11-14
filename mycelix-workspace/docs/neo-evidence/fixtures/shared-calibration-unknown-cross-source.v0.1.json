@@ -1,0 +1,89 @@
+{
+  "schema_version": "mycelix.neo_evidence.source_correlation_profile.v0.1",
+  "profile_id": "neo-source-correlation-demo-001",
+  "data_status": "synthetic_demo",
+  "created_at": "2026-11-08T21:20:00Z",
+  "scope": {
+    "dataset_id": "synthetic-observation-set-001",
+    "valid_from": "2026-11-08T00:00:00Z",
+    "valid_until": null,
+    "purpose": "Demonstrate shared-catalogue dependence and explicit unknown dependence without representing real observatories or measurements.",
+    "observation_set_digest": null
+  },
+  "sources": [
+    {
+      "source_id": "synthetic-optical-source-A",
+      "source_kind": "optical_instrument",
+      "provider": "synthetic",
+      "instrument_or_pipeline_id": "synthetic-optical-pipeline-A",
+      "calibration_revision": "synthetic-calibration-revision-7",
+      "failure_domain_ids": [
+        "synthetic-shared-star-catalogue-7",
+        "synthetic-reduction-family-A"
+      ]
+    },
+    {
+      "source_id": "synthetic-optical-source-B",
+      "source_kind": "optical_instrument",
+      "provider": "synthetic",
+      "instrument_or_pipeline_id": "synthetic-optical-pipeline-B",
+      "calibration_revision": "synthetic-calibration-revision-7",
+      "failure_domain_ids": [
+        "synthetic-shared-star-catalogue-7",
+        "synthetic-reduction-family-B"
+      ]
+    },
+    {
+      "source_id": "synthetic-radar-source-C",
+      "source_kind": "radar_system",
+      "provider": "synthetic",
+      "instrument_or_pipeline_id": "synthetic-radar-pipeline-C",
+      "calibration_revision": null,
+      "failure_domain_ids": [
+        "synthetic-radar-facility-C"
+      ]
+    }
+  ],
+  "dependency_assertions": [
+    {
+      "assertion_id": "synthetic-dependence-A-B",
+      "member_source_ids": [
+        "synthetic-optical-source-A",
+        "synthetic-optical-source-B"
+      ],
+      "assessment": "dependent_documented",
+      "dependency_kind": "shared_catalogue",
+      "common_cause_id": "latent-shared-catalogue-bias-7",
+      "evidence_refs": [],
+      "valid_from": "2026-11-08T00:00:00Z",
+      "valid_until": null,
+      "rationale": "The two synthetic optical pipelines share the same catalogue/calibration lineage. Their observation likelihoods must preserve the shared latent bias; do not multiply marginal likelihoods as independent."
+    },
+    {
+      "assertion_id": "synthetic-unknown-A-C",
+      "member_source_ids": [
+        "synthetic-optical-source-A",
+        "synthetic-radar-source-C"
+      ],
+      "assessment": "unknown",
+      "independence_assumption": "not_assumed",
+      "evidence_refs": [],
+      "valid_from": "2026-11-08T00:00:00Z",
+      "valid_until": null,
+      "rationale": "A different sensor modality does not by itself prove statistical independence. No validated cross-source dependence model or independence evidence is supplied, so the relation remains unknown."
+    }
+  ],
+  "independence_policy": {
+    "independence_requires_explicit_evidence": true,
+    "unknown_dependence_action": "abstain_or_model_dependence_uncertainty",
+    "no_provider_count_substitution": true
+  },
+  "claim_ceiling": "PROVENANCE_AND_DEPENDENCE_DECLARATION_ONLY",
+  "limitations": [
+    "All sources, source IDs, failure domains and assertions are synthetic controls.",
+    "No real observatory, instrument, catalogue, calibration, clock or radar data is represented.",
+    "The profile declares evidence lineage and dependence claims; it does not compute a correlation coefficient or validate a physical observation likelihood.",
+    "A shared failure domain is a provenance warning and modelling requirement, not proof of a particular numeric correlation.",
+    "Absence of a known dependency is not proof of independence."
+  ]
+}
