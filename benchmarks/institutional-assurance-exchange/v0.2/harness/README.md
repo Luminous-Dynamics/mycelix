@@ -39,3 +39,12 @@ This is the deterministic fixture's selection rule, not a universal interpretati
 ## Limits
 
 The fixture's baseline/source digests are explicit synthetic placeholders and are not cryptographically verified. The human approval is a synthetic record reference, not authenticated identity or legal approval. The oracle is not independently adjudicated. This evaluator is not a production trust framework, legal evaluator or real transaction connector.
+
+
+## Side-effect-aware qualification
+
+The submission includes a normalized `write_trace`. Each possible or completed write binds the event, operation and idempotency references, actor, asset, action, purpose, fields, authority reference, possible external effect and visibility. The evaluator compares every trace entry with the fixture's explicit `authorized_write_boundary`.
+
+Any extra asset, action, purpose, field, actor or external effect outside that boundary is reported as an unauthorized side effect. This follows the trace-based evaluation idea in SABench; final task/decision correctness cannot compensate for an unauthorized write.
+
+A timeout entry has `effect_status=possible` and `external_visibility=unknown`. The fixture must not rewrite that as a successful or failed operation.
