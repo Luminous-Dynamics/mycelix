@@ -1,7 +1,7 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use mycelix_voevent_header::parse_header;
+use mycelix_voevent_header::parse_packet;
 use std::env;
 use std::fs;
 use std::process::ExitCode;
@@ -25,14 +25,14 @@ fn main() -> ExitCode {
         }
     };
 
-    match parse_header(&bytes) {
+    match parse_packet(&bytes) {
         Ok(header) => match serde_json::to_string_pretty(&header) {
             Ok(json) => {
                 println!("{json}");
                 ExitCode::SUCCESS
             }
             Err(error) => {
-                eprintln!("cannot serialize parsed header: {error}");
+                eprintln!("cannot serialize parsed packet: {error}");
                 ExitCode::from(2)
             }
         },
