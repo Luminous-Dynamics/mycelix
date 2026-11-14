@@ -264,3 +264,37 @@ fn restoration_does_not_trade_biodiversity_for_canopy_or_local_gain_for_downstre
     assert_eq!(evaluate_restoration_contract(&biodiversity.facts).disposition, Disposition::Deny);
     assert_eq!(evaluate_restoration_contract(&downstream.facts).disposition, Disposition::Deny);
 }
+
+#[test]
+fn epistemic_reward_cannot_bypass_local_authority_recipient_or_rights() {
+    let suite: DomainScenarioSuite<EpistemicBountyFacts> =
+        serde_json::from_str(EPISTEMIC_SCENARIOS).unwrap();
+    let reward = suite.cases.iter().find(|case| case.id == "EB09").unwrap();
+
+    let mut no_authority = reward.facts.clone();
+    no_authority.local_authority_valid = Some(false);
+    assert_eq!(evaluate_epistemic_bounty(&no_authority).disposition, Disposition::Deny);
+
+    let mut no_recipient = reward.facts.clone();
+    no_recipient.recipient_eligible = Some(false);
+    assert_eq!(evaluate_epistemic_bounty(&no_recipient).disposition, Disposition::Deny);
+
+    let mut unknown_constitution = reward.facts.clone();
+    unknown_constitution.constitution_current = None;
+    assert_eq!(evaluate_epistemic_bounty(&unknown_constitution).disposition, Disposition::Indeterminate);
+}
+
+#[test]
+fn restoration_tranche_requires_affected_party_rights_and_remedy() {
+    let suite: DomainScenarioSuite<RestorationFacts> =
+        serde_json::from_str(RESTORATION_SCENARIOS).unwrap();
+    let tranche = suite.cases.iter().find(|case| case.id == "RST01").unwrap();
+
+    let mut rights_denied = tranche.facts.clone();
+    rights_denied.affected_party_rights_satisfied = Some(false);
+    assert_eq!(evaluate_restoration_contract(&rights_denied).disposition, Disposition::Deny);
+
+    let mut remedy_missing = tranche.facts.clone();
+    remedy_missing.remedy_path_defined = Some(false);
+    assert_eq!(evaluate_restoration_contract(&remedy_missing).disposition, Disposition::Deny);
+}
