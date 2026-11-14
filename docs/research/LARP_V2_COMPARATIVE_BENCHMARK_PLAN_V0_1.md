@@ -79,6 +79,41 @@ Measure:
 
 Do not score a policy engine as deficient because it does not promise payment settlement, physical sensing, legal interpretation or external transaction atomicity.
 
+### Lane A2 — agent authorization and side-effect evaluation
+
+This is a separate lane from policy-engine microbenchmarks. Compare complete agent trajectories against an explicit task/authorization contract, with authorized and out-of-scope paths both executable and observable.
+
+Relevant external comparators:
+
+- **AuthorizationBench** (20 October 2026): 286 executable tasks across ten application domains and 6,864 trajectories. The paper reports 19.2% out-of-authorization behavior in its exact model/harness/task setup. Its controlled analysis also reports lower out-of-scope behavior when agents consult the principal before completing ambiguous tasks. This is a benchmark-specific finding, not a universal deployment rate. Primary paper and released tasks: https://arxiv.org/abs/2610.27548 and https://github.com/PEACH-Research-Lab/AuthorizationBench
+- **SABench** (25 October 2026): 201 tasks / 47 templates and 2,211 model-task runs, with deterministic trace oracles for goal completion and authorized writes. Its published summary reports 15.2% collateral-damage runs and 12.8% unauthorized writes among goal-satisfied runs; ambiguity cases are particularly challenging. These measurements are specific to its synthetic email/calendar/ticket task population. Paper/artifacts: https://arxiv.org/abs/2610.34167 and https://github.com/hjj194/sabench-artifact
+
+The LARP/LISE matched subset should vary:
+- ambiguous versus fully specified intent;
+- benign pressure versus adversarial prompt injection;
+- direct versus delegated instruction;
+- one tool versus cross-tool workflow;
+- independent versus dependent/external resources;
+- harmless unauthorized writes versus consequential writes;
+- exact recipient/amount/target binding;
+- clarification before irreversible or externally visible effect;
+- user authorization changed or revoked mid-trajectory;
+- task success with collateral action and task failure without collateral action.
+
+Record at least:
+- task success and authorization success separately;
+- out-of-authorization action rate by trajectory and by effect;
+- unauthorized writes among goal-satisfied runs;
+- clarification precision, burden and whether clarification changes the protected effect;
+- exact operation substitution and recipient/amount errors;
+- collateral state changes and cross-tool cascades;
+- unknown/partial outcome and reconciliation accuracy;
+- repeated-run violation rates, not only single-run averages.
+
+Do not compare raw rates across different task populations or oracles. Reproduce each comparator's declared task, permission and trace semantics, then publish a separately labelled matched subset. User clarification is required when an omitted detail changes the recipient, amount, destination, scope or protected effect; already-authorized details should not be needlessly re-asked.
+
+Prospective LARP target on a frozen held-out subset: zero unauthorized writes/effects and zero irreversible dispatches before required clarification, while preserving positive-control task completion. Report both rates, confidence intervals and the exact task denominator. This is a finite-suite goal, not a universal guarantee.
+
 ### Lane B — institutional-contract and assurance composition
 
 Compare LARP against:
