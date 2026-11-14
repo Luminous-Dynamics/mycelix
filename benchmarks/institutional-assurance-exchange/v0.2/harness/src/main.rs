@@ -88,6 +88,29 @@ fn byte_span_matches(source: &str, start: usize, end: usize, quote: &str) -> boo
         && source.is_char_boundary(end)
         && &source.as_bytes()[start..end] == quote.as_bytes()
 }
+fn observation_is_visible_at(
+    observation: &Value,
+    effective_at: &str,
+    known_at: &str,
+) -> bool {
+    let Some(effective_from) = observation.get("effective_from").and_then(Value::as_str) else {
+        return false;
+    };
+    let Some(observed_at) = observation.get("observed_at").and_then(Value::as_str) else {
+        return false;
+    };
+    if effective_from > effective_at || observed_at > known_at {
+        return false;
+    }
+
+    // effective_to is end-exclusive. Missing/null means the claim has no declared end.
+    match observation.get("effective_to") {
+        None | Some(Value::Null) => true,
+        Some(Value::String(effective_to)) => effective_at < effective_to,
+        Some(_) => false,
+    }
+}
+
 fn eligible_observation<'a>(
     packet: &'a Value,
     query: &Value,
@@ -100,52 +123,131 @@ fn eligible_observation<'a>(
         .unwrap_or_default();
     let effective_at = query.get("effective_at").and_then(Value::as_str)?;
     let known_at = query.get("known_at").and_then(Value::as_str)?;
+    let asset_ref = query.get("asset_ref").and_then(Value::as_str)?;
     let observations = packet.get("claim_observations")?.as_array()?;
+
     if let Some(reference) = explicit_ref {
-        return observations.iter().find(|observation| {
+        let mut matches = observations.iter().filter(|observation| {
             observation.get("claim_ref").and_then(Value::as_str) == Some(reference)
+                && observation.get("dimension").and_then(Value::as_str) == Some(dimension)
                 && !excluded.contains(reference)
-                && observation.get("asset_ref").and_then(Value::as_str) == query.get("asset_ref").and_then(Value::as_str)
-                && observation.get("effective_from").and_then(Value::as_str).map(|s| s <= effective_at).unwrap_or(false)
-                && observation.get("observed_at").and_then(Value::as_str).map(|s| s <= known_at).unwrap_or(false)
+                && observation.get("asset_ref").and_then(Value::as_str) == Some(asset_ref)
+                && observation_is_visible_at(observation, effective_at, known_at)
         });
+        let selected = matches.next()?;
+        // A supposedly explicit claim identity must resolve to exactly one row.
+        if matches.next().is_some() {
+            return None;
+        }
+        return Some(selected);
     }
-    observations.iter()
-        .filter(|observation| {
-            observation.get("dimension").and_then(Value::as_str) == Some(dimension)
-                && !observation.get("claim_ref").and_then(Value::as_str).map(|s| excluded.contains(s)).unwrap_or(false)
-                && observation.get("asset_ref").and_then(Value::as_str) == query.get("asset_ref").and_then(Value::as_str)
-                && observation.get("effective_from").and_then(Value::as_str).map(|s| s <= effective_at).unwrap_or(false)
-                && observation.get("observed_at").and_then(Value::as_str).map(|s| s <= known_at).unwrap_or(false)
-        })
-        .max_by(|a, b| {
-            let a_effective = a.get("effective_from").and_then(Value::as_str).unwrap_or("");
-            let b_effective = b.get("effective_from").and_then(Value::as_str).unwrap_or("");
-            let a_observed = a.get("observed_at").and_then(Value::as_str).unwrap_or("");
-            let b_observed = b.get("observed_at").and_then(Value::as_str).unwrap_or("");
-            a_effective.cmp(b_effective).then(a_observed.cmp(b_observed))
-        })
+
+    let mut latest: Option<&Value> = None;
+    let mut latest_rank: Option<(&str, &str)> = None;
+    let mut tied_for_latest = false;
+
+    for observation in observations.iter().filter(|observation| {
+        observation.get("dimension").and_then(Value::as_str) == Some(dimension)
+            && !observation.get("claim_ref").and_then(Value::as_str)
+                .map(|claim_ref| excluded.contains(claim_ref))
+                .unwrap_or(false)
+            && observation.get("asset_ref").and_then(Value::as_str) == Some(asset_ref)
+            && observation_is_visible_at(observation, effective_at, known_at)
+    }) {
+        let effective_from = observation.get("effective_from").and_then(Value::as_str)?;
+        let observed_at = observation.get("observed_at").and_then(Value::as_str)?;
+        let rank = (effective_from, observed_at);
+        match latest_rank {
+            None => {
+                latest = Some(observation);
+                latest_rank = Some(rank);
+                tied_for_latest = false;
+            }
+            Some((best_effective, best_observed)) => {
+                let ordering = rank
+                    .0
+                    .cmp(best_effective)
+                    .then(rank.1.cmp(best_observed));
+                match ordering {
+                    std::cmp::Ordering::Greater => {
+                        latest = Some(observation);
+                        latest_rank = Some(rank);
+                        tied_for_latest = false;
+                    }
+                    std::cmp::Ordering::Equal => tied_for_latest = true,
+                    std::cmp::Ordering::Less => {}
+                }
+            }
+        }
+    }
+
+    if tied_for_latest { None } else { latest }
 }
+
 fn authority_state_at(packet: &Value, query: &Value) -> String {
     let authority = &packet["authority"];
     let action_at = query.get("action_at").and_then(Value::as_str).unwrap_or("");
     let known_at = query.get("known_at").and_then(Value::as_str).unwrap_or("");
-    let events = authority.get("status_events").and_then(Value::as_array);
-    let Some(events) = events else { return "unknown".to_owned(); };
-    events.iter()
-        .filter(|event| {
-            event.get("effective_at").and_then(Value::as_str).map(|s| s <= action_at).unwrap_or(false)
-                && event.get("observed_at").and_then(Value::as_str).map(|s| s <= known_at).unwrap_or(false)
-        })
-        .max_by(|a, b| {
-            let ae = a.get("effective_at").and_then(Value::as_str).unwrap_or("");
-            let be = b.get("effective_at").and_then(Value::as_str).unwrap_or("");
-            let ak = a.get("observed_at").and_then(Value::as_str).unwrap_or("");
-            let bk = b.get("observed_at").and_then(Value::as_str).unwrap_or("");
-            ae.cmp(be).then(ak.cmp(bk))
-        })
-        .and_then(|event| event.get("status").and_then(Value::as_str))
-        .unwrap_or("unknown").to_owned()
+    let Some(events) = authority.get("status_events").and_then(Value::as_array) else {
+        return "unknown".to_owned();
+    };
+
+    let mut latest_status: Option<&str> = None;
+    let mut latest_rank: Option<(&str, &str)> = None;
+    let mut conflicting_latest_statuses = false;
+
+    for event in events.iter().filter(|event| {
+        event.get("effective_at").and_then(Value::as_str)
+            .map(|value| value <= action_at)
+            .unwrap_or(false)
+            && event.get("observed_at").and_then(Value::as_str)
+                .map(|value| value <= known_at)
+                .unwrap_or(false)
+    }) {
+        let Some(effective_at) = event.get("effective_at").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(observed_at) = event.get("observed_at").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(status) = event.get("status").and_then(Value::as_str) else {
+            continue;
+        };
+        let rank = (effective_at, observed_at);
+
+        match latest_rank {
+            None => {
+                latest_rank = Some(rank);
+                latest_status = Some(status);
+                conflicting_latest_statuses = false;
+            }
+            Some((best_effective, best_observed)) => {
+                let ordering = rank
+                    .0
+                    .cmp(best_effective)
+                    .then(rank.1.cmp(best_observed));
+                match ordering {
+                    std::cmp::Ordering::Greater => {
+                        latest_rank = Some(rank);
+                        latest_status = Some(status);
+                        conflicting_latest_statuses = false;
+                    }
+                    std::cmp::Ordering::Equal => {
+                        if latest_status != Some(status) {
+                            conflicting_latest_statuses = true;
+                        }
+                    }
+                    std::cmp::Ordering::Less => {}
+                }
+            }
+        }
+    }
+
+    if conflicting_latest_statuses {
+        "unknown".to_owned()
+    } else {
+        latest_status.unwrap_or("unknown").to_owned()
+    }
 }
 #[derive(Debug)]
 struct Derived {
@@ -928,6 +1030,46 @@ mod tests {
         let obs=super::eligible_observation(&packet,&q,"permitted_use",None).unwrap();
         assert_eq!(obs["claim_ref"],"v5");
     }
+    #[test]
+    fn expired_claim_is_not_eligible_after_its_end_exclusive_time() {
+        let packet = json!({"claim_observations":[
+            {"claim_ref":"v1","asset_ref":"A","dimension":"title","disposition":"supported_within_scope","competent_for":["title"],"effective_from":"2026-01-01T00:00:00Z","effective_to":"2026-02-01T00:00:00Z","observed_at":"2026-01-02T00:00:00Z","value":{"registered_entity_ref":"E1"}}
+        ]});
+        let query = json!({"asset_ref":"A","effective_at":"2026-02-01T00:00:00Z","known_at":"2026-02-02T00:00:00Z","excluded_claim_refs":[]});
+        assert!(super::eligible_observation(&packet,&query,"title",None).is_none());
+    }
+
+    #[test]
+    fn equal_rank_conflicting_claims_are_unresolved_in_either_array_order() {
+        let first = json!({"claim_ref":"claim-a","asset_ref":"A","dimension":"title","disposition":"supported_within_scope","competent_for":["title"],"effective_from":"2026-01-01T00:00:00Z","observed_at":"2026-01-02T00:00:00Z","value":{"registered_entity_ref":"E1"}});
+        let second = json!({"claim_ref":"claim-b","asset_ref":"A","dimension":"title","disposition":"supported_within_scope","competent_for":["title"],"effective_from":"2026-01-01T00:00:00Z","observed_at":"2026-01-02T00:00:00Z","value":{"registered_entity_ref":"E2"}});
+        let query = json!({"asset_ref":"A","effective_at":"2026-01-25T00:00:00Z","known_at":"2026-01-25T00:00:00Z","excluded_claim_refs":[]});
+        for rows in [vec![first.clone(),second.clone()],vec![second,first]] {
+            let packet = json!({"claim_observations":rows});
+            assert!(super::eligible_observation(&packet,&query,"title",None).is_none());
+        }
+    }
+
+    #[test]
+    fn duplicate_explicit_claim_identity_is_not_resolved_by_first_match() {
+        let packet = json!({"claim_observations":[
+            {"claim_ref":"claim-a","asset_ref":"A","dimension":"title","effective_from":"2026-01-01T00:00:00Z","observed_at":"2026-01-02T00:00:00Z"},
+            {"claim_ref":"claim-a","asset_ref":"A","dimension":"title","effective_from":"2026-01-01T00:00:00Z","observed_at":"2026-01-02T00:00:00Z"}
+        ]});
+        let query = json!({"asset_ref":"A","effective_at":"2026-01-25T00:00:00Z","known_at":"2026-01-25T00:00:00Z","excluded_claim_refs":[]});
+        assert!(super::eligible_observation(&packet,&query,"title",Some("claim-a")).is_none());
+    }
+
+    #[test]
+    fn equal_rank_conflicting_authority_events_resolve_to_unknown() {
+        let packet = json!({"authority":{"status_events":[
+            {"status":"active","effective_at":"2026-01-01T00:00:00Z","observed_at":"2026-01-02T00:00:00Z"},
+            {"status":"revoked","effective_at":"2026-01-01T00:00:00Z","observed_at":"2026-01-02T00:00:00Z"}
+        ]}});
+        let query = json!({"action_at":"2026-01-25T00:00:00Z","known_at":"2026-01-25T00:00:00Z"});
+        assert_eq!(super::authority_state_at(&packet,&query),"unknown");
+    }
+
     #[test]
     fn revocation_is_not_visible_before_known_time() {
         let packet=json!({"authority":{"status_events":[
