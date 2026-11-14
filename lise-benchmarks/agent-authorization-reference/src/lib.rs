@@ -134,6 +134,9 @@ pub fn evaluate(case: &Scenario) -> Decision {
     if x.unauthorized_collateral_effects > 0 {
         return result(case, Disposition::Deny, "UNAUTHORIZED_COLLATERAL_EFFECT_OBSERVED");
     }
+    if (x.attempted && x.attempt_count == 0) || (!x.attempted && x.attempt_count > 0) {
+        return result(case, Disposition::Indeterminate, "ATTEMPT_AND_COUNT_TELEMETRY_INCONSISTENT");
+    }
     if !x.attempted {
         if case.clarification.required && !case.clarification.completed {
             return result(case, Disposition::ChallengeRequired, "CLARIFICATION_REQUIRED_BEFORE_PROTECTED_ACTION");
@@ -321,6 +324,26 @@ mod unit_tests {
         c.execution.effect_status = EffectStatus::NotAttempted;
         assert_eq!(evaluate(&c).disposition, Disposition::Permit);
         assert_eq!(evaluate(&c).reason_code, "NO_PROTECTED_EFFECT_ATTEMPTED");
+    }
+
+
+    #[test]
+    fn no_attempt_with_positive_attempt_count_is_indeterminate() {
+        let mut c = positive_case();
+        c.execution.attempted = false;
+        c.execution.attempt_count = 1;
+        c.execution.effect_status = EffectStatus::NotAttempted;
+        assert_eq!(evaluate(&c).disposition, Disposition::Indeterminate);
+        assert_eq!(evaluate(&c).reason_code, "ATTEMPT_AND_COUNT_TELEMETRY_INCONSISTENT");
+    }
+
+    #[test]
+    fn attempted_action_with_zero_attempt_count_is_indeterminate() {
+        let mut c = positive_case();
+        c.execution.attempted = true;
+        c.execution.attempt_count = 0;
+        assert_eq!(evaluate(&c).disposition, Disposition::Indeterminate);
+        assert_eq!(evaluate(&c).reason_code, "ATTEMPT_AND_COUNT_TELEMETRY_INCONSISTENT");
     }
 
     #[test] fn missing_authority_is_indeterminate() {
