@@ -939,7 +939,7 @@ mod tests {
     }
 
     #[test]
-    fn service_floor_is_enforced_per_cohort() {
+    fn cohort_floor_failure_cannot_be_hidden_by_aggregate_total() {
         let changed = FIXTURE.replace(
             "ALLOCATION|allocation-households|backup_pump|water|households|synthetic-water-shock|hour-01||80|m3|PROPOSED|operator|synthetic:plan:pump",
             "ALLOCATION|allocation-households|backup_pump|water|households|synthetic-water-shock|hour-01||40|m3|PROPOSED|operator|synthetic:plan:pump",
@@ -949,6 +949,7 @@ mod tests {
             validate_and_report(&changed).expect("cohort under-delivery is a valid proposal");
         assert!(report.contains("portfolio_disposition=NOT_FEASIBLE"));
         assert!(report.contains("service_floor=water|households|60|70|m3|MISSED"));
+        assert!(report.contains("service_floor=water|hospital|60|50|m3|MET"));
     }
 
     #[test]
