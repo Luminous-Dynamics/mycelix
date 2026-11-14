@@ -186,12 +186,24 @@ pub fn compose(asof_evidence_source: &str, portfolio_plan_source: &str) -> Resul
     let mut matched = 0_usize;
     let mut unmatched = 0_usize;
     let mut nonvalid = 0_usize;
+    let mut supported_claims = BTreeSet::new();
+    let mut unmatched_record_ids = Vec::new();
+    let mut nonvalid_record_ids = Vec::new();
 
     for reference in &portfolio_references {
         match asof_index.get(&(reference.owner.clone(), reference.reference.clone())) {
-            None => unmatched += 1,
-            Some(link) if link.admissibility != "VALID" => nonvalid += 1,
-            Some(_) => matched += 1,
+            None => {
+                unmatched += 1;
+                unmatched_record_ids.push(reference.record_id.clone());
+            }
+            Some(link) if link.admissibility != "VALID" => {
+                nonvalid += 1;
+                nonvalid_record_ids.push(reference.record_id.clone());
+            }
+            Some(link) => {
+                matched += 1;
+                supported_claims.insert(link.claim_id.clone());
+            }
         }
     }
 
@@ -218,6 +230,15 @@ pub fn compose(asof_evidence_source: &str, portfolio_plan_source: &str) -> Resul
         format!("portfolio_evidence_matched={matched}"),
         format!("portfolio_evidence_unmatched={unmatched}"),
         format!("portfolio_evidence_nonvalid={nonvalid}"),
+        format!("portfolio_claims_supported={}", supported_claims.len()),
+        format!(
+            "unmatched_record_ids={}",
+            if unmatched_record_ids.is_empty() { "NONE".to_owned() } else { unmatched_record_ids.join(",") }
+        ),
+        format!(
+            "nonvalid_record_ids={}",
+            if nonvalid_record_ids.is_empty() { "NONE".to_owned() } else { nonvalid_record_ids.join(",") }
+        ),
         format!("scenario_match={scenario_match}"),
         format!("snapshot_match={snapshot_match}"),
         format!("decision_cutoff_match={decision_cutoff_match}"),
