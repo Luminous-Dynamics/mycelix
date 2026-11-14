@@ -298,3 +298,41 @@ fn restoration_tranche_requires_affected_party_rights_and_remedy() {
     remedy_missing.remedy_path_defined = Some(false);
     assert_eq!(evaluate_restoration_contract(&remedy_missing).disposition, Disposition::Deny);
 }
+
+#[test]
+fn epistemic_reward_amount_must_fit_the_exact_ceiling_and_currency() {
+    let suite: DomainScenarioSuite<EpistemicBountyFacts> =
+        serde_json::from_str(EPISTEMIC_SCENARIOS).unwrap();
+    let reward = suite.cases.iter().find(|case| case.id == "EB09").unwrap();
+
+    let mut over_ceiling = reward.facts.clone();
+    over_ceiling.amount_units = Some(1_001);
+    assert_eq!(evaluate_epistemic_bounty(&over_ceiling).disposition, Disposition::Deny);
+
+    let mut unknown_amount = reward.facts.clone();
+    unknown_amount.amount_ceiling_units = None;
+    assert_eq!(evaluate_epistemic_bounty(&unknown_amount).disposition, Disposition::Indeterminate);
+
+    let mut invalid_funding = reward.facts.clone();
+    invalid_funding.funding_source_valid = Some(false);
+    assert_eq!(evaluate_epistemic_bounty(&invalid_funding).disposition, Disposition::Deny);
+}
+
+#[test]
+fn restoration_tranche_must_fit_remaining_budget_and_valid_funding_source() {
+    let suite: DomainScenarioSuite<RestorationFacts> =
+        serde_json::from_str(RESTORATION_SCENARIOS).unwrap();
+    let tranche = suite.cases.iter().find(|case| case.id == "RST01").unwrap();
+
+    let mut over_budget = tranche.facts.clone();
+    over_budget.tranche_amount_units = Some(1_001);
+    assert_eq!(evaluate_restoration_contract(&over_budget).disposition, Disposition::Deny);
+
+    let mut unknown_budget = tranche.facts.clone();
+    unknown_budget.remaining_budget_units = None;
+    assert_eq!(evaluate_restoration_contract(&unknown_budget).disposition, Disposition::Indeterminate);
+
+    let mut invalid_funding = tranche.facts.clone();
+    invalid_funding.funding_source_valid = Some(false);
+    assert_eq!(evaluate_restoration_contract(&invalid_funding).disposition, Disposition::Deny);
+}
