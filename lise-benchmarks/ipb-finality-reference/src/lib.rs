@@ -440,43 +440,62 @@ pub fn qualify_independent_effect_observation(
     }
 
     let mut has_applied = false;
+    let mut has_provider_only = false;
+    let mut has_known_shared_dependency = false;
+    let mut has_indeterminate = false;
+
     for action_id in expected_action_ids {
         let Some(action) = observed.get(action_id.as_str()).copied() else {
-            return Ok(ObservationQualification::Indeterminate);
+            has_indeterminate = true;
+            continue;
         };
 
-        if action.effect != ActionEffect::ConfirmedApplied {
-            continue;
+        match action.effect {
+            ActionEffect::NotAttempted | ActionEffect::ConfirmedNotApplied => continue,
+            ActionEffect::Unknown => {
+                has_indeterminate = true;
+                continue;
+            }
+            ActionEffect::ConfirmedApplied => has_applied = true,
         }
-        has_applied = true;
 
         let Some(evidence) = action.evidence.as_ref() else {
-            return Ok(ObservationQualification::Indeterminate);
+            has_indeterminate = true;
+            continue;
         };
         if evidence.source_ref.trim().is_empty() {
-            return Ok(ObservationQualification::Indeterminate);
+            has_indeterminate = true;
+            continue;
         }
 
         match evidence.kind {
             EffectEvidenceKind::ProviderAcknowledgement
             | EffectEvidenceKind::ProviderStatusQuery => {
-                return Ok(ObservationQualification::ProviderReportedOnly);
+                has_provider_only = true;
             }
             EffectEvidenceKind::IndependentObservation | EffectEvidenceKind::OwnerReconciliation => {
                 match evidence.independence {
                     EvidenceIndependence::QualifiedIndependent => {}
                     EvidenceIndependence::KnownSharedDependency => {
-                        return Ok(ObservationQualification::KnownSharedDependency);
+                        has_known_shared_dependency = true;
                     }
                     EvidenceIndependence::Unknown | EvidenceIndependence::NotAssessed => {
-                        return Ok(ObservationQualification::Indeterminate);
+                        has_indeterminate = true;
                     }
                 }
             }
         }
     }
 
-    if has_applied {
+    // Aggregate before returning so reordering the expected action list cannot
+    // change the qualification result.
+    if has_known_shared_dependency {
+        Ok(ObservationQualification::KnownSharedDependency)
+    } else if has_indeterminate {
+        Ok(ObservationQualification::Indeterminate)
+    } else if has_provider_only {
+        Ok(ObservationQualification::ProviderReportedOnly)
+    } else if has_applied {
         Ok(ObservationQualification::QualifiedIndependentObservation)
     } else {
         Ok(ObservationQualification::NoAppliedEffects)
@@ -825,6 +844,63 @@ mod tests {
                 source_ref: "observer:receipt-a".to_owned(),
                 kind: EffectEvidenceKind::IndependentObservation,
                 independence: EvidenceIndependence::QualifiedIndependent,
+            }),
+        }];
+        assert_eq!(
+            qualify_independent_effect_observation(
+                &["a".to_owned(), "b".to_owned()],
+                &observations
+            ),
+            Ok(ObservationQualification::Indeterminate)
+        );
+    }
+
+    #[test]
+    fn observation_qualification_is_invariant_to_action_order() {
+        let observations = vec![
+            ActionObservation {
+                action_id: "a".to_owned(),
+                effect: ActionEffect::ConfirmedApplied,
+                evidence: Some(EffectEvidence {
+                    source_ref: "provider:ack-a".to_owned(),
+                    kind: EffectEvidenceKind::ProviderAcknowledgement,
+                    independence: EvidenceIndependence::Unknown,
+                }),
+            },
+            ActionObservation {
+                action_id: "b".to_owned(),
+                effect: ActionEffect::ConfirmedApplied,
+                evidence: Some(EffectEvidence {
+                    source_ref: "observer:receipt-b".to_owned(),
+                    kind: EffectEvidenceKind::IndependentObservation,
+                    independence: EvidenceIndependence::QualifiedIndependent,
+                }),
+            },
+        ];
+        let forward = qualify_independent_effect_observation(
+            &["a".to_owned(), "b".to_owned()],
+            &observations,
+        );
+        let reverse = qualify_independent_effect_observation(
+            &["b".to_owned(), "a".to_owned()],
+            &observations,
+        );
+        assert_eq!(forward, reverse);
+        assert_eq!(
+            forward,
+            Ok(ObservationQualification::ProviderReportedOnly)
+        );
+    }
+
+    #[test]
+    fn incomplete_plan_dominates_provider_only_evidence() {
+        let observations = vec![ActionObservation {
+            action_id: "a".to_owned(),
+            effect: ActionEffect::ConfirmedApplied,
+            evidence: Some(EffectEvidence {
+                source_ref: "provider:ack-a".to_owned(),
+                kind: EffectEvidenceKind::ProviderAcknowledgement,
+                independence: EvidenceIndependence::Unknown,
             }),
         }];
         assert_eq!(
