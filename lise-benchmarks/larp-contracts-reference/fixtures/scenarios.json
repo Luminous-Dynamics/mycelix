@@ -74,7 +74,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -82,7 +83,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -148,7 +150,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -156,7 +159,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -222,7 +226,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -230,7 +235,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -296,7 +302,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -304,7 +311,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -370,7 +378,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -378,7 +387,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -444,7 +454,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -452,7 +463,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -518,7 +530,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -526,7 +539,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -592,7 +606,8 @@
           "degraded_service_allowlisted": true,
           "high_impact_paused": true,
           "high_impact_requested": false,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": true
         },
         "execution": {
           "outcome": "not_started",
@@ -600,7 +615,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -665,7 +681,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -673,7 +690,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -738,7 +756,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -746,7 +765,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -811,7 +831,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -819,7 +840,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -884,7 +906,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -892,7 +915,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -957,7 +981,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -965,7 +990,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -1030,7 +1056,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -1038,7 +1065,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -1104,7 +1132,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -1112,7 +1141,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -1177,7 +1207,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -1185,7 +1216,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -1251,7 +1283,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -1259,7 +1292,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -1324,7 +1358,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -1332,7 +1367,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -1397,7 +1433,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -1405,7 +1442,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -1470,7 +1508,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -1478,7 +1517,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -1543,7 +1583,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -1551,7 +1592,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -1617,7 +1659,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -1625,7 +1668,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -1690,7 +1734,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -1698,7 +1743,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -1764,7 +1810,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "unknown",
@@ -1772,7 +1819,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -1838,7 +1886,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "partially_applied",
@@ -1846,7 +1895,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -1911,7 +1961,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -1919,7 +1970,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": true,
           "duplicate_requested": true,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": true
         }
       }
     },
@@ -1984,7 +2036,8 @@
           "degraded_service_allowlisted": true,
           "high_impact_paused": true,
           "high_impact_requested": false,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": true
         },
         "execution": {
           "outcome": "not_started",
@@ -1992,7 +2045,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -2057,7 +2111,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "not_started",
@@ -2065,7 +2120,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": null
+          "contract_expires_at_unix": null,
+          "operation_already_applied": false
         }
       }
     },
@@ -2131,7 +2187,8 @@
           "degraded_service_allowlisted": false,
           "high_impact_paused": false,
           "high_impact_requested": true,
-          "old_sessions_fenced": true
+          "old_sessions_fenced": true,
+          "continuity_trigger_verified": false
         },
         "execution": {
           "outcome": "unknown",
@@ -2139,7 +2196,8 @@
           "retry_safety_qualified": false,
           "single_use_consumed": false,
           "duplicate_requested": false,
-          "contract_expires_at_unix": 1799999000
+          "contract_expires_at_unix": 1799999000,
+          "operation_already_applied": false
         }
       }
     }
