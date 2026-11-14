@@ -21,13 +21,15 @@ cargo run --manifest-path lise-benchmarks/ipb-finality-evaluator/Cargo.toml -- \
 
 ## Reporting
 
-The evaluator reports terminal-state, disposition and outcome-class accuracy, required-assertion precision/recall, high-severity false passes, any false ALLOW against a non-ALLOW oracle, positive-control false denials, unsupported cases, unexpected provider dispatch, dispatched operations without provider-contract references, duplicate effects, mutations under no-mutation controls, blind retries, missing effect/independent observations, operation substitution, stale authority, constitution/resource mismatches, delegation amplification, excess trajectory privilege, route bypass and missing clarification. A candidate's extra assertion claims must also be true.
+The evaluator reports terminal-state, disposition and outcome-class accuracy, required-assertion precision/recall, high-severity false passes, any false ALLOW against a non-ALLOW oracle, positive-control false denials, unsupported cases, unexpected provider dispatch, dispatched operations without provider-contract references, duplicate effects, mutations under no-mutation controls, blind retries, missing effect/independent observations, operation substitution, stale authority, constitution/resource mismatches, delegation amplification, excess trajectory privilege, route bypass and missing clarification. A candidate's extra assertion claims must also be true. The schema requires explicit execution-lease state, active-grant inventory completeness, and frozen-action-plan state; unknown effect evidence cannot satisfy a no-mutation assertion.
 
 It emits SHA-256 receipts for the exact input manifest, oracle, submission and evaluator binary, plus the candidate's build/configuration/trace-bundle identities.
 
 ## Limits
 
 The evaluator compares declared outputs and assertion references; it does not authenticate raw evidence or inspect a trace bundle automatically. A digest binds bytes, not truth. Independent reviewers must inspect the referenced traces, provider contracts, owner-native authority records and protected-effect observations.
+
+**24 Rust unit tests are authored; they have not been compiled or executed in this authoring environment.**
 
 The public 34-case development oracle is not a hidden holdout. Do not claim SOTA performance or production qualification from this evaluator alone.
 
