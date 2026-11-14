@@ -554,7 +554,8 @@ mod factor_enrollment {
             .expect("Should find hardware key factor");
 
         assert_eq!(hw_factor.factor_id, "yubikey-serial-12345");
-        assert!(hw_factor.active);
+        assert!(!hw_factor.active, "New HardwareKey factors must remain pending until proof verification");
+        assert_eq!(hw_factor.effective_strength, 0.0, "Pending HardwareKey factor must contribute zero assurance");
 
         println!("  - Enrolled HardwareKey factor");
         println!("  - Total factors: {}", output.state.factors.len());
@@ -594,10 +595,11 @@ mod factor_enrollment {
             .find(|f| f.factor_type == FactorType::GitcoinPassport)
             .expect("Should find Gitcoin Passport factor");
 
-        assert!(gp_factor.active);
+        assert!(!gp_factor.active, "New GitcoinPassport factors must remain pending until proof verification");
+        assert_eq!(gp_factor.effective_strength, 0.0, "Pending GitcoinPassport factor must contribute zero assurance");
         assert!(
-            output.assurance.category_count >= 2,
-            "Should have 2+ categories (Cryptographic + ExternalVerification)"
+            output.assurance.category_count == 1,
+            "Unverified Gitcoin Passport enrollment must not increase assurance categories"
         );
 
         println!("  - Enrolled GitcoinPassport factor");
@@ -638,7 +640,8 @@ mod factor_enrollment {
             .find(|f| f.factor_type == FactorType::Biometric)
             .expect("Should find Biometric factor");
 
-        assert!(bio_factor.active);
+        assert!(!bio_factor.active, "New Biometric factors must remain pending until proof verification");
+        assert_eq!(bio_factor.effective_strength, 0.0, "Pending Biometric factor must contribute zero assurance");
         assert_eq!(bio_factor.factor_type.category(), FactorCategory::Biometric);
 
         println!("  - Enrolled Biometric factor");
@@ -678,7 +681,8 @@ mod factor_enrollment {
             .find(|f| f.factor_type == FactorType::SocialRecovery)
             .expect("Should find SocialRecovery factor");
 
-        assert!(sr_factor.active);
+        assert!(!sr_factor.active, "New SocialRecovery factors must remain pending until proof verification");
+        assert_eq!(sr_factor.effective_strength, 0.0, "Pending SocialRecovery factor must contribute zero assurance");
         assert_eq!(sr_factor.factor_type.category(), FactorCategory::SocialProof);
 
         println!("  - Enrolled SocialRecovery factor");
@@ -718,7 +722,8 @@ mod factor_enrollment {
             .find(|f| f.factor_type == FactorType::VerifiableCredential)
             .expect("Should find VerifiableCredential factor");
 
-        assert!(vc_factor.active);
+        assert!(!vc_factor.active, "New VerifiableCredential factors must remain pending until proof verification");
+        assert_eq!(vc_factor.effective_strength, 0.0, "Pending VerifiableCredential factor must contribute zero assurance");
         assert_eq!(
             vc_factor.factor_type.category(),
             FactorCategory::ExternalVerification

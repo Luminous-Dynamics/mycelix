@@ -1016,6 +1016,14 @@ body {
     padding: var(--space-md) var(--space-lg);
 }
 
+.factor-card.factor-pending {
+    opacity: 0.85;
+}
+
+.factor-pending .factor-status {
+    color: var(--warning, #d97706);
+}
+
 .factor-card.factor-revoked {
     opacity: 0.5;
 }
