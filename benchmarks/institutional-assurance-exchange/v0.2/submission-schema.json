@@ -13,7 +13,8 @@
     "trace_completeness",
     "metamorphic_results",
     "environment",
-    "write_trace"
+    "write_trace",
+    "operation_finality_result"
   ],
   "properties": {
     "system_id": {
@@ -334,6 +335,94 @@
               "not_applicable"
             ]
           }
+        }
+      }
+    },
+    "operation_finality_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_ref",
+        "canonical_operation_digest",
+        "approval_ref",
+        "constitution_epoch",
+        "constitution_digest",
+        "authority_state",
+        "resource_state",
+        "prior_effect_state",
+        "retry_safety",
+        "disposition",
+        "retry_count",
+        "reattempt_permitted"
+      ],
+      "properties": {
+        "operation_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonical_operation_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "approval_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "constitution_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "constitution_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "authority_state": {
+          "enum": [
+            "current",
+            "revoked",
+            "expired",
+            "not_yet_valid",
+            "unknown"
+          ]
+        },
+        "resource_state": {
+          "enum": [
+            "matches",
+            "mismatch",
+            "unknown",
+            "not_required"
+          ]
+        },
+        "prior_effect_state": {
+          "enum": [
+            "never_attempted",
+            "outcome_unknown_after_dispatch",
+            "confirmed_not_applied",
+            "confirmed_applied",
+            "partially_applied"
+          ]
+        },
+        "retry_safety": {
+          "enum": [
+            "same_operation_same_idempotency_key_qualified",
+            "unsupported",
+            "unknown"
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "ALLOW",
+            "DENY",
+            "HOLD_FOR_RECONCILIATION",
+            "INDETERMINATE"
+          ]
+        },
+        "retry_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reattempt_permitted": {
+          "type": "boolean"
         }
       }
     }
