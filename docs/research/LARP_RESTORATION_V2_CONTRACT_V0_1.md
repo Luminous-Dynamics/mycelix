@@ -14,7 +14,7 @@ It is not a new ecological definition or certification. Ecological success must 
 Compose with existing standards and methodologies:
 
 - **SER International Principles and Standards for the Practice of Ecological Restoration, third edition (June 2026):** assessment, planning, implementation, ongoing management and monitoring/evaluation; updated Restorative Continuum and Five-star System. This is the primary broad ecological-restoration reference. https://www.ser.org/general/custom.asp?page=serstandards
-- **IUCN Global Standard for Nature-based Solutions:** eight criteria and 27 indicators for NbS design and assessment. Use where the intervention is a Nature-based Solution; not every restoration action is necessarily an NbS. https://iucn.org/our-work/topic/iucn-global-standard-nature-based-solutions
+- **IUCN Global Standard for Nature-based Solutions, second edition (launched 10 October 2025):** the current IUCN page lists eight criteria and 27 indicators for NbS design and assessment. Use where the intervention is a Nature-based Solution; not every restoration action is necessarily an NbS. https://iucn.org/our-work/topic/iucn-global-standard-nature-based-solutions
 - **Verra VM0047 v1.1:** active ARR methodology for carbon-removal accounting, using remote sensing and plot-based sampling with a dynamic performance benchmark for additionality/baseline within its scope. It is not a complete biodiversity, hydrology, community-rights or ecosystem-integrity measure. https://verra.org/methodologies/vm0047-afforestation-reforestation-and-revegetation-v1-1/
 
 LARP's contribution is contract, authority, evidence, dependency, remedy and finance assurance across the lifecycle—not replacement of those domain methods.
