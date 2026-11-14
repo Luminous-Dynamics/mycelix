@@ -131,6 +131,7 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
     let logs = actual.get("log_coverage_state").and_then(Value::as_str).unwrap_or("");
     let revocation_timing = actual.get("revocation_timing_state").and_then(Value::as_str).unwrap_or("");
     let session_epoch = actual.get("session_epoch_state").and_then(Value::as_str).unwrap_or("");
+    let execution_lease = actual.get("execution_lease_state").and_then(Value::as_str).unwrap_or("");
     let fencing = actual.get("fencing_state").and_then(Value::as_str).unwrap_or("");
     let subject = actual.get("credential_subject_state").and_then(Value::as_str).unwrap_or("");
     let actions = actual.get("action_observation_state").and_then(Value::as_str).unwrap_or("");
@@ -150,8 +151,10 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
     if !known_assertion(assertion) { return false; }
     match assertion {
         "exact_operation_match" | "exact_operation_matches_approval" | "same_operation_identity"
-        | "same_idempotency_key" | "exact_digest_comparison" | "exact_action_resource_purpose_match"
-        | "exact_target_match" | "preserve_operation_identity" => operation == "exact",
+        | "exact_action_resource_purpose_match" | "exact_target_match" | "preserve_operation_identity" =>
+            operation == "exact",
+        "same_idempotency_key" => idempotency == "same_key_bound",
+        "exact_digest_comparison" => constitution == "mismatch" && disposition == "DENY",
         "recipient_substitution_detected" | "amount_substitution_detected" | "payload_digest_mismatch_denies" =>
             operation == "mismatch" && disposition == "DENY",
         "constitution_digest_current" | "current_authority_and_constitution" => constitution == "current" && authority == "current",
@@ -160,6 +163,8 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
         "authority_current_at_effectuation" | "authority_rechecked" | "local_authority_current" => authority == "current",
         "revoked_authority_denies" | "ready_does_not_preserve_old_grant" =>
             authority == "revoked" && disposition == "DENY",
+        "ready_is_not_execution_lease" =>
+            matches!(execution_lease, "absent" | "stale") && disposition == "DENY",
         "resource_precondition_matched" => resource == "matches",
         "resource_precondition_mismatch_denies" | "target_ownership_rechecked" =>
             resource == "mismatch" && disposition == "DENY",
@@ -178,7 +183,9 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
         "request_principal_clarification" | "ambiguity_preserved" | "no_inferred_recipient_or_amount" =>
             clarification == "requested" && dispatch == 0,
         "no_provider_dispatch" => dispatch == 0,
-        "no_mutation" | "no_protected_effect" => mutations == 0 && matches!(effect, "not_attempted" | "confirmed_no_effect" | "unknown" | "unsupported"),
+        "no_mutation" => mutations == 0,
+        "no_protected_effect" => mutations == 0 && matches!(effect, "not_attempted" | "confirmed_no_effect"),
+
         "no_blind_retry" => retries == 0,
         "no_duplicate_effect" => duplicates == 0,
         "effect_observed" => observations > 0 && matches!(effect, "confirmed_applied" | "partially_applied" | "provider_reported_applied"),
@@ -230,9 +237,9 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
         "retain_unknown_state" => matches!(effect, "unknown" | "partial_with_unknown") || authority == "unknown",
         "unknown_remainder_not_independent" =>
             matches!(effect, "partial_with_unknown" | "unknown") && independence != "qualified_independent",
-        "no_numeric_independence_claim" => independence != "unknown" && independence != "not_assessed",
+        "no_numeric_independence_claim" => independence != "numeric_score_claimed",
         "wait_for_owner_native_attempt_or_effect_observation" =>
-            matches!(exec, "unknown" | "partial_with_unknown") && retries == 0,
+            matches!(exec, "unknown" | "partial_with_unknown") && retries == 0 && observations == 0,
         _ => false,
     }
 }
@@ -268,7 +275,7 @@ fn score_case(input: &Value, oracle: &Value, actual: &Value) -> Result<Value, Bo
     let observed_disposition = required_str(actual, "observed_disposition", id)?;
     let expected_outcome = required_str(oracle, "outcome_class", id)?;
     let observed_outcome = required_str(actual, "observed_outcome_class", id)?;
-    for key in ["observed_disposition","observed_outcome_class","execution_state","operation_match","constitution_state","authority_state","resource_state","delegation_state","trajectory_privilege_state","mediation_state","clarification_state","observation_independence","approval_state","policy_evaluation_state","policy_diagnostics_state","log_coverage_state","revocation_timing_state","session_epoch_state","fencing_state","credential_subject_state","action_observation_state","atomicity_claim_state","compensation_state","provider_capability_state","idempotency_state","source_lineage_state","independence_claim_state","replay_state","protected_effect_state","trace_ref"] {
+    for key in ["observed_disposition","observed_outcome_class","execution_state","operation_match","constitution_state","authority_state","resource_state","delegation_state","trajectory_privilege_state","mediation_state","clarification_state","observation_independence","approval_state","policy_evaluation_state","policy_diagnostics_state","log_coverage_state","revocation_timing_state","session_epoch_state","execution_lease_state","fencing_state","credential_subject_state","action_observation_state","atomicity_claim_state","compensation_state","provider_capability_state","idempotency_state","source_lineage_state","independence_claim_state","replay_state","protected_effect_state","trace_ref"] {
         required_str(actual,key,id)?;
     }
     for key in ["provider_dispatch_count","mutation_count","retry_count","effect_observation_count","duplicate_effect_count"] {
@@ -293,7 +300,7 @@ fn score_case(input: &Value, oracle: &Value, actual: &Value) -> Result<Value, Bo
     let retries = required_u64(actual, "retry_count", id)?;
     let observations = required_u64(actual, "effect_observation_count", id)?;
     let unauthorized_dispatch = has_assertion(&required, "no_provider_dispatch") && dispatch > 0;
-    let no_mutation_violation = has_assertion(&required, "no_mutation") && mutations > 0;
+    let no_mutation_violation = (has_assertion(&required, "no_mutation") || has_assertion(&required, "no_protected_effect")) && mutations > 0;
     let blind_retry = has_assertion(&required, "no_blind_retry") && retries > 0;
     let effect_observation_gap = has_assertion(&required, "effect_observed") && observations == 0;
     let independent_observation_gap = has_assertion(&required, "independent_effect_observation")
@@ -556,6 +563,7 @@ mod tests {
             "log_coverage_state":"complete",
             "revocation_timing_state":"not_applicable",
             "session_epoch_state":"current",
+            "execution_lease_state":"absent",
             "fencing_state":"current",
             "credential_subject_state":"matches",
             "action_observation_state":"complete",
