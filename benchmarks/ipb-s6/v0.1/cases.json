@@ -26,7 +26,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "title",
@@ -34,7 +33,9 @@
               "value": "ENTITY-A",
               "scope": "registered holder for LAND-001"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         },
         {
           "source_id": "SRC-CUSTODY-001",
@@ -46,7 +47,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "custody",
@@ -54,7 +54,9 @@
               "value": "Estate Facilities Unit",
               "scope": "custodial responsibility only"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         },
         {
           "source_id": "SRC-COND-001",
@@ -66,7 +68,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "condition",
@@ -74,7 +75,9 @@
               "value": "inspection grade B",
               "scope": "visual inspection on stated date"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         }
       ],
       "actor": {
@@ -93,7 +96,8 @@
       "context": [
         "Synthetic current records.",
         "No transfer, title amendment or legal determination is requested."
-      ]
+      ],
+      "temporal_queries": []
     },
     {
       "scenario_id": "S6-002",
@@ -118,7 +122,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "custody",
@@ -126,7 +129,9 @@
               "value": "MUSEUM-X",
               "scope": "physical custody under loan agreement"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         }
       ],
       "actor": {
@@ -145,7 +150,8 @@
       "context": [
         "No title record is supplied.",
         "Custody competence is limited to physical custody."
-      ]
+      ],
+      "temporal_queries": []
     },
     {
       "scenario_id": "S6-003",
@@ -170,7 +176,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2024-04-01T00:00:00Z",
-          "valid_through": "2024-04-02T00:00:00Z",
           "claims": [
             {
               "dimension": "valuation",
@@ -178,7 +183,9 @@
               "value": "USD 850000",
               "scope": "indicative estimate, not a current appraisal"
             }
-          ]
+          ],
+          "effective_from": "2024-04-01T00:00:00Z",
+          "effective_through": "2024-04-02T00:00:00Z"
         }
       ],
       "actor": {
@@ -197,7 +204,8 @@
       "context": [
         "Source is outside configured freshness window.",
         "Valuation is not evidence of title or coverage."
-      ]
+      ],
+      "temporal_queries": []
     },
     {
       "scenario_id": "S6-004",
@@ -222,7 +230,6 @@
           "availability": "partial",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "transfer_observation",
@@ -230,7 +237,9 @@
               "value": "request accepted by gateway; physical receipt unknown",
               "scope": "outcome after timeout"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         }
       ],
       "actor": {
@@ -249,7 +258,8 @@
       "context": [
         "A stable operation key exists.",
         "Timeout does not establish success or failure."
-      ]
+      ],
+      "temporal_queries": []
     },
     {
       "scenario_id": "S6-005",
@@ -274,7 +284,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "title",
@@ -282,7 +291,9 @@
               "value": "ENTITY-A",
               "scope": "registered holder for BUILDING-001"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         },
         {
           "source_id": "SRC-LIEN-005",
@@ -294,7 +305,6 @@
           "availability": "unavailable",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "encumbrance",
@@ -302,14 +312,17 @@
               "value": "no current response",
               "scope": "registry endpoint unavailable"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         }
       ],
       "actor": {
         "actor_ref": "ACT-DISPOSAL-A",
         "entity_ref": "ENTITY-A",
         "declared_capabilities": [
-          "propose_disposal"
+          "propose_disposal",
+          "execute_disposal"
         ]
       },
       "request": {
@@ -321,7 +334,8 @@
       "context": [
         "Unavailable evidence is not evidence of no lien.",
         "Title and permission to dispose are separate claims."
-      ]
+      ],
+      "temporal_queries": []
     },
     {
       "scenario_id": "S6-006",
@@ -347,7 +361,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "custody",
@@ -361,7 +374,9 @@
               "value": "no public display or reproduction",
               "scope": "loan restriction applies through 2027-06-30"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         }
       ],
       "actor": {
@@ -379,7 +394,8 @@
       },
       "context": [
         "Physical availability does not imply permission to publish."
-      ]
+      ],
+      "temporal_queries": []
     },
     {
       "scenario_id": "S6-007",
@@ -404,7 +420,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "scheduled_asset",
@@ -412,7 +427,9 @@
               "value": "VEHICLE-001 listed",
               "scope": "schedule listing only"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         },
         {
           "source_id": "SRC-COVERAGE-007",
@@ -424,7 +441,6 @@
           "availability": "unavailable",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "insurance_coverage",
@@ -432,7 +448,9 @@
               "value": "no current confirmation returned",
               "scope": "insurer confirmation endpoint unavailable"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         }
       ],
       "actor": {
@@ -450,7 +468,8 @@
       },
       "context": [
         "A schedule listing is not proof of current coverage."
-      ]
+      ],
+      "temporal_queries": []
     },
     {
       "scenario_id": "S6-008",
@@ -475,7 +494,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "provenance",
@@ -483,7 +501,9 @@
               "value": "collection lineage A",
               "scope": "historical ownership sequence"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         },
         {
           "source_id": "SRC-PROV-008B",
@@ -495,7 +515,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "provenance",
@@ -503,7 +522,9 @@
               "value": "collection lineage B",
               "scope": "conflicting historical ownership sequence"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         }
       ],
       "actor": {
@@ -522,7 +543,8 @@
       "context": [
         "Neither source is universally authoritative.",
         "Preserve both lineages and the disagreement record."
-      ]
+      ],
+      "temporal_queries": []
     },
     {
       "scenario_id": "S6-009",
@@ -547,7 +569,6 @@
           "availability": "unavailable",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "title",
@@ -555,7 +576,9 @@
               "value": "no current response",
               "scope": "registry outage"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         },
         {
           "source_id": "SRC-COND-009",
@@ -567,7 +590,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "condition",
@@ -575,7 +597,9 @@
               "value": "condition grade A",
               "scope": "recent visual inspection"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         }
       ],
       "actor": {
@@ -594,7 +618,8 @@
       "context": [
         "One source outage must not erase unrelated current evidence.",
         "Unavailable title evidence is not evidence of no title."
-      ]
+      ],
+      "temporal_queries": []
     },
     {
       "scenario_id": "S6-010",
@@ -619,7 +644,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "operational_authority",
@@ -627,7 +651,9 @@
               "value": "ACT-COUNCIL-A may approve budgets for ENTITY-A",
               "scope": "does not include disposition of ENTITY-B assets"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         }
       ],
       "actor": {
@@ -646,7 +672,8 @@
       "context": [
         "No delegation from ENTITY-B is supplied.",
         "Seniority is not a substitute for entity-scoped authority."
-      ]
+      ],
+      "temporal_queries": []
     },
     {
       "scenario_id": "S6-011",
@@ -671,7 +698,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "operational_authority",
@@ -679,7 +705,9 @@
               "value": "successor proposed but not appointed",
               "scope": "appointment instrument unavailable"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         }
       ],
       "actor": {
@@ -698,7 +726,8 @@
       "context": [
         "Prior office-holder unavailability does not confer successor authority.",
         "Use safe stop and established recovery process."
-      ]
+      ],
+      "temporal_queries": []
     },
     {
       "scenario_id": "S6-012",
@@ -733,7 +762,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "operational_dependency",
@@ -741,7 +769,9 @@
               "value": "PROPERTY-A and PROPERTY-B depend on PLANT-001",
               "scope": "shared water and energy installation"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         }
       ],
       "actor": {
@@ -760,7 +790,8 @@
       "context": [
         "Do not count the shared installation as two independent dependencies.",
         "Analysis only; no automatic intervention."
-      ]
+      ],
+      "temporal_queries": []
     },
     {
       "scenario_id": "S6-013",
@@ -785,7 +816,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2025-01-01T00:00:00Z",
-          "valid_through": "2025-01-15T00:00:00Z",
           "claims": [
             {
               "dimension": "title",
@@ -793,7 +823,9 @@
               "value": "ENTITY-C",
               "scope": "record known at earlier decision time"
             }
-          ]
+          ],
+          "effective_from": "2024-01-01T00:00:00Z",
+          "effective_through": "2025-01-15T00:00:00Z"
         },
         {
           "source_id": "SRC-TITLE-013B",
@@ -805,7 +837,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2025-02-01T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "title",
@@ -813,7 +844,9 @@
               "value": "ENTITY-A",
               "scope": "correction effective after earlier decision"
             }
-          ]
+          ],
+          "effective_from": "2024-12-15T00:00:00Z",
+          "effective_through": null
         }
       ],
       "actor": {
@@ -832,6 +865,18 @@
       "context": [
         "Later correction must not rewrite earlier decision-time evidence.",
         "Record both effective time and observed/known-at time."
+      ],
+      "temporal_queries": [
+        {
+          "view": "prior_decision",
+          "effective_at": "2025-01-10T00:00:00Z",
+          "known_at": "2025-01-10T00:00:00Z"
+        },
+        {
+          "view": "current",
+          "effective_at": "2026-11-14T00:00:00Z",
+          "known_at": "2026-11-14T00:00:00Z"
+        }
       ]
     },
     {
@@ -862,7 +907,6 @@
           "availability": "current",
           "evidence_state": "declared_synthetic",
           "observed_at": "2026-11-14T00:00:00Z",
-          "valid_through": null,
           "claims": [
             {
               "dimension": "object_identity",
@@ -870,7 +914,9 @@
               "value": "ART-005-A and ART-005-B have similar catalogue labels",
               "scope": "distinct serial and conservation marks unresolved"
             }
-          ]
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
         }
       ],
       "actor": {
@@ -889,7 +935,8 @@
       "context": [
         "Similarity is not identity proof.",
         "Keep distinct records until competent reconciliation resolves the collision."
-      ]
+      ],
+      "temporal_queries": []
     }
   ]
 }
