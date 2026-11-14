@@ -49,4 +49,4 @@ The schemas and documentation copies are kept beside the benchmark inputs. Cross
 
 ## Current assurance status
 
-Research reference only. **26 Rust tests are authored (6 unit + 20 integration), but have not been executed or compiled in this authoring environment.** Exact-head CI is the validation authority. The finite fixtures do not establish universal security, legal enforceability, scientific truth, ecological field effectiveness, adapter correctness or production readiness. Do not claim superiority over other policy/contract systems from this crate alone.
+Research reference only. **30 Rust tests are authored (6 unit + 24 integration), but have not been executed or compiled in this authoring environment.** Exact-head CI is the validation authority. The finite fixtures do not establish universal security, legal enforceability, scientific truth, ecological field effectiveness, adapter correctness or production readiness. Do not claim superiority over other policy/contract systems from this crate alone.
