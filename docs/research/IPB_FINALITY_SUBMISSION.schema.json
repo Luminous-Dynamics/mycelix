@@ -156,7 +156,8 @@
           "independence_claim_state",
           "replay_state",
           "duplicate_effect_count",
-          "protected_effect_state"
+          "protected_effect_state",
+          "observed_terminal_state"
         ],
         "properties": {
           "scenario_id": {
@@ -466,6 +467,17 @@
               "partial_with_unknown",
               "provider_reported_applied",
               "unsupported"
+            ]
+          },
+          "observed_terminal_state": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "INDETERMINATE",
+              "INVALID",
+              "UNSUPPORTED",
+              "TIMEOUT",
+              "NOT_RUN"
             ]
           }
         }
