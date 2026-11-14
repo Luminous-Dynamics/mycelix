@@ -11,7 +11,7 @@
 //! and preserve unknown/partial effect outcomes. Production owners remain
 //! authoritative for every input fact.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Domain-provided exact operation projection.
 ///
@@ -526,7 +526,11 @@ pub struct CapabilityScope {
     pub fields: BTreeSet<String>,
     pub valid_from: u64,
     pub expires_at: Option<u64>,
+    /// Maximum amount in minor units. A bounded amount must name its currency.
     pub max_amount_minor: Option<u64>,
+    /// Currency dimension for this grant's amount scope (for example, USD or ZAR).
+    /// None means the grant is not constrained to one currency.
+    pub amount_currency: Option<String>,
     pub max_operations: Option<u64>,
 }
 
@@ -548,12 +552,21 @@ pub struct EffectivePrivilege {
     pub resources: BTreeSet<String>,
     pub purposes: BTreeSet<String>,
     pub fields: BTreeSet<String>,
-    /// Conservative sum of active grant amount ceilings; None means at least
-    /// one active grant is unbounded.
-    pub aggregate_amount_limit_minor: Option<u64>,
+    /// Active grant amount ceilings summed independently by currency.
+    /// Minor units from different currencies are never added together.
+    pub aggregate_amount_limits_minor: BTreeMap<String, u64>,
+    /// At least one active grant has no numeric amount ceiling.
+    pub amount_limit_unbounded: bool,
+    /// False if an active grant declares a bounded amount without a currency.
+    pub amount_currency_binding_complete: bool,
     /// Conservative sum of active grant operation-count ceilings; None means
     /// at least one active grant is unbounded.
     pub aggregate_operation_limit: Option<u64>,
+}
+
+fn amount_scope_is_well_formed(scope: &CapabilityScope) -> bool {
+    scope.max_amount_minor.is_none()
+        || scope.amount_currency.as_deref().is_some_and(|currency| !currency.trim().is_empty())
 }
 
 fn bounded_child_attenuates(parent: Option<u64>, child: Option<u64>) -> bool {
@@ -577,6 +590,12 @@ pub fn delegation_is_attenuated(parent: &CapabilityScope, child: &CapabilityScop
             (Some(_), None) => false,
             (Some(parent_expiry), Some(child_expiry)) => child_expiry <= parent_expiry,
         }
+        && amount_scope_is_well_formed(parent)
+        && amount_scope_is_well_formed(child)
+        && match parent.amount_currency.as_deref() {
+            Some(parent_currency) => child.amount_currency.as_deref() == Some(parent_currency),
+            None => true,
+        }
         && bounded_child_attenuates(parent.max_amount_minor, child.max_amount_minor)
         && bounded_child_attenuates(parent.max_operations, child.max_operations)
 }
@@ -586,7 +605,9 @@ pub fn delegation_is_attenuated(parent: &CapabilityScope, child: &CapabilityScop
 /// grants, forwarded credentials and ambient credentials in the input set.
 pub fn union_effective_privilege(grants: &[CapabilityGrant]) -> EffectivePrivilege {
     let mut result = EffectivePrivilege {
-        aggregate_amount_limit_minor: Some(0),
+        aggregate_amount_limits_minor: BTreeMap::new(),
+        amount_limit_unbounded: false,
+        amount_currency_binding_complete: true,
         aggregate_operation_limit: Some(0),
         ..EffectivePrivilege::default()
     };
@@ -598,13 +619,14 @@ pub fn union_effective_privilege(grants: &[CapabilityGrant]) -> EffectivePrivile
             .extend(grant.scope.resources.iter().cloned());
         result.purposes.extend(grant.scope.purposes.iter().cloned());
         result.fields.extend(grant.scope.fields.iter().cloned());
-        result.aggregate_amount_limit_minor = match (
-            result.aggregate_amount_limit_minor,
-            grant.scope.max_amount_minor,
-        ) {
-            (Some(total), Some(limit)) => Some(total.saturating_add(limit)),
-            _ => None,
-        };
+        match (grant.scope.max_amount_minor, grant.scope.amount_currency.as_deref()) {
+            (Some(limit), Some(currency)) if !currency.trim().is_empty() => {
+                let total = result.aggregate_amount_limits_minor.entry(currency.to_owned()).or_insert(0);
+                *total = total.saturating_add(limit);
+            }
+            (Some(_), _) => result.amount_currency_binding_complete = false,
+            (None, _) => result.amount_limit_unbounded = true,
+        }
         result.aggregate_operation_limit =
             match (result.aggregate_operation_limit, grant.scope.max_operations) {
                 (Some(total), Some(limit)) => Some(total.saturating_add(limit)),
@@ -624,6 +646,34 @@ fn limit_within_task(effective: Option<u64>, task: Option<u64>) -> bool {
         (None, Some(_)) => false,
     }
 }
+fn amount_privilege_within_task(effective: &EffectivePrivilege, task: &CapabilityScope) -> bool {
+    if !amount_scope_is_well_formed(task) || !effective.amount_currency_binding_complete {
+        return false;
+    }
+    match task.amount_currency.as_deref() {
+        None => task.max_amount_minor.is_none(),
+        Some(task_currency) => {
+            let currency_matches = effective
+                .aggregate_amount_limits_minor
+                .keys()
+                .all(|currency| currency == task_currency);
+            if !currency_matches {
+                return false;
+            }
+            match task.max_amount_minor {
+                Some(approved_limit) => {
+                    !effective.amount_limit_unbounded
+                        && effective.aggregate_amount_limits_minor
+                            .get(task_currency)
+                            .copied()
+                            .unwrap_or(0) <= approved_limit
+                }
+                None => true,
+            }
+        }
+    }
+}
+
 pub fn effective_privilege_within_task(
     effective: &EffectivePrivilege,
     task: &CapabilityScope,
@@ -632,10 +682,7 @@ pub fn effective_privilege_within_task(
         && effective.resources.is_subset(&task.resources)
         && effective.purposes.is_subset(&task.purposes)
         && effective.fields.is_subset(&task.fields)
-        && limit_within_task(
-            effective.aggregate_amount_limit_minor,
-            task.max_amount_minor,
-        )
+        && amount_privilege_within_task(effective, task)
         && limit_within_task(effective.aggregate_operation_limit, task.max_operations)
 }
 
@@ -809,6 +856,7 @@ mod tests {
             valid_from,
             expires_at,
             max_amount_minor,
+            amount_currency: max_amount_minor.map(|_| "USD".to_owned()),
             max_operations,
         }
     }
@@ -1030,7 +1078,8 @@ mod tests {
         assert!(effective.actions.contains("delete"));
         assert!(effective.resources.contains("record-2"));
         assert!(effective.fields.contains("private-notes"));
-        assert_eq!(effective.aggregate_amount_limit_minor, None);
+        assert!(effective.amount_limit_unbounded);
+        assert!(effective.amount_currency_binding_complete);
         assert_eq!(effective.aggregate_operation_limit, None);
         assert!(effective.grant_refs.contains("shared-service-token"));
         assert!(!effective.grant_refs.contains("inactive"));
@@ -1078,9 +1127,155 @@ mod tests {
             ),
         };
         let effective = union_effective_privilege(&[first, second]);
-        assert_eq!(effective.aggregate_amount_limit_minor, Some(1200));
+        assert_eq!(
+            effective.aggregate_amount_limits_minor.get("USD"),
+            Some(&1200)
+        );
         assert_eq!(effective.aggregate_operation_limit, Some(2));
         assert!(!effective_privilege_within_task(&effective, &task));
+    }
+
+    #[test]
+    fn amount_limits_are_summed_separately_for_each_currency() {
+        let usd = CapabilityGrant {
+            grant_ref: "usd-grant".to_owned(),
+            active_during_trajectory: true,
+            scope: scope(
+                &["transfer"],
+                &["account-a"],
+                &["settlement"],
+                &["amount"],
+                1,
+                Some(90),
+                Some(300),
+                Some(1),
+            ),
+        };
+        let mut eur_scope = scope(
+            &["transfer"],
+            &["account-a"],
+            &["settlement"],
+            &["amount"],
+            1,
+            Some(90),
+            Some(700),
+            Some(1),
+        );
+        eur_scope.amount_currency = Some("EUR".to_owned());
+        let eur = CapabilityGrant {
+            grant_ref: "eur-grant".to_owned(),
+            active_during_trajectory: true,
+            scope: eur_scope,
+        };
+        let effective = union_effective_privilege(&[usd, eur]);
+        assert_eq!(effective.aggregate_amount_limits_minor.get("USD"), Some(&300));
+        assert_eq!(effective.aggregate_amount_limits_minor.get("EUR"), Some(&700));
+        assert_eq!(effective.aggregate_amount_limits_minor.len(), 2);
+    }
+
+    #[test]
+    fn a_task_currency_ceiling_rejects_an_extra_currency_capability() {
+        let task = scope(
+            &["transfer"],
+            &["account-a"],
+            &["settlement"],
+            &["amount"],
+            1,
+            Some(100),
+            Some(1000),
+            Some(2),
+        );
+        let usd = CapabilityGrant {
+            grant_ref: "usd-grant".to_owned(),
+            active_during_trajectory: true,
+            scope: scope(
+                &["transfer"],
+                &["account-a"],
+                &["settlement"],
+                &["amount"],
+                1,
+                Some(90),
+                Some(300),
+                Some(1),
+            ),
+        };
+        let mut eur_scope = scope(
+            &["transfer"],
+            &["account-a"],
+            &["settlement"],
+            &["amount"],
+            1,
+            Some(90),
+            Some(700),
+            Some(1),
+        );
+        eur_scope.amount_currency = Some("EUR".to_owned());
+        let eur = CapabilityGrant {
+            grant_ref: "eur-grant".to_owned(),
+            active_during_trajectory: true,
+            scope: eur_scope,
+        };
+        let effective = union_effective_privilege(&[usd, eur]);
+        assert!(!effective_privilege_within_task(&effective, &task));
+    }
+
+    #[test]
+    fn bounded_amount_without_currency_is_not_qualified() {
+        let task = scope(
+            &["transfer"],
+            &["account-a"],
+            &["settlement"],
+            &["amount"],
+            1,
+            Some(100),
+            Some(1000),
+            Some(2),
+        );
+        let mut malformed_scope = scope(
+            &["transfer"],
+            &["account-a"],
+            &["settlement"],
+            &["amount"],
+            1,
+            Some(90),
+            Some(100),
+            Some(1),
+        );
+        malformed_scope.amount_currency = None;
+        let grant = CapabilityGrant {
+            grant_ref: "currency-missing".to_owned(),
+            active_during_trajectory: true,
+            scope: malformed_scope,
+        };
+        let effective = union_effective_privilege(&[grant]);
+        assert!(!effective.amount_currency_binding_complete);
+        assert!(!effective_privilege_within_task(&effective, &task));
+    }
+
+    #[test]
+    fn delegation_cannot_change_the_currency_dimension() {
+        let parent = scope(
+            &["transfer"],
+            &["account-a"],
+            &["settlement"],
+            &["amount"],
+            1,
+            Some(100),
+            Some(1000),
+            Some(2),
+        );
+        let mut child = scope(
+            &["transfer"],
+            &["account-a"],
+            &["settlement"],
+            &["amount"],
+            2,
+            Some(90),
+            Some(500),
+            Some(1),
+        );
+        child.amount_currency = Some("EUR".to_owned());
+        assert!(!delegation_is_attenuated(&parent, &child));
     }
 
     #[test]
