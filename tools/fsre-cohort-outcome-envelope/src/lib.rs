@@ -171,7 +171,23 @@ fn parse_lane(source: &str) -> Result<CohortLane, InputError> {
         "quality_required",
     )?;
 
-    if let Some((unknown_key, _)) = metadata.into_iter().next() {
+    if let Some(unknown_key) = metadata.keys().find(|key| {
+        !matches!(
+            key.as_str(),
+            "service_id"
+                | "service_family_id"
+                | "cohort_set_id"
+                | "cohort_id"
+                | "population_denominator"
+                | "population_unit"
+                | "horizon_start_seconds"
+                | "horizon_end_seconds"
+                | "minimum_safe_service_fraction"
+                | "max_observation_hold_seconds"
+                | "recovery_stability_seconds"
+                | "quality_required"
+        )
+    }) {
         return Err(InputError(format!("unknown metadata key {unknown_key}")));
     }
 
