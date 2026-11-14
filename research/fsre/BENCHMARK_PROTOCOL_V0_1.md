@@ -130,6 +130,14 @@ Metrics include pairwise precision/recall by event type, false-continuity rate, 
 
 Prospective research gates: 100% cardinality conformance on sealed synthetic cases; zero synthetic/unresolved/disputed promotion; 100% of source rows carry an explicit population scope and assessment cycle; and at least 99% precision among accepted real identity links before making consequential longitudinal claims, with coverage published beside precision. The 99% figure is a proposed release target, not a measured result or confidence bound. Real-system matching remains blocked until lawful system-level records and independently reviewed labels exist.
 
+## 2.5 Equity-aware service-floor evaluation
+
+FSRE uses cohort-specific service floors as non-compensable constraints. A higher aggregate service total cannot compensate for a protected cohort falling below its declared minimum. Equity assessment must remain multidimensional: recognitional, distributional, restorative, procedural, capacity and transgenerational dimensions are related but not interchangeable. A new profile and benchmark protocol is in [EQUITY_AND_DISTRIBUTIONAL_RESILIENCE_BENCHMARK_V0_1.md](EQUITY_AND_DISTRIBUTIONAL_RESILIENCE_BENCHMARK_V0_1.md).
+
+Prior art includes Coleman et al.'s 2024 review of 99 equity/infrastructure-resilience studies, which identifies four equity categories and gaps in procedural/capacity research, and Beck, Cha & Peacock's 2025 Risk Analysis study, which develops Theil-T-derived distributional and restorative metrics for service robustness/vulnerability and demonstrates them on a hypothetical electric distribution network. Those are research foundations, not an FSRE field result or a validated water-sector equity metric. FSRE should compare distributional metrics and restorative decompositions alongside hard per-cohort floors, transparent unknowns, and procedurally authorised rules; do not reduce the dimensions to one universal equity score.
+
+The cohort-floor reference challenge includes an aggregate-compensation control: total delivery can equal the sum of all cohort floors while one cohort misses its own floor and another receives a surplus. Expected disposition remains NOT_FEASIBLE. Missing cohort denominators or identity transitions must remain NOT_ESTIMABLE until reconciled.
+
 ## 3. Baselines and ablations
 
 Every evaluation should compare the same frozen inputs and scenario set against at least:
