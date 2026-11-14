@@ -27,6 +27,12 @@ jobs:
       matrix:
         crate:
           - fsre-decision-value
+          - fsre-decision-time-replay
+          - fsre-assurance-composer
+          - fsre-asof-portfolio-oracle
+          - fsre-asof-portfolio-composer
+          - fsre-asof-evidence-oracle
+          - fsre-asof-evidence
           - fsre-flow-balance
           - fsre-green-drop-replay
           - fsre-identity-crosswalk
