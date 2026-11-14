@@ -249,6 +249,33 @@ These labels do not prove mathematical or statistical independence. A profile-sp
 
 The critical SOTA comparison is not how many alerts or broker records are aggregated. It is whether the system detects when a high apparent corroboration count is actually a single shared source, while retaining genuinely distinct evidence and exposing unresolved common causes.
 
-## 12. Release rule
+## 12. Parser-bound receipt and projection integrity
+
+The v0.2 integration changes the input trust boundary: the manifest accepts only exact UTF-8 source XML and a separate ingress receipt timestamp. A caller-supplied parsed projection is not an accepted evidence input.
+
+### Frozen parser-bound gates
+
+- **Projection forgery acceptance:** target 0. A manifest containing an additional caller-supplied `packet`, IVOID, role, publisher, digest or citation projection is rejected by strict deserialization.
+- **Parser execution coverage:** 100% of packets visible at the requested cutoff must be passed through the exact parser dependency used by the replay build.
+- **Byte commitment:** 100% of visible records carry the parser-computed byte length and SHA-256 for the same byte slice given to the parser.
+- **Parser identity:** 100% of visible records carry the parser package version; any parser upgrade requires new receipts and replay output.
+- **Source metadata retention:** 100% of root attributes, typed citation relations, EventIVORN attributes and citation descriptions represented by the parser are retained in the replay projection.
+- **Temporal isolation:** future packets are filtered before parser invocation; malformed future packets must not change a historical replay but must fail once the cutoff includes them.
+- **Determinism:** repeated runs using the same parser version, exact packet bytes and cutoff produce byte-identical normalized replay output.
+- **Trust boundary:** parser success is bounded extraction, not full VOEvent XSD conformance, publisher authentication, signature validity, rights clearance, calibration qualification or scientific truth.
+
+### Adversarial corpus additions
+
+1. A caller supplies raw XML for event A with forged metadata identifying event B: the manifest contract has no field in which to submit the forgery.
+2. A caller includes both raw XML and an extra `packet` projection: reject unknown fields.
+3. The root IVOID, role or Who/Date changes in the raw XML: the parser-derived output changes because the parser runs on those bytes; no independent projection can override it.
+4. A citation target or relation changes in raw XML: the graph edge changes only through the parser's typed output.
+5. Unknown root and EventIVORN attributes are retained, not silently discarded.
+6. A malformed packet arrives after the cutoff: historical replay remains stable; the later replay rejects the packet.
+7. Parser version changes between builds: the output records the parser version, and benchmark runs must treat the versions as separate configurations.
+
+These are implementation-level integrity controls. They still rely on the parser implementation being correct within its documented bounded extraction profile; they do not transform that parser into a complete XSD validator.
+ 
+## 13. Release rule
 
 A public benchmark release must include the versioned corpus manifest, per-case rights and provenance, frozen split and cutoff definitions, expected outputs, evaluator source, baseline configurations, raw run receipts and a limitations report. Keep the hidden evaluation set private until a run is submitted; then publish enough evidence to reproduce the result without leaking future test labels.
