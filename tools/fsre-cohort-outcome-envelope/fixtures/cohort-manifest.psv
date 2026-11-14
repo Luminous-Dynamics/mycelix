@@ -7,6 +7,14 @@
 # service_family_id=potable-water
 # cohort_set_id=synthetic-water-service-area
 # outcome_snapshot_id=synthetic-outcome-snapshot-01
+# study_horizon_start_seconds=0
+# study_horizon_end_seconds=100
+# data_use_status=AUTHORIZED_FOR_DECLARED_PURPOSE
+# data_use_owner=synthetic-fixture-owner
+# data_use_ref=synthetic:authorization:fixture-01
+# data_use_purpose=synthetic-test
+# data_use_valid_from_seconds=0
+# data_use_valid_until_seconds=1000
 # population_unit=persons
 record_type|cohort_id|population_denominator|population_unit|identity_source_owner|identity_source_ref|denominator_source_owner|denominator_source_ref|valid_from_seconds|valid_until_seconds
 COHORT|hospital|500|persons|cohort-register|synthetic:cohort:hospital|service-register|synthetic:population:hospital|0|1000
