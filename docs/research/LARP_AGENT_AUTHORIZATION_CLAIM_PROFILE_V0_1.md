@@ -94,3 +94,16 @@ The execution envelope records both a boolean attempt indicator and an attempt c
 - attempted ↔ attempt count greater than zero.
 
 Contradictory telemetry produces Indeterminate. A20 was corrected to record zero attempts, and A27/A28 inject both directions of contradiction. This prevents inconsistent observability from being coerced into a no-op or a completed effect.
+
+
+## Attempt-count consistency and trace completeness
+
+The attempt indicator and attempt counter are independent observations that must agree:
+- `attempted=false` requires `attempt_count=0`;
+- `attempted=true` requires `attempt_count>0`.
+
+A mismatch is indeterminate. The development panel includes:
+- **A27:** no-attempt flag with a positive attempt count;
+- **A28:** attempted flag with a zero count.
+
+These controls ensure the evaluator does not pick whichever telemetry field would produce the more convenient outcome. This is still a synthetic consistency check; real qualification requires an independently instrumented event trace and proof that all dispatch paths are covered.
