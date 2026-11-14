@@ -1,0 +1,46 @@
+# portfolio_id=synthetic-three-period-water-portfolio
+# scenario_id=shock
+# snapshot_id=synthetic-snapshot-01
+# decision_at=0
+# clock_basis_id=UTC_UNIX_SECONDS_V1
+# stock_resource_ids=diesel
+# interval=hour-00|0|3600
+# interval=hour-01|3600|7200
+# interval=hour-02|7200|10800
+record_type|record_id|option_id|service_id|cohort_id|scenario_id|interval_id|subject_id|quantity|unit|status|source_owner|evidence_ref
+OPTION_QUALIFICATION|qual-plant-00|backup_plant|water||shock|hour-00||||QUALIFIED|operator|qual:plant:00
+OPTION_CAPACITY|cap-plant-00|backup_plant|water||shock|hour-00||120|m3|QUALIFIED|symtropy|cap:plant:00
+ALLOCATION|allocation-households-00|backup_plant|water|households|shock|hour-00||60|m3|PROPOSED|operator|plan:households:00
+ALLOCATION|allocation-hospital-00|backup_plant|water|hospital|shock|hour-00||40|m3|PROPOSED|operator|plan:hospital:00
+SERVICE_FLOOR|floor-households-00||water|households|shock|hour-00||55|m3|REQUIRED|service-owner|floor:households:00
+SERVICE_FLOOR|floor-hospital-00||water|hospital|shock|hour-00||35|m3|REQUIRED|service-owner|floor:hospital:00
+RESOURCE_PROFILE|resource-profile-00|backup_plant|water||shock|hour-00||||COMPLETE|operator|profile:00
+RESOURCE_USE|use-diesel-00|backup_plant|water||shock|hour-00|diesel|20|L|QUALIFIED|operator|use:diesel:00
+RESOURCE_CAPACITY|cap-diesel-00||||shock|hour-00|diesel|100|L|QUALIFIED|operator|capacity:diesel:00
+DOMAIN_PROFILE|domain-profile-00|backup_plant|water||shock|hour-00||||COMPLETE|mycelix|domain-profile:00
+OPTION_DOMAIN|domain-plant-power-00|backup_plant|water||shock|hour-00|feeder-west|||MEMBER|mycelix|domain:power:00
+DOMAIN_STATE|domain-state-power-00||||shock|hour-00|feeder-west|||CLEAR|mycelix|domain-state:power:00
+OPTION_QUALIFICATION|qual-plant-01|backup_plant|water||shock|hour-01||||QUALIFIED|operator|qual:plant:01
+OPTION_CAPACITY|cap-plant-01|backup_plant|water||shock|hour-01||120|m3|QUALIFIED|symtropy|cap:plant:01
+ALLOCATION|allocation-households-01|backup_plant|water|households|shock|hour-01||60|m3|PROPOSED|operator|plan:households:01
+ALLOCATION|allocation-hospital-01|backup_plant|water|hospital|shock|hour-01||40|m3|PROPOSED|operator|plan:hospital:01
+SERVICE_FLOOR|floor-households-01||water|households|shock|hour-01||55|m3|REQUIRED|service-owner|floor:households:01
+SERVICE_FLOOR|floor-hospital-01||water|hospital|shock|hour-01||35|m3|REQUIRED|service-owner|floor:hospital:01
+RESOURCE_PROFILE|resource-profile-01|backup_plant|water||shock|hour-01||||COMPLETE|operator|profile:01
+RESOURCE_USE|use-diesel-01|backup_plant|water||shock|hour-01|diesel|20|L|QUALIFIED|operator|use:diesel:01
+RESOURCE_CAPACITY|cap-diesel-01||||shock|hour-01|diesel|80|L|QUALIFIED|operator|capacity:diesel:01
+DOMAIN_PROFILE|domain-profile-01|backup_plant|water||shock|hour-01||||COMPLETE|mycelix|domain-profile:01
+OPTION_DOMAIN|domain-plant-power-01|backup_plant|water||shock|hour-01|feeder-west|||MEMBER|mycelix|domain:power:01
+DOMAIN_STATE|domain-state-power-01||||shock|hour-01|feeder-west|||CLEAR|mycelix|domain-state:power:01
+OPTION_QUALIFICATION|qual-plant-02|backup_plant|water||shock|hour-02||||QUALIFIED|operator|qual:plant:02
+OPTION_CAPACITY|cap-plant-02|backup_plant|water||shock|hour-02||120|m3|QUALIFIED|symtropy|cap:plant:02
+ALLOCATION|allocation-households-02|backup_plant|water|households|shock|hour-02||60|m3|PROPOSED|operator|plan:households:02
+ALLOCATION|allocation-hospital-02|backup_plant|water|hospital|shock|hour-02||40|m3|PROPOSED|operator|plan:hospital:02
+SERVICE_FLOOR|floor-households-02||water|households|shock|hour-02||55|m3|REQUIRED|service-owner|floor:households:02
+SERVICE_FLOOR|floor-hospital-02||water|hospital|shock|hour-02||35|m3|REQUIRED|service-owner|floor:hospital:02
+RESOURCE_PROFILE|resource-profile-02|backup_plant|water||shock|hour-02||||COMPLETE|operator|profile:02
+RESOURCE_USE|use-diesel-02|backup_plant|water||shock|hour-02|diesel|20|L|QUALIFIED|operator|use:diesel:02
+RESOURCE_CAPACITY|cap-diesel-02||||shock|hour-02|diesel|70|L|QUALIFIED|operator|capacity:diesel:02
+DOMAIN_PROFILE|domain-profile-02|backup_plant|water||shock|hour-02||||COMPLETE|mycelix|domain-profile:02
+OPTION_DOMAIN|domain-plant-power-02|backup_plant|water||shock|hour-02|feeder-west|||MEMBER|mycelix|domain:power:02
+DOMAIN_STATE|domain-state-power-02||||shock|hour-02|feeder-west|||CLEAR|mycelix|domain-state:power:02

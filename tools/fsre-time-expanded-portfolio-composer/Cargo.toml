@@ -1,0 +1,18 @@
+[package]
+name = "fsre-time-expanded-portfolio-composer"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+publish = false
+
+[dependencies]
+fsre-asof-portfolio-composer = { path = "../fsre-asof-portfolio-composer" }
+fsre-portfolio-reference = { path = "../fsre-portfolio-reference" }
+fsre-resource-stock-flow = { path = "../fsre-resource-stock-flow" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "fsre-time-expanded-portfolio-composer"
+path = "src/main.rs"
