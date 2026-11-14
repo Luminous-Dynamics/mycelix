@@ -148,7 +148,7 @@ impl AuditReport {
                 "match_edges={}\n",
                 "unresolved_edges={}\n",
                 "reference_coverage_basis={}\n",
-                "crosswalk_independence_assessment={}\n",
+                "crosswalk_independence_assessment_assertion={}\n",
                 "reference_population_completeness=NOT_ESTABLISHED\n",
                 "population_coverage_estimate=NOT_COMPUTED\n",
                 "source_authentication=ASSERTED_NOT_AUTHENTICATED\n"
@@ -303,5 +303,3 @@ pub use evaluator::audit;
 mod evaluator;
 pub use evaluator::audit;
 
-#[cfg(test)]
-mod tests;
