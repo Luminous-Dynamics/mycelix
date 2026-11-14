@@ -4,7 +4,7 @@
 
 A case is a bounded decision task over a synthetic portfolio. The system receives only scenario inputs and declared source records. Expected outcomes remain in a separate oracle file and must not be exposed to the system under test.
 
-Each evaluated output must preserve asset identity; claim dimension; source reference and competence scope; observation/effective time and freshness; evidence disposition; actor, entity and delegated capability; proposed action and action disposition; uncertainty, conflict and limitation.
+Each evaluated output must preserve effective time and knowledge time as separate dimensions; as-of queries must state both when relevant. A later correction can change the current view without rewriting what was known at an earlier decision. Each evaluated output must preserve asset identity; claim dimension; source reference and competence scope; observation/effective time and freshness; evidence disposition; actor, entity and delegated capability; proposed action and action disposition; uncertainty, conflict and limitation.
 
 ## 2. Claim dimensions
 
