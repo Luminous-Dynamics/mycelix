@@ -122,3 +122,36 @@ fn report_matches_frozen_exact_golden() {
     let expected = include_str!("../examples/water-restoration.expected.txt");
     assert_eq!(actual, expected);
 }
+
+
+const POINT_FIXTURE: &str = r#"
+#analysis_id=constant-optimum
+#estimand=service_value
+#unit=points
+#decision_cutoff=50
+#decision_direction=MAXIMIZE
+#safety_floor=10
+#assumption_set_id=assumptions-fixed
+#input_snapshot_id=snapshot-fixed
+#source_use_status=AUTHORIZED
+#authority_status=ESTABLISHED
+#world_set_completeness=DECLARED_COMPLETE
+world_id|action_id|decision_value|safety_value
+w1|action_a|100|90
+w1|action_b|90|90
+w2|action_a|100|90
+w2|action_b|90|90
+"#;
+
+#[test]
+fn point_identified_unique_safe_optimum_is_reported() {
+    let report = analyze(POINT_FIXTURE).unwrap().unwrap();
+    assert_eq!(report.status, "POINT_IDENTIFIED_WITHIN_DECLARED_WORLD_SET");
+    assert_eq!(report.ranking_status, "INVARIANT_UNIQUE_OPTIMUM");
+    assert_eq!(report.robust_optimal_action, Some("action_a".to_owned()));
+    assert_eq!(report.minimax_regret_actions, vec!["action_a".to_owned()]);
+    let action_a = report.actions.iter().find(|a| a.action_id == "action_a").unwrap();
+    assert_eq!(action_a.robustly_dominates, vec!["action_b".to_owned()]);
+    assert_eq!(action_a.best_case_regret, Some(0));
+    assert_eq!(action_a.worst_case_regret, Some(0));
+}
