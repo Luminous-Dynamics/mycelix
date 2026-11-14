@@ -1,0 +1,146 @@
+{
+  "schema_id": "luminous.fsre.as-of-evidence-envelope-crosswalk",
+  "schema_version": "0.2.0",
+  "source_report_schema": "fsre-asof-evidence-report.v0.1",
+  "target_schema": "luminous.fsre.claim-qualification-envelope",
+  "target_schema_version": "0.2.0",
+  "purpose": "Map a frozen as-of evidence report and its source records into the claim-scoped provenance and temporal fields of an FSRE v0.2 claim envelope. This is a mapping contract, not source authentication or an automatic claim-status promotion.",
+  "timestamp_conversion": {
+    "input": "Non-negative integer seconds in UTC_UNIX_SECONDS_V1",
+    "output": "RFC 3339 UTC date-time string",
+    "rule": "Convert Unix seconds to an RFC 3339 UTC timestamp without changing the instant. Reject a different input clock basis; do not infer timezone or offset."
+  },
+  "claim_level_mappings": [
+    {
+      "source": "scenario_id",
+      "target": "scope.scenario_id",
+      "rule": "Must match the claim scope exactly; otherwise reject the envelope mapping."
+    },
+    {
+      "source": "decision_at",
+      "target": "provenance.as_of_qualification.decision_cutoff",
+      "rule": "Convert from Unix seconds using timestamp_conversion."
+    },
+    {
+      "source": "clock_basis_id",
+      "target": "provenance.as_of_qualification.time_basis_id",
+      "rule": "Preserve exact clock basis."
+    },
+    {
+      "source": "max_age_seconds",
+      "target": "provenance.as_of_qualification.freshness_policy.max_observation_age_seconds",
+      "rule": "Copy the effective maximum age used for this claim."
+    },
+    {
+      "source": "freshness_policy_basis",
+      "target": "provenance.as_of_qualification.freshness_policy.basis",
+      "rule": "Map CLAIM_OWNER_DECLARED or STUDY_DEFAULT exactly."
+    },
+    {
+      "source": "claim disposition SUPPORTED_AS_KNOWN_AT_CUTOFF",
+      "target": "provenance.as_of_qualification.disposition",
+      "rule": "Map to SUPPORTED_AS_KNOWN_AT_CUTOFF; do not automatically promote claim_status."
+    },
+    {
+      "source": "claim disposition NOT_ESTIMABLE",
+      "target": "provenance.as_of_qualification.disposition",
+      "rule": "Map to NOT_ESTIMABLE; overall claim_status should remain INDETERMINATE unless the wider claim assessment establishes another status."
+    },
+    {
+      "source": "hindsight_revocations",
+      "target": "provenance.as_of_qualification.hindsight_revocation_count",
+      "rule": "Preserve exact count."
+    },
+    {
+      "source": "future_information_used=NO",
+      "target": "provenance.as_of_qualification.future_information_used",
+      "rule": "Must remain false; reject any report that indicates future information was used."
+    },
+    {
+      "source": "replay evaluator ID and revision",
+      "target": "provenance.as_of_qualification.replay_evaluator_id and replay_evaluator_revision",
+      "rule": "Use the exact evaluator identity/revision that produced the report."
+    },
+    {
+      "source": "frozen report or source report location",
+      "target": "provenance.as_of_qualification.replay_report_ref",
+      "rule": "Use a stable repository/object reference and digest where the surrounding envelope supports it."
+    }
+  ],
+  "source_frontier_mappings": [
+    {
+      "source": "source_owner",
+      "target": "provenance.source_frontier[].source_owner",
+      "rule": "Preserve owner; never infer owner from a URI or evaluator."
+    },
+    {
+      "source": "source_ref",
+      "target": "provenance.source_frontier[].source_record_ref",
+      "rule": "Preserve opaque owner-native source reference; do not replace it with a copied record."
+    },
+    {
+      "source": "observed_at",
+      "target": "provenance.source_frontier[].observed_at",
+      "rule": "Convert using timestamp_conversion."
+    },
+    {
+      "source": "available_at",
+      "target": "provenance.source_frontier[].available_at",
+      "rule": "Convert using timestamp_conversion; this is decision-process availability, not necessarily database transaction time."
+    },
+    {
+      "source": "valid_from",
+      "target": "provenance.source_frontier[].valid_from",
+      "rule": "Convert using timestamp_conversion; inclusive start."
+    },
+    {
+      "source": "valid_until",
+      "target": "provenance.source_frontier[].valid_until",
+      "rule": "Convert using timestamp_conversion; exclusive end."
+    },
+    {
+      "source": "revoked_effective_at",
+      "target": "provenance.source_frontier[].revoked_effective_at",
+      "rule": "Convert using timestamp_conversion when the source reports revocation."
+    },
+    {
+      "source": "revocation_known_at",
+      "target": "provenance.source_frontier[].revocation_known_at",
+      "rule": "Convert using timestamp_conversion; distinguishes later knowledge from earlier world-time effect."
+    },
+    {
+      "source": "as-of evidence assessment",
+      "target": "provenance.source_frontier[].as_of_admissibility",
+      "rule": "Copy the exact per-evidence classification."
+    },
+    {
+      "source": "clock_basis_id",
+      "target": "provenance.source_frontier[].time_basis_id",
+      "rule": "Preserve exact basis."
+    },
+    {
+      "source": "source schema/version",
+      "target": "provenance.source_frontier[].source_schema_version",
+      "rule": "Use the source owner's schema version."
+    },
+    {
+      "source": "source digest",
+      "target": "provenance.source_frontier[].source_digest",
+      "rule": "Copy only an owner/source-produced digest; never invent one."
+    }
+  ],
+  "non_inference_rules": [
+    "as_of_admissibility is not source_authenticity and must not be copied into provenance.source_frontier[].admissibility.",
+    "An admissible-as-known record is not proof that the source statement is physically true.",
+    "Do not infer independent sources from distinct record IDs or source references.",
+    "Do not map as-of claim disposition directly to root claim_status without assessing the claim's other evidence, adequacy, independence and claim ceiling.",
+    "Do not use a future-discovered revocation to rewrite the historical as-known disposition; preserve both as-of and hindsight fields.",
+    "The as-of evidence evaluator v0.1 compares exact UTC-second timestamps and does not model non-zero clock uncertainty. Use clock_uncertainty_handling=EXACT_TIMESTAMP_ASSUMED only when zero uncertainty is justified; use OWNER_BOUNDED_NOT_EVALUATED or BOUNDARY_SENSITIVE_UNRESOLVED otherwise and do not claim boundary qualification.",
+    "Do not promote the result into operational authority, dispatch permission or actuation."
+  ],
+  "versioning": {
+    "source": "fsre-asof-evidence-report.v0.1",
+    "target": "claim-qualification-envelope.v0.2.0",
+    "note": "A future source report/schema or claim-envelope schema version requires an explicit crosswalk revision and replay; do not silently reuse this mapping."
+  }
+}
