@@ -1,0 +1,228 @@
+{
+  "schema_version": "mycelix.supplychain.baseline-register.v0.1",
+  "snapshot_date": "2026-11-13",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6105",
+  "normative_owner": "https://github.com/Luminous-Dynamics/mycelix/issues/5395",
+  "status": "source_inspected_candidates_only_no_server_execution",
+  "normative_artifacts": {
+    "spec_page": "https://ref.gs1.org/standards/epcis/2.0.1/",
+    "artifacts_index": "https://ref.gs1.org/standards/epcis/artefacts",
+    "required_version_from_normative_spec": "2.0.0",
+    "artifacts": [
+      {
+        "id": "epcis-json-schema",
+        "version": "2.0.0",
+        "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json",
+        "declared_schema_draft": "07",
+        "browser_status": "retrievable"
+      },
+      {
+        "id": "epcis-context",
+        "version": "2.0.0",
+        "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld",
+        "browser_status": "media_type_not_rendered_raw_bytes_not_captured"
+      },
+      {
+        "id": "epcis-shacl",
+        "version": "2.0.0",
+        "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-shacl.ttl",
+        "browser_status": "media_type_not_rendered_raw_bytes_not_captured"
+      },
+      {
+        "id": "cbv-ontology",
+        "version": "2.0.0",
+        "url": "https://ref.gs1.org/standards/epcis/2.0.0/cbv-ontology.jsonld",
+        "browser_status": "media_type_not_rendered_raw_bytes_not_captured"
+      }
+    ],
+    "version_rule": "Preserve the exact 2.0.0 URLs named by normative conformance clauses. Capture the 2.0.1 artefact index separately; do not silently substitute 2.0.1 files for 2.0.0 normative links.",
+    "intake_owner": "Mycelix #5395",
+    "content_hashes": "not_yet_captured"
+  },
+  "candidates": [
+    {
+      "id": "fastnt-epcis",
+      "repository": "https://github.com/louisaxel-ambroise/epcis",
+      "revision": "1df0e51f640b43a63da8080d4ca85365b47d328f",
+      "revision_date_utc": "2026-11-11T16:15:02Z",
+      "license_declared": "Apache-2.0",
+      "stack": ".NET 10 / Entity Framework Core",
+      "inspected_capabilities": [
+        "capture /capture",
+        "single-event capture /events",
+        "event query /events",
+        "named query CRUD and execute /queries",
+        "business-step/location/readPoint/disposition filters",
+        "advertises GS1-EPCIS-Version 2.0 and Max 2.0"
+      ],
+      "limitations": [
+        "No source evidence of EPCIS 2.0.1 declaration",
+        "Declared maximum is 2.0",
+        "Full normative conformance and content negotiation remain untested"
+      ],
+      "disposition": "first_independent_server_candidate_for_bounded_profile",
+      "executed": false
+    },
+    {
+      "id": "openepcis-community",
+      "repository": "https://github.com/openepcis/epcis-repository-ce",
+      "revision": "e81a857771c4c4a2d12e62b60a2dbc094551aa6e",
+      "revision_date_utc": "2026-01-10T14:45:43Z",
+      "license_declared": "Apache-2.0",
+      "stack": "Quarkus / Kafka / OpenSearch",
+      "inspected_capabilities": [
+        "README describes EPCIS 2.0",
+        "JSON-LD and REST capture/query",
+        "container deployment"
+      ],
+      "limitations": [
+        "Latest inspected repository commit is older than FasTnT candidate",
+        "Full endpoint/header/profile behavior not inspected or executed"
+      ],
+      "disposition": "second_server_implementation_candidate",
+      "executed": false
+    },
+    {
+      "id": "gs1-epcis-sandbox",
+      "repositories": [
+        "https://epcis-sandbox.gs1.org/",
+        "https://ref.gs1.org/tools/epcis-sandbox/"
+      ],
+      "revision": "hosted_service_no_source_revision",
+      "stack": "GS1-hosted browser tool",
+      "capabilities": [
+        "event data generator and viewer",
+        "upload/inspect EPCIS XML and JSON-LD",
+        "format conversion across EPCIS/CBV syntax and identifier variants"
+      ],
+      "limitations": [
+        "not an EPCIS repository/server",
+        "official owner tool, not an independent implementation",
+        "evolving feature set; must not replace pinned normative artifacts and separate validator receipts"
+      ],
+      "disposition": "official_fixture_and_diagnostic_tool_not_server_baseline",
+      "executed": false
+    },
+    {
+      "id": "freepcis-legacy",
+      "repository": "https://freepcis.gs1.org/",
+      "revision": "hosted_service_no_source_revision",
+      "stack": "GS1-hosted legacy development/test repository",
+      "capabilities": [
+        "EPCIS 1.2 capture and query interfaces"
+      ],
+      "limitations": [
+        "FAQ limits repository to 25 stored events and ten standing queries",
+        "FAQ describes complete EPCIS 1.2 only, not EPCIS 2.0",
+        "GS1 architecture calls it a legacy tool no longer maintained and superseded by EPCIS Sandbox"
+      ],
+      "disposition": "legacy_epcis_1_2_backward_compatibility_only",
+      "executed": false
+    },
+    {
+      "id": "openepcis-validation-services",
+      "repositories": [
+        "https://github.com/openepcis/openepcis-event-sentry",
+        "https://github.com/openepcis/openepcis-document-validation-service"
+      ],
+      "revision": "c850de537a55897b4a02df47fd49ed9269177442",
+      "revision_date_utc": "2026-10-19T11:30:31Z",
+      "stack": "OpenEPCIS/benelog product family",
+      "capabilities": [
+        "profile/schema validation services"
+      ],
+      "limitations": [
+        "Same product family as OpenEPCIS Community Edition",
+        "Not an independent adjudicator or separate vendor implementation"
+      ],
+      "disposition": "same_family_diagnostic_only",
+      "executed": false
+    },
+    {
+      "id": "nist-ir-8536-reference-implementation",
+      "repository": "https://github.com/usnistgov/ir8536-reference-implementation",
+      "disposition": "research_reference_only_reported_public_but_repository_not_resolvable_and_not_production_grade",
+      "executed": false,
+      "repository_access_observation": {
+        "linked_in_final_report_appendix": "F.4",
+        "url": "https://github.com/usnistgov/ir8536-reference-implementation",
+        "github_api_get_repo": "404 Not Found on 2026-11-13",
+        "github_repository_search": "no matching repository on 2026-11-13",
+        "nist_publication_announcement": "2026-09-09 announcement said the repository would become publicly available following completion of its approval process",
+        "status": "reported_in_final_ir_but_not_resolvable_in_current_github_access_path"
+      },
+      "reported_maturity": "NIST IR 8536 Appendix F explicitly describes the implementation as an early-stage research artifact for laboratory experimentation, prototyping and exploration, not production-grade software.",
+      "reported_architecture": [
+        "three illustrative ecosystems: microelectronics manufacturer ME-001, OT integrator OT-001 and critical-infrastructure acquirer CI-001",
+        "simple text files are the default trusted data repositories, with NoSQL as an optional configuration",
+        "lightweight Python web server dashboard for viewing ecosystem records and traversing traceability links",
+        "example event sequence: Make and Ship; Receive and Assemble; Employ"
+      ],
+      "sources": [
+        "https://csrc.nist.gov/pubs/ir/8536/final",
+        "https://www.nist.gov/news-events/news/2026/09/finalized-manufacturing-supply-chain-traceability-meta-framework",
+        "https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=962361"
+      ],
+      "limitations": [
+        "Final IR Appendix F.4 names a public GitHub repository, but the connected GitHub API returned 404 and repository search returned no result at this snapshot.",
+        "NIST's 2026-09-09 announcement had stated that the GitHub repository would be made public after approval; reconcile this publication/access discrepancy before claiming source availability.",
+        "Appendix F explicitly limits the implementation to lab experimentation/prototyping and says it is not production-grade.",
+        "The illustrated implementation uses a simplified three-ecosystem scenario and basic file/optional NoSQL repositories; it is a conceptual research comparator, not an independent EPCIS repository/server.",
+        "No commit, license file, dependencies, test suite or release history could be inspected because the repository was not retrievable."
+      ]
+    }
+  ],
+  "qualification_order": [
+    "normative_source_capture",
+    "server_capability_probe",
+    "protocol_probe",
+    "official_json_schema_jsonld_shacl_validation",
+    "semantic_round_trip",
+    "adversarial_controls",
+    "performance"
+  ],
+  "performance_plan": {
+    "owner": "Mycelix #5395",
+    "event_counts": [
+      1000,
+      10000,
+      50000
+    ],
+    "repetitions_per_condition": 30,
+    "metrics": [
+      "p50_latency",
+      "p95_latency",
+      "throughput",
+      "cpu_time",
+      "peak_rss",
+      "error_count",
+      "energy_if_metered",
+      "integration_effort"
+    ],
+    "performance_after_correctness": true
+  },
+  "claim_ceiling": "No server deployment, API call, official validation, semantic round-trip, performance test, standards conformance, GS1 endorsement, partnership, or Luminous superiority result has been produced.",
+  "artifact_version_differential_audit": {
+    "report": "GS1_EPCIS_ARTIFACT_VERSION_DIFFERENTIAL_AUDIT_2026-11-13.md",
+    "machine_readable": "GS1_EPCIS_ARTIFACT_VERSION_DIFFERENTIAL_AUDIT_2026-11-13.json",
+    "current_index_label": "EPCIS / CBV 2.0.1",
+    "archive_publication_date": "2025-07-01",
+    "linked_pdf_internal_document_version": "2.0",
+    "linked_pdf_internal_document_date": "Jun 2022",
+    "linked_pdf_internal_document_status": "Ratified",
+    "normative_json_schema_and_shacl_references": "2.0.0",
+    "current_index_schema_id_version": "2.0.1",
+    "both_sets_preserved_separately": true,
+    "raw_artifact_bytes_captured": false,
+    "content_hashes_captured": false,
+    "claim_ceiling": "Source-page and rendered-schema inspection only; no official validation or conformance claim.",
+    "retrieval_recheck_2026_11_14": {
+      "schema_2_0_0_reader_rendered": true,
+      "schema_draft": "draft-07",
+      "raw_bytes_captured": false,
+      "context_and_shacl_media_type_limited": true,
+      "github_context_mirror_v2_1_rejected_as_2_0_0_substitute": true,
+      "official_validation_executed": false
+    }
+  }
+}

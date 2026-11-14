@@ -1,0 +1,237 @@
+{
+  "schema_version": "mycelix.gs1.epcis-artifact-version-differential.v0.1",
+  "snapshot_date": "2026-11-13",
+  "status": "source_page_and_rendered_schema_inspection_only_raw_artifact_bytes_not_captured",
+  "owners": {
+    "normative_conformance": "https://github.com/Luminous-Dynamics/mycelix/issues/5395",
+    "parent_programme": "https://github.com/Luminous-Dynamics/mycelix/issues/6105"
+  },
+  "source_version_observations": {
+    "current_artifact_index": {
+      "url": "https://ref.gs1.org/standards/epcis/artefacts",
+      "observed_heading": "EPCIS / CBV 2.0.1",
+      "listed_artifact_classes": [
+        "EPCIS JSON-LD context",
+        "EPCIS JSON Schema",
+        "EPCIS SHACL",
+        "EPCIS and CBV ontologies in JSON-LD and Turtle",
+        "REST/OpenAPI and query artifacts",
+        "XML schemas"
+      ],
+      "observation_source": "web page rendered successfully",
+      "raw_page_bytes_captured": false
+    },
+    "archive": {
+      "url": "https://ref.gs1.org/standards/epcis/archive",
+      "observed_epcis_version": "2.0.1",
+      "observed_publication_date": "2025-07-01",
+      "linked_cbv_version": "2.0.0",
+      "observation_source": "web page rendered successfully",
+      "raw_page_bytes_captured": false
+    },
+    "current_version_page_pdf": {
+      "url": "https://ref.gs1.org/standards/epcis/2.0.1/",
+      "internal_document_name": "EPCIS Standard",
+      "internal_document_version": "2.0",
+      "internal_document_date": "Jun 2022",
+      "internal_document_status": "Ratified",
+      "normative_clause_references": [
+        "section 10.3",
+        "section 14.7"
+      ],
+      "interpretation": "The served PDF identifies itself as EPCIS Release 2.0 and points to 2.0.0 JSON Schema and SHACL URLs. The audit does not infer the reason for the 2.0.1 page/archive label."
+    }
+  },
+  "artifact_sets": {
+    "normative_epcis_2_0_0": [
+      {
+        "id": "epcis-json-schema",
+        "version": "2.0.0",
+        "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json",
+        "declared_id": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json",
+        "declared_schema_draft": "07",
+        "browser_reader_observation": "content_parsed",
+        "raw_bytes_captured": false,
+        "byte_length": null,
+        "sha256": null
+      },
+      {
+        "id": "epcis-context",
+        "version": "2.0.0",
+        "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld",
+        "browser_reader_observation": "reader_rejected_application_ld_json_before_rendering",
+        "http_status": null,
+        "raw_bytes_captured": false,
+        "byte_length": null,
+        "sha256": null
+      },
+      {
+        "id": "epcis-shacl",
+        "version": "2.0.0",
+        "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-shacl.ttl",
+        "browser_reader_observation": "reader_rejected_text_turtle_before_rendering",
+        "http_status": null,
+        "raw_bytes_captured": false,
+        "byte_length": null,
+        "sha256": null
+      },
+      {
+        "id": "cbv-ontology-jsonld",
+        "version": "2.0.0",
+        "url": "https://ref.gs1.org/standards/epcis/2.0.0/cbv-ontology.jsonld",
+        "browser_reader_observation": "not_independently_retrieved_in_this_audit",
+        "http_status": null,
+        "raw_bytes_captured": false,
+        "byte_length": null,
+        "sha256": null
+      }
+    ],
+    "current_index_epcis_2_0_1": [
+      {
+        "id": "epcis-json-schema",
+        "version": "2.0.1",
+        "link_url": "https://ref.gs1.org/standards/epcis/epcis-json-schema.json",
+        "declared_id": "https://ref.gs1.org/standards/epcis/2.0.1/epcis-json-schema.json",
+        "declared_schema_draft": "07",
+        "response_media_type_observed_by_reader": "application/json",
+        "browser_reader_observation": "content_parsed",
+        "raw_bytes_captured": false,
+        "byte_length": null,
+        "sha256": null
+      },
+      {
+        "id": "epcis-context",
+        "version": "current_index_label_2.0.1",
+        "link_url": "https://ref.gs1.org/standards/epcis/epcis-context.jsonld",
+        "browser_reader_observation": "reader_rejected_application_ld_json_before_rendering",
+        "http_status": null,
+        "raw_bytes_captured": false,
+        "byte_length": null,
+        "sha256": null
+      },
+      {
+        "id": "epcis-shacl",
+        "version": "current_index_label_2.0.1",
+        "link_url": "https://ref.gs1.org/standards/epcis/epcis-shacl.ttl",
+        "browser_reader_observation": "reader_rejected_text_turtle_before_rendering",
+        "http_status": null,
+        "raw_bytes_captured": false,
+        "byte_length": null,
+        "sha256": null
+      },
+      {
+        "id": "epcis-ontology-jsonld",
+        "version": "current_index_label_2.0.1",
+        "link_url": "https://ref.gs1.org/standards/epcis/epcis-ontology.jsonld",
+        "browser_reader_observation": "reader_rejected_application_ld_json_before_rendering",
+        "http_status": null,
+        "raw_bytes_captured": false,
+        "byte_length": null,
+        "sha256": null
+      },
+      {
+        "id": "epcis-ontology-turtle",
+        "version": "current_index_label_2.0.1",
+        "link_url": "https://ref.gs1.org/standards/epcis/epcis-ontology.ttl",
+        "browser_reader_observation": "reader_rejected_text_turtle_before_rendering",
+        "http_status": null,
+        "raw_bytes_captured": false,
+        "byte_length": null,
+        "sha256": null
+      },
+      {
+        "id": "cbv-ontology-jsonld",
+        "version": "cbv_2.0.0_linked_from_current_index",
+        "link_url": "https://ref.gs1.org/standards/epcis/cbv-ontology.jsonld",
+        "browser_reader_observation": "reader_rejected_application_ld_json_before_rendering",
+        "http_status": null,
+        "raw_bytes_captured": false,
+        "byte_length": null,
+        "sha256": null
+      },
+      {
+        "id": "cbv-ontology-turtle",
+        "version": "cbv_2.0.0_linked_from_current_index",
+        "link_url": "https://ref.gs1.org/standards/epcis/cbv-ontology.ttl",
+        "browser_reader_observation": "reader_rejected_text_turtle_before_rendering",
+        "http_status": null,
+        "raw_bytes_captured": false,
+        "byte_length": null,
+        "sha256": null
+      }
+    ]
+  },
+  "rules": [
+    "Treat the normative 2.0.0 validator URLs and current-index 2.0.1 artifact links as distinct source sets.",
+    "Do not substitute the current-index 2.0.1 schema for the exact 2.0.0 schema named by EPCIS section 10.3.",
+    "Record each artifact's exact link URL separately from its declared JSON Schema $id or other internal version identifier.",
+    "A browser-reader media-type failure is not an HTTP 404 observation.",
+    "A manifest digest does not substitute for SHA-256 of the raw artifact bytes.",
+    "Schema, JSON-LD expansion, SHACL, semantic cross-invariants and server behavior require separate evidence receipts."
+  ],
+  "claim_ceiling": {
+    "source_page_observations_confirmed": true,
+    "raw_artifact_bytes_captured": false,
+    "content_hashes_computed": false,
+    "official_schema_validation_executed": false,
+    "json_ld_expansion_executed": false,
+    "shacl_validation_executed": false,
+    "server_conformance_executed": false,
+    "physical_event_truth_established": false,
+    "gs1_endorsement_or_certification": false,
+    "luminuous_superiority_or_sota_claim": false
+  },
+  "source_urls": [
+    "https://ref.gs1.org/standards/epcis/artefacts",
+    "https://ref.gs1.org/standards/epcis/archive",
+    "https://ref.gs1.org/standards/epcis/2.0.1/",
+    "https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json",
+    "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld",
+    "https://ref.gs1.org/standards/epcis/2.0.0/epcis-shacl.ttl"
+  ],
+  "retrieval_recheck_2026_11_14": {
+    "official_artifact_index": "https://ref.gs1.org/standards/epcis/2.0.0/artefacts",
+    "schema_2_0_0": {
+      "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json",
+      "browser_reader": "rendered_as_application_json",
+      "declared_id": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json",
+      "declared_schema": "http://json-schema.org/draft-07/schema#",
+      "raw_http_bytes_captured": false,
+      "final_response_metadata_captured": false,
+      "byte_length": null,
+      "sha256": null,
+      "validator_executed": false
+    },
+    "context_2_0_0": {
+      "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld",
+      "browser_reader": "unsupported_content_type_application_ld_json",
+      "raw_http_bytes_captured": false,
+      "http_status": null,
+      "byte_length": null,
+      "sha256": null
+    },
+    "shacl_2_0_0": {
+      "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-shacl.ttl",
+      "browser_reader": "unsupported_content_type_text_turtle",
+      "raw_http_bytes_captured": false,
+      "http_status": null,
+      "byte_length": null,
+      "sha256": null
+    },
+    "github_mirror_candidate": {
+      "repository": "gs1/EPCIS",
+      "commit": "6f71468231838e424bb5dfa836e006e8dc69615c",
+      "path": "epcis-context.jsonld",
+      "git_blob_sha": "484faf6e256bdd159dbc4be442f68fb73018eb95",
+      "commit_message": "Hosted public review draft v2.1 of epcis-context.jsonld",
+      "accepted_as_normative_2_0_0": false,
+      "reason": "Pinned source identifies this file as a public review draft v2.1, not as the exact 2.0.0 context artifact; Git blob SHA is not an HTTP-payload SHA-256."
+    },
+    "local_http_attempt": {
+      "result": "dns_resolution_failed_before_connection",
+      "http_status": null,
+      "interpretation": "No global HTTP status or source-unavailability claim."
+    },
+    "disposition": "source_locator_and_version_discrimination_improved_raw_bytes_and_validator_gates_open"
+  }
+}
