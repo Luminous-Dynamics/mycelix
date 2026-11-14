@@ -457,14 +457,20 @@ fn reproduce(replay: &Replay) -> String {
         } else {
             "NOT_ESTIMABLE"
         };
+        let freshness_basis = if requirement.freshness_limit.is_some() {
+            "CLAIM_OWNER_DECLARED"
+        } else {
+            "STUDY_DEFAULT"
+        };
         report.push(format!(
-            "claim={}|{}|admissible={}|required={}|missing={}|max_age_seconds={}|hindsight_revocations={}|owner={}|ref={}",
+            "claim={}|{}|admissible={}|required={}|missing={}|max_age_seconds={}|freshness_policy_basis={}|hindsight_revocations={}|owner={}|ref={}",
             requirement.key,
             state,
             accepted,
             requirement.minimum,
             missing,
             ages[&requirement.key],
+            freshness_basis,
             retrospective,
             requirement.owner,
             requirement.reference
@@ -551,7 +557,7 @@ mod tests {
             "CLAIM|claim-fuel|fuel_stock|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:fuel|1|4000",
         );
         let report = validate_and_report(&changed).expect("claim freshness override");
-        assert!(report.contains("claim=fuel_stock|SUPPORTED_AS_KNOWN_AT_CUTOFF|admissible=1|required=1"));
+        assert!(report.contains("claim=fuel_stock|SUPPORTED_AS_KNOWN_AT_CUTOFF|admissible=1|required=1|missing=0|max_age_seconds=4000|freshness_policy_basis=CLAIM_OWNER_DECLARED"));
         assert!(report.contains("e-fuel|fuel_stock|ADMISSIBLE|admissible=YES"));
     }
 
