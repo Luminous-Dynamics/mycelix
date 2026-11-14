@@ -89,7 +89,7 @@ Run the CLI:
 
     cargo run --manifest-path research/voevent-lifecycle/Cargo.toml --bin voevent-lifecycle-replay -- research/voevent-lifecycle/tests/fixtures/source-packet-thread.json
 
-The JSON output contains visible packets, lifecycle edges, unresolved citations, effects and diagnostics. Future receipts are excluded before XML parsing, so malformed future packets do not poison historical views; they are parsed and rejected when a later cutoff includes them.
+The JSON output contains visible packets, lifecycle edges, unresolved citations, effects and diagnostics. Visible packets preserve root attributes and source description text; resolved and unresolved edges preserve their original EventIVORN attributes. Future receipts are excluded before XML parsing, so malformed future packets do not poison historical views; they are parsed and rejected when a later cutoff includes them.
 
 The parser computes the exact packet digest. The lifecycle layer does not accept an externally supplied digest or metadata projection, removing the projection-versus-byte mismatch surface. This still does not authenticate the ingress receipt or publisher, verify source rights, or establish astrophysical truth.
 
