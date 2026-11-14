@@ -4,7 +4,7 @@ const FIXTURE: &str = r#"event_id|event_type|predecessors|successors|effective_a
 rename-1|RENAME|asset-a|asset-a|10|10|registry-v1|owner-a|evidence-1|reviewer-a|rules-v1
 split-1|SPLIT|asset-a|asset-b,asset-c|20|25|registry-v2|owner-a|evidence-2|reviewer-a|rules-v1
 late-1|OPERATOR_TRANSFER|asset-b|asset-b|30|50|registry-v3|owner-b|evidence-3|reviewer-b|rules-v1
-future-1|RELOCATION|asset-c|asset-c|90|90|registry-v4|owner-b|evidence-4|reviewer-b|rules-v1
+future-1|RELOCATION|asset-c|asset-c|90|40|registry-v4|owner-b|evidence-4|reviewer-b|rules-v1
 "#;
 
 #[test]
