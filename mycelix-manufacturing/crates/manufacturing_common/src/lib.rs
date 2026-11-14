@@ -9,6 +9,9 @@
 use hdi::prelude::*;
 use serde::{Deserialize, Serialize};
 
+pub mod battery_passport;
+pub use battery_passport::*;
+
 // ============================================================================
 // Work Orders
 // ============================================================================

@@ -1,0 +1,30 @@
+name: Battery Passport Lifecycle Audit
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-manufacturing/Cargo.toml"
+      - "mycelix-manufacturing/crates/manufacturing_common/**"
+      - "mycelix-manufacturing/BATTERY_PASSPORT_LIFECYCLE_V0_1.md"
+      - ".github/workflows/battery-passport-lifecycle-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  battery-passport:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Check formatting for manufacturing_common
+        run: cargo fmt --manifest-path mycelix-manufacturing/Cargo.toml -p manufacturing_common -- --check
+      - name: Run manufacturing_common tests
+        run: cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p manufacturing_common
+      - name: Check no accidental production Python or generated artifacts
+        run: |
+          test -f mycelix-manufacturing/crates/manufacturing_common/src/battery_passport.rs
+          ! find mycelix-manufacturing/crates/manufacturing_common -type f \( -name '*.py' -o -name '*.wasm' \) | grep .
