@@ -129,6 +129,35 @@ CrossCD-Eval (Scientific Reports, 3 October 2026) evaluates remote-sensing chang
 
 IVOA VOEvent 2.1 already standardizes event packets and lifecycle citations. This work should interoperate with that standard, not invent a competing astronomy packet format. The additional contribution is an auditable, receipt-time-aware evidence and decision layer around source-native packets. VOEvent itself does not define the transport layer, publisher policy or intellectual-property/rights policy; those remain explicit system responsibilities.
 
-## 9. Release rule
+## 9. Industry comparison: integrate with alert brokers, do not clone them
+
+Rubin Observatory documents seven full-stream brokers (ALeRCE, AMPEL, ANTARES, Babamul, Fink, Lasair and Pitt-Google) plus downstream services such as SNAPS and POI Broker. Their documented functionality already includes filtering, cross-matching, contextual enrichment, photometric classification, user-defined filters, prioritization, watchlists, APIs and stream interfaces. Examples include ALeRCE's aggregated/classified light-curve catalogue, ANTARES's multi-catalog context and history, Fink's modular science modules, and Lasair's SQL filters and cross-matches.
+
+This benchmark should therefore not reward recreating generic alert ingestion or another high-volume filtering broker. Instead evaluate the layer after and between brokers:
+
+- Can it consume outputs from multiple existing brokers without claiming that broker agreement proves independent physical evidence?
+- Can it preserve exact input packets, source lineage, receipt-time cutoffs, corrections and retractions across broker boundaries?
+- Can it distinguish model probability, publisher assertion, verified source identity, calibrated physical measurement and scientific conclusion?
+- Can it turn candidate hypotheses into discriminating follow-up experiments and measure realized decision value?
+- Can an independent reviewer reproduce why the system accepted, rejected, deferred or abstained on an investigation?
+
+Broker baselines should include the strongest available broker-specific filter/classifier, a union of broker candidate sets, a broker consensus policy, and an expert-selected subset. Match the input stream, source coverage, latency and follow-up budget. Broker agreement is not treated as statistically independent corroboration when the brokers share the same upstream alert packet, catalog, model family or cross-match service.
+
+Source: [Rubin Observatory — Alerts and brokers](https://rubinobservatory.org/for-scientists/data-products/alerts-and-brokers) (updated 3 July 2026). This source documents the broker ecosystem and its normal capabilities; it is not a comparative performance study.
+
+## 10. Cross-domain adapter change control
+
+Adapter correctness includes endpoint lifecycle, not just conformance to a schema snapshot. The Copernicus Data Space Ecosystem's October 2026 catalogue API announcement identifies a new beta STAC endpoint at `https://stac.opensearch.dataspace.copernicus.eu/v1/`, a planned Q1 2027 redirect to the canonical `https://stac.dataspace.copernicus.eu/v1/`, and planned decommissioning of the current STAC endpoint in Q1 2027. OData is described as planned for decommissioning after 2028.
+
+For satellite adapter evaluations:
+- test the current and beta STAC endpoint profiles explicitly;
+- preserve endpoint identity, API version, query, pagination tokens, collection/item IDs and exact response digest;
+- test redirects, schema drift, missing assets and pagination differences as separate failure modes;
+- do not silently switch endpoint or assume catalogue equivalence;
+- keep beta opt-in until a frozen cross-endpoint fixture suite supports migration.
+
+Sources: [Copernicus Data Space catalogue API update, October 2026](https://dataspace.copernicus.eu/sites/default/files/media/files/2026-10/1630_new_stac_catalogue_1.pdf) and [STAC API documentation](https://documentation.dataspace.copernicus.eu/APIs/STAC.html). This is endpoint lifecycle information, not evidence that all collections or assets are equivalent across endpoints.
+
+## 11. Release rule
 
 A public benchmark release must include the versioned corpus manifest, per-case rights and provenance, frozen split and cutoff definitions, expected outputs, evaluator source, baseline configurations, raw run receipts and a limitations report. Keep the hidden evaluation set private until a run is submitted; then publish enough evidence to reproduce the result without leaking future test labels.
