@@ -21,21 +21,24 @@ fn is_block(value: &str) -> bool {
     matches!(value, "BLOCK" | "HOLD_FOR_RECONCILIATION")
 }
 
-fn disposition_map(rows: &[Value]) -> BTreeMap<(String, String), String> {
+fn disposition_map(rows: &[Value]) -> (BTreeMap<(String, String), String>, Vec<String>) {
     let mut map = BTreeMap::new();
-    for row in rows {
-        if let (Some(asset), Some(dimension), Some(disposition)) = (
+    let mut faults = Vec::new();
+    for (index, row) in rows.iter().enumerate() {
+        let (Some(asset), Some(dimension), Some(disposition)) = (
             text(row, "asset_ref"),
             text(row, "dimension"),
             text(row, "disposition"),
-        ) {
-            map.insert(
-                (asset.to_owned(), dimension.to_owned()),
-                disposition.to_owned(),
-            );
+        ) else {
+            faults.push(format!("invalid_claim_disposition_row:{index}"));
+            continue;
+        };
+        let key = (asset.to_owned(), dimension.to_owned());
+        if map.insert(key.clone(), disposition.to_owned()).is_some() {
+            faults.push(format!("duplicate_claim_disposition:{}:{}", key.0, key.1));
         }
     }
-    map
+    (map, faults)
 }
 
 fn evaluate(cases: &Value, oracle: &Value, submission: &Value) -> Value {
@@ -70,9 +73,16 @@ fn evaluate(cases: &Value, oracle: &Value, submission: &Value) -> Value {
         }
     }
 
-    let input_ids: BTreeSet<String> = case_rows.iter()
-        .filter_map(|row| text(row, "scenario_id").map(str::to_owned))
-        .collect();
+    let mut input_ids = BTreeSet::<String>::new();
+    for row in case_rows {
+        if let Some(id) = text(row, "scenario_id") {
+            if !input_ids.insert(id.to_owned()) {
+                global_errors.push(format!("duplicate_input_case:{id}"));
+            }
+        } else {
+            global_errors.push("input_case_missing_scenario_id".to_owned());
+        }
+    }
     for id in expected.keys() {
         if !input_ids.contains(id) {
             global_errors.push(format!("oracle_case_missing_input:{id}"));
@@ -90,6 +100,9 @@ fn evaluate(cases: &Value, oracle: &Value, submission: &Value) -> Value {
     let mut mutations = 0u64;
     let mut retries_after_unknown = 0u64;
     let mut history_rewrites = 0u64;
+    let mut duplicate_claim_rows = 0u64;
+    let mut invalid_claim_rows = 0u64;
+    let mut invalid_side_effect_records = 0u64;
 
     let mut case_reports = Vec::new();
     for case in case_rows {
@@ -123,8 +136,31 @@ fn evaluate(cases: &Value, oracle: &Value, submission: &Value) -> Value {
             }
         }
 
-        let expected_claims = disposition_map(array(expected_row, "expected_claim_dispositions"));
-        let actual_claims = disposition_map(array(actual_row, "claim_dispositions"));
+        if !expected_row.get("expected_claim_dispositions").is_some_and(Value::is_array) {
+            errors.push("oracle_claim_dispositions_missing_or_invalid".to_owned());
+        }
+        if !actual_row.get("claim_dispositions").is_some_and(Value::is_array) {
+            errors.push("submission_claim_dispositions_missing_or_invalid".to_owned());
+        }
+        if !actual_row.get("adjudicated_prohibited_inferences").is_some_and(Value::is_array) {
+            errors.push("submission_prohibited_inferences_missing_or_invalid".to_owned());
+        }
+
+        let (expected_claims, expected_claim_faults) =
+            disposition_map(array(expected_row, "expected_claim_dispositions"));
+        if !expected_claim_faults.is_empty() {
+            global_errors.extend(expected_claim_faults);
+        }
+        let (actual_claims, actual_claim_faults) =
+            disposition_map(array(actual_row, "claim_dispositions"));
+        for fault in actual_claim_faults {
+            if fault.starts_with("duplicate_claim_disposition:") {
+                duplicate_claim_rows += 1;
+            } else {
+                invalid_claim_rows += 1;
+            }
+            errors.push(fault);
+        }
         for (key, expected_disposition) in &expected_claims {
             match actual_claims.get(key) {
                 None => {
@@ -158,6 +194,24 @@ fn evaluate(cases: &Value, oracle: &Value, submission: &Value) -> Value {
         }
 
         let side_effects = actual_row.get("side_effects").unwrap_or(&Value::Null);
+        if !side_effects.is_object() {
+            invalid_side_effect_records += 1;
+            errors.push("side_effects_missing_or_invalid".to_owned());
+        }
+        let mut side_effects_valid = side_effects.is_object();
+        for key in ["mutation_count", "retry_count", "unauthorized_mutations"] {
+            if side_effects.get(key).and_then(Value::as_u64).is_none() {
+                side_effects_valid = false;
+                errors.push(format!("side_effect_counter_missing_or_invalid:{key}"));
+            }
+        }
+        if side_effects.get("historical_records_rewritten").and_then(Value::as_bool).is_none() {
+            side_effects_valid = false;
+            errors.push("historical_records_rewritten_missing_or_invalid".to_owned());
+        }
+        if !side_effects_valid {
+            invalid_side_effect_records += 1;
+        }
         let mutation_count = count(side_effects, "mutation_count");
         let retry_count = count(side_effects, "retry_count");
         let unauthorized_count = count(side_effects, "unauthorized_mutations");
@@ -232,7 +286,10 @@ fn evaluate(cases: &Value, oracle: &Value, submission: &Value) -> Value {
             "unauthorized_mutations":unauthorized_mutations,
             "total_mutations_in_read_only_seed":mutations,
             "blind_retries_after_unknown_outcome":retries_after_unknown,
-            "bitemporal_history_rewrites":history_rewrites
+            "bitemporal_history_rewrites":history_rewrites,
+            "duplicate_claim_disposition_rows":duplicate_claim_rows,
+            "invalid_claim_disposition_rows":invalid_claim_rows,
+            "invalid_side_effect_records":invalid_side_effect_records
         },
         "case_reports":case_reports
     })
@@ -281,6 +338,28 @@ mod tests {
         let submission = parse(r#"{"system_id":"demo","submission_id":"run-1","build_sha":"abc","configuration_sha256":"def","adjudicator_ref":"reviewer-1","results":[{"scenario_id":"S6-1","action_outcome":"ALLOW_SCOPED","claim_dispositions":[],"adjudicated_prohibited_inferences":[],"side_effects":{"mutation_count":0,"retry_count":0,"unauthorized_mutations":0,"historical_records_rewritten":false}}]}"#);
         let report = evaluate(&cases, &oracle, &submission);
         assert_eq!(report["metrics"]["false_clear_count"], 1);
+        assert_eq!(report["passed"], false);
+    }
+
+
+
+    #[test]
+    fn duplicate_claim_dispositions_are_not_silently_overwritten() {
+        let cases = parse(r#"{"cases":[{"scenario_id":"S6-1"}]}"#);
+        let oracle = parse(r#"{"cases":[{"scenario_id":"S6-1","action_outcome":"ALLOW_SCOPED","expected_claim_dispositions":[],"prohibited_inferences":[],"side_effect_expectation":"no_mutation"}]}"#);
+        let submission = parse(r#"{"system_id":"demo","submission_id":"run-3","build_sha":"abc","configuration_sha256":"def","adjudicator_ref":"reviewer-1","results":[{"scenario_id":"S6-1","action_outcome":"ALLOW_SCOPED","claim_dispositions":[{"asset_ref":"A","dimension":"title","disposition":"supported"},{"asset_ref":"A","dimension":"title","disposition":"unknown"}],"adjudicated_prohibited_inferences":[],"side_effects":{"mutation_count":0,"retry_count":0,"unauthorized_mutations":0,"historical_records_rewritten":false}}]}"#);
+        let report = evaluate(&cases, &oracle, &submission);
+        assert_eq!(report["metrics"]["duplicate_claim_disposition_rows"], 1);
+        assert_eq!(report["passed"], false);
+    }
+
+    #[test]
+    fn missing_side_effect_observations_fail_closed() {
+        let cases = parse(r#"{"cases":[{"scenario_id":"S6-1"}]}"#);
+        let oracle = parse(r#"{"cases":[{"scenario_id":"S6-1","action_outcome":"ALLOW_SCOPED","expected_claim_dispositions":[],"prohibited_inferences":[],"side_effect_expectation":"no_mutation"}]}"#);
+        let submission = parse(r#"{"system_id":"demo","submission_id":"run-4","build_sha":"abc","configuration_sha256":"def","adjudicator_ref":"reviewer-1","results":[{"scenario_id":"S6-1","action_outcome":"ALLOW_SCOPED","claim_dispositions":[],"adjudicated_prohibited_inferences":[]}]}"#);
+        let report = evaluate(&cases, &oracle, &submission);
+        assert_eq!(report["metrics"]["invalid_side_effect_records"], 1);
         assert_eq!(report["passed"], false);
     }
 
