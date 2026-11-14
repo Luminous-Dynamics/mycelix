@@ -1,0 +1,81 @@
+{
+  "schema_version": "larp.epistemic-bounty-oracle.v0.1",
+  "suite_id": "LARP-EPISTEMIC-001",
+  "status": "reference-oracle-pending-independent-review",
+  "scenario_file": "LARP_EPISTEMIC_BOUNTY_V2_SCENARIOS_V0_1.json",
+  "case_count": 12,
+  "rows": [
+    {
+      "case_id": "EB01",
+      "expected_disposition": "permit",
+      "reason_code": "LOCAL_EVIDENCE_AND_REVIEW_REQUIREMENTS_MET",
+      "notes": "Similarity alone is not misconduct."
+    },
+    {
+      "case_id": "EB02",
+      "expected_disposition": "deny",
+      "reason_code": "SCORE_ONLY_SANCTION_PROHIBITED",
+      "notes": "A high similarity signal cannot authorize punishment."
+    },
+    {
+      "case_id": "EB03",
+      "expected_disposition": "challenge_required",
+      "reason_code": "COORDINATION_SIGNAL_REQUIRES_INDEPENDENT_ADJUDICATION",
+      "notes": "A signal may trigger review, not a verdict."
+    },
+    {
+      "case_id": "EB04",
+      "expected_disposition": "indeterminate",
+      "reason_code": "KNOWN_COMMON_DEPENDENCY",
+      "notes": "The declared reviewer independence requirement is not established."
+    },
+    {
+      "case_id": "EB05",
+      "expected_disposition": "hold",
+      "reason_code": "INDEPENDENT_REVIEW_QUORUM_INCOMPLETE",
+      "notes": "Disclosed conflicts are handled without penalizing the conflicted reviewer."
+    },
+    {
+      "case_id": "EB06",
+      "expected_disposition": "permit",
+      "reason_code": "HONEST_RETRACTION_PRESERVED",
+      "notes": "Retraction is appended; it does not erase history or automatically decay competence."
+    },
+    {
+      "case_id": "EB07",
+      "expected_disposition": "challenge_required",
+      "reason_code": "MISCONDUCT_NOT_ADJUDICATED",
+      "notes": "Unresolved allegation does not justify sanction."
+    },
+    {
+      "case_id": "EB08",
+      "expected_disposition": "permit",
+      "reason_code": "APPEAL_UPHELD_REMEDY_AUTHORIZED",
+      "notes": "Correct the current projection while preserving the original event."
+    },
+    {
+      "case_id": "EB09",
+      "expected_disposition": "hold",
+      "reason_code": "TREASURY_AUTHORIZATION_MISSING",
+      "notes": "Scientific eligibility does not authorize payment."
+    },
+    {
+      "case_id": "EB10",
+      "expected_disposition": "hold",
+      "reason_code": "TREASURY_OUTCOME_UNKNOWN",
+      "notes": "Reconcile before any retry."
+    },
+    {
+      "case_id": "EB11",
+      "expected_disposition": "deny",
+      "reason_code": "EXACT_PAYOUT_BINDING_MISMATCH",
+      "notes": "Recipient/amount substitution is prohibited."
+    },
+    {
+      "case_id": "EB12",
+      "expected_disposition": "deny",
+      "reason_code": "LOGICAL_REWARD_OPERATION_ALREADY_APPLIED",
+      "notes": "A duplicate reward is prohibited."
+    }
+  ]
+}
