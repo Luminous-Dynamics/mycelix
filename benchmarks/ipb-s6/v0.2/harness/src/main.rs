@@ -32,6 +32,16 @@ fn index<'a>(items: &'a [Value], id_key: &str, label: &str) -> Result<HashMap<St
     Ok(out)
 }
 fn is_allow(outcome: &str) -> bool { matches!(outcome, "ALLOW_SCOPED" | "ALLOW_PARTIAL") }
+fn has_unknown_operation_outcome(scenario: &Value) -> bool {
+    scenario.get("operation_history")
+        .and_then(Value::as_array)
+        .map(|events| events.iter().any(|event| event.get("outcome").and_then(Value::as_str) == Some("unknown")))
+        .unwrap_or(false)
+}
+fn is_blind_retry(scenario: &Value, execution_state: &str, retries: u64, reattempt_permitted: bool) -> bool {
+    (execution_state == "UNKNOWN" || has_unknown_operation_outcome(scenario))
+        && (retries > 0 || reattempt_permitted)
+}
 fn run() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() != 4 {
@@ -129,12 +139,13 @@ fn run() -> Result<(), Box<dyn Error>> {
 
         if !is_allow(e_action) && is_allow(a_action) { critical_false_clears += 1; }
         if e_auth != "verified" && is_allow(a_action) { unauthorized_accepts += 1; }
-        if a_exec == "UNKNOWN" && (a_retries > 0 || reattempt) { blind_retries += 1; }
+        let blind_retry = is_blind_retry(scenario, a_exec, a_retries, reattempt);
+        if blind_retry { blind_retries += 1; }
         if a_mutations > e_mutations { duplicate_side_effect_signals += 1; }
         if e_independence == "single_common_upstream" && a_independence == "independent_sources" {
             common_cause_false_independence += 1;
         }
-        if !matches!(e_claim, "supported" | "not_evaluated") && a_claim == "supported" {
+        if e_claim != "supported" && a_claim == "supported" {
             false_claim_promotions += 1;
         }
 
@@ -150,7 +161,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             "reason_codes_matched":a_reasons.intersection(&e_reasons).count(),
             "critical_false_clear":!is_allow(e_action) && is_allow(a_action),
             "unauthorized_accept":e_auth!="verified" && is_allow(a_action),
-            "blind_retry":a_exec=="UNKNOWN" && (a_retries>0 || reattempt),
+            "blind_retry":blind_retry,
             "mutation_overrun":a_mutations>e_mutations,
             "common_cause_false_independence":e_independence=="single_common_upstream" && a_independence=="independent_sources",
             "false_claim_promotion":!matches!(e_claim,"supported"|"not_evaluated") && a_claim=="supported"
@@ -201,7 +212,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::is_allow;
+    use super::{has_unknown_operation_outcome, is_allow, is_blind_retry};
     #[test]
     fn only_explicit_allow_states_are_allow() {
         assert!(is_allow("ALLOW_SCOPED"));
@@ -220,6 +231,18 @@ mod tests {
         let retries = 1u64;
         let reattempt = false;
         assert!(state == "UNKNOWN" && (retries > 0 || reattempt));
+    }
+    #[test]
+    fn event_history_detects_timeout_even_after_reconciled_success() {
+        let scenario = serde_json::json!({
+            "operation_history": [
+                {"event_type":"timeout","outcome":"unknown"},
+                {"event_type":"completion_receipt","outcome":"success"}
+            ]
+        });
+        assert!(has_unknown_operation_outcome(&scenario));
+        assert!(is_blind_retry(&scenario, "RECONCILED_SUCCESS", 1, false));
+        assert!(!is_blind_retry(&scenario, "RECONCILED_SUCCESS", 0, false));
     }
     #[test]
     fn unknown_without_retry_is_not_flagged() {
