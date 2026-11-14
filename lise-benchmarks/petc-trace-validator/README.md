@@ -35,3 +35,11 @@ A complete sample trace is provided at `examples/valid-trace.json` and exercised
 This validator does not authenticate source systems, verify legal authority, formally validate the JSON Schema, determine whether a source is genuinely independent, or prove that the trace inventory is complete. A digest binds bytes, not truth. Provider capability and source-dependency claims still require independent owner review.
 
 The trace contract and validator are a research draft. The 34-case IPB-FINALITY panel is synthetic development material, not a hidden confirmatory holdout. No SOTA, production safety, exactly-once or legal-validity claim is made.
+
+
+## Authoring and CI status
+
+- 20 Rust unit tests are authored, including a committed schema-valid example trace.
+- The input schema and example fixture passed an in-session structural validation check.
+- Rust compilation, test execution, Clippy and exact-head CI are pending; they must not be described as passed.
+- This research crate does not yet include a committed Cargo.lock. Direct dependency versions are pinned exactly, but the transitive dependency graph is not yet frozen.
