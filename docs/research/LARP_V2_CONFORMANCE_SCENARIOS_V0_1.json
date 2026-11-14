@@ -85,7 +85,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -161,7 +166,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -237,7 +247,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -313,7 +328,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -389,7 +409,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -465,7 +490,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": true,
+        "amount_units": 5000,
+        "amount_ceiling_units": 50000,
+        "currency": "SAP",
+        "funding_source_valid": true
       }
     },
     {
@@ -541,7 +571,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -617,7 +652,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -692,7 +732,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -767,7 +812,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -842,7 +892,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -917,7 +972,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -992,7 +1052,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -1067,7 +1132,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -1143,7 +1213,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -1218,7 +1293,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -1294,7 +1374,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -1369,7 +1454,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -1444,7 +1534,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -1519,7 +1614,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -1594,7 +1694,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -1670,7 +1775,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -1745,7 +1855,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -1821,7 +1936,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -1897,7 +2017,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -1972,7 +2097,12 @@
           "duplicate_requested": true,
           "contract_expires_at_unix": null,
           "operation_already_applied": true
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -2047,7 +2177,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -2122,7 +2257,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": null,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -2198,7 +2338,12 @@
           "duplicate_requested": false,
           "contract_expires_at_unix": 1799999000,
           "operation_already_applied": false
-        }
+        },
+        "recipient_eligible": null,
+        "amount_units": null,
+        "amount_ceiling_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     }
   ],
