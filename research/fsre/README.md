@@ -2,7 +2,6 @@
 
 - [Resource stock-flow reference](../../tools/fsre-resource-stock-flow/README.md) — exact multi-interval opening/replenishment/consumption/loss/closing balance checks, with unknown propagation and no stock ledger.
 - [Time-expanded recovery portfolio benchmark](TIME_EXPANDED_RECOVERY_PORTFOLIO_BENCHMARK_V0_1.md) — multi-interval stock-flow, crew capacity, option expiry, service floors and as-known-at-the-time replay.
-- [Independent resource stock-flow oracle](../../tools/fsre-resource-stock-flow-oracle/README.md) — separately authored Rust arithmetic reference and differential workflow.
 - [Equity-aware service-floor benchmark](EQUITY_AND_DISTRIBUTIONAL_RESILIENCE_BENCHMARK_V0_1.md) — cohort-specific minimum service, distributional/restorative equity, procedural evidence and transgenerational liabilities.
 - [Portfolio feasibility reference and independent oracle](../../tools/fsre-portfolio-reference/README.md) — read-only Rust constraint evaluator plus a separately authored differential implementation.
 - [Independent portfolio oracle](../../tools/fsre-portfolio-oracle/README.md) — separately authored parser/evaluator checked against the production portfolio reference.
@@ -29,6 +28,8 @@ It is not a new civic-governance programme, a second civilization simulator, an 
 - [South African public source register](ZA_PUBLIC_SOURCE_REGISTER_V0_1.psv) — machine-readable discovery register with source release, observation period, grain, denominator, currentness and extraction state.
 - [South African public-data replay protocol](ZA_PUBLIC_DATA_REPLAY_PROTOCOL_V0_1.md) — exact Treasury cube/item taxonomy and extraction, null, pagination, identity and DWS/Stats SA admissibility rules.
 - [Wastewater service-chain completeness benchmark](WASTEWATER_SERVICE_CHAIN_COMPLETENESS_V0_1.md) — end-to-end sanitation boundary, missing-flow accounting, source/denominator integrity, sealed tests and operator-authorised research stages.
+- [Decision-time evidence replay benchmark](DECISION_TIME_EVIDENCE_REPLAY_BENCHMARK_V0_1.md) — reconstructs what was observed, recorded, valid and unrevoked at each decision cut-off.
+- [Decision-time replay reference](../../tools/fsre-decision-time-replay/README.md) — read-only Rust bitemporal evidence-eligibility checker with revision and hindsight-leakage tests.
 - [Temporal identity continuity and crosswalk benchmark](IDENTITY_CROSSWALK_BENCHMARK_V0_1.md) — source-backed continuity, rename, transfer, merge, split, decommissioning, creation, unresolved identity, population-scope changes and fair longitudinal comparison.
 - [Temporal identity crosswalk reference](../../tools/fsre-identity-crosswalk/README.md) — a Rust structural validator for transition cardinality, evidence class, review state and same-date conflict controls.
 - [Decision-value and active-investigation benchmark](DECISION_VALUE_AND_ACTIVE_INVESTIGATION_V0_1.md) — constrained value-of-information, sequential inspection/sampling, matched-cost baselines, stopping and abstention benchmarks for Symthaea.
