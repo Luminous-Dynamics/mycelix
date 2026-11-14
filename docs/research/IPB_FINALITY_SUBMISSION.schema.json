@@ -156,7 +156,8 @@
           "independence_claim_state",
           "replay_state",
           "duplicate_effect_count",
-          "protected_effect_state"
+          "protected_effect_state",
+          "execution_lease_state"
         ],
         "properties": {
           "scenario_id": {
@@ -440,7 +441,8 @@
               "provider_only",
               "shared_dependency",
               "unknown",
-              "not_applicable"
+              "not_applicable",
+              "numeric_score_claimed"
             ]
           },
           "replay_state": {
@@ -466,6 +468,15 @@
               "partial_with_unknown",
               "provider_reported_applied",
               "unsupported"
+            ]
+          },
+          "execution_lease_state": {
+            "enum": [
+              "live",
+              "absent",
+              "stale",
+              "unknown",
+              "not_applicable"
             ]
           }
         }
