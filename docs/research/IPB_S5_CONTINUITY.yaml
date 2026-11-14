@@ -1,0 +1,216 @@
+schema: lise.ipb.scenario-manifest.v0
+suite_id: IPB-S5-CONTINUITY-v0
+scenario_id: community-resource-service-continuity
+scenario_version: 1
+claim_scope: synthetic_institutional_succession_and_recovery_fixture
+evidence_tier: deterministic_software_benchmark_specification
+status: draft
+
+fixture_clock:
+  unit: millisecond
+  origin: 0
+  wall_clock_dependency: false
+
+continuity_objectives:
+  essential_functions:
+    - capability: read_authoritative_decision_history
+      target_rto_ms: 3600000
+      target_rpo_ms: 0
+    - capability: file_and_review_appeal
+      target_rto_ms: 3600000
+      target_rpo_ms: 0
+    - capability: authorize_new_resource_action
+      target_rto_ms: 14400000
+      target_rpo_ms: 0
+  degraded_service:
+    read_only_history_may_continue_without_execution_authority: true
+    new_resource_mutation_requires_current_authority_and_valid_signing_key: true
+    appeal_intake_must_not_depend_on_the_person_being_appealed: true
+  note: values_are_synthetic_fixture_inputs_not_universal_targets
+
+institution:
+  institution_id: community-institution-001
+  constitution_id: constitution-community-v1
+  constitution_version: 1
+  succession_rule_id: succession-policy-v1
+  succession_rule_version: 1
+  resource_id: community-fund
+  essential_role_ids:
+    - resource-steward
+    - release-signer
+    - records-custodian
+    - appeal-reviewer
+    - infrastructure-operator
+  role_assignments:
+    resource-steward: steward-a
+    release-signer: signer-a
+    records-custodian: custodian-a
+    appeal-reviewer: reviewer-a
+    infrastructure-operator: provider-a
+  preauthorized_substitutes:
+    resource-steward:
+      - steward-b
+    release-signer:
+      - signer-b
+    records-custodian:
+      - custodian-b
+    appeal-reviewer:
+      - reviewer-b
+    infrastructure-operator:
+      - provider-b
+  emergency_authority:
+    policy_id: emergency-continuity-v1
+    permitted_actions:
+      - read_decision_history
+      - accept_appeal_filings
+    prohibited_actions:
+      - appoint_self_to_resource_steward
+      - authorize_new_payment_without_current_grant
+      - amend_own_emergency_scope
+      - suppress_or_delete_appeals
+    max_duration_ms: 3600000
+    mandatory_review_after_use: true
+  signing_key:
+    key_id: release-key-a-v1
+    holder: signer-a
+    algorithm_profile: scenario_parameter
+    historical_verification_preserved_after_revocation: true
+  records:
+    primary_manifest_id: records-manifest-a-v1
+    verified_recovery_manifest_id: records-manifest-b-v1
+    committed_event_rpo_ms: 0
+  providers:
+    primary_provider: provider-a
+    alternate_provider: provider-b
+
+case_expectations:
+  - case_id: s5-positive-normal-operation
+    class: positive_control
+    expected_disposition: continued_under_existing_authority
+    mutations: []
+  - case_id: s5-negative-founder-loss_without_successor_authority
+    class: negative_control
+    expected_disposition: suspended_pending_lawful_succession
+    mutations:
+      - steward-a becomes unavailable
+      - no current grant or constitutional succession event exists for steward-b
+  - case_id: s5-positive-steward-loss_with_preauthorized_substitute
+    class: positive_control
+    expected_disposition: continued_under_valid_substitute_authority
+    mutations:
+      - steward-a becomes unavailable
+      - current preauthorized succession record activates steward-b within existing scope
+  - case_id: s5-negative-signing_key_loss
+    class: negative_control
+    expected_disposition: key_recovery_pending_verification
+    mutations:
+      - release-key-a-v1 becomes unavailable
+      - no replacement key has a verified current binding to signer-b
+  - case_id: s5-negative-signing_key_compromise
+    class: negative_control
+    expected_disposition: key_revoked_new_actions_blocked
+    mutations:
+      - release-key-a-v1 is declared compromised
+      - revoke new-use authorization
+      - preserve historical signature verification under declared archive policy
+  - case_id: s5-positive_provider_failover
+    class: positive_control
+    expected_disposition: degraded_service_under_verified_failover
+    mutations:
+      - provider-a becomes unavailable
+      - provider-b is already approved for read-only history and appeal intake
+      - new resource mutation remains blocked until execution authority and provider profile are revalidated
+  - case_id: s5_stress_correlated_provider_and_identity_failure
+    class: indeterminate_control
+    expected_disposition: indeterminate_dependency_independence
+    mutations:
+      - provider-a and the identity service share an upstream operator
+      - canonical multi-valued dependency closure is unavailable
+      - do not claim independent recovery or a qualified cut set
+  - case_id: s5-positive_verified_record_recovery
+    class: positive_control
+    expected_disposition: continued_after_independent_record_reconstruction
+    mutations:
+      - custodian-a becomes unavailable
+      - custodian-b restores records using a separately verified manifest
+      - independent reviewer verifies event continuity and committed-event RPO
+  - case_id: s5-negative_unverified_record_backup
+    class: negative_control
+    expected_disposition: restoration_unverified_no_new_mutation
+    mutations:
+      - primary records become unavailable
+      - a backup exists but its provenance, completeness or source binding is unknown
+  - case_id: s5-negative_stale_successor_credential
+    class: negative_control
+    expected_disposition: stale_successor_authority_rejected
+    mutations:
+      - present a successor credential issued before policy revocation
+      - current constitution/succession version is newer than the credential
+  - case_id: s5-positive_emergency_read_only_continuity
+    class: positive_control
+    expected_disposition: degraded_service_under_bounded_emergency_authority
+    mutations:
+      - invoke emergency-continuity-v1
+      - permit history reads and appeal intake only
+      - expire emergency authority after 3600000 ms
+      - require independent post-use review
+  - case_id: s5-negative_contested_successor_appointment
+    class: contested_control
+    expected_disposition: contested_succession_no_irreversible_authority_change
+    mutations:
+      - steward-b and steward-c submit incompatible succession claims
+      - preserve both evidence lineages
+      - route to reviewer/appeal process; block treasury authority mutation
+  - case_id: s5-negative_partial_service_restoration
+    class: negative_control
+    expected_disposition: partial_degraded_service_only
+    mutations:
+      - infrastructure returns
+      - key rotation, authority revalidation or record reconstruction remains incomplete
+      - permit only explicitly safe read-only functions
+  - case_id: s5-positive_safe_dissolution
+    class: positive_lifecycle_control
+    expected_disposition: safe_exit_or_dissolution_initiated
+    mutations:
+      - recovery declared non-viable under authorized rule
+      - stop new work
+      - reconcile in-flight operations
+      - preserve obligations, appeals, audit and remedy references
+  - case_id: s5-positive_distributed_role_redundancy
+    class: positive_control
+    expected_disposition: continued_without_single_person_dependency
+    mutations:
+      - remove steward-a and custodian-a
+      - activate preauthorized steward-b and custodian-b
+      - retain separate reviewer-b and release-signer-b
+      - verify role separation and current policy scope
+
+expected_case_count: 15
+suite_invariants:
+  unavailability_alone_creates_authority: false
+  recovery_actor_can_self_appoint: false
+  stale_or_revoked_credentials_authorize_new_actions: false
+  historical_signatures_erased_by_key_revocation: false
+  unknown_records_allow_new_resource_mutation: false
+  infrastructure_process_up_implies_authority_valid: false
+  emergency_scope_can_amend_itself: false
+  emergency_authority_has_expiry_and_review: true
+  contested_succession_permits_irreversible_authority_mutation: false
+  read_only_continuity_requires_payment_authority: false
+  dissolution_allows_new_work: false
+  unresolved_common_cause_proves_independence: false
+  random_seed: none
+  wall_clock_dependency: false
+  live_identity_or_key_material: none
+
+evidence_ceiling:
+  demonstrates:
+    - conformance_to_this_synthetic_succession_and_recovery_specification
+    - deterministic_dispositions_for_declared_fault_scenarios
+  does_not_demonstrate:
+    - real_world_business_continuity
+    - production_key_recovery_security
+    - authenticity_of_real_succession_records
+    - legal_compliance_or_constitutional_interpretation
+    - complete_real_world_dependency_inventory
+    - absence_of_undiscovered_common_cause_failures
