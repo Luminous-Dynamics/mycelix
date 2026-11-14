@@ -127,6 +127,26 @@ Autonomous Science Bench 0.1 is a useful methodological reference for full-confi
 
 CrossCD-Eval (Scientific Reports, 3 October 2026) evaluates remote-sensing change detection across in-domain, cross-domain and few-shot settings using CLCD, HRSCD and LEVIR-CD. Its findings reinforce that strong in-domain results do not guarantee cross-domain transfer. Our satellite evaluation should therefore hold out geography, sensor/platform, season, resolution, processing and annotation regimes independently.
 
+FIRE-Bench (ICML 2026, PMLR 306) evaluates full-cycle rediscovery of documented research findings through experiment design, execution and evidence-backed conclusions. Its authors report that even the strongest tested frontier agents remained below 50 F1, with high run-to-run variance and recurring failures in design, execution and evidence-based reasoning. This supports repeated trials, exact evaluation receipts and outcome verification rather than paper-style LLM judging.
+
+AgentIdeaBench (September 2026) compares static observation with active exploration across 33 models, 40 subfields and five disciplines. Active exploration improved grounding, feasibility, clarity and specificity, while measured originality did not improve under its critics. Our scientific-investigation scorecard must therefore separate novelty/originality from falsifiability, grounding, feasibility, experimental execution and verified outcome. An idea that is practical but not novel, or novel but not testable, must not be collapsed into one quality score.
+
+The 17 October 2026 lifecycle survey of autonomous scientific-research agents analysed 253 studies in depth and concludes that the field has matured unevenly: retrieval-grounded research and ML engineering show repeatable gains, while open-ended ideation, end-to-end discovery and trustworthy reporting remain fragile. Its reported benchmark outcomes range from 16.9% Kaggle bronze-level competition success to 21.0% best reproduction across 20 papers, 32.4% scientific-coding tasks solved and 31.5% memorization-resistant equation discovery; an o1 agent scored 26.6% on a three-paper replication subset versus 41.4% for ML PhDs. These are different tasks and should **not** be pooled into one “scientific-agent SOTA” number. Use them as maturity and difficulty context, then compare our own matched task families with identical budgets, pre-registered outcomes and verified run receipts.
+
+Source: [Gao, Yu & Li, “Large Language Model Agents for Autonomous Scientific Research: A Lifecycle Survey of Methods, Systems, Benchmarks, and Risks,” Journal of Superintelligence, 17 October 2026](https://www.mdpi.com/3043-0097/1/2/8).
+
+EarthShift (arXiv:2605.29330, 28 May 2026) is a particularly relevant geospatial OOD comparator. It evaluates 8 geospatial foundation models across 11 tasks and five natural distribution-shift families: spatial scale, temporal, geographic, sensor/modality and data-source shift. Its reported OOD performance is 15–20% lower on average. It found temporal shift less damaging than geographic, scale, sensor and source shifts; domain-specific pretraining did not create a consistent robustness advantage over generic vision or fully supervised baselines. It also includes a South Africa season-to-season agricultural segmentation task.
+
+For the Earth-observation adapter and downstream models, add a matched EarthShift-style track:
+- reproduce the published ID/OOD splits where dataset rights and access permit; do not assume public discoverability grants redistribution rights;
+- compare at least one classical supervised baseline, a generic vision foundation baseline and multiple geospatial foundation baselines;
+- report ID score, OOD score, absolute degradation and effective robustness relative to the fitted ID→OOD baseline, separately for all five shift families;
+- use geography, scale, sensor/modality and source shifts as primary stress tests; include temporal/seasonal controls;
+- report worst-shift and worst-region performance, uncertainty calibration, abstention and adaptation budget; never publish only the mean;
+- keep scene, region, campaign and acquisition clusters disjoint across splits to prevent leakage.
+
+EarthShift is an external comparator, not a claim that our adapter or detector currently matches or exceeds it. Our contribution should be evidence-preserving replay, source/rights-aware cross-domain provenance, common-cause controls and decision-grade investigation under OOD—not a new in-domain F1 record alone.
+
 IVOA VOEvent 2.1 already standardizes event packets and lifecycle citations. This work should interoperate with that standard, not invent a competing astronomy packet format. The additional contribution is an auditable, receipt-time-aware evidence and decision layer around source-native packets. VOEvent itself does not define the transport layer, publisher policy or intellectual-property/rights policy; those remain explicit system responsibilities.
 
 ## 9. Industry comparison: integrate with alert brokers, do not clone them
@@ -147,17 +167,77 @@ Source: [Rubin Observatory — Alerts and brokers](https://rubinobservatory.org/
 
 ## 10. Cross-domain adapter change control
 
-Adapter correctness includes endpoint lifecycle, not just conformance to a schema snapshot. The Copernicus Data Space Ecosystem's October 2026 catalogue API announcement identifies a new beta STAC endpoint at `https://stac.opensearch.dataspace.copernicus.eu/v1/`, a planned Q1 2027 redirect to the canonical `https://stac.dataspace.copernicus.eu/v1/`, and planned decommissioning of the current STAC endpoint in Q1 2027. OData is described as planned for decommissioning after 2028.
+Adapter correctness includes endpoint lifecycle, not just conformance to a schema snapshot. The Copernicus Data Space Ecosystem's **16 October 2026** announcement says the new SFEOS/OpenSearch-backed STAC endpoint `https://stac.opensearch.dataspace.copernicus.eu/v1/` will run in parallel with the current `https://stac.dataspace.copernicus.eu/v1/` **until 12 January 2027**, when the old endpoint will be replaced by the new one. The announcement also describes faster response times, a fixed collections-search endpoint, more queryable attributes, thematic collection grouping and changed rate limits. The separate October 2026 catalogue API presentation describes OData as planned for decommissioning after 2028.
 
 For satellite adapter evaluations:
-- test the current and beta STAC endpoint profiles explicitly;
-- preserve endpoint identity, API version, query, pagination tokens, collection/item IDs and exact response digest;
-- test redirects, schema drift, missing assets and pagination differences as separate failure modes;
+- test both current and new SFEOS endpoint profiles explicitly before 12 January 2027;
+- preserve endpoint identity, backend/profile version, query, pagination tokens, collection/item IDs and exact response digest;
+- compare landing/conformance, collection and item search, queryables, pagination, sorting and asset hrefs;
+- test redirects, schema/behavior drift, missing assets and rate-limit responses as separate failure modes;
 - do not silently switch endpoint or assume catalogue equivalence;
-- keep beta opt-in until a frozen cross-endpoint fixture suite supports migration.
+- keep a dated endpoint-selection receipt in every replay so the same query can be reconstructed after the migration.
 
-Sources: [Copernicus Data Space catalogue API update, October 2026](https://dataspace.copernicus.eu/sites/default/files/media/files/2026-10/1630_new_stac_catalogue_1.pdf) and [STAC API documentation](https://documentation.dataspace.copernicus.eu/APIs/STAC.html). This is endpoint lifecycle information, not evidence that all collections or assets are equivalent across endpoints.
+Sources: [Copernicus Data Space — New SFEOS STAC catalogue endpoint, 16 October 2026](https://dataspace.copernicus.eu/news/2026-10-16-new-sfeos-stac-catalogue-endpoint), [Catalogue APIs in CDSE (October 2026 PDF)](https://dataspace.copernicus.eu/sites/default/files/media/files/2026-10/1630_new_stac_catalogue_1.pdf), and [STAC API documentation](https://documentation.dataspace.copernicus.eu/APIs/STAC.html). This is endpoint lifecycle information, not evidence that all collections or assets are equivalent across endpoints.
 
-## 11. Release rule
+## 11. Correlated-evidence and false-independence benchmark
+
+A broker consensus is not a physical corroboration result. The benchmark must deliberately generate multiple records for one underlying observation and ensure that apparent multiplicity does not inflate confidence.
+
+Compose the existing Mycelix dependency/corroboration owner ([#1243](https://github.com/Luminous-Dynamics/mycelix/issues/1243)) and verifier fault-domain/correlation owner ([#1371](https://github.com/Luminous-Dynamics/mycelix/issues/1371)). Do not create a second global dependency graph or an opaque scalar trust/independence score. The benchmark consumes a versioned, owner-defined dependency closure.
+
+### Dependency dimensions to preserve
+
+For each evidence item, preserve the dependency dimensions that matter to the claim and domain:
+
+- **observation/artifact root** — the original measurement, alert, document or immutable payload;
+- **upstream dataset/catalogue** — source records or databases from which the item was copied;
+- **sensor/instrument/acquisition lineage** — device, deployment, site, sampling, channel and acquisition method;
+- **gateway and transport** — broker, mirror, API, cache, relay or gateway;
+- **operator/control domain** — organization or administrative controller;
+- **trust/identity root** — signer, credential issuer, federation or key control;
+- **clock/timebase and calibration/reference** — shared timing, calibration, power, environmental reference or common standard;
+- **processing lineage** — shared feature extraction, reduction, classifier, mapping, translation or reconstruction implementation;
+- **verifier lineage** — implementation, runtime, CI provider, package mirror and operator where verifier agreement is used.
+
+The initial executable profile may be narrower, but omitted dimensions must be explicitly unknown—not implicitly distinct.
+
+### Bounded relation outcomes
+
+A consumer may classify the relation for a specified evidence purpose/profile as:
+
+- `Correlated`: at least one material shared dependency is known;
+- `Unknown`: no shared dependency is proven, but at least one required dimension is missing or unresolved;
+- `IndependentForProfile`: all dimensions required by that frozen profile are present and distinct.
+
+These labels do not prove mathematical or statistical independence. A profile-specific distinctness result is not physical truth, source authentication, authority or scientific correctness. The input dependency claims themselves require source qualification.
+
+### Frozen adversarial families
+
+1. Two astronomy brokers re-emit the same upstream VOEvent under different broker IDs, gateways and transport receipts.
+2. Two national or commercial mirrors expose the same catalogue record through different APIs.
+3. Two classifiers consume the same alert bytes but use different model names; shared observation root remains visible.
+4. Two independent-looking sensors share a data-acquisition gateway or operator.
+5. Two instruments share a clock, calibration reference, power source or site; profile-specific rules decide whether that is material.
+6. Two independent source observations use the same processing implementation; preserve processing correlation without erasing the distinct observation roots.
+7. AI summaries, embeddings or derived classifications of one observation never become new physical observations.
+8. A dependency field is absent or a lineage lookup is unresolved; result remains `Unknown`.
+9. A later-discovered common upstream source invalidates future independence claims without rewriting historical receipts.
+10. Truly distinct observations with fully qualified required lineage provide a positive control.
+11. Repeated delivery, rewrapping, re-signing and different file formats do not increment underlying observation-root count.
+12. Reordering dependency records or input evidence cannot change the resulting disposition.
+
+### Metrics and proposed hard gates
+
+- False independence acceptance by dependency family: target **zero** on frozen adversarial controls.
+- Unknown-lineage promotion rate: target **zero**.
+- Known shared-root detection: **100%** on the frozen known-answer corpus.
+- Correctly resolved unknown dependencies: report coverage and abstention; do not reward forced guesses.
+- Pairwise evidence conflict detection and order invariance: **100%** on known-answer cases.
+- Dependence-family recall, false independence rate, abstention/risk coverage, reviewer effort and additional lineage-resolution cost.
+- Report the dimension-wise dependency vector, not only a count of sources or a confidence multiplier.
+
+The critical SOTA comparison is not how many alerts or broker records are aggregated. It is whether the system detects when a high apparent corroboration count is actually a single shared source, while retaining genuinely distinct evidence and exposing unresolved common causes.
+
+## 12. Release rule
 
 A public benchmark release must include the versioned corpus manifest, per-case rights and provenance, frozen split and cutoff definitions, expected outputs, evaluator source, baseline configurations, raw run receipts and a limitations report. Keep the hidden evaluation set private until a run is submitted; then publish enough evidence to reproduce the result without leaking future test labels.
