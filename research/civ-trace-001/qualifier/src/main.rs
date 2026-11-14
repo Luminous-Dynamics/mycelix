@@ -7,14 +7,15 @@ use std::process::ExitCode;
 const BENCHMARK_ID: &str = "CIV-TRACE-001";
 const SCHEMA_VERSION: &str = "civ-trace-fixtures-v0.1";
 const SCHEMA_ID: &str = "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/civ-trace-001/CIV_TRACE_FIXTURES_V0_1.schema.json";
-const FIXTURE_COUNT: usize = 36;
-const FAMILIES: [&str; 6] = [
+const FIXTURE_COUNT: usize = 42;
+const FAMILIES: [&str; 7] = [
     "hindsight_isolation",
     "authority_at_event_time",
     "correction_supersession",
     "outcome_observation",
     "contestability",
     "privacy_projection",
+    "remedy_execution",
 ];
 
 fn text<'a>(v: &'a Value, key: &str) -> Option<&'a str> {
@@ -33,7 +34,7 @@ fn validate_event(event: &Value) -> Result<String, String> {
         return Err("event must contain exactly sixteen declared properties".into());
     }
     let id = text(event, "event_id").ok_or_else(|| "event_id missing".to_string())?.to_string();
-    if !["Evidence","Decision","AuthorityGrant","AuthorityRevoke","Attempt","EffectObservation","Challenge","Correction"].contains(&text(event,"kind").unwrap_or("")) {
+    if !["Evidence","Decision","AuthorityGrant","AuthorityRevoke","Attempt","EffectObservation","Challenge","Correction","RemedyOrder","CorrectiveAction"].contains(&text(event,"kind").unwrap_or("")) {
         return Err(format!("{id}: unknown event kind"));
     }
     if number(event,"transaction_time").is_none_or(|n| n == 0) || number(event,"valid_from").is_none_or(|n| n == 0) {
@@ -57,10 +58,12 @@ fn validate_event(event: &Value) -> Result<String, String> {
         "Decision" => status == "Adopted",
         "AuthorityGrant" => status == "Granted",
         "AuthorityRevoke" => status == "Revoked",
-        "Attempt" => status == "Succeeded",
+        "Attempt" => ["Succeeded","Failed","Partial","Unknown"].contains(&status),
         "EffectObservation" => ["Confirmed","Partial","Contradicted"].contains(&status),
         "Challenge" => ["Open","Resolved"].contains(&status),
         "Correction" => status == "Corrected",
+        "RemedyOrder" => ["Ordered","Varied","Withdrawn"].contains(&status),
+        "CorrectiveAction" => ["Open","Verified","Ineffective"].contains(&status),
         _ => false,
     };
     if !valid_status {
@@ -88,33 +91,58 @@ fn validate_event(event: &Value) -> Result<String, String> {
     Ok(id)
 }
 
+fn authority_for(
+    events: &[Value],
+    subject: &str,
+    principal: &str,
+    target: &str,
+    action_time: u64,
+    include_late: bool,
+) -> &'static str {
+    let grants = events
+        .iter()
+        .filter(|event| {
+            text(event, "kind") == Some("AuthorityGrant")
+                && text(event, "status") == Some("Granted")
+                && text(event, "subject_ref") == Some(subject)
+                && text(event, "principal_ref") == Some(principal)
+                && text(event, "target_ref") == Some(target)
+                && number(event, "valid_from").is_some_and(|time| time <= action_time)
+                && event["valid_until"]
+                    .as_u64()
+                    .is_none_or(|until| action_time < until)
+                && (include_late
+                    || number(event, "transaction_time").is_some_and(|time| time <= action_time))
+        })
+        .collect::<Vec<_>>();
+    if grants.is_empty() {
+        return "UNAUTHORIZED";
+    }
+    if grants.len() != 1 {
+        return "INDETERMINATE";
+    }
+    let grant_id = text(grants[0], "event_id").unwrap_or("");
+    let revoked = events.iter().any(|event| {
+        text(event, "kind") == Some("AuthorityRevoke")
+            && text(event, "status") == Some("Revoked")
+            && strings(&event["parent_refs"]).contains(grant_id)
+            && number(event, "valid_from").is_some_and(|time| time <= action_time)
+            && (include_late
+                || number(event, "transaction_time").is_some_and(|time| time <= action_time))
+    });
+    if revoked { "UNAUTHORIZED" } else { "AUTHORIZED" }
+}
+
 fn authority(fixture: &Value, include_late: bool) -> &'static str {
     let events = fixture["events"].as_array().unwrap();
-    let action_time = number(fixture,"action_time_unix").unwrap_or(0);
-    let decision = text(fixture,"decision_ref").unwrap_or("");
-    let principal = text(fixture,"principal_ref").unwrap_or("");
-    let target = text(fixture,"target_ref").unwrap_or("");
-    let grants = events.iter().filter(|e|
-        text(e,"kind")==Some("AuthorityGrant")
-        && text(e,"status")==Some("Granted")
-        && text(e,"subject_ref")==Some(decision)
-        && text(e,"principal_ref")==Some(principal)
-        && text(e,"target_ref")==Some(target)
-        && number(e,"valid_from").is_some_and(|t| t<=action_time)
-        && e["valid_until"].as_u64().is_none_or(|t| action_time<t)
-        && (include_late || number(e,"transaction_time").is_some_and(|t| t<=action_time))
-    ).collect::<Vec<_>>();
-    if grants.is_empty() { return "UNAUTHORIZED"; }
-    if grants.len()!=1 { return "INDETERMINATE"; }
-    let grant_id=text(grants[0],"event_id").unwrap_or("");
-    let revoked=events.iter().any(|e|
-        text(e,"kind")==Some("AuthorityRevoke")
-        && text(e,"status")==Some("Revoked")
-        && strings(&e["parent_refs"]).contains(grant_id)
-        && number(e,"valid_from").is_some_and(|t|t<=action_time)
-        && (include_late || number(e,"transaction_time").is_some_and(|t|t<=action_time))
-    );
-    if revoked {"UNAUTHORIZED"} else {"AUTHORIZED"}
+    authority_for(
+        events,
+        text(fixture, "decision_ref").unwrap_or(""),
+        text(fixture, "principal_ref").unwrap_or(""),
+        text(fixture, "target_ref").unwrap_or(""),
+        number(fixture, "action_time_unix").unwrap_or(0),
+        include_late,
+    )
 }
 
 fn outcome(fixture: &Value) -> &'static str {
@@ -187,6 +215,123 @@ fn current_decision(fixture: &Value) -> String {
     decision_lineage(fixture).last().cloned().unwrap_or_default()
 }
 
+fn remedy_order(fixture: &Value) -> Option<&Value> {
+    let reference = text(fixture, "remedy_order_ref")?;
+    if reference == "NONE" {
+        return None;
+    }
+    fixture["events"]
+        .as_array()?
+        .iter()
+        .find(|event| {
+            text(event, "kind") == Some("RemedyOrder")
+                && text(event, "event_id") == Some(reference)
+        })
+}
+
+fn remedy_authority(fixture: &Value, include_late: bool) -> &'static str {
+    let Some(order) = remedy_order(fixture) else {
+        return "NOT_APPLICABLE";
+    };
+    let events = fixture["events"].as_array().unwrap();
+    authority_for(
+        events,
+        text(order, "event_id").unwrap_or(""),
+        text(order, "issuer_ref").unwrap_or(""),
+        text(order, "target_ref").unwrap_or(""),
+        number(order, "transaction_time").unwrap_or(0),
+        include_late,
+    )
+}
+
+fn remedy_state(fixture: &Value) -> &'static str {
+    let Some(order) = remedy_order(fixture) else {
+        return "NOT_APPLICABLE";
+    };
+    let order_id = text(order, "event_id").unwrap_or("");
+    match text(order, "status").unwrap_or("") {
+        "Withdrawn" => return "WITHDRAWN",
+        "Ordered" | "Varied" => {}
+        _ => return "INDETERMINATE",
+    }
+    let events = fixture["events"].as_array().unwrap();
+    let attempts = events
+        .iter()
+        .filter(|event| {
+            text(event, "kind") == Some("Attempt")
+                && strings(&event["parent_refs"]).contains(order_id)
+        })
+        .collect::<Vec<_>>();
+    if attempts.is_empty() {
+        return "ORDERED_NOT_STARTED";
+    }
+    if attempts.len() != 1 {
+        return "INDETERMINATE";
+    }
+    let attempt = attempts[0];
+    if text(attempt, "status") != Some("Succeeded") {
+        return "ATTEMPT_NOT_SUCCESSFUL";
+    }
+    let attempt_id = text(attempt, "event_id").unwrap_or("");
+    let executor = text(attempt, "issuer_ref").unwrap_or("");
+    let observations = events
+        .iter()
+        .filter(|event| {
+            text(event, "kind") == Some("EffectObservation")
+                && strings(&event["parent_refs"]).contains(attempt_id)
+        })
+        .collect::<Vec<_>>();
+    if observations.is_empty() {
+        return "IN_PROGRESS_UNOBSERVED";
+    }
+    if observations.iter().any(|event| {
+        text(event, "observer_ref")
+            .is_none_or(|observer| observer == "NONE" || observer == executor)
+    }) {
+        return "INDEPENDENCE_UNESTABLISHED";
+    }
+    let states = observations
+        .iter()
+        .filter_map(|event| text(event, "status"))
+        .collect::<BTreeSet<_>>();
+    if states.len() > 1 {
+        return "CONTESTED";
+    }
+    match states.iter().next().copied().unwrap_or("") {
+        "Confirmed" => "COMPLETED_OBSERVED",
+        "Partial" => "PARTIAL",
+        "Contradicted" => "CONTRADICTED",
+        _ => "CONTESTED",
+    }
+}
+
+fn systemic_action_state(fixture: &Value) -> &'static str {
+    let Some(order) = remedy_order(fixture) else {
+        return "NOT_APPLICABLE";
+    };
+    let order_id = text(order, "event_id").unwrap_or("");
+    let events = fixture["events"].as_array().unwrap();
+    let actions = events
+        .iter()
+        .filter(|event| {
+            text(event, "kind") == Some("CorrectiveAction")
+                && strings(&event["parent_refs"]).contains(order_id)
+        })
+        .collect::<Vec<_>>();
+    if actions.is_empty() {
+        return "NOT_APPLICABLE";
+    }
+    if actions.len() != 1 {
+        return "INDETERMINATE";
+    }
+    match text(actions[0], "status").unwrap_or("") {
+        "Open" => "OPEN",
+        "Verified" => "VERIFIED",
+        "Ineffective" => "INEFFECTIVE",
+        _ => "INDETERMINATE",
+    }
+}
+
 fn derive(fixture:&Value)->Result<Value,String>{
     let cutoff=number(fixture,"cutoff_unix").ok_or_else(||"cutoff_unix missing".to_string())?;
     let events=fixture["events"].as_array().ok_or_else(||"events must be an array".to_string())?;
@@ -207,38 +352,106 @@ fn derive(fixture:&Value)->Result<Value,String>{
         "challenge_event_ids":challenge_ids.into_iter().collect::<Vec<_>>(),
         "decision_lineage_refs":decision_lineage(fixture),
         "current_decision_ref":current_decision(fixture),
-        "privacy_violation":privacy
+        "privacy_violation":privacy,
+        "remedy_authority_as_known_at_order":remedy_authority(fixture, false),
+        "remedy_authority_current_assessment":remedy_authority(fixture, true),
+        "remedy_state":remedy_state(fixture),
+        "systemic_action_state":systemic_action_state(fixture)
     }))
 }
 
-fn validate_fixture(fixture:&Value)->Result<(String,String),String>{
-    if fixture.as_object().map(serde_json::Map::len)!=Some(10){return Err("fixture must have exactly ten declared properties".into());}
-    let id=text(fixture,"fixture_id").ok_or_else(||"fixture_id missing".to_string())?.to_string();
-    let family=text(fixture,"family").ok_or_else(||"family missing".to_string())?.to_string();
-    if !FAMILIES.contains(&family.as_str()){return Err(format!("{id}: unknown family {family}"));}
-    if number(fixture,"cutoff_unix").is_none_or(|x|x==0)||number(fixture,"action_time_unix").is_none_or(|x|x==0){return Err(format!("{id}: cutoff/action time invalid"));}
-    if number(fixture,"action_time_unix").unwrap() < number(fixture,"cutoff_unix").unwrap() {
-        return Err(format!("{id}: action_time_unix cannot precede the decision cutoff"));
+fn validate_fixture(fixture: &Value) -> Result<(String, String), String> {
+    if fixture.as_object().map(serde_json::Map::len) != Some(11) {
+        return Err("fixture must contain exactly eleven declared properties".into());
     }
-    for key in ["target_ref","principal_ref","decision_ref","attempt_ref"]{if text(fixture,key).is_none(){return Err(format!("{id}: {key} missing"));}}
-    let events=fixture["events"].as_array().ok_or_else(||format!("{id}: events must be array"))?;
-    if events.is_empty(){return Err(format!("{id}: events cannot be empty"));}
-    let decision_ref=text(fixture,"decision_ref").unwrap();
-    let attempt_ref=text(fixture,"attempt_ref").unwrap();
-    if events.iter().filter(|e|text(e,"kind")==Some("Decision")&&text(e,"event_id")==Some(decision_ref)).count()!=1 {
-        return Err(format!("{id}: decision_ref must resolve to exactly one Decision event"));
+    let id = text(fixture, "fixture_id")
+        .ok_or_else(|| "fixture_id missing".to_string())?
+        .to_string();
+    let family = text(fixture, "family")
+        .ok_or_else(|| "family missing".to_string())?
+        .to_string();
+    if !FAMILIES.contains(&family.as_str()) {
+        return Err(format!("{id}: unknown family {family}"));
     }
-    if events.iter().filter(|e|text(e,"kind")==Some("Attempt")&&text(e,"event_id")==Some(attempt_ref)).count()!=1 {
-        return Err(format!("{id}: attempt_ref must resolve to exactly one Attempt event"));
+    if number(fixture, "cutoff_unix").is_none_or(|value| value == 0)
+        || number(fixture, "action_time_unix").is_none_or(|value| value == 0)
+    {
+        return Err(format!("{id}: cutoff/action time invalid"));
     }
-    let mut ids=BTreeSet::new();
-    for event in events{
-        let event_id=validate_event(event)?;
-        if !ids.insert(event_id.clone()){return Err(format!("{id}: duplicate event ID {event_id}"));}
+    if number(fixture, "action_time_unix").unwrap() < number(fixture, "cutoff_unix").unwrap() {
+        return Err(format!(
+            "{id}: action_time_unix cannot precede the decision cutoff"
+        ));
     }
-    let derived=derive(fixture)?;
-    if derived!=fixture["expected"]{return Err(format!("{id}: expected oracle mismatch; derived {derived}"));}
-    Ok((id,family))
+    for key in ["target_ref", "principal_ref", "decision_ref", "attempt_ref", "remedy_order_ref"] {
+        if text(fixture, key).is_none() {
+            return Err(format!("{id}: {key} missing"));
+        }
+    }
+    let events = fixture["events"]
+        .as_array()
+        .ok_or_else(|| format!("{id}: events must be array"))?;
+    if events.is_empty() {
+        return Err(format!("{id}: events cannot be empty"));
+    }
+    let decision_ref = text(fixture, "decision_ref").unwrap();
+    let attempt_ref = text(fixture, "attempt_ref").unwrap();
+    if events
+        .iter()
+        .filter(|event| {
+            text(event, "kind") == Some("Decision")
+                && text(event, "event_id") == Some(decision_ref)
+        })
+        .count()
+        != 1
+    {
+        return Err(format!(
+            "{id}: decision_ref must resolve to exactly one Decision event"
+        ));
+    }
+    if events
+        .iter()
+        .filter(|event| {
+            text(event, "kind") == Some("Attempt")
+                && text(event, "event_id") == Some(attempt_ref)
+        })
+        .count()
+        != 1
+    {
+        return Err(format!(
+            "{id}: attempt_ref must resolve to exactly one Attempt event"
+        ));
+    }
+    let mut ids = BTreeSet::new();
+    for event in events {
+        let event_id = validate_event(event)?;
+        if !ids.insert(event_id.clone()) {
+            return Err(format!("{id}: duplicate event ID {event_id}"));
+        }
+    }
+    let remedy_ref = text(fixture, "remedy_order_ref").unwrap();
+    let remedy_orders = events
+        .iter()
+        .filter(|event| text(event, "kind") == Some("RemedyOrder"))
+        .collect::<Vec<_>>();
+    if remedy_ref == "NONE" {
+        if !remedy_orders.is_empty() {
+            return Err(format!("{id}: remedy_order_ref is NONE but RemedyOrder events exist"));
+        }
+    } else if remedy_orders.len() != 1
+        || text(remedy_orders[0], "event_id") != Some(remedy_ref)
+    {
+        return Err(format!(
+            "{id}: remedy_order_ref must resolve to exactly one RemedyOrder event"
+        ));
+    }
+    let derived = derive(fixture)?;
+    if derived != fixture["expected"] {
+        return Err(format!(
+            "{id}: expected oracle mismatch; derived {derived}"
+        ));
+    }
+    Ok((id, family))
 }
 
 fn validate_schema(schema:&Value)->Result<(),String>{
@@ -315,7 +528,54 @@ mod tests{
     fn parsed()->Value{serde_json::from_str(MANIFEST).expect("fixture JSON parses")}
     fn fixture(id:&str)->Value{parsed()["fixtures"].as_array().unwrap().iter().find(|f|text(f,"fixture_id")==Some(id)).unwrap().clone()}
 
-    #[test]fn all_36_known_answer_fixtures_validate(){let c=validate_manifest(&parsed()).expect("manifest qualifies");assert_eq!(c.len(),6);assert!(c.values().all(|n|*n==6));}
+    #[test]
+    fn all_42_known_answer_fixtures_validate() {
+        let counts = validate_manifest(&parsed()).expect("manifest qualifies");
+        assert_eq!(counts.len(), 7);
+        assert!(counts.values().all(|count| *count == 6));
+    }
+    #[test]
+    fn remedy_order_is_not_mistaken_for_completed_remedy() {
+        let f = fixture("CIVT-REMEDY-01");
+        assert_eq!(f["expected"]["remedy_state"], "ORDERED_NOT_STARTED");
+    }
+    #[test]
+    fn successful_remedy_attempt_without_observation_is_not_complete() {
+        let f = fixture("CIVT-REMEDY-02");
+        assert_eq!(f["expected"]["remedy_state"], "IN_PROGRESS_UNOBSERVED");
+    }
+    #[test]
+    fn remedy_completion_requires_independent_confirmation() {
+        let f = fixture("CIVT-REMEDY-03");
+        assert_eq!(f["expected"]["remedy_state"], "COMPLETED_OBSERVED");
+    }
+    #[test]
+    fn partial_remedy_observation_is_not_complete() {
+        let f = fixture("CIVT-REMEDY-04");
+        assert_eq!(f["expected"]["remedy_state"], "PARTIAL");
+    }
+    #[test]
+    fn contradictory_remedy_observation_is_not_complete() {
+        let f = fixture("CIVT-REMEDY-05");
+        assert_eq!(f["expected"]["remedy_state"], "CONTRADICTED");
+    }
+    #[test]
+    fn remedy_order_requires_current_reviewer_authority() {
+        let f = fixture("CIVT-REMEDY-06");
+        assert_eq!(f["expected"]["remedy_authority_as_known_at_order"], "UNAUTHORIZED");
+        assert_eq!(f["expected"]["remedy_state"], "IN_PROGRESS_UNOBSERVED");
+    }
+    #[test]
+    fn late_revocation_changes_current_remedy_authority_without_rewriting_history() {
+        let f = fixture("CIVT-REMEDY-07");
+        assert_eq!(f["expected"]["remedy_authority_as_known_at_order"], "AUTHORIZED");
+        assert_eq!(f["expected"]["remedy_authority_current_assessment"], "UNAUTHORIZED");
+    }
+    #[test]
+    fn systemic_corrective_action_requires_explicit_verification() {
+        let f = fixture("CIVT-REMEDY-03");
+        assert_eq!(f["expected"]["systemic_action_state"], "VERIFIED");
+    }
     #[test]fn late_backdated_evidence_is_not_in_historical_knowledge(){let f=fixture("CIVT-HINDSIGHT-02");assert!(!strings(&f["expected"]["known_event_ids"]).contains("H-LATE-BACKDATED-2"));}
     #[test]fn late_revocation_changes_current_assessment_not_as_known_view(){let f=fixture("CIVT-AUTHORITY-04");assert_eq!(f["expected"]["authority_as_known_at_action"],"AUTHORIZED");assert_eq!(f["expected"]["authority_current_assessment"],"UNAUTHORIZED");}
     #[test]fn late_backdated_grant_does_not_change_what_was_known(){let f=fixture("CIVT-AUTHORITY-05");assert_eq!(f["expected"]["authority_as_known_at_action"],"UNAUTHORIZED");assert_eq!(f["expected"]["authority_current_assessment"],"AUTHORIZED");}
