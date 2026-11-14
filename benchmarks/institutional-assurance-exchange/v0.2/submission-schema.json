@@ -353,7 +353,12 @@
         "retry_safety",
         "disposition",
         "retry_count",
-        "reattempt_permitted"
+        "reattempt_permitted",
+        "action",
+        "principal_ref",
+        "target_ref",
+        "purpose",
+        "idempotency_ref"
       ],
       "properties": {
         "operation_ref": {
@@ -423,6 +428,26 @@
         },
         "reattempt_permitted": {
           "type": "boolean"
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "principal_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotency_ref": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }
