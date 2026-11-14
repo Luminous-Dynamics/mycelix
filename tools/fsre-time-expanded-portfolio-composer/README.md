@@ -12,6 +12,7 @@ It checks that:
 - the portfolio's resource-use quantity equals the stock-flow's recorded consumption in every interval;
 - the proposed per-interval resource capacity does not exceed opening inventory minus all losses recorded in that interval (a conservative rule: replenishment within an interval is not assumed available until the next interval, and every recorded loss is treated as occurring before use);
 - individual cohort floors are preserved in every interval, so surplus in one cohort or period cannot hide a deficit in another;
+- each service/cohort pair retains the same exact unit across the horizon; no cross-interval unit conversion is inferred;
 - unknown or incomplete evidence remains NOT_ESTIMABLE, and reconciliation errors cannot be promoted to a feasible horizon claim.
 
 ## Input format
@@ -44,7 +45,7 @@ The output retains per-interval portfolio dispositions, every cohort floor resul
 
 ## Claim boundary and limitations
 
-- Quantities use exact non-negative integers and exact unit-string equality; no implicit conversions are performed.
+- Quantities use exact non-negative integers and exact unit-string equality; no implicit conversions are performed. The service/cohort measurement unit must also remain identical across all intervals.
 - Inventory capacity is limited to opening stock less all recorded losses in that interval. The composer conservatively treats losses as occurring before use and does not credit same-interval replenishment because the stock-flow input has no within-interval event ordering. This is an intentionally strict lower bound, not a reconstruction of actual delivery timing.
 - Crew-hours and other renewable per-interval constraints remain in the portfolio reference; only the declared stock resources are joined to stock-flow series.
 - The composer does not establish that receipts are authentic, current, owner-authorised or independent; it only preserves their references and composes the current validators' declared results.
