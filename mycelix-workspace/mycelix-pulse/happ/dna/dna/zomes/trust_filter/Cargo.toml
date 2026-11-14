@@ -11,13 +11,14 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Holochain 0.6 - Coordinator zomes use hdk
-hdk = "0.6.0"
+hdk = "=0.7.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 mycelix_mail_integrity = { path = "../../integrity" }
 
 # Mycelix SDK for MATL trust scoring and Bridge messaging
-mycelix-sdk = { path = "../../../../../sdk" }
+# This DNA copy is nested one level deeper than happ/dna/zomes; six parents reach mycelix-workspace/sdk.
+mycelix-sdk = { path = "../../../../../../sdk" }
 
 [profile.release]
 opt-level = "z"

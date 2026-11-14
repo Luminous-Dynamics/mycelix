@@ -32,8 +32,21 @@ pub struct MailboxCapability {
     pub revoked: bool,
     /// Revocation reason if revoked
     pub revocation_reason: Option<String>,
-    /// Secret for capability verification
+    /// Action hash of the local Holochain capability grant that authorizes remote calls.
+    /// Absent only on records created before this binding existed; those cannot be
+    /// declared conductor-revoked without a separate audited migration.
+    #[serde(default)]
+    pub system_grant_action_hash: Option<ActionHash>,
+    /// SHA-256 fingerprint of the grant secret. The secret itself must never be stored
+    /// in this public application entry; it belongs in the recipient's private CapClaim.
     pub secret_hash: Vec<u8>,
+    /// Grantor-scoped, domain-separated hash of the client logical operation ID.
+    /// None is reserved for pre-idempotency legacy records.
+    #[serde(default)]
+    pub idempotency_key_hash: Option<Vec<u8>>,
+    /// Digest of the canonical v1 request tuple; immutable for the grant lifetime.
+    #[serde(default)]
+    pub request_digest: Option<Vec<u8>>,
 }
 
 /// Type of mailbox access
@@ -264,6 +277,8 @@ pub enum LinkTypes {
     AgentToGrantedCapabilities,
     /// Agent -> capabilities they've received
     AgentToReceivedCapabilities,
+    /// Grantor -> capabilities indexed by a grantor-scoped idempotency key
+    AgentToCapabilityIdempotencyKey,
     /// Capability -> audit logs
     CapabilityToAuditLogs,
     /// Shared mailbox -> members
@@ -300,11 +315,45 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
+        FlatOp::CreateEntry(store_entry) => match store_entry {
+            OpEntry::CreateEntry { app_entry, action } => {
+                validate_create_entry(app_entry, action.into())
+            }
             OpEntry::UpdateEntry {
                 app_entry, action, ..
             } => validate_update_entry(app_entry, action),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => {
+                validate_create_entry(app_entry, action.into())
+            }
+            OpRecord::UpdateEntry { app_entry, action } => validate_update_entry(app_entry, action),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::Update(OpUpdate::Entry { app_entry, action }) => {
+            validate_update_entry(app_entry, action)
+        }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported capability update variant".to_string(),
+        )),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
+            "Capability entries cannot be deleted".to_string(),
+        )),
+        // Link authority and record authority are separate validation ops.
+        // Validate the same immutable grant-index binding on both paths.
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => match link_type {
+            LinkTypes::AgentToCapabilityIdempotencyKey => {
+                validate_capability_idempotency_link(action)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::CreateRecord(OpRecord::CreateLink {
+            link_type, action, ..
+        }) => match link_type {
+            LinkTypes::AgentToCapabilityIdempotencyKey => {
+                validate_capability_idempotency_link(action)
+            }
             _ => Ok(ValidateCallbackResult::Valid),
         },
         _ => Ok(ValidateCallbackResult::Valid),
@@ -313,7 +362,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 fn validate_create_entry(
     entry: EntryTypes,
-    action: Create,
+    action: TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::MailboxCapability(cap) => validate_capability(&cap, &action),
@@ -325,30 +374,84 @@ fn validate_create_entry(
 
 fn validate_update_entry(
     entry: EntryTypes,
-    action: Update,
+    action: TypedAction<UpdateData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         // Capabilities can only be updated by grantor (to revoke)
         EntryTypes::MailboxCapability(cap) => {
-            if cap.grantor != action.author {
+            if cap.grantor != action.author().clone() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only grantor can update capability".to_string(),
                 ));
             }
+
+            // Resolve the source entry and permit exactly one monotonic transition:
+            // active -> revoked. The grant binding, grantee, permissions, restrictions,
+            // timestamps, and secret fingerprint are immutable; a revoked capability
+            // can never be reactivated or edited.
+            let original_record = must_get_valid_record(action.original_action_address.clone())?;
+            let original: MailboxCapability = original_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Original capability update points to another entry type".to_string()
+                )))?;
+
+            if original.grantor != action.author().clone() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Original capability must belong to the updating grantor".to_string(),
+                ));
+            }
+
+            if cap.id != original.id
+                || cap.grantor != original.grantor
+                || cap.grantee != original.grantee
+                || cap.access_type != original.access_type
+                || cap.permissions != original.permissions
+                || cap.restrictions != original.restrictions
+                || cap.granted_at != original.granted_at
+                || cap.expires_at != original.expires_at
+                || cap.system_grant_action_hash != original.system_grant_action_hash
+                || cap.secret_hash != original.secret_hash
+                || cap.idempotency_key_hash != original.idempotency_key_hash
+                || cap.request_digest != original.request_digest
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Capability authority fields are immutable".to_string(),
+                ));
+            }
+
+            if original.revoked || !cap.revoked {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Capability updates may only transition active -> revoked once".to_string(),
+                ));
+            }
             Ok(ValidateCallbackResult::Valid)
         }
-        // Shared mailboxes can be updated by owner or admin
+        // Direct SharedMailbox updates are currently limited to the original owner.
+        // Delegated Admin transitions require a controller-signed execution lease and
+        // a separate immutable proof; this update shape does not carry that proof.
         EntryTypes::SharedMailbox(mailbox) => {
-            if mailbox.owner != action.author {
-                // Check if the author is an admin member
-                let is_admin = mailbox.members.iter().any(|m| {
-                    m.agent == action.author && matches!(m.role, SharedMailboxRole::Admin)
-                });
-                if !is_admin {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "Only mailbox owner or admin can update shared mailbox".to_string(),
-                    ));
-                }
+            let original_record = must_get_valid_record(action.original_action_address.clone())?;
+            let original: SharedMailbox = original_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Original mailbox update points to another entry type".to_string()
+                )))?;
+
+            if original.owner != action.author().clone() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Direct mailbox member transitions require the original owner; delegated Admin changes require an execution lease".to_string(),
+                ));
+            }
+
+            if !is_valid_owner_member_append(&original, &mailbox, action.author()) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Mailbox update must be exactly one owner-authored member append with all existing state unchanged".to_string(),
+                ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
@@ -356,16 +459,18 @@ fn validate_update_entry(
         EntryTypes::CapabilityAuditLog(_) => Ok(ValidateCallbackResult::Invalid(
             "Audit logs cannot be modified".to_string(),
         )),
-        _ => Ok(ValidateCallbackResult::Valid),
+        _ => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported capability entry update".to_string(),
+        )),
     }
 }
 
 fn validate_capability(
     cap: &MailboxCapability,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Grantor must be author
-    if cap.grantor != action.author {
+    if cap.grantor != action.author().clone() {
         return Ok(ValidateCallbackResult::Invalid(
             "Grantor must match author".to_string(),
         ));
@@ -378,10 +483,24 @@ fn validate_capability(
         ));
     }
 
-    // Must have secret hash
-    if cap.secret_hash.is_empty() {
+    // The public field is specifically a SHA-256 fingerprint, not an arbitrary
+    // non-empty byte string. Enforce the digest width at the integrity boundary.
+    if !is_sha256_fingerprint(&cap.secret_hash) {
         return Ok(ValidateCallbackResult::Invalid(
-            "Capability must have secret hash".to_string(),
+            "Capability secret fingerprint must be exactly 32 bytes (SHA-256)".to_string(),
+        ));
+    }
+    if !cap
+        .idempotency_key_hash
+        .as_deref()
+        .is_some_and(is_sha256_fingerprint)
+        || !cap
+            .request_digest
+            .as_deref()
+            .is_some_and(is_sha256_fingerprint)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New capabilities require 32-byte idempotency-key and request digests".to_string(),
         ));
     }
 
@@ -397,12 +516,98 @@ fn validate_capability(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate the only SharedMailbox update shape currently exposed by Pulse:
+/// one new member appended by the original owner. The original entry is fetched
+/// separately by the caller; authority is never inferred from proposed membership.
+fn is_valid_owner_member_append(
+    original: &SharedMailbox,
+    proposed: &SharedMailbox,
+    author: &AgentPubKey,
+) -> bool {
+    if original.owner != *author
+        || proposed.id != original.id
+        || proposed.name != original.name
+        || proposed.owner != original.owner
+        || proposed.email_address != original.email_address
+        || proposed.created_at != original.created_at
+        || proposed.is_active != original.is_active
+        || proposed.settings != original.settings
+        || original.members.len().checked_add(1) != Some(proposed.members.len())
+        || !proposed.members.starts_with(&original.members)
+    {
+        return false;
+    }
+
+    let Some(added_member) = proposed.members.last() else {
+        return false;
+    };
+
+    added_member.added_by == *author
+        && !matches!(added_member.role, SharedMailboxRole::Owner)
+        && !original
+            .members
+            .iter()
+            .any(|member| member.agent == added_member.agent)
+}
+
+fn validate_capability_idempotency_link(
+    action: TypedAction<CreateLinkData>,
+) -> ExternResult<ValidateCallbackResult> {
+    let base_address = &action.data.base_address;
+    let target_address = &action.data.target_address;
+    let tag = &action.data.tag;
+    let author = &action.header.author;
+
+    if base_address != &AnyLinkableHash::from(author.clone()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Capability idempotency index base must be the grantor author".to_string(),
+        ));
+    }
+    if tag.0.len() != 32 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Capability idempotency index tag must be a 32-byte SHA-256 digest".to_string(),
+        ));
+    }
+    let Some(target_hash) = target_address.into_action_hash() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Capability idempotency index must target an action hash".to_string(),
+        ));
+    };
+    let record = must_get_valid_record(target_hash)?;
+    if record.action().author() != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Capability idempotency link and target must have the same author".to_string(),
+        ));
+    }
+    let Some(capability) = record
+        .entry()
+        .to_app_option::<MailboxCapability>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+    else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Capability idempotency index target must be a MailboxCapability".to_string(),
+        ));
+    };
+    if &capability.grantor != author
+        || capability.idempotency_key_hash.as_deref() != Some(tag.0.as_slice())
+        || !capability
+            .request_digest
+            .as_deref()
+            .is_some_and(is_sha256_fingerprint)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Capability idempotency index does not match its target record".to_string(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_shared_mailbox(
     mailbox: &SharedMailbox,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
-    if mailbox.owner != action.author {
+    if mailbox.owner != action.author().clone() {
         return Ok(ValidateCallbackResult::Invalid(
             "Owner must match author".to_string(),
         ));
@@ -427,7 +632,7 @@ fn validate_shared_mailbox(
 
 fn validate_audit_log(
     _log: &CapabilityAuditLog,
-    _action: &Create,
+    _action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Audit logs have minimal validation - they're append-only
     Ok(ValidateCallbackResult::Valid)
@@ -435,7 +640,7 @@ fn validate_audit_log(
 
 fn validate_delegation_chain(
     chain: &DelegationChain,
-    _action: &Create,
+    _action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Chain must not exceed max depth
     if chain.chain.len() > chain.max_depth as usize {
@@ -445,4 +650,169 @@ fn validate_delegation_chain(
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod shared_mailbox_transition_tests {
+    use super::*;
+
+    fn agent(byte: u8) -> AgentPubKey {
+        AgentPubKey::from_raw_32(vec![byte; 32])
+    }
+
+    fn member(
+        agent: AgentPubKey,
+        role: SharedMailboxRole,
+        added_by: AgentPubKey,
+    ) -> SharedMailboxMember {
+        SharedMailboxMember {
+            agent,
+            role,
+            permissions: MailboxPermissions::default(),
+            added_at: Timestamp::from_micros(1),
+            added_by,
+        }
+    }
+
+    fn mailbox(owner: AgentPubKey) -> SharedMailbox {
+        SharedMailbox {
+            id: "mailbox-1".to_string(),
+            name: "Operations".to_string(),
+            owner: owner.clone(),
+            email_address: "ops@example.test".to_string(),
+            members: vec![member(
+                owner.clone(),
+                SharedMailboxRole::Owner,
+                owner.clone(),
+            )],
+            created_at: Timestamp::from_micros(0),
+            is_active: true,
+            settings: SharedMailboxSettings::default(),
+        }
+    }
+
+    #[test]
+    fn original_owner_can_append_one_new_member() {
+        let owner = agent(1);
+        let mut proposed = mailbox(owner.clone());
+        proposed
+            .members
+            .push(member(agent(2), SharedMailboxRole::Viewer, owner.clone()));
+        assert!(is_valid_owner_member_append(
+            &mailbox(owner.clone()),
+            &proposed,
+            &owner
+        ));
+    }
+
+    #[test]
+    fn proposed_admin_membership_cannot_self_authorize() {
+        let owner = agent(1);
+        let attacker = agent(2);
+        let original = mailbox(owner.clone());
+        let mut proposed = original.clone();
+        proposed.members.push(member(
+            attacker.clone(),
+            SharedMailboxRole::Admin,
+            attacker.clone(),
+        ));
+        assert!(!is_valid_owner_member_append(
+            &original, &proposed, &attacker
+        ));
+    }
+
+    #[test]
+    fn existing_admin_cannot_use_owner_only_direct_transition() {
+        let owner = agent(1);
+        let admin = agent(2);
+        let mut original = mailbox(owner.clone());
+        original.members.push(member(
+            admin.clone(),
+            SharedMailboxRole::Admin,
+            owner.clone(),
+        ));
+        let mut proposed = original.clone();
+        proposed
+            .members
+            .push(member(agent(3), SharedMailboxRole::Viewer, admin.clone()));
+        assert!(!is_valid_owner_member_append(&original, &proposed, &admin));
+    }
+
+    #[test]
+    fn member_append_cannot_smuggle_name_or_settings_mutation() {
+        let owner = agent(1);
+        let mut proposed = mailbox(owner.clone());
+        proposed
+            .members
+            .push(member(agent(2), SharedMailboxRole::Viewer, owner.clone()));
+        proposed.name = "Attacker controlled".to_string();
+        assert!(!is_valid_owner_member_append(
+            &mailbox(owner.clone()),
+            &proposed,
+            &owner
+        ));
+        proposed.name = "Operations".to_string();
+        proposed.settings.allow_send_as = true;
+        assert!(!is_valid_owner_member_append(
+            &mailbox(owner.clone()),
+            &proposed,
+            &owner
+        ));
+    }
+
+    #[test]
+    fn member_append_cannot_rewrite_existing_member_or_duplicate_agent() {
+        let owner = agent(1);
+        let admin = agent(2);
+        let original_member = member(admin.clone(), SharedMailboxRole::Admin, owner.clone());
+        let mut original = mailbox(owner.clone());
+        original.members.push(original_member);
+        let mut rewritten = original.clone();
+        rewritten.members[1].role = SharedMailboxRole::Owner;
+        rewritten
+            .members
+            .push(member(agent(3), SharedMailboxRole::Viewer, owner.clone()));
+        assert!(!is_valid_owner_member_append(&original, &rewritten, &owner));
+
+        let mut duplicate = original.clone();
+        duplicate.members.push(member(
+            admin.clone(),
+            SharedMailboxRole::Viewer,
+            owner.clone(),
+        ));
+        assert!(!is_valid_owner_member_append(&original, &duplicate, &owner));
+    }
+
+    #[test]
+    fn direct_member_append_cannot_assign_another_owner_role() {
+        let owner = agent(1);
+        let mut proposed = mailbox(owner.clone());
+        proposed
+            .members
+            .push(member(agent(2), SharedMailboxRole::Owner, owner.clone()));
+        assert!(!is_valid_owner_member_append(
+            &mailbox(owner.clone()),
+            &proposed,
+            &owner
+        ));
+    }
+}
+
+const SHA256_FINGERPRINT_LEN: usize = 32;
+
+fn is_sha256_fingerprint(secret_hash: &[u8]) -> bool {
+    secret_hash.len() == SHA256_FINGERPRINT_LEN
+}
+
+#[cfg(test)]
+mod capability_fingerprint_tests {
+    use super::is_sha256_fingerprint;
+
+    #[test]
+    fn capability_secret_fingerprint_must_be_exactly_sha256_width() {
+        assert!(!is_sha256_fingerprint(&[]));
+        assert!(!is_sha256_fingerprint(&[7; 31]));
+        assert!(is_sha256_fingerprint(&[7; 32]));
+        assert!(!is_sha256_fingerprint(&[7; 33]));
+    }
 }

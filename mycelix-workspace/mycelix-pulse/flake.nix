@@ -5,12 +5,18 @@
   description = "Mycelix Pulse - Decentralized communication on Holochain";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
     # Holochain development tools
     holochain-flake = {
-      url = "github:holochain/holochain";
+      # Holonix's main-0.7 branch advances as releases land. Keep the app
+      # on the 0.7.0 canary tuple while #5719 resolves the 0.7.0/0.7.1
+      # target discrepancy; never let a moving branch silently upgrade the
+      # conductor underneath HDK/HDI-pinned zomes.
+      url = "github:holochain/holonix?ref=main-0.7";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.holochain.url = "github:holochain/holochain?ref=holochain-0.7.0";
+      inputs.kitsune2.url = "github:holochain/kitsune2?ref=v0.5.0";
     };
 
     # Rust toolchain
@@ -34,6 +40,8 @@
         };
 
         holochainPkg = holochain-flake.packages.${system}.holochain;
+        hcPkg = holochain-flake.packages.${system}.hc;
+        lairPkg = holochain-flake.packages.${system}.lair-keystore;
 
         # Rust toolchain - reads mycelix-workspace/rust-toolchain.toml (single source of
         # truth), not stable.latest, so devShell builds can't silently drift from the pin
@@ -48,6 +56,8 @@
         buildInputs = with pkgs; [
           # Rust
           rustToolchain
+          # Holochain 0.7 Sweettest build dependencies invoke Perl.
+          perl
           cargo-watch
           cargo-edit
           cargo-tauri
@@ -55,12 +65,14 @@
 
           # Holochain
           holochainPkg
+          hcPkg
+          lairPkg
 
           # Node.js for frontend
-          nodejs_20
-          nodePackages.npm
-          nodePackages.typescript
-          nodePackages.typescript-language-server
+          # Node 24 includes npm; nixpkgs 26.05 removed the nodePackages set.
+          nodejs_24
+          typescript
+          typescript-language-server
 
           # IPFS for content storage
           kubo  # IPFS daemon
@@ -216,9 +228,13 @@
             version = "0.1.0";
             src = ./happ/dna;
 
-            nativeBuildInputs = [ rustToolchain pkgs.hc ];
+            nativeBuildInputs = [ rustToolchain hcPkg ];
 
             buildPhase = ''
+              # Zomes run under Holochain/Wasmer, not browser JS or WASI.
+              # Disable transitive OS getrandom in the wasm target; zome code
+              # needing entropy must call the conductor host API (hdk::random_bytes).
+              export CARGO_ENCODED_RUSTFLAGS=$'--cfg\037getrandom_backend="unsupported"'
               cd integrity && cargo build --release --target wasm32-unknown-unknown
               cd ../zomes/mail_messages && cargo build --release --target wasm32-unknown-unknown
               cd ../trust_filter && cargo build --release --target wasm32-unknown-unknown
