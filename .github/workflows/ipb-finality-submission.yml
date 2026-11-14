@@ -1,0 +1,46 @@
+name: IPB Finality Submission Evaluator
+
+on:
+  pull_request:
+    branches:
+      - main
+      - research/ipb-finality-bench-v0
+    paths:
+      - "lise-benchmarks/ipb-finality-evaluator/**"
+      - "docs/research/IPB_FINALITY_SUBMISSION.schema.json"
+      - ".github/workflows/ipb-finality-submission.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  submission-evaluator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: "0"
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha }}
+      MANIFEST: lise-benchmarks/ipb-finality-evaluator/Cargo.toml
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Assert exact PR subject
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+      - uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --check
+      - name: Check all targets
+        run: cargo check --all-targets --manifest-path "$MANIFEST"
+      - name: Run evaluator unit tests
+        run: cargo test --all-targets --manifest-path "$MANIFEST"
+      - name: Strict Clippy
+        run: cargo clippy --all-targets --manifest-path "$MANIFEST" -- -D warnings
+      - name: Verify exact subject and tracked source
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
