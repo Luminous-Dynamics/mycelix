@@ -512,6 +512,8 @@ fn check_operation_finality(packet: &Value, submission: &Value) -> Result<bool, 
         (required_str(approved,"action","approved operation")?,required_str(write,"action","write trace")?,"operation action"),
         (required_str(approved,"principal_ref","approved operation")?,required_str(write,"actor_ref","write trace")?,"operation principal"),
         (required_str(approved,"purpose","approved operation")?,required_str(write,"purpose","write trace")?,"operation purpose"),
+        (required_str(approved,"canonical_operation_digest","approved operation")?,required_str(write,"canonical_operation_digest","write trace")?,"canonical operation digest"),
+        (required_str(approved,"action_digest","approved operation")?,required_str(write,"action_digest","write trace")?,"action digest"),
         (required_str(binding,"policy_revision","operation finality")?,required_str(packet,"policy_ref","policy")?,"policy revision"),
     ];
     for (a,b,label) in checks {
@@ -533,6 +535,7 @@ fn check_operation_finality(packet: &Value, submission: &Value) -> Result<bool, 
     let expected_fields=[
         ("operation_ref",required_str(approved,"logical_operation_id","approved operation")?),
         ("canonical_operation_digest",required_str(approved,"canonical_operation_digest","approved operation")?),
+        ("action_digest",required_str(approved,"action_digest","approved operation")?),
         ("approval_ref",required_str(binding,"approval_ref","operation finality")?),
         ("constitution_digest",required_str(constitution,"constitution_digest","constitution")?),
         ("action",required_str(approved,"action","approved operation")?),
