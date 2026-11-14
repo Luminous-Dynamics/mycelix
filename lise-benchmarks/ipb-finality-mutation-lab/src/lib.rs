@@ -335,13 +335,12 @@ impl MutationReport {
         if self.mutant_count == 0 { 1.0 } else { self.killed_count as f64 / self.mutant_count as f64 }
     }
 
-    /// Candidate-visible input manifest. Expected decisions are deliberately omitted.
+    /// Candidate-visible input manifest. Expected decisions and mutation labels are omitted.
+    /// Opaque CASE identifiers prevent the ID itself from revealing control/mutant family.
     pub fn input_manifest_json(cases: &[MutationCase]) -> String {
-        let rows = cases.iter().map(|case| format!(
-            "{{\"case_id\":{},\"family\":{},\"mutation\":{},\"input\":{}}}",
-            quote(&case.id),
-            quote(case.family),
-            quote(case.mutation),
+        let rows = cases.iter().enumerate().map(|(index, case)| format!(
+            "{{\"case_id\":{},\"input\":{}}}",
+            quote(&candidate_case_id(index)),
             input_json(&case.input)
         )).collect::<Vec<_>>().join(",");
         format!(
@@ -350,11 +349,16 @@ impl MutationReport {
         )
     }
 
-    /// Evaluator-only expected answers. Never send this artifact to a candidate.
+    /// Evaluator-only expected answers and mutation taxonomy. Never send this artifact to a candidate.
     pub fn oracle_json(cases: &[MutationCase]) -> String {
-        let rows = cases.iter().map(|case| format!(
-            "{{\"case_id\":{},\"expected_decision\":{}}}",
-            quote(&case.id), quote(&decision_label(case.expected))
+        let rows = cases.iter().enumerate().map(|(index, case)| format!(
+            "{{\"case_id\":{},\"internal_case_id\":{},\"family\":{},\"mutation\":{},\"control\":{},\"expected_decision\":{}}}",
+            quote(&candidate_case_id(index)),
+            quote(&case.id),
+            quote(case.family),
+            quote(case.mutation),
+            case.is_control,
+            quote(&decision_label(case.expected))
         )).collect::<Vec<_>>().join(",");
         format!(
             "{{\"suite_id\":{},\"generator_version\":{},\"case_count\":{},\"rows\":[{}]}}",
@@ -380,6 +384,10 @@ impl MutationReport {
             self.mutation_kill_rate(), rows
         )
     }
+}
+
+fn candidate_case_id(index: usize) -> String {
+    format!("CASE-{index:04}")
 }
 
 fn quote(value: &str) -> String {
@@ -526,10 +534,18 @@ mod tests {
         let input = MutationReport::input_manifest_json(&cases);
         assert!(input.contains("\"input_only\":true"));
         assert!(!input.contains("expected_decision"));
+        assert!(!input.contains("family"));
+        assert!(!input.contains("mutation"));
+        assert!(!input.contains("control"));
+        assert!(!input.contains("O001"));
+        assert!(input.contains("CASE-0000"));
         assert!(!input.contains("Deny("));
         assert!(!input.contains("Hold("));
         let oracle = MutationReport::oracle_json(&cases);
         assert!(oracle.contains("expected_decision"));
+        assert!(oracle.contains("family"));
+        assert!(oracle.contains("mutation"));
+        assert!(oracle.contains("control"));
     }
 
     #[test]
@@ -548,6 +564,18 @@ mod tests {
             "idempotency-reference",
         ] {
             assert!(cases.iter().any(|case| case.mutation == dimension));
+        }
+    }
+
+    #[test]
+    fn input_and_oracle_share_opaque_case_ids_in_exact_order() {
+        let cases = generate_cases();
+        let input = MutationReport::input_manifest_json(&cases);
+        let oracle = MutationReport::oracle_json(&cases);
+        for index in 0..cases.len() {
+            let id = candidate_case_id(index);
+            assert!(input.contains(&quote(&id)));
+            assert!(oracle.contains(&quote(&id)));
         }
     }
 
