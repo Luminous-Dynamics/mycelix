@@ -12,7 +12,8 @@
     "execution_control",
     "trace_completeness",
     "metamorphic_results",
-    "environment"
+    "environment",
+    "write_trace"
   ],
   "properties": {
     "system_id": {
@@ -250,6 +251,89 @@
         },
         "mutations_enabled": {
           "const": false
+        }
+      }
+    },
+    "write_trace": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_ref",
+          "operation_ref",
+          "idempotency_ref",
+          "action",
+          "purpose",
+          "asset_ref",
+          "actor_ref",
+          "fields",
+          "authorization_ref",
+          "possible_external_side_effect",
+          "effect_status",
+          "external_visibility"
+        ],
+        "properties": {
+          "event_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "idempotency_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "type": "string",
+            "minLength": 1
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1
+          },
+          "asset_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "actor_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "authorization_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "possible_external_side_effect": {
+            "type": "boolean"
+          },
+          "effect_status": {
+            "enum": [
+              "confirmed",
+              "possible",
+              "not_occurred",
+              "unknown"
+            ]
+          },
+          "external_visibility": {
+            "enum": [
+              "internal",
+              "external",
+              "unknown",
+              "not_applicable"
+            ]
+          }
         }
       }
     }
