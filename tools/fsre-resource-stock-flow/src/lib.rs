@@ -269,8 +269,17 @@ fn evaluate(series: &Series) -> Result<String, InputError> {
         let mut status = "BALANCED";
         if interval.state == "UNKNOWN" {
             any_unknown = true;
+            if let (Some(previous), Some(opening)) = (previous_closing, interval.opening) {
+                if previous != opening {
+                    any_unbalanced = true;
+                    status = "NOT_ESTIMABLE_CONTINUITY_MISMATCH";
+                } else {
+                    status = "NOT_ESTIMABLE";
+                }
+            } else {
+                status = "NOT_ESTIMABLE";
+            }
             continuity_lost = true;
-            status = "NOT_ESTIMABLE";
             unreconciled.push(interval.id.clone());
             previous_closing = None;
             final_closing = None;
@@ -456,8 +465,8 @@ mod tests {
     #[test]
     fn known_interval_after_unknown_is_rejected_without_reconciliation() {
         let changed = FIXTURE.replace(
-            "stock-001|1|hour-01|3600|7200|70|50|60|0|60",
-            "stock-001|1|hour-01|3600|7200|70||60|0||",
+            "stock-001|1|hour-01|3600|7200|70|50|60|0|60|operator|synthetic:stock:hour-01|KNOWN",
+            "stock-001|1|hour-01|3600|7200|70||60|0||operator|synthetic:stock:hour-01|UNKNOWN",
         );
         assert_ne!(changed, FIXTURE);
         assert!(validate_and_report(&changed)
