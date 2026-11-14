@@ -946,7 +946,7 @@ mod tests {
             MediationCoverage::RouteInventoryIncomplete
         );
         assert_eq!(
-            assess_mediation_coverage("effect:transfer", true, &routes),
+            assess_mediation_coverage("effect:transfer", "pep:gateway", true, &routes),
             MediationCoverage::AllReachablePathsMediated
         );
     }
