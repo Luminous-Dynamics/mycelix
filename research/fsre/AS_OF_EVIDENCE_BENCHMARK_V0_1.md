@@ -118,14 +118,16 @@ These are conformance targets, not a real-world false-qualification rate. Operat
 
 ## 7.1 Claim-envelope interoperability
 
-The v0.2 claim envelope now carries decision-process availability, valid-time start/end, revocation effective/knowledge times and the as-of report reference. The mapping is defined in [`as-of-evidence-envelope-crosswalk-v0.2.json`](schemas/as-of-evidence-envelope-crosswalk-v0.2.json), and the synthetic telemetry case illustrates a later-known revocation without rewriting the historical decision.
+The v0.2 claim envelope carries decision-process availability, valid-time start/end, revocation effective/knowledge times, an immutable `evidence_snapshot_id`, and the as-of report reference. The [as-of evidence crosswalk](schemas/as-of-evidence-envelope-crosswalk-v0.2.json) maps these fields without promoting admissibility into source authenticity or claim truth.
+
+The new [as-of portfolio composer](../../tools/fsre-asof-portfolio-composer/README.md) is the first executable composition path for the richer temporal profile. It requires exact equality of scenario, evidence snapshot, decision cutoff and clock basis, then checks every portfolio owner/reference against both the evidence-row disposition and the enclosing claim's minimum evidence count. The composer is a software-level gate over synthetic receipts; it does not authenticate their sources, establish physical truth or validate a full multi-interval plan.
 
 One boundary remains explicit: the v0.1 evaluator compares exact UTC seconds and does not propagate non-zero clock uncertainty. The envelope records whether clock uncertainty was considered; records with non-zero or unresolved clock bounds cannot be presented as exact-time qualified by this evaluator.
 
-## 8. Integration boundary and next step
+## 8. Integration boundary and next experiments
 
-The current `fsre-asof-evidence` reference and its separate oracle demonstrate the point-in-time classification contract over a synthetic fixture. They do not yet gate the portfolio evaluator or the production recovery-option evaluator.
+The current as-of reference, independent oracle and portfolio composer reproduce a synthetic, point-in-time evidence-to-portfolio link. The next qualification step is an independently authored, disjoint challenge set covering delayed publication, retrospective corrections, claim-level evidence thresholds, ambiguous owner/reference bindings, evidence snapshots and clock uncertainty.
 
-Next, define a narrow adapter contract that passes the owner-native evidence references and their bitemporal/availability metadata into the as-of gate. Preserve the source schema and owner. Only after the adapter can reproduce historical source snapshots should an as-of disposition be consumed by portfolio qualification. The gate remains read-only and does not create authority or authenticate sources.
+Only after lawful historical source snapshots can be replayed should the profile move from synthetic conformance (M1a) to retrospective real-data evaluation (M1b), connected shadow trials (M2) and operator decision support (M3). M4 bounded closed-loop operation requires a separate authority and safety case, fail-safe behavior, override, drift/security monitoring, auditability and prospective outcomes. The as-of composer provides none of those controls and does not itself qualify an M4 deployment.
 
 The research contribution to test is: **can heterogeneous recovery claims be reproduced without hindsight leakage, with claim-specific temporal policies and independently verifiable evidence lineage, while leaving source ownership and operational authority with their incumbents?**
