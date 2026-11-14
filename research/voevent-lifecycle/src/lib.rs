@@ -47,6 +47,9 @@ pub struct Citation {
 pub struct Packet {
     /// Stable packet identifier, kept as supplied by the source.
     pub id: String,
+    /// SHA-256 supplied by the upstream byte-preserving parser, when available.
+    /// This crate carries the value; it does not recompute or authenticate it.
+    pub packet_sha256: Option<String>,
     /// Publisher identifier asserted by the packet source; this is not authentication.
     pub publisher: Option<String>,
     /// Fabric receipt time in Unix milliseconds.
@@ -61,6 +64,7 @@ pub struct Packet {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VisiblePacket {
     pub id: String,
+    pub packet_sha256: Option<String>,
     pub publisher: Option<String>,
     pub received_at_unix_ms: u64,
     pub published_at: Option<String>,
@@ -71,8 +75,10 @@ pub struct VisiblePacket {
 pub struct LifecycleEdge {
     /// The newly received packet that makes the citation assertion.
     pub asserting_packet_id: String,
+    pub asserting_packet_sha256: Option<String>,
     /// The prior packet named by the citation.
     pub cited_packet_id: String,
+    pub cited_packet_sha256: Option<String>,
     pub relation: CitationRelation,
     /// Publisher attribution copied from the asserting packet, not verified identity.
     pub asserting_publisher: Option<String>,
@@ -83,6 +89,7 @@ pub struct LifecycleEdge {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnresolvedCitation {
     pub asserting_packet_id: String,
+    pub asserting_packet_sha256: Option<String>,
     pub cited_packet_id: String,
     pub relation: CitationRelation,
     pub asserting_publisher: Option<String>,
@@ -196,10 +203,15 @@ pub fn replay_as_of(
     visible.sort_by_key(|packet| (packet.received_at_unix_ms, packet.id.clone()));
 
     let visible_ids: BTreeSet<String> = visible.iter().map(|packet| packet.id.clone()).collect();
+    let visible_digests: BTreeMap<String, Option<String>> = visible
+        .iter()
+        .map(|packet| (packet.id.clone(), packet.packet_sha256.clone()))
+        .collect();
     let visible_packets = visible
         .iter()
         .map(|packet| VisiblePacket {
             id: packet.id.clone(),
+            packet_sha256: packet.packet_sha256.clone(),
             publisher: packet.publisher.clone(),
             received_at_unix_ms: packet.received_at_unix_ms,
             published_at: packet.published_at.clone(),
@@ -237,7 +249,12 @@ pub fn replay_as_of(
 
             let edge = LifecycleEdge {
                 asserting_packet_id: packet.id.clone(),
+                asserting_packet_sha256: packet.packet_sha256.clone(),
                 cited_packet_id: citation.target_id.clone(),
+                cited_packet_sha256: visible_digests
+                    .get(&citation.target_id)
+                    .cloned()
+                    .flatten(),
                 relation: citation.relation,
                 asserting_publisher: packet.publisher.clone(),
                 asserted_packet_received_at_unix_ms: packet.received_at_unix_ms,
@@ -262,6 +279,7 @@ pub fn replay_as_of(
             } else {
                 unresolved_citations.push(UnresolvedCitation {
                     asserting_packet_id: packet.id.clone(),
+                    asserting_packet_sha256: packet.packet_sha256.clone(),
                     cited_packet_id: citation.target_id.clone(),
                     relation: citation.relation,
                     asserting_publisher: packet.publisher.clone(),
@@ -311,6 +329,7 @@ mod tests {
     fn packet(id: &str, publisher: &str, received_at_unix_ms: u64) -> Packet {
         Packet {
             id: id.to_owned(),
+            packet_sha256: None,
             publisher: Some(publisher.to_owned()),
             received_at_unix_ms,
             published_at: None,
@@ -517,6 +536,28 @@ mod tests {
         let state = effect(&replay, "ivo://survey/a#event");
         assert_eq!(state.superseded_by, vec!["ivo://survey/b#revision"]);
         assert_eq!(state.retracted_by, vec!["ivo://review/c#notice"]);
+    }
+
+
+    #[test]
+    fn lifecycle_edges_carry_exact_packet_digest_bindings_when_available() {
+        let mut original = packet("ivo://survey/a#event", "ivo://survey/a", 10);
+        original.packet_sha256 = Some("b".repeat(64));
+        let mut followup = packet("ivo://survey/b#followup", "ivo://survey/b", 20);
+        followup.packet_sha256 = Some("a".repeat(64));
+        followup
+            .citations
+            .push(citation(&original.id, CitationRelation::Followup));
+
+        let replay = replay_as_of(&[original, followup], 20).expect("replay");
+        assert_eq!(
+            replay.edges[0].asserting_packet_sha256,
+            Some("a".repeat(64))
+        );
+        assert_eq!(
+            replay.edges[0].cited_packet_sha256,
+            Some("b".repeat(64))
+        );
     }
 
     #[test]
