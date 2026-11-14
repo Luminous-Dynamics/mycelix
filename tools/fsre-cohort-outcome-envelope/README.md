@@ -64,8 +64,7 @@ Run:
 ## Output semantics
 
 - `ESTIMABLE_FOR_DECLARED_MANIFEST` means every lane in the supplied manifest is present exactly once, lane scope/denominator/source bindings agree, manifest membership covers the full horizon, and no lane has unknown time. It is complete only relative to that declared manifest.
-- `NOT_ESTIMABLE` means a lane has unknown time or the submitted cohort set does not exactly reconcile to the manifest.
-- `NOT_ESTIMABLE` means at least one lane has unknown observation time. Known-only deficit and percentile values remain explicitly labelled as such.
+- `NOT_ESTIMABLE` means at least one lane has unknown observation time or the submitted cohort set does not exactly reconcile to the manifest. Known-only deficit and percentile values remain explicitly labelled as such.
 - Quantiles use the nearest-rank convention and are unweighted across cohort lanes.
 - Quality non-compliance is not silently converted into a service quantity deficit.
 - Denominators are reported per lane. No population-weighted aggregate or normative priority is computed.
@@ -73,7 +72,8 @@ Run:
 The report preserves separate identity, delivery, laboratory-quality and population-denominator owner/reference pairs for each cohort, and declares one shared retrospective outcome snapshot. The manifest has a separate owner, opaque reference and snapshot identifier. These references are lineage aids, not authenticated or content-hashed receipts. Manifest completeness establishes coverage relative to the manifest only; it does not establish that the register includes every affected population.
 
 The report explicitly states:
-- `cohort_set_completeness=COMPLETE_FOR_DECLARED_MANIFEST` only when exact manifest reconciliation passes; otherwise `INCOMPLETE_OR_MISMATCHED_TO_DECLARED_MANIFEST`
+- `cohort_set_completeness=COMPLETE_FOR_DECLARED_MANIFEST` only when exact manifest reconciliation passes; otherwise `INCOMPLETE_OR_MISMATCHED_TO_DECLARED_MANIFEST`.
+- A complete manifest does not make unknown service observations estimable; the two dispositions are independent.
 - `population_weighted_aggregation=NOT_COMPUTED`
 - `population_coverage=NOT_ESTABLISHED`
 - `operational_authority=NONE`
