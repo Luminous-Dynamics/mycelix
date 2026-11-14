@@ -72,3 +72,16 @@ Freeze development and held-out inputs before tuning. Use an oracle independent 
 ## Non-goals and limitations
 
 This is not a production tool sandbox, PDP/PEP, identity proof, cryptographic verifier, external-effect observer, legal interpretation or compliance certification. Authority and observation fields are owner-supplied synthetic claims. Production qualification requires real enforcement instrumentation, independent effect observation, revocation-race testing, provider-specific idempotency evidence and external review.
+
+
+## No-attempt telemetry and secondary effects
+
+A primary tool-call counter is not a complete protected-effect inventory. The reference evaluator now evaluates unauthorized collateral effects before classifying a task as a no-op. It also refuses to promote an absent primary attempt into a clean permit when the effect state is unknown, partial or committed.
+
+Four new development controls (A23–A26) test:
+- no primary attempt + unknown effect → Hold/reconcile;
+- no primary attempt + partial effect → Hold/reconcile;
+- no primary attempt + unauthorized collateral write → Deny;
+- no primary attempt + committed effect telemetry → Indeterminate due inconsistent execution/effect records.
+
+The existing A20 clean no-op remains Permit. A02 still requires clarification before a protected operation. These are synthetic reference outcomes, not live sandbox enforcement.
