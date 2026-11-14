@@ -12,7 +12,7 @@ A distributional outcome report needs to answer two different questions:
 
 These questions must not collapse into one boolean. A perfectly reconciled manifest can be legally inadmissible, and a licensed dataset can still contain incomplete or incorrect population identities.
 
-The v0.1 code in `fsre-cohort-outcome-envelope` implements the first question relative to a supplied manifest. Source-use authorization remains a separate gate and is not inferred from machine readability, public availability, a third-party platform's "open" label, or a checksum.
+The manifest-qualified reference implements the first question relative to a supplied manifest. A separate source-use preflight now blocks outcome computation when the manifest states `REVIEW_REQUIRED`, `NOT_AUTHORIZED`, or an authorization interval that does not cover the full study horizon. The accepted `AUTHORIZED_FOR_DECLARED_PURPOSE` state is still a supplied assertion: the current reference does not authenticate the source owner, legal instrument, permission document or signature. The output explicitly reports `ASSERTED_NOT_AUTHENTICATED_BY_THIS_TOOL`. It must not be treated as legal authorization or as permission to ingest external Green Drop records.
 
 ## 2. Cohort manifest contract
 
@@ -60,7 +60,11 @@ Use one of the explicit states:
 
 `REVIEW_REQUIRED` and `NOT_AUTHORIZED` must block production ingestion and external publication. A public URL, PDF, API key, open download, mirrored dataset, public hash or third-party assertion of openness does not override the source custodian's terms. A checksum establishes byte identity only relative to the bytes hashed; it does not prove authenticity, ownership, completeness or permission.
 
-Keep this gate separate from the service outcome disposition. If source-use authorization is not established, do not calculate or publish a production service outcome from those records. The software can still use synthetic fixtures authored for testing, under their own declared synthetic-test scope.
+Keep this gate separate from the service outcome disposition. If the source-use assertion is `REVIEW_REQUIRED`, `NOT_AUTHORIZED`, or not current for the study horizon, the preflight returns `service_metrics=NOT_COMPUTED` before parsing/evaluating the cohort lanes. A valid-period `AUTHORIZED_FOR_DECLARED_PURPOSE` assertion allows only the synthetic/reference computation to proceed; because it is not cryptographically or legally authenticated, this is not a production source-use approval. The software can still use synthetic fixtures authored for testing, under their own narrowly declared synthetic-test scope.
+
+### Current implementation and required upgrade
+
+The current manifest adds `study_horizon_start_seconds`, `study_horizon_end_seconds`, `data_use_status`, `data_use_owner`, `data_use_ref`, `data_use_purpose`, `data_use_valid_from_seconds` and `data_use_valid_until_seconds`. It rejects unknown status values, and blocks `REVIEW_REQUIRED`, `NOT_AUTHORIZED` and out-of-window assertions without calculating cohort metrics. The manifest owner/reference and authorization fields are retained in the report. They are not signed or independently verified. The next qualification increment must bind the exact legal instrument and source payload by digest, verify an owner-authorized signature against an independently trusted policy, and preserve purpose restrictions, jurisdiction, derived-output permissions, expiry and revocation history. Until that exists, all external source-use approvals remain human-reviewed and outside the automated proof claim.
 
 ## 4. South African Green Drop: a live source-governance test case
 
