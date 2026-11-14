@@ -46,6 +46,8 @@ struct Snapshot {
     scenario: String,
     interval: String,
     snapshot: String,
+    decision_at: Option<u64>,
+    clock_basis: Option<String>,
     facts: Vec<Fact>,
 }
 
@@ -321,11 +323,36 @@ fn parse_snapshot(source: &str) -> Result<Snapshot, ReferenceError> {
         }
         Ok(value)
     };
+    let portfolio = take("portfolio_id")?;
+    let scenario = take("scenario_id")?;
+    let interval = take("interval_id")?;
+    let snapshot_id = take("snapshot_id")?;
+    let cutoff_raw = meta.remove("decision_at");
+    let clock_raw = meta.remove("clock_basis_id");
+    let (decision_at, clock_basis) = match (cutoff_raw, clock_raw) {
+        (None, None) => (None, None),
+        (Some(value), Some(clock)) => {
+            let parsed = value.parse::<u64>().map_err(|error| {
+                ReferenceError(format!("invalid decision_at metadata: {error}"))
+            })?;
+            if !safe_id(&clock) {
+                return Err(ReferenceError("invalid clock_basis_id metadata".to_owned()));
+            }
+            (Some(parsed), Some(clock))
+        }
+        _ => {
+            return Err(ReferenceError(
+                "decision_at and clock_basis_id metadata must be supplied together".to_owned(),
+            ));
+        }
+    };
     let snapshot = Snapshot {
-        portfolio: take("portfolio_id")?,
-        scenario: take("scenario_id")?,
-        interval: take("interval_id")?,
-        snapshot: take("snapshot_id")?,
+        portfolio,
+        scenario,
+        interval,
+        snapshot: snapshot_id,
+        decision_at,
+        clock_basis,
         facts,
     };
     if let Some(extra) = meta.keys().next() {
@@ -715,6 +742,12 @@ fn reference_evaluate(snapshot: &Snapshot) -> Result<String, ReferenceError> {
         format!("evidence_snapshot_id={}", snapshot.snapshot),
         format!("portfolio_disposition={disposition}"),
     ];
+    if let (Some(decision_at), Some(clock_basis)) =
+        (snapshot.decision_at, snapshot.clock_basis.as_deref())
+    {
+        out.push(format!("decision_at={decision_at}"));
+        out.push(format!("clock_basis_id={clock_basis}"));
+    }
     for (key, candidate) in &candidates {
         let status = if candidate.unknown {
             "NOT_ESTIMABLE"
@@ -798,6 +831,25 @@ mod tests {
 
     const FIXTURE: &str =
         include_str!("../../fsre-portfolio-reference/fixtures/synthetic-feasible.psv");
+
+    #[test]
+    fn optional_cutoff_and_clock_basis_are_preserved() {
+        let source = format!(
+            "# decision_at=7200\n# clock_basis_id=UTC_UNIX_SECONDS_V1\n{FIXTURE}"
+        );
+        let report = validate_and_report(&source).expect("paired decision metadata");
+        assert!(report.contains("decision_at=7200"));
+        assert!(report.contains("clock_basis_id=UTC_UNIX_SECONDS_V1"));
+    }
+
+    #[test]
+    fn incomplete_cutoff_metadata_is_rejected() {
+        let source = format!("# decision_at=7200\n{FIXTURE}");
+        assert!(validate_and_report(&source)
+            .unwrap_err()
+            .0
+            .contains("must be supplied together"));
+    }
 
     #[test]
     fn independent_reference_matches_declared_feasible_portfolio() {
