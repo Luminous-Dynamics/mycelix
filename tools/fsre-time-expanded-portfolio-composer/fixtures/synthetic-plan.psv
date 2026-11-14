@@ -17,7 +17,7 @@ SERVICE_FLOOR|floor-hospital-00||water|hospital|shock|hour-00||35|m3|REQUIRED|se
 RESOURCE_PROFILE|resource-profile-00|backup_plant|water||shock|hour-00||||COMPLETE|operator|profile:00
 RESOURCE_USE|use-diesel-00|backup_plant|water||shock|hour-00|diesel|20|L|QUALIFIED|operator|use:diesel:00
 RESOURCE_CAPACITY|cap-diesel-00||||shock|hour-00|diesel|100|L|QUALIFIED|operator|capacity:diesel:00
-DOMAIN_PROFILE|domain-profile-00|backup_plant|water||shock|hour-00||||COMPLETE|operator|domain-profile:00
+DOMAIN_PROFILE|domain-profile-00|backup_plant|water||shock|hour-00||||COMPLETE|mycelix|domain-profile:00
 OPTION_DOMAIN|domain-plant-power-00|backup_plant|water||shock|hour-00|feeder-west|||MEMBER|mycelix|domain:power:00
 DOMAIN_STATE|domain-state-power-00||||shock|hour-00|feeder-west|||CLEAR|mycelix|domain-state:power:00
 OPTION_QUALIFICATION|qual-plant-01|backup_plant|water||shock|hour-01||||QUALIFIED|operator|qual:plant:01
@@ -29,7 +29,7 @@ SERVICE_FLOOR|floor-hospital-01||water|hospital|shock|hour-01||35|m3|REQUIRED|se
 RESOURCE_PROFILE|resource-profile-01|backup_plant|water||shock|hour-01||||COMPLETE|operator|profile:01
 RESOURCE_USE|use-diesel-01|backup_plant|water||shock|hour-01|diesel|20|L|QUALIFIED|operator|use:diesel:01
 RESOURCE_CAPACITY|cap-diesel-01||||shock|hour-01|diesel|80|L|QUALIFIED|operator|capacity:diesel:01
-DOMAIN_PROFILE|domain-profile-01|backup_plant|water||shock|hour-01||||COMPLETE|operator|domain-profile:01
+DOMAIN_PROFILE|domain-profile-01|backup_plant|water||shock|hour-01||||COMPLETE|mycelix|domain-profile:01
 OPTION_DOMAIN|domain-plant-power-01|backup_plant|water||shock|hour-01|feeder-west|||MEMBER|mycelix|domain:power:01
 DOMAIN_STATE|domain-state-power-01||||shock|hour-01|feeder-west|||CLEAR|mycelix|domain-state:power:01
 OPTION_QUALIFICATION|qual-plant-02|backup_plant|water||shock|hour-02||||QUALIFIED|operator|qual:plant:02
@@ -41,6 +41,6 @@ SERVICE_FLOOR|floor-hospital-02||water|hospital|shock|hour-02||35|m3|REQUIRED|se
 RESOURCE_PROFILE|resource-profile-02|backup_plant|water||shock|hour-02||||COMPLETE|operator|profile:02
 RESOURCE_USE|use-diesel-02|backup_plant|water||shock|hour-02|diesel|20|L|QUALIFIED|operator|use:diesel:02
 RESOURCE_CAPACITY|cap-diesel-02||||shock|hour-02|diesel|70|L|QUALIFIED|operator|capacity:diesel:02
-DOMAIN_PROFILE|domain-profile-02|backup_plant|water||shock|hour-02||||COMPLETE|operator|domain-profile:02
+DOMAIN_PROFILE|domain-profile-02|backup_plant|water||shock|hour-02||||COMPLETE|mycelix|domain-profile:02
 OPTION_DOMAIN|domain-plant-power-02|backup_plant|water||shock|hour-02|feeder-west|||MEMBER|mycelix|domain:power:02
-DOMAIN_STATE|domain-state-power-02||||shock|hour-02|feeder-west|||CLEAR|operator|domain-state:power:02
+DOMAIN_STATE|domain-state-power-02||||shock|hour-02|feeder-west|||CLEAR|mycelix|domain-state:power:02
