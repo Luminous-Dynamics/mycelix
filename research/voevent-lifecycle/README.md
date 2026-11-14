@@ -23,8 +23,11 @@ The API is deliberately an **as-known-at** view:
 3. Validation is scoped to the cutoff. A malformed or duplicate packet received in the future cannot alter a past replay.
 4. References to packets not yet visible remain explicit unresolved edges. They can resolve in a later replay without rewriting the earlier result.
 5. Retractions and supersessions add effects; they never delete historical packets or citations.
+6. When the upstream parser supplies a packet SHA-256, the replay carries it on the visible packet and both sides of a resolved lifecycle edge. It does not recompute or verify the digest.
 
-This crate does not parse timestamps, convert TT/TDB/UTC, interpret coordinate frames, validate XML, authenticate IVOIDs or publishers, check signatures, evaluate rights, qualify calibration, infer physical independence, or assess astrophysical truth. An attributed publisher is not an authenticated publisher.
+The receipt timestamp is an input from the ingest layer; this crate does not attest that timestamp or provide an append-only receipt log. A production fabric must bind it to a trusted, independently auditable ingress receipt.
+
+This crate does not parse timestamps, convert TT/TDB/UTC, interpret coordinate frames, validate XML, authenticate IVOIDs or publishers, check signatures, evaluate rights, qualify calibration, infer physical independence, or assess astrophysical truth. An attributed publisher is not an authenticated publisher. A carried digest is not a verified digest unless the upstream byte-binding step has been independently checked.
 
 ## Run
 
@@ -38,7 +41,7 @@ No external crates or network access are needed.
 
 ## Tests in v0.1
 
-The unit corpus covers:
+The 12-case unit corpus covers:
 
 - late-arriving supersession must not leak into an earlier replay;
 - retraction by a different publisher with the original packet retained;
