@@ -58,6 +58,8 @@ This distinction avoids a misleading single terminal label. "Cannot retry" and "
 
 The IAE harness structurally checks both: original operation history is UNKNOWN/HOLD with retry=0, while the current reattempt authority projection is REVOKED/DENY. Historical query knowledge cutoffs precede the 10:01Z dispatch and timeout; later current knowledge includes the 2026-02-02 revocation observation.
 
+The normalized write authorization check now compares the exact `operation_ref`, `canonical_operation_digest`, `action_digest` and `idempotency_ref` against the owner-supplied authorized-write boundary, in addition to action, purpose, actor, asset, fields, authorization reference and external-side-effect status. These fixture digests remain synthetic placeholders, not cryptographic verification.
+
 ## Executable integration status
 
 The IAE harness currently verifies the packet mapping structurally. It does **not** import or call the LISE Rust crate in this PR, because the LISE reference currently exists on a separate draft branch and has not yet merged to `main`. Once #6139 is accepted/merged, add a thin adapter test that constructs `FinalityInput`, calls `evaluate_finality` separately for original preflight and reattempt preflight, and uses the LISE reconciliation API for the original unknown effect. Do not copy the LISE state machine into IAE.
