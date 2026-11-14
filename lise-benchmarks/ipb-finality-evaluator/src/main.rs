@@ -282,6 +282,13 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
         _ => false,
     }
 }
+fn delegation_scope_is_consistent(actual: &Value) -> bool {
+    let overall = actual.get("delegation_state").and_then(Value::as_str).unwrap_or("");
+    let dimensions = ["action_scope_state","field_scope_state","resource_scope_state","purpose_state","expiry_state"];
+    let any_amplified = dimensions.iter()
+        .any(|key| actual.get(*key).and_then(Value::as_str) == Some("amplified"));
+    !(overall == "attenuated" && any_amplified)
+}
 #[derive(Default)]
 struct Aggregate {
     cases: usize,
@@ -334,11 +341,7 @@ fn score_case(input: &Value, oracle: &Value, actual: &Value) -> Result<Value, Bo
         }
     }
     let (matched, missing, precision, recall) = assertion_metrics(&required, &submitted);
-    let any_scope_amplified = ["action_scope_state","field_scope_state","resource_scope_state","purpose_state","expiry_state"]
-        .iter()
-        .any(|key| actual.get(key).and_then(Value::as_str) == Some("amplified"));
-    let delegation_scope_inconsistent =
-        actual["delegation_state"].as_str() == Some("attenuated") && any_scope_amplified;
+    let delegation_scope_inconsistent = !delegation_scope_is_consistent(actual);
     let assertions_satisfied = required.iter().all(|a| required_assertion_satisfied(a, actual))
         && !delegation_scope_inconsistent;
     let disposition_correct = expected_disposition == observed_disposition;
@@ -717,10 +720,16 @@ mod tests {
             "purpose_state":"matches",
             "expiry_state":"valid"
         });
-        let any_amplified=["action_scope_state","field_scope_state","resource_scope_state","purpose_state","expiry_state"]
-            .iter().any(|key|inconsistent.get(*key).and_then(Value::as_str)==Some("amplified"));
-        assert!(any_amplified);
-        assert_eq!(inconsistent["delegation_state"],"attenuated");
+        assert!(!delegation_scope_is_consistent(&inconsistent));
+        let consistent=json!({
+            "delegation_state":"amplified",
+            "action_scope_state":"amplified",
+            "field_scope_state":"amplified",
+            "resource_scope_state":"subset",
+            "purpose_state":"matches",
+            "expiry_state":"valid"
+        });
+        assert!(delegation_scope_is_consistent(&consistent));
     }
     #[test]
     fn digest_assertions_use_explicit_digest_state() {
