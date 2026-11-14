@@ -54,6 +54,13 @@ Reference: Shamsi, N., Helmrich, A. & Deegan, M. (published 7 November 2026), *T
 
 ## 3. What is potentially distinctive about FSRE
 
+### Prior-art boundary: resilience engineering is established
+
+NIST SP 800-160 Vol. 2 Rev. 1 explicitly describes cyber-resiliency engineering as a specialty systems-engineering discipline used alongside systems security engineering and resilience engineering. It frames the capability around anticipating, withstanding, recovering from and adapting to adverse conditions. FSRE must not claim to invent resilience engineering, cyber resilience, or systems-of-systems thinking. Its differentiation hypothesis is narrower: a portable, owner-preserving qualification and independent benchmark layer that tests whether recovery options and service claims survive across heterogeneous models, operators, permissions and resource constraints.
+
+The relevant comparator is therefore not just a simulator. It is the complete deployed workflow and assurance practice already available to an operator. Reference: https://csrc.nist.gov/pubs/sp/800/160/v2/r1/final.
+
+
 The following are **differentiation hypotheses to test**, not claims that named vendors lack the capability.
 
 ### H1 — Service trajectory as the common evaluation unit
@@ -172,6 +179,7 @@ The first market wedge should be a narrow paid service: independent resilience q
 - ISO 22316 revision status: https://www.iso.org/standard/86493.html
 - ISO 22336: https://www.iso.org/standard/50073.html
 - NIST SP 800-160 Vol. 2 Rev. 1: https://csrc.nist.gov/pubs/sp/800/160/v2/r1/final
+- Poulin, C. & Kane, M.B. (2021), *Infrastructure resilience curves: Performance measures and summary metrics*, Reliability Engineering & System Safety 216, 107926: https://doi.org/10.1016/j.ress.2021.107926
 - EU Critical Entities Resilience Directive: https://eur-lex.europa.eu/eli/dir/2022/2557/oj/eng
 - DORA Regulation 2022/2554: https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng
 - UNDRR Disaster Resilience Scorecard for Cities: https://www.unisdr.org/campaign/resilientcities/assets/toolkit/documents/UNDRR_Disaster%20resilience%20scorecard%20for%20cities_Detailed_English_Jan2021.pdf
