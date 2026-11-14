@@ -546,7 +546,7 @@ mod tests{
     fn fixture(id:&str)->Value{parsed()["fixtures"].as_array().unwrap().iter().find(|f|text(f,"fixture_id")==Some(id)).unwrap().clone()}
 
     #[test]
-    fn all_43_known_answer_fixtures_validate() {
+    fn all_44_known_answer_fixtures_validate() {
         let counts = validate_manifest(&parsed()).expect("manifest qualifies");
         assert_eq!(counts.len(), 7);
         for family in FAMILIES {
