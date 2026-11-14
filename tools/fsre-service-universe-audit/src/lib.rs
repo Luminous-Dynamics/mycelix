@@ -90,8 +90,6 @@ struct Metadata {
     audit_id: String,
     _scope_id: String,
     _unit_type: String,
-    study_start: u64,
-    study_end: u64,
     _reference_frame_id: String,
     _reference_owner: String,
     _reference_ref: String,
@@ -280,8 +278,6 @@ fn parse_metadata(metadata: &BTreeMap<String, String>) -> Result<Metadata, Audit
         audit_id: id("audit_id")?,
         _scope_id: id("scope_id")?,
         _unit_type: id("unit_type")?,
-        study_start,
-        study_end,
         _reference_frame_id: id("reference_frame_id")?,
         _reference_owner: id("reference_owner")?,
         _reference_ref: id("reference_ref")?,
@@ -303,3 +299,9 @@ fn parse_metadata(metadata: &BTreeMap<String, String>) -> Result<Metadata, Audit
 
 mod evaluator;
 pub use evaluator::audit;
+
+mod evaluator;
+pub use evaluator::audit;
+
+#[cfg(test)]
+mod tests;
