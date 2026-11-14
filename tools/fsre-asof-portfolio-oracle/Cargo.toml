@@ -1,0 +1,17 @@
+[package]
+name = "fsre-asof-portfolio-oracle"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+publish = false
+
+[dependencies]
+fsre-asof-evidence-oracle = { path = "../fsre-asof-evidence-oracle" }
+fsre-portfolio-oracle = { path = "../fsre-portfolio-oracle" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "fsre-asof-portfolio-oracle"
+path = "src/main.rs"
