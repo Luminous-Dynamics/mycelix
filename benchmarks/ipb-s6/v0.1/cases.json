@@ -411,12 +411,26 @@
               "declared_disposition": "supported_within_scope",
               "value": "VEHICLE-001 listed",
               "scope": "schedule listing only"
-            },
+            }
+          ]
+        },
+        {
+          "source_id": "SRC-COVERAGE-007",
+          "record_family": "insurer_coverage_confirmation",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "insurance_coverage"
+          ],
+          "availability": "unavailable",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "valid_through": null,
+          "claims": [
             {
               "dimension": "insurance_coverage",
-              "declared_disposition": "indeterminate",
-              "value": "current cover not confirmed",
-              "scope": "policy period and insured party not independently verified"
+              "declared_disposition": "unavailable",
+              "value": "no current confirmation returned",
+              "scope": "insurer confirmation endpoint unavailable"
             }
           ]
         }
