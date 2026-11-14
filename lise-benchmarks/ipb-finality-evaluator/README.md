@@ -61,4 +61,11 @@ This initial draft does not yet include a committed `Cargo.lock`. The CI workflo
 The evaluator emits a JSON report described by [IPB_FINALITY_EVALUATION_REPORT.schema.json](../../docs/research/IPB_FINALITY_EVALUATION_REPORT.schema.json). It preserves system/build/configuration, model/prompt/tool-schema, harness, raw trace reference, resource telemetry and reproducibility receipts. Runtime, memory, provider calls, tokens, cost and expert-review time are nullable so that an unmeasured value is not confused with zero. Prefer values collected by the independent harness over candidate self-reports.
 
 
-**27 Rust unit tests are authored; they have not been executed in this authoring environment.**
+**29 Rust unit tests are authored; they have not been executed in this authoring environment.**
+
+
+## Fine-grained assertion semantics
+
+The current submission contract requires 56 case-result fields. In addition to an overall disposition, it records operation/constitution digest state, approved and current epoch, grant inventory completeness, authority re-check, per-dimension delegation scope (action/resource/field/purpose/expiry), scope-check and ownership re-check, and separate revocation effective-time and knowledge-time results.
+
+The evaluator rejects contradictions such as an overall `attenuated` delegation paired with any amplified scope dimension. It also distinguishes exact operation digest match from constitution digest mismatch. These guards are separate from the candidate's own assertion labels.
