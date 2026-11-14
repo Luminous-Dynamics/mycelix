@@ -6,6 +6,7 @@ rust-version = "1.70"
 publish = false
 
 [dependencies]
+fsre-asof-portfolio-composer = { path = "../fsre-asof-portfolio-composer" }
 fsre-portfolio-reference = { path = "../fsre-portfolio-reference" }
 fsre-resource-stock-flow = { path = "../fsre-resource-stock-flow" }
 
