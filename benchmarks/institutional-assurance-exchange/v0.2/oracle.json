@@ -128,9 +128,7 @@
         "authority.scope.verified",
         "action.independent_of_title"
       ],
-      "required_claim_refs": [
-        "CLM-CONDITION-001"
-      ]
+      "required_claim_refs": []
     }
   ],
   "execution_expectation": {
