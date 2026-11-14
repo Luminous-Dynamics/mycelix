@@ -188,5 +188,50 @@
     "https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json",
     "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld",
     "https://ref.gs1.org/standards/epcis/2.0.0/epcis-shacl.ttl"
-  ]
+  ],
+  "retrieval_recheck_2026_11_14": {
+    "official_artifact_index": "https://ref.gs1.org/standards/epcis/2.0.0/artefacts",
+    "schema_2_0_0": {
+      "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json",
+      "browser_reader": "rendered_as_application_json",
+      "declared_id": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json",
+      "declared_schema": "http://json-schema.org/draft-07/schema#",
+      "raw_http_bytes_captured": false,
+      "final_response_metadata_captured": false,
+      "byte_length": null,
+      "sha256": null,
+      "validator_executed": false
+    },
+    "context_2_0_0": {
+      "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld",
+      "browser_reader": "unsupported_content_type_application_ld_json",
+      "raw_http_bytes_captured": false,
+      "http_status": null,
+      "byte_length": null,
+      "sha256": null
+    },
+    "shacl_2_0_0": {
+      "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-shacl.ttl",
+      "browser_reader": "unsupported_content_type_text_turtle",
+      "raw_http_bytes_captured": false,
+      "http_status": null,
+      "byte_length": null,
+      "sha256": null
+    },
+    "github_mirror_candidate": {
+      "repository": "gs1/EPCIS",
+      "commit": "6f71468231838e424bb5dfa836e006e8dc69615c",
+      "path": "epcis-context.jsonld",
+      "git_blob_sha": "484faf6e256bdd159dbc4be442f68fb73018eb95",
+      "commit_message": "Hosted public review draft v2.1 of epcis-context.jsonld",
+      "accepted_as_normative_2_0_0": false,
+      "reason": "Pinned source identifies this file as a public review draft v2.1, not as the exact 2.0.0 context artifact; Git blob SHA is not an HTTP-payload SHA-256."
+    },
+    "local_http_attempt": {
+      "result": "dns_resolution_failed_before_connection",
+      "http_status": null,
+      "interpretation": "No global HTTP status or source-unavailability claim."
+    },
+    "disposition": "source_locator_and_version_discrimination_improved_raw_bytes_and_validator_gates_open"
+  }
 }
