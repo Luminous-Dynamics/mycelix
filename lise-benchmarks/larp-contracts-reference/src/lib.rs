@@ -1038,11 +1038,8 @@ pub fn evaluate_restoration_contract(facts: &RestorationFacts) -> Decision {
         }
         return Decision::indeterminate("STEWARD_EXIT_HISTORY_OR_REMEDIES_NOT_PRESERVED");
     }
-    if facts.mandate_valid == Some(false) {
-        return Decision::deny("LOCAL_STEWARDSHIP_MANDATE_INVALID");
-    }
-    if facts.consent_valid == Some(false) {
-        return Decision::deny("REQUIRED_CONSENT_INVALID");
+    if facts.mandate_valid == Some(false) || facts.consent_valid == Some(false) {
+        return Decision::deny("LOCAL_MANDATE_OR_REQUIRED_CONSENT_INVALID");
     }
     if facts.mandate_valid.is_none() || facts.consent_valid.is_none() {
         return Decision::indeterminate("LOCAL_MANDATE_OR_CONSENT_UNKNOWN");
@@ -1077,6 +1074,9 @@ pub fn evaluate_restoration_contract(facts: &RestorationFacts) -> Decision {
     if facts.native_biodiversity_floor_met == Some(false) {
         return Decision::deny("NATIVE_BIODIVERSITY_FLOOR_BREACHED");
     }
+    if facts.downstream_externality_within_limit == Some(false) {
+        return Decision::deny("DOWNSTREAM_EXTERNALITY_LIMIT_BREACHED");
+    }
     if facts.hydrology_floor_met == Some(false) {
         return Decision::deny("HYDROLOGY_FLOOR_BREACHED");
     }
@@ -1085,9 +1085,6 @@ pub fn evaluate_restoration_contract(facts: &RestorationFacts) -> Decision {
     }
     if facts.structure_floor_met == Some(false) {
         return Decision::deny("HABITAT_STRUCTURE_FLOOR_BREACHED");
-    }
-    if facts.downstream_externality_within_limit == Some(false) {
-        return Decision::deny("DOWNSTREAM_EXTERNALITY_LIMIT_BREACHED");
     }
     if [
         facts.native_biodiversity_floor_met,
