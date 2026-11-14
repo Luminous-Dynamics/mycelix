@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      lise_finality: ${{ steps.filter.outputs.lise_finality }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -80,6 +81,9 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+            lise_finality:
+              - 'lise-benchmarks/ipb-finality-reference/**'
+              - '.github/workflows/ipb-finality-reference.yml'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -113,6 +117,42 @@ jobs:
           exit $status
 
   # Per-cluster test jobs
+  # Independent LISE reference model. This is a benchmark oracle only,
+  # not a production authorization/effectuation service.
+  test-lise-finality-reference:
+    name: LISE Finality Reference
+    needs: changes
+    if: needs.changes.outputs.lise_finality == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: "0"
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      MANIFEST: lise-benchmarks/ipb-finality-reference/Cargo.toml
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact PR subject
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+      - uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --check
+      - name: Check locked targets
+        run: cargo check --locked --all-targets --manifest-path "$MANIFEST"
+      - name: Run reference tests
+        run: cargo test --locked --all-targets --manifest-path "$MANIFEST"
+      - name: Strict Clippy
+        run: cargo clippy --locked --all-targets --manifest-path "$MANIFEST" -- -D warnings
+      - name: Verify exact subject and clean tracked source
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
+
   test-cos-conformance:
     needs: changes
     if: needs.changes.outputs.cos_conformance == 'true' || github.event_name == 'push'
@@ -452,6 +492,7 @@ jobs:
       - test-bridge
       - test-sdk
       - test-prism
+      - test-lise-finality-reference
     runs-on: ubuntu-latest
     steps:
       - name: Check results
@@ -472,9 +513,10 @@ jobs:
           echo "Bridge: ${{ needs.test-bridge.result }}"
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
+          echo "LISE Finality Reference: ${{ needs.test-lise-finality-reference.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}" "${{ needs.test-lise-finality-reference.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
