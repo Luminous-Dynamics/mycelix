@@ -203,6 +203,10 @@ The independent reviewer must author a disjoint corpus and adjudicate expected o
 
 The R0 and R1 tracks can proceed in parallel. Do not make R1 qualification dependent on unrelated repository-wide runners, but do not call it passed until its own exact-head CI concludes.
 
+### R1b — content-bound evidence receipts
+
+The current as-of composition binds a portfolio record to an owner and opaque source reference and checks time admissibility. It does not independently fetch or hash the referenced source payload. A source reference is not a content-integrity proof. The next receipt version should declare a canonical serialization, digest algorithm identifier, digest value, source owner, source version and evidence-snapshot membership. The verifier must recompute the digest over the exact consumed bytes before accepting the receipt. Negative controls should mutate the payload while retaining the reference, substitute a digest, change canonicalization, truncate the payload and replay an older snapshot. A source-supplied digest must never be accepted without local recomputation. Cryptographic format and key/identity policy require independent review before the claim can be upgraded.
+
 ## 6. South African water research boundary
 
 Green Drop is a strong candidate proving ground because the decision problem is about safe sanitation service, municipal capability, shared constraints and outcomes—not simply plant counts.
