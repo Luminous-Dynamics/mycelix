@@ -80,7 +80,53 @@ fn write_is_authorized(write: &Value, boundaries: &[Value]) -> bool {
     })
 }
 fn canonical_utc(value: &str) -> bool {
-    value.ends_with('Z') && value.len() >= 20
+    let bytes = value.as_bytes();
+    if bytes.len() != 20
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b'T'
+        || bytes[13] != b':'
+        || bytes[16] != b':'
+        || bytes[19] != b'Z'
+    {
+        return false;
+    }
+    for index in [0,1,2,3,5,6,8,9,11,12,14,15,17,18] {
+        if !bytes[index].is_ascii_digit() {
+            return false;
+        }
+    }
+
+    let number = |range: std::ops::Range<usize>| -> Option<u32> {
+        std::str::from_utf8(&bytes[range]).ok()?.parse().ok()
+    };
+    let Some(year) = number(0..4) else { return false; };
+    let Some(month) = number(5..7) else { return false; };
+    let Some(day) = number(8..10) else { return false; };
+    let Some(hour) = number(11..13) else { return false; };
+    let Some(minute) = number(14..16) else { return false; };
+    let Some(second) = number(17..19) else { return false; };
+
+    if year == 0 || !(1..=12).contains(&month) || hour > 23 || minute > 59 || second > 59 {
+        return false;
+    }
+    let leap_year = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let days_in_month = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap_year => 29,
+        2 => 28,
+        _ => return false,
+    };
+    (1..=days_in_month).contains(&day)
+}
+
+fn require_canonical_utc(value: &Value, key: &str, label: &str) -> Result<(), Box<dyn Error>> {
+    let timestamp = required_str(value, key, label)?;
+    if !canonical_utc(timestamp) {
+        return Err(invalid(format!("{label}: {key} must be a valid canonical UTC timestamp (YYYY-MM-DDTHH:MM:SSZ)")));
+    }
+    Ok(())
 }
 fn byte_span_matches(source: &str, start: usize, end: usize, quote: &str) -> bool {
     start <= end && end <= source.len()
@@ -471,9 +517,9 @@ fn check_receipts(packet: &Value) -> Result<(), Box<dyn Error>> {
 fn check_query_bindings(packet: &Value) -> Result<(), Box<dyn Error>> {
     let authority = &packet["authority"];
     for query in required_array(packet,"queries","fixture")? {
+        let query_ref = required_str(query,"query_ref","query")?;
         for key in ["effective_at","known_at","action_at"] {
-            let value = required_str(query,key,"query")?;
-            if !canonical_utc(value) { return Err(invalid(format!("{}: {key} must be canonical UTC Z",required_str(query,"query_ref","query")?))); }
+            require_canonical_utc(query,key,query_ref)?;
         }
         if query["asset_ref"].as_str()!=packet["asset"]["asset_ref"].as_str()
             || query["contracting_entity_ref"].as_str()!=packet["asset"]["contracting_entity_ref"].as_str() {
@@ -482,6 +528,39 @@ fn check_query_bindings(packet: &Value) -> Result<(), Box<dyn Error>> {
         if query["actor_ref"].as_str()!=authority["subject_ref"].as_str() {
             return Err(invalid("query actor does not bind to authority subject"));
         }
+    }
+
+    for claim in required_array(packet,"claim_observations","fixture")? {
+        for key in ["effective_from","observed_at"] {
+            require_canonical_utc(claim,key,"claim observation")?;
+        }
+        if claim.get("effective_through").is_some_and(|value| !value.is_null()) {
+            require_canonical_utc(claim,"effective_through","claim observation")?;
+        }
+    }
+
+    for key in ["valid_from","valid_through"] {
+        require_canonical_utc(authority,key,"authority")?;
+    }
+    for event in required_array(authority,"status_events","authority")? {
+        require_canonical_utc(event,"effective_at","authority status event")?;
+        require_canonical_utc(event,"observed_at","authority status event")?;
+    }
+
+    let operation_finality = &packet["operation_finality"];
+    for key in [
+        "approved_at",
+        "action_at_before_dispatch",
+        "known_at_before_dispatch",
+        "authority_observed_at_after_timeout",
+        "reattempt_action_at",
+        "reattempt_known_at",
+    ] {
+        require_canonical_utc(operation_finality,key,"operation finality")?;
+    }
+    for event in required_array(packet,"operation_history","fixture")? {
+        require_canonical_utc(event,"occurred_at","operation history event")?;
+        require_canonical_utc(event,"observed_at","operation history event")?;
     }
     Ok(())
 }
@@ -974,7 +1053,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{byte_span_matches,is_hard_modality,is_non_blocking_modality,canonical_utc,blind_retry_in_history,authority_state_at,write_is_authorized};
+    use super::*;
     use serde_json::json;
 
     #[test]
@@ -1008,9 +1087,35 @@ mod tests {
         assert!(is_non_blocking_modality("unresolved"));
     }
     #[test]
-    fn only_canonical_utc_strings_are_accepted_for_lexical_time_ordering() {
+    fn only_valid_fixed_width_utc_timestamps_are_accepted_for_lexical_ordering() {
         assert!(canonical_utc("2026-02-06T10:00:00Z"));
+        assert!(canonical_utc("2024-02-29T23:59:59Z"));
         assert!(!canonical_utc("2026-02-06T12:00:00+02:00"));
+        assert!(!canonical_utc("2026-13-06T10:00:00Z"));
+        assert!(!canonical_utc("2026-02-30T10:00:00Z"));
+        assert!(!canonical_utc("2026-02-06T24:00:00Z"));
+        assert!(!canonical_utc("2025-02-29T10:00:00Z"));
+        assert!(!canonical_utc("2026-02-06T10:00Z"));
+    }
+
+    #[test]
+    fn temporal_source_fields_must_use_the_same_canonical_utc_contract() {
+        let mut packet = json!({
+            "authority":{
+                "subject_ref":"actor-1",
+                "valid_from":"2025-01-01T00:00:00Z",
+                "valid_through":"2026-12-31T23:59:59Z",
+                "status_events":[{"status":"active","effective_at":"2025-01-01T00:00:00Z","observed_at":"2025-01-01T00:00:00Z"}]
+            },
+            "asset":{"asset_ref":"asset-1","contracting_entity_ref":"entity-1"},
+            "queries":[{"query_ref":"Q1","asset_ref":"asset-1","contracting_entity_ref":"entity-1","actor_ref":"actor-1","effective_at":"2026-02-06T10:00:00Z","known_at":"2026-02-06T10:00:00Z","action_at":"2026-02-06T10:00:00Z"}],
+            "claim_observations":[{"effective_from":"2026-01-01T00:00:00Z","effective_through":"2026-02-06T10:00:00Z","observed_at":"2026-01-02T00:00:00Z"}],
+            "operation_finality":{"approved_at":"2026-01-01T00:00:00Z","action_at_before_dispatch":"2026-02-06T10:00:00Z","known_at_before_dispatch":"2026-02-06T09:59:00Z","authority_observed_at_after_timeout":"2026-02-06T10:00:00Z","reattempt_action_at":"2026-02-06T10:00:00Z","reattempt_known_at":"2026-02-06T10:00:00Z"},
+            "operation_history":[{"occurred_at":"2026-02-06T10:00:00Z","observed_at":"2026-02-06T10:00:00Z"}]
+        });
+        assert!(check_query_bindings(&packet).is_ok());
+        packet["claim_observations"][0]["effective_through"] = json!("2026-02-30T10:00:00Z");
+        assert!(check_query_bindings(&packet).is_err());
     }
     #[test]
     fn late_observed_correction_is_invisible_to_earlier_knowledge_view() {
@@ -1038,7 +1143,7 @@ mod tests {
             {"claim_ref":"v1","asset_ref":"A","dimension":"title","disposition":"supported_within_scope","competent_for":["title"],"effective_from":"2026-01-01T00:00:00Z","effective_through":"2026-02-01T00:00:00Z","observed_at":"2026-01-02T00:00:00Z","value":{"registered_entity_ref":"E1"}}
         ]});
         let at_boundary = json!({"asset_ref":"A","effective_at":"2026-02-01T00:00:00Z","known_at":"2026-02-02T00:00:00Z","excluded_claim_refs":[]});
-        let after_boundary = json!({"asset_ref":"A","effective_at":"2026-02-01T00:00:00.001Z","known_at":"2026-02-02T00:00:00Z","excluded_claim_refs":[]});
+        let after_boundary = json!({"asset_ref":"A","effective_at":"2026-02-01T00:00:01Z","known_at":"2026-02-02T00:00:00Z","excluded_claim_refs":[]});
         assert!(super::eligible_observation(&packet,&at_boundary,"title",None).is_some());
         assert!(super::eligible_observation(&packet,&after_boundary,"title",None).is_none());
     }
