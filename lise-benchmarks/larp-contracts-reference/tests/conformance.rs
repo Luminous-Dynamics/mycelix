@@ -134,3 +134,22 @@ fn contract_expiry_uses_explicit_evaluation_time() {
     assert_eq!(before_expiry.reason_codes[0], "EXTERNAL_OUTCOME_UNKNOWN_RECONCILIATION_REQUIRED");
     assert_eq!(after_expiry.reason_codes[0], "EXPIRED_CONTRACT_WITH_UNRECONCILED_EFFECT");
 }
+
+#[test]
+fn safe_continuity_requires_a_verified_trigger() {
+    let scenarios: ScenarioSuite = serde_json::from_str(SCENARIOS).unwrap();
+    let recovery = scenarios.cases.iter().find(|case| case.id == "R04").unwrap();
+    let mut facts = recovery.facts.clone();
+    facts.institution.continuity_trigger_verified = None;
+    let decision = evaluate(&facts, facts.evaluated_at_unix);
+    assert_eq!(decision.disposition, Disposition::Indeterminate);
+}
+
+#[test]
+fn already_applied_logical_operation_cannot_be_dispatched_again() {
+    let scenarios: ScenarioSuite = serde_json::from_str(SCENARIOS).unwrap();
+    let replay = scenarios.cases.iter().find(|case| case.id == "R03").unwrap();
+    let decision = evaluate(&replay.facts, replay.facts.evaluated_at_unix);
+    assert_eq!(decision.disposition, Disposition::Deny);
+    assert_eq!(decision.reason_codes[0], "LOGICAL_OPERATION_ALREADY_APPLIED");
+}
