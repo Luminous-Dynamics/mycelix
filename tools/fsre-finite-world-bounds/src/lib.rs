@@ -37,8 +37,8 @@ pub struct ActionBounds {
     pub safety_lower: i64,
     pub safety_upper: i64,
     pub robustly_safe: bool,
-    pub best_case_regret: i128,
-    pub worst_case_regret: i128,
+    pub best_case_regret: Option<i128>,
+    pub worst_case_regret: Option<i128>,
     pub robustly_dominates: Vec<String>,
 }
 
@@ -89,8 +89,11 @@ impl BoundsReport {
             ).expect("String write");
             writeln!(&mut out, "action.{}.safety_bounds=[{},{}]", action.action_id, action.safety_lower, action.safety_upper).expect("String write");
             writeln!(&mut out, "action.{}.robust_safety={}", action.action_id, if action.robustly_safe { "PASS" } else { "FAIL" }).expect("String write");
-            writeln!(&mut out, "action.{}.regret_bounds=[{},{}]", action.action_id, action.best_case_regret, action.worst_case_regret).expect("String write");
-            writeln!(&mut out, "action.{}.worst_case_regret={}", action.action_id, action.worst_case_regret).expect("String write");
+            let regret_bounds = match (action.best_case_regret, action.worst_case_regret) {
+                (Some(lower), Some(upper)) => format!("[{lower},{upper}]"),
+                _ => "NOT_APPLICABLE_UNSAFE".to_owned(),
+            };
+            writeln!(&mut out, "action.{}.regret_bounds={}", action.action_id, regret_bounds).expect("String write");
             writeln!(&mut out, "action.{}.robustly_dominates={}", action.action_id, action.robustly_dominates.join(",")).expect("String write");
         }
         out.push_str("world_set_completeness=DECLARED_ASSERTION_NOT_AUTHENTICATED\n");
@@ -129,7 +132,7 @@ impl Qualification {
 }
 
 fn valid_token(value: &str) -> bool {
-    !value.is_empty() && value.len() <= 200 && value.bytes().all(|byte| {
+    !value.is_empty() && value != "-" && value.len() <= 200 && value.bytes().all(|byte| {
         byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.' | b':' | b'/')
     })
 }
@@ -294,12 +297,20 @@ pub fn analyze(source: &str) -> Result<Result<BoundsReport, Qualification>, Boun
 
     let action_ids: Vec<String> = actions.into_iter().collect();
     let world_ids: Vec<String> = worlds.into_iter().collect();
+    let robustly_safe_ids: Vec<String> = action_ids.iter()
+        .filter(|action| world_ids.iter().all(|world| {
+            cells.get(&(world.clone(), (*action).clone()))
+                .is_some_and(|cell| cell.safety_value >= safety_floor)
+        }))
+        .cloned()
+        .collect();
+
     let mut best_by_world = BTreeMap::<String, i64>::new();
     let mut top_by_world = BTreeMap::<String, Vec<String>>::new();
     for world in &world_ids {
         let mut best: Option<i64> = None;
         let mut top = Vec::new();
-        for action in &action_ids {
+        for action in &robustly_safe_ids {
             let cell = cells.get(&(world.clone(), action.clone())).expect("complete grid checked");
             match best {
                 None => { best = Some(cell.decision_value); top.push(action.clone()); }
@@ -312,13 +323,18 @@ pub fn analyze(source: &str) -> Result<Result<BoundsReport, Qualification>, Boun
                 Some(_) => {}
             }
         }
-        best_by_world.insert(world.clone(), best.expect("non-empty actions"));
+        if let Some(best_value) = best {
+            best_by_world.insert(world.clone(), best_value);
+        }
         top_by_world.insert(world.clone(), top);
     }
 
     let invariant_set = top_by_world.get(&world_ids[0]).expect("non-empty worlds").clone();
-    let ranking_invariant = world_ids.iter().all(|world| top_by_world.get(world) == Some(&invariant_set));
-    let ranking_status = if ranking_invariant && invariant_set.len() == 1 {
+    let ranking_invariant = !robustly_safe_ids.is_empty()
+        && world_ids.iter().all(|world| top_by_world.get(world) == Some(&invariant_set));
+    let ranking_status = if robustly_safe_ids.is_empty() {
+        "NO_ROBUSTLY_SAFE_ACTION"
+    } else if ranking_invariant && invariant_set.len() == 1 {
         "INVARIANT_UNIQUE_OPTIMUM"
     } else if ranking_invariant {
         "INVARIANT_TIED_OPTIMUM"
@@ -332,25 +348,26 @@ pub fn analyze(source: &str) -> Result<Result<BoundsReport, Qualification>, Boun
         let mut decision_upper = i64::MIN;
         let mut safety_lower = i64::MAX;
         let mut safety_upper = i64::MIN;
-        let mut robustly_safe = true;
-        let mut best_case_regret = i128::MAX;
-        let mut worst_case_regret = 0_i128;
+        let robustly_safe = robustly_safe_ids.contains(action);
+        let mut best_case_regret: Option<i128> = None;
+        let mut worst_case_regret: Option<i128> = None;
         for world in &world_ids {
             let cell = cells.get(&(world.clone(), action.clone())).expect("complete grid checked");
             decision_lower = decision_lower.min(cell.decision_value);
             decision_upper = decision_upper.max(cell.decision_value);
             safety_lower = safety_lower.min(cell.safety_value);
             safety_upper = safety_upper.max(cell.safety_value);
-            robustly_safe &= cell.safety_value >= safety_floor;
-            let best = *best_by_world.get(world).expect("known world");
-            let regret = i128::from(best) - i128::from(cell.decision_value);
-            best_case_regret = best_case_regret.min(regret);
-            worst_case_regret = worst_case_regret.max(regret);
+            if robustly_safe {
+                let best = *best_by_world.get(world).expect("safe action implies feasible world");
+                let regret = i128::from(best) - i128::from(cell.decision_value);
+                best_case_regret = Some(best_case_regret.map_or(regret, |value| value.min(regret)));
+                worst_case_regret = Some(worst_case_regret.map_or(regret, |value| value.max(regret)));
+            }
         }
         let mut robustly_dominates = Vec::new();
         if robustly_safe {
             for other in &action_ids {
-                if other == action { continue; }
+                if other == action || !robustly_safe_ids.contains(other) { continue; }
                 let mut never_worse = true;
                 let mut strictly_better_once = false;
                 for world in &world_ids {
@@ -376,10 +393,10 @@ pub fn analyze(source: &str) -> Result<Result<BoundsReport, Qualification>, Boun
     }
 
     let minimum_safe_regret = results.iter().filter(|item| item.robustly_safe)
-        .map(|item| item.worst_case_regret).min();
+        .filter_map(|item| item.worst_case_regret).min();
     let minimax_regret_actions = match minimum_safe_regret {
         Some(minimum) => results.iter()
-            .filter(|item| item.robustly_safe && item.worst_case_regret == minimum)
+            .filter(|item| item.robustly_safe && item.worst_case_regret == Some(minimum))
             .map(|item| item.action_id.clone()).collect(),
         None => Vec::new(),
     };
