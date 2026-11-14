@@ -1,0 +1,626 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/fsre/schemas/water-service-study-manifest-v0.1.schema.json",
+  "title": "FSRE Water Service Study Manifest v0.1",
+  "description": "Pre-registration contract for retrospective and prospective water/wastewater resilience studies. This schema validates declared structure only; it does not approve data access, validate legal basis, qualify maturity or authorise operations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "study_id",
+    "study_status",
+    "proposed_maturity",
+    "operator",
+    "service_boundary",
+    "population_boundary",
+    "temporal_scope",
+    "data_sources",
+    "frozen_evidence_snapshot",
+    "benchmark_design",
+    "outcomes",
+    "independent_evaluation",
+    "governance",
+    "control_boundary",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "luminous.fsre.water-service-study-manifest"
+    },
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "study_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "study_status": {
+      "enum": [
+        "DRAFT",
+        "ADMISSION_REVIEW",
+        "APPROVED_FOR_RETROSPECTIVE",
+        "APPROVED_FOR_SHADOW",
+        "CLOSED",
+        "REJECTED"
+      ]
+    },
+    "proposed_maturity": {
+      "enum": [
+        "M1B_RETROSPECTIVE_REAL_DATA",
+        "M2_CONNECTED_SHADOW",
+        "M3_ROUTINE_DECISION_SUPPORT",
+        "M4_BOUNDED_CLOSED_LOOP"
+      ]
+    },
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operator_id",
+        "service_owner_ref",
+        "study_sponsor_ref",
+        "participating_units"
+      ],
+      "properties": {
+        "operator_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "service_owner_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "study_sponsor_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "participating_units": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "service_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service_id",
+        "service_type",
+        "geographic_boundary_ref",
+        "system_boundary_ref",
+        "inclusions",
+        "exclusions"
+      ],
+      "properties": {
+        "service_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "service_type": {
+          "enum": [
+            "DRINKING_WATER",
+            "WASTEWATER",
+            "SANITATION",
+            "MULTI_SERVICE"
+          ]
+        },
+        "geographic_boundary_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "system_boundary_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inclusions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "exclusions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "population_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "population_definition_ref",
+        "cohort_register_ref",
+        "denominator_policy",
+        "identity_crosswalk_ref",
+        "small_cell_policy"
+      ],
+      "properties": {
+        "population_definition_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cohort_register_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "denominator_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identity_crosswalk_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "small_cell_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unclassified_population_policy": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "temporal_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "time_basis_id",
+        "observation_start",
+        "observation_end",
+        "decision_cutoff_policy",
+        "interval_granularity",
+        "clock_uncertainty_policy"
+      ],
+      "properties": {
+        "time_basis_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "observation_end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "decision_cutoff_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interval_granularity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "clock_uncertainty_policy": {
+          "enum": [
+            "EXACT_TIMESTAMP_JUSTIFIED",
+            "BOUNDED_AND_EVALUATED",
+            "BOUNDARY_SENSITIVE_UNRESOLVED",
+            "NOT_ASSESSED"
+          ]
+        }
+      }
+    },
+    "data_sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "source_owner",
+          "source_schema_version",
+          "source_ref",
+          "source_grain",
+          "observation_period",
+          "permission_basis",
+          "purpose_scope",
+          "extraction_state",
+          "snapshot_or_digest_ref"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_schema_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_grain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "observation_period": {
+            "type": "string",
+            "minLength": 1
+          },
+          "permission_basis": {
+            "enum": [
+              "PUBLIC_LICENSE_VERIFIED",
+              "OWNER_WRITTEN_PERMISSION",
+              "STATUTORY_ACCESS_CONFIRMED",
+              "PENDING",
+              "UNKNOWN",
+              "BLOCKED"
+            ]
+          },
+          "permission_evidence_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "purpose_scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "extraction_state": {
+            "enum": [
+              "NOT_EXTRACTED",
+              "EXTRACTED_UNREVIEWED",
+              "EXTRACTED_REVIEWED",
+              "RIGHTS_BLOCKED",
+              "OWNER_ACCESS_PENDING"
+            ]
+          },
+          "snapshot_or_digest_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "known_denominator": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "missingness_profile_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "frozen_evidence_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_id",
+        "snapshot_manifest_ref",
+        "content_digest_ref",
+        "freeze_time",
+        "source_revision_register_ref",
+        "replayable"
+      ],
+      "properties": {
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "snapshot_manifest_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_digest_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "freeze_time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_revision_register_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "replayable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "benchmark_design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_ref",
+        "primary_question",
+        "primary_outcome_id",
+        "scenario_register_ref",
+        "holdout_design",
+        "leakage_controls",
+        "baseline_workflows",
+        "ablations",
+        "pre_registration_ref"
+      ],
+      "properties": {
+        "protocol_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "primary_question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "primary_outcome_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scenario_register_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "holdout_design": {
+          "enum": [
+            "TEMPORAL_HOLDOUT",
+            "GEOGRAPHIC_HOLDOUT",
+            "OPERATOR_HOLDOUT",
+            "CATCHMENT_HOLDOUT",
+            "COMPOUND_HOLDOUT",
+            "NOT_YET_DESIGNED"
+          ]
+        },
+        "leakage_controls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "baseline_workflows": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "ablations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pre_registration_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "outcomes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "outcome_id",
+          "definition",
+          "unit",
+          "denominator",
+          "cohort_disaggregation",
+          "source_owner",
+          "verification_method",
+          "missingness_policy"
+        ],
+        "properties": {
+          "outcome_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "definition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "denominator": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cohort_disaggregation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verification_method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "missingness_policy": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minimum_detectable_effect": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "non_inferiority_margin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "independent_evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluator_id",
+        "independence_statement_ref",
+        "adjudication_protocol_ref",
+        "sealed_challenge_owner",
+        "conflict_of_interest_declaration_ref"
+      ],
+      "properties": {
+        "evaluator_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "independence_statement_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "adjudication_protocol_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sealed_challenge_owner": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "conflict_of_interest_declaration_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data_sharing_approval_ref",
+        "lawful_basis_ref",
+        "retention_policy_ref",
+        "privacy_review_ref",
+        "community_or_customer_engagement_ref",
+        "decision_rights_matrix_ref",
+        "incident_and_withdrawal_process_ref"
+      ],
+      "properties": {
+        "data_sharing_approval_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lawful_basis_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "retention_policy_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "privacy_review_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "community_or_customer_engagement_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decision_rights_matrix_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "incident_and_withdrawal_process_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "control_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "read_only",
+        "write_access",
+        "actuation_enabled",
+        "human_override_owner",
+        "safety_case_ref"
+      ],
+      "properties": {
+        "read_only": {
+          "type": "boolean"
+        },
+        "write_access": {
+          "type": "boolean"
+        },
+        "actuation_enabled": {
+          "type": "boolean"
+        },
+        "human_override_owner": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "safety_case_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "claim_ceiling": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    }
+  }
+}
