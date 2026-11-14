@@ -203,7 +203,8 @@
         "delegation_amplification_accepted",
         "excess_privilege_admitted",
         "route_bypass_accepted",
-        "clarification_not_requested"
+        "clarification_not_requested",
+        "delegation_scope_inconsistencies"
       ],
       "properties": {
         "case_conformance_rate": {
@@ -292,6 +293,10 @@
           "minimum": 0
         },
         "clarification_not_requested": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "delegation_scope_inconsistencies": {
           "type": "integer",
           "minimum": 0
         }
@@ -409,7 +414,8 @@
           "delegation_amplification_accepted",
           "excess_privilege_admitted",
           "route_bypass_accepted",
-          "clarification_not_requested"
+          "clarification_not_requested",
+          "delegation_scope_inconsistent"
         ],
         "properties": {
           "scenario_id": {
@@ -500,6 +506,9 @@
             "type": "boolean"
           },
           "clarification_not_requested": {
+            "type": "boolean"
+          },
+          "delegation_scope_inconsistent": {
             "type": "boolean"
           }
         }
