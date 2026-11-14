@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-observation-manifest-0.1.schema.json",
+  "title": "Mycelix Observation Manifest v0.1",
+  "description": "A source-preserving envelope for an observation artifact. Domain-specific coordinates, time and measurement semantics remain in the referenced native/domain profile. received_at is the fabric boundary receipt time; source.published_at is source-reported record publication time; phenomenon.event_time is when the physical phenomenon or measurement occurred.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profile", "schema_version", "observation_id", "received_at", "source", "phenomenon", "instrument", "artifact", "domain_profile", "quality", "rights", "lineage"],
+  "properties": {
+    "profile": {"const": "mycelix-observation-manifest/0.1"},
+    "schema_version": {"const": "0.1.0"},
+    "observation_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "received_at": {"$ref": "#/$defs/time"},
+    "source": {"$ref": "#/$defs/source"},
+    "phenomenon": {"$ref": "#/$defs/phenomenon"},
+    "instrument": {"$ref": "#/$defs/instrument"},
+    "artifact": {"$ref": "#/$defs/artifact"},
+    "domain_profile": {"$ref": "#/$defs/domainProfile"},
+    "quality": {"$ref": "#/$defs/quality"},
+    "rights": {"$ref": "#/$defs/rights"},
+    "lineage": {"$ref": "#/$defs/lineage"},
+    "extensions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+  },
+  "$defs": {
+    "time": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "encoding", "time_scale"],
+      "properties": {
+        "value": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "number"}]},
+        "encoding": {"enum": ["iso8601", "mjd", "jd", "unix", "source_native"]},
+        "time_scale": {"type": "string", "minLength": 1},
+        "uncertainty": {"$ref": "#/$defs/uncertainty"}
+      }
+    },
+    "uncertainty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit", "semantics"],
+      "properties": {
+        "value": {"type": "number", "minimum": 0},
+        "unit": {"type": "string", "minLength": 1},
+        "semantics": {"enum": ["standard_deviation", "confidence_interval", "credible_interval", "bound", "unknown"]}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["system_id", "record_id", "schema_id", "schema_version", "issuer", "authentication"],
+      "properties": {
+        "system_id": {"type": "string", "minLength": 1},
+        "record_id": {"type": "string", "minLength": 1},
+        "schema_id": {"type": "string", "minLength": 1},
+        "schema_version": {"type": "string", "minLength": 1},
+        "issuer": {"type": "string", "minLength": 1},
+        "published_at": {"$ref": "#/$defs/time"},
+        "authentication": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": {
+            "status": {"enum": ["authenticated", "not_authenticated", "not_assessed", "unknown"]},
+            "mechanism": {"type": "string", "minLength": 1},
+            "assertion_ref": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "phenomenon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["property_id", "event_time"],
+      "properties": {
+        "property_id": {"type": "string", "minLength": 1},
+        "event_time": {"$ref": "#/$defs/time"},
+        "event_interval_end": {"$ref": "#/$defs/time"}
+      }
+    },
+    "instrument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["instrument_id", "configuration_ref", "calibration"],
+      "properties": {
+        "platform_id": {"type": "string", "minLength": 1},
+        "instrument_id": {"type": "string", "minLength": 1},
+        "sensor_id": {"type": "string", "minLength": 1},
+        "channel_id": {"type": "string", "minLength": 1},
+        "deployment_id": {"type": "string", "minLength": 1},
+        "configuration_ref": {"type": "string", "minLength": 1},
+        "calibration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state"],
+          "properties": {
+            "state": {"enum": ["qualified", "unqualified", "unknown", "not_applicable"]},
+            "record_ref": {"type": "string", "minLength": 1},
+            "valid_from": {"$ref": "#/$defs/time"},
+            "valid_until": {"$ref": "#/$defs/time"},
+            "applicability_ref": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locator", "media_type", "byte_length", "digest"],
+      "properties": {
+        "locator": {"type": "string", "minLength": 1},
+        "media_type": {"type": "string", "minLength": 1},
+        "byte_length": {"type": "integer", "minimum": 1},
+        "digest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["algorithm", "value"],
+          "properties": {
+            "algorithm": {"enum": ["sha256", "sha512", "blake3"]},
+            "value": {"type": "string", "pattern": "^[a-f0-9]+$"}
+          },
+          "allOf": [
+            {"if": {"properties": {"algorithm": {"const": "sha256"}}}, "then": {"properties": {"value": {"minLength": 64, "maxLength": 64}}}},
+            {"if": {"properties": {"algorithm": {"const": "sha512"}}}, "then": {"properties": {"value": {"minLength": 128, "maxLength": 128}}}},
+            {"if": {"properties": {"algorithm": {"const": "blake3"}}}, "then": {"properties": {"value": {"minLength": 64, "maxLength": 64}}}}
+          ]
+        }
+      }
+    },
+    "domainProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "profile_version", "native_semantics_ref"],
+      "properties": {
+        "profile_id": {"type": "string", "minLength": 1},
+        "profile_version": {"type": "string", "minLength": 1},
+        "native_semantics_ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disposition", "missingness", "flags"],
+      "properties": {
+        "disposition": {"enum": ["qualified", "partially_qualified", "unqualified", "out_of_domain", "unknown", "not_applicable"]},
+        "missingness": {"enum": ["complete", "partial", "missing", "censored", "not_assessed"]},
+        "flags": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "detection_limit": {"$ref": "#/$defs/uncertainty"}
+      }
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "license", "access_disposition", "permitted_purposes", "restrictions"],
+      "properties": {
+        "owner": {"type": "string", "minLength": 1},
+        "license": {"type": "string", "minLength": 1},
+        "access_disposition": {"enum": ["public", "controlled", "embargoed", "restricted", "unknown"]},
+        "permitted_purposes": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "restrictions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "retention_policy_ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["derived_from", "corrects", "supersedes"],
+      "properties": {
+        "derived_from": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "corrects": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "supersedes": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    }
+  }
+}
