@@ -42,6 +42,9 @@ The benchmark must be able to state, for each claim, what it observed, what it d
 | ISO 37000 / ISO 37301 | Organizational-governance guidance and compliance-management requirements. Both 2021 editions were reviewed and confirmed current in 2026. | Map documented practices, evidence and audit controls; external assessment remains an independent activity. | Provide machine-readable evidence and reviewable assurance mappings; do not claim certification or legal compliance by software output. |
 | Google HEART | User-centered metric framework: Happiness, Engagement, Adoption, Retention and Task success. | Measure participant experience with declared instruments, cohorts, consent and counter-metrics. | Use as an optional outcome lens; do not make engagement or retention a proxy for legitimacy. |
 | NIST NICE | Cybersecurity workforce vocabulary: work roles, competency areas, and Task, Knowledge and Skill statements. Components v2.2.0 were released April 28, 2026. | Role/duty coverage, capability evidence, vacancy risk, cross-training and succession time. | Map institutional duties to capabilities; capability credentials never confer constitutional authority. |
+| SER International Principles and Standards, 3rd ed. | Current ecological-restoration principles and practices across assessment, planning, implementation, management and monitoring; updated Five-star System and Restorative Continuum (June 2026). | Ecological reference ecosystem, baseline quality, restoration trajectory, monitoring validity, affected-party rights and long-term management. | Compose with ecological standards; encode evidence, authority, challenge and financing lifecycle without redefining ecological success. |
+| IUCN Global Standard for Nature-based Solutions | Eight criteria and 27 indicators for assessing and improving Nature-based Solutions. | NbS design quality, ecosystem services, social challenge, scale and long-term impact. | Map LARP obligations and evidence to the criteria/indicators where applicable; no claim of certification. |
+| Verra VM0047 v1.1 | Active ARR carbon-removal methodology using remote sensing, plot-based sampling and a dynamic performance benchmark for baseline/additionality. | Carbon-removal accounting, area/census approaches, measurement and verification under VM0047 scope. | Interoperate for ARR carbon-accounting claims; do not treat its carbon-removal measure as a complete biodiversity/water/rights outcome. |
 
 Primary references:
 
@@ -58,6 +61,10 @@ Primary references:
 - ISO 37301:2021: https://www.iso.org/standard/75080.html
 - Google HEART paper: https://research.google/pubs/measuring-the-user-experience-on-a-large-scale-user-centered-metrics-for-web-applications/
 - NIST NICE v2.2.0: https://www.nist.gov/news-events/news/2026/04/nice-releases-nice-framework-components-v220
+- SER International Principles and Standards, 3rd ed. (June 2026): https://www.ser.org/general/custom.asp?page=serstandards
+- SER 3rd-edition policy article: https://doi.org/10.1111/rec.70441
+- IUCN Global Standard for Nature-based Solutions: https://iucn.org/our-work/topic/iucn-global-standard-nature-based-solutions
+- Verra VM0047 v1.1 (active since 14 May 2025): https://verra.org/methodologies/vm0047-afforestation-reforestation-and-revegetation-v1-1/
 
 ## 4. Three benchmark lanes — never collapse them
 
@@ -137,6 +144,34 @@ Measure:
 - federation scope preservation;
 - recovery without privilege escalation;
 - total reconstruction time and human review burden.
+
+### Lane B2 — restoration and nature-positive outcome contracts
+
+The restoration slice must compare with ecological-domain standards and measurement methodologies, not only with generic smart-contract or grant workflows.
+
+Current reference points:
+- **SER International Principles and Standards, third edition (June 2026):** broad ecological restoration guidance covering assessment, planning, implementation, ongoing management, and monitoring/evaluation; includes an updated Restorative Continuum and more quantitative Five-star System. Use its ecological definitions and practice standards as the primary domain reference. https://www.ser.org/general/custom.asp?page=serstandards and https://doi.org/10.1111/rec.70441
+- **IUCN Global Standard for Nature-based Solutions:** eight criteria and 27 indicators for assessing and improving NbS. Use it where the project is an NbS intervention; do not treat it as a universal ecological restoration score. https://iucn.org/our-work/topic/iucn-global-standard-nature-based-solutions
+- **Verra VM0047 v1.1:** active ARR carbon-removal methodology, using remote sensing and plot-based sampling with a dynamic performance benchmark for baseline/additionality within its defined carbon-accounting scope. It is not a complete biodiversity, hydrology, social-rights or restoration-equity measure. https://verra.org/methodologies/vm0047-afforestation-reforestation-and-revegetation-v1-1/
+
+Measure separately:
+- ecosystem integrity and native species composition;
+- habitat structure and connectivity;
+- soil function and hydrological condition;
+- biodiversity / acoustic ecology where a valid local method exists;
+- upstream/downstream and cross-boundary externalities;
+- carbon stocks/removals where a valid methodology applies;
+- affected-party participation, consent and distributional effects;
+- baseline uncertainty, additionality, leakage, permanence and monitoring continuity;
+- intervention cost, opportunity cost and long-term stewardship capacity.
+
+Compare at least:
+1. conventional activity/milestone funding;
+2. established domain methodology/verification (e.g., VM0047 where applicable);
+3. SER/IUCN-aligned outcome assessment;
+4. LARP staged contract with LISE authority, dependency, rights and remedy assurance.
+
+Use matched sites or synthetic cases with explicit baselines and a defensible comparison design. Never infer causal impact from a before/after change alone. Do not collapse ecological condition into one HDC similarity or composite score. No single carbon metric may stand in for biodiversity, water or community outcomes.
 
 ### Lane C — human, organizational and public outcomes
 
