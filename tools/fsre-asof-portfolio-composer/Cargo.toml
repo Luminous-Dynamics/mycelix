@@ -1,0 +1,17 @@
+[package]
+name = "fsre-asof-portfolio-composer"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+publish = false
+
+[dependencies]
+fsre-asof-evidence = { path = "../fsre-asof-evidence" }
+fsre-portfolio-reference = { path = "../fsre-portfolio-reference" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "fsre-asof-portfolio-composer"
+path = "src/main.rs"
