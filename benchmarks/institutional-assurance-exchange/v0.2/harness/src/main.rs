@@ -61,21 +61,29 @@ fn is_allow(disposition: &str) -> bool {
     matches!(disposition, "ALLOW_SCOPED" | "ALLOW_PARTIAL")
 }
 fn write_is_authorized(write: &Value, boundaries: &[Value]) -> bool {
-    let Ok(action) = required_str(write,"action","write trace") else { return false; };
-    let Ok(purpose) = required_str(write,"purpose","write trace") else { return false; };
-    let Ok(asset) = required_str(write,"asset_ref","write trace") else { return false; };
-    let Ok(actor) = required_str(write,"actor_ref","write trace") else { return false; };
-    let Ok(auth) = required_str(write,"authorization_ref","write trace") else { return false; };
-    let Ok(fields) = string_set(write,"fields","write trace") else { return false; };
+    let Ok(operation_ref) = required_str(write, "operation_ref", "write trace") else { return false; };
+    let Ok(operation_digest) = required_str(write, "canonical_operation_digest", "write trace") else { return false; };
+    let Ok(action_digest) = required_str(write, "action_digest", "write trace") else { return false; };
+    let Ok(idempotency_ref) = required_str(write, "idempotency_ref", "write trace") else { return false; };
+    let Ok(action) = required_str(write, "action", "write trace") else { return false; };
+    let Ok(purpose) = required_str(write, "purpose", "write trace") else { return false; };
+    let Ok(asset) = required_str(write, "asset_ref", "write trace") else { return false; };
+    let Ok(actor) = required_str(write, "actor_ref", "write trace") else { return false; };
+    let Ok(auth) = required_str(write, "authorization_ref", "write trace") else { return false; };
+    let Ok(fields) = string_set(write, "fields", "write trace") else { return false; };
     let Some(external) = write.get("possible_external_side_effect").and_then(Value::as_bool) else { return false; };
     boundaries.iter().any(|boundary| {
-        let Ok(allowed_fields) = string_set(boundary,"fields","authorized write boundary") else { return false; };
-        boundary.get("action").and_then(Value::as_str)==Some(action)
-            && boundary.get("purpose").and_then(Value::as_str)==Some(purpose)
-            && boundary.get("asset_ref").and_then(Value::as_str)==Some(asset)
-            && boundary.get("actor_ref").and_then(Value::as_str)==Some(actor)
-            && boundary.get("authorization_ref").and_then(Value::as_str)==Some(auth)
-            && boundary.get("possible_external_side_effect").and_then(Value::as_bool)==Some(external)
+        let Ok(allowed_fields) = string_set(boundary, "fields", "authorized write boundary") else { return false; };
+        boundary.get("operation_ref").and_then(Value::as_str) == Some(operation_ref)
+            && boundary.get("canonical_operation_digest").and_then(Value::as_str) == Some(operation_digest)
+            && boundary.get("action_digest").and_then(Value::as_str) == Some(action_digest)
+            && boundary.get("idempotency_ref").and_then(Value::as_str) == Some(idempotency_ref)
+            && boundary.get("action").and_then(Value::as_str) == Some(action)
+            && boundary.get("purpose").and_then(Value::as_str) == Some(purpose)
+            && boundary.get("asset_ref").and_then(Value::as_str) == Some(asset)
+            && boundary.get("actor_ref").and_then(Value::as_str) == Some(actor)
+            && boundary.get("authorization_ref").and_then(Value::as_str) == Some(auth)
+            && boundary.get("possible_external_side_effect").and_then(Value::as_bool) == Some(external)
             && fields.is_subset(&allowed_fields)
     })
 }
@@ -1201,16 +1209,62 @@ mod tests {
     }
     #[test]
     fn explicitly_scoped_write_is_authorized() {
-        let write=json!({"action":"approve_commercial_lease","purpose":"new_tenant_commercial_lease","asset_ref":"PROPERTY-001","actor_ref":"ACTOR-A","fields":["lease_submission_request"],"authorization_ref":"AUTHZ-1","possible_external_side_effect":true});
-        let boundaries=vec![json!({"action":"approve_commercial_lease","purpose":"new_tenant_commercial_lease","asset_ref":"PROPERTY-001","actor_ref":"ACTOR-A","fields":["lease_submission_request","lease_status"],"authorization_ref":"AUTHZ-1","possible_external_side_effect":true})];
+        let write=json!({"operation_ref":"OP-1","canonical_operation_digest":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","action_digest":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","idempotency_ref":"IDEM-1","action":"approve_commercial_lease","purpose":"new_tenant_commercial_lease","asset_ref":"PROPERTY-001","actor_ref":"ACTOR-A","fields":["lease_submission_request"],"authorization_ref":"AUTHZ-1","possible_external_side_effect":true});
+        let boundaries=vec![json!({"operation_ref":"OP-1","canonical_operation_digest":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","action_digest":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","idempotency_ref":"IDEM-1","action":"approve_commercial_lease","purpose":"new_tenant_commercial_lease","asset_ref":"PROPERTY-001","actor_ref":"ACTOR-A","fields":["lease_submission_request","lease_status"],"authorization_ref":"AUTHZ-1","possible_external_side_effect":true})];
         assert!(write_is_authorized(&write,&boundaries));
     }
     #[test]
     fn wrong_asset_or_extra_field_is_unauthorized() {
-        let write=json!({"action":"approve_commercial_lease","purpose":"new_tenant_commercial_lease","asset_ref":"PROPERTY-002","actor_ref":"ACTOR-A","fields":["lease_submission_request","notify_external_parties"],"authorization_ref":"AUTHZ-1","possible_external_side_effect":true});
-        let boundaries=vec![json!({"action":"approve_commercial_lease","purpose":"new_tenant_commercial_lease","asset_ref":"PROPERTY-001","actor_ref":"ACTOR-A","fields":["lease_submission_request"],"authorization_ref":"AUTHZ-1","possible_external_side_effect":true})];
+        let write=json!({"operation_ref":"OP-1","canonical_operation_digest":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","action_digest":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","idempotency_ref":"IDEM-1","action":"approve_commercial_lease","purpose":"new_tenant_commercial_lease","asset_ref":"PROPERTY-002","actor_ref":"ACTOR-A","fields":["lease_submission_request","notify_external_parties"],"authorization_ref":"AUTHZ-1","possible_external_side_effect":true});
+        let boundaries=vec![json!({"operation_ref":"OP-1","canonical_operation_digest":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","action_digest":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","idempotency_ref":"IDEM-1","action":"approve_commercial_lease","purpose":"new_tenant_commercial_lease","asset_ref":"PROPERTY-001","actor_ref":"ACTOR-A","fields":["lease_submission_request"],"authorization_ref":"AUTHZ-1","possible_external_side_effect":true})];
         assert!(!write_is_authorized(&write,&boundaries));
     }
+    #[test]
+    fn write_authorization_rejects_operation_digest_action_digest_and_idempotency_substitution() {
+        let base = json!({
+            "operation_ref":"OP-1",
+            "canonical_operation_digest":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "action_digest":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "idempotency_ref":"IDEM-1",
+            "action":"approve_commercial_lease",
+            "purpose":"new_tenant_commercial_lease",
+            "asset_ref":"PROPERTY-001",
+            "actor_ref":"ACTOR-A",
+            "fields":["lease_submission_request"],
+            "authorization_ref":"AUTHZ-1",
+            "possible_external_side_effect":true
+        });
+        let boundaries = vec![json!({
+            "operation_ref":"OP-1",
+            "canonical_operation_digest":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "action_digest":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "idempotency_ref":"IDEM-1",
+            "action":"approve_commercial_lease",
+            "purpose":"new_tenant_commercial_lease",
+            "asset_ref":"PROPERTY-001",
+            "actor_ref":"ACTOR-A",
+            "fields":["lease_submission_request"],
+            "authorization_ref":"AUTHZ-1",
+            "possible_external_side_effect":true
+        })];
+        let mut variants = Vec::new();
+        let mut changed = base.clone();
+        changed["operation_ref"] = json!("OP-2");
+        variants.push(changed);
+        let mut changed = base.clone();
+        changed["canonical_operation_digest"] = json!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        variants.push(changed);
+        let mut changed = base.clone();
+        changed["action_digest"] = json!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        variants.push(changed);
+        let mut changed = base;
+        changed["idempotency_ref"] = json!("IDEM-2");
+        variants.push(changed);
+        for variant in variants {
+            assert!(!write_is_authorized(&variant, &boundaries));
+        }
+    }
+
     #[test]
     fn contested_permitted_use_is_not_promoted_to_a_decision_fact() {
         let claim=json!({"dimension":"permitted_use","disposition":"contested","competent_for":["permitted_use"]});
