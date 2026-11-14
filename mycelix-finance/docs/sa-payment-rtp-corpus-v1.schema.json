@@ -1,0 +1,836 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/sa-payment-rtp-corpus-v1.schema.json",
+  "title": "Mycelix South African Request-to-Pay Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "created_on",
+    "as_of",
+    "jurisdiction",
+    "purpose",
+    "external_effects_enabled",
+    "source_register",
+    "profiles",
+    "scenarios",
+    "request_digest_contract"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.sa-payment-rtp/v1"
+    },
+    "corpus_id": {
+      "const": "ZA-SA-PAYMENT-RTP-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_reference_only"
+    },
+    "created_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "jurisdiction": {
+      "const": "ZA"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "source_register": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 24,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    },
+    "request_digest_contract": {
+      "$ref": "#/$defs/request_digest_contract"
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "jurisdiction",
+        "service",
+        "participant",
+        "product_scope",
+        "channel_scope",
+        "profile_version",
+        "observed_on",
+        "effective_from",
+        "effective_to",
+        "temporal_state",
+        "max_request_minor_units",
+        "max_requests_per_24h",
+        "max_combined_request_minor_units_per_24h",
+        "fee_state",
+        "fee_note",
+        "source_refs",
+        "admission",
+        "request_count_scope",
+        "requester_fee_minor_units",
+        "payer_fee_bands",
+        "payer_fee_schedule_state",
+        "fee_source_refs",
+        "amount_limit_rules",
+        "request_count_rules",
+        "expiry_policy",
+        "partial_payment_policy",
+        "decline_policy"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+-V1$"
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "service": {
+          "type": "string",
+          "minLength": 1
+        },
+        "participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "product_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "effective_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "effective_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "temporal_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "max_request_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "max_requests_per_24h": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "max_combined_request_minor_units_per_24h": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "fee_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fee_note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "admission": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_count_scope": {
+          "enum": [
+            "requester_account",
+            "payer_account",
+            "recipient_account",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "requester_fee_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "payer_fee_bands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fee_band"
+          }
+        },
+        "payer_fee_schedule_state": {
+          "enum": [
+            "observed_current_snapshot",
+            "historical_snapshot",
+            "unknown",
+            "internal_source_conflict",
+            "not_applicable"
+          ]
+        },
+        "fee_source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "amount_limit_rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/amount_limit_rule"
+          }
+        },
+        "request_count_rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/request_count_rule"
+          }
+        },
+        "expiry_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/expiry_policy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "partial_payment_policy": {
+          "enum": [
+            "supported_if_ami",
+            "unsupported",
+            "full_amount_only",
+            "unknown"
+          ]
+        },
+        "decline_policy": {
+          "enum": [
+            "decline_closes_request",
+            "decline_closes_no_reopen",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "request_version",
+        "profile_id",
+        "requester_identity",
+        "payer_identity",
+        "beneficiary_identity",
+        "amount_minor_units",
+        "currency",
+        "reference",
+        "purpose",
+        "fee_minor_units",
+        "expiry_at",
+        "issued_at",
+        "channel",
+        "request_digest"
+      ],
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requester_identity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payer_identity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "beneficiary_identity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fee_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "expiry_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "channel": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "limit_route_scope": {
+          "enum": [
+            "generic",
+            "on_us_account",
+            "on_us_shapid",
+            "off_us"
+          ]
+        },
+        "amount_modification_indicator": {
+          "type": "boolean"
+        },
+        "expiry_selection": {
+          "enum": [
+            "default",
+            "custom"
+          ]
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "sequence",
+        "event_type",
+        "actor_role",
+        "authority_state",
+        "request_digest",
+        "accepted_request_digest",
+        "instruction_id",
+        "observed_at",
+        "receipt_id"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "pattern": "^EV-[0-9]+$"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "event_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor_role": {
+          "enum": [
+            "requester",
+            "payer",
+            "payer_psp",
+            "payee_psp",
+            "beneficiary_psp",
+            "system",
+            "merchant",
+            "unknown"
+          ]
+        },
+        "authority_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "request_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "accepted_request_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "instruction_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "receipt_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_type",
+        "request",
+        "events",
+        "expected_outcome",
+        "expected_financial_effect",
+        "required_evidence",
+        "negative_controls"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^SA-RTP-[0-9]{3}$"
+        },
+        "scenario_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request": {
+          "$ref": "#/$defs/request"
+        },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "expected_outcome": {
+          "enum": [
+            "request_only",
+            "declined",
+            "expired",
+            "cancelled",
+            "instruction_created",
+            "outcome_unknown",
+            "recipient_available",
+            "rejected_by_limit",
+            "rejected_by_profile",
+            "quarantined_for_requalification"
+          ]
+        },
+        "expected_financial_effect": {
+          "enum": [
+            "none",
+            "payment_instruction_only",
+            "recipient_available_observed"
+          ]
+        },
+        "required_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "negative_controls": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "fee_band": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_amount_minor_units",
+        "maximum_amount_minor_units",
+        "payer_fee_minor_units",
+        "currency"
+      ],
+      "properties": {
+        "minimum_amount_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximum_amount_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "payer_fee_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "const": "ZAR"
+        }
+      }
+    },
+    "request_digest_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "domain_separator",
+        "separator_terminator",
+        "canonicalization",
+        "canonicalization_rules",
+        "hashed_payload",
+        "included_fields",
+        "excluded_fields",
+        "vectors"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "SHA-256"
+        },
+        "domain_separator": {
+          "const": "MYCELIX-SA-PAYMENT-RTP-REQUEST-V1"
+        },
+        "separator_terminator": {
+          "const": "NUL"
+        },
+        "canonicalization": {
+          "const": "MYCELIX-CANONICAL-JSON-V1"
+        },
+        "canonicalization_rules": {
+          "type": "array",
+          "minItems": 6,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "hashed_payload": {
+          "const": "complete request object with request_digest omitted"
+        },
+        "included_fields": {
+          "type": "array",
+          "minItems": 10,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "excluded_fields": {
+          "const": [
+            "request_digest"
+          ]
+        },
+        "vectors": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "scenario_id",
+              "expected_digest"
+            ],
+            "properties": {
+              "scenario_id": {
+                "type": "string"
+              },
+              "expected_digest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "amount_limit_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route_scope",
+        "maximum_minor_units",
+        "qualification",
+        "source_refs"
+      ],
+      "properties": {
+        "route_scope": {
+          "enum": [
+            "generic",
+            "on_us_account",
+            "on_us_shapid",
+            "off_us"
+          ]
+        },
+        "maximum_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "qualification": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "request_count_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "direction",
+        "max_requests_per_24h",
+        "max_per_counterparty_per_24h",
+        "aggregate_unlimited",
+        "counterparty_scope",
+        "source_refs",
+        "qualification"
+      ],
+      "properties": {
+        "direction": {
+          "enum": [
+            "outbound",
+            "inbound"
+          ]
+        },
+        "max_requests_per_24h": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "max_per_counterparty_per_24h": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "aggregate_unlimited": {
+          "type": "boolean"
+        },
+        "counterparty_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "qualification": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "expiry_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default_days",
+        "minimum_days",
+        "maximum_days",
+        "requester_can_set",
+        "source_refs",
+        "qualification"
+      ],
+      "properties": {
+        "default_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "minimum_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "maximum_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "requester_can_set": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "qualification": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
