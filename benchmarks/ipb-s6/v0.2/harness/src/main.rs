@@ -1,9 +1,20 @@
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::{collections::{HashMap, HashSet}, env, error::Error, fs, io};
 
 fn invalid(message: impl Into<String>) -> Box<dyn Error> {
     Box::new(io::Error::new(io::ErrorKind::InvalidData, message.into()))
 }
+fn sha256_file(path: &str) -> Result<String, Box<dyn Error>> {
+    let bytes = fs::read(path)?;
+    Ok(format!("{:x}", Sha256::digest(bytes)))
+}
+fn sha256_current_executable() -> Result<String, Box<dyn Error>> {
+    let path = env::current_exe()?;
+    let bytes = fs::read(path)?;
+    Ok(format!("{:x}", Sha256::digest(bytes)))
+}
+
 fn read_json(path: &str) -> Result<Value, Box<dyn Error>> {
     Ok(serde_json::from_slice(&fs::read(path)?)?)
 }
@@ -170,6 +181,12 @@ fn run() -> Result<(), Box<dyn Error>> {
     let n = per_case.len().max(1) as f64;
     let reason_precision = if reason_predicted==0 { 0.0 } else { reason_tp as f64 / reason_predicted as f64 };
     let reason_recall = if reason_gold==0 { 0.0 } else { reason_tp as f64 / reason_gold as f64 };
+    let receipt = json!({
+        "corpus_file_sha256": sha256_file(&args[1])?,
+        "oracle_file_sha256": sha256_file(&args[2])?,
+        "submission_file_sha256": sha256_file(&args[3])?,
+        "evaluator_binary_sha256": sha256_current_executable()?
+    });
     let report = json!({
         "evaluator_version":"ipb-s6-v0.2-rust-0.1",
         "corpus_version":"0.2",
@@ -177,6 +194,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         "build_sha":submission["build_sha"],
         "configuration_sha256":submission["configuration_sha256"],
         "scenario_count":per_case.len(),
+        "reproducibility_receipt": receipt,
         "metrics":{
             "action_disposition_accuracy":exact_action as f64/n,
             "authorization_disposition_accuracy":exact_authorization as f64/n,
