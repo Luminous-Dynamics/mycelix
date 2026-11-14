@@ -1,0 +1,320 @@
+schema: lise.ipb.temporal-capture-manifest.v0
+suite:
+  id: IPB-S3-TEMPORAL-v0
+  parent_suite: IPB-S3-ICAP-v0
+  issue: https://github.com/Luminous-Dynamics/mycelix/issues/6134
+  evidence_class: synthetic_development_seed
+  status: draft
+  claim_ceiling:
+    - "These are synthetic sequences, not field observations or prevalence estimates."
+    - "Event records in this manifest are fixture projections, not production Mycelix event schemas."
+    - "The benchmark must consume owner-native event references where available."
+    - "Unknown owner data, contested evidence and unqualified dependency closure remain indeterminate."
+    - "A successful finite sequence panel does not prove deployment safety or capture resistance."
+
+time_model:
+  axes:
+    effective_time:
+      meaning: "When a decision, appointment, capability, revocation or execution has effect."
+    knowledge_time:
+      meaning: "When the institution/evaluator receives or records evidence about the event."
+  invariant:
+    - "Later knowledge-time corrections may revise the current projection but cannot overwrite the earlier decision-time projection."
+    - "Authority is evaluated at the time of the consequential operation, not only at proposal or approval."
+    - "No event is ordered by timestamp alone where owner-native causal/predecessor references establish a different relation."
+  native_adapter_output_fields:
+    required:
+      - source_system
+      - source_event_ref
+      - source_event_digest
+      - effective_time
+      - knowledge_time
+    conditional:
+      - predecessor_refs
+      - actor_or_capability_ref
+      - subject_ref
+      - authority_ref
+      - policy_or_constitution_ref
+      - exact_scope
+      - evidence_disposition
+    rule: "Missing owner-native fields are unsupported or indeterminate; adapters must not synthesize evidence."
+  synthetic_seed_fields:
+    required: [ref, kind, effective_time, knowledge_time]
+    rule: "The local ref values in this development seed are fixture IDs, not owner-native references or cryptographic digests. A qualified adapter must bind exact native source references before evaluating owner-backed sequences."
+
+terminal_states:
+  - PASS
+  - FAIL
+  - INDETERMINATE
+  - INVALID
+  - UNSUPPORTED
+  - TIMEOUT
+  - NOT_RUN
+
+dispositions:
+  - no_capture_observed
+  - capture_detected
+  - execution_unavailable
+  - authority_denied
+  - hold_for_reconciliation
+  - indeterminate
+
+sequences:
+  - id: T01
+    name: valid-substitute-succession
+    class: benign_control
+    event_count: 3
+    events:
+      - {ref: e1, kind: AppointmentGranted, effective_time: 10, knowledge_time: 10, actor: officer-a, subject: officer-b, policy: constitution-v1}
+      - {ref: e2, kind: AuthorityGranted, effective_time: 11, knowledge_time: 11, actor: officer-a, subject: officer-b, scope: budget-review, authority: grant-b, policy: constitution-v1}
+      - {ref: e3, kind: OversightCapabilityGranted, effective_time: 12, knowledge_time: 12, actor: reviewer-a, subject: reviewer-b, scope: appeal, authority: oversight-grant-b, policy: constitution-v1}
+    cutoffs: [10, 11, 12]
+    expected:
+      terminal_state: PASS
+      final_disposition: no_capture_observed
+      required_controls: [substitute_appointment_is_valid, delegated_scope_is_bounded, independent_appeal_remains_available]
+    owner_dependencies: [2953, 3117, 6069, 4835]
+
+  - id: T02
+    name: sequential-appointment-accumulation
+    class: capture_attack
+    event_count: 4
+    events:
+      - {ref: e1, kind: PolicyActivated, effective_time: 10, knowledge_time: 10, policy: constitution-v1}
+      - {ref: e2, kind: AppointmentGranted, effective_time: 11, knowledge_time: 11, actor: officer-a, subject: cartel-a, scope: appointments, policy: constitution-v1}
+      - {ref: e3, kind: AppointmentGranted, effective_time: 12, knowledge_time: 12, actor: cartel-a, subject: cartel-b, scope: agenda, policy: constitution-v1}
+      - {ref: e4, kind: AuthorityGranted, effective_time: 13, knowledge_time: 13, actor: cartel-b, subject: cartel-a, scope: authorization, policy: constitution-v1}
+    cutoffs: [10, 11, 12, 13]
+    expected:
+      terminal_state: PASS
+      final_disposition: capture_detected
+      required_controls: [reconstruct_control_at_each_cutoff, detect_sequence_level_control, retain_appointment_lineage]
+    caveat: "This is a constructed hypothesis; validity of each event must be checked against the pinned constitution and local authority owner."
+    owner_dependencies: [2953, 3117, 6069, 3684, 4835]
+
+  - id: T03
+    name: agenda-to-oversight-appointment-path
+    class: capture_attack
+    event_count: 5
+    events:
+      - {ref: e1, kind: AppointmentGranted, effective_time: 10, knowledge_time: 10, actor: chair-a, subject: cartel-a, scope: agenda, policy: constitution-v1}
+      - {ref: e2, kind: AgendaItemAdmitted, effective_time: 11, knowledge_time: 11, actor: cartel-a, subject: appointment-resolution, scope: appointment, policy: constitution-v1}
+      - {ref: e3, kind: AppointmentGranted, effective_time: 12, knowledge_time: 12, actor: appointment-body, subject: cartel-b, scope: audit, policy: constitution-v1}
+      - {ref: e4, kind: AppointmentGranted, effective_time: 13, knowledge_time: 13, actor: appointment-body, subject: cartel-c, scope: appeal, policy: constitution-v1}
+      - {ref: e5, kind: AuthorityGranted, effective_time: 14, knowledge_time: 14, actor: cartel-b, subject: cartel-c, scope: treasury, policy: constitution-v1}
+    cutoffs: [10, 11, 12, 13, 14]
+    expected:
+      terminal_state: PASS
+      final_disposition: capture_detected
+      required_controls: [model_agenda_control, preserve_oversight_independence, detect_control_path]
+    caveat: "A valid agenda action is not itself capture; the benchmark oracle must assess the full authority/control path."
+    owner_dependencies: [2953, 3117, 6069, 3684, 4835]
+
+  - id: T04
+    name: revocation-between-approval-and-execution
+    class: authority_race_attack
+    event_count: 4
+    events:
+      - {ref: e1, kind: AuthorityGranted, effective_time: 10, knowledge_time: 10, subject: officer-b, scope: expenditure, authority: grant-b}
+      - {ref: e2, kind: ExecutionAuthorized, effective_time: 11, knowledge_time: 11, actor: officer-b, authority: grant-b, operation: op-44}
+      - {ref: e3, kind: AuthorityRevoked, effective_time: 12, knowledge_time: 12, actor: issuer-a, subject: officer-b, authority: grant-b}
+      - {ref: e4, kind: ExecutionAttempted, effective_time: 13, knowledge_time: 13, actor: officer-b, authority: grant-b, operation: op-44}
+    cutoffs: [11, 12, 13]
+    expected:
+      terminal_state: PASS
+      final_disposition: authority_denied
+      required_controls: [recheck_current_authority_at_execution, reject_revoked_grant, preserve_earlier_approval_history]
+    owner_dependencies: [2953, 1607, 6069, 4835]
+
+  - id: T05
+    name: expiry-at-execution-boundary
+    class: authority_boundary_attack
+    event_count: 3
+    events:
+      - {ref: e1, kind: AuthorityGranted, effective_time: 10, knowledge_time: 10, subject: officer-b, authority: grant-b, valid_until: 20}
+      - {ref: e2, kind: ExecutionAuthorized, effective_time: 19, knowledge_time: 19, actor: officer-b, authority: grant-b, operation: op-45}
+      - {ref: e3, kind: ExecutionAttempted, effective_time: 20, knowledge_time: 20, actor: officer-b, authority: grant-b, operation: op-45}
+    cutoffs: [19, 20]
+    expected:
+      terminal_state: PASS
+      final_disposition: authority_denied
+      required_controls: [apply_expiry_boundary_exactly, distinguish_authorization_from_execution]
+    owner_dependencies: [2953, 3117, 6069]
+
+  - id: T06
+    name: delegation-chain-non-amplification
+    class: delegation_attack
+    event_count: 4
+    events:
+      - {ref: e1, kind: AuthorityGranted, effective_time: 10, knowledge_time: 10, subject: delegate-a, authority: grant-a, scope: maintenance, expires: 40}
+      - {ref: e2, kind: DelegationGranted, effective_time: 11, knowledge_time: 11, actor: delegate-a, subject: delegate-b, authority: grant-b, scope: maintenance, expires: 30, parent: grant-a}
+      - {ref: e3, kind: DelegationGranted, effective_time: 12, knowledge_time: 12, actor: delegate-b, subject: delegate-c, authority: grant-c, scope: treasury, expires: 35, parent: grant-b}
+      - {ref: e4, kind: ExecutionAttempted, effective_time: 13, knowledge_time: 13, actor: delegate-c, authority: grant-c, scope: treasury, operation: op-46}
+    cutoffs: [11, 12, 13]
+    expected:
+      terminal_state: PASS
+      final_disposition: authority_denied
+      required_controls: [delegation_scope_subset, delegation_expiry_not_extended, reject_parent_scope_amplification]
+    owner_dependencies: [2953, 3117, 3126, 4835]
+
+  - id: T07
+    name: bitemporal-late-correction
+    class: bitemporal_reconstruction
+    event_count: 5
+    events:
+      - {ref: e1, kind: AuthorityGranted, effective_time: 10, knowledge_time: 10, subject: officer-b, authority: grant-b}
+      - {ref: e2, kind: ExecutionAttempted, effective_time: 15, knowledge_time: 15, actor: officer-b, authority: grant-b, operation: op-47}
+      - {ref: e3, kind: IndependentObservationRecorded, effective_time: 15, knowledge_time: 15, source: observer-a, result: effect-observed}
+      - {ref: e4, kind: AuthorityRevoked, effective_time: 14, knowledge_time: 30, source: issuer-a, subject: officer-b, authority: grant-b}
+      - {ref: e5, kind: CorrectionRecorded, effective_time: 14, knowledge_time: 30, source: reviewer-b, result: revocation-effective-at-14, supersedes: e3}
+    cutoffs: [15, 30]
+    expected:
+      terminal_state: PASS
+      disposition_at_knowledge_cutoff_15: authorized_on_then_known_evidence
+      final_disposition: authority_denied
+      required_controls: [historical_cutoff_reconstruction, current_projection_includes_correction, preserve_superseded_observation, open_challenge_or_remedy]
+    owner_dependencies: [6069, 3126, 4835]
+    caveat: "The historical label describes the evidence then known, not a legal judgment; the current corrected view must recognize the earlier effective revocation and preserve a remedy path."
+
+  - id: T08
+    name: temporary-oversight-quorum-loss
+    class: oversight_availability_attack
+    event_count: 4
+    events:
+      - {ref: e1, kind: OversightCapabilitySuspended, effective_time: 10, knowledge_time: 10, subject: reviewer-a, scope: audit}
+      - {ref: e2, kind: OversightCapabilitySuspended, effective_time: 11, knowledge_time: 11, subject: reviewer-b, scope: appeal}
+      - {ref: e3, kind: ExecutionAttempted, effective_time: 12, knowledge_time: 12, actor: cartel-a, scope: high_impact, operation: op-48}
+      - {ref: e4, kind: OversightCapabilityGranted, effective_time: 13, knowledge_time: 13, subject: reviewer-c, scope: audit}
+    cutoffs: [10, 11, 12, 13]
+    expected:
+      terminal_state: PASS
+      final_disposition: authority_denied
+      required_controls: [pause_high_impact_actions_during_oversight_gap, report_gap_duration, restore_independent_review_before_resume]
+    owner_dependencies: [2953, 3117, 6069, 4835]
+
+  - id: T09
+    name: independent-concurrent-event-permutation
+    class: benign_metamorphic_control
+    event_count: 4
+    events:
+      - {ref: e1, kind: AppointmentGranted, effective_time: 10, knowledge_time: 10, actor: council-a, subject: officer-b, scope: logistics}
+      - {ref: e2, kind: AppointmentGranted, effective_time: 10, knowledge_time: 10, actor: council-c, subject: officer-d, scope: public_information}
+      - {ref: e3, kind: AuthorityGranted, effective_time: 11, knowledge_time: 11, actor: issuer-a, subject: officer-b, scope: logistics}
+      - {ref: e4, kind: AuthorityGranted, effective_time: 11, knowledge_time: 11, actor: issuer-c, subject: officer-d, scope: public_information}
+    paired_variants:
+      - [e1, e2, e3, e4]
+      - [e2, e1, e4, e3]
+    expected:
+      terminal_state: PASS
+      final_disposition: no_capture_observed
+      relation: semantic_projection_equal
+    precondition: "Owner-native contracts must declare these event pairs independent and commutative."
+    owner_dependencies: [2953, 3117, 6069]
+
+  - id: T10
+    name: conflicting-concurrent-revocation-and-use
+    class: concurrency_attack
+    event_count: 3
+    events:
+      - {ref: e1, kind: AuthorityGranted, effective_time: 10, knowledge_time: 10, subject: officer-b, authority: grant-b}
+      - {ref: e2, kind: AuthorityRevoked, effective_time: 12, knowledge_time: 12, subject: officer-b, authority: grant-b}
+      - {ref: e3, kind: ExecutionAttempted, effective_time: 12, knowledge_time: 12, actor: officer-b, authority: grant-b, operation: op-49}
+    paired_variants:
+      - [e1, e2, e3]
+      - [e1, e3, e2]
+    expected:
+      terminal_state: INDETERMINATE
+      final_disposition: indeterminate
+      required_controls: [honor_causal_order_or_hold_for_reconciliation, never_assume_timestamp_tie_break]
+    owner_dependencies: [2953, 1607, 6069, 3126]
+
+  - id: T11
+    name: unknown-in-flight-execution-no-blind-retry
+    class: execution_reconciliation_attack
+    event_count: 3
+    events:
+      - {ref: e1, kind: ExecutionAuthorized, effective_time: 10, knowledge_time: 10, authority: grant-b, operation: op-50}
+      - {ref: e2, kind: ExecutionAttempted, effective_time: 11, knowledge_time: 11, authority: grant-b, operation: op-50, idempotency_ref: idem-50}
+      - {ref: e3, kind: ExecutionOutcomeUnknown, effective_time: 11, knowledge_time: 12, operation: op-50, idempotency_ref: idem-50, provider: provider-a}
+    cutoffs: [11, 12]
+    expected:
+      terminal_state: PASS
+      final_disposition: hold_for_reconciliation
+      required_controls: [no_blind_retry, preserve_operation_identity, reconcile_before_new_mutation]
+    owner_dependencies: [1607, 2953, 3117, 6069]
+
+  - id: T12
+    name: failover-with-incomplete-dependency-closure
+    class: dependency_uncertainty_attack
+    event_count: 3
+    events:
+      - {ref: e1, kind: ProviderUnavailable, effective_time: 10, knowledge_time: 10, provider: provider-a}
+      - {ref: e2, kind: ProviderReplaced, effective_time: 11, knowledge_time: 11, provider: provider-b, evidence: replacement-attestation}
+      - {ref: e3, kind: OversightCapabilityGranted, effective_time: 12, knowledge_time: 12, subject: reviewer-c, source: verifier-b}
+    cutoffs: [10, 11, 12]
+    expected:
+      terminal_state: INDETERMINATE
+      final_disposition: indeterminate
+      required_controls: [retain_known_dependency_overlap, do_not_claim_independence_from_partial_inventory]
+    owner_dependencies: [5762, 5695, 1243, 1371, 4835]
+
+  - id: T13
+    name: federation-exit-with-outstanding-capability
+    class: exit_and_revocation
+    event_count: 4
+    events:
+      - {ref: e1, kind: DelegationGranted, effective_time: 10, knowledge_time: 10, actor: institution-a, subject: institution-b, scope: read-service, expires: 40}
+      - {ref: e2, kind: InstitutionExited, effective_time: 20, knowledge_time: 20, actor: institution-b, federation: federation-ab}
+      - {ref: e3, kind: ExecutionAttempted, effective_time: 21, knowledge_time: 21, actor: institution-b, authority: delegated-capability, scope: read-service, operation: op-51}
+      - {ref: e4, kind: CorrectionRecorded, effective_time: 20, knowledge_time: 25, source: institution-a, result: federation-exit-revokes-delegation}
+    cutoffs: [20, 21, 25]
+    expected:
+      terminal_state: PASS
+      final_disposition: authority_denied
+      required_controls: [local_exit_effective, revoke_or_reconcile_outstanding_capabilities, preserve_obligations_and_remedies]
+    owner_dependencies: [3129, 2953, 6069, 3126, 4835]
+
+  - id: T14
+    name: emergency-authority-extension-chain
+    class: emergency_power_attack
+    event_count: 5
+    events:
+      - {ref: e1, kind: AuthorityGranted, effective_time: 10, knowledge_time: 10, subject: emergency-officer, scope: continuity, expires: 20}
+      - {ref: e2, kind: AuthorityGranted, effective_time: 19, knowledge_time: 19, subject: emergency-officer, scope: continuity, expires: 29, parent: e1}
+      - {ref: e3, kind: AuthorityGranted, effective_time: 28, knowledge_time: 28, subject: emergency-officer, scope: continuity, expires: 38, parent: e2}
+      - {ref: e4, kind: OversightCapabilitySuspended, effective_time: 29, knowledge_time: 29, subject: reviewer-a, scope: emergency-review}
+      - {ref: e5, kind: ExecutionAttempted, effective_time: 30, knowledge_time: 30, actor: emergency-officer, scope: treasury, operation: op-52}
+    cutoffs: [19, 28, 29, 30]
+    expected:
+      terminal_state: INDETERMINATE
+      final_disposition: indeterminate
+      required_controls: [bounded_extension_policy, independent_review_of_renewal, reject_scope_escalation, retain_sunset_evidence]
+    owner_dependencies: [2953, 3117, 6069, 4835]
+
+benchmark_targets:
+  finite_sequences_initial: 14
+  confirmatory_sequences_minimum: 30
+  paired_temporal_relations_minimum: 10
+  roles: [2, 3, 4, 5]
+  events_per_sequence: [2, 3, 4, 5, 6, 7, 8]
+  status: "The 14 cases are a development seed; 30 and 10 are proposed research targets, not achieved results."
+
+metrics:
+  non_compensatory:
+    - false_pass_high_severity
+    - unauthorized_execution_rate
+    - missed_temporal_capture_paths
+    - false_positive_capture_alarm_rate
+    - authority_at_proposal_vs_execution_mismatch
+    - oversight_gap_duration
+    - time_to_independent_challenge
+    - historical_reconstruction_accuracy
+    - blind_retry_after_unknown_outcome
+    - incomplete_dependency_closure_false_claims
+  efficiency:
+    - states_explored
+    - transitions_explored
+    - time_to_first_counterexample
+    - total_runtime
+    - peak_memory
+    - budget_exhaustions
