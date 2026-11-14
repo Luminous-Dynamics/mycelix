@@ -202,7 +202,7 @@ fn epistemic_bounty_domain_cases_match_separate_oracle() {
     assert_eq!(suite.case_count, suite.cases.len());
     assert_eq!(oracle.case_count, oracle.rows.len());
     assert_eq!(suite.suite_id, oracle.suite_id);
-    assert_eq!(suite.cases.len(), 12);
+    assert_eq!(suite.cases.len(), 13);
 
     let ids: BTreeSet<_> = suite.cases.iter().map(|case| case.id.as_str()).collect();
     let rows: BTreeMap<_, _> = oracle.rows.iter().map(|row| (row.case_id.as_str(), row)).collect();
