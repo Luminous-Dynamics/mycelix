@@ -22,7 +22,7 @@ time_model:
     - "Later knowledge-time corrections may revise the current projection but cannot overwrite the earlier decision-time projection."
     - "Authority is evaluated at the time of the consequential operation, not only at proposal or approval."
     - "No event is ordered by timestamp alone where owner-native causal/predecessor references establish a different relation."
-  event_reference_fields:
+  native_adapter_output_fields:
     required:
       - source_system
       - source_event_ref
@@ -38,6 +38,9 @@ time_model:
       - exact_scope
       - evidence_disposition
     rule: "Missing owner-native fields are unsupported or indeterminate; adapters must not synthesize evidence."
+  synthetic_seed_fields:
+    required: [ref, kind, effective_time, knowledge_time]
+    rule: "The local ref values in this development seed are fixture IDs, not owner-native references or cryptographic digests. A qualified adapter must bind exact native source references before evaluating owner-backed sequences."
 
 terminal_states:
   - PASS
@@ -166,7 +169,7 @@ sequences:
     cutoffs: [15, 30]
     expected:
       terminal_state: PASS
-      final_disposition: no_capture_observed
+      final_disposition: authority_denied
       required_controls: [historical_cutoff_reconstruction, current_projection_includes_correction, preserve_superseded_observation, open_challenge_or_remedy]
     owner_dependencies: [6069, 3126, 4835]
     caveat: "The final disposition is not itself a legal judgment; the fixture tests historical/current projection separation and remedy linkage."
