@@ -523,6 +523,12 @@
             "boolean",
             "null"
           ]
+        },
+        "continuity_trigger_verified": {
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
       }
     },
@@ -570,6 +576,12 @@
             "null"
           ],
           "minimum": 0
+        },
+        "operation_already_applied": {
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
       }
     }
