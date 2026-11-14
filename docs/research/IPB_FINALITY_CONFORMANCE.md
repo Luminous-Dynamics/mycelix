@@ -216,10 +216,32 @@ The LISE panel adds A33/F34:
 Clarification must preserve the scope boundary. User silence, a plausible default, tool availability or a model confidence score do not create authority.
 
 
-## 14. Exact enforcement and bounded authority aggregation
+## 15. Oracle separation and blind submission
 
-The Rust reference's complete-mediation helper takes the expected enforcement-point reference explicitly. Every reachable route must traverse that exact PEP; merely naming another enforcement component is insufficient.
+The 34-case input manifest `IPB_FINALITY_SCENARIOS.json` is now input-only. It contains no per-case expected terminal states, dispositions, outcome classes or required assertions. It is explicitly marked `input_only: true` and validated against an input-only schema.
 
-Trajectory-wide privilege aggregation is conservative over all active grants: action/resource/purpose/field sets are unioned, while amount and operation-count ceilings are summed. Unbounded grants keep the corresponding union unbounded. This is deliberately conservative and should be refined to resource-specific aggregation in an adapter where owner-native semantics allow it.
+Expected known answers are stored separately in `IPB_FINALITY_ORACLE.json`, with a separate schema. The oracle is for the independent evaluator/reviewers and must not be supplied to systems under test. A submission must cover all 34 case IDs; unsupported dimensions are reported explicitly rather than omitted.
 
-The 34-case corpus adds A33/F34 for principal clarification. AuthorizationBench reports 19.2% out-of-scope behavior across its 6,864 trajectories; its controlled-pair analysis reports 14.0% with principal consultation versus 21.6% without. Those are study-specific figures, not our result: https://arxiv.org/abs/2610.27548
+This corrects an earlier authoring weakness where expected answers were nested inside the scenario objects. The corpus is still a public development seed, so this split improves protocol hygiene but does not make its known answers a hidden holdout. A confirmatory holdout must be generated separately, access-controlled and frozen before comparator evaluation.
+
+
+## 16. Matched comparator protocol and verified research anchors
+
+See [IPB-FINALITY Comparator Protocol](./IPB_FINALITY_COMPARATOR_PROTOCOL.md) for system boundaries, comparator arms, matched test conditions, repeated-run expectations, metric definitions and prospective targets.
+
+The current external benchmark context includes:
+- AuthorizationBench (20 October 2026): 286 tasks, ten domains and 6,864 trajectories; 19.2% out-of-authorization behavior overall, with the paper reporting 14.0% versus 21.6% in its principal-consultation comparison. https://arxiv.org/abs/2610.27548
+- SABench (25 October 2026): 201 tasks and 2,211 model-task runs; 15.2% collateral damage overall, 38.8% on ambiguity traps, 8.4% on non-ambiguous traps, and 12.8% unauthorized writes among goal-satisfied runs. https://arxiv.org/abs/2610.34167
+- Zanzibar (USENIX ATC 2019): production-scale, consistency-aware ACL authorization with reported p95 latency below 10 ms and availability above 99.999% over three years. It is an authorization-service performance comparator, not an external-effect finality benchmark. https://www.usenix.org/conference/atc19/presentation/pang
+- Cedar: PARC authorization evaluation, diagnostics, and a documented skip-on-error policy semantic. Mandatory guardrail failure handling is an application integration question, not a Cedar defect. https://docs.cedarpolicy.com/auth/authorization.html
+- OPA: decision-log drop rules and rate limiting can omit log events; absence of a log is not absence of a decision/effect. https://www.openpolicyagent.org/docs/management-decision-logs
+- NIST AI RMF critical-infrastructure profile remains ongoing profile development, not a completed standard or certification. https://www.nist.gov/programs-projects/concept-note-ai-rmf-profile-trustworthy-ai-critical-infrastructure
+
+All numeric values above are findings from the referenced systems and papers, not measurements of Luminous or LISE.
+
+
+## 17. Generated mutation and metamorphic protocol
+
+See [IPB-FINALITY Mutation Protocol](./IPB_FINALITY_MUTATION_PROTOCOL.md) for operation-field mutation grids, session/revocation races, provider/outcome combinations, alternate routes, evidence perturbations and 16 metamorphic properties. This is a proposed next benchmark increment, not an implemented generator or executed test suite.
+
+The target is to expand the 34-case development seed into a separately frozen 200+ case confirmatory panel using a documented pairwise/covering-array design, forced high-severity compositions and independent oracle construction.
