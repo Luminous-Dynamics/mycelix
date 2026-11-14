@@ -98,3 +98,18 @@ Unknown fields stay null/unknown. Browser-reader parse failures must not be enco
 ## Claim ceiling
 
 This audit confirms public source-page contents and the rendered JSON Schema declarations described above. It does not claim that all source bytes were captured, that the artifacts passed validation, that Mycelix conforms to EPCIS/CBV, that any external server is conformant, or that any physical event occurred. No content hash, validator result, GS1 endorsement or SOTA result is claimed.
+
+
+## 2026-11-14 artifact retrieval and mirror discrimination
+
+A fresh web inspection opened the official [EPCIS/CBV 2.0.0 artifact index](https://ref.gs1.org/standards/epcis/2.0.0/artefacts). It lists the 2.0.0 JSON-LD context, JSON Schema and SHACL files, plus EPCIS and CBV ontology files. The exact [2.0.0 JSON Schema](https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json) rendered successfully in the browser reader as JSON and declares:
+- `$id`: `https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json`
+- `$schema`: JSON Schema Draft-07.
+
+This confirms that the schema endpoint is browser-renderable now; it does **not** provide captured raw response bytes, final URL/header metadata, a byte length, or a SHA-256 digest. No validator was executed. The exact context and SHACL endpoints still fail at the browser layer with unsupported content-type (`application/ld+json` and `text/turtle` respectively); that is not an HTTP 404.
+
+A repository-mirror check found `gs1/EPCIS/epcis-context.jsonld` at commit `6f71468231838e424bb5dfa836e006e8dc69615c`, blob SHA (Git object ID) `484faf6e256bdd159dbc4be442f68fb73018eb95`. The pinned commit message identifies it as **“Hosted public review draft v2.1 of epcis-context.jsonld”**. It is therefore not accepted as a substitute for the exact 2.0.0 context named by the normative artifact URL. Its Git blob ID is not a SHA-256 of the official 2.0.0 HTTP payload.
+
+A direct local HTTP attempt failed before connection at DNS resolution for `ref.gs1.org`; no HTTP status can be inferred. Keep every raw-byte, final-response, digest, JSON-LD and SHACL field unknown until an independent HTTP client captures the exact official 2.0.0 bytes.
+
+**Disposition:** improved locator/version knowledge, but no change to the raw-artifact acceptance gate. The 2.0.0 and 2.0.1 source sets remain separate; the GitHub v2.1 review draft remains a rejected substitute.
