@@ -336,3 +336,32 @@ fn restoration_tranche_must_fit_remaining_budget_and_valid_funding_source() {
     invalid_funding.funding_source_valid = Some(false);
     assert_eq!(evaluate_restoration_contract(&invalid_funding).disposition, Disposition::Deny);
 }
+
+#[test]
+fn generic_staged_reward_requires_recipient_and_exact_financial_bounds() {
+    let scenarios: ScenarioSuite = serde_json::from_str(SCENARIOS).unwrap();
+    let reward = scenarios.cases.iter().find(|case| case.id == "P06").unwrap();
+
+    let mut over_ceiling = reward.facts.clone();
+    over_ceiling.amount_units = Some(50_001);
+    assert_eq!(evaluate(&over_ceiling, over_ceiling.evaluated_at_unix).disposition, Disposition::Deny);
+
+    let mut recipient_ineligible = reward.facts.clone();
+    recipient_ineligible.recipient_eligible = Some(false);
+    assert_eq!(evaluate(&recipient_ineligible, recipient_ineligible.evaluated_at_unix).disposition, Disposition::Deny);
+
+    let mut amount_unknown = reward.facts.clone();
+    amount_unknown.amount_ceiling_units = None;
+    assert_eq!(evaluate(&amount_unknown, amount_unknown.evaluated_at_unix).disposition, Disposition::Indeterminate);
+}
+
+#[test]
+fn high_impact_contract_with_unknown_remedy_path_is_indeterminate() {
+    let scenarios: ScenarioSuite = serde_json::from_str(SCENARIOS).unwrap();
+    let positive = scenarios.cases.iter().find(|case| case.id == "P01").unwrap();
+    let mut facts = positive.facts.clone();
+    facts.rights.high_impact = Some(true);
+    facts.rights.remedy_path_defined = None;
+    let decision = evaluate(&facts, facts.evaluated_at_unix);
+    assert_eq!(decision.disposition, Disposition::Indeterminate);
+}
