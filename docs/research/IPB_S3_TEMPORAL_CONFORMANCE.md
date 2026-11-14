@@ -66,6 +66,24 @@ A sequence that cannot prove one of these conditions is not silently classified 
 
 The attack-path report should include the earliest cutoff at which the predicate holds, the exact event references that establish the path, the first available independent challenge point, and any interval during which high-impact operations were possible while oversight was unavailable.
 
+### Development-seed event vocabulary
+
+The initial synthetic panel uses the following event kinds as fixture labels only:
+
+- AppointmentGranted / AppointmentRevoked
+- DelegationGranted / DelegationRevoked
+- AuthorityGranted / AuthorityExpired / AuthorityRevoked
+- PolicyActivated / ConstitutionSuperseded
+- AgendaItemAdmitted
+- OversightCapabilityGranted / OversightCapabilitySuspended
+- ExecutionAuthorized / ExecutionAttempted / ExecutionOutcomeUnknown
+- IndependentObservationRecorded
+- ChallengeFiled / CorrectionRecorded / RemedyIssued
+- ProviderUnavailable / ProviderReplaced
+- InstitutionExited / InstitutionDissolved
+
+These labels are not claims that every owner already emits a matching event. The adapter must map to an exact source-native event or report UNSUPPORTED; it must not manufacture a source event or digest.
+
 ## 4. Event ordering and concurrency
 
 Do not assume a total order from timestamps alone.
