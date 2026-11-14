@@ -1048,7 +1048,10 @@ mod tests {
             } else {
                 "portfolio_disposition=PORTFOLIO_FEASIBLE_FOR_DECLARED_SCENARIO"
             };
-            assert!(report.contains(expected), "resource capacity boundary {capacity}");
+            assert!(
+                report.contains(expected),
+                "resource capacity boundary {capacity}"
+            );
         }
 
         for capacity in 0..=100_u64 {
@@ -1063,7 +1066,10 @@ mod tests {
             } else {
                 "portfolio_disposition=PORTFOLIO_FEASIBLE_FOR_DECLARED_SCENARIO"
             };
-            assert!(report.contains(expected), "option capacity boundary {capacity}");
+            assert!(
+                report.contains(expected),
+                "option capacity boundary {capacity}"
+            );
         }
 
         for floor in 0..=110_u64 {
