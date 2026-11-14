@@ -305,7 +305,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Inclusive end of the claim's world-time validity interval. A claim is eligible when effective_from <= effective_at <= effective_through and observed_at <= known_at. Null means no declared end."
           },
           "observed_at": {
             "type": "string",
