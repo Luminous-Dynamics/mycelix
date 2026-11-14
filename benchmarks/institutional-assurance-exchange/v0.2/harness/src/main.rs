@@ -508,7 +508,9 @@ fn check_operation_finality(packet: &Value, submission: &Value) -> Result<bool, 
     let checks=[
         (required_str(approved,"logical_operation_id","approved operation")?,required_str(execution,"operation_ref","execution control")?,"operation reference"),
         (required_str(approved,"idempotency_ref","approved operation")?,required_str(execution,"idempotency_ref","execution control")?,"idempotency reference"),
-        (required_str(approved,"target_ref","approved operation")?,required_str(packet,"asset_ref","asset")?,"target asset"),
+        (required_str(approved,"target_ref","approved operation")?,required_str(&packet["asset"],"asset_ref","asset")?,"target asset"),
+        (required_str(approved,"action","approved operation")?,required_str(write,"action","write trace")?,"operation action"),
+        (required_str(approved,"principal_ref","approved operation")?,required_str(write,"actor_ref","write trace")?,"operation principal"),
         (required_str(approved,"purpose","approved operation")?,required_str(write,"purpose","write trace")?,"operation purpose"),
         (required_str(binding,"policy_revision","operation finality")?,required_str(packet,"policy_ref","policy")?,"policy revision"),
     ];
