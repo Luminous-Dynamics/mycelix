@@ -1,0 +1,68 @@
+{
+  "schema_version": "lise.temporal-institution-oracle.v0.1",
+  "suite_id": "LISE-TEMPORAL-001",
+  "status": "reference-oracle-pending-independent-review",
+  "case_count": 12,
+  "rows": [
+    {
+      "case_id": "T01",
+      "expected_disposition": "permit",
+      "reason_code": "DECLARED_TEMPORAL_PROPERTIES_HOLD"
+    },
+    {
+      "case_id": "T02",
+      "expected_disposition": "deny",
+      "reason_code": "HIGH_IMPACT_RECOVERY_REQUIRES_TRIGGER_QUORUM_FENCING_AND_REVALIDATION"
+    },
+    {
+      "case_id": "T03",
+      "expected_disposition": "permit",
+      "reason_code": "DECLARED_TEMPORAL_PROPERTIES_HOLD"
+    },
+    {
+      "case_id": "T04",
+      "expected_disposition": "deny",
+      "reason_code": "DEGRADED_MODE_REQUIRES_OLD_SESSION_FENCING"
+    },
+    {
+      "case_id": "T05",
+      "expected_disposition": "deny",
+      "reason_code": "STALE_ADMINISTRATOR_PRIVILEGE_RESTORED_AFTER_EPOCH_CHANGE"
+    },
+    {
+      "case_id": "T06",
+      "expected_disposition": "deny",
+      "reason_code": "HIGH_IMPACT_RECOVERY_REQUIRES_TRIGGER_QUORUM_FENCING_AND_REVALIDATION"
+    },
+    {
+      "case_id": "T07",
+      "expected_disposition": "permit",
+      "reason_code": "DECLARED_TEMPORAL_PROPERTIES_HOLD"
+    },
+    {
+      "case_id": "T08",
+      "expected_disposition": "deny",
+      "reason_code": "EXPIRED_EMERGENCY_AUTHORITY_REMAINS_ACTIVE"
+    },
+    {
+      "case_id": "T09",
+      "expected_disposition": "challenge_required",
+      "reason_code": "OVERSIGHT_SHARES_CONTROL_WITH_APPOINTMENT_RESOURCE_OR_CREDENTIAL_COALITION"
+    },
+    {
+      "case_id": "T10",
+      "expected_disposition": "permit",
+      "reason_code": "DECLARED_TEMPORAL_PROPERTIES_HOLD"
+    },
+    {
+      "case_id": "T11",
+      "expected_disposition": "indeterminate",
+      "reason_code": "CONTROL_INVENTORY_INCOMPLETE"
+    },
+    {
+      "case_id": "T12",
+      "expected_disposition": "deny",
+      "reason_code": "HIGH_IMPACT_RECOVERY_REQUIRES_TRIGGER_QUORUM_FENCING_AND_REVALIDATION"
+    }
+  ]
+}
