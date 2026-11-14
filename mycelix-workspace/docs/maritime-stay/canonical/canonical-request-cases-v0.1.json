@@ -1,0 +1,228 @@
+{
+  "profile_id": "MC-JCS-1",
+  "profile_version": "0.1",
+  "status": "proposed_not_normative",
+  "canonicalization": "RFC8785_JCS_restricted_integer_only_profile",
+  "digest": {
+    "algorithm": "SHA-256",
+    "domain_prefix_ascii": "MARITIME-COMMONS\\0JCS-1\\0",
+    "encoding": "UTF-8",
+    "rendering": "sha256-lowercase-hex"
+  },
+  "evidence_limit": "Expected values are reference fixtures pending independent RFC 8785 implementation verification. They are not evidence of an implemented or frozen codec.",
+  "cases": [
+    {
+      "id": "MCJCS-POS-001",
+      "kind": "accept",
+      "input_raw_json": "{\"b\":2, \"a\":1}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"a\":1,\"b\":2}",
+      "expected_semantic_sha256_hex": "67a8972db818e14120df09c6a9823de44c5372492837855e9260621efe696cda",
+      "expected_raw_source_sha256_hex": "d0ed52f9264c29a600df1013daf0d1661f8f23390be6b58008de7e7d33c01080",
+      "notes": "Object member order and insignificant whitespace do not affect canonical semantic identity."
+    },
+    {
+      "id": "MCJCS-POS-002",
+      "kind": "accept",
+      "input_raw_json": "{\"a\":1,\"b\":2}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"a\":1,\"b\":2}",
+      "expected_semantic_sha256_hex": "67a8972db818e14120df09c6a9823de44c5372492837855e9260621efe696cda",
+      "expected_raw_source_sha256_hex": "43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777",
+      "notes": "Same semantic digest as MCJCS-POS-001 but different raw source bytes."
+    },
+    {
+      "id": "MCJCS-POS-003",
+      "kind": "accept",
+      "input_raw_json": "{\n  \"b\": 2,\n  \"a\": 1\n}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"a\":1,\"b\":2}",
+      "expected_semantic_sha256_hex": "67a8972db818e14120df09c6a9823de44c5372492837855e9260621efe696cda",
+      "expected_raw_source_sha256_hex": "b8d841ab5d213095157bd4480e2c9441bef6ddbd08ed6df965420c2747288dbb",
+      "notes": "Whitespace changes raw digest but not semantic digest."
+    },
+    {
+      "id": "MCJCS-POS-004",
+      "kind": "accept",
+      "input_raw_json": "{\"z\":{\"β\":2,\"a\":1},\"a\":[{\"y\":true,\"x\":null}]}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"a\":[{\"x\":null,\"y\":true}],\"z\":{\"a\":1,\"β\":2}}",
+      "expected_semantic_sha256_hex": "77710a8234aed3ded76642bb81cffe94ed6d0b63e8c9a1a1af0226b06ab8d08e",
+      "notes": "Recursive object ordering; array order and null are retained."
+    },
+    {
+      "id": "MCJCS-POS-005",
+      "kind": "accept",
+      "input_raw_json": "{\"\\uE000\":1,\"𐀀\":2,\"a\":3}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"a\":3,\"𐀀\":2,\"\":1}",
+      "expected_semantic_sha256_hex": "9082fe021aa984f664795c22be1daba039b5dec9a0f71519f6237ba82cd3faf9",
+      "notes": "Discriminates UTF-16 code-unit ordering from UTF-8 or Unicode scalar-value sorting."
+    },
+    {
+      "id": "MCJCS-POS-006",
+      "kind": "accept",
+      "input_raw_json": "{\"value\":\"\\u00e9\"}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"value\":\"é\"}",
+      "expected_semantic_sha256_hex": "db2e59fe714d71a64e3a723e949ef2b36e21970f2624ee029d5a3b33b06cd785",
+      "notes": "Escaped and literal forms of the same Unicode scalar sequence canonicalize identically."
+    },
+    {
+      "id": "MCJCS-POS-007",
+      "kind": "accept",
+      "input_raw_json": "{\"n\":9007199254740991}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"n\":9007199254740991}",
+      "expected_semantic_sha256_hex": "33b24cb9663e87121b08784d8a621a989f1a95feb14bee52d0e0cec0e2282d3f",
+      "notes": "Largest positive safe integer is accepted."
+    },
+    {
+      "id": "MCJCS-POS-008",
+      "kind": "accept",
+      "input_raw_json": "{\"amount_minor\":\"900719925474099312345\",\"scale\":\"3\"}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"amount_minor\":\"900719925474099312345\",\"scale\":\"3\"}",
+      "expected_semantic_sha256_hex": "82c73e667d21c5febe2c6e18acb347ae6960756e311acae1bcdbd9c404fd4365",
+      "notes": "Large exact monetary values remain strings and need metadata/effective-date validation beyond canonicalization."
+    },
+    {
+      "id": "MCJCS-POS-009",
+      "kind": "accept",
+      "input_raw_json": "{\"n\":-0}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"n\":0}",
+      "expected_semantic_sha256_hex": "c55c204bb3448f457073e3373be64fe89fa06c0ae73ad832a7cadf586997393d",
+      "notes": "JCS numeric negative zero serializes as 0 under the proposed restricted profile."
+    },
+    {
+      "id": "MCJCS-POS-010",
+      "kind": "accept",
+      "input_raw_json": "{\"items\":[3,2,1]}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"items\":[3,2,1]}",
+      "expected_semantic_sha256_hex": "03bb119ea9d8e2be6ee4f3fe699a4a13b6fc939b0d455787c1019895290c455d",
+      "notes": "Array order is preserved; canonicalization does not sort collections."
+    },
+    {
+      "id": "MCJCS-POS-011",
+      "kind": "accept",
+      "input_raw_json": "{\"name\":\"é\"}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"name\":\"é\"}",
+      "expected_semantic_sha256_hex": "881bc50d2621713f942307ec039fd094a6b1e1c2c306415a9492857fa0ad70c4",
+      "notes": "NFC form is preserved as received."
+    },
+    {
+      "id": "MCJCS-POS-012",
+      "kind": "accept",
+      "input_raw_json": "{\"name\":\"é\"}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"name\":\"é\"}",
+      "expected_semantic_sha256_hex": "6d7b65eac63069aa67e89a7528c47ae83f907cdd16c16c1ad3f19e51ac4ba9dc",
+      "notes": "NFD form remains distinct from NFC; no Unicode normalization is performed."
+    },
+    {
+      "id": "MCJCS-POS-013",
+      "kind": "accept",
+      "input_raw_json": "{\"value\":null}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"value\":null}",
+      "expected_semantic_sha256_hex": "9fd2ffc0376651297a9a12f032f0378567f3c44ee3078a51a94550046e80eb3e",
+      "notes": "Explicit null is distinct from absent property."
+    },
+    {
+      "id": "MCJCS-POS-014",
+      "kind": "accept",
+      "input_raw_json": "{}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{}",
+      "expected_semantic_sha256_hex": "9f337883223b8c1382e9daea8e14e31570a1f8c313c35f6d315256f194435321",
+      "notes": "Empty object is distinct from object containing null."
+    },
+    {
+      "id": "MCJCS-POS-015",
+      "kind": "accept",
+      "input_raw_json": "{\"items\":[1,2,3]}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"items\":[1,2,3]}",
+      "expected_semantic_sha256_hex": "29e4369b60e8fafe090175f8b03d4eab3f1fc57fdfadf230db36b110cfbf3e54",
+      "notes": "Array permutation changes canonical bytes and digest."
+    },
+    {
+      "id": "MCJCS-POS-016",
+      "kind": "accept",
+      "input_raw_json": "{\"at\":\"2026-11-08T12:00:00Z\"}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"at\":\"2026-11-08T12:00:00Z\"}",
+      "expected_semantic_sha256_hex": "d5d802ed0dbb92685c316dbc4d3996f1be9c3de28f937d150f3794bfb05155a6",
+      "notes": "Timestamp lexical form is preserved; temporal equivalence is handled by a separate typed temporal verifier."
+    },
+    {
+      "id": "MCJCS-POS-017",
+      "kind": "accept",
+      "input_raw_json": "{\"at\":\"2026-11-08T12:00:00+00:00\"}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"at\":\"2026-11-08T12:00:00+00:00\"}",
+      "expected_semantic_sha256_hex": "54295d8d4b409dd5c61d2488c220463ff75e8b3a2c31e86ff253c5e851fde6b3",
+      "notes": "Equivalent instant with a different source lexeme has different canonical identity; do not normalize timestamps in the codec."
+    },
+    {
+      "id": "MCJCS-POS-018",
+      "kind": "accept",
+      "input_raw_json": "{\"resource\":\"berth:42\",\"x-ext:berth\":{\"vendor_code\":\"X-7\"}}",
+      "expected_disposition": "pass",
+      "expected_canonical_utf8": "{\"resource\":\"berth:42\",\"x-ext:berth\":{\"vendor_code\":\"X-7\"}}",
+      "expected_semantic_sha256_hex": "04d53c54bee8e2ce0ad47b36bf57b4b5da6bde33662b26b268cab77075162259",
+      "notes": "Unknown extension data remains bound into the digest; schema support and extension semantics are evaluated separately."
+    },
+    {
+      "id": "MCJCS-NEG-001",
+      "kind": "reject",
+      "input_raw_json": "{\"a\":1,\"a\":2}",
+      "expected_disposition": "reject",
+      "expected_error_code": "duplicate_member_name",
+      "notes": "Duplicate member names must be rejected before object-map materialization."
+    },
+    {
+      "id": "MCJCS-NEG-002",
+      "kind": "reject",
+      "input_raw_json": "{\"a\":1,\"\\u0061\":2}",
+      "expected_disposition": "reject",
+      "expected_error_code": "duplicate_member_name_after_escape_decode",
+      "notes": "Duplicate detection occurs after JSON escape decoding."
+    },
+    {
+      "id": "MCJCS-NEG-003",
+      "kind": "reject",
+      "input_raw_json": "{\"n\":1.0}",
+      "expected_disposition": "reject",
+      "expected_error_code": "fractional_number_forbidden",
+      "notes": "MC-JCS-1 rejects fractional numeric tokens even when mathematically integral."
+    },
+    {
+      "id": "MCJCS-NEG-004",
+      "kind": "reject",
+      "input_raw_json": "{\"n\":1e3}",
+      "expected_disposition": "reject",
+      "expected_error_code": "exponent_number_forbidden",
+      "notes": "MC-JCS-1 rejects exponent-form numeric tokens."
+    },
+    {
+      "id": "MCJCS-NEG-005",
+      "kind": "reject",
+      "input_raw_json": "{\"n\":9007199254740992}",
+      "expected_disposition": "reject",
+      "expected_error_code": "unsafe_integer",
+      "notes": "Integer exceeds the exact interoperable integer bound."
+    },
+    {
+      "id": "MCJCS-NEG-006",
+      "kind": "reject",
+      "input_raw_json": "{\"s\":\"\\ud800\"}",
+      "expected_disposition": "reject",
+      "expected_error_code": "invalid_unicode_scalar",
+      "notes": "Unpaired surrogate escape is not a Unicode scalar value."
+    }
+  ]
+}

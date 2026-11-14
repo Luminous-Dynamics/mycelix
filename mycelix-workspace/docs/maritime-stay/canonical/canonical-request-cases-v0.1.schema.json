@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-workspace/docs/maritime-stay/canonical/canonical-request-cases-v0.1.schema.json",
+  "title": "Maritime Commons MC-JCS-1 canonical request vector corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile_id",
+    "profile_version",
+    "status",
+    "canonicalization",
+    "digest",
+    "evidence_limit",
+    "cases"
+  ],
+  "properties": {
+    "profile_id": {
+      "const": "MC-JCS-1"
+    },
+    "profile_version": {
+      "const": "0.1"
+    },
+    "status": {
+      "const": "proposed_not_normative"
+    },
+    "canonicalization": {
+      "const": "RFC8785_JCS_restricted_integer_only_profile"
+    },
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "domain_prefix_ascii",
+        "encoding",
+        "rendering"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "SHA-256"
+        },
+        "domain_prefix_ascii": {
+          "const": "MARITIME-COMMONS\\0JCS-1\\0"
+        },
+        "encoding": {
+          "const": "UTF-8"
+        },
+        "rendering": {
+          "const": "sha256-lowercase-hex"
+        }
+      }
+    },
+    "evidence_limit": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "input_raw_json",
+          "expected_disposition",
+          "notes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^MCJCS-(POS|NEG)-[0-9]{3}$"
+          },
+          "kind": {
+            "enum": [
+              "accept",
+              "reject"
+            ]
+          },
+          "input_raw_json": {
+            "type": "string"
+          },
+          "expected_disposition": {
+            "enum": [
+              "pass",
+              "reject"
+            ]
+          },
+          "expected_canonical_utf8": {
+            "type": "string"
+          },
+          "expected_semantic_sha256_hex": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "expected_raw_source_sha256_hex": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "expected_error_code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "accept"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "expected_canonical_utf8",
+                "expected_semantic_sha256_hex"
+              ],
+              "properties": {
+                "expected_disposition": {
+                  "const": "pass"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "reject"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "expected_error_code"
+              ],
+              "properties": {
+                "expected_disposition": {
+                  "const": "reject"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
