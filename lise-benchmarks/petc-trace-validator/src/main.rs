@@ -691,6 +691,18 @@ mod tests {
     }
 
     #[test]
+    fn committed_pet_trace_fixture_is_accepted() {
+        let fixture: Value =
+            serde_json::from_str(include_str!("../examples/valid-trace.json")).unwrap();
+        let report = validate_trace(&fixture);
+        assert!(report.errors.is_empty(), "{:?}", report.errors);
+        assert!(report.missing_expected_action_ids.is_empty());
+        assert_eq!(report.provider_dispatch_count, 1);
+        assert_eq!(report.provider_only_observations, 1);
+        assert_eq!(report.independent_observation_claims, 1);
+    }
+
+    #[test]
     fn valid_minimal_trace_is_accepted() {
         let mut proposal = event(0,"e0","operation_proposed");
         proposal["operation_ref"] = json!("op-1");
