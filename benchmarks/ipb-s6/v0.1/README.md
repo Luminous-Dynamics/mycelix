@@ -23,7 +23,7 @@ Healthy multi-claim reporting; custody/title confusion; stale valuation; unknown
 
 ## Safe interpretation
 
-A source's competence is claim- and profile-specific. A source may support custody without supporting title, or schedule listing without proving current coverage. Unavailable evidence is not a negative fact. A successful request receipt is not proof that a physical or financial side effect occurred.
+A source's competence is claim- and profile-specific. A source may support custody without supporting title, or schedule listing without proving current coverage. Source records separate effective time (when a claim applies) from observed/knowledge time (when an institution learned it). Unavailable evidence is not a negative fact. A successful request receipt is not proof that a physical or financial side effect occurred.
 
 All entities, assets, people, documents, amounts and circumstances are fictional. Do not substitute private client records or real security-sensitive locations into this public corpus.
 
