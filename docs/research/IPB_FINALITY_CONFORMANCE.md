@@ -16,9 +16,9 @@ This benchmark must be honest about the boundary between established authorizati
 
 ### Policy evaluation
 
-Open Policy Agent evaluates a policy query and can emit decision logs containing the policy query, input, bundle metadata, result and timestamp. Those logs help audit and debug an authorization decision. They do not, by themselves, establish that a later external operation exactly matches the earlier request or that the effect was applied. See the [OPA decision-log documentation](https://www.openpolicyagent.org/docs/management-decision-logs).
+Open Policy Agent evaluates a policy query and can emit decision logs containing the policy query, input, bundle metadata, result and timestamp. Those logs help audit and debug an authorization decision. The documentation also describes configurable decision filtering and rate limiting; events can be dropped when a configured maximum decisions-per-second limit is exceeded. Therefore a missing OPA log entry is not proof that no policy decision or downstream operation occurred. The benchmark includes R20 to test this distinction. See the [OPA decision-log documentation](https://www.openpolicyagent.org/docs/management-decision-logs).
 
-Cedar evaluates a principal/action/resource/context request against policies and returns Allow or Deny with diagnostics. Cedar deliberately supports independently understandable permit/forbid policy logic; its current documentation explains error-skipping semantics and the need for callers to provide relevant entity data. This is a strong policy-engine comparator, not a complete external-effect transaction protocol. See the [Cedar authorization reference](https://docs.cedarpolicy.com/auth/authorization.html) and [entity-data validation guidance](https://docs.cedarpolicy.com/policies/level-validation.html).
+Cedar evaluates a principal/action/resource/context request against policies and returns Allow or Deny with diagnostics. Cedar deliberately supports independently understandable permit/forbid policy logic. Its documented algorithm skips a policy whose evaluation returns an error; diagnostics can be inspected by the application to choose a different handling path. This is a design choice, not automatically a vulnerability. The LISE benchmark includes A19 to test whether a mandatory high-impact guardrail that fails to evaluate is silently treated as satisfied by an application integration. Cedar also requires callers to supply the entity data relevant to the request. See the [Cedar authorization reference](https://docs.cedarpolicy.com/auth/authorization.html) and [entity-data validation guidance](https://docs.cedarpolicy.com/policies/level-validation.html).
 
 Google Zanzibar is an important comparator for large-scale, consistent authorization data and causal ordering of access-control changes. Its published USENIX ATC 2019 paper describes external consistency across authorization changes at global production scale. A Zanzibar-style check does not, by itself, prove provider-side effect completion or physical outcome. See the [USENIX paper](https://www.usenix.org/conference/atc19/presentation/pang).
 
@@ -109,7 +109,7 @@ No universal exactly-once claim is permitted across arbitrary external providers
 
 ## 7. Scenario panel
 
-The JSON corpus contains 18 synthetic cases: six positive controls and twelve attack/recovery/unsupported cases.
+The JSON corpus now contains 20 synthetic cases: six positive controls and fourteen attack/recovery/unsupported cases.
 
 | Cases | Family | Core oracle |
 |---|---|---|
@@ -121,9 +121,9 @@ The JSON corpus contains 18 synthetic cases: six positive controls and twelve at
 | R15 | Crash after dispatch but before acknowledgement | Hold for reconciliation; no blind retry |
 | R16 | Successful prefix plus unknown suffix | Preserve partial state; no false atomicity or failure-no-effect |
 | R17 | Stale primary resumes after failover | Resource-side fencing rejects obsolete epoch |
-| R18 | Provider has no qualified idempotency or reconciliation | Indeterminate; no blind retry |
+| R18 | Provider has no qualified idempotency or reconciliation | Indeterminate; no blind retry |\n| A19 | Mandatory policy guardrail evaluation errors while a general permit rule matches | Preserve diagnostics; do not dispatch on incomplete mandatory evaluation |\n| R20 | OPA-style decision log event is dropped or filtered | Log absence is not proof of no decision/effect; hold and reconcile |
 
-The 18 cases are a development seed, not a frozen confirmatory benchmark. The independent oracle, initial states, exact provider contracts and adapter scope need review before qualification.
+The 20 cases are a development seed, not a frozen confirmatory benchmark. The independent oracle, initial states, exact provider contracts and adapter scope need review before qualification.
 
 ## 8. Matched comparators
 
