@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/benchmarks/ipb-s6/v0.1/schema.json",
+  "title": "IPB-S6 synthetic scenario corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "corpus_version",
+    "synthetic",
+    "as_of",
+    "cases"
+  ],
+  "properties": {
+    "corpus_version": {
+      "const": "0.1"
+    },
+    "synthetic": {
+      "const": true
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "case_family",
+          "description",
+          "profile_ref",
+          "assets",
+          "sources",
+          "actor",
+          "request",
+          "context"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^S6-[0-9]{3}$"
+          },
+          "case_family": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "profile_ref": {
+            "type": "string"
+          },
+          "assets": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "asset_ref",
+                "asset_class",
+                "owning_entity_ref"
+              ]
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "source_id",
+                "record_family",
+                "authority_profile_ref",
+                "competent_for",
+                "availability",
+                "evidence_state",
+                "observed_at",
+                "valid_through",
+                "claims"
+              ]
+            }
+          },
+          "actor": {
+            "type": "object",
+            "required": [
+              "actor_ref",
+              "entity_ref",
+              "declared_capabilities"
+            ]
+          },
+          "request": {
+            "type": "object",
+            "required": [
+              "action",
+              "asset_ref",
+              "claim_dimension",
+              "requested_value"
+            ]
+          },
+          "context": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
