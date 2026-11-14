@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IAE vertical-slice system submission v0.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "system_id",
+    "build_sha",
+    "configuration_sha256",
+    "intent_baseline_ref",
+    "decisions",
+    "execution_control",
+    "trace_completeness",
+    "metamorphic_results",
+    "environment"
+  ],
+  "properties": {
+    "system_id": {
+      "type": "string"
+    },
+    "build_sha": {
+      "type": "string"
+    },
+    "configuration_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "intent_baseline_ref": {
+      "type": "string"
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "query_ref",
+          "disposition",
+          "authority_state",
+          "permitted_use",
+          "reason_codes",
+          "supporting_claim_refs",
+          "requirement_refs",
+          "source_receipt_refs",
+          "authority_ref",
+          "policy_ref",
+          "evaluator_ref"
+        ],
+        "properties": {
+          "query_ref": {
+            "type": "string"
+          },
+          "disposition": {
+            "enum": [
+              "ALLOW_SCOPED",
+              "ALLOW_PARTIAL",
+              "BLOCK",
+              "HOLD_FOR_RECONCILIATION"
+            ]
+          },
+          "authority_state": {
+            "enum": [
+              "active",
+              "revoked",
+              "expired",
+              "unknown"
+            ]
+          },
+          "permitted_use": {
+            "enum": [
+              "commercial_allowed",
+              "commercial_prohibited",
+              "not_applicable"
+            ]
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supporting_claim_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requirement_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source_receipt_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "authority_ref": {
+            "type": "string"
+          },
+          "policy_ref": {
+            "type": "string"
+          },
+          "evaluator_ref": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "execution_control": {
+      "type": "object",
+      "required": [
+        "state",
+        "disposition",
+        "operation_ref",
+        "idempotency_ref",
+        "mutation_count",
+        "retry_count",
+        "reattempt_permitted",
+        "reconciliation_required",
+        "reason_codes"
+      ],
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "disposition": {
+          "type": "string"
+        },
+        "operation_ref": {
+          "type": "string"
+        },
+        "idempotency_ref": {
+          "type": "string"
+        },
+        "mutation_count": {
+          "type": "integer"
+        },
+        "retry_count": {
+          "type": "integer"
+        },
+        "reattempt_permitted": {
+          "type": "boolean"
+        },
+        "reconciliation_required": {
+          "type": "boolean"
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "trace_completeness": {
+      "type": "object",
+      "required": [
+        "human_approval_ref",
+        "baseline_ref",
+        "authority_ref",
+        "policy_ref",
+        "evaluator_ref",
+        "source_receipt_refs"
+      ],
+      "properties": {
+        "human_approval_ref": {
+          "type": "string"
+        },
+        "baseline_ref": {
+          "type": "string"
+        },
+        "authority_ref": {
+          "type": "string"
+        },
+        "policy_ref": {
+          "type": "string"
+        },
+        "evaluator_ref": {
+          "type": "string"
+        },
+        "source_receipt_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "metamorphic_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "probe_ref",
+          "base_query_ref",
+          "variant_query_ref",
+          "base_disposition",
+          "variant_disposition"
+        ],
+        "properties": {
+          "probe_ref": {
+            "type": "string"
+          },
+          "base_query_ref": {
+            "type": "string"
+          },
+          "variant_query_ref": {
+            "type": "string"
+          },
+          "base_disposition": {
+            "type": "string"
+          },
+          "variant_disposition": {
+            "type": "string"
+          },
+          "base_reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "variant_reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": [
+        "mode",
+        "external_io_enabled",
+        "network_enabled",
+        "mutations_enabled"
+      ],
+      "properties": {
+        "mode": {
+          "const": "synthetic_fixture_only"
+        },
+        "external_io_enabled": {
+          "const": false
+        },
+        "network_enabled": {
+          "const": false
+        },
+        "mutations_enabled": {
+          "const": false
+        }
+      }
+    }
+  }
+}
