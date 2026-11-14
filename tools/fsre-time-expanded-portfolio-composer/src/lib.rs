@@ -71,6 +71,16 @@ struct PortfolioInterval {
     service_floors: Vec<String>,
     resources: BTreeMap<String, ResourceResult>,
     evidence: Vec<String>,
+    asof: AsOfResult,
+}
+
+#[derive(Clone, Debug)]
+struct AsOfResult {
+    disposition: String,
+    records: usize,
+    matched: usize,
+    unmatched: usize,
+    nonvalid: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -411,6 +421,35 @@ fn parse_portfolio_report(report: &str) -> Result<PortfolioInterval, InputError>
         service_floors,
         resources,
         evidence,
+        asof: AsOfResult {
+            disposition: "NOT_REPLAYED".to_owned(),
+            records: 0,
+            matched: 0,
+            unmatched: 0,
+            nonvalid: 0,
+        },
+    })
+}
+
+fn parse_asof_report(report: &str) -> Result<AsOfResult, InputError> {
+    let field = |key: &str| {
+        let prefix = format!("{key}=");
+        report
+            .lines()
+            .find_map(|line| line.strip_prefix(&prefix))
+            .ok_or_else(|| InputError(format!("as-of composition report missing {key}")))
+    };
+    let parse_count = |key: &str| {
+        field(key)?
+            .parse::<usize>()
+            .map_err(|error| InputError(format!("invalid as-of report {key}: {error}")))
+    };
+    Ok(AsOfResult {
+        disposition: field("assurance_disposition")?.to_owned(),
+        records: parse_count("portfolio_evidence_records")?,
+        matched: parse_count("portfolio_evidence_matched")?,
+        unmatched: parse_count("portfolio_evidence_unmatched")?,
+        nonvalid: parse_count("portfolio_evidence_nonvalid")?,
     })
 }
 
@@ -430,7 +469,11 @@ fn build_interval_plan(plan: &Plan, interval: &Interval) -> String {
     source
 }
 
-fn compose(plan_source: &str, stock_sources: &[String]) -> Result<String, InputError> {
+fn compose(
+    asof_evidence_source: &str,
+    plan_source: &str,
+    stock_sources: &[String],
+) -> Result<String, InputError> {
     let plan = parse_plan(plan_source)?;
     let mut stock_series = BTreeMap::<String, StockSeries>::new();
     for source in stock_sources {
@@ -461,7 +504,33 @@ fn compose(plan_source: &str, stock_sources: &[String]) -> Result<String, InputE
                 interval.id
             ))
         })?;
-        let result = parse_portfolio_report(&report)?;
+        let mut result = parse_portfolio_report(&report)?;
+        let asof_report = fsre_asof_portfolio_composer::compose(asof_evidence_source, &source)
+            .map_err(|error| {
+                InputError(format!(
+                    "as-of portfolio composition failed for interval {}: {error}",
+                    interval.id
+                ))
+            })?;
+        result.asof = parse_asof_report(&asof_report)?;
+        match result.asof.disposition.as_str() {
+            "ASOF_EVIDENCE_LINKED_AND_PORTFOLIO_FEASIBLE_FOR_DECLARED_DECISION" => {}
+            "SCOPE_MISMATCH" => not_reconciled = true,
+            "EVIDENCE_NOT_ESTIMABLE" | "PORTFOLIO_NOT_ESTIMABLE" => not_estimable = true,
+            "PORTFOLIO_NOT_FEASIBLE" => not_feasible = true,
+            other => {
+                return Err(InputError(format!(
+                    "unexpected as-of assurance disposition {other} in {}",
+                    interval.id
+                )))
+            }
+        }
+        if result.asof.records != result.asof.matched
+            || result.asof.unmatched != 0
+            || result.asof.nonvalid != 0
+        {
+            not_estimable = true;
+        }
         match result.disposition.as_str() {
             "PORTFOLIO_FEASIBLE_FOR_DECLARED_SCENARIO" => {}
             "NOT_ESTIMABLE" => not_estimable = true,
@@ -564,6 +633,15 @@ fn compose(plan_source: &str, stock_sources: &[String]) -> Result<String, InputE
             "interval={}|{}|{}|{}",
             interval.id, interval.start, interval.end, portfolio.disposition
         ));
+        lines.push(format!(
+            "asof_evidence={}|{}|{}|{}|{}|{}",
+            interval.id,
+            portfolio.asof.records,
+            portfolio.asof.matched,
+            portfolio.asof.unmatched,
+            portfolio.asof.nonvalid,
+            portfolio.asof.disposition
+        ));
         let mut floors = portfolio.service_floors.clone();
         floors.sort();
         for floor in floors {
@@ -638,34 +716,42 @@ fn compose(plan_source: &str, stock_sources: &[String]) -> Result<String, InputE
     }
     lines.push("claim_scope=DECLARED_HORIZON_AND_FROZEN_EVIDENCE_ONLY".to_owned());
     lines.push("service_quality=NOT_EVALUATED_BY_THIS_COMPOSER".to_owned());
-    lines.push("as_known_at_cutoff=NOT_INDEPENDENTLY_REPLAYED_BY_THIS_COMPOSER".to_owned());
+    lines.push("as_known_at_cutoff=REPLAYED_AND_LINKED_PER_INTERVAL".to_owned());
     lines.push("source_authenticity=NOT_AUTHENTICATED_BY_THIS_TOOL".to_owned());
     lines.push("execution_authority=NONE".to_owned());
     lines.push("operational_actuation=NOT_AUTHORISED".to_owned());
     Ok(lines.join("\n") + "\n")
 }
 
-/// Compose per-interval portfolio evaluations with owner-qualified stock-flow series.
+/// Compose as-of evidence, per-interval portfolios and owner-qualified stock-flow series.
 ///
-/// stock_flow_sources must contain exactly one series for each resource ID declared in
-/// the plan. Inputs are frozen; no orders, schedules or operational actions are issued.
+/// asof_evidence_source is replayed against every interval portfolio using the exact
+/// scenario, snapshot, cutoff and clock basis declared by the plan. stock_flow_sources
+/// must contain exactly one series for each declared resource ID. Inputs are frozen;
+/// no orders, schedules or operational actions are issued.
 pub fn validate_and_report(
+    asof_evidence_source: &str,
     plan_source: &str,
     stock_flow_sources: &[String],
 ) -> Result<String, InputError> {
-    compose(plan_source, stock_flow_sources)
+    compose(asof_evidence_source, plan_source, stock_flow_sources)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    const ASOF: &str = include_str!("../fixtures/synthetic-asof-evidence.psv");
     const PLAN: &str = include_str!("../fixtures/synthetic-plan.psv");
     const STOCK: &str = include_str!("../fixtures/synthetic-diesel.psv");
     const EXPECTED: &str = include_str!("../fixtures/synthetic-composition.expected.txt");
 
     fn run(plan: &str, stock: &str) -> String {
-        validate_and_report(plan, &[stock.to_owned()]).expect("composition")
+        validate_and_report(ASOF, plan, &[stock.to_owned()]).expect("composition")
+    }
+
+    fn run_with_asof(asof: &str, plan: &str, stock: &str) -> String {
+        validate_and_report(asof, plan, &[stock.to_owned()]).expect("composition")
     }
 
     #[test]
@@ -744,7 +830,7 @@ mod tests {
             "stock-01|1|hour-00|",
         );
         assert_ne!(changed, STOCK);
-        let error = validate_and_report(PLAN, &[changed]).unwrap_err();
+        let error = validate_and_report(ASOF, PLAN, &[changed]).unwrap_err();
         assert!(error.0.contains("duplicate stock-flow interval ID"));
     }
 
@@ -752,7 +838,7 @@ mod tests {
     fn scenario_and_clock_basis_mismatch_are_not_reconciled() {
         let changed = STOCK
             .replace("# scenario_id=shock", "# scenario_id=other-shock")
-            .replace("synthetic-utc-v1", "other-clock");
+            .replace("UTC_UNIX_SECONDS_V1", "other-clock");
         let report = run(PLAN, &changed);
         assert!(report.contains("time_expanded_disposition=NOT_RECONCILED"));
     }
