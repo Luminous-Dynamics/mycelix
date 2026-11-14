@@ -1,0 +1,184 @@
+{
+  "fixture_id": "MCB-STAY-SCHEMA-CASES-0.1",
+  "schema_version": "0.1.0",
+  "claim_ceiling": "Declarative structural test vectors. A future Rust harness must apply each mutation to the indexed valid message in examples-v0.1.json and independently evaluate schema conformance.",
+  "valid_cases": [
+    {
+      "case_id": "SCHEMA-VALID-001",
+      "source_message_index": 0,
+      "expected": "accept",
+      "description": "Valid StayIntent with berth and accommodation components."
+    },
+    {
+      "case_id": "SCHEMA-VALID-002",
+      "source_message_index": 1,
+      "expected": "accept",
+      "description": "Valid berth ProviderOffer with integer minor-unit pricing."
+    },
+    {
+      "case_id": "SCHEMA-VALID-003",
+      "source_message_index": 2,
+      "expected": "accept",
+      "description": "Valid accommodation ProviderOffer with mandatory fee line items."
+    },
+    {
+      "case_id": "SCHEMA-VALID-004",
+      "source_message_index": 3,
+      "expected": "accept",
+      "description": "Valid provider ReservationHold."
+    },
+    {
+      "case_id": "SCHEMA-VALID-005",
+      "source_message_index": 5,
+      "expected": "accept",
+      "description": "Valid provider EffectReceipt."
+    },
+    {
+      "case_id": "SCHEMA-VALID-006",
+      "source_message_index": 7,
+      "expected": "accept",
+      "description": "Valid provider-issued berth commitment."
+    },
+    {
+      "case_id": "SCHEMA-VALID-007",
+      "source_message_index": 9,
+      "expected": "accept",
+      "description": "Valid derived StayManifest with all mandatory commitments."
+    }
+  ],
+  "negative_cases": [
+    {
+      "case_id": "SCHEMA-NEG-001",
+      "source_message_index": 0,
+      "mutation": {
+        "op": "replace",
+        "path": "schema_version",
+        "value": "9.9.0"
+      },
+      "expected": "reject",
+      "reason": "Unsupported schema version."
+    },
+    {
+      "case_id": "SCHEMA-NEG-002",
+      "source_message_index": 0,
+      "mutation": {
+        "op": "replace",
+        "path": "stay_intent_id",
+        "value": "x"
+      },
+      "expected": "reject",
+      "reason": "Identifier violates minimum length and pattern."
+    },
+    {
+      "case_id": "SCHEMA-NEG-003",
+      "source_message_index": 0,
+      "mutation": {
+        "op": "remove",
+        "path": "requester_ref"
+      },
+      "expected": "reject",
+      "reason": "Required requester reference missing."
+    },
+    {
+      "case_id": "SCHEMA-NEG-004",
+      "source_message_index": 1,
+      "mutation": {
+        "op": "replace",
+        "path": "resource_kind",
+        "value": "unregistered"
+      },
+      "expected": "reject",
+      "reason": "Unknown resource kind."
+    },
+    {
+      "case_id": "SCHEMA-NEG-005",
+      "source_message_index": 1,
+      "mutation": {
+        "op": "replace",
+        "path": "price.currency",
+        "value": "EURO"
+      },
+      "expected": "reject",
+      "reason": "Currency is not a three-letter ISO-style code."
+    },
+    {
+      "case_id": "SCHEMA-NEG-006",
+      "source_message_index": 3,
+      "mutation": {
+        "op": "replace",
+        "path": "idempotency_key",
+        "value": "short"
+      },
+      "expected": "reject",
+      "reason": "Idempotency key is below the minimum structural length."
+    },
+    {
+      "case_id": "SCHEMA-NEG-007",
+      "source_message_index": 5,
+      "mutation": {
+        "op": "replace",
+        "path": "integrity_digest",
+        "value": "sha256:not-a-digest"
+      },
+      "expected": "reject",
+      "reason": "Digest is not a 64-character lowercase SHA-256 hex value."
+    },
+    {
+      "case_id": "SCHEMA-NEG-008",
+      "source_message_index": 0,
+      "mutation": {
+        "op": "replace",
+        "path": "created_at",
+        "value": "yesterday"
+      },
+      "expected": "reject",
+      "reason": "Timestamp does not satisfy date-time format check."
+    },
+    {
+      "case_id": "SCHEMA-NEG-009",
+      "source_message_index": 9,
+      "mutation": {
+        "op": "add",
+        "path": "extra_authority",
+        "value": "root"
+      },
+      "expected": "reject",
+      "reason": "Undeclared property rejected by additionalProperties false."
+    },
+    {
+      "case_id": "SCHEMA-NEG-010",
+      "source_message_index": 0,
+      "mutation": {
+        "op": "replace",
+        "path": "destination_refs",
+        "value": [
+          "destination:windward",
+          "destination:windward"
+        ]
+      },
+      "expected": "reject",
+      "reason": "Destination references must be unique."
+    },
+    {
+      "case_id": "SCHEMA-NEG-011",
+      "source_message_index": 1,
+      "mutation": {
+        "op": "remove",
+        "path": "availability.capacity_dimension"
+      },
+      "expected": "reject",
+      "reason": "Resource capacity dimension is required to prevent unit ambiguity."
+    },
+    {
+      "case_id": "SCHEMA-NEG-012",
+      "source_message_index": 1,
+      "mutation": {
+        "op": "replace",
+        "path": "availability.capacity_dimension",
+        "value": "voltage"
+      },
+      "expected": "reject",
+      "reason": "Unknown resource capacity dimension."
+    }
+  ]
+}
