@@ -5,9 +5,9 @@ use std::fs;
 use std::process::ExitCode;
 
 const BENCHMARK_ID: &str = "CIV-TRACE-001";
-const SCHEMA_VERSION: &str = "civ-trace-fixtures-v0.1";
-const SCHEMA_ID: &str = "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/civ-trace-001/CIV_TRACE_FIXTURES_V0_1.schema.json";
-const FIXTURE_COUNT: usize = 42;
+const SCHEMA_VERSION: &str = "civ-trace-fixtures-v0.2";
+const SCHEMA_ID: &str = "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/civ-trace-001/CIV_TRACE_FIXTURES_V0_2.schema.json";
+const FIXTURE_COUNT: usize = 43;
 const FAMILIES: [&str; 7] = [
     "hindsight_isolation",
     "authority_at_event_time",
@@ -490,8 +490,11 @@ fn validate_manifest(manifest:&Value)->Result<BTreeMap<String,usize>,Vec<String>
             Err(e)=>errors.push(format!("fixtures[{i}]: {e}"))
         }
     }
-    for family in FAMILIES{
-        if counts.get(family).copied().unwrap_or(0)!=6{errors.push(format!("family {family} must contain exactly six fixtures"));}
+    for family in FAMILIES {
+        let expected = if family == "remedy_execution" { 7 } else { 6 };
+        if counts.get(family).copied().unwrap_or(0) != expected {
+            errors.push(format!("family {family} must contain exactly {expected} fixtures"));
+        }
     }
     if errors.is_empty(){Ok(counts)}else{errors.sort();errors.dedup();Err(errors)}
 }
@@ -529,10 +532,13 @@ mod tests{
     fn fixture(id:&str)->Value{parsed()["fixtures"].as_array().unwrap().iter().find(|f|text(f,"fixture_id")==Some(id)).unwrap().clone()}
 
     #[test]
-    fn all_42_known_answer_fixtures_validate() {
+    fn all_43_known_answer_fixtures_validate() {
         let counts = validate_manifest(&parsed()).expect("manifest qualifies");
         assert_eq!(counts.len(), 7);
-        assert!(counts.values().all(|count| *count == 6));
+        for family in FAMILIES {
+            let expected = if family == "remedy_execution" { 7 } else { 6 };
+            assert_eq!(counts.get(family), Some(&expected));
+        }
     }
     #[test]
     fn remedy_order_is_not_mistaken_for_completed_remedy() {
@@ -573,8 +579,12 @@ mod tests{
     }
     #[test]
     fn systemic_corrective_action_requires_explicit_verification() {
-        let f = fixture("CIVT-REMEDY-03");
-        assert_eq!(f["expected"]["systemic_action_state"], "VERIFIED");
+        let verified = fixture("CIVT-REMEDY-03");
+        let open = fixture("CIVT-REMEDY-02");
+        let ineffective = fixture("CIVT-REMEDY-04");
+        assert_eq!(verified["expected"]["systemic_action_state"], "VERIFIED");
+        assert_eq!(open["expected"]["systemic_action_state"], "OPEN");
+        assert_eq!(ineffective["expected"]["systemic_action_state"], "INEFFECTIVE");
     }
     #[test]fn late_backdated_evidence_is_not_in_historical_knowledge(){let f=fixture("CIVT-HINDSIGHT-02");assert!(!strings(&f["expected"]["known_event_ids"]).contains("H-LATE-BACKDATED-2"));}
     #[test]fn late_revocation_changes_current_assessment_not_as_known_view(){let f=fixture("CIVT-AUTHORITY-04");assert_eq!(f["expected"]["authority_as_known_at_action"],"AUTHORIZED");assert_eq!(f["expected"]["authority_current_assessment"],"UNAUTHORIZED");}
