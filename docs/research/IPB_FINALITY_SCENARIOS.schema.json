@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/IPB_FINALITY_SCENARIOS.schema.json",
+  "title": "LISE IPB-FINALITY scenario corpus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "suite",
+    "cases",
+    "metric_dictionary",
+    "proposed_targets"
+  ],
+  "properties": {
+    "schema": {
+      "const": "lise.ipb.finality-scenarios.v0"
+    },
+    "suite": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "issue",
+        "status",
+        "evidence_class",
+        "claim_ceiling",
+        "owner_contracts",
+        "required_stage_order",
+        "terminal_states",
+        "dispositions",
+        "operation_projection"
+      ],
+      "properties": {
+        "id": {
+          "const": "IPB-FINALITY-v0"
+        },
+        "issue": {
+          "type": "string",
+          "format": "uri"
+        },
+        "status": {
+          "enum": [
+            "development_seed",
+            "frozen",
+            "qualified"
+          ]
+        },
+        "evidence_class": {
+          "type": "string"
+        },
+        "claim_ceiling": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "owner_contracts": {
+          "type": "object"
+        },
+        "required_stage_order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2
+        },
+        "terminal_states": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "INDETERMINATE",
+              "INVALID",
+              "UNSUPPORTED",
+              "TIMEOUT",
+              "NOT_RUN"
+            ]
+          },
+          "minItems": 1
+        },
+        "dispositions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "ALLOW",
+              "DENY",
+              "HOLD_FOR_RECONCILIATION",
+              "INDETERMINATE"
+            ]
+          },
+          "minItems": 1
+        },
+        "operation_projection": {
+          "type": "object"
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 18,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "class",
+          "purpose",
+          "operation",
+          "events",
+          "provider_contract",
+          "oracle",
+          "owner_refs"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(F|A|R)[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "class": {
+            "enum": [
+              "positive_control",
+              "high_severity_attack",
+              "recovery_and_unknown_outcome",
+              "recovery_and_partial_effect",
+              "recovery_and_fencing_attack",
+              "unsupported_provider_semantics"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation": {
+            "type": "object"
+          },
+          "events": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "stage",
+                "time"
+              ],
+              "properties": {
+                "stage": {
+                  "type": "string"
+                },
+                "time": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "provider_contract": {
+            "type": "object"
+          },
+          "oracle": {
+            "type": "object",
+            "required": [
+              "terminal_state",
+              "disposition",
+              "outcome_class",
+              "required"
+            ],
+            "properties": {
+              "terminal_state": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "INDETERMINATE",
+                  "INVALID",
+                  "UNSUPPORTED",
+                  "TIMEOUT",
+                  "NOT_RUN"
+                ]
+              },
+              "disposition": {
+                "enum": [
+                  "ALLOW",
+                  "DENY",
+                  "HOLD_FOR_RECONCILIATION",
+                  "INDETERMINATE"
+                ]
+              },
+              "outcome_class": {
+                "type": "string"
+              },
+              "required": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1
+              }
+            },
+            "additionalProperties": true
+          },
+          "owner_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "metric_dictionary": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "proposed_targets": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "const": "research_targets_not_results"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}
