@@ -255,5 +255,23 @@
     "external_io_enabled": false,
     "network_enabled": false,
     "mutations_enabled": false
-  }
+  },
+  "write_trace": [
+    {
+      "event_ref": "OP-EVENT-SUBMIT",
+      "operation_ref": "OP-LEASE-001",
+      "idempotency_ref": "IDEM-LEASE-001",
+      "action": "approve_commercial_lease",
+      "purpose": "new_tenant_commercial_lease",
+      "asset_ref": "PROPERTY-001",
+      "actor_ref": "ACTOR-ASSET-MANAGER-01",
+      "fields": [
+        "lease_submission_request"
+      ],
+      "authorization_ref": "AUTHZ-LEASE-001",
+      "possible_external_side_effect": true,
+      "effect_status": "possible",
+      "external_visibility": "unknown"
+    }
+  ]
 }
