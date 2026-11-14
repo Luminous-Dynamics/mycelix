@@ -1,0 +1,25 @@
+# fsre-cohort-lane.v0.1
+# service_id=potable-water-service
+# service_family_id=potable-water
+# cohort_set_id=synthetic-water-service-area
+# cohort_id=remote-community
+# outcome_snapshot_id=synthetic-outcome-snapshot-01
+# delivery_source_owner=operator
+# delivery_source_ref=synthetic:delivery:remote-community
+# quality_source_owner=laboratory
+# quality_source_ref=synthetic:lab:remote-community
+# denominator_source_owner=service-register
+# denominator_source_ref=synthetic:population:remote-community
+# population_denominator=250
+# population_unit=persons
+# horizon_start_seconds=0
+# horizon_end_seconds=100
+# minimum_safe_service_fraction=0.50
+# max_observation_hold_seconds=60
+# recovery_stability_seconds=10
+# quality_required=true
+# Columns: at_seconds,service_fraction,quality_compliant
+0,1.0,true
+25,0.4,true
+60,0.8,true
+80,1.0,true

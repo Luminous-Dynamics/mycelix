@@ -1,0 +1,24 @@
+# fsre-cohort-lane.v0.1
+# service_id=potable-water-service
+# service_family_id=potable-water
+# cohort_set_id=synthetic-water-service-area
+# cohort_id=hospital
+# outcome_snapshot_id=synthetic-outcome-snapshot-01
+# delivery_source_owner=operator
+# delivery_source_ref=synthetic:delivery:hospital
+# quality_source_owner=laboratory
+# quality_source_ref=synthetic:lab:hospital
+# denominator_source_owner=service-register
+# denominator_source_ref=synthetic:population:hospital
+# population_denominator=500
+# population_unit=persons
+# horizon_start_seconds=0
+# horizon_end_seconds=100
+# minimum_safe_service_fraction=0.50
+# max_observation_hold_seconds=60
+# recovery_stability_seconds=10
+# quality_required=true
+# Columns: at_seconds,service_fraction,quality_compliant
+0,1.0,true
+20,1.0,false
+50,1.0,true
