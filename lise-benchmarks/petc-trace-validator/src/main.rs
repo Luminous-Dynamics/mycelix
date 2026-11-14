@@ -173,7 +173,7 @@ fn validate_trace(trace: &Value) -> TraceReport {
         require_string(trace, key, "trace", &mut report.errors);
     }
     let scenario = nonempty_string(trace, "scenario_id").unwrap_or("");
-    if !matches!(scenario.as_bytes().first(), Some(b'F' | b'A' | b'R'))
+    if !matches!(scenario.as_bytes().first().copied(), Some(b'F' | b'A' | b'R'))
         || scenario.len() != 3
         || !scenario.as_bytes()[1..].iter().all(u8::is_ascii_digit)
     {
@@ -324,8 +324,8 @@ fn validate_trace(trace: &Value) -> TraceReport {
                 if !operation_ref.is_empty() {
                     match preflight_by_operation.get(operation_ref) {
                         Some((decision, digest, preflight_sequence))
-                            if decision == "ALLOW"
-                                && digest == operation_digest
+                            if decision.as_str() == "ALLOW"
+                                && digest.as_str() == operation_digest
                                 && *preflight_sequence < sequence => {}
                         Some((decision, _, _)) => report.errors.push(format!(
                             "{label}: provider dispatch requires a prior ALLOW preflight for the exact operation; latest decision was '{decision}'"
@@ -515,16 +515,16 @@ fn validate_trace(trace: &Value) -> TraceReport {
                     let retry_preflight_is_fresh = preflight_by_operation
                         .get(operation_ref)
                         .is_some_and(|(decision, digest, at)| {
-                            decision == "ALLOW"
-                                && digest == operation_digest
+                            decision.as_str() == "ALLOW"
+                                && digest.as_str() == operation_digest
                                 && *at > *reconciled_at
                                 && *at < sequence
                         });
                     if *reconciled_at >= sequence
                         || !retry_preflight_is_fresh
-                        || effect != "confirmed_no_effect"
-                        || retry_safety != "same_operation_same_key_qualified"
-                        || reconciled_digest != operation_digest
+                        || effect.as_str() != "confirmed_no_effect"
+                        || retry_safety.as_str() != "same_operation_same_key_qualified"
+                        || reconciled_digest.as_str() != operation_digest
                         || reconciled_key.as_deref() != event_string(event, "idempotency_ref")
                         || !dispatch_is_same_operation
                         || !allowed_retry_reconciliation_source(reconciliation_source, reconciliation_origin)
