@@ -949,8 +949,17 @@ pub fn evaluate_epistemic_bounty(facts: &EpistemicBountyFacts) -> Decision {
             if facts.historical_record_preserved != Some(true) {
                 return Decision::indeterminate("HISTORICAL_RECORD_PRESERVATION_UNKNOWN");
             }
-            if facts.appeal_upheld != Some(true) || facts.remedy_authorized != Some(true) {
+            if facts.reviewers_independent == Some(false) {
+                return Decision::challenge("APPEAL_REVIEWER_NOT_INDEPENDENT");
+            }
+            if facts.reviewers_independent.is_none() {
+                return Decision::indeterminate("APPEAL_REVIEWER_INDEPENDENCE_UNKNOWN");
+            }
+            if facts.appeal_upheld == Some(false) || facts.remedy_authorized == Some(false) {
                 return Decision::hold("APPEAL_REMEDY_NOT_AUTHORIZED");
+            }
+            if facts.appeal_upheld.is_none() || facts.remedy_authorized.is_none() {
+                return Decision::indeterminate("APPEAL_OR_REMEDY_AUTHORITY_UNKNOWN");
             }
             Decision::permit("APPEAL_UPHELD_REMEDY_AUTHORIZED")
         }
@@ -1041,11 +1050,23 @@ pub fn evaluate_epistemic_bounty(facts: &EpistemicBountyFacts) -> Decision {
             if facts.reviewer_conflict == Some(true) && facts.conflict_disclosed == Some(false) {
                 return Decision::challenge("UNDISCLOSED_REVIEWER_CONFLICT");
             }
+            if facts.reviewer_conflict == Some(true) && facts.conflict_disclosed.is_none() {
+                return Decision::indeterminate("REVIEWER_CONFLICT_DISCLOSURE_UNKNOWN");
+            }
+            if facts.reviewer_conflict.is_none() {
+                return Decision::indeterminate("REVIEWER_CONFLICT_STATUS_UNKNOWN");
+            }
             if facts.shared_dependency == Some(true) {
                 return Decision::indeterminate("KNOWN_COMMON_DEPENDENCY");
             }
+            if facts.shared_dependency.is_none() {
+                return Decision::indeterminate("DEPENDENCY_RELATIONSHIP_UNKNOWN");
+            }
             if facts.reviewers_independent == Some(false) {
                 return Decision::indeterminate("REVIEW_INDEPENDENCE_UNPROVEN");
+            }
+            if facts.reviewers_independent.is_none() {
+                return Decision::indeterminate("REVIEWER_INDEPENDENCE_UNKNOWN");
             }
             if facts.evidence_reproduced != Some(true) {
                 return match facts.evidence_reproduced {
@@ -1053,9 +1074,6 @@ pub fn evaluate_epistemic_bounty(facts: &EpistemicBountyFacts) -> Decision {
                     None => Decision::indeterminate("EVIDENCE_REPRODUCTION_UNKNOWN"),
                     Some(true) => unreachable!(),
                 };
-            }
-            if facts.reviewers_independent != Some(true) {
-                return Decision::indeterminate("REVIEWER_INDEPENDENCE_UNKNOWN");
             }
             if facts.local_threshold_met != Some(true) {
                 return match facts.local_threshold_met {
