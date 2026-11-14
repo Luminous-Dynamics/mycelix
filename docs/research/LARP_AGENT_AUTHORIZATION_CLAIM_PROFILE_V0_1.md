@@ -85,3 +85,12 @@ Four new development controls (A23–A26) test:
 - no primary attempt + committed effect telemetry → Indeterminate due inconsistent execution/effect records.
 
 The existing A20 clean no-op remains Permit. A02 still requires clarification before a protected operation. These are synthetic reference outcomes, not live sandbox enforcement.
+
+
+## Attempt flag and count are one assertion, not two independent truths
+
+The execution envelope records both a boolean attempt indicator and an attempt counter. The reference now requires:
+- not attempted ↔ attempt count zero;
+- attempted ↔ attempt count greater than zero.
+
+Contradictory telemetry produces Indeterminate. A20 was corrected to record zero attempts, and A27/A28 inject both directions of contradiction. This prevents inconsistent observability from being coerced into a no-op or a completed effect.
