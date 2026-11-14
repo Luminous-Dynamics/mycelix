@@ -16,6 +16,7 @@ This is not an asset registry, title service, valuation engine, insurance system
 - oracle.json — separately stored reference outcomes and prohibited inferences.
 - oracle-schema.json — strict shape of the separate reference oracle.
 - PROTOCOL.md — comparator arms, scoring and freeze requirements.
+- harness/ — standalone Rust submission evaluator and submission schema.
 
 ## Scenarios
 
@@ -30,3 +31,9 @@ All entities, assets, people, documents, amounts and circumstances are fictional
 ## Current evidence state
 
 The files are authored and machine-readable. The seed corpus has not yet been checked by an independent JSON Schema validator or reviewed by domain adjudicators. The oracle is an engineering reference for synthetic workflow tests, not adjudicated legal or factual truth. It must not be used to claim superiority over industry systems until the preregistered protocol is followed.
+
+## Submission harness
+
+The standalone Rust evaluator accepts a system submission and scores it against the separate oracle. See `harness/README.md` for the invocation and required metadata. It reports action and claim errors, false clears, false blocks, duplicate or incomplete claim dispositions, missing side-effect evidence, unauthorized mutations, retries after unknown outcomes, and bitemporal rewrites separately. It does not create a composite score.
+
+The evaluator is authored but not yet compiled or executed; no system has been benchmarked and no comparative result is claimed.
