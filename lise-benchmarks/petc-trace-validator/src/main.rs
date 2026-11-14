@@ -266,9 +266,20 @@ fn validate_trace(trace: &Value) -> TraceReport {
                 Some(_) => report.errors.push(format!(
                     "{label}: causation_event_ref '{cause}' must refer to an earlier event"
                 )),
-                None => report.errors.push(format!(
-                    "{label}: unresolved causation_event_ref '{cause}'"
-                )),
+                None => {
+                    let is_forward_reference = events.iter().skip(index + 1).any(|candidate| {
+                        event_string(candidate, "event_id") == Some(cause)
+                    });
+                    if is_forward_reference {
+                        report.errors.push(format!(
+                            "{label}: causation_event_ref '{cause}' must refer to an earlier event"
+                        ));
+                    } else {
+                        report.errors.push(format!(
+                            "{label}: unresolved causation_event_ref '{cause}'"
+                        ));
+                    }
+                }
             }
         }
 
@@ -1012,11 +1023,25 @@ mod tests {
 
     #[test]
     fn causal_references_must_point_to_prior_events() {
-        let mut first = event(0,"e0","task_created");
+        let mut first = event(0, "e0", "task_created");
         first["causation_event_ref"] = json!("e1");
-        let second = event(1,"e1","operation_proposed");
-        let report = validate_trace(&trace(vec![first,second]));
-        assert!(report.errors.iter().any(|error| error.contains("must refer to an earlier event")));
+        let second = event(1, "e1", "operation_proposed");
+        let report = validate_trace(&trace(vec![first, second]));
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.contains("must refer to an earlier event")));
+    }
+
+    #[test]
+    fn unknown_causal_references_are_rejected() {
+        let mut first = event(0, "e0", "task_created");
+        first["causation_event_ref"] = json!("missing-event");
+        let report = validate_trace(&trace(vec![first]));
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.contains("unresolved causation_event_ref")));
     }
 
     #[test]
