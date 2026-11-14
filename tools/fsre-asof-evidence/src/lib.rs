@@ -291,11 +291,20 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
     };
     let scenario_id = take("scenario_id")?;
     let evidence_snapshot_id = take("evidence_snapshot_id")?;
-    if row_scenarios.iter().any(|row_scenario| row_scenario != &scenario_id) {
-        return Err(InputError("record scenario_id does not match the frozen scenario".to_owned()));
+    if row_scenarios
+        .iter()
+        .any(|row_scenario| row_scenario != &scenario_id)
+    {
+        return Err(InputError(
+            "record scenario_id does not match the frozen scenario".to_owned(),
+        ));
     }
     let decision_at = parse_u64(&take("decision_at")?, "decision_at", 0)?;
-    let max_age = parse_u64(&take("max_observation_age_seconds")?, "max_observation_age_seconds", 0)?;
+    let max_age = parse_u64(
+        &take("max_observation_age_seconds")?,
+        "max_observation_age_seconds",
+        0,
+    )?;
     let clock_basis_id = take("clock_basis_id")?;
     require_id(&scenario_id, "scenario_id", 0)?;
     require_id(&evidence_snapshot_id, "evidence_snapshot_id", 0)?;
