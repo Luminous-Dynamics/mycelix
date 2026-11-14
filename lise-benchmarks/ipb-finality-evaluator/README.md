@@ -45,3 +45,12 @@ For each evaluation arm, preserve:
 Run at least three pinned comparator arms (for example, a fixed checklist/rule baseline, a configured policy/approval workflow, and an agent-based system) on the identical input panel and reviewer budget. Use a separately held, access-controlled confirmatory set before any SOTA or superiority claim.
 
 The public development oracle is intentionally separate from the input manifest but is not a secret holdout. Evaluators must not supply it to candidate systems.
+
+
+## Frozen development inputs
+
+The evaluator pins the exact Git blob SHA-1 of the 34-case input manifest and separate oracle. Any edit to either artifact requires an explicit evaluator/version update and a new baseline. The input corpus is public development material, not a hidden holdout.
+
+## Dependency reproducibility
+
+This initial draft does not yet include a committed `Cargo.lock`. The CI workflow resolves the declared semver dependencies on the runner and tests the resulting build. Before a qualified benchmark release, commit a generated lockfile and pin the toolchain/dependency graph. Do not treat the current draft as a fully frozen software supply chain.
