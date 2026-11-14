@@ -369,7 +369,10 @@
         "target_ref",
         "purpose",
         "idempotency_ref",
-        "action_digest"
+        "action_digest",
+        "current_authority_state",
+        "reattempt_disposition",
+        "reattempt_reason_code"
       ],
       "properties": {
         "operation_ref": {
@@ -463,6 +466,27 @@
         "action_digest": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
+        },
+        "current_authority_state": {
+          "enum": [
+            "current",
+            "revoked",
+            "expired",
+            "not_yet_valid",
+            "unknown"
+          ]
+        },
+        "reattempt_disposition": {
+          "enum": [
+            "ALLOW",
+            "DENY",
+            "HOLD_FOR_RECONCILIATION",
+            "INDETERMINATE"
+          ]
+        },
+        "reattempt_reason_code": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }
