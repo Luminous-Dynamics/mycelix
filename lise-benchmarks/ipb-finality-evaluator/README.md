@@ -21,7 +21,7 @@ cargo run --manifest-path lise-benchmarks/ipb-finality-evaluator/Cargo.toml -- \
 
 ## Reporting
 
-The evaluator reports case conformance, disposition and outcome-class accuracy, required-assertion precision/recall, high-severity false passes, positive-control false denials, unexpected provider dispatch, mutations under no-mutation controls, blind retries, missing effect/independent observations, operation substitution, stale authority, constitution/resource mismatches, delegation amplification, excess trajectory privilege, route bypass and missing clarification.
+The evaluator reports case conformance, disposition and outcome-class accuracy, required-assertion precision/recall, high-severity false passes, positive-control false denials, unexpected provider dispatch, mutations under no-mutation controls, blind retries, missing effect/independent observations, operation substitution, stale authority, constitution/resource mismatches, delegation amplification, excess trajectory privilege, route bypass and missing clarification. It separately requires evidence for exact digest state, approved/current constitution epochs, grant-inventory completeness, authority re-check, action/field/resource scope, purpose, expiry, scope-check execution, ownership re-check, and independent effective-time/knowledge-time revocation states.
 
 It emits SHA-256 receipts for the exact input manifest, oracle, submission and evaluator binary, plus the candidate's build/configuration/trace-bundle identities.
 
@@ -59,3 +59,6 @@ This initial draft does not yet include a committed `Cargo.lock`. The CI workflo
 ## Evaluation report contract
 
 The evaluator emits a JSON report described by [IPB_FINALITY_EVALUATION_REPORT.schema.json](../../docs/research/IPB_FINALITY_EVALUATION_REPORT.schema.json). It preserves system/build/configuration, model/prompt/tool-schema, harness, raw trace reference, resource telemetry and reproducibility receipts. Runtime, memory, provider calls, tokens, cost and expert-review time are nullable so that an unmeasured value is not confused with zero. Prefer values collected by the independent harness over candidate self-reports.
+
+
+**27 Rust unit tests are authored; they have not been executed in this authoring environment.**
