@@ -1,5 +1,6 @@
 report_schema=fsre-asof-evidence-report.v0.1
 scenario_id=synthetic-water-shock
+evidence_snapshot_id=synthetic-decision-snapshot-01
 decision_at=7200
 max_observation_age_seconds=3600
 clock_basis_id=UTC_UNIX_SECONDS_V1
