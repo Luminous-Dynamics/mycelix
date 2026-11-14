@@ -1,0 +1,419 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/benchmarks/ipb-s6/v0.2/schema.json",
+  "title": "IPB-S6 v0.2 adversarial authority and operation corpus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "corpus_version",
+    "synthetic",
+    "status",
+    "as_of",
+    "cases"
+  ],
+  "properties": {
+    "corpus_version": {
+      "const": "0.2"
+    },
+    "synthetic": {
+      "const": true
+    },
+    "status": {
+      "const": "development"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "scopeArray": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset_ref",
+        "owning_entity_ref",
+        "asset_class"
+      ],
+      "properties": {
+        "asset_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owning_entity_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "asset_class": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor_ref",
+        "entity_ref"
+      ],
+      "properties": {
+        "actor_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "purpose",
+        "asset_ref",
+        "requested_at",
+        "execute_at",
+        "requested_claim_dimension"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "asset_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requested_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "execute_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "requested_claim_dimension": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "credential_ref",
+        "issuer_ref",
+        "subject_ref",
+        "entity_ref",
+        "issuer_trust_state",
+        "proof_state",
+        "status_state",
+        "status_observed_at",
+        "valid_from",
+        "valid_until",
+        "action_scope",
+        "purpose_scope",
+        "asset_scope",
+        "revoked_at",
+        "revocation_observed_at"
+      ],
+      "properties": {
+        "credential_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issuer_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issuer_trust_state": {
+          "enum": [
+            "trusted",
+            "untrusted",
+            "unknown"
+          ]
+        },
+        "proof_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "status_state": {
+          "enum": [
+            "active",
+            "revoked",
+            "expired",
+            "not_yet_valid",
+            "unknown"
+          ]
+        },
+        "status_observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "action_scope": {
+          "$ref": "#/$defs/scopeArray"
+        },
+        "purpose_scope": {
+          "$ref": "#/$defs/scopeArray"
+        },
+        "asset_scope": {
+          "$ref": "#/$defs/scopeArray"
+        },
+        "revoked_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revocation_observed_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "sourceAssertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "record_family",
+        "claim_dimension",
+        "claim_disposition",
+        "competent_for",
+        "provider_ref",
+        "source_version",
+        "digest_sha256",
+        "digest_state",
+        "observed_at",
+        "effective_from",
+        "scope"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "record_family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_dimension": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_disposition": {
+          "enum": [
+            "supported_within_scope",
+            "partial",
+            "contested",
+            "indeterminate",
+            "unavailable",
+            "stale",
+            "contradicted"
+          ]
+        },
+        "competent_for": {
+          "$ref": "#/$defs/scopeArray"
+        },
+        "provider_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "digest_state": {
+          "enum": [
+            "matched",
+            "mismatch",
+            "unknown"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "effective_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "operationEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "operation_ref",
+        "idempotency_key",
+        "event_type",
+        "outcome",
+        "occurred_at",
+        "observed_at",
+        "receipt_ref"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_type": {
+          "enum": [
+            "submit_attempt",
+            "provider_acknowledgement",
+            "timeout",
+            "completion_receipt",
+            "failure_receipt",
+            "reconciliation"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "submitted",
+            "acknowledged",
+            "unknown",
+            "success",
+            "failure",
+            "reconciled"
+          ]
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "receipt_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "case_family",
+        "description",
+        "assets",
+        "actor",
+        "request",
+        "authorization",
+        "source_assertions",
+        "operation_history"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^S6R-[0-9]{3}$"
+        },
+        "case_family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/asset"
+          }
+        },
+        "actor": {
+          "$ref": "#/$defs/actor"
+        },
+        "request": {
+          "$ref": "#/$defs/request"
+        },
+        "authorization": {
+          "$ref": "#/$defs/authorization"
+        },
+        "source_assertions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceAssertion"
+          }
+        },
+        "operation_history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/operationEvent"
+          }
+        }
+      }
+    }
+  }
+}
