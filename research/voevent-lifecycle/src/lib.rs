@@ -499,7 +499,7 @@ mod tests {
         who: Option<(&str, &str)>,
         citations: &[(&str, &str)],
     ) -> String {
-        let role_attr = role.map(|value| format!(" role=\\"{value}\\"")).unwrap_or_default();
+        let role_attr = role.map(|value| format!(" role=\"{value}\"")).unwrap_or_default();
         let who_xml = who
             .map(|(author, date)| format!(
                 "<Who><AuthorIVORN>{author}</AuthorIVORN><Date>{date}</Date></Who>"
@@ -509,12 +509,12 @@ mod tests {
             String::new()
         } else {
             let edges = citations.iter().map(|(relation, target)| format!(
-                "<EventIVORN cite=\\"{relation}\\">{target}</EventIVORN>"
+                "<EventIVORN cite=\"{relation}\">{target}</EventIVORN>"
             )).collect::<String>();
             format!("<Citations>{edges}</Citations>")
         };
         format!(
-            "<VOEvent ivorn=\\"{ivoid}\\" version=\\"2.1\\"{role_attr}>{who_xml}{citation_xml}<What/></VOEvent>"
+            "<VOEvent ivorn=\"{ivoid}\" version=\"2.1\"{role_attr}>{who_xml}{citation_xml}<What/></VOEvent>"
         )
     }
 
@@ -643,7 +643,7 @@ mod tests {
 
         let invalid_relation = received(
             1,
-            "<VOEvent ivorn=\\"ivo://survey.example/a\\" version=\\"2.1\\"><Citations><EventIVORN cite=\\"associated\\">ivo://survey.example/b</EventIVORN></Citations></VOEvent>".to_owned(),
+            "<VOEvent ivorn=\"ivo://survey.example/a\" version=\"2.1\"><Citations><EventIVORN cite=\"associated\">ivo://survey.example/b</EventIVORN></Citations></VOEvent>".to_owned(),
         );
         assert!(matches!(
             replay_manifest(ReplayManifest {
