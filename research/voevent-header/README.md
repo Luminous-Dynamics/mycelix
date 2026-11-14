@@ -9,6 +9,8 @@ This isolated Rust package is the first executable astronomy adapter slice under
 - Applies the VOEvent 2.1 role default (observation) when role is absent while preserving that omission separately from an explicit value.
 - Preserves observation, prediction, utility and test as distinct role values.
 - Preserves all root attributes for later loss accounting.
+- Extracts the optional Who curation block's direct AuthorIVORN and Date values, preserving source lexical values and absence.
+- Treats AuthorIVORN as a source assertion, not a verified publisher identity; Date is retained as source packet-creation time and is not used as fabric receipt time.
 - Extracts the optional root Citations block and every direct EventIVORN child.
 - Requires the cite attribute and accepts only followup, supersedes or retraction; there is no implicit relationship default.
 - Preserves each citation's decoded IVOID target and all EventIVORN attributes.
@@ -50,6 +52,6 @@ The original packet bytes and digest remain authoritative. Parsed fields are a d
 
 ## Frozen synthetic tests
 
-The library tests cover explicit and implicit packet roles, prediction/utility/test separation, unknown role, wrong/missing version, missing/invalid root and citation IVOIDs, citation cardinality, missing/unknown cite relation, multiple citations, descriptions, XML character references, duplicate attributes, nested citation markup, DOCTYPE, multiple roots, malformed/incomplete XML, text outside the document root, oversized/non-UTF-8 input and retention of uninterpreted attributes.
+The library tests cover explicit and implicit packet roles, prediction/utility/test separation, unknown role, wrong/missing version, missing/invalid root, author and citation IVOIDs, optional/partial/duplicate Who curation fields, citation cardinality, missing/unknown cite relation, multiple citations, descriptions, XML character references, duplicate attributes, nested citation markup, DOCTYPE, multiple roots, malformed/incomplete XML, text outside the document root, oversized/non-UTF-8 input and retention of uninterpreted attributes.
 
 Synthetic unit cases are not real astronomical events and are not an IVOA conformance certification.
