@@ -716,7 +716,7 @@ fn compose(
     }
     lines.push("claim_scope=DECLARED_HORIZON_AND_FROZEN_EVIDENCE_ONLY".to_owned());
     lines.push("service_quality=NOT_EVALUATED_BY_THIS_COMPOSER".to_owned());
-    lines.push("as_known_at_cutoff=REPLAYED_PER_INTERVAL".to_owned());
+    lines.push("as_known_at_cutoff=CHECKED_BY_EXISTING_ASOF_COMPOSER_PER_INTERVAL".to_owned());
     lines.push("source_authenticity=NOT_AUTHENTICATED_BY_THIS_TOOL".to_owned());
     lines.push("execution_authority=NONE".to_owned());
     lines.push("operational_actuation=NOT_AUTHORISED".to_owned());
