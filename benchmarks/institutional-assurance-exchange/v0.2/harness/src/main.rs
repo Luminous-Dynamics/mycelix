@@ -103,10 +103,10 @@ fn observation_is_visible_at(
         return false;
     }
 
-    // effective_to is end-exclusive. Missing/null means the claim has no declared end.
-    match observation.get("effective_to") {
+    // The schema's effective_through bound is inclusive. Missing/null is open-ended.
+    match observation.get("effective_through") {
         None | Some(Value::Null) => true,
-        Some(Value::String(effective_to)) => effective_at < effective_to,
+        Some(Value::String(effective_through)) => effective_at <= effective_through,
         Some(_) => false,
     }
 }
@@ -546,7 +546,11 @@ fn compare_submission(packet: &Value, oracle: &Value, submission: &Value) -> Res
                 .ok_or_else(||invalid(format!("{id}: submission cites unknown claim {claim_ref}")))?;
             let start=required_str(claim,"effective_from","claim")?;
             let observed=required_str(claim,"observed_at","claim")?;
-            if start>required_str(query,"effective_at","query")? || observed>required_str(query,"known_at","query")? {
+            if !observation_is_visible_at(
+                claim,
+                required_str(query,"effective_at","query")?,
+                required_str(query,"known_at","query")?,
+            ) {
                 return Err(invalid(format!("{id}: submission cites claim outside query's bitemporal slice")));
             }
         }
@@ -1031,12 +1035,14 @@ mod tests {
         assert_eq!(obs["claim_ref"],"v5");
     }
     #[test]
-    fn expired_claim_is_not_eligible_after_its_end_exclusive_time() {
+    fn claim_is_visible_through_its_inclusive_effective_bound() {
         let packet = json!({"claim_observations":[
-            {"claim_ref":"v1","asset_ref":"A","dimension":"title","disposition":"supported_within_scope","competent_for":["title"],"effective_from":"2026-01-01T00:00:00Z","effective_to":"2026-02-01T00:00:00Z","observed_at":"2026-01-02T00:00:00Z","value":{"registered_entity_ref":"E1"}}
+            {"claim_ref":"v1","asset_ref":"A","dimension":"title","disposition":"supported_within_scope","competent_for":["title"],"effective_from":"2026-01-01T00:00:00Z","effective_through":"2026-02-01T00:00:00Z","observed_at":"2026-01-02T00:00:00Z","value":{"registered_entity_ref":"E1"}}
         ]});
-        let query = json!({"asset_ref":"A","effective_at":"2026-02-01T00:00:00Z","known_at":"2026-02-02T00:00:00Z","excluded_claim_refs":[]});
-        assert!(super::eligible_observation(&packet,&query,"title",None).is_none());
+        let at_boundary = json!({"asset_ref":"A","effective_at":"2026-02-01T00:00:00Z","known_at":"2026-02-02T00:00:00Z","excluded_claim_refs":[]});
+        let after_boundary = json!({"asset_ref":"A","effective_at":"2026-02-01T00:00:00.001Z","known_at":"2026-02-02T00:00:00Z","excluded_claim_refs":[]});
+        assert!(super::eligible_observation(&packet,&at_boundary,"title",None).is_some());
+        assert!(super::eligible_observation(&packet,&after_boundary,"title",None).is_none());
     }
 
     #[test]
