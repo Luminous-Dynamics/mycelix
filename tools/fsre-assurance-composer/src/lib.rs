@@ -14,7 +14,6 @@ impl std::error::Error for InputError {}
 
 #[derive(Clone, Debug)]
 struct PortfolioEvidence {
-    record_id: String,
     owner: String,
     reference: String,
 }
@@ -90,7 +89,6 @@ fn extract_portfolio_evidence(source: &str) -> Result<Vec<PortfolioEvidence>, In
             )));
         }
         rows.push(PortfolioEvidence {
-            record_id: fields[1].to_owned(),
             owner: fields[11].to_owned(),
             reference: fields[12].to_owned(),
         });
@@ -251,6 +249,31 @@ mod tests {
         let report = compose(&changed, PORTFOLIO_FIXTURE).expect("expired evidence is reportable");
         assert!(report.contains("decision_evidence_disposition=EVIDENCE_NOT_VALID_AT_DECISION"));
         assert!(report.contains("assurance_disposition=EVIDENCE_NOT_VALID_AT_DECISION"));
+    }
+
+    #[test]
+    fn portfolio_and_decision_input_row_order_does_not_change_composition() {
+        fn reverse_rows(source: &str) -> String {
+            let mut metadata = Vec::new();
+            let mut rows = Vec::new();
+            for line in source.lines() {
+                if line.starts_with('#') {
+                    metadata.push(line);
+                } else if !line.is_empty() {
+                    rows.push(line);
+                }
+            }
+            let header = rows.remove(0);
+            rows.reverse();
+            format!("{}\n{}\n{}\n", metadata.join("\n"), header, rows.join("\n"))
+        }
+        let original = compose(DECISION_FIXTURE, PORTFOLIO_FIXTURE).expect("original");
+        let permuted = compose(
+            &reverse_rows(DECISION_FIXTURE),
+            &reverse_rows(PORTFOLIO_FIXTURE),
+        )
+        .expect("permuted");
+        assert_eq!(original, permuted);
     }
 
     #[test]
