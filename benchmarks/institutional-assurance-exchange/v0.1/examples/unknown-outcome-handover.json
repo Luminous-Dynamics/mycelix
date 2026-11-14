@@ -37,6 +37,9 @@
       "freshness_until": "2026-11-15T05:00:00Z",
       "limitations": [
         "Supports recorded custody at observation time; does not establish legal title."
+      ],
+      "source_receipt_refs": [
+        "RECEIPT-CUSTODY-001"
       ]
     },
     {
@@ -53,6 +56,9 @@
       "freshness_until": "2026-12-14T05:00:00Z",
       "limitations": [
         "Catalogue identity is not a title or ownership determination."
+      ],
+      "source_receipt_refs": [
+        "RECEIPT-CATALOGUE-001"
       ]
     }
   ],
@@ -112,5 +118,45 @@
     "retry_count": 0,
     "reattempt_permitted": false,
     "reconciliation_required": true
-  }
+  },
+  "evidence_receipts": [
+    {
+      "receipt_ref": "RECEIPT-CUSTODY-001",
+      "source_ref": "synthetic://custody-register/entry-001",
+      "source_version": "17",
+      "content_digest_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "retrieved_at": "2026-11-14T05:00:00Z",
+      "observed_at": "2026-11-14T04:59:00Z",
+      "effective_from": "2026-01-01T00:00:00Z",
+      "effective_through": null,
+      "adapter_ref": "ADAPTER-CUSTODY-REGISTRY",
+      "adapter_build_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "upstream_provider_refs": [
+        "CUSTODY-REGISTRY-A"
+      ],
+      "completeness": "complete",
+      "attestation_ref": null,
+      "signature_verification": "not_provided",
+      "issuer_trust_state": "unknown"
+    },
+    {
+      "receipt_ref": "RECEIPT-CATALOGUE-001",
+      "source_ref": "synthetic://collection-catalogue/item-001",
+      "source_version": "9",
+      "content_digest_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "retrieved_at": "2026-11-14T05:00:00Z",
+      "observed_at": "2026-11-14T04:58:00Z",
+      "effective_from": "2025-03-01T00:00:00Z",
+      "effective_through": null,
+      "adapter_ref": "ADAPTER-COLLECTION-CATALOGUE",
+      "adapter_build_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "upstream_provider_refs": [
+        "COLLECTION-CATALOGUE-A"
+      ],
+      "completeness": "complete",
+      "attestation_ref": null,
+      "signature_verification": "not_provided",
+      "issuer_trust_state": "unknown"
+    }
+  ]
 }
