@@ -33,6 +33,12 @@
       ],
       "independent_evaluation": [
         "mycelix#4835"
+      ],
+      "observation_provenance": [
+        "mycelix#4835",
+        "mycelix#5762",
+        "mycelix#5695",
+        "mycelix#6140"
       ]
     },
     "required_stage_order": [
@@ -92,6 +98,35 @@
         "reconciliation_ref"
       ],
       "fixture_rule": "Fixture identifiers are synthetic labels, not source-native identifiers or cryptographic digests. The adapter must map them to exact owner-native references or mark the case UNSUPPORTED/INDETERMINATE."
+    },
+    "issue_6140": "https://github.com/Luminous-Dynamics/mycelix/issues/6140",
+    "evidence_qualification": {
+      "separate_axes": [
+        "outcome_assertion",
+        "evidence_kind",
+        "source_dependency_relationship",
+        "expected_action_coverage",
+        "effective_and_knowledge_time"
+      ],
+      "evidence_kinds": [
+        "provider_acknowledgement",
+        "provider_status_query",
+        "independent_observation",
+        "owner_reconciliation",
+        "missing"
+      ],
+      "source_relationships": [
+        "qualified_independent",
+        "known_shared_dependency",
+        "unknown",
+        "not_assessed"
+      ],
+      "rules": [
+        "Provider acknowledgement and provider status query are provider reports, not independent external-effect observation.",
+        "The source/dependency owner supplies independence classification; the candidate evaluator does not compute a scalar trust score.",
+        "Missing expected action observations remain unknown and cannot make a successful prefix fully applied.",
+        "Duplicate or mirrored evidence cannot increase independence or corroboration."
+      ]
     }
   },
   "cases": [
@@ -1332,6 +1367,216 @@
         "1607",
         "6069",
         "4835"
+      ]
+    },
+    {
+      "id": "R21",
+      "name": "provider-acknowledgement-is-not-independent-observation",
+      "class": "recovery_and_unknown_outcome",
+      "purpose": "The provider acknowledges that an operation was applied, but no independently qualified observation exists. Preserve provider-reported state without claiming independent external-effect observation.",
+      "operation": {
+        "operation": "op-021",
+        "provider": "provider-21",
+        "action": "transfer",
+        "target": "asset:treasury-a"
+      },
+      "events": [
+        {
+          "stage": "effectuation_attempt",
+          "time": 10,
+          "operation": "op-021"
+        },
+        {
+          "stage": "provider_acknowledgement",
+          "time": 11,
+          "source": "provider-21",
+          "result": "applied"
+        },
+        {
+          "stage": "independent_observation",
+          "time": 12,
+          "result": "missing"
+        }
+      ],
+      "provider_contract": {
+        "acknowledgement": "provider_signed",
+        "independent_observation": "not-available"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "HOLD_FOR_RECONCILIATION",
+        "outcome_class": "PROVIDER_REPORTED_APPLIED_NOT_INDEPENDENTLY_OBSERVED",
+        "required": [
+          "preserve_provider_report",
+          "do_not_label_provider_ack_independent",
+          "independent_observation_gap_explicit",
+          "no_false_independence_claim"
+        ]
+      },
+      "owner_refs": [
+        "2953",
+        "4835",
+        "6140"
+      ]
+    },
+    {
+      "id": "R22",
+      "name": "observers-share-known-critical-dependency",
+      "class": "unsupported_provider_semantics",
+      "purpose": "A second observer has a different identity but shares a known critical data/provider dependency with the candidate or first observer. It must not be counted as independent corroboration.",
+      "operation": {
+        "operation": "op-022",
+        "action": "verify-service-state",
+        "target": "service:water-ops",
+        "evidence_sources": [
+          "observer-a",
+          "observer-b"
+        ]
+      },
+      "events": [
+        {
+          "stage": "observation",
+          "time": 10,
+          "source": "observer-a",
+          "result": "applied"
+        },
+        {
+          "stage": "observation",
+          "time": 11,
+          "source": "observer-b",
+          "result": "applied"
+        },
+        {
+          "stage": "dependency_assessment",
+          "time": 12,
+          "relationship": "known-shared-dependency",
+          "dimension": "source-data"
+        }
+      ],
+      "provider_contract": {
+        "independence": "known-shared-source-data-dependency"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "INDETERMINATE",
+        "outcome_class": "KNOWN_SHARED_DEPENDENCY",
+        "required": [
+          "retain_both_source_lineages",
+          "known_overlap_not_independent",
+          "no_corroboration_inflation"
+        ]
+      },
+      "owner_refs": [
+        "4835",
+        "5762",
+        "5695",
+        "6140"
+      ]
+    },
+    {
+      "id": "R23",
+      "name": "observer-dependency-relationship-unknown",
+      "class": "unsupported_provider_semantics",
+      "purpose": "An observation exists, but the source/dependency inventory is incomplete and independence has not been established. Keep the relationship unknown.",
+      "operation": {
+        "operation": "op-023",
+        "action": "verify-asset-state",
+        "target": "asset:community-reserve",
+        "evidence_sources": [
+          "observer-c"
+        ]
+      },
+      "events": [
+        {
+          "stage": "observation",
+          "time": 10,
+          "source": "observer-c",
+          "result": "applied"
+        },
+        {
+          "stage": "dependency_assessment",
+          "time": 11,
+          "relationship": "unknown",
+          "inventory": "partial"
+        }
+      ],
+      "provider_contract": {
+        "dependency_inventory": "incomplete"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "INDETERMINATE",
+        "outcome_class": "INDEPENDENCE_NOT_ASSESSED",
+        "required": [
+          "retain_known_dependency_facts",
+          "unknown_remainder_not_independent",
+          "no_numeric_independence_claim"
+        ]
+      },
+      "owner_refs": [
+        "4835",
+        "5762",
+        "5695",
+        "6140"
+      ]
+    },
+    {
+      "id": "R24",
+      "name": "expected-action-plan-has-unobserved-suffix",
+      "class": "recovery_and_partial_effect",
+      "purpose": "The expected operation contains actions A and B. A is observed applied; B has no observation. The incomplete evidence set must not be interpreted as full completion.",
+      "operation": {
+        "operation": "op-024",
+        "expected_action_ids": [
+          "action-024-a",
+          "action-024-b"
+        ]
+      },
+      "events": [
+        {
+          "stage": "action_attempt",
+          "time": 10,
+          "action": "action-024-a"
+        },
+        {
+          "stage": "observation",
+          "time": 11,
+          "action": "action-024-a",
+          "result": "applied"
+        },
+        {
+          "stage": "action_attempt",
+          "time": 12,
+          "action": "action-024-b"
+        },
+        {
+          "stage": "observation",
+          "time": 13,
+          "action": "action-024-b",
+          "result": "missing"
+        }
+      ],
+      "provider_contract": {
+        "per_action_observation": "expected",
+        "batch_atomicity": "not-claimed"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "HOLD_FOR_RECONCILIATION",
+        "outcome_class": "PARTIAL_WITH_UNKNOWN_SUFFIX",
+        "required": [
+          "expected_action_set_frozen",
+          "missing_action_observation_is_unknown",
+          "successful_prefix_preserved",
+          "not_full_completion",
+          "no_failure_no_effect_claim"
+        ]
+      },
+      "owner_refs": [
+        "1607",
+        "2953",
+        "4835",
+        "6140"
       ]
     }
   ],
