@@ -91,7 +91,7 @@ At minimum, freeze known-answer cases for:
 - follow-up, supersession and retraction by different publishers;
 - unresolved references that become resolvable later;
 - contradictory and cyclic citation graphs;
-- packet alteration, digest mismatch, parser/projection disagreement, receipt timestamp substitution and incomplete receipt records;
+- packet alteration, digest mismatch, parser/projection disagreement, caller-backdated receipt assertions, missing/pending/revoked authority receipts and incomplete receipt-chain records;
 - shared source, gateway, operator, calibration or trust-root common causes;
 - clock inversion, stale calibration, telemetry-only evidence and source conflict;
 - domain shift, missing modalities, sensor failure and annotation disagreement;
@@ -119,6 +119,7 @@ These are goals for future evaluations, not results achieved by v0.1.
 ### Integrity gates
 
 - Zero temporal look-ahead across all known-answer and adversarial cases.
+- Every replay reports the provenance of its cutoff; caller-supplied fixture timestamps are explicitly `unattested_manifest_assertion` and cannot qualify a production as-known-at claim.
 - Zero source-projection mismatch: packet identity, role, publisher assertion, creation time, citations and digest must originate from one parser invocation over the same exact source bytes.
 - Zero loss of source root attributes, EventIVORN attributes or Citations/Description text in the replay graph, including unresolved edges.
 - Zero silently lost source packets or lifecycle citations.
@@ -280,6 +281,38 @@ These labels do not prove mathematical or statistical independence. A profile-sp
 - Report the dimension-wise dependency vector, not only a count of sources or a confidence multiplier.
 
 The critical SOTA comparison is not how many alerts or broker records are aggregated. It is whether the system detects when a high apparent corroboration count is actually a single shared source, while retaining genuinely distinct evidence and exposing unresolved common causes.
+
+## 11A. Canonical receipt-time authority and as-known-at replay
+
+The standalone lifecycle CLI accepts a caller-supplied receipt-time field for synthetic/retrospective replay and marks the result `unattested_manifest_assertion`. This is deliberate: hashing the source XML proves the bytes parsed, not when the fabric received them.
+
+Production transaction-time queries must compose the canonical Mycelix DeSci receipt system rather than create a second receipt ledger:
+- [mycelix-desci scientific event kernel](https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-desci/src/core/src/scientific_events.rs) owns signed versioned event envelopes, canonical event hashes, stream IDs, sequences and append-only event history;
+- [scientific authority audit](https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-desci/src/core/src/scientific_authority_audit.rs) owns `ScientificAuthorityReceipt` / `SignedScientificAuthorityReceipt`, trusted service-key signature verification, event ID/hash/stream/sequence binding, receipt-time authority snapshots, and hash-linked receipt chains;
+- [KNOW-ASOF-001 #5860](https://github.com/Luminous-Dynamics/mycelix/issues/5860) owns deterministic transaction-time/as-known-at read projections and their status distinctions (`receipt_attested`, `pending_reconciliation`, `legacy_unattested`, `unsafe_unattested`, `unknown`);
+- [canonical statement/artifact identity #3022](https://github.com/Luminous-Dynamics/mycelix/issues/3022) owns exact source artifact digests, import receipts and provenance-family identity.
+
+Keep the following clocks separate:
+1. VOEvent source event time / phenomenon time;
+2. Who/Date source creation time;
+3. source publication/deposition time, where available;
+4. source acquisition/import time, from the source adapter/import receipt;
+5. canonical DeSci authority receipt time (server commit/known-at);
+6. derived index/cache/model availability time, which requires its own materialization receipt.
+
+A DeSci authority receipt proves that a canonical event and authorization decision were committed by the service at its receipt time under the configured trust model. It does not prove the source observation is true, when the source first existed, or when a downstream index/model incorporated it. A packet with `pending_reconciliation`, `legacy_unattested`, `unsafe_unattested` or `unknown` receipt status must not silently enter a qualified as-known-at frontier.
+
+Required negative controls:
+- signer backdates `occurred_at` before the receipt; a cutoff earlier than the server receipt must exclude it;
+- caller submits a forged or backdated `received_at`; governed append ignores caller time and stamps server receipt time;
+- service receipt signature, trusted key, authority snapshot, event hash, stream, sequence or previous receipt hash is altered;
+- pending receipt has not committed, authority reconciliation is incomplete, or a receipt-chain fork is present;
+- legacy pre-cutover event has no receipt and is returned only as `legacy_unattested`;
+- later correction/retraction does not change an earlier K snapshot;
+- source acquisition is later than publication, and neither timestamp is substituted for canonical commit time;
+- an embedding/index built after K is not described as available at K.
+
+The current standalone package does not verify signed DeSci receipts. It is a packet parser and event-graph replay component with an explicit unattested cutoff basis. The canonical DeSci adapter/API is a separate integration step owned by #5860; do not implement cryptographic verification or a second trust registry here.
 
 ## 12. Release rule
 
