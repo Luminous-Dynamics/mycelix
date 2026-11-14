@@ -131,6 +131,8 @@ fn unknown_scope_is_not_assumed_out_of_scope() {
         );
     let report = audit(&input).expect("valid unknown-scope fixture");
     assert_eq!(report.unknown_scope_observed, 1);
+    assert_eq!(report.omitted_reference_units, 0);
+    assert_eq!(report.unresolved_reference_units, 3);
     assert_eq!(report.disposition, "INCOMPLETE_OR_CONFLICTED");
 }
 
