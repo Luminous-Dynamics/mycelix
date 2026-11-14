@@ -24,7 +24,11 @@
       "required_next_evidence": [
         "receiving_custodian_receipt_or_authoritative_non_completion_confirmation"
       ],
-      "historical_rewrite_permitted": false
+      "historical_rewrite_permitted": false,
+      "required_evidence_receipts": [
+        "RECEIPT-CUSTODY-001",
+        "RECEIPT-CATALOGUE-001"
+      ]
     }
   ]
 }
