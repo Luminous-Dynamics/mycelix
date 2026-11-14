@@ -8,6 +8,9 @@
 //! Updated to use HDK 0.6 patterns
 
 use claims_integrity::*;
+
+/// HMP-001 scoped authorization kernel. The current read/write paths are not yet wired to it.
+pub mod hmp_rights;
 use hdk::prelude::*;
 use mycelix_zome_helpers as _;
 
