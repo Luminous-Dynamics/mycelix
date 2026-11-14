@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - "tools/fsre-time-expanded-portfolio-composer/**"
+      - "tools/fsre-asof-evidence/**"
+      - "tools/fsre-asof-portfolio-composer/**"
       - "tools/fsre-portfolio-reference/**"
       - "tools/fsre-resource-stock-flow/**"
       - ".github/workflows/fsre-time-expanded-portfolio-composer.yml"
@@ -12,6 +14,8 @@ on:
       - research/fsre-federated-resilience-v0.1
       - research/fsre-time-expanded-portfolio-composition-v0.1
     paths:
+      - "tools/fsre-asof-evidence/**"
+      - "tools/fsre-asof-portfolio-composer/**"
       - "tools/fsre-time-expanded-portfolio-composer/**"
       - ".github/workflows/fsre-time-expanded-portfolio-composer.yml"
   workflow_dispatch:
