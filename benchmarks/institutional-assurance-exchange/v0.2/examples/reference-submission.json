@@ -271,7 +271,9 @@
       "authorization_ref": "AUTHZ-LEASE-001",
       "possible_external_side_effect": true,
       "effect_status": "possible",
-      "external_visibility": "unknown"
+      "external_visibility": "unknown",
+      "canonical_operation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "action_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
     }
   ],
   "operation_finality_result": {
