@@ -153,3 +153,33 @@ fn already_applied_logical_operation_cannot_be_dispatched_again() {
     assert_eq!(decision.disposition, Disposition::Deny);
     assert_eq!(decision.reason_codes[0], "LOGICAL_OPERATION_ALREADY_APPLIED");
 }
+
+#[test]
+fn partner_credential_cannot_bypass_evidence_purpose_or_disclosure_rights() {
+    let scenarios: ScenarioSuite = serde_json::from_str(SCENARIOS).unwrap();
+    let partner = scenarios.cases.iter().find(|case| case.id == "P07").unwrap();
+
+    let mut purpose_unknown = partner.facts.clone();
+    purpose_unknown.scope.purpose_allowed = None;
+    assert_eq!(
+        evaluate(&purpose_unknown, purpose_unknown.evaluated_at_unix).disposition,
+        Disposition::Indeterminate
+    );
+
+    let mut rights_denied = partner.facts.clone();
+    rights_denied.rights.rights_satisfied = Some(false);
+    assert_eq!(
+        evaluate(&rights_denied, rights_denied.evaluated_at_unix).disposition,
+        Disposition::Deny
+    );
+}
+
+#[test]
+fn staged_reward_requires_rights_and_remedy_not_only_treasury_authorization() {
+    let scenarios: ScenarioSuite = serde_json::from_str(SCENARIOS).unwrap();
+    let reward = scenarios.cases.iter().find(|case| case.id == "P06").unwrap();
+    let mut facts = reward.facts.clone();
+    facts.rights.rights_satisfied = Some(false);
+    let decision = evaluate(&facts, facts.evaluated_at_unix);
+    assert_eq!(decision.disposition, Disposition::Deny);
+}
