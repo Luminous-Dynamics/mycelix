@@ -21,6 +21,26 @@ pub struct SourceTime {
     pub reference_frame: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PacketRole {
+    Observation,
+    Prediction,
+    Utility,
+    Test,
+}
+
+impl PacketRole {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Observation => "observation",
+            Self::Prediction => "prediction",
+            Self::Utility => "utility",
+            Self::Test => "test",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CitationRelation {
@@ -50,6 +70,10 @@ pub struct Citation {
 pub struct Packet {
     /// Stable packet identifier, kept as supplied by the source.
     pub id: String,
+    /// Effective VOEvent role; test/utility/prediction must not be collapsed into observation.
+    pub role: PacketRole,
+    /// True only when observation was supplied through the VOEvent 2.1 implicit default.
+    pub role_was_implicit: bool,
     /// SHA-256 supplied by the upstream byte-preserving parser, when available.
     /// This crate carries the value; it does not recompute or authenticate it.
     pub packet_sha256: Option<String>,
@@ -70,11 +94,15 @@ pub struct Packet {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct ParsedHeaderProjection {
     pub ivoid: String,
+    pub raw_role: Option<String>,
+    pub effective_role: PacketRole,
+    pub role_was_implicit: bool,
     pub packet_sha256: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct ParsedWhoProjection {
+    pub present: bool,
     pub author_ivoid: Option<String>,
     pub source_created_at: Option<String>,
 }
@@ -142,7 +170,21 @@ fn packet_from_projection(
     packet_index: usize,
 ) -> Result<Packet, ManifestError> {
     let projection = received.packet;
-    let id = projection.header.ivoid;
+    let header = projection.header;
+    let id = header.ivoid;
+    let role = header.effective_role;
+    let role_was_implicit = header.role_was_implicit;
+    let role_metadata_matches = if role_was_implicit {
+        header.raw_role.is_none() && role == PacketRole::Observation
+    } else {
+        header.raw_role.as_deref() == Some(role.as_str())
+    };
+    if !role_metadata_matches {
+        return Err(ManifestError::InvalidProjection {
+            packet_index,
+            reason: "raw_role, effective_role and role_was_implicit are inconsistent".to_owned(),
+        });
+    }
     if !is_ivoid_lexeme(&id) {
         return Err(ManifestError::InvalidProjection {
             packet_index,
@@ -150,7 +192,7 @@ fn packet_from_projection(
         });
     }
 
-    let packet_sha256 = projection.header.packet_sha256;
+    let packet_sha256 = header.packet_sha256;
     if !is_sha256_hex(&packet_sha256) {
         return Err(ManifestError::InvalidProjection {
             packet_index,
@@ -158,7 +200,15 @@ fn packet_from_projection(
         });
     }
 
+    let who_present = projection.who.present;
     let publisher = projection.who.author_ivoid;
+    let published_at = projection.who.source_created_at;
+    if !who_present && (publisher.is_some() || published_at.is_some()) {
+        return Err(ManifestError::InvalidProjection {
+            packet_index,
+            reason: "Who fields are populated while who.present=false".to_owned(),
+        });
+    }
     if let Some(author_ivoid) = &publisher {
         if !is_ivoid_lexeme(author_ivoid) {
             return Err(ManifestError::InvalidProjection {
@@ -168,7 +218,6 @@ fn packet_from_projection(
         }
     }
 
-    let published_at = projection.who.source_created_at;
     if published_at.as_ref().is_some_and(|value| value.is_empty()) {
         return Err(ManifestError::InvalidProjection {
             packet_index,
@@ -208,6 +257,8 @@ fn packet_from_projection(
 
     Ok(Packet {
         id,
+        role,
+        role_was_implicit,
         packet_sha256: Some(packet_sha256),
         publisher,
         received_at_unix_ms: received.received_at_unix_ms,
@@ -231,6 +282,8 @@ pub fn replay_manifest(manifest: ReplayManifest) -> Result<Replay, ManifestError
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VisiblePacket {
     pub id: String,
+    pub role: PacketRole,
+    pub role_was_implicit: bool,
     pub packet_sha256: Option<String>,
     pub publisher: Option<String>,
     pub received_at_unix_ms: u64,
@@ -242,6 +295,8 @@ pub struct VisiblePacket {
 pub struct LifecycleEdge {
     /// The newly received packet that makes the citation assertion.
     pub asserting_packet_id: String,
+    pub asserting_packet_role: PacketRole,
+    pub asserting_role_was_implicit: bool,
     pub asserting_packet_sha256: Option<String>,
     /// The prior packet named by the citation.
     pub cited_packet_id: String,
@@ -256,6 +311,8 @@ pub struct LifecycleEdge {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UnresolvedCitation {
     pub asserting_packet_id: String,
+    pub asserting_packet_role: PacketRole,
+    pub asserting_role_was_implicit: bool,
     pub asserting_packet_sha256: Option<String>,
     pub cited_packet_id: String,
     pub relation: CitationRelation,
@@ -379,6 +436,8 @@ pub fn replay_as_of(
         .iter()
         .map(|packet| VisiblePacket {
             id: packet.id.clone(),
+            role: packet.role,
+            role_was_implicit: packet.role_was_implicit,
             packet_sha256: packet.packet_sha256.clone(),
             publisher: packet.publisher.clone(),
             received_at_unix_ms: packet.received_at_unix_ms,
@@ -417,6 +476,8 @@ pub fn replay_as_of(
 
             let edge = LifecycleEdge {
                 asserting_packet_id: packet.id.clone(),
+                asserting_packet_role: packet.role,
+                asserting_role_was_implicit: packet.role_was_implicit,
                 asserting_packet_sha256: packet.packet_sha256.clone(),
                 cited_packet_id: citation.target_id.clone(),
                 cited_packet_sha256: visible_digests
@@ -447,6 +508,8 @@ pub fn replay_as_of(
             } else {
                 unresolved_citations.push(UnresolvedCitation {
                     asserting_packet_id: packet.id.clone(),
+                    asserting_packet_role: packet.role,
+                    asserting_role_was_implicit: packet.role_was_implicit,
                     asserting_packet_sha256: packet.packet_sha256.clone(),
                     cited_packet_id: citation.target_id.clone(),
                     relation: citation.relation,
@@ -497,6 +560,8 @@ mod tests {
     fn packet(id: &str, publisher: &str, received_at_unix_ms: u64) -> Packet {
         Packet {
             id: id.to_owned(),
+            role: PacketRole::Observation,
+            role_was_implicit: true,
             packet_sha256: None,
             publisher: Some(publisher.to_owned()),
             received_at_unix_ms,
@@ -559,6 +624,62 @@ mod tests {
     }
 
     #[test]
+    fn parser_projection_preserves_explicit_and_implicit_voevent_roles() {
+        let explicit_test = ReplayManifest {
+            cutoff_unix_ms: 10,
+            packets: vec![ReceivedParsedPacket {
+                received_at_unix_ms: 1,
+                packet: ParsedVoEventProjection {
+                    header: ParsedHeaderProjection {
+                        ivoid: "ivo://survey.example/test?one".to_owned(),
+                        raw_role: Some("test".to_owned()),
+                        effective_role: PacketRole::Test,
+                        role_was_implicit: false,
+                        packet_sha256: "d".repeat(64),
+                    },
+                    who: ParsedWhoProjection {
+                        present: false,
+                        author_ivoid: None,
+                        source_created_at: None,
+                    },
+                    citations_present: false,
+                    citations: Vec::new(),
+                },
+            }],
+        };
+        let replay = replay_manifest(explicit_test).expect("test role replay");
+        assert_eq!(replay.visible_packets[0].role, PacketRole::Test);
+        assert!(!replay.visible_packets[0].role_was_implicit);
+
+        let inconsistent = ReplayManifest {
+            cutoff_unix_ms: 10,
+            packets: vec![ReceivedParsedPacket {
+                received_at_unix_ms: 1,
+                packet: ParsedVoEventProjection {
+                    header: ParsedHeaderProjection {
+                        ivoid: "ivo://survey.example/test?two".to_owned(),
+                        raw_role: Some("test".to_owned()),
+                        effective_role: PacketRole::Observation,
+                        role_was_implicit: false,
+                        packet_sha256: "e".repeat(64),
+                    },
+                    who: ParsedWhoProjection {
+                        present: false,
+                        author_ivoid: None,
+                        source_created_at: None,
+                    },
+                    citations_present: false,
+                    citations: Vec::new(),
+                },
+            }],
+        };
+        assert!(matches!(
+            replay_manifest(inconsistent),
+            Err(ManifestError::InvalidProjection { .. })
+        ));
+    }
+
+    #[test]
     fn parser_projection_manifest_rejects_invalid_digest_and_citation_presence_mismatch() {
         let invalid_digest = ReplayManifest {
             cutoff_unix_ms: 10,
@@ -567,9 +688,13 @@ mod tests {
                 packet: ParsedVoEventProjection {
                     header: ParsedHeaderProjection {
                         ivoid: "ivo://survey.example/event?one".to_owned(),
+                        raw_role: None,
+                        effective_role: PacketRole::Observation,
+                        role_was_implicit: true,
                         packet_sha256: "not-a-digest".to_owned(),
                     },
                     who: ParsedWhoProjection {
+                        present: false,
                         author_ivoid: None,
                         source_created_at: None,
                     },
@@ -590,9 +715,13 @@ mod tests {
                 packet: ParsedVoEventProjection {
                     header: ParsedHeaderProjection {
                         ivoid: "ivo://survey.example/event?one".to_owned(),
+                        raw_role: None,
+                        effective_role: PacketRole::Observation,
+                        role_was_implicit: true,
                         packet_sha256: "c".repeat(64),
                     },
                     who: ParsedWhoProjection {
+                        present: false,
                         author_ivoid: None,
                         source_created_at: None,
                     },
