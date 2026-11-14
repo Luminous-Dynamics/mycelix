@@ -157,7 +157,10 @@
           "replay_state",
           "duplicate_effect_count",
           "protected_effect_state",
-          "observed_terminal_state"
+          "observed_terminal_state",
+          "execution_lease_state",
+          "grant_inventory_state",
+          "action_plan_state"
         ],
         "properties": {
           "scenario_id": {
@@ -441,7 +444,8 @@
               "provider_only",
               "shared_dependency",
               "unknown",
-              "not_applicable"
+              "not_applicable",
+              "numeric_score_claimed"
             ]
           },
           "replay_state": {
@@ -478,6 +482,30 @@
               "UNSUPPORTED",
               "TIMEOUT",
               "NOT_RUN"
+            ]
+          },
+          "execution_lease_state": {
+            "enum": [
+              "live_exact_operation_lease",
+              "ready_without_live_lease",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "grant_inventory_state": {
+            "enum": [
+              "complete",
+              "incomplete",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "action_plan_state": {
+            "enum": [
+              "frozen_complete",
+              "not_frozen",
+              "unknown",
+              "not_applicable"
             ]
           }
         }
