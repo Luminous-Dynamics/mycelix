@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IAE vertical-slice v0.2 known-answer oracle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "oracle_version",
+    "synthetic",
+    "status",
+    "claim_ceiling",
+    "requirement_expectations",
+    "query_expectations",
+    "execution_expectation",
+    "metamorphic_expectations",
+    "acceptance_tests"
+  ],
+  "properties": {
+    "oracle_version": {
+      "const": "0.2"
+    },
+    "synthetic": {
+      "const": true
+    },
+    "status": {
+      "const": "development_oracle_not_independently_adjudicated"
+    },
+    "claim_ceiling": {
+      "type": "string"
+    },
+    "requirement_expectations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "requirement_ref",
+          "modality"
+        ],
+        "properties": {
+          "requirement_ref": {
+            "type": "string"
+          },
+          "modality": {
+            "enum": [
+              "mandatory",
+              "conditional",
+              "preferred",
+              "unresolved"
+            ]
+          },
+          "hard_blocker": {
+            "type": "boolean"
+          },
+          "hard_blocker_when_triggered": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "query_expectations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "query_ref",
+          "expected_disposition",
+          "expected_authority_state",
+          "expected_permitted_use",
+          "required_reason_codes",
+          "required_claim_refs"
+        ],
+        "properties": {
+          "query_ref": {
+            "type": "string"
+          },
+          "expected_disposition": {
+            "enum": [
+              "ALLOW_SCOPED",
+              "ALLOW_PARTIAL",
+              "BLOCK",
+              "HOLD_FOR_RECONCILIATION"
+            ]
+          },
+          "expected_authority_state": {
+            "enum": [
+              "active",
+              "revoked",
+              "expired",
+              "unknown"
+            ]
+          },
+          "expected_permitted_use": {
+            "enum": [
+              "commercial_allowed",
+              "commercial_prohibited",
+              "not_applicable"
+            ]
+          },
+          "required_reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_claim_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "execution_expectation": {
+      "type": "object",
+      "required": [
+        "state",
+        "disposition",
+        "operation_ref",
+        "idempotency_ref",
+        "mutation_count",
+        "retry_count",
+        "reattempt_permitted",
+        "reconciliation_required",
+        "required_reason_codes"
+      ],
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "disposition": {
+          "type": "string"
+        },
+        "operation_ref": {
+          "type": "string"
+        },
+        "idempotency_ref": {
+          "type": "string"
+        },
+        "mutation_count": {
+          "type": "integer"
+        },
+        "retry_count": {
+          "type": "integer"
+        },
+        "reattempt_permitted": {
+          "type": "boolean"
+        },
+        "reconciliation_required": {
+          "type": "boolean"
+        },
+        "required_reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "metamorphic_expectations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "probe_ref",
+          "base_query_ref",
+          "variant_query_ref",
+          "invariant",
+          "expected"
+        ],
+        "properties": {
+          "probe_ref": {
+            "type": "string"
+          },
+          "base_query_ref": {
+            "type": "string"
+          },
+          "variant_query_ref": {
+            "type": "string"
+          },
+          "invariant": {
+            "type": "string"
+          },
+          "expected": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "acceptance_tests": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
