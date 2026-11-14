@@ -1,0 +1,34 @@
+# scenario_id=synthetic-water-shock
+# decision_id=decision-water-recovery-01
+# decision_time=1000
+# snapshot_id=synthetic-decision-snapshot-01
+# time_basis_id=unix-utc-seconds-v1
+record_id|evidence_id|revision|claim_id|subject_id|predicate|valid_from|valid_until|observed_at|recorded_at|revoked_at|state|source_owner|evidence_ref
+decision-qual-pump|evidence-qual-pump|1|claim-qual-pump|backup_pump|option_qualification|800|1100|820|830||ASSERTED|operator|synthetic:qualification:pump
+decision-qual-tanker|evidence-qual-tanker|1|claim-qual-tanker|tanker_delivery|option_qualification|800|1100|820|830||ASSERTED|operator|synthetic:qualification:tanker
+decision-qual-mobile|evidence-qual-mobile|1|claim-qual-mobile|mobile_treatment|option_qualification|800|1100|820|830||ASSERTED|operator|synthetic:qualification:mobile
+decision-cap-pump|evidence-cap-pump|1|claim-cap-pump|backup_pump|option_capacity|800|1100|820|830||ASSERTED|symtropy|synthetic:capacity:pump
+decision-cap-tanker|evidence-cap-tanker|1|claim-cap-tanker|tanker_delivery|option_capacity|800|1100|820|830||ASSERTED|symtropy|synthetic:capacity:tanker
+decision-cap-mobile|evidence-cap-mobile|1|claim-cap-mobile|mobile_treatment|option_capacity|800|1100|820|830||ASSERTED|symtropy|synthetic:capacity:mobile
+decision-allocation-households|evidence-allocation-households|1|claim-allocation-households|backup_pump|allocation|800|1100|820|830||ASSERTED|operator|synthetic:plan:pump
+decision-allocation-tanker|evidence-allocation-tanker|1|claim-allocation-tanker|tanker_delivery|allocation|800|1100|820|830||ASSERTED|operator|synthetic:plan:tanker
+decision-allocation-hospital|evidence-allocation-hospital|1|claim-allocation-hospital|mobile_treatment|allocation|800|1100|820|830||ASSERTED|operator|synthetic:plan:mobile
+decision-floor-households|evidence-floor-households|1|claim-floor-households|water|service_floor|800|1100|820|830||ASSERTED|service-owner|synthetic:floor:households
+decision-floor-hospital|evidence-floor-hospital|1|claim-floor-hospital|water|service_floor|800|1100|820|830||ASSERTED|service-owner|synthetic:floor:hospital
+decision-resource-profile-pump|evidence-resource-profile-pump|1|claim-resource-profile-pump|backup_pump|resource_profile|800|1100|820|830||ASSERTED|operator|synthetic:resource-profile:backup_pump
+decision-resource-profile-tanker|evidence-resource-profile-tanker|1|claim-resource-profile-tanker|tanker_delivery|resource_profile|800|1100|820|830||ASSERTED|operator|synthetic:resource-profile:tanker_delivery
+decision-resource-profile-mobile|evidence-resource-profile-mobile|1|claim-resource-profile-mobile|mobile_treatment|resource_profile|800|1100|820|830||ASSERTED|operator|synthetic:resource-profile:mobile_treatment
+decision-resource-use-pump|evidence-resource-use-pump|1|claim-resource-use-pump|backup_pump|resource_use|800|1100|820|830||ASSERTED|operator|synthetic:resource:pump-crew
+decision-resource-use-tanker|evidence-resource-use-tanker|1|claim-resource-use-tanker|tanker_delivery|resource_use|800|1100|820|830||ASSERTED|operator|synthetic:resource:tanker-diesel
+decision-resource-use-mobile-crew|evidence-resource-use-mobile-crew|1|claim-resource-use-mobile-crew|mobile_treatment|resource_use|800|1100|820|830||ASSERTED|operator|synthetic:resource:mobile-crew
+decision-resource-use-mobile-diesel|evidence-resource-use-mobile-diesel|1|claim-resource-use-mobile-diesel|mobile_treatment|resource_use|800|1100|820|830||ASSERTED|operator|synthetic:resource:mobile-diesel
+decision-resource-cap-diesel|evidence-resource-cap-diesel|1|claim-resource-cap-diesel|diesel|resource_capacity|800|1100|820|830||ASSERTED|operator|synthetic:stock:diesel
+decision-resource-cap-crew|evidence-resource-cap-crew|1|claim-resource-cap-crew|qualified_crew_hours|resource_capacity|800|1100|820|830||ASSERTED|operator|synthetic:stock:crew
+decision-domain-profile-pump|evidence-domain-profile-pump|1|claim-domain-profile-pump|backup_pump|domain_profile|800|1100|820|830||ASSERTED|mycelix|synthetic:domain-profile:backup_pump
+decision-domain-profile-tanker|evidence-domain-profile-tanker|1|claim-domain-profile-tanker|tanker_delivery|domain_profile|800|1100|820|830||ASSERTED|mycelix|synthetic:domain-profile:tanker_delivery
+decision-domain-profile-mobile|evidence-domain-profile-mobile|1|claim-domain-profile-mobile|mobile_treatment|domain_profile|800|1100|820|830||ASSERTED|mycelix|synthetic:domain-profile:mobile_treatment
+decision-domain-pump-power|evidence-domain-pump-power|1|claim-domain-pump-power|backup_pump|option_domain|800|1100|820|830||ASSERTED|mycelix|synthetic:domain:pump-power
+decision-domain-mobile-power|evidence-domain-mobile-power|1|claim-domain-mobile-power|mobile_treatment|option_domain|800|1100|820|830||ASSERTED|mycelix|synthetic:domain:mobile-power
+decision-domain-mobile-road|evidence-domain-mobile-road|1|claim-domain-mobile-road|mobile_treatment|option_domain|800|1100|820|830||ASSERTED|mycelix|synthetic:domain:mobile-road
+decision-domain-state-power|evidence-domain-state-power|1|claim-domain-state-power|power_feed_east|domain_state|800|1100|820|830||ASSERTED|mycelix|synthetic:domain:power
+decision-domain-state-road|evidence-domain-state-road|1|claim-domain-state-road|road_east|domain_state|800|1100|820|830||ASSERTED|mycelix|synthetic:domain:road
