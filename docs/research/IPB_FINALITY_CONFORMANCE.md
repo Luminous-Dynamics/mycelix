@@ -183,7 +183,7 @@ This specification and JSON manifest are authored development artifacts only. JS
 
 ## 11. Authorization assurance profile extension
 
-The scenario set has been extended from 24 to 32 synthetic cases. New cases exercise refreshed/stale active sessions, revocation propagation, transitive delegation, alternate route bypass, trajectory-wide ambient privilege, credential subject forwarding, incomplete route inventories and unavailable revocation status.
+The scenario set has been extended from 24 to 34 synthetic cases. New cases exercise refreshed/stale active sessions, revocation propagation, transitive delegation, alternate route bypass, trajectory-wide ambient privilege, credential subject forwarding, incomplete route inventories, unavailable revocation status, and ambiguity requiring principal clarification.
 
 See [Institutional Authorization Assurance Profile](./INSTITUTIONAL_AUTHORIZATION_ASSURANCE_PROFILE.md) for claim–obligation–enforcement–evidence–effect semantics and the five properties being tested. The profile is research guidance, not a standard or certification.
 
@@ -203,3 +203,14 @@ These functions consume owner-resolved inputs. They do not discover credentials,
 - OPA decision-log completeness and configurable drop/rate-limit semantics: https://www.openpolicyagent.org/docs/management-decision-logs
 
 These references motivate test dimensions; their results are not evidence that Luminous has achieved the corresponding targets.
+
+
+## 13. Human clarification and scope preservation
+
+AuthorizationBench reports 19.2% out-of-authorization actions across 6,864 trajectories in its own 286-task, ten-domain sandbox. Its controlled-pair analysis also reports a lower out-of-scope rate when agents consult the principal before completing ambiguous tasks (14.0% versus 21.6%). Treat those as study-specific findings, not general population rates.
+
+The LISE panel adds A33/F34:
+- A33 holds and asks when a vague request does not identify the exact recipient, amount, target or protected operation.
+- F34 permits a bounded action only after the principal supplies the missing operation semantics and separately approves the exact operation.
+
+Clarification must preserve the scope boundary. User silence, a plausible default, tool availability or a model confidence score do not create authority.
