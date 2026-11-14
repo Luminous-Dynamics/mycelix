@@ -273,5 +273,19 @@
       "effect_status": "possible",
       "external_visibility": "unknown"
     }
-  ]
+  ],
+  "operation_finality_result": {
+    "operation_ref": "OP-LEASE-001",
+    "canonical_operation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "approval_ref": "APPROVAL-LEASE-OPERATION-001",
+    "constitution_epoch": 1,
+    "constitution_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "authority_state": "current",
+    "resource_state": "matches",
+    "prior_effect_state": "outcome_unknown_after_dispatch",
+    "retry_safety": "unknown",
+    "disposition": "HOLD_FOR_RECONCILIATION",
+    "retry_count": 0,
+    "reattempt_permitted": false
+  }
 }
