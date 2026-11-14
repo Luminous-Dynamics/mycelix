@@ -532,7 +532,7 @@ mod tests {
         let report = run(&[HOSPITAL, HOUSEHOLDS, REMOTE]);
         assert!(report.contains("max_quality_noncompliant_seconds=30"));
         assert!(report.contains("max_quality_noncompliant_cohort=hospital"));
-        assert!(report.contains("cohort=hospital|500|persons|0.500000|100|0|0.000000|30|30|0|30|20|30|SAFE_RECOVERY_OBSERVED"));
+        assert!(report.contains("cohort=hospital|500|persons|0.500000|100|0|70|0|0.000000|30|30|0|30|20|30|SAFE_RECOVERY_OBSERVED"));
     }
 
     #[test]
