@@ -1,0 +1,205 @@
+schema: lise.ipb.scenario-manifest.v0
+suite_id: IPB-REM-EFFECTIVE-REMEDY-v0
+scenario_id: member-challenge-decision-remedy-completion
+scenario_version: 1
+claim_scope: synthetic_contestability_and_remedy_effectiveness_overlay
+evidence_tier: deterministic_software_benchmark_specification
+status: draft_reference_specification
+
+owner_contracts:
+  temporal_history_and_appeal: mycelix-6069
+  decision_authority_and_execution: mycelix-2953
+  governance_lifecycle: mycelix-3117
+  contested_evidence: mycelix-3126
+  independent_evaluation: mycelix-4835
+  deliberation_and_voice: mycelix-5999
+  accessible_reach_and_cost: mycelix-5627
+  remedy_overlay: lise-ipb-rem-001
+
+principle:
+  complaint_received_is_not_review_completed: true
+  review_completed_is_not_remedy_ordered: true
+  remedy_ordered_is_not_remedy_completed: true
+  remedy_completion_requires_observation_or_explicitly_justified_non_observability: true
+  no_universal_remedy_adequacy_score: true
+
+fixture:
+  clock_unit: millisecond
+  clock_origin: 0
+  wall_clock_dependency: false
+  network_dependency: none
+  personal_data: synthetic_only
+  live_payment_or_benefit_mutation: false
+
+decision:
+  decision_id: allocation-eligibility-0042
+  policy_id: member-allocation-policy
+  policy_version: 7
+  decision_time_ms: 1000
+  subject_ref: member-pseudonym-17
+  decision_effect: eligibility_denied
+  reason_refs:
+    - reason-income-record-stale
+    - reason-policy-threshold-7
+  evidence_refs:
+    - evidence-income-record-older-than-cutoff
+    - evidence-submitted-address-update
+  original_decider: allocation-reviewer-a
+
+challenge:
+  challenge_id: challenge-0042
+  target_decision_id: allocation-eligibility-0042
+  submitted_at_ms: 2000
+  challenged_propositions:
+    - income-record-currentness
+    - eligibility-threshold-application
+  requested_correction:
+    - replace_stale_income_record_with_current_record
+  counter_evidence_ref: member-submitted-income-record-current
+  good_faith: true
+
+review_policy:
+  reviewer_role: independent-reviewer
+  conflict_screen_required: true
+  reviewer_authority:
+    may_request_more_evidence: true
+    may_suspend_decision: true
+    may_vary_decision: true
+    may_reverse_decision: true
+    may_remand_decision: true
+  review_deadline_ms: 10000
+  external_route_must_remain_available: true
+  waiver_of_external_rights_required: false
+  good_faith_challenge_adverse_mutation: prohibited
+
+remedy_profile:
+  case_specific_assessment_required: true
+  permitted_remedy_types:
+    - correction
+    - restoration
+    - restitution
+    - rehabilitation
+    - compensation
+    - apology
+    - sanction
+    - guarantee_of_non_repetition
+  completion_evidence_required: true
+  systemic_follow_up_when_cause_is_recurrent: true
+  adequacy_judgment:
+    evaluator: independent_domain_and_affected_party_review
+    automated_scalar_score: prohibited
+
+cases:
+  - case_id: rem-01-notice-and-reasons
+    class: positive_control
+    expected: notice_and_reasons_supported
+    mutation: none
+  - case_id: rem-02-exact-evidence-access
+    class: positive_control
+    expected: evidence_access_supported
+    mutation: grant_access_to_exact_decision_evidence_and_policy_refs
+  - case_id: rem-03-source-data-correction
+    class: positive_control
+    expected: correction_completed_without_historical_rewrite
+    mutation: replace_current_projection_but_preserve_original_event_and_as_known_at_view
+  - case_id: rem-04-counter-evidence-attribution
+    class: positive_control
+    expected: counter_evidence_attributed_and_disposition_recorded
+    mutation: submit_counter_evidence_and_record_review_disposition
+  - case_id: rem-05-accessibility-and-assistance
+    class: positive_control
+    expected: accessible_for_declared_profile
+    mutation: provide_declared_language_modality_and_assistance_path
+  - case_id: rem-06-predictable-stage-and-deadline
+    class: positive_control
+    expected: process_stages_and_deadlines_visible
+    mutation: publish_stage_owner_deadline_and_case_status
+  - case_id: rem-07-human-review-without-authority
+    class: negative_control
+    expected: reviewer_authority_missing
+    mutation: reviewer_can_comment_but_cannot_suspend_vary_reverse_or_remand
+  - case_id: rem-08-conflicted-reviewer
+    class: negative_control
+    expected: review_conflicted_reassignment_required
+    mutation: original_decider_controls_or_has_conflict_with_reviewer
+  - case_id: rem-09-independent-decision_changing_review
+    class: positive_control
+    expected: review_independent_and_decision_varied
+    mutation: qualified_reviewer_reverses_decision_with_cited_evidence
+  - case_id: rem-10-interim-safeguard
+    class: positive_control
+    expected: interim_safeguard_active
+    mutation: prevent_compounding_harm_while_review_is_pending
+  - case_id: rem-11-retaliation-protection
+    class: negative_control
+    expected: adverse_mutation_prohibited_and_protected_route_preserved
+    mutation: attempt_to_reduce_future_access_or_benefits_because_good_faith_challenge_was_filed
+  - case_id: rem-12-rejected-challenge-with-external-route
+    class: positive_control
+    expected: decision_upheld_with_reasons_and_external_route_preserved
+    mutation: reject_with_reasoned_review_while_preserving_other_remedies
+  - case_id: rem-13-remedy-ordered-not-executed
+    class: negative_control
+    expected: remedy_in_progress_not_completed
+    mutation: issue_restoration_order_but_do_not_execute_it
+  - case_id: rem-14-restoration-independently-observed
+    class: positive_control
+    expected: remedy_completed_observed
+    mutation: execute_restoration_and_attach_independent_observation
+  - case_id: rem-15-nonfinancial-remedy-completion
+    class: positive_control
+    expected: remedy_completed_observed
+    mutation: complete_declared_correction_or_rehabilitation_and_observe_result
+  - case_id: rem-16-systemic-nonrepetition
+    class: positive_control
+    expected: systemic_action_verified
+    mutation: detect_recurrent_cause_assign_corrective_action_and_verify_effect
+  - case_id: rem-17-collective-challenge
+    class: positive_control
+    expected: representative_authority_valid_group_remedy_visible_privacy_preserved
+    mutation: authorized_group_representative_challenges_aggregate_impact
+  - case_id: rem-18-external-route-not-waived
+    class: negative_control
+    expected: coercive_waiver_rejected
+    mutation: internal_review_is_conditioned_on_waiving_external_or_collective_remedy
+  - case_id: rem-19-incomplete-review-authority
+    class: indeterminate_control
+    expected: review_indeterminate
+    mutation: reviewer_mandate_or_conflict_evidence_unavailable
+  - case_id: rem-20-remedy-completion-observation-missing
+    class: negative_control
+    expected: remedy_completion_not_supported
+    mutation: administrator_marks_remedy_done_without_independent_completion_evidence
+  - case_id: rem-21-privacy-overdisclosure
+    class: negative_control
+    expected: unauthorized_disclosure_blocked
+    mutation: expose_unrelated_personal_fields_in_challenge_bundle
+  - case_id: rem-22-process-delay-without-update
+    class: negative_control
+    expected: predictability_and_transparency_not_supported
+    mutation: exceed_published_stage_deadline_without_status_or_reason
+
+expected_case_count: 22
+suite_invariants:
+  human_review_without_decision_authority_counts_as_effective_review: false
+  remedy_order_equals_remedy_completion: false
+  administrator_self_attestation_alone_proves_completion: false
+  good_faith_challenge_authorizes_adverse_action: false
+  internal_review_can_extinguish_external_remedy: false
+  historical_view_can_be_rewritten_by_correction: false
+  systemic_policy_change_alone_proves_nonrepetition: false
+  missing_reviewer_or_remedy_evidence_is_indeterminate_not_pass: true
+  remedy_adequacy_is_scalar_model_output: false
+  random_seed: none
+  production_authorization: false
+
+evidence_ceiling:
+  demonstrates:
+    - conformance_to_this_synthetic_remedy_effectiveness_panel
+    - correct_distinction_between_review_authority_order_and_completion
+  does_not_demonstrate:
+    - legal_compliance
+    - real_world_accessibility_or_trust
+    - substantive_adequacy_of_a_remedy
+    - absence_of_retaliation_in_a_real_institution
+    - field_effectiveness_or_public_deployment_readiness
