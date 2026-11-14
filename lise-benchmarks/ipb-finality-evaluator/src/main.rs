@@ -106,11 +106,14 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
         "no_blind_retry" => retries == 0,
         "effect_observed" => observations > 0 && matches!(exec, "confirmed_applied" | "partially_applied" | "provider_reported_applied"),
         "independent_effect_observation" => observation == "qualified_independent",
-        "do_not_label_provider_ack_independent" => observation == "provider_only" || observation == "unknown" || observation == "qualified_independent",
+        "do_not_label_provider_ack_independent" => observation == "provider_only",
         "preserve_provider_report" => observation == "provider_only" || observation == "qualified_independent" || observation == "unknown",
-        "known_overlap_not_independent" | "no_corroboration_inflation" | "no_false_independence_claim" => observation == "known_shared_dependency",
+        "known_overlap_not_independent" | "no_corroboration_inflation" => observation == "known_shared_dependency",
+        "no_false_independence_claim" => observation != "qualified_independent",
         "unknown_status_not_treated_as_active" => authority == "unknown" && disposition == "INDETERMINATE",
         "confirmed_no_effect_before_retry" => exec == "confirmed_no_effect",
+        "do_not_claim_no_effect" | "no_failure_no_effect_claim" => matches!(exec, "unknown" | "partial_with_unknown"),
+        "no_atomicity_overclaim" | "no_batch_atomicity_claim" => matches!(exec, "partial_with_unknown" | "partially_applied" | "unknown"),
         "unknown_suffix_preserved" | "not_full_completion" => matches!(exec, "partial_with_unknown" | "unknown"),
         "successful_prefix_preserved" => exec == "partial_with_unknown" || exec == "partially_applied",
         "exact_target_match" => operation == "exact",
@@ -479,17 +482,18 @@ mod tests {
         assert!(required_assertion_satisfied("reachable_bypass_detected",&actual));
     }
     #[test]
-    fn an_unbounded_grant_cannot_satisfy_a_bounded_task_ceiling() {
-        let actual=json!({"observed_disposition":"ALLOW","trajectory_privilege_state":"exceeds_task"});
-        assert_eq!(actual["trajectory_privilege_state"],"exceeds_task");
-        assert!(!required_assertion_satisfied("trajectory_privilege_union_exceeds_task",&actual)==false);
+    fn excess_trajectory_privilege_must_be_denied() {
+        let denied=json!({"observed_disposition":"DENY","trajectory_privilege_state":"exceeds_task"});
+        let allowed=json!({"observed_disposition":"ALLOW","trajectory_privilege_state":"exceeds_task"});
+        assert!(required_assertion_satisfied("trajectory_privilege_union_exceeds_task",&denied));
+        assert!(!required_assertion_satisfied("trajectory_privilege_union_exceeds_task",&allowed));
     }
     #[test]
     fn wrong_enforcement_or_missing_inventory_is_not_complete_mediation() {
         let bypass=json!({"mediation_state":"bypass"});
         let incomplete=json!({"mediation_state":"inventory_incomplete"});
-        assert!(!required_assertion_satisfied("complete_mediation_claim_rejected",&bypass)==false);
-        assert!(!required_assertion_satisfied("no_complete_mediation_claim",&incomplete)==false);
+        assert!(required_assertion_satisfied("complete_mediation_claim_rejected",&bypass));
+        assert!(required_assertion_satisfied("no_complete_mediation_claim",&incomplete));
     }
     #[test]
     fn only_lowercase_sha256_hex_digests_are_accepted() {
