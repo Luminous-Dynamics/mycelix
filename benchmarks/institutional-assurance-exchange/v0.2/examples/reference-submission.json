@@ -1,0 +1,302 @@
+{
+  "system_id": "reference-vertical-slice-submission",
+  "build_sha": "REFERENCE-SUBMISSION-NOT-A-MODEL-RESULT",
+  "configuration_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "intent_baseline_ref": "INTENT-BASELINE-PROPERTY-001",
+  "decisions": [
+    {
+      "query_ref": "Q-HISTORICAL",
+      "disposition": "ALLOW_SCOPED",
+      "authority_state": "active",
+      "permitted_use": "commercial_allowed",
+      "reason_codes": [
+        "intent.baseline.human_accepted",
+        "preference.non_blocking",
+        "requirement.conditional.not_triggered",
+        "requirement.title.verified"
+      ],
+      "supporting_claim_refs": [
+        "CLM-TITLE-001",
+        "CLM-CUSTODY-001",
+        "CLM-USE-V4"
+      ],
+      "requirement_refs": [
+        "REQ-LEASE-TITLE",
+        "REQ-LAND-USE-VARIANCE",
+        "REQ-PREFERRED-CONDITION"
+      ],
+      "source_receipt_refs": [
+        "RCPT-TITLE-V1",
+        "RCPT-CUSTODY-V4",
+        "RCPT-USE-V4"
+      ],
+      "authority_ref": "AUTHZ-LEASE-001",
+      "policy_ref": "POLICY-COMMERCIAL-LEASE-V1",
+      "evaluator_ref": "IAE-VERTICAL-SLICE-EVALUATOR-V0.2"
+    },
+    {
+      "query_ref": "Q-CURRENT-REPLAY",
+      "disposition": "BLOCK",
+      "authority_state": "revoked",
+      "permitted_use": "commercial_prohibited",
+      "reason_codes": [
+        "authority.revoked_before_action",
+        "intent.baseline.human_accepted",
+        "preference.non_blocking",
+        "requirement.conditional.triggered",
+        "requirement.land_use_variance.missing",
+        "requirement.title.verified"
+      ],
+      "supporting_claim_refs": [
+        "CLM-TITLE-001",
+        "CLM-CUSTODY-001",
+        "CLM-USE-V5"
+      ],
+      "requirement_refs": [
+        "REQ-LEASE-TITLE",
+        "REQ-LAND-USE-VARIANCE"
+      ],
+      "source_receipt_refs": [
+        "RCPT-TITLE-V1",
+        "RCPT-CUSTODY-V4",
+        "RCPT-USE-V5"
+      ],
+      "authority_ref": "AUTHZ-LEASE-001",
+      "policy_ref": "POLICY-COMMERCIAL-LEASE-V1",
+      "evaluator_ref": "IAE-VERTICAL-SLICE-EVALUATOR-V0.2"
+    },
+    {
+      "query_ref": "Q-MISSING-TITLE",
+      "disposition": "BLOCK",
+      "authority_state": "active",
+      "permitted_use": "commercial_allowed",
+      "reason_codes": [
+        "intent.baseline.human_accepted",
+        "preference.non_blocking",
+        "requirement.conditional.not_triggered",
+        "requirement.title.not_established"
+      ],
+      "supporting_claim_refs": [
+        "CLM-CUSTODY-001",
+        "CLM-USE-V4"
+      ],
+      "requirement_refs": [
+        "REQ-LEASE-TITLE"
+      ],
+      "source_receipt_refs": [
+        "RCPT-CUSTODY-V4",
+        "RCPT-USE-V4"
+      ],
+      "authority_ref": "AUTHZ-LEASE-001",
+      "policy_ref": "POLICY-COMMERCIAL-LEASE-V1",
+      "evaluator_ref": "IAE-VERTICAL-SLICE-EVALUATOR-V0.2"
+    },
+    {
+      "query_ref": "Q-UNRELATED-CLAIM",
+      "disposition": "ALLOW_SCOPED",
+      "authority_state": "active",
+      "permitted_use": "commercial_allowed",
+      "reason_codes": [
+        "intent.baseline.human_accepted",
+        "preference.non_blocking",
+        "requirement.conditional.not_triggered",
+        "requirement.title.verified"
+      ],
+      "supporting_claim_refs": [
+        "CLM-TITLE-001",
+        "CLM-CUSTODY-001",
+        "CLM-USE-V4"
+      ],
+      "requirement_refs": [
+        "REQ-LEASE-TITLE",
+        "REQ-LAND-USE-VARIANCE",
+        "REQ-PREFERRED-CONDITION"
+      ],
+      "source_receipt_refs": [
+        "RCPT-TITLE-V1",
+        "RCPT-CUSTODY-V4",
+        "RCPT-USE-V4"
+      ],
+      "authority_ref": "AUTHZ-LEASE-001",
+      "policy_ref": "POLICY-COMMERCIAL-LEASE-V1",
+      "evaluator_ref": "IAE-VERTICAL-SLICE-EVALUATOR-V0.2"
+    },
+    {
+      "query_ref": "Q-WRONG-DIMENSION",
+      "disposition": "BLOCK",
+      "authority_state": "active",
+      "permitted_use": "commercial_allowed",
+      "reason_codes": [
+        "intent.baseline.human_accepted",
+        "preference.non_blocking",
+        "requirement.conditional.not_triggered",
+        "requirement.title.source_competence_mismatch"
+      ],
+      "supporting_claim_refs": [
+        "CLM-CUSTODY-001",
+        "CLM-USE-V4"
+      ],
+      "requirement_refs": [
+        "REQ-LEASE-TITLE"
+      ],
+      "source_receipt_refs": [
+        "RCPT-CUSTODY-V4",
+        "RCPT-USE-V4"
+      ],
+      "authority_ref": "AUTHZ-LEASE-001",
+      "policy_ref": "POLICY-COMMERCIAL-LEASE-V1",
+      "evaluator_ref": "IAE-VERTICAL-SLICE-EVALUATOR-V0.2"
+    },
+    {
+      "query_ref": "Q-PREFERENCE-ABSENT",
+      "disposition": "ALLOW_SCOPED",
+      "authority_state": "active",
+      "permitted_use": "commercial_allowed",
+      "reason_codes": [
+        "intent.baseline.human_accepted",
+        "preference.non_blocking",
+        "requirement.conditional.not_triggered",
+        "requirement.title.verified"
+      ],
+      "supporting_claim_refs": [
+        "CLM-TITLE-001",
+        "CLM-CUSTODY-001",
+        "CLM-USE-V4"
+      ],
+      "requirement_refs": [
+        "REQ-LEASE-TITLE",
+        "REQ-LAND-USE-VARIANCE",
+        "REQ-PREFERRED-CONDITION"
+      ],
+      "source_receipt_refs": [
+        "RCPT-TITLE-V1",
+        "RCPT-CUSTODY-V4",
+        "RCPT-USE-V4"
+      ],
+      "authority_ref": "AUTHZ-LEASE-001",
+      "policy_ref": "POLICY-COMMERCIAL-LEASE-V1",
+      "evaluator_ref": "IAE-VERTICAL-SLICE-EVALUATOR-V0.2"
+    },
+    {
+      "query_ref": "Q-INSPECTION-ONLY",
+      "disposition": "ALLOW_SCOPED",
+      "authority_state": "active",
+      "permitted_use": "not_applicable",
+      "reason_codes": [
+        "authority.scope.verified",
+        "action.independent_of_title"
+      ],
+      "supporting_claim_refs": [],
+      "requirement_refs": [],
+      "source_receipt_refs": [],
+      "authority_ref": "AUTHZ-LEASE-001",
+      "policy_ref": "POLICY-CONDITION-INSPECTION-V1",
+      "evaluator_ref": "IAE-VERTICAL-SLICE-EVALUATOR-V0.2"
+    }
+  ],
+  "execution_control": {
+    "state": "UNKNOWN",
+    "disposition": "HOLD_FOR_RECONCILIATION",
+    "operation_ref": "OP-LEASE-001",
+    "idempotency_ref": "IDEM-LEASE-001",
+    "mutation_count": 1,
+    "retry_count": 0,
+    "reattempt_permitted": false,
+    "reconciliation_required": true,
+    "reason_codes": [
+      "operation.outcome.unknown",
+      "operation.retry.blocked"
+    ]
+  },
+  "trace_completeness": {
+    "human_approval_ref": "APPROVAL-BASELINE-001",
+    "baseline_ref": "INTENT-BASELINE-PROPERTY-001",
+    "authority_ref": "AUTHZ-LEASE-001",
+    "policy_ref": "POLICY-COMMERCIAL-LEASE-V1",
+    "evaluator_ref": "IAE-VERTICAL-SLICE-EVALUATOR-V0.2",
+    "source_receipt_refs": [
+      "RCPT-TITLE-V1",
+      "RCPT-CUSTODY-V4",
+      "RCPT-USE-V4",
+      "RCPT-USE-V5",
+      "RCPT-CONDITION-UNAVAILABLE"
+    ]
+  },
+  "metamorphic_results": [
+    {
+      "probe_ref": "P-UNRELATED-CLAIM",
+      "base_query_ref": "Q-HISTORICAL",
+      "variant_query_ref": "Q-UNRELATED-CLAIM",
+      "base_disposition": "ALLOW_SCOPED",
+      "variant_disposition": "ALLOW_SCOPED",
+      "base_reason_codes": [
+        "intent.baseline.human_accepted",
+        "requirement.title.verified",
+        "requirement.conditional.not_triggered",
+        "preference.non_blocking"
+      ],
+      "variant_reason_codes": [
+        "intent.baseline.human_accepted",
+        "requirement.title.verified",
+        "requirement.conditional.not_triggered",
+        "preference.non_blocking"
+      ]
+    },
+    {
+      "probe_ref": "P-PREFERENCE-REMOVED",
+      "base_query_ref": "Q-HISTORICAL",
+      "variant_query_ref": "Q-PREFERENCE-ABSENT",
+      "base_disposition": "ALLOW_SCOPED",
+      "variant_disposition": "ALLOW_SCOPED"
+    }
+  ],
+  "environment": {
+    "mode": "synthetic_fixture_only",
+    "external_io_enabled": false,
+    "network_enabled": false,
+    "mutations_enabled": false
+  },
+  "write_trace": [
+    {
+      "event_ref": "OP-EVENT-SUBMIT",
+      "operation_ref": "OP-LEASE-001",
+      "idempotency_ref": "IDEM-LEASE-001",
+      "action": "approve_commercial_lease",
+      "purpose": "new_tenant_commercial_lease",
+      "asset_ref": "PROPERTY-001",
+      "actor_ref": "ACTOR-ASSET-MANAGER-01",
+      "fields": [
+        "lease_submission_request"
+      ],
+      "authorization_ref": "AUTHZ-LEASE-001",
+      "possible_external_side_effect": true,
+      "effect_status": "possible",
+      "external_visibility": "unknown",
+      "canonical_operation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "action_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  ],
+  "operation_finality_result": {
+    "operation_ref": "OP-LEASE-001",
+    "canonical_operation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "approval_ref": "APPROVAL-LEASE-OPERATION-001",
+    "constitution_epoch": 1,
+    "constitution_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "authority_state": "current",
+    "resource_state": "matches",
+    "prior_effect_state": "outcome_unknown_after_dispatch",
+    "retry_safety": "unknown",
+    "disposition": "HOLD_FOR_RECONCILIATION",
+    "retry_count": 0,
+    "reattempt_permitted": false,
+    "action": "approve_commercial_lease",
+    "principal_ref": "ACTOR-ASSET-MANAGER-01",
+    "target_ref": "PROPERTY-001",
+    "purpose": "new_tenant_commercial_lease",
+    "idempotency_ref": "IDEM-LEASE-001",
+    "action_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "current_authority_state": "revoked",
+    "reattempt_disposition": "DENY",
+    "reattempt_reason_code": "authority.revoked_before_action"
+  }
+}
