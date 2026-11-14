@@ -385,6 +385,24 @@
         "assessment_frontier"
       ],
       "claim_limit": "A current artifact index does not by itself revise the normative dependencies of an older ratified source. Raw bytes and hashes remain outstanding until actually captured."
+    },
+    {
+      "id": "SC-TIME-006",
+      "family": "time_semantics",
+      "name": "distributed source frontier without false total order",
+      "control": "ambiguous",
+      "intent": "Combine EPCIS events or evidence observations from two or more independent source streams whose local sequence numbers and wall-clock timestamps do not establish a global order. Preserve explicit causal joins where evidenced and preserve concurrency/unknown where no join exists.",
+      "expected_control": "partial_order_or_indeterminate_no_synthetic_total_order",
+      "required_fields": [
+        "source_or_stream_identity",
+        "source_local_sequence_if_available",
+        "event_time_and_clock_uncertainty",
+        "repository_record_time_if_available",
+        "evidence_frontier_reference_and_digest",
+        "explicit_causal_edge_references_if_any",
+        "source_set_completeness"
+      ],
+      "claim_limit": "A deterministic event list or timestamp sort is not proof of happens-before, physical causality, complete source capture or independent corroboration."
     }
   ],
   "decision_time_overlay": {
