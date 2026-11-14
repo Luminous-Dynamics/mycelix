@@ -491,6 +491,21 @@ fn parse_citations(
             }
             Event::Empty(element) => {
                 let name = element.name().as_ref().to_vec();
+
+                // Empty nested elements are markup too. Reject them inside
+                // EventIVORN/Description just as we reject non-empty children.
+                if current_citation
+                    .as_ref()
+                    .is_some_and(|builder| element_stack.len() >= builder.depth)
+                    || current_description
+                        .as_ref()
+                        .is_some_and(|builder| element_stack.len() >= builder.depth)
+                {
+                    return Err(ParseError::NestedCitationElement(
+                        String::from_utf8_lossy(&name).into_owned(),
+                    ));
+                }
+
                 if element_stack.len() == 1 && name.as_slice() == b"Citations" {
                     if citations_seen {
                         return Err(ParseError::DuplicateCitations);
@@ -895,6 +910,14 @@ mod tests {
         );
         assert!(matches!(
             parse_packet(&nested),
+            Err(ParseError::NestedCitationElement(_))
+        ));
+
+        let nested_empty = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup"><Name/></EventIVORN></Citations>"#,
+        );
+        assert!(matches!(
+            parse_packet(&nested_empty),
             Err(ParseError::NestedCitationElement(_))
         ));
     }
