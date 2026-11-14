@@ -506,9 +506,10 @@ fn compose(plan_source: &str, stock_sources: &[String]) -> Result<String, InputE
                 (Some(_), Some(_)) => not_reconciled = true,
                 _ => not_estimable = true,
             }
-            match (resource.capacity, stock.opening) {
-                (Some(capacity), Some(opening)) if capacity <= opening => {}
-                (Some(_), Some(_)) => not_reconciled = true,
+            match (resource.capacity, stock.opening, stock.loss) {
+                (Some(capacity), Some(opening), Some(loss)) if opening >= loss && capacity <= opening - loss => {}
+                (Some(_), Some(opening), Some(loss)) if opening >= loss => not_reconciled = true,
+                (Some(_), Some(_), Some(_)) => not_estimable = true,
                 _ => not_estimable = true,
             }
         }
@@ -565,9 +566,13 @@ fn compose(plan_source: &str, stock_sources: &[String]) -> Result<String, InputE
                         stock.consumption,
                         resource.capacity,
                         stock.opening,
+                        stock.loss,
                     ) {
-                        (Some(demand), Some(consumption), Some(capacity), Some(opening)) => {
-                            demand == consumption && capacity <= opening && resource.unit == series.unit
+                        (Some(demand), Some(consumption), Some(capacity), Some(opening), Some(loss)) => {
+                            demand == consumption
+                                && opening >= loss
+                                && capacity <= opening - loss
+                                && resource.unit == series.unit
                         }
                         _ => false,
                     };
