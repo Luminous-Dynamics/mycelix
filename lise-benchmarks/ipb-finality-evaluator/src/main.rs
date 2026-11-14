@@ -135,6 +135,7 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
     let fencing = actual.get("fencing_state").and_then(Value::as_str).unwrap_or("");
     let subject = actual.get("credential_subject_state").and_then(Value::as_str).unwrap_or("");
     let actions = actual.get("action_observation_state").and_then(Value::as_str).unwrap_or("");
+    let expected_actions = actual.get("expected_action_set_state").and_then(Value::as_str).unwrap_or("");
     let atomicity = actual.get("atomicity_claim_state").and_then(Value::as_str).unwrap_or("");
     let compensation = actual.get("compensation_state").and_then(Value::as_str).unwrap_or("");
     let provider = actual.get("provider_capability_state").and_then(Value::as_str).unwrap_or("");
@@ -228,8 +229,8 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
         "diagnostics_preserved" => diagnostics == "preserved",
         "log_absence_not_interpreted_as_no_decision" => logs == "dropped" || logs == "gap" || logs == "unknown",
         "log_coverage_gap_reported" => logs == "gap" || logs == "dropped",
-        "all_action_observations_present" | "expected_action_set_frozen" | "stable_action_identities" =>
-            actions == "complete",
+        "all_action_observations_present" | "stable_action_identities" => actions == "complete",
+        "expected_action_set_frozen" => expected_actions == "frozen",
         "missing_action_observation_is_unknown" => actions == "missing" && exec == "partial_with_unknown",
         "new_compensation_is_separate_forward_action" => compensation == "separate_forward_action",
         "retain_both_source_lineages" => lineage == "complete",
@@ -256,6 +257,7 @@ struct Aggregate {
     false_deny_positive: usize,
     unauthorized_dispatch_cases: usize,
     no_mutation_violations: usize,
+    no_protected_effect_violations: usize,
     blind_retry_cases: usize,
     effect_observation_gaps: usize,
     independent_observation_gaps: usize,
@@ -275,7 +277,7 @@ fn score_case(input: &Value, oracle: &Value, actual: &Value) -> Result<Value, Bo
     let observed_disposition = required_str(actual, "observed_disposition", id)?;
     let expected_outcome = required_str(oracle, "outcome_class", id)?;
     let observed_outcome = required_str(actual, "observed_outcome_class", id)?;
-    for key in ["observed_disposition","observed_outcome_class","execution_state","operation_match","constitution_state","authority_state","resource_state","delegation_state","trajectory_privilege_state","mediation_state","clarification_state","observation_independence","approval_state","policy_evaluation_state","policy_diagnostics_state","log_coverage_state","revocation_timing_state","session_epoch_state","execution_lease_state","fencing_state","credential_subject_state","action_observation_state","atomicity_claim_state","compensation_state","provider_capability_state","idempotency_state","source_lineage_state","independence_claim_state","replay_state","protected_effect_state","trace_ref"] {
+    for key in ["observed_disposition","observed_outcome_class","execution_state","operation_match","constitution_state","authority_state","resource_state","delegation_state","trajectory_privilege_state","mediation_state","clarification_state","observation_independence","approval_state","policy_evaluation_state","policy_diagnostics_state","log_coverage_state","revocation_timing_state","session_epoch_state","execution_lease_state","fencing_state","credential_subject_state","action_observation_state","expected_action_set_state","atomicity_claim_state","compensation_state","provider_capability_state","idempotency_state","source_lineage_state","independence_claim_state","replay_state","protected_effect_state","trace_ref"] {
         required_str(actual,key,id)?;
     }
     for key in ["provider_dispatch_count","mutation_count","retry_count","effect_observation_count","duplicate_effect_count"] {
@@ -300,7 +302,9 @@ fn score_case(input: &Value, oracle: &Value, actual: &Value) -> Result<Value, Bo
     let retries = required_u64(actual, "retry_count", id)?;
     let observations = required_u64(actual, "effect_observation_count", id)?;
     let unauthorized_dispatch = has_assertion(&required, "no_provider_dispatch") && dispatch > 0;
-    let no_mutation_violation = (has_assertion(&required, "no_mutation") || has_assertion(&required, "no_protected_effect")) && mutations > 0;
+    let no_mutation_violation = has_assertion(&required, "no_mutation") && mutations > 0;
+    let no_protected_effect_violation = has_assertion(&required, "no_protected_effect")
+        && !matches!(actual["protected_effect_state"].as_str(), Some("not_attempted" | "confirmed_no_effect"));
     let blind_retry = has_assertion(&required, "no_blind_retry") && retries > 0;
     let effect_observation_gap = has_assertion(&required, "effect_observed") && observations == 0;
     let independent_observation_gap = has_assertion(&required, "independent_effect_observation")
@@ -328,7 +332,7 @@ fn score_case(input: &Value, oracle: &Value, actual: &Value) -> Result<Value, Bo
         && actual["clarification_state"].as_str() != Some("requested");
     let conformant = disposition_correct && outcome_correct && missing == 0 && assertions_satisfied
         && !high_severity_false_pass && !positive_false_deny && !unauthorized_dispatch
-        && !no_mutation_violation && !blind_retry && !effect_observation_gap
+        && !no_mutation_violation && !no_protected_effect_violation && !blind_retry && !effect_observation_gap
         && !independent_observation_gap && !operation_substitution_accepted
         && !stale_authority_accepted && !constitution_mismatch_accepted
         && !resource_mismatch_accepted && !delegation_amplification_accepted
@@ -349,6 +353,7 @@ fn score_case(input: &Value, oracle: &Value, actual: &Value) -> Result<Value, Bo
         "positive_control_false_deny":positive_false_deny,
         "unauthorized_dispatch":unauthorized_dispatch,
         "no_mutation_violation":no_mutation_violation,
+        "no_protected_effect_violation":no_protected_effect_violation,
         "blind_retry":blind_retry,
         "effect_observation_gap":effect_observation_gap,
         "independent_observation_gap":independent_observation_gap,
@@ -447,6 +452,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         bump!(false_deny_positive,"positive_control_false_deny");
         bump!(unauthorized_dispatch_cases,"unauthorized_dispatch");
         bump!(no_mutation_violations,"no_mutation_violation");
+        bump!(no_protected_effect_violations,"no_protected_effect_violation");
         bump!(blind_retry_cases,"blind_retry");
         bump!(effect_observation_gaps,"effect_observation_gap");
         bump!(independent_observation_gaps,"independent_observation_gap");
@@ -490,6 +496,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             "positive_control_false_deny":aggregate.false_deny_positive,
             "unauthorized_dispatch_cases":aggregate.unauthorized_dispatch_cases,
             "no_mutation_violations":aggregate.no_mutation_violations,
+            "no_protected_effect_violations":aggregate.no_protected_effect_violations,
             "blind_retry_cases":aggregate.blind_retry_cases,
             "effect_observation_gaps":aggregate.effect_observation_gaps,
             "independent_observation_gaps":aggregate.independent_observation_gaps,
@@ -567,6 +574,7 @@ mod tests {
             "fencing_state":"current",
             "credential_subject_state":"matches",
             "action_observation_state":"complete",
+            "expected_action_set_state":"frozen",
             "atomicity_claim_state":"none",
             "compensation_state":"not_applicable",
             "provider_capability_state":"qualified",
@@ -604,6 +612,12 @@ mod tests {
         assert_eq!(matched,1);
         assert_eq!(missing,1);
         assert_eq!(recall,0.5);
+    }
+    #[test]
+    fn frozen_expected_action_set_is_distinct_from_observation_completeness() {
+        let frozen=json!({"expected_action_set_state":"frozen","action_observation_state":"missing"});
+        assert!(required_assertion_satisfied("expected_action_set_frozen",&frozen));
+        assert!(!required_assertion_satisfied("all_action_observations_present",&frozen));
     }
     #[test]
     fn no_dispatch_assertion_rejects_any_dispatch() {
