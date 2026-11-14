@@ -160,19 +160,21 @@ sequences:
   - id: T07
     name: bitemporal-late-correction
     class: bitemporal_reconstruction
-    event_count: 4
+    event_count: 5
     events:
       - {ref: e1, kind: AuthorityGranted, effective_time: 10, knowledge_time: 10, subject: officer-b, authority: grant-b}
       - {ref: e2, kind: ExecutionAttempted, effective_time: 15, knowledge_time: 15, actor: officer-b, authority: grant-b, operation: op-47}
       - {ref: e3, kind: IndependentObservationRecorded, effective_time: 15, knowledge_time: 15, source: observer-a, result: effect-observed}
-      - {ref: e4, kind: CorrectionRecorded, effective_time: 14, knowledge_time: 30, source: reviewer-b, result: grant-was-revoked-at-14, supersedes: e3}
+      - {ref: e4, kind: AuthorityRevoked, effective_time: 14, knowledge_time: 30, source: issuer-a, subject: officer-b, authority: grant-b}
+      - {ref: e5, kind: CorrectionRecorded, effective_time: 14, knowledge_time: 30, source: reviewer-b, result: revocation-effective-at-14, supersedes: e3}
     cutoffs: [15, 30]
     expected:
       terminal_state: PASS
+      disposition_at_knowledge_cutoff_15: authorized_on_then_known_evidence
       final_disposition: authority_denied
       required_controls: [historical_cutoff_reconstruction, current_projection_includes_correction, preserve_superseded_observation, open_challenge_or_remedy]
     owner_dependencies: [6069, 3126, 4835]
-    caveat: "The final disposition is not itself a legal judgment; the fixture tests historical/current projection separation and remedy linkage."
+    caveat: "The historical label describes the evidence then known, not a legal judgment; the current corrected view must recognize the earlier effective revocation and preserve a remedy path."
 
   - id: T08
     name: temporary-oversight-quorum-loss
