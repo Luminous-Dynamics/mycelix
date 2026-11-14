@@ -41,6 +41,7 @@ struct Evidence {
 #[derive(Clone, Debug)]
 struct Input {
     scenario_id: String,
+    evidence_snapshot_id: String,
     decision_at: u64,
     max_age: u64,
     clock_basis_id: String,
@@ -252,6 +253,7 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
             .ok_or_else(|| InputError(format!("missing metadata key {key}")))
     };
     let scenario_id = take("scenario_id")?;
+    let evidence_snapshot_id = take("evidence_snapshot_id")?;
     if row_scenarios.iter().any(|row_scenario| row_scenario != &scenario_id) {
         return Err(InputError("record scenario_id does not match the frozen scenario".to_owned()));
     }
@@ -259,6 +261,7 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
     let max_age = parse_u64(&take("max_observation_age_seconds")?, "max_observation_age_seconds", 0)?;
     let clock_basis_id = take("clock_basis_id")?;
     require_id(&scenario_id, "scenario_id", 0)?;
+    require_id(&evidence_snapshot_id, "evidence_snapshot_id", 0)?;
     require_id(&clock_basis_id, "clock_basis_id", 0)?;
     if clock_basis_id != "UTC_UNIX_SECONDS_V1" {
         return Err(InputError("unsupported evaluation clock basis".to_owned()));
@@ -281,6 +284,7 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
 
     Ok(Input {
         scenario_id,
+        evidence_snapshot_id,
         decision_at,
         max_age,
         clock_basis_id,
@@ -425,6 +429,7 @@ fn evaluate(input: &Input) -> String {
     let mut out = vec![
         "report_schema=fsre-asof-evidence-report.v0.1".to_owned(),
         format!("scenario_id={}", input.scenario_id),
+        format!("evidence_snapshot_id={}", input.evidence_snapshot_id),
         format!("decision_at={}", input.decision_at),
         format!("max_observation_age_seconds={}", input.max_age),
         format!("clock_basis_id={}", input.clock_basis_id),
@@ -494,6 +499,21 @@ mod tests {
     use super::*;
 
     const FIXTURE: &str = include_str!("../fixtures/synthetic-asof.psv");
+
+    #[test]
+    fn evidence_snapshot_id_is_required_and_echoed_in_report() {
+        let report = validate_and_report(FIXTURE).expect("snapshot-bound fixture");
+        assert!(report.contains("evidence_snapshot_id=synthetic-decision-snapshot-01"));
+        let changed = FIXTURE
+            .lines()
+            .filter(|line| !line.starts_with("# evidence_snapshot_id="))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(validate_and_report(&changed)
+            .unwrap_err()
+            .0
+            .contains("missing metadata key evidence_snapshot_id"));
+    }
 
     #[test]
     fn frozen_fixture_separates_world_validity_from_knowledge_time() {
