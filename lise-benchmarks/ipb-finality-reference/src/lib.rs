@@ -291,45 +291,70 @@ pub enum ReconciledOutcome {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ReconciliationError {
-    DuplicateActionId,
+    DuplicateExpectedActionId,
+    DuplicateObservedActionId,
+    UnexpectedObservedActionId,
 }
 
 /// Reconcile a multi-action result without inferring batch atomicity.
 ///
-/// The caller supplies one observation per stable action identity. Duplicate
-/// action identities are invalid; unknown suffixes and successful prefixes
-/// remain visible rather than being collapsed into failure-no-effect.
+/// The expected action sequence is supplied separately from observations.
+/// Missing observations for an expected action become Unknown; they can never
+/// make a successful observed prefix look fully applied. Duplicate expected
+/// or observed identities and observations for unknown action IDs are invalid.
 pub fn reconcile_actions(
-    actions: &[ActionObservation],
+    expected_action_ids: &[String],
+    observations: &[ActionObservation],
 ) -> Result<ReconciledOutcome, ReconciliationError> {
-    let mut ids = BTreeSet::new();
-    for action in actions {
-        if !ids.insert(action.action_id.as_str()) {
-            return Err(ReconciliationError::DuplicateActionId);
+    let mut expected = BTreeSet::new();
+    for action_id in expected_action_ids {
+        if !expected.insert(action_id.as_str()) {
+            return Err(ReconciliationError::DuplicateExpectedActionId);
         }
     }
 
-    if actions.is_empty()
-        || actions
-            .iter()
-            .all(|action| action.effect == ActionEffect::NotAttempted)
-    {
+    let mut observed = std::collections::BTreeMap::new();
+    for action in observations {
+        if !expected.contains(action.action_id.as_str()) {
+            return Err(ReconciliationError::UnexpectedObservedActionId);
+        }
+        if observed.insert(action.action_id.as_str(), action.effect).is_some() {
+            return Err(ReconciliationError::DuplicateObservedActionId);
+        }
+    }
+
+    if expected_action_ids.is_empty() {
         return Ok(ReconciledOutcome::NotAttempted);
     }
 
-    let has_applied = actions
-        .iter()
-        .any(|action| action.effect == ActionEffect::ConfirmedApplied);
-    let has_unknown = actions
-        .iter()
-        .any(|action| action.effect == ActionEffect::Unknown);
-    let has_no_effect = actions.iter().any(|action| {
-        matches!(
-            action.effect,
-            ActionEffect::NotAttempted | ActionEffect::ConfirmedNotApplied
-        )
-    });
+    let mut has_applied = false;
+    let mut has_unknown = false;
+    let mut has_no_effect = false;
+    let mut all_not_attempted = true;
 
+    for action_id in expected_action_ids {
+        match observed.get(action_id.as_str()).copied() {
+            Some(ActionEffect::NotAttempted) => {
+                has_no_effect = true;
+            }
+            Some(ActionEffect::ConfirmedApplied) => {
+                has_applied = true;
+                all_not_attempted = false;
+            }
+            Some(ActionEffect::ConfirmedNotApplied) => {
+                has_no_effect = true;
+                all_not_attempted = false;
+            }
+            Some(ActionEffect::Unknown) | None => {
+                has_unknown = true;
+                all_not_attempted = false;
+            }
+        }
+    }
+
+    if all_not_attempted {
+        return Ok(ReconciledOutcome::NotAttempted);
+    }
     if has_unknown && has_applied {
         return Ok(ReconciledOutcome::PartialWithUnknown);
     }
@@ -601,7 +626,10 @@ mod tests {
             },
         ];
         assert_eq!(
-            reconcile_actions(&actions),
+            reconcile_actions(
+                &["a".to_owned(), "b".to_owned(), "c".to_owned()],
+                &actions
+            ),
             Ok(ReconciledOutcome::PartialWithUnknown)
         );
     }
@@ -619,7 +647,7 @@ mod tests {
             },
         ];
         assert_eq!(
-            reconcile_actions(&all_applied),
+            reconcile_actions(&["a".to_owned(), "b".to_owned()], &all_applied),
             Ok(ReconciledOutcome::FullyApplied)
         );
 
@@ -634,8 +662,43 @@ mod tests {
             },
         ];
         assert_eq!(
-            reconcile_actions(&partial),
+            reconcile_actions(&["a".to_owned(), "b".to_owned()], &partial),
             Ok(ReconciledOutcome::PartiallyApplied)
+        );
+    }
+
+    #[test]
+    fn missing_action_observation_prevents_full_completion() {
+        let observed_prefix = vec![ActionObservation {
+            action_id: "a".to_owned(),
+            effect: ActionEffect::ConfirmedApplied,
+        }];
+        assert_eq!(
+            reconcile_actions(
+                &["a".to_owned(), "b".to_owned()],
+                &observed_prefix
+            ),
+            Ok(ReconciledOutcome::PartialWithUnknown)
+        );
+    }
+
+    #[test]
+    fn observation_for_unexpected_action_is_rejected() {
+        let unexpected = vec![ActionObservation {
+            action_id: "not-in-plan".to_owned(),
+            effect: ActionEffect::ConfirmedApplied,
+        }];
+        assert_eq!(
+            reconcile_actions(&["expected".to_owned()], &unexpected),
+            Err(ReconciliationError::UnexpectedObservedActionId)
+        );
+    }
+
+    #[test]
+    fn duplicate_expected_action_identity_is_rejected() {
+        assert_eq!(
+            reconcile_actions(&["same".to_owned(), "same".to_owned()], &[]),
+            Err(ReconciliationError::DuplicateExpectedActionId)
         );
     }
 
@@ -652,8 +715,8 @@ mod tests {
             },
         ];
         assert_eq!(
-            reconcile_actions(&duplicate),
-            Err(ReconciliationError::DuplicateActionId)
+            reconcile_actions(&["same".to_owned()], &duplicate),
+            Err(ReconciliationError::DuplicateObservedActionId)
         );
     }
 }
