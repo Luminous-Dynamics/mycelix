@@ -159,7 +159,50 @@ For the held-out panel:
 
 These targets are preregistration goals, not evidence of achieved performance or a claim to beat current SOTA.
 
-## 7. How LISE should beat the field
+
+
+## 8. Statistical power, rare failures and scenario independence
+
+A zero observed failure count is not a zero failure probability. Under an idealized independent Bernoulli model, after zero failures in (n) independent trials, the exact one-sided 95% upper confidence bound is:
+
+`1 - 0.05^(1/n)`.
+
+For orientation:
+
+| Independent scenario trials, zero failures | One-sided 95% upper bound |
+|---:|---:|
+| 34 | 8.43% |
+| 200 | 1.49% |
+| 300 | 0.994% |
+| 1,000 | 0.299% |
+| 2,995 | 0.100% |
+| 29,956 | 0.010% |
+
+These are binomial bounds under independence, not a guarantee that benchmark trials are independent or representative. They show why a 34-case all-pass development panel is a regression result, not a low-risk assurance argument.
+
+**Count the scenario as the primary sampling unit.** Repeating one scenario 100 times helps expose stochastic variance and nondeterministic races, but it does not create 100 independent institutional contexts. Report both:
+- scenario coverage and the number of independently constructed scenario clusters;
+- repeated runs per scenario, with seed/model/harness configuration;
+- per-scenario worst outcome and event count;
+- cluster-aware uncertainty intervals, using scenario-cluster bootstrap or a justified hierarchical model.
+
+Do not combine runs from a single scenario into an ordinary binomial denominator. For zero-event reporting, provide the raw numerator/denominator, the scenario-level denominator and a cluster-aware upper bound or explain why no reliable population bound is estimable.
+
+### A practical evidence ladder
+
+1. **Development regression:** current 34 public synthetic cases; catches known defects and validates evaluator wiring.
+2. **Mutation coverage:** named one-field and pairwise mutations, with denominator and surviving mutants disclosed.
+3. **Confirmatory finite-panel result:** at least 200 independently constructed held-out scenarios, two independent adjudicators, pre-registered oracle and frozen comparator arms.
+4. **Rare-event safety claim:** sample-size and representativeness justified against the target rate. A nominal 0.1% one-sided 95% bound requires about 2,995 independent zero-failure trials under the simple binomial assumptions; clustered institutional cases may require substantially more.
+5. **Deployment evidence:** staged shadow mode, owner-approved canary, runtime monitoring, incident/near-miss reporting and periodic adversarial requalification. This is not replaceable by a synthetic benchmark.
+
+The panel should be stratified deliberately across domain, jurisdiction, provider semantics, authority lifecycle, effect type and route topology. Publish strata and exact denominators. An apparently large corpus with many near-duplicate templates is not equivalent to broad independent coverage.
+
+### No weighted safety offset
+
+Use non-compensatory acceptance gates for high-severity false ALLOW, unauthorized effect, duplicate protected effect, blind retry and bypass. Report task utility, false denial, latency, cost and reviewer time as separate measures. Better latency or completion never offsets a safety-gate failure.
+
+## 9. How LISE should beat the field
 
 Do not try to beat Cedar at policy language, OPA at embeddability, Zanzibar at global ACL scale, or incumbent workflow systems at enterprise administration. Integrate them as decision/relationship providers where appropriate.
 
