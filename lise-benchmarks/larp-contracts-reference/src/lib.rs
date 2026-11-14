@@ -175,6 +175,11 @@ pub struct ExecutionFacts {
 pub struct EvaluationFacts {
     pub mode: EvaluationMode,
     pub evaluated_at_unix: i64,
+    pub recipient_eligible: Option<bool>,
+    pub amount_units: Option<u64>,
+    pub amount_ceiling_units: Option<u64>,
+    pub currency: Option<String>,
+    pub funding_source_valid: Option<bool>,
     pub authority: AuthorityFacts,
     pub scope: ScopeFacts,
     pub rights: RightsFacts,
@@ -270,10 +275,17 @@ pub fn evaluate(facts: &EvaluationFacts, now_unix: i64) -> Decision {
     if facts.institution.known_route_bypass == Some(true) {
         return Decision::deny("KNOWN_ENFORCEMENT_BYPASS");
     }
-    if facts.rights.high_impact == Some(true)
-        && facts.rights.remedy_path_defined == Some(false)
-    {
-        return Decision::deny("HIGH_IMPACT_CONTRACT_REQUIRES_REMEDY_PATH");
+    if facts.rights.high_impact.is_none() {
+        return Decision::indeterminate("IMPACT_CLASSIFICATION_UNKNOWN");
+    }
+    if facts.rights.high_impact == Some(true) {
+        if let Err(decision) = require_true(
+            facts.rights.remedy_path_defined,
+            "HIGH_IMPACT_REMEDY_PATH_UNKNOWN",
+            "HIGH_IMPACT_CONTRACT_REQUIRES_REMEDY_PATH",
+        ) {
+            return decision;
+        }
     }
     if facts.evidence.score_only_sanction == Some(true) {
         return Decision::deny("MODEL_SCORE_ALONE_CANNOT_JUSTIFY_SANCTION");
@@ -408,12 +420,20 @@ pub fn evaluate(facts: &EvaluationFacts, now_unix: i64) -> Decision {
         EvaluationMode::StagedReward => {
             require!(facts.authority.local_authorized, "LOCAL_AUTHORITY_UNKNOWN", "LOCAL_AUTHORITY_DENIED");
             require!(facts.authority.constitution_current, "CONSTITUTIONAL_EPOCH_UNKNOWN", "CONSTITUTIONAL_EPOCH_STALE");
+            require!(facts.recipient_eligible, "REWARD_RECIPIENT_ELIGIBILITY_UNKNOWN", "REWARD_RECIPIENT_NOT_ELIGIBLE");
             require!(facts.rights.rights_satisfied, "RIGHTS_STATUS_UNKNOWN", "RIGHTS_FLOOR_NOT_SATISFIED");
-            if facts.rights.high_impact == Some(true) {
-                require!(facts.rights.remedy_path_defined, "REMEDY_PATH_UNKNOWN", "REMEDY_PATH_MISSING");
-            }
             require!(facts.evidence.outcome_independently_observed, "OUTCOME_OBSERVATION_UNKNOWN", "OUTCOME_NOT_INDEPENDENTLY_OBSERVED");
             require!(facts.scope.payout_bounded, "PAYOUT_BOUND_UNKNOWN", "PAYOUT_UNBOUNDED");
+            match (facts.amount_units, facts.amount_ceiling_units) {
+                (Some(0), Some(_)) => return Decision::deny("PAYOUT_AMOUNT_MUST_BE_POSITIVE"),
+                (Some(amount), Some(ceiling)) if amount > ceiling => return Decision::deny("PAYOUT_AMOUNT_EXCEEDS_CEILING"),
+                (Some(_), Some(_)) => {}
+                _ => return Decision::indeterminate("PAYOUT_AMOUNT_OR_CEILING_UNKNOWN"),
+            }
+            if facts.currency.as_deref().is_none_or(str::is_empty) {
+                return Decision::indeterminate("PAYOUT_CURRENCY_UNKNOWN");
+            }
+            require!(facts.funding_source_valid, "PAYOUT_FUNDING_SOURCE_UNKNOWN", "PAYOUT_FUNDING_SOURCE_INVALID");
             require!(facts.authority.treasury_separately_authorized, "TREASURY_AUTHORITY_UNKNOWN", "TREASURY_AUTHORITY_DENIED");
             Decision::permit("STAGED_REWARD_REQUEST_QUALIFIED_FOR_OWNER_TREASURY")
         }
