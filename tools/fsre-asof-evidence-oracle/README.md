@@ -11,7 +11,7 @@ The oracle does not import the production as-of evidence crate, its parser, its 
 - half-open valid-time boundaries;
 - future observations and delayed availability;
 - stale evidence;
-- revocation effective time versus revocation knowledge time;
+- revocation effective time versus revocation knowledge time, including exact-cutoff and ±1-second boundary cases;
 - minimum evidence counts, unknown evidence and source-reference deduplication;
 - deterministic, row-order-invariant reports.
 
