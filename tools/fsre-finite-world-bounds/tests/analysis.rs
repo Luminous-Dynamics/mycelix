@@ -33,10 +33,14 @@ fn exact_bounds_regret_and_safety_are_reported_separately() {
     assert_eq!(report.ranking_status, "RANKING_NOT_INVARIANT");
     let repair = report.actions.iter().find(|a| a.action_id == "repair").unwrap();
     assert_eq!((repair.decision_lower, repair.decision_upper), (75, 90));
+    assert_eq!(repair.best_case_regret, 0);
     assert_eq!(repair.worst_case_regret, 15);
     assert!(repair.robustly_safe);
     let replace = report.actions.iter().find(|a| a.action_id == "replace").unwrap();
     assert!(!replace.robustly_safe);
+    let inspect = report.actions.iter().find(|a| a.action_id == "inspect").unwrap();
+    assert_eq!(inspect.best_case_regret, 5);
+    assert_eq!(inspect.worst_case_regret, 18);
     assert!(report.robust_optimal_action.is_none());
     assert_eq!(report.minimax_regret_actions, vec!["repair".to_owned()]);
 }
