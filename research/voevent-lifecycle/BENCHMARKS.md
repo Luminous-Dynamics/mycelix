@@ -15,6 +15,22 @@ The unit under test is not just a language model or anomaly detector. Record the
 
 A run is not reproducible if any of these are omitted. Freeze the task inputs, split definitions, budget, seeds, expected evidence graph and success criteria before comparing systems.
 
+## 1A. Domain-native space-time preservation
+
+The VOEvent parser/replay evaluation must extend beyond packet IDs and lifecycle edges. [ASTRO-WHEREWHEN-001](https://github.com/Luminous-Dynamics/mycelix/issues/6209) owns source-native STC extraction. Until that work is implemented, replay must keep event-time fields absent rather than infer UTC/ICRS values from partial XML.
+
+Frozen WhereWhen/STC cases should include UTC-ICRS-TOPO, TT-FK5-GEO, GPS and TDB-ICRS-BARY; Position2D, Position3D and PositionName; TimeInstant and TimeInterval; observatory and observation locations; coordinate units, UCDs, axis names, radius and per-axis uncertainties; custom TimeFrame/SpaceFrame definitions; missing locators; contradictory coord_system_id references; XML namespace variation; and unsupported solar-system frames.
+
+Hard gates:
+- zero silent time-scale, reference-frame, reference-position or unit conversion;
+- zero loss of original coordinate/time lexemes, uncertainty, axis semantics or observatory identity;
+- no default zero-valued coordinates or timestamps when a locator is absent;
+- unsupported structures remain byte-bound and explicitly unsupported;
+- any later conversion must have a separate transform receipt identifying input/output systems, algorithm/library/version, constants/ephemeris, uncertainty propagation and output digest;
+- historical replay preserves the source-native packet projection even when a new transform is added later.
+
+Do not score a parser as more capable merely because it converts more fields. A conversion with hidden assumptions is worse than an explicit unsupported state.
+
 ## 2. Evaluation ladder
 
 Keep the same task API and evidence semantics while increasing physical realism.
