@@ -8,3 +8,4 @@ FRAME|admin-register|-|UPSTREAM|department|admin-extract|snapshot-a|0|100|depart
 FRAME|operator-frame|-|CAPTURE|operator|operator-survey|snapshot-b|0|100|reviewer|operator-doc|SEPARATE_DESIGN_DECLARED
 FRAME|field-frame|-|CAPTURE|survey-team|field-enumeration|snapshot-c|0|100|reviewer|field-doc|SEPARATE_DESIGN_DECLARED
 DEPENDENCY|operator-frame|admin-register|-|-|-|-|0|100|reviewer|inherits-admin|-
+DEPENDENCY|field-frame|admin-register|-|-|-|-|0|100|reviewer|inherits-admin-too|-
