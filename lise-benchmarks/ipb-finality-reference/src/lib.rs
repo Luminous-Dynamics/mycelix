@@ -565,8 +565,13 @@ pub struct EffectivePrivilege {
 }
 
 fn amount_scope_is_well_formed(scope: &CapabilityScope) -> bool {
-    scope.max_amount_minor.is_none()
-        || scope.amount_currency.as_deref().is_some_and(|currency| !currency.trim().is_empty())
+    let currency_is_valid = scope
+        .amount_currency
+        .as_deref()
+        .is_none_or(|currency| !currency.trim().is_empty());
+    let bounded_amount_has_currency =
+        scope.max_amount_minor.is_none() || scope.amount_currency.is_some();
+    currency_is_valid && bounded_amount_has_currency
 }
 
 fn bounded_child_attenuates(parent: Option<u64>, child: Option<u64>) -> bool {
@@ -1616,8 +1621,8 @@ mod tests {
         assert!(before.purposes.is_subset(&after.purposes));
         assert!(before.fields.is_subset(&after.fields));
         assert!(
-            after.aggregate_amount_limit_minor.unwrap()
-                >= before.aggregate_amount_limit_minor.unwrap()
+            after.aggregate_amount_limits_minor.get("USD").copied().unwrap_or(0)
+                >= before.aggregate_amount_limits_minor.get("USD").copied().unwrap_or(0)
         );
         assert!(
             after.aggregate_operation_limit.unwrap()
