@@ -50,6 +50,58 @@ jobs:
         with:
           toolchain: 1.100.0
           components: rustfmt, clippy
+      - name: Validate FSRE JSON contracts and examples
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          schema_path = Path("research/fsre/schemas/claim-qualification-envelope-v0.2.schema.json")
+          schema = json.loads(schema_path.read_text())
+
+          examples = [
+              Path("research/fsre/examples/claim-envelope.synthetic-asof-telemetry-v0.2.json"),
+              Path("research/fsre/examples/claim-envelope.synthetic-recovery-v0.2.json"),
+          ]
+
+          def validate(node, value, path="$"):
+              expected = node.get("type")
+              if expected == "object":
+                  assert isinstance(value, dict), f"{path}: expected object"
+                  for key in node.get("required", []):
+                      assert key in value, f"{path}: missing {key}"
+                  if node.get("additionalProperties") is False:
+                      allowed = set(node.get("properties", {}))
+                      assert set(value) <= allowed, f"{path}: unexpected properties"
+                  for key, child in node.get("properties", {}).items():
+                      if key in value:
+                          validate(child, value[key], f"{path}.{key}")
+              elif expected == "array":
+                  assert isinstance(value, list), f"{path}: expected array"
+                  if "items" in node:
+                      for index, item in enumerate(value):
+                          validate(node["items"], item, f"{path}[{index}]")
+              elif expected == "string":
+                  assert isinstance(value, str), f"{path}: expected string"
+              elif expected == "boolean":
+                  assert isinstance(value, bool), f"{path}: expected boolean"
+              elif expected == "integer":
+                  assert isinstance(value, int) and not isinstance(value, bool), f"{path}: expected integer"
+              elif expected == "number":
+                  assert isinstance(value, (int, float)) and not isinstance(value, bool), f"{path}: expected number"
+              elif expected == "null":
+                  assert value is None, f"{path}: expected null"
+              if "const" in node:
+                  assert value == node["const"], f"{path}: const mismatch"
+              if "enum" in node:
+                  assert value in node["enum"], f"{path}: enum mismatch"
+
+          for path in examples:
+              document = json.loads(path.read_text())
+              validate(schema, document, path.as_posix())
+          print("claim-envelope v0.2 examples: structural contract checks passed")
+          PY
       - name: Check formatting
         run: cargo fmt --manifest-path tools/${{ matrix.crate }}/Cargo.toml --all -- --check
       - name: Run locked offline tests
