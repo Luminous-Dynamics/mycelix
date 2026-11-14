@@ -22,6 +22,8 @@ The three times are deliberately distinct:
 
 No conversion between source time scales, coordinate frames or units is implied by the common envelope. Such conversions belong to versioned domain transforms with explicit uncertainty and loss accounting.
 
+Two status declarations are evidence-bearing: `source.authentication.status=authenticated` requires both a `mechanism` and `assertion_ref`; `instrument.calibration.state=qualified` requires a calibration `record_ref`, `valid_from`, `valid_until` and `applicability_ref`. JSON Schema checks for these references' presence, not whether the referenced authentication or calibration is valid.
+
 ## Synthetic fixtures
 
 The positive fixtures are intentionally synthetic:
@@ -44,13 +46,13 @@ The validator:
 - validates the schema itself;
 - validates all three positive manifests;
 - verifies the exact payload byte length, SHA-256 digest and \`urn:sha256\` locator;
-- rejects five negative controls (wrong profile, unknown field, malformed digest, empty permitted purpose and missing fabric receipt time);
+- rejects seven negative controls (wrong profile, unknown field, malformed digest, empty permitted purpose, missing fabric receipt time, an authenticated source without mechanism/assertion references, and a qualified calibration without record/validity/applicability references);
 - verifies observation IDs are unique across the frozen fixture set.
 
 Expected result:
 
 \`\`\`text
-SUMMARY positive=3 negative=5 schema=draft2020-12 payload-digests=verified
+SUMMARY positive=3 negative=7 schema=draft2020-12 payload-digests=verified
 \`\`\`
 
 The validator is a test utility, not a production ingestion path, signature verifier, rights engine or scientific evaluator.
