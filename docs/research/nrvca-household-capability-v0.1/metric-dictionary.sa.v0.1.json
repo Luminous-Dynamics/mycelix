@@ -1,0 +1,277 @@
+{
+  "schema_version": "nrvca.household-capability-metric-dictionary.v0.1",
+  "profile_id": "south-africa-household-capability-v0.1",
+  "status": "ddi_variable_metadata_mapped_microdata_not_acquired",
+  "metrics": [
+    {
+      "metric_id": "sa.ghs.household.main_water_source_distribution.v0.1",
+      "name": "Household main source of drinking water",
+      "definition_status": "ddi_variable_and_categories_mapped_questionnaire_wording_review_pending",
+      "construct": "Distribution of households by the categorical variable labelled Main source of water. Derived piped-on-premises share uses categories 1 and 2 only; neighbour/public taps and all other sources remain separate categories.",
+      "unit": "weighted_share_of_households_by_category",
+      "unit_of_analysis": "household",
+      "population_scope": "GHS 2025 target population",
+      "data_file_id": "F3",
+      "data_file_name": "ghs-2025-household-v1",
+      "variable_id": "V347",
+      "microdata_variable_names": [
+        "wat_drinkwat"
+      ],
+      "category_values": {
+        "1": "Piped (tap) water in dwelling",
+        "2": "Piped (tap) water on site or in yard",
+        "3": "Borehole on site",
+        "4": "Rain-water tank on site",
+        "5": "Neighbour's tap",
+        "6": "Public/communal tap",
+        "7": "Water-carrier/tanker",
+        "8": "Water vendor (charge involved)",
+        "9": "Borehole outside yard",
+        "10": "Flowing water/stream/river",
+        "11": "Stagnant water/dam/pool",
+        "12": "Well protected",
+        "13": "Well unprotected",
+        "14": "Spring protected",
+        "15": "Spring unprotected",
+        "16": "Other source of drinking water"
+      },
+      "numerator_definition": "For a derived piped-on-premises indicator only: weighted valid households with wat_drinkwat in {1,2}. Keep the full 16-category source distribution as the primary descriptive measure.",
+      "denominator_definition": "Households with a valid response to wat_drinkwat; missing, invalid and unspecified codes must be distinguished after inspecting the actual data file.",
+      "derived_indicator": "sa.ghs.household.piped_water_on_premises.v0.1",
+      "survey_weight_field": "house_wgt",
+      "strata_field": "stratum",
+      "psu_field": "psu",
+      "subgroup_fields": [
+        "prov",
+        "metro",
+        "head_popgrp",
+        "head_sex"
+      ],
+      "variance_estimator": "design_based_using_PSU_stratum_and_house_wgt; exact implementation and finite_population_correction pending questionnaire/technical documentation review",
+      "reference_period": "2025",
+      "source_ids": [
+        "stats-sa-ghs-2025-v1",
+        "stats-sa-ghs-2025-ddi-json-v1"
+      ],
+      "published_value": null,
+      "published_value_status": "not_computed_microdata_requires_DataFirst_login",
+      "forbidden_inferences": [
+        "continuous_water_service",
+        "water_quality",
+        "safety",
+        "affordability",
+        "volume_delivered",
+        "causal_policy_effect"
+      ]
+    },
+    {
+      "metric_id": "sa.ghs.household.insufficient_food_adult_frequency.v0.1",
+      "name": "Frequency of insufficient food for adults in household",
+      "definition_status": "ddi_variable_and_categories_mapped_questionnaire_wording_review_pending",
+      "construct": "Household-level categorical response labelled Insufficient food for adult. Preserve the full ordinal response; do not collapse to a binary food insecurity measure without a preregistered threshold.",
+      "unit": "weighted_share_of_households_by_frequency_category",
+      "unit_of_analysis": "household",
+      "population_scope": "GHS 2025 target population; response code 6 indicates no adults in household and must not be treated as a substantive response",
+      "data_file_id": "F3",
+      "data_file_name": "ghs-2025-household-v1",
+      "variable_id": "V435",
+      "microdata_variable_names": [
+        "fsd_hung_adult"
+      ],
+      "category_values": {
+        "1": "Never",
+        "2": "Seldom",
+        "3": "Sometimes",
+        "4": "Often",
+        "5": "Always",
+        "6": "Not applicable (no adults in household)",
+        "9": "Unspecified"
+      },
+      "numerator_definition": null,
+      "denominator_definition": "For the ordinal distribution: households with substantive response codes 1-5; report code 6 as not applicable and code 9/missing separately. Do not silently drop or recode them.",
+      "survey_weight_field": "house_wgt",
+      "strata_field": "stratum",
+      "psu_field": "psu",
+      "subgroup_fields": [
+        "prov",
+        "metro",
+        "head_popgrp",
+        "head_sex"
+      ],
+      "variance_estimator": "design_based_using_PSU_stratum_and_house_wgt; exact implementation pending questionnaire/technical documentation review",
+      "reference_period": "2025",
+      "source_ids": [
+        "stats-sa-ghs-2025-v1",
+        "stats-sa-ghs-2025-ddi-json-v1"
+      ],
+      "published_value": null,
+      "published_value_status": "not_computed_microdata_requires_DataFirst_login",
+      "supplementary_variables": [
+        {
+          "name": "fsd_hung_child",
+          "variable_id": "V436",
+          "label": "Insufficient food for children",
+          "note": "Code 6 means no children in household."
+        },
+        {
+          "name": "fsd_worried",
+          "variable_id": "V437",
+          "label": "Worried about food",
+          "categories": {
+            "1": "Yes",
+            "2": "No",
+            "9": "Unspecified"
+          }
+        },
+        {
+          "name": "fsd_healthy",
+          "variable_id": "V438",
+          "label": "Lack of nutritious food",
+          "categories": {
+            "1": "Yes",
+            "2": "No",
+            "9": "Unspecified"
+          }
+        },
+        {
+          "name": "fsd_fewfoods",
+          "variable_id": "V439",
+          "label": "Lack of variety of food kinds",
+          "categories": {
+            "1": "Yes",
+            "2": "No",
+            "9": "Unspecified"
+          }
+        },
+        {
+          "name": "fsd_fewfoods_days",
+          "variable_id": "V440",
+          "label": "Lacked variety of food kinds for 5 or more days in the past 30 days"
+        },
+        {
+          "name": "fsd_ateless",
+          "variable_id": "V441",
+          "label": "Ate less food",
+          "categories": {
+            "1": "Yes",
+            "2": "No",
+            "9": "Unspecified"
+          }
+        },
+        {
+          "name": "fsd_ateless_days",
+          "variable_id": "V442",
+          "label": "Ate less food for 5 or more days in the past 30 days"
+        },
+        {
+          "name": "fsd_ranout",
+          "variable_id": "V443",
+          "label": "Ran out of food",
+          "categories": {
+            "1": "Yes",
+            "2": "No",
+            "9": "Unspecified"
+          }
+        },
+        {
+          "name": "fsd_ranout_days",
+          "variable_id": "V444",
+          "label": "Ran out of food for 5 or more days in the past 30 days"
+        }
+      ],
+      "forbidden_inferences": [
+        "individual_hunger_diagnosis",
+        "nutritional_status",
+        "causal_policy_effect",
+        "universal_food_security_status"
+      ]
+    },
+    {
+      "metric_id": "sa.ghs.household.main_energy_source_for_lighting.v0.1",
+      "name": "Household main energy source for lighting",
+      "definition_status": "ddi_variable_and_categories_mapped_questionnaire_wording_review_pending",
+      "construct": "Distribution of households by the categorical variable labelled Energy for lighting. Category 1 is electricity from mains; generator electricity is category 2 and must remain separate.",
+      "unit": "weighted_share_of_households_by_category",
+      "unit_of_analysis": "household",
+      "population_scope": "GHS 2025 target population",
+      "data_file_id": "F3",
+      "data_file_name": "ghs-2025-household-v1",
+      "variable_id": "V378",
+      "microdata_variable_names": [
+        "eng_light"
+      ],
+      "category_values": {
+        "1": "Electricity from mains",
+        "2": "Other source of electricity (i.e. generator)",
+        "3": "Gas/LPG",
+        "4": "Paraffin",
+        "7": "Candles",
+        "9": "None",
+        "10": "NONE",
+        "11": "Other source of energy for lighting"
+      },
+      "numerator_definition": "For a mains-electricity-for-lighting indicator only: valid households with eng_light == 1. Preserve code 2 (generator) and codes 9 and 10 as separate original categories pending source clarification.",
+      "denominator_definition": "Households with a valid eng_light response; missing, invalid and unspecified responses must be separately classified from actual data.",
+      "survey_weight_field": "house_wgt",
+      "strata_field": "stratum",
+      "psu_field": "psu",
+      "subgroup_fields": [
+        "prov",
+        "metro",
+        "head_popgrp",
+        "head_sex"
+      ],
+      "variance_estimator": "design_based_using_PSU_stratum_and_house_wgt; exact implementation pending questionnaire/technical documentation review",
+      "reference_period": "2025",
+      "source_ids": [
+        "stats-sa-ghs-2025-v1",
+        "stats-sa-ghs-2025-ddi-json-v1"
+      ],
+      "published_value": null,
+      "published_value_status": "not_computed_microdata_requires_DataFirst_login",
+      "forbidden_inferences": [
+        "continuous_electricity_supply",
+        "outage_frequency",
+        "power_quality",
+        "affordability",
+        "cooking_energy_source",
+        "causal_policy_effect"
+      ]
+    }
+  ],
+  "sources_added": [
+    "stats-sa-ghs-2025-ddi-json-v1"
+  ],
+  "design_fields": {
+    "data_file_id": "F3",
+    "data_file_name": "ghs-2025-household-v1",
+    "cases_reported_in_DDI": 20095,
+    "psu": {
+      "name": "psu",
+      "variable_id": "V330"
+    },
+    "strata": {
+      "name": "stratum",
+      "variable_id": "V528"
+    },
+    "weight": {
+      "name": "house_wgt",
+      "variable_id": "V533"
+    },
+    "geography": {
+      "province": {
+        "name": "prov",
+        "variable_id": "V331"
+      },
+      "metro": {
+        "name": "metro",
+        "variable_id": "V530"
+      },
+      "geography_type": {
+        "name": "geotype",
+        "variable_id": "V529"
+      }
+    },
+    "note": "Use F3 household-level fields for household estimates. The variable-level qstn fields are blank for these mapped variables; questionnaire wording and official derivation must still be checked. DDI summary frequency counts are not weighted estimates."
+  }
+}

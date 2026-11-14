@@ -1,0 +1,282 @@
+{
+  "schema_version": "nrvca.ghs-2025-variable-crosswalk.v0.1",
+  "study_reference_id": "zaf-statssa-ghs-2025-v1",
+  "dataset_doi": "10.25828/a4a6-p161",
+  "source_metadata_url": "https://datafirst.uct.ac.za/dataportal/index.php/metadata/export/1144/json",
+  "source_metadata_status": "public_metadata_page_accessed; raw_metadata_bytes_not_acquired",
+  "raw_microdata_access_status": "login_required_not_acquired",
+  "household_file": {
+    "file_id": "F3",
+    "file_name": "ghs-2025-household-v1",
+    "case_count_reported_by_DDI": 20095,
+    "variable_count_reported_by_DDI": 206,
+    "unit_of_analysis": "household"
+  },
+  "design_fields": {
+    "psu": {
+      "variable_id": "V330",
+      "name": "psu",
+      "label": "Primary sampling unit",
+      "data_type": "character"
+    },
+    "province": {
+      "variable_id": "V331",
+      "name": "prov",
+      "label": "Province",
+      "categories": {
+        "1": "Western Cape",
+        "2": "Eastern Cape",
+        "3": "Northern Cape",
+        "4": "Free State",
+        "5": "KwaZulu-Natal",
+        "6": "North West",
+        "7": "Gauteng",
+        "8": "Mpumalanga",
+        "9": "Limpopo"
+      }
+    },
+    "stratum": {
+      "variable_id": "V528",
+      "name": "stratum",
+      "label": "Stratum",
+      "data_type": "character"
+    },
+    "geography_type": {
+      "variable_id": "V529",
+      "name": "geotype",
+      "label": "Geographical type"
+    },
+    "metro": {
+      "variable_id": "V530",
+      "name": "metro",
+      "label": "Metro",
+      "categories": {
+        "1": "Metro",
+        "2": "Non-metro"
+      }
+    },
+    "rotation": {
+      "variable_id": "V532",
+      "name": "rotation",
+      "label": "Rotation",
+      "categories": {
+        "1": "Quarter 1",
+        "2": "Quarter 2",
+        "3": "Quarter 3",
+        "4": "Quarter 4"
+      }
+    },
+    "household_weight": {
+      "variable_id": "V533",
+      "name": "house_wgt",
+      "label": "House Weight",
+      "data_type": "numeric double"
+    }
+  },
+  "variables": [
+    {
+      "variable_id": "V347",
+      "name": "wat_drinkwat",
+      "label": "Main source of water",
+      "file_id": "F3",
+      "categories": {
+        "1": "Piped (tap) water in dwelling",
+        "2": "Piped (tap) water on site or in yard",
+        "3": "Borehole on site",
+        "4": "Rain-water tank on site",
+        "5": "Neighbour's tap",
+        "6": "Public/communal tap",
+        "7": "Water-carrier/tanker",
+        "8": "Water vendor (charge involved)",
+        "9": "Borehole outside yard",
+        "10": "Flowing water/stream/river",
+        "11": "Stagnant water/dam/pool",
+        "12": "Well protected",
+        "13": "Well unprotected",
+        "14": "Spring protected",
+        "15": "Spring unprotected",
+        "16": "Other source of drinking water"
+      },
+      "candidate_derived_groupings": [
+        {
+          "id": "piped_on_premises",
+          "codes": [
+            "1",
+            "2"
+          ],
+          "description": "Piped tap water in dwelling or on site/in yard; excludes neighbour/public/communal taps."
+        }
+      ],
+      "question_text_present_in_DDI": false,
+      "notes": [
+        "Preserve the original 16-category distribution.",
+        "Do not treat access as continuous service, potability, safety, affordability or delivered volume."
+      ]
+    },
+    {
+      "variable_id": "V378",
+      "name": "eng_light",
+      "label": "Energy for lighting",
+      "file_id": "F3",
+      "categories": {
+        "1": "Electricity from mains",
+        "2": "Other source of electricity (i.e. generator)",
+        "3": "Gas/LPG",
+        "4": "Paraffin",
+        "7": "Candles",
+        "9": "None",
+        "10": "NONE",
+        "11": "Other source of energy for lighting"
+      },
+      "candidate_derived_groupings": [
+        {
+          "id": "mains_electricity_for_lighting",
+          "codes": [
+            "1"
+          ],
+          "description": "Main reported lighting source is electricity from mains."
+        }
+      ],
+      "question_text_present_in_DDI": false,
+      "notes": [
+        "Code 2 (generator electricity) remains separate from mains electricity.",
+        "Codes 9 and 10 both display a None label in DDI; preserve original codes pending questionnaire clarification.",
+        "This is lighting source, not electricity access/connection or reliability."
+      ]
+    },
+    {
+      "variable_id": "V435",
+      "name": "fsd_hung_adult",
+      "label": "Insufficient food for adult",
+      "file_id": "F3",
+      "categories": {
+        "1": "Never",
+        "2": "Seldom",
+        "3": "Sometimes",
+        "4": "Often",
+        "5": "Always",
+        "6": "Not applicable (no adults in household)",
+        "9": "Unspecified"
+      },
+      "question_text_present_in_DDI": false,
+      "notes": [
+        "Preserve ordinal frequency distribution.",
+        "Code 6 is structural not-applicable, not a positive/negative answer; code 9 remains unspecified."
+      ]
+    },
+    {
+      "variable_id": "V436",
+      "name": "fsd_hung_child",
+      "label": "Insufficient food for children",
+      "file_id": "F3",
+      "categories": {
+        "1": "Never",
+        "2": "Seldom",
+        "3": "Sometimes",
+        "4": "Often",
+        "5": "Always",
+        "6": "Not applicable (no children in household)",
+        "9": "Unspecified"
+      },
+      "question_text_present_in_DDI": false,
+      "notes": [
+        "Preserve ordinal frequency distribution; do not mix child and adult universes."
+      ]
+    },
+    {
+      "variable_id": "V437",
+      "name": "fsd_worried",
+      "label": "Worried about food",
+      "file_id": "F3",
+      "categories": {
+        "1": "Yes",
+        "2": "No",
+        "9": "Unspecified"
+      },
+      "question_text_present_in_DDI": false
+    },
+    {
+      "variable_id": "V438",
+      "name": "fsd_healthy",
+      "label": "Lack of nutritious food",
+      "file_id": "F3",
+      "categories": {
+        "1": "Yes",
+        "2": "No",
+        "9": "Unspecified"
+      },
+      "question_text_present_in_DDI": false
+    },
+    {
+      "variable_id": "V439",
+      "name": "fsd_fewfoods",
+      "label": "Lack of variety food kind",
+      "file_id": "F3",
+      "categories": {
+        "1": "Yes",
+        "2": "No",
+        "9": "Unspecified"
+      },
+      "question_text_present_in_DDI": false
+    },
+    {
+      "variable_id": "V440",
+      "name": "fsd_fewfoods_days",
+      "label": "Lacked variety food kind for 5 or more days in the past 30 days",
+      "file_id": "F3",
+      "question_text_present_in_DDI": false
+    },
+    {
+      "variable_id": "V441",
+      "name": "fsd_ateless",
+      "label": "Ate less food",
+      "file_id": "F3",
+      "categories": {
+        "1": "Yes",
+        "2": "No",
+        "9": "Unspecified"
+      },
+      "question_text_present_in_DDI": false
+    },
+    {
+      "variable_id": "V442",
+      "name": "fsd_ateless_days",
+      "label": "Ate less food for 5 or more days in the past 30 days",
+      "file_id": "F3",
+      "question_text_present_in_DDI": false
+    },
+    {
+      "variable_id": "V443",
+      "name": "fsd_ranout",
+      "label": "Run out of food",
+      "file_id": "F3",
+      "categories": {
+        "1": "Yes",
+        "2": "No",
+        "9": "Unspecified"
+      },
+      "question_text_present_in_DDI": false
+    },
+    {
+      "variable_id": "V444",
+      "name": "fsd_ranout_days",
+      "label": "Run out of food for 5 or more days in the past 30 days",
+      "file_id": "F3",
+      "question_text_present_in_DDI": false
+    }
+  ],
+  "weighting": {
+    "household_weight_field": "house_wgt",
+    "PSU_field": "psu",
+    "stratum_field": "stratum",
+    "design_reference": "The catalogue states a two-stage stratified sample from the 2013 Master Sample; ~3,080 PSUs; weights adjust selection probabilities, PSU subsampling/segmentation, frame exclusions, nonresponse, trimming and calibration.",
+    "variance_method": "Not selected; requires the survey technical documentation and exact questionnaire/DDI interpretation.",
+    "warning": "DDI displayed category frequencies and variable summary counts are sample-description metadata; they are not design-weighted national estimates."
+  },
+  "limitations": [
+    "DDI metadata variable question-text fields are blank for the mapped fields; exact questionnaire wording and routing require the questionnaire/documentation.",
+    "No raw microdata were downloaded; DataFirst Get Microdata page requires login.",
+    "No weighted estimate, design-based variance, standard error or confidence interval was computed.",
+    "The microdata's licensing/citation and publication-deposit conditions remain applicable."
+  ]
+}
