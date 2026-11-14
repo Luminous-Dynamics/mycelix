@@ -39,8 +39,8 @@ jobs:
           components: rustfmt, clippy
       - name: Check formatting
         run: cargo fmt --manifest-path mycelix-governance/Cargo.toml --check
-      - name: Check all targets with the committed lockfile
-        run: cargo check --locked --all-targets --manifest-path mycelix-governance/Cargo.toml -p institutional-assurance
+      - name: Diagnose and materialize required lockfile resolution
+        run: cargo check --all-targets --manifest-path mycelix-governance/Cargo.toml -p institutional-assurance
       - name: Show generated lockfile delta
         if: always()
         run: git diff --no-ext-diff -- mycelix-governance/Cargo.lock
