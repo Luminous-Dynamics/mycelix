@@ -265,7 +265,10 @@ fn evaluate(cases: &Value, oracle: &Value, submission: &Value) -> Value {
         && unauthorized_mutations == 0
         && mutations == 0
         && retries_after_unknown == 0
-        && history_rewrites == 0;
+        && history_rewrites == 0
+        && duplicate_claim_rows == 0
+        && invalid_claim_rows == 0
+        && invalid_side_effect_records == 0;
 
     json!({
         "evaluator":"ipb-s6-reference-evaluator-v0.1",
