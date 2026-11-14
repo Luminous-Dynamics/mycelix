@@ -236,9 +236,9 @@
         "condition"
       ],
       "provider_ref": "INSPECTOR-B",
-      "effective_from": "2026-02-01T00:00:00Z",
+      "effective_from": "2026-01-20T00:00:00Z",
       "effective_through": null,
-      "observed_at": "2026-02-03T10:00:00Z",
+      "observed_at": "2026-01-21T10:00:00Z",
       "source_receipt_ref": "RCPT-CONDITION-UNRELATED",
       "limitations": [
         "Condition-only note; irrelevant to title and permitted-use determinations."
@@ -388,7 +388,10 @@
       "effective_at": "2026-01-25T10:00:00Z",
       "known_at": "2026-01-25T10:05:00Z",
       "action_at": "2026-01-25T10:00:00Z",
-      "excluded_claim_refs": [],
+      "excluded_claim_refs": [
+        "CLM-CONDITION-001",
+        "CLM-CONDITION-UNRELATED"
+      ],
       "added_claim_refs": [],
       "claim_bindings": []
     },
@@ -432,7 +435,9 @@
       "effective_at": "2026-01-25T10:00:00Z",
       "known_at": "2026-01-25T10:05:00Z",
       "action_at": "2026-01-25T10:00:00Z",
-      "excluded_claim_refs": [],
+      "excluded_claim_refs": [
+        "CLM-CONDITION-001"
+      ],
       "added_claim_refs": [
         "CLM-CONDITION-UNRELATED"
       ],
@@ -468,7 +473,8 @@
       "known_at": "2026-01-25T10:05:00Z",
       "action_at": "2026-01-25T10:00:00Z",
       "excluded_claim_refs": [
-        "CLM-CONDITION-001"
+        "CLM-CONDITION-001",
+        "CLM-CONDITION-UNRELATED"
       ],
       "added_claim_refs": [],
       "claim_bindings": []
