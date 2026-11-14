@@ -43,7 +43,7 @@ cargo test --locked --all-targets --manifest-path Cargo.toml
 cargo clippy --locked --all-targets --manifest-path Cargo.toml -- -D warnings
 ```
 
-**48 Rust unit tests are authored; they have not been executed in this authoring environment.** Exact-head CI remains the validation authority.
+**49 Rust unit tests are authored; they have not been executed in this authoring environment.** Exact-head CI remains the validation authority.
 
 ## Relationship to owner contracts
 
