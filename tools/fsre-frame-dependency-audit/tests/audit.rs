@@ -14,7 +14,7 @@ DEPENDENCY|operator-frame|admin-register|-|-|-|-|0|100|reviewer|inherits-admin|-
 "#;
 
 #[test]
-fn shared_upstream_register_is_flagged_as_declared_dependence() {
+fn one_frames_upstream_link_does_not_prove_pairwise_dependence() {
     let report = audit(COMMON_ROOT).unwrap().unwrap();
     assert_eq!(report.frame_count, 3);
     assert_eq!(report.capture_frame_count, 2);
@@ -104,4 +104,13 @@ fn row_order_does_not_change_pair_report() {
     rows.reverse();
     let reordered = format!("{}\n{}\n{}\n", metadata.join("\n"), header, rows.join("\n"));
     assert_eq!(audit(&reordered).unwrap().unwrap().render(), original);
+}
+
+
+#[test]
+fn shared_snapshot_is_detected_even_without_declared_edge() {
+    let input = COMMON_ROOT.replace("field-enumeration", "operator-survey");
+    let input = input.replace("snapshot-c|0|100", "snapshot-b|0|100");
+    let report = audit(&input).unwrap().unwrap();
+    assert_eq!(report.pairs[0].status, "DECLARED_SHARED_SOURCE_SNAPSHOT");
 }
