@@ -1,5 +1,7 @@
 # Federated Societal Resilience Engineering (FSRE) — Integration and Qualification Profile
 
+- [Recovery portfolio benchmark extension v0.1](RECOVERY_PORTFOLIO_BENCHMARK_V0_1.md) — common-cause and shared-resource qualification of portfolios of recovery options.
+
 **Status:** Research architecture proposal, version 0.1.0  
 **Date:** 2026-11-13  
 **Maturity:** Design, synthetic scenarios and one bounded official-summary replay; not an operational or production system.
