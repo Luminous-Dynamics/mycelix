@@ -214,3 +214,12 @@ The LISE panel adds A33/F34:
 - F34 permits a bounded action only after the principal supplies the missing operation semantics and separately approves the exact operation.
 
 Clarification must preserve the scope boundary. User silence, a plausible default, tool availability or a model confidence score do not create authority.
+
+
+## 15. Oracle separation and blind submission
+
+The 34-case input manifest `IPB_FINALITY_SCENARIOS.json` is now input-only. It contains no per-case expected terminal states, dispositions, outcome classes or required assertions. It is explicitly marked `input_only: true` and validated against an input-only schema.
+
+Expected known answers are stored separately in `IPB_FINALITY_ORACLE.json`, with a separate schema. The oracle is for the independent evaluator/reviewers and must not be supplied to systems under test. A submission must cover all 34 case IDs; unsupported dimensions are reported explicitly rather than omitted.
+
+This corrects an earlier authoring weakness where expected answers were nested inside the scenario objects. The corpus is still a public development seed, so this split improves protocol hygiene but does not make its known answers a hidden holdout. A confirmatory holdout must be generated separately, access-controlled and frozen before comparator evaluation.
