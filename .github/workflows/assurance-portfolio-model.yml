@@ -1,0 +1,47 @@
+name: Assurance Portfolio Composition Model
+
+on:
+  pull_request:
+    paths:
+      - "research/assurance-portfolio-model/**"
+      - ".github/workflows/assurance-portfolio-model.yml"
+  push:
+    branches:
+      - "research/assurance-portfolio-model-v0-1"
+    paths:
+      - "research/assurance-portfolio-model/**"
+      - ".github/workflows/assurance-portfolio-model.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  portfolio-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CARGO_NET_OFFLINE: "true"
+      CARGO_TERM_COLOR: always
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact subject before execution
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+      - uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/assurance-portfolio-model/Cargo.toml --check
+      - name: Check all targets with lockfile
+        run: cargo check --locked --all-targets --manifest-path research/assurance-portfolio-model/Cargo.toml
+      - name: Run finite-state adversarial qualification
+        run: cargo test --locked --all-targets --manifest-path research/assurance-portfolio-model/Cargo.toml
+      - name: Run strict Clippy
+        run: cargo clippy --locked --all-targets --manifest-path research/assurance-portfolio-model/Cargo.toml -- -D warnings
+      - name: Assert exact subject and clean source after execution
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
