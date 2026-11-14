@@ -13,7 +13,7 @@ world_id|action_id|decision_value|safety_value
 w1|repair|80|90
 w1|inspect|70|95
 w1|replace|60|60
-w2|repair|75|90
+w2|repair|84|90
 w2|inspect|85|92
 w2|replace|90|55
 w3|repair|90|80
