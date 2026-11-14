@@ -368,7 +368,8 @@
         "principal_ref",
         "target_ref",
         "purpose",
-        "idempotency_ref"
+        "idempotency_ref",
+        "action_digest"
       ],
       "properties": {
         "operation_ref": {
@@ -458,6 +459,10 @@
         "idempotency_ref": {
           "type": "string",
           "minLength": 1
+        },
+        "action_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
       }
     }
