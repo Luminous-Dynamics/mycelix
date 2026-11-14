@@ -41,3 +41,12 @@ The example and oracle are synthetic engineering known answers. The oracle has n
 - `schema.json`: JSON Schema Draft 2020-12 packet structure.
 - `examples/unknown-outcome-handover.json`: complete synthetic packet.
 - `oracle.json`: separate expected disposition and prohibited inferences.
+
+
+## Evidence observation receipts
+
+v0.1 now carries a receipt envelope for every source reference relied upon by the example claims. A receipt binds the owner-native source reference and version to the bytes observed (SHA-256 digest), retrieval/observation/effective times, adapter identity and build digest, upstream-provider dependencies, completeness, and separate attestation/signature/issuer-trust states.
+
+This makes byte provenance and adapter lineage reconstructable without copying the underlying source document into a new store. It does **not** prove that the source assertion is true, that an issuer is competent, or that a signature is institutionally trusted. The source owner remains authoritative.
+
+The shape is informed by W3C PROV-O's Entity/Activity/Agent provenance model and the in-toto/SLSA approach to describing subjects and resolved build dependencies. These are interoperability references, not a claim that a software build-provenance standard already certifies institutional source facts.
