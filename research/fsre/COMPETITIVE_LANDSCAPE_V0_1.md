@@ -64,6 +64,38 @@ FSRE should consume outputs from these systems rather than replace their domain 
 
 Primary sources: EPA EPANET https://www.epa.gov/water-research/epanet; EPA WNTR https://usepa.github.io/WNTR/; Bentley OpenFlows Water https://www.bentley.com/products/openflows-water/; Bentley WaterSight https://www.bentley.com/en/products/openflows-watersight/.
 
+## 2.3 Current water-monitoring research comparators (November 2026)
+
+The sensor-placement frontier is moving quickly. These methods should be treated as specialist baselines, not dismissed as competitors FSRE has already surpassed.
+
+| Method / study | Published capability or result | What the matched benchmark must still test |
+|---|---|---|
+| Structural-observability placement (van Gemert et al., arXiv, 9 Nov 2026) | Topology/interconnection-based placement demonstrated on real Brabant Water networks; reduces dependence on exact hydraulic parameters, provided topology is correct | Sensor count, coverage versus relaxed observability, performance under topology changes, and lifecycle cost |
+| Continuous score-based pressure placement (Hu & Khu, 2 Nov 2026) | Replaces binary event thresholds with continuous sigmoid-style scoring of pressure residuals; reports robustness to spatially varying noise | Calibration, false alarms, event severity distribution, sensor degradation and cross-network generalisation |
+| Dynamic Residual Masking probabilistic placement (Journal of Hydrology, Nov 2026) | Reports 91.4% detection accuracy with five sensors and 4.2% false positives in its evaluated configuration, using RF/SHAP-based sensitivities and pseudo-Jacobian transformation | Exact network/event split, external validation, hardware, calibration, false-negative severity, and comparability of labels and noise assumptions |
+| Cascading-aware graph-signal placement (RESS, 2026) | Connects graph structure, hydraulic state, leakage factors and risk propagation | Whether risk propagation improves actionable detection and service outcomes over strong task-specific baselines |
+| 2026 review of water and wastewater sensor/sampling placement | Finds trade-offs among computation, scalability, uncertainty and decision support; notes maintenance, sensor degradation, delayed response and operational constraints are underrepresented in many OSP models | Lifecycle maintenance, data latency, imperfect detection, dynamic reconfiguration and real operator workflow |
+
+The reported 91.4%/4.2% figures are paper-specific results, not a universal SOTA score. They cannot be directly compared with REWET restoration results, another network, or FSRE's synthetic conformance counts. All candidate methods must be rerun on a common frozen dataset and held-out scenario pack.
+
+FSRE should not implement another placement algorithm merely to claim novelty. It should qualify candidate sensor plans and their outputs across:
+- acquisition and maintenance cost;
+- observation-to-availability latency;
+- data quality, freshness and clock semantics;
+- correlation and common-cause exposure among sensors;
+- sequential information value and decision regret;
+- protected cohort service floors;
+- independently observed service improvement.
+
+The proposed [decision-grade monitoring benchmark](DECISION_GRADE_MONITORING_BENCHMARK_V0_1.md) formalises that comparison.
+
+Primary sources:
+- van Gemert et al. (9 Nov 2026), *Sensor placement for real-life water distribution networks, ensuring observability under uncertainties*: https://arxiv.org/abs/2611.12414
+- Hu & Khu (2 Nov 2026), *Continuous score-based optimization of pressure sensor placement for burst detection in water distribution networks*, DOI: https://doi.org/10.1016/j.jclepro.2026.149780
+- Damonti & Bernasconi (Nov 2026), *Probabilistic sensor placement in water distribution networks: a Dynamic Residual Masking framework using game-theoretic pseudo-Jacobians*, DOI: https://doi.org/10.1016/j.jhydrol.2026.136514
+- Huang et al. (2026), *Cascading-aware sensor placement for leakage detection in water distribution networks*, DOI: https://doi.org/10.1016/j.ress.2026.112709
+- *Optimal Sensor and Sampling Placement for Contaminant Detection: A Comprehensive Review Across Water Distribution and Wastewater Collection Systems* (2026), DOI: https://doi.org/10.3390/eng7030121
+
 ## 3. What is potentially distinctive about FSRE
 
 ### Prior-art boundary: resilience engineering is established
