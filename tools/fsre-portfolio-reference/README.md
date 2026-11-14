@@ -18,6 +18,8 @@ Required record families:
 - `RESOURCE_PROFILE`, `RESOURCE_USE`, `RESOURCE_CAPACITY` — owner assertion that resource use is complete plus each proposed shared-resource load and its available capacity.
 - `DOMAIN_PROFILE`, `OPTION_DOMAIN`, `DOMAIN_STATE` — owner assertion that common-cause coverage is complete, option membership in shared failure domains, and domain state under the frozen scenario.
 
+The cohort-floor regression intentionally creates a plan whose aggregate delivered volume equals the aggregate of all declared floors, while households receive only 60 against a floor of 70 and hospitals receive 60 against a floor of 50. The evaluator must still report `NOT_FEASIBLE`; surplus in one cohort never silently compensates for a protected cohort's shortfall.
+
 A missing or UNKNOWN required profile/capacity/state is not zero and yields `NOT_ESTIMABLE`. FAILED domains block affected options. Resource demand is summed once per option/service across the submitted proposal. Service floors are enforced separately for each cohort. Each option ID is restricted to one service lane in v0.1 to prevent capacity double-counting across services. Shared failure domains are reported even when currently CLEAR; the evaluator does not certify independence.
 
 ## Output
