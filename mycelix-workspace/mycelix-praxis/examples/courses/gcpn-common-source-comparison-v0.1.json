@@ -1,0 +1,40 @@
+{
+  "schema_version": "gcpn-course-profile-v0.1",
+  "id": "gcpn-common-source-comparison-v0.1",
+  "title": "Common-source paired forecast comparison",
+  "category": "research_benchmark",
+  "status": "synthetic_contract_qualification",
+  "description": "Validates whether two forecast products can be compared over the same frozen case frame, temporal and spatial support, climatology, verification release, cutoff, and metric input contract. Accounts for paired, marginal, missing, and excluded cases without computing forecast scores.",
+  "learning_objectives": [
+    "Distinguish forecast-output availability from verification availability.",
+    "Reject incompatible forecast and verification contracts before scoring.",
+    "Preserve missingness reasons and exact paired-case denominators.",
+    "Keep excluded cases visible without including them in the eligible denominator.",
+    "Record dataset, model, spatial-support, verification, post-processing, and scoring provenance.",
+    "Treat unknown redistribution terms as unknown rather than as permission."
+  ],
+  "benchmark_targets": {
+    "incompatible_contract_rejection": "100_percent",
+    "eligible_case_accounting": "100_percent",
+    "silent_missingness_coercion": "zero",
+    "false_paired_comparisons": "zero",
+    "case_key_collision_acceptance": "zero",
+    "evaluation_outcome_leakage_acceptance": "zero",
+    "deterministic_report_reproduction": "100_percent"
+  },
+  "explicit_non_claims": [
+    "Does not fetch or redistribute benchmark datasets.",
+    "Does not independently hash external artifact bytes.",
+    "Does not calculate RMSE, CRPS, Brier score, FSS, or any other forecast metric.",
+    "Does not establish meteorological forecast superiority or operational readiness.",
+    "Does not provide legal advice about licenses or redistribution."
+  ],
+  "run_commands": [
+    "cargo fmt --all -- --check",
+    "cargo test --locked --offline",
+    "cargo clippy --locked --offline --all-targets -- -D warnings",
+    "cargo run --locked --offline"
+  ],
+  "toolchain": "Rust 1.98.1",
+  "external_dependencies": 0
+}
