@@ -286,6 +286,11 @@
     "retry_safety": "unknown",
     "disposition": "HOLD_FOR_RECONCILIATION",
     "retry_count": 0,
-    "reattempt_permitted": false
+    "reattempt_permitted": false,
+    "action": "approve_commercial_lease",
+    "principal_ref": "ACTOR-ASSET-MANAGER-01",
+    "target_ref": "PROPERTY-001",
+    "purpose": "new_tenant_commercial_lease",
+    "idempotency_ref": "IDEM-LEASE-001"
   }
 }
