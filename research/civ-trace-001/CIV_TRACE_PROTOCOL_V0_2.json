@@ -22,7 +22,7 @@
     "privacy": "Protected payload disclosure is a separate projection violation. A digest does not reveal or authenticate the underlying protected content.",
     "remedy_order": "A RemedyOrder is a versioned institutional order linked to the challenged Decision and Challenge. Its issuer must hold an exact AuthorityGrant scoped to the RemedyOrder subject, principal and target at order time.",
     "remedy_execution": "A RemedyOrder is not a completed remedy. It is complete only when its exact Attempt has an EffectObservation from an observer identity distinct from the Attempt issuer. Partial, contradicted, contested, same-source and unobserved states remain distinct.",
-    "systemic_action": "A CorrectiveAction remains Open, Verified or Ineffective. A policy/action record alone is not evidence of non-repetition; Verified is a declared independent evaluation state in this synthetic fixture only."
+    "systemic_action": "A CorrectiveAction remains Open, Verified or Ineffective. A Verified claim whose observer_ref is NONE or equals the issuer_ref is reported as INDEPENDENCE_UNESTABLISHED. A status label or policy update alone is not evidence of non-repetition."
   },
   "families": [
     "hindsight_isolation",
@@ -50,7 +50,8 @@
     "remedy_authority_current_reassessment",
     "remedy_order_to_execution_latency",
     "remedy_completion_observation",
-    "systemic_corrective_action_state"
+    "systemic_corrective_action_state",
+    "independent_corrective_action_observation"
   ],
   "non_compensable_rules": [
     "No post-cutoff event may enter the as-known-at-cutoff set.",
@@ -64,7 +65,8 @@
     "Late, retroactive revocation changes current remedy-authority reassessment without rewriting as-known-at-order.",
     "A remedy attempt requires an independent EffectObservation to qualify as completed.",
     "Partial, contradicted, contested, same-source and unobserved remedy outcomes are not completed.",
-    "CorrectiveAction status is reported separately from individual remedy completion."
+    "CorrectiveAction status is reported separately from individual remedy completion.",
+    "A systemic corrective action is not VERIFIED when its observer identity equals its issuer identity."
   ],
-  "claim_ceiling": "Synthetic temporal reconstruction, authority-as-known/current, decision/outcome/contestability, remedy-order authority, remedy execution/observation and privacy projection only. No legal, substantive-remedy-adequacy, institutional legitimacy, empirical truth or production readiness claim."
+  "claim_ceiling": "Synthetic temporal reconstruction, authority-as-known/current, decision/outcome/contestability, remedy-order authority, remedy execution/observation and independent corrective-action observation only. No legal, substantive-remedy-adequacy, institutional legitimacy, empirical truth or production readiness claim."
 }
