@@ -215,6 +215,14 @@
     "both_sets_preserved_separately": true,
     "raw_artifact_bytes_captured": false,
     "content_hashes_captured": false,
-    "claim_ceiling": "Source-page and rendered-schema inspection only; no official validation or conformance claim."
+    "claim_ceiling": "Source-page and rendered-schema inspection only; no official validation or conformance claim.",
+    "retrieval_recheck_2026_11_14": {
+      "schema_2_0_0_reader_rendered": true,
+      "schema_draft": "draft-07",
+      "raw_bytes_captured": false,
+      "context_and_shacl_media_type_limited": true,
+      "github_context_mirror_v2_1_rejected_as_2_0_0_substitute": true,
+      "official_validation_executed": false
+    }
   }
 }
