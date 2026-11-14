@@ -63,6 +63,21 @@ impl EventType {
         }
     }
 
+    fn label(self) -> &'static str {
+        match self {
+            Self::Rename => "RENAME",
+            Self::IdentifierReassignment => "IDENTIFIER_REASSIGNMENT",
+            Self::Relocation => "RELOCATION",
+            Self::OwnershipTransfer => "OWNERSHIP_TRANSFER",
+            Self::OperatorTransfer => "OPERATOR_TRANSFER",
+            Self::Split => "SPLIT",
+            Self::Merge => "MERGE",
+            Self::Retire => "RETIRE",
+            Self::Recommission => "RECOMMISSION",
+            Self::ServiceBoundaryChange => "SERVICE_BOUNDARY_CHANGE",
+        }
+    }
+
     fn preserves_identity(self) -> bool {
         matches!(
             self,
@@ -294,7 +309,7 @@ pub fn replay(
     let mut event_type_counts = BTreeMap::new();
     let mut lineage_edges = 0;
     for event in &selected {
-        *event_type_counts.entry(format!("{:?}", event.event_type).to_ascii_uppercase()).or_insert(0) += 1;
+        *event_type_counts.entry(event.event_type.label().to_owned()).or_insert(0) += 1;
         lineage_edges += event.predecessors.len() * event.successors.len();
     }
     Ok(LineageReport {
