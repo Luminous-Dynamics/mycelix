@@ -569,7 +569,12 @@ fn compose(plan_source: &str, stock_sources: &[String]) -> Result<String, InputE
                         stock.loss,
                     ) {
                         (Some(demand), Some(consumption), Some(capacity), Some(opening), Some(loss)) => {
-                            demand == consumption
+                            stock.state == "BALANCED"
+                                && series.scenario_id == plan.scenario_id
+                                && series.time_basis_id == plan.clock_basis_id
+                                && stock.start == interval.start
+                                && stock.end == interval.end
+                                && demand == consumption
                                 && opening >= loss
                                 && capacity <= opening - loss
                                 && resource.unit == series.unit
