@@ -90,6 +90,8 @@ struct Metadata {
     audit_id: String,
     _scope_id: String,
     _unit_type: String,
+    study_start: u64,
+    study_end: u64,
     _reference_frame_id: String,
     _reference_owner: String,
     _reference_ref: String,
@@ -278,6 +280,8 @@ fn parse_metadata(metadata: &BTreeMap<String, String>) -> Result<Metadata, Audit
         audit_id: id("audit_id")?,
         _scope_id: id("scope_id")?,
         _unit_type: id("unit_type")?,
+        study_start,
+        study_end,
         _reference_frame_id: id("reference_frame_id")?,
         _reference_owner: id("reference_owner")?,
         _reference_ref: id("reference_ref")?,
@@ -443,30 +447,21 @@ fn parse_source(
     }
 
     for (id, record) in &references {
-        if !record.interval.covers(
-            parse_u64(&required_from_metadata_placeholder(), "unused")?,
-            0,
-        ) {
-            let _ = id;
-        }
-    }
-
-    for (id, record) in &references {
-        if !record.interval.covers(study_start_from_source(source)?, study_end_from_source(source)?) {
+        if !record.interval.covers(metadata.study_start, metadata.study_end) {
             return Err(AuditError(format!(
                 "reference record {id} membership does not cover the study horizon"
             )));
         }
     }
     for (id, record) in &observed {
-        if !record.interval.covers(study_start_from_source(source)?, study_end_from_source(source)?) {
+        if !record.interval.covers(metadata.study_start, metadata.study_end) {
             return Err(AuditError(format!(
                 "observed record {id} membership does not cover the study horizon"
             )));
         }
     }
     for link in &links {
-        if !link.interval.covers(study_start_from_source(source)?, study_end_from_source(source)?) {
+        if !link.interval.covers(metadata.study_start, metadata.study_end) {
             return Err(AuditError(format!(
                 "crosswalk evidence for {} does not cover the study horizon",
                 link.observed_id
