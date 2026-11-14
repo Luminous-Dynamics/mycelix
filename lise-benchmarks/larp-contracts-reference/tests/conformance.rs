@@ -1,4 +1,8 @@
-use larp_contracts_reference::{evaluate, Disposition, OracleSuite, ScenarioSuite};
+use larp_contracts_reference::{
+    evaluate, evaluate_epistemic_bounty, evaluate_restoration_contract, Disposition,
+    DomainOracleSuite, DomainScenarioSuite, EpistemicBountyFacts, OracleSuite, RestorationFacts,
+    ScenarioSuite,
+};
 use std::collections::{BTreeMap, BTreeSet};
 
 const SCENARIOS: &str = include_str!("../fixtures/scenarios.json");
@@ -182,4 +186,81 @@ fn staged_reward_requires_rights_and_remedy_not_only_treasury_authorization() {
     facts.rights.rights_satisfied = Some(false);
     let decision = evaluate(&facts, facts.evaluated_at_unix);
     assert_eq!(decision.disposition, Disposition::Deny);
+}
+
+const EPISTEMIC_SCENARIOS: &str = include_str!("../fixtures/epistemic_scenarios.json");
+const EPISTEMIC_ORACLE: &str = include_str!("../fixtures/epistemic_oracle.json");
+const RESTORATION_SCENARIOS: &str = include_str!("../fixtures/restoration_scenarios.json");
+const RESTORATION_ORACLE: &str = include_str!("../fixtures/restoration_oracle.json");
+
+#[test]
+fn epistemic_bounty_domain_cases_match_separate_oracle() {
+    let suite: DomainScenarioSuite<EpistemicBountyFacts> =
+        serde_json::from_str(EPISTEMIC_SCENARIOS).expect("epistemic cases must parse");
+    let oracle: DomainOracleSuite =
+        serde_json::from_str(EPISTEMIC_ORACLE).expect("epistemic oracle must parse");
+    assert_eq!(suite.case_count, suite.cases.len());
+    assert_eq!(oracle.case_count, oracle.rows.len());
+    assert_eq!(suite.suite_id, oracle.suite_id);
+    assert_eq!(suite.cases.len(), 12);
+
+    let ids: BTreeSet<_> = suite.cases.iter().map(|case| case.id.as_str()).collect();
+    let rows: BTreeMap<_, _> = oracle.rows.iter().map(|row| (row.case_id.as_str(), row)).collect();
+    assert_eq!(ids.len(), suite.cases.len());
+    assert_eq!(rows.len(), oracle.rows.len());
+    assert_eq!(ids, rows.keys().copied().collect());
+
+    for case in &suite.cases {
+        let expected = rows[case.id.as_str()];
+        let actual = evaluate_epistemic_bounty(&case.facts);
+        assert_eq!(actual.disposition.as_str(), expected.expected_disposition, "{}: {}", case.id, case.title);
+        assert_eq!(actual.reason_codes.first().map(String::as_str), Some(expected.reason_code.as_str()), "{} reason", case.id);
+    }
+}
+
+#[test]
+fn restoration_domain_cases_match_separate_oracle() {
+    let suite: DomainScenarioSuite<RestorationFacts> =
+        serde_json::from_str(RESTORATION_SCENARIOS).expect("restoration cases must parse");
+    let oracle: DomainOracleSuite =
+        serde_json::from_str(RESTORATION_ORACLE).expect("restoration oracle must parse");
+    assert_eq!(suite.case_count, suite.cases.len());
+    assert_eq!(oracle.case_count, oracle.rows.len());
+    assert_eq!(suite.suite_id, oracle.suite_id);
+    assert_eq!(suite.cases.len(), 12);
+
+    let ids: BTreeSet<_> = suite.cases.iter().map(|case| case.id.as_str()).collect();
+    let rows: BTreeMap<_, _> = oracle.rows.iter().map(|row| (row.case_id.as_str(), row)).collect();
+    assert_eq!(ids.len(), suite.cases.len());
+    assert_eq!(rows.len(), oracle.rows.len());
+    assert_eq!(ids, rows.keys().copied().collect());
+
+    for case in &suite.cases {
+        let expected = rows[case.id.as_str()];
+        let actual = evaluate_restoration_contract(&case.facts);
+        assert_eq!(actual.disposition.as_str(), expected.expected_disposition, "{}: {}", case.id, case.title);
+        assert_eq!(actual.reason_codes.first().map(String::as_str), Some(expected.reason_code.as_str()), "{} reason", case.id);
+    }
+}
+
+#[test]
+fn epistemic_similarity_never_becomes_a_scientific_misconduct_verdict() {
+    let suite: DomainScenarioSuite<EpistemicBountyFacts> =
+        serde_json::from_str(EPISTEMIC_SCENARIOS).unwrap();
+    let benign = suite.cases.iter().find(|case| case.id == "EB01").unwrap();
+    let mut facts = benign.facts.clone();
+    facts.request_sanction = Some(true);
+    facts.similarity_high = Some(true);
+    facts.coordination_corroborated = Some(false);
+    assert_eq!(evaluate_epistemic_bounty(&facts).disposition, Disposition::Deny);
+}
+
+#[test]
+fn restoration_does_not_trade_biodiversity_for_canopy_or_local_gain_for_downstream_harm() {
+    let suite: DomainScenarioSuite<RestorationFacts> =
+        serde_json::from_str(RESTORATION_SCENARIOS).unwrap();
+    let biodiversity = suite.cases.iter().find(|case| case.id == "RST02").unwrap();
+    let downstream = suite.cases.iter().find(|case| case.id == "RST03").unwrap();
+    assert_eq!(evaluate_restoration_contract(&biodiversity.facts).disposition, Disposition::Deny);
+    assert_eq!(evaluate_restoration_contract(&downstream.facts).disposition, Disposition::Deny);
 }
