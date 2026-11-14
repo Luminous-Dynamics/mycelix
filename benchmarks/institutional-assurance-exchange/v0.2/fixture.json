@@ -515,7 +515,9 @@
       "fields": [
         "lease_submission_request"
       ],
-      "possible_external_side_effect": true
+      "possible_external_side_effect": true,
+      "canonical_operation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "action_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
     },
     {
       "event_ref": "OP-EVENT-TIMEOUT",
@@ -534,7 +536,9 @@
       "fields": [
         "lease_submission_request"
       ],
-      "possible_external_side_effect": true
+      "possible_external_side_effect": true,
+      "canonical_operation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "action_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
     }
   ],
   "execution_control": {
