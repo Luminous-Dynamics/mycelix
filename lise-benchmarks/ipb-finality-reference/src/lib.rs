@@ -140,6 +140,7 @@ pub enum DenialCode {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HoldCode {
+    MissingRequiredBinding,
     ApprovalPending,
     ApprovalUnknown,
     AuthorityUnknown,
@@ -156,12 +157,35 @@ pub enum FinalityDecision {
     Hold(HoldCode),
 }
 
+fn operation_binding_complete(operation: &OperationBinding) -> bool {
+    !operation.logical_operation_id.trim().is_empty()
+        && !operation.canonical_operation_digest.trim().is_empty()
+        && !operation.action_digest.trim().is_empty()
+        && !operation.target_ref.trim().is_empty()
+        && operation.amount_minor.is_none() == operation.currency.is_none()
+}
+
+fn constitution_ref_complete(constitution: &ConstitutionRef) -> bool {
+    !constitution.institution_ref.trim().is_empty()
+        && !constitution.constitution_digest.trim().is_empty()
+}
+
 /// Evaluate the benchmark's narrow pre-effect correspondence relation.
 ///
 /// Order is deliberate: a missing/invalid authorization or a changed
 /// operation/constitution is denied before considering any provider retry.
 /// Unknown evidence is held; it is never coerced into Permit.
 pub fn evaluate_finality(input: &FinalityInput) -> FinalityDecision {
+    if !operation_binding_complete(&input.approval.operation)
+        || !operation_binding_complete(&input.actual_operation)
+        || !constitution_ref_complete(&input.approval.constitution)
+        || !constitution_ref_complete(&input.current.constitution)
+        || input.approval.policy_revision.trim().is_empty()
+        || input.current.policy_revision.trim().is_empty()
+    {
+        return FinalityDecision::Hold(HoldCode::MissingRequiredBinding);
+    }
+
     match input.approval.state {
         ApprovalState::Authorized => {}
         ApprovalState::Denied => return FinalityDecision::Deny(DenialCode::ApprovalDenied),
@@ -223,10 +247,18 @@ pub fn evaluate_finality(input: &FinalityInput) -> FinalityDecision {
             FinalityDecision::Hold(HoldCode::PartialOutcomeRequiresReconciliation)
         }
         PriorEffectState::ConfirmedNotApplied => match input.retry_safety {
-            RetrySafety::SameOperationSameIdempotencyKeyQualified => FinalityDecision::Permit,
-            RetrySafety::Unsupported | RetrySafety::Unknown => {
-                FinalityDecision::Hold(HoldCode::RetrySafetyUnproven)
+            RetrySafety::SameOperationSameIdempotencyKeyQualified
+                if input
+                    .actual_operation
+                    .idempotency_ref
+                    .as_deref()
+                    .is_some_and(|key| !key.trim().is_empty()) =>
+            {
+                FinalityDecision::Permit
             }
+            RetrySafety::SameOperationSameIdempotencyKeyQualified
+            | RetrySafety::Unsupported
+            | RetrySafety::Unknown => FinalityDecision::Hold(HoldCode::RetrySafetyUnproven),
         },
     }
 }
@@ -500,6 +532,26 @@ mod tests {
     }
 
     #[test]
+    fn incomplete_operation_binding_is_held() {
+        let mut candidate = input();
+        candidate.actual_operation.canonical_operation_digest.clear();
+        assert_eq!(
+            evaluate_finality(&candidate),
+            FinalityDecision::Hold(HoldCode::MissingRequiredBinding)
+        );
+    }
+
+    #[test]
+    fn amount_without_currency_is_incomplete_binding() {
+        let mut candidate = input();
+        candidate.actual_operation.currency = None;
+        assert_eq!(
+            evaluate_finality(&candidate),
+            FinalityDecision::Hold(HoldCode::MissingRequiredBinding)
+        );
+    }
+
+    #[test]
     fn confirmed_no_effect_can_retry_only_with_qualified_same_key_contract() {
         let mut candidate = input();
         candidate.prior_effect = PriorEffectState::ConfirmedNotApplied;
@@ -507,6 +559,15 @@ mod tests {
         assert_eq!(evaluate_finality(&candidate), FinalityDecision::Permit);
 
         candidate.retry_safety = RetrySafety::Unsupported;
+        assert_eq!(
+            evaluate_finality(&candidate),
+            FinalityDecision::Hold(HoldCode::RetrySafetyUnproven)
+        );
+
+        candidate.retry_safety =
+            RetrySafety::SameOperationSameIdempotencyKeyQualified;
+        candidate.actual_operation.idempotency_ref = None;
+        candidate.approval.operation.idempotency_ref = None;
         assert_eq!(
             evaluate_finality(&candidate),
             FinalityDecision::Hold(HoldCode::RetrySafetyUnproven)
