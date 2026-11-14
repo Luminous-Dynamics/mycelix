@@ -1,0 +1,57 @@
+name: FSRE independent portfolio reference
+on:
+  pull_request:
+    paths:
+      - "tools/fsre-portfolio-oracle/**"
+      - "tools/fsre-portfolio-reference/**"
+      - ".github/workflows/fsre-portfolio-oracle.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/fsre-portfolio-oracle/**"
+      - "tools/fsre-portfolio-reference/**"
+      - ".github/workflows/fsre-portfolio-oracle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  differential:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path tools/fsre-portfolio-reference/Cargo.toml --all -- --check
+          cargo fmt --manifest-path tools/fsre-portfolio-oracle/Cargo.toml --all -- --check
+      - name: Run independent tests
+        run: |
+          cargo test --locked --offline --manifest-path tools/fsre-portfolio-reference/Cargo.toml
+          cargo test --locked --offline --manifest-path tools/fsre-portfolio-oracle/Cargo.toml
+      - name: Compare production evaluator to independent oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          input="tools/fsre-portfolio-reference/fixtures/synthetic-feasible.psv"
+          production_out="$(mktemp)"
+          production_summary="$(mktemp)"
+          oracle_out="$(mktemp)"
+          trap 'rm -f "$production_out" "$production_summary" "$oracle_out"' EXIT
+
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-portfolio-reference/Cargo.toml -- "$input" > "$production_out"
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-portfolio-oracle/Cargo.toml -- "$input" > "$oracle_out"
+
+          grep -E '^(portfolio_id=|scenario_id=|interval_id=|evidence_snapshot_id=|portfolio_disposition=|option=|service_cohorts=|service_floor=|resource_classes=|resource=|shared_failure_domains=|shared_domain=|blocked_allocations=|claim_scope=|option_independence_claim=|source_authenticity=|execution_authority=|operational_actuation=)' "$production_out" > "$production_summary"
+          diff -u tools/fsre-portfolio-oracle/fixtures/independent-feasible.expected.txt "$oracle_out"
+          diff -u "$production_summary" "$oracle_out"
+
+      - name: Run Clippy on both implementations
+        run: |
+          cargo clippy --locked --offline --manifest-path tools/fsre-portfolio-reference/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --locked --offline --manifest-path tools/fsre-portfolio-oracle/Cargo.toml --all-targets -- -D warnings
