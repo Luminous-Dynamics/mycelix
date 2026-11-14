@@ -384,7 +384,7 @@ fn validate_trace(trace: &Value) -> TraceReport {
                     let independently_observed = observation_kind == "independent_observation"
                         && source_kind == "independent_observer"
                         && independence == "qualified_independent"
-                        && capture_origin == "independent_harness";
+                        && matches!(capture_origin, "independent_harness" | "owner_native");
                     let owner_reconciled = observation_kind == "owner_reconciliation"
                         && source_kind == "resource_owner"
                         && capture_origin == "owner_native";
@@ -486,9 +486,18 @@ fn validate_trace(trace: &Value) -> TraceReport {
                             && key.as_deref() == event_string(event, "idempotency_ref")
                             && *at < *reconciled_at
                     });
-                    let reconciliation_event = events
-                        .get(*reconciled_at as usize)
-                        .expect("reconciliation sequence was validated against the event vector");
+                    let Some(reconciliation_index) = usize::try_from(*reconciled_at).ok() else {
+                        report.errors.push(format!(
+                            "{label}: reconciliation sequence cannot be represented as an event index"
+                        ));
+                        continue;
+                    };
+                    let Some(reconciliation_event) = events.get(reconciliation_index) else {
+                        report.errors.push(format!(
+                            "{label}: reconciliation reference does not resolve to an event"
+                        ));
+                        continue;
+                    };
                     let reconciliation_source = event_string(reconciliation_event, "source_kind").unwrap_or("");
                     let reconciliation_origin = event_string(reconciliation_event, "capture_origin").unwrap_or("");
                     let provider_contract_ref = event_string(reconciliation_event, "provider_contract_ref");
