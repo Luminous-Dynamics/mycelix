@@ -24,6 +24,7 @@ It is not a new civic-governance programme, a second civilization simulator, an 
 - [Verifier independence and model-disagreement benchmark](VERIFIER_AND_MODEL_DISAGREEMENT_BENCHMARK_V0_1.md) — differential evaluator checks, metamorphic tests, negative-control mutations, model disagreement and independent re-hosting.
 - [Standards and industry crosswalk](FRAMEWORK_CROSSWALK_V0_1.md) — positioning against existing resilience, critical-entity and digital-government frameworks.
 - [Competitive landscape](COMPETITIVE_LANDSCAPE_V0_1.md) — direct comparison with enterprise ontology, asset-performance, infrastructure-twin and water-operations products, with testable differentiation hypotheses.
+- [Water restoration industry baseline crosswalk](WATER_RESTORATION_INDUSTRY_BASELINE_CROSSWALK_V0_1.md) — compares EPANET, WNTR, Bentley OpenFlows and published restoration planning; defines matched service-outcome baselines.
 - [South African public-data inventory](ZA_PUBLIC_DATA_INVENTORY_V0_1.md) — dated water/sanitation data sources, admissibility, missingness and the minimum operator evidence needed for a qualified service study.
 - [South African public source register](ZA_PUBLIC_SOURCE_REGISTER_V0_1.psv) — machine-readable discovery register with source release, observation period, grain, denominator, currentness and extraction state.
 - [South African public-data replay protocol](ZA_PUBLIC_DATA_REPLAY_PROTOCOL_V0_1.md) — exact Treasury cube/item taxonomy and extraction, null, pagination, identity and DWS/Stats SA admissibility rules.
