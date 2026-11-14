@@ -22,6 +22,9 @@ import type {
   RequestRecord,
   VerificationResult,
   CredentialStatusResponse,
+  PresentationVerificationResult,
+  VerifyPresentationInput,
+  DerivedVerificationResult,
   IssueCredentialInput,
   CreatePresentationInput,
   CreateDerivedInput,
@@ -29,7 +32,7 @@ import type {
   UpdateRequestStatusInput,
   IdentityClientConfig,
 } from './types.js';
-import type { AppClient, Record as HolochainRecord } from '@holochain/client';
+import type { ActionHash, AppClient, Record as HolochainRecord } from '@holochain/client';
 
 
 /**
@@ -166,6 +169,26 @@ export class CredentialsClient extends ZomeClient {
    */
   async verifyCredential(credentialId: string): Promise<VerificationResult> {
     return this.callZome<VerificationResult>('verify_credential', credentialId);
+  }
+
+  /**
+   * Verify a presentation and preserve the issuer-signature assurance status
+   * for every credential it contains.
+   */
+  async verifyPresentation(
+    input: VerifyPresentationInput
+  ): Promise<PresentationVerificationResult> {
+    return this.callZome<PresentationVerificationResult>('verify_presentation', input);
+  }
+
+  /**
+   * Verify a derived credential and the assurance status of its original
+   * issuer's proof. Callers must not promote any non-verified status to valid.
+   */
+  async verifyDerivedCredential(
+    actionHash: ActionHash
+  ): Promise<DerivedVerificationResult> {
+    return this.callZome<DerivedVerificationResult>('verify_derived_credential', actionHash);
   }
 
   /**

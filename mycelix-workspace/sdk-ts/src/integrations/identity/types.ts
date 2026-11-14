@@ -279,7 +279,8 @@ export interface IssueCredentialInput {
 export interface CreatePresentationInput {
   credential_ids: string[];
   verifier_did?: string;
-  challenge?: string;
+  /** Required fresh verifier challenge (1–512 UTF-8 bytes). */
+  challenge: string;
 }
 
 /**

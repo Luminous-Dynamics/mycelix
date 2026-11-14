@@ -1,0 +1,14 @@
+{
+  "fixture_id": "mycelix-credential-hash-v1-ed25519-001",
+  "profile": "mycelix-credential-hash-v1",
+  "domain_separator_hex": "4d5943454c49583a56455249464941424c452d43524544454e5449414c3a5349474e41545552453a563100",
+  "canonical_payload_utf8": "{\"@context\":[\"https://www.w3.org/ns/credentials/v2\"],\"credentialSchema\":null,\"credentialStatus\":null,\"credentialSubject\":{\"degree\":\"BSc\",\"id\":\"did:mycelix:holder1\",\"level\":7},\"id\":\"urn:credential:sample-1\",\"issuer\":\"did:mycelix:issuer1\",\"mycelix_created\":1000000,\"mycelix_schema_id\":\"mycelix:schema:degree:v1\",\"proof\":{\"algorithm\":60673,\"created\":\"2026-01-01T00:00:00Z\",\"cryptosuite\":\"mycelix-credential-hash-v1\",\"proofPurpose\":\"assertionMethod\",\"type\":\"MycelixCredentialProof\",\"verificationMethod\":\"did:mycelix:issuer1#keys-1\"},\"type\":[\"VerifiableCredential\",\"DegreeCredential\"],\"validFrom\":\"2026-01-01T00:00:00Z\",\"validUntil\":null}",
+  "digest_algorithm": "BLAKE2b-256",
+  "digest_hex": "0071dffea0234be3b658ef821aff0e4f04a6fcb8ac6958ab3c3512455d617f89",
+  "verification_algorithm": "Ed25519",
+  "verification_public_key_hex": "2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12",
+  "verification_public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAIVL40Zt5HSRFMkLhXy6rbLfP+ntqXtMAl5YOBpiB2xI=\n-----END PUBLIC KEY-----\n",
+  "signature_hex": "d1012820550c5a302a8321ba64219c067787c12ee34b58911d057e9d0df78ebc2f05a5da20abf7d3e5eeb1bb04b42a471592b12f282ecd39232294fe55ab3d04",
+  "signature_base64": "0QEoIFUMWjAqgyG6ZCGcBneHwS7jS1iRHQV+nQ33jrwvBaXaIKv30+XusbsEtCpHFZKxLyguzTkjIpT+Vas9BA==",
+  "notes": "The private seed is intentionally omitted. The canonical payload corresponds to the Rust sample_v1_presentation() credential and uses Timestamp::from_micros(1_000_000) serialized as its serde integer representation. The coordinator test asserts exact canonical-byte equality."
+}

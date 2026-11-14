@@ -20,3 +20,7 @@ mycelix-zkp-core = { workspace = true }
 
 [features]
 default = []
+
+[dev-dependencies]
+ed25519-dalek = { workspace = true }
+hex = { workspace = true }

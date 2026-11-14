@@ -163,7 +163,18 @@ export interface CredentialProof {
   proofPurpose: string;
   /** W3C: "proofValue" (multibase encoded) */
   proofValue: string;
+  /**
+   * Declared proof profile. May be a standard W3C cryptosuite or the distinct
+   * internal `mycelix-credential-hash-v1` profile; the internal profile is not
+   * a W3C Data Integrity cryptosuite implementation.
+   */
   cryptosuite?: string;
+  /** Algorithm multicodec value, signed as part of the Mycelix V1 proof header. */
+  algorithm?: number;
+  /** Optional replay challenge, included in the signed proof header. */
+  challenge?: string;
+  /** Optional proof domain, included in the signed proof header. */
+  domain?: string;
 }
 
 /**
@@ -275,14 +286,61 @@ export interface CredentialRequest {
 }
 
 /**
+ * Assurance level actually reached by the credential proof verifier.
+ * Only "verified" means every required cryptographic component passed.
+ */
+export type CredentialSignatureStatus =
+  | 'verified'
+  | 'invalid'
+  | 'partial'
+  | 'unsupported'
+  | 'error';
+
+/**
  * Verification result
  */
 export interface VerificationResult {
   credential_id: string;
   valid: boolean;
   checks_passed: string[];
+  proof_signature_status: CredentialSignatureStatus;
   errors: string[];
   verified_at: Timestamp;
+}
+
+/** Verification result for a credential embedded in a presentation. */
+export interface CredentialInPresentationResult {
+  credential_id: string;
+  valid: boolean;
+  proof_signature_status: CredentialSignatureStatus;
+  errors: string[];
+}
+
+/** Verification result for a verifiable presentation. */
+export interface PresentationVerificationResult {
+  presentation_id: string;
+  holder: string;
+  valid: boolean;
+  errors: string[];
+  holder_signature_status: CredentialSignatureStatus;
+  credential_results: CredentialInPresentationResult[];
+  verified_at: Timestamp;
+}
+
+/** Input accepted by the credential coordinator's verify_presentation zome call. */
+export interface VerifyPresentationInput {
+  presentation_hash: ActionHash;
+  /** Fresh verifier-issued challenge bound into the signed presentation. */
+  expected_challenge: string;
+  expected_domain?: string | null;
+}
+
+/** Result of verifying a derived credential and its original issuer proof. */
+export interface DerivedVerificationResult {
+  valid: boolean;
+  errors: string[];
+  original_issuer_verified: boolean;
+  original_issuer_signature_status: CredentialSignatureStatus;
 }
 
 /**
@@ -303,7 +361,8 @@ export interface IssueCredentialInput {
  */
 export interface CreatePresentationInput {
   credential_ids: string[];
-  challenge?: string;
+  /** Required fresh verifier challenge (1–512 UTF-8 bytes). */
+  challenge: string;
   domain?: string;
 }
 
