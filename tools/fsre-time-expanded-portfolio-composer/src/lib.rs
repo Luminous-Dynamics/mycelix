@@ -716,7 +716,7 @@ fn compose(
     }
     lines.push("claim_scope=DECLARED_HORIZON_AND_FROZEN_EVIDENCE_ONLY".to_owned());
     lines.push("service_quality=NOT_EVALUATED_BY_THIS_COMPOSER".to_owned());
-    lines.push("as_known_at_cutoff=REPLAYED_AND_LINKED_PER_INTERVAL".to_owned());
+    lines.push("as_known_at_cutoff=REPLAYED_PER_INTERVAL".to_owned());
     lines.push("source_authenticity=NOT_AUTHENTICATED_BY_THIS_TOOL".to_owned());
     lines.push("execution_authority=NONE".to_owned());
     lines.push("operational_actuation=NOT_AUTHORISED".to_owned());
@@ -757,6 +757,34 @@ mod tests {
     #[test]
     fn three_interval_composition_matches_golden_report() {
         assert_eq!(run(PLAN, STOCK), EXPECTED);
+    }
+
+    #[test]
+    fn every_interval_is_linked_to_the_exact_asof_snapshot() {
+        let report = run(PLAN, STOCK);
+        assert!(report.contains("asof_evidence=hour-00|12|12|0|0|ASOF_EVIDENCE_LINKED_AND_PORTFOLIO_FEASIBLE_FOR_DECLARED_DECISION"));
+        assert!(report.contains("asof_evidence=hour-01|12|12|0|0|ASOF_EVIDENCE_LINKED_AND_PORTFOLIO_FEASIBLE_FOR_DECLARED_DECISION"));
+        assert!(report.contains("asof_evidence=hour-02|12|12|0|0|ASOF_EVIDENCE_LINKED_AND_PORTFOLIO_FEASIBLE_FOR_DECLARED_DECISION"));
+        assert!(report.contains("as_known_at_cutoff=REPLAYED_PER_INTERVAL"));
+    }
+
+    #[test]
+    fn asof_snapshot_cutoff_mismatch_blocks_horizon_qualification() {
+        let changed = ASOF.replace("# decision_at=0", "# decision_at=1");
+        let report = run_with_asof(&changed, PLAN, STOCK);
+        assert!(report.contains("time_expanded_disposition=NOT_RECONCILED"));
+        assert!(report.contains("asof_evidence=hour-00|12|12|0|0|SCOPE_MISMATCH"));
+    }
+
+    #[test]
+    fn evidence_unavailable_at_cutoff_prevents_horizon_qualification() {
+        let changed = ASOF.replace(
+            "observation-use-diesel-01|claim-use-diesel-01|shock|0|0|0|20000",
+            "observation-use-diesel-01|claim-use-diesel-01|shock|0|1|0|20000",
+        );
+        let report = run_with_asof(&changed, PLAN, STOCK);
+        assert!(report.contains("time_expanded_disposition=NOT_ESTIMABLE"));
+        assert!(report.contains("asof_evidence=hour-01|12|11|0|1|EVIDENCE_NOT_ESTIMABLE"));
     }
 
     #[test]
