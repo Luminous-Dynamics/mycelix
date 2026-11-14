@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/LARP_V2_CONFORMANCE_SCHEMA_V0_1.json",
+  "title": "LARP v2 conformance scenario and oracle schema",
+  "description": "Strict schema for the synthetic scenario inputs and their separately maintained reference oracle. Cross-file ID parity and case_count equality require an additional conformance check.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/scenarioSuite"
+    },
+    {
+      "$ref": "#/$defs/oracleSuite"
+    }
+  ],
+  "$defs": {
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "family",
+        "kind",
+        "title",
+        "given",
+        "request"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(P|A|R)[0-9]{2}$"
+        },
+        "family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "positive",
+            "attack",
+            "recovery"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "given": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "request": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "oracleRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "expected_disposition",
+        "reason_codes",
+        "notes"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^(P|A|R)[0-9]{2}$"
+        },
+        "expected_disposition": {
+          "type": "string",
+          "enum": [
+            "permit",
+            "deny",
+            "hold",
+            "indeterminate",
+            "challenge_required"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]+$"
+          }
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "scenarioSuite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "suite_id",
+        "status",
+        "contract_version",
+        "case_count",
+        "fixture_rules",
+        "cases"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "lise.larp-scenarios.v0.1"
+        },
+        "suite_id": {
+          "const": "LARP-CONTRACTS-001"
+        },
+        "status": {
+          "const": "synthetic-development-seed"
+        },
+        "contract_version": {
+          "const": "LARP-v2-contract-kernel-0.1"
+        },
+        "case_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "fixture_rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/scenario"
+          }
+        }
+      }
+    },
+    "oracleSuite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "suite_id",
+        "status",
+        "scenario_file",
+        "disposition_vocabulary",
+        "case_count",
+        "rows"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "lise.larp-oracle.v0.1"
+        },
+        "suite_id": {
+          "const": "LARP-CONTRACTS-001"
+        },
+        "status": {
+          "const": "synthetic-reference-oracle-pending-independent-review"
+        },
+        "scenario_file": {
+          "const": "LARP_V2_CONFORMANCE_SCENARIOS_V0_1.json"
+        },
+        "disposition_vocabulary": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "permit",
+              "deny",
+              "hold",
+              "indeterminate",
+              "challenge_required"
+            ]
+          }
+        },
+        "case_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rows": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/oracleRow"
+          }
+        }
+      }
+    }
+  }
+}
