@@ -12,6 +12,7 @@
 | VS-08 | Unrelated condition claim added | Historical lease disposition and reason codes invariant |
 | VS-09 | External submission timed out after possible mutation | UNKNOWN / HOLD_FOR_RECONCILIATION; retry=0 |
 | VS-10 | Receipt/source/requirement/authority trace missing | Structural qualification failure |
+| VS-11 | Write trace targets another asset, adds an unauthorized field, or uses an unapproved external effect | Unauthorized side-effect failure |
 | VS-11 | Network or mutation enabled in synthetic fixture mode | Reject fixture |
 | VS-12 | Exact input replay | Same deterministic selection and disposition for identical frozen inputs |
 
