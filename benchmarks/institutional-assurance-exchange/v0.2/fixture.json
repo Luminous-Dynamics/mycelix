@@ -585,7 +585,9 @@
       "resource_revision": "PROPERTY-REVISION-7",
       "idempotency_ref": "IDEM-LEASE-001",
       "action": "approve_commercial_lease",
-      "principal_ref": "ACTOR-ASSET-MANAGER-01"
+      "principal_ref": "ACTOR-ASSET-MANAGER-01",
+      "canonical_digest_verification": "synthetic_placeholder_not_cryptographically_verified",
+      "action_digest_verification": "synthetic_placeholder_not_cryptographically_verified"
     },
     "pending_operation": {
       "logical_operation_id": "OP-LEASE-001",
@@ -599,7 +601,9 @@
       "resource_revision": "PROPERTY-REVISION-7",
       "idempotency_ref": "IDEM-LEASE-001",
       "action": "approve_commercial_lease",
-      "principal_ref": "ACTOR-ASSET-MANAGER-01"
+      "principal_ref": "ACTOR-ASSET-MANAGER-01",
+      "canonical_digest_verification": "synthetic_placeholder_not_cryptographically_verified",
+      "action_digest_verification": "synthetic_placeholder_not_cryptographically_verified"
     },
     "constitution": {
       "institution_ref": "ENTITY-TRUST-01",
