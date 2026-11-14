@@ -958,7 +958,7 @@ mod tests {
             ProtectedRoute { route_ref: "disabled-admin-api".to_owned(), protected_effect_ref: "effect:transfer".to_owned(), reachable_from_agent: false, enforcement_point_ref: None },
         ];
         assert_eq!(
-            assess_mediation_coverage("effect:transfer", true, &routes),
+            assess_mediation_coverage("effect:transfer", "pep:gateway", true, &routes),
             MediationCoverage::AllReachablePathsMediated
         );
     }
