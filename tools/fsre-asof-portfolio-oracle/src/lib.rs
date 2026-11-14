@@ -317,10 +317,10 @@ mod tests {
             let header = rows.remove(0);
             rows.reverse();
             format!(
-                "{}\\n{}\\n{}\\n",
-                metadata.join("\\n"),
+                "{}\n{}\n{}\n",
+                metadata.join("\n"),
                 header,
-                rows.join("\\n")
+                rows.join("\n")
             )
         }
         let changed = ASOF.replace(
