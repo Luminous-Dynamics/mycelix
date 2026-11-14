@@ -145,6 +145,10 @@ Prior art includes Coleman et al.'s 2024 review of 99 equity/infrastructure-resi
 
 The cohort-floor reference challenge includes an aggregate-compensation control: total delivery can equal the sum of all cohort floors while one cohort misses its own floor and another receives a surplus. Expected disposition remains NOT_FEASIBLE. Missing cohort denominators or identity transitions must remain NOT_ESTIMABLE until reconciled.
 
+## 2.9 End-to-end decision-to-portfolio composition
+
+The decision-time replay and one-interval portfolio evaluator now have a read-only composition layer. It requires matching scenario and evidence-snapshot identifiers and checks every source-owner/evidence-reference pair used by the portfolio against a selected KNOWN_VALID decision-time evidence version. Missing, nonvalid or owner-mismatched evidence blocks the combined disposition. The composer reports only SUBMITTED_EVIDENCE_LINKED_AND_PORTFOLIO_FEASIBLE_FOR_DECLARED_DECISION; claim-set completeness, source authenticity and operational authority remain explicitly unestablished. This closes a software-level integration gap, not an operational service-outcome claim. See the [assurance composer](../../tools/fsre-assurance-composer/README.md).
+
 ## 2.8 Water-sector domain-engine comparison
 
 The first water-sector comparison must include the public EPA EPANET hydraulic/water-quality engine and the EPA WNTR resilience package, which already supports disruptive events, response/repair strategies and multiple resilience measures. If an operator uses Bentley OpenFlows Water/WaterGEMS/WaterSight or another commercial system, use its configured deployment and runbook as an additional baseline. FSRE must not claim to replace those engines; test whether it adds owner-preserving evidence admissibility, portfolio/resource/common-cause qualification, cohort-floor enforcement, temporal replay and independent service-outcome verification. The [water restoration industry baseline crosswalk](WATER_RESTORATION_INDUSTRY_BASELINE_CROSSWALK_V0_1.md) defines matched scenarios, score vectors and falsification conditions.
