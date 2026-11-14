@@ -207,6 +207,9 @@ pub fn compose(asof_evidence_source: &str, portfolio_plan_source: &str) -> Resul
         }
     }
 
+    unmatched_record_ids.sort();
+    nonvalid_record_ids.sort();
+
     let disposition = if !scope_match {
         "SCOPE_MISMATCH"
     } else if unmatched > 0 || nonvalid > 0 {
@@ -361,6 +364,41 @@ mod tests {
             &reverse_rows(PORTFOLIO_FIXTURE),
         ).expect("reversed");
         assert_eq!(original, reversed);
+    }
+
+    #[test]
+    fn row_order_does_not_change_composition_with_unresolved_records() {
+        fn reverse_rows(source: &str) -> String {
+            let mut metadata = Vec::new();
+            let mut rows = Vec::new();
+            for line in source.lines() {
+                if line.starts_with('#') {
+                    metadata.push(line);
+                } else if !line.is_empty() {
+                    rows.push(line);
+                }
+            }
+            let header = rows.remove(0);
+            rows.reverse();
+            format!(
+                "{}\\n{}\\n{}\\n",
+                metadata.join("\\n"),
+                header,
+                rows.join("\\n")
+            )
+        }
+        let changed = ASOF_FIXTURE.replace(
+            "synthetic:qualification:pump",
+            "synthetic:missing:qualification:pump",
+        );
+        let original = compose(&changed, PORTFOLIO_FIXTURE).expect("original missing-source report");
+        let reversed = compose(
+            &reverse_rows(&changed),
+            &reverse_rows(PORTFOLIO_FIXTURE),
+        )
+        .expect("reordered missing-source report");
+        assert_eq!(original, reversed);
+        assert!(original.contains("unmatched_record_ids=qual-pump"));
     }
 
     #[test]
