@@ -32,6 +32,21 @@ cargo clippy --all-targets -- -D warnings
 
 The conformance inputs and their separate reference oracle are copied into `fixtures/` from the public LARP v2 research proposal. Expected dispositions are not embedded in the scenario inputs.
 
+## Domain contract vertical slices
+
+The crate now also includes pure, owner-input evaluators for two historical LARP contract families:
+
+- **Epistemic Bounty v2:** contestable scientific reward eligibility, reviewer conflict/dependency assessment, honest retraction, appeal/remedy, exact payout binding and separate treasury authorization.
+- **Restoration v2:** local mandate and consent, multi-dimensional ecological floors, downstream externalities, source independence, measurement freshness/method bridge, partial outcomes, steward exit and separate treasury authorization.
+
+Each domain has its own 12-case input suite and separate oracle:
+- `fixtures/epistemic_scenarios.json` / `fixtures/epistemic_oracle.json`
+- `fixtures/restoration_scenarios.json` / `fixtures/restoration_oracle.json`
+
+The three conformance suites therefore contain 53 synthetic cases in total (29 general contract, 12 Epistemic Bounty, 12 Restoration). The domain evaluators do not execute payouts, sanction reviewers, establish scientific truth, certify restoration or replace local ecological methods.
+
+The schemas and documentation copies are kept beside the benchmark inputs. Cross-file scenario/oracle parity is checked in Rust tests; a full standards-compliant JSON Schema validator remains a separate validation requirement.
+
 ## Current assurance status
 
-Research reference only. The finite fixtures do not establish universal security, legal enforceability, field effectiveness, adapter correctness or production readiness. Do not claim superiority over other policy/contract systems from this crate alone.
+Research reference only. **26 Rust tests are authored (6 unit + 20 integration), but have not been executed or compiled in this authoring environment.** Exact-head CI is the validation authority. The finite fixtures do not establish universal security, legal enforceability, scientific truth, ecological field effectiveness, adapter correctness or production readiness. Do not claim superiority over other policy/contract systems from this crate alone.
