@@ -65,7 +65,8 @@
       "replay_evaluator_revision": "0.1.0",
       "replay_report_ref": "tools/fsre-asof-evidence/fixtures/synthetic-asof.expected.txt#e-telemetry",
       "hindsight_revocation_count": 1,
-      "future_information_used": false
+      "future_information_used": false,
+      "clock_uncertainty_handling": "EXACT_TIMESTAMP_ASSUMED"
     }
   },
   "method": {
