@@ -3,7 +3,7 @@
   "suite_id": "LARP-RESTORATION-001",
   "status": "reference-oracle-pending-independent-review",
   "scenario_file": "LARP_RESTORATION_V2_SCENARIOS_V0_1.json",
-  "case_count": 12,
+  "case_count": 13,
   "rows": [
     {
       "case_id": "RST01",
@@ -76,6 +76,12 @@
       "expected_disposition": "hold",
       "reason_code": "TREASURY_AUTHORITY_MISSING",
       "notes": "Outcome qualification does not itself move funds."
+    },
+    {
+      "case_id": "RST13",
+      "expected_disposition": "deny",
+      "reason_code": "TRANCHE_EXCEEDS_REMAINING_BUDGET",
+      "notes": "A tranche cannot exceed the remaining approved contract budget."
     }
   ]
 }
