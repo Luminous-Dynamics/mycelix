@@ -1,11 +1,12 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
-//! DKG Coordinator Zome - Truth Engine Interface
+//! DKG Coordinator Zome - Legacy Confidence-Ranking API
 //!
 //! Exposes the Distributed Knowledge Graph to Holochain's DHT.
-//! Uses the mycelix-sdk for confidence calculation and integrates
-//! with MATL for reputation-weighted attestations.
+//! Uses the mycelix-sdk's legacy heuristic to rank claims by a composite
+//! confidence score and integrates with MATL for reputation-weighted
+//! attestations. The score is not a calibrated probability or truth verdict.
 //!
 //! # Zome Functions
 //!
@@ -230,10 +231,11 @@ pub fn get_claims(subject: String) -> ExternResult<Vec<WeightedClaim>> {
     Ok(claims)
 }
 
-/// Get the "truth" about a subject - confidence-weighted facts
+/// Legacy API name: retrieve claims for a subject ranked by heuristic confidence.
 ///
-/// This is the core Truth Engine function. Returns claims sorted by
-/// confidence, filtered to only include those meeting minimum threshold.
+/// Returns claims sorted by the legacy composite score and filtered by its
+/// minimum threshold. The ranking reflects the configured scoring inputs; it
+/// does not establish that the highest-ranked claim is true.
 #[hdk_extern]
 pub fn get_truth(subject: String) -> ExternResult<Vec<WeightedClaim>> {
     let claims = get_claims(subject)?;

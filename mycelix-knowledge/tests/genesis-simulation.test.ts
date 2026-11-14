@@ -4,19 +4,19 @@
 /**
  * Genesis Simulation (DHT Edition)
  *
- * The In Vivo Transition: Proving the Truth Engine works on a live DHT.
+ * Narrow integration check: a peer endorsement is reflected in confidence ranking across a multi-agent DHT.
  *
- * This test recreates the scenario verified in Rust unit tests ("In Vitro"),
- * but now with actual Holochain agents communicating over a network.
+ * This test exercises the legacy confidence heuristic with Holochain agents
+ * communicating over a network. It does not validate truth detection.
  *
  * Scenario:
- *   1. Mallory lies: "Sky is Green" (Low reputation)
- *   2. Alice counters: "Sky is Blue" (Truth-teller)
+ *   1. Mallory submits a competing claim: "Sky is Green"
+ *   2. Alice submits a competing claim: "Sky is Blue"
  *   3. Bob endorses Alice's claim
- *   4. Query: confidence(Blue) > confidence(Green)
+ *   4. Query: the endorsed fixture ranks above the unendorsed fixture
  *
- * This proves the Truth Engine math works in a distributed environment
- * subject to latency and DHT propagation.
+ * This is a narrow integration contract for score ordering. It does not
+ * establish which proposition is true or demonstrate misinformation resistance.
  */
 
 import { describe, test, expect, jest } from '@jest/globals';
@@ -81,7 +81,7 @@ describe('Genesis Simulation (DHT Edition)', () => {
   // Increase Jest timeout for Holochain tests
   jest.setTimeout(600000);
 
-  test('The Truth Engine discerns truth from falsehood', async () => {
+  test('the endorsed claim ranks above the unendorsed fixture in this DHT scenario', async () => {
     await runScenario(async (scenario: Scenario) => {
       console.log('\n=== GENESIS SIMULATION (DHT Edition) ===\n');
 
@@ -101,7 +101,7 @@ describe('Genesis Simulation (DHT Edition)', () => {
       const dnaHash = alice.cells[0].cell_id[0];
 
       // 2. Mallory lies (Low Reputation)
-      console.log('2. Mallory spreads disinformation: "Sky is Green"...');
+      console.log('2. Mallory submits a competing claim: "Sky is Green"...');
 
       const malloryClaim: ActionHash = await mallory.cells[0].callZome({
         zome_name: 'dkg',
@@ -118,8 +118,8 @@ describe('Genesis Simulation (DHT Edition)', () => {
       expect(malloryClaim).toBeDefined();
       console.log(`   + Mallory's lie published: ${Buffer.from(malloryClaim).toString('hex').substring(0, 16)}...\n`);
 
-      // 3. Alice speaks Truth (High Reputation)
-      console.log('3. Alice counters with truth: "Sky is Blue"...');
+      // 3. Alice submits a competing claim
+      console.log('3. Alice submits a competing claim: "Sky is Blue"...');
 
       const aliceClaim: ActionHash = await alice.cells[0].callZome({
         zome_name: 'dkg',
@@ -141,8 +141,8 @@ describe('Genesis Simulation (DHT Edition)', () => {
       await dhtSync([alice, bob, mallory], dnaHash);
       console.log('   + Network synchronized\n');
 
-      // 5. Bob observes and Endorses Truth
-      console.log('5. Bob reviews the claims and endorses Alice\'s truth...');
+      // 5. Bob endorses Alice's claim
+      console.log('5. Bob endorses Alice\'s claim...');
 
       const bobAttestation: ActionHash = await bob.cells[0].callZome({
         zome_name: 'dkg',
@@ -161,7 +161,7 @@ describe('Genesis Simulation (DHT Edition)', () => {
       await dhtSync([alice, bob, mallory], dnaHash);
 
       // 6. The Verdict: Query the Truth Engine
-      console.log('6. Querying the Truth Engine for claims about "Sky"...');
+      console.log('6. Querying confidence-ranked claims about "Sky"...');
 
       const truth: WeightedClaim[] = await bob.cells[0].callZome({
         zome_name: 'dkg',
@@ -194,7 +194,7 @@ describe('Genesis Simulation (DHT Edition)', () => {
       // 8. The Core Assertion
       console.log('\n=== CORE ASSERTION ===\n');
 
-      // If both claims are present, Blue should have higher confidence
+      // If both fixtures are present, the endorsed Blue claim should rank higher.
       if (blueClaim && greenClaim) {
         console.log(`   confidence(Blue)  = ${blueClaim.confidence.toFixed(4)}`);
         console.log(`   confidence(Green) = ${greenClaim.confidence.toFixed(4)}`);
@@ -204,11 +204,11 @@ describe('Genesis Simulation (DHT Edition)', () => {
       } else if (blueClaim && !greenClaim) {
         // If only Blue passes threshold, that's also a success
         console.log(`   Only "Sky is Blue" passed confidence threshold`);
-        console.log(`   Truth emerges: ${blueClaim.confidence > 0 ? '+ SUCCESS' : 'x FAILURE'}`);
+        console.log(`   Positive confidence recorded: ${blueClaim.confidence > 0 ? '+ YES' : 'x NO'}`);
 
         expect(blueClaim.confidence).toBeGreaterThan(0);
       } else {
-        // Get all claims (including below threshold) for debugging
+        // Get all claims (including below threshold) for debugging; this is not a truth verdict.
         const allClaims: WeightedClaim[] = await bob.cells[0].callZome({
           zome_name: 'dkg',
           fn_name: 'get_claims',
