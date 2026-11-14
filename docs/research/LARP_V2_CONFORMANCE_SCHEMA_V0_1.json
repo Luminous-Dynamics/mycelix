@@ -21,7 +21,8 @@
         "kind",
         "title",
         "given",
-        "request"
+        "request",
+        "facts"
       ],
       "properties": {
         "id": {
@@ -55,6 +56,9 @@
         "request": {
           "type": "string",
           "minLength": 1
+        },
+        "facts": {
+          "$ref": "#/$defs/facts"
         }
       }
     },
@@ -107,7 +111,8 @@
         "contract_version",
         "case_count",
         "fixture_rules",
-        "cases"
+        "cases",
+        "fact_schema_version"
       ],
       "properties": {
         "schema_version": {
@@ -140,6 +145,9 @@
           "items": {
             "$ref": "#/$defs/scenario"
           }
+        },
+        "fact_schema_version": {
+          "const": "lise.larp-facts.v0.1"
         }
       }
     },
@@ -193,6 +201,375 @@
           "items": {
             "$ref": "#/$defs/oracleRow"
           }
+        }
+      }
+    },
+    "facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "evaluated_at_unix",
+        "authority",
+        "scope",
+        "rights",
+        "evidence",
+        "institution",
+        "execution"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "protected_action",
+            "contract_activation",
+            "ratification",
+            "evidence_admission",
+            "historical_reconstruction",
+            "exit",
+            "remedy",
+            "staged_reward",
+            "safe_continuity"
+          ]
+        },
+        "evaluated_at_unix": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "authority": {
+          "$ref": "#/$defs/authorityFacts"
+        },
+        "scope": {
+          "$ref": "#/$defs/scopeFacts"
+        },
+        "rights": {
+          "$ref": "#/$defs/rightsFacts"
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidenceFacts"
+        },
+        "institution": {
+          "$ref": "#/$defs/institutionFacts"
+        },
+        "execution": {
+          "$ref": "#/$defs/executionFacts"
+        }
+      }
+    },
+    "authorityFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "local_authorized": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "peer_credential_only": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "transitive_authority": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "constitution_current": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "local_ratification": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "predecessor_digest_matches": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "ai_self_ratification": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "old_authority_stale": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "restore_old_privileges": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "recovery_quorum_met": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "partner_credential_valid": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "treasury_separately_authorized": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "scopeFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "purpose_allowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "exact_operation_match": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "delegation_attenuates": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "payout_bounded": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "rightsFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rights_satisfied": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "remedy_path_defined": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "high_impact": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "exit_valid": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "challenge_upheld": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "reviewer_independent": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "remedy_authorized": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "history_preserved": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "evidenceFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sufficient": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "independent": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "inventory_complete": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "known_shared_dependency": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "historically_valid_at_time": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "fresh_for_current_time": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "outcome_independently_observed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "similarity_only_signal": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "score_only_sanction": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "institutionFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "capture_risk": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "oversight_independent": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "known_route_bypass": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "degraded_service_allowlisted": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "high_impact_paused": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "high_impact_requested": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "old_sessions_fenced": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "executionFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "not_started",
+            "unknown",
+            "partially_applied",
+            "applied",
+            "confirmed_no_effect"
+          ]
+        },
+        "retry_requested": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "retry_safety_qualified": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "single_use_consumed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "duplicate_requested": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "contract_expires_at_unix": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
         }
       }
     }
