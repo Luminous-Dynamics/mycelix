@@ -57,7 +57,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "F02",
@@ -99,7 +100,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "F03",
@@ -141,7 +143,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "F04",
@@ -183,7 +186,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "F05",
@@ -225,7 +229,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "F06",
@@ -267,7 +272,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A07",
@@ -309,7 +315,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A08",
@@ -351,7 +358,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A09",
@@ -393,7 +401,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A10",
@@ -435,7 +444,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A11",
@@ -477,7 +487,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A12",
@@ -519,7 +530,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A13",
@@ -561,7 +573,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A14",
@@ -603,7 +616,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "R15",
@@ -645,7 +659,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "R16",
@@ -687,7 +702,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "R17",
@@ -729,7 +745,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "R18",
@@ -771,7 +788,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A19",
@@ -813,7 +831,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "R20",
@@ -855,7 +874,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "R21",
@@ -897,7 +917,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "R22",
@@ -939,7 +960,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "R23",
@@ -981,7 +1003,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "R24",
@@ -1023,7 +1046,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "F25",
@@ -1065,7 +1089,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A26",
@@ -1107,7 +1132,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A27",
@@ -1149,7 +1175,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A28",
@@ -1191,7 +1218,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A29",
@@ -1233,7 +1261,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A30",
@@ -1275,7 +1304,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "R31",
@@ -1317,7 +1347,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "R32",
@@ -1359,7 +1390,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "A33",
@@ -1401,7 +1433,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     },
     {
       "scenario_id": "F34",
@@ -1443,7 +1476,8 @@
       "independence_claim_state": "unknown",
       "replay_state": "unknown",
       "duplicate_effect_count": 0,
-      "protected_effect_state": "unknown"
+      "protected_effect_state": "unknown",
+      "expected_action_set_state": "unknown"
     }
   ]
 }
