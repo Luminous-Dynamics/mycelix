@@ -84,7 +84,8 @@ fn unresolved_candidate_blocks_reconciliation() {
         "LINK|obs-c|IN_SCOPE|ref-c|UNRESOLVED|review-team|pair-c|0|100",
     );
     let report = audit(&input).expect("valid unresolved fixture");
-    assert_eq!(report.unresolved_reference_units, 1);
+    assert_eq!(report.unresolved_reference_units, 3);
+    assert_eq!(report.omitted_reference_units, 0);
     assert_eq!(report.unresolved_observed, 1);
     assert_eq!(report.disposition, "INCOMPLETE_OR_CONFLICTED");
 }
@@ -193,6 +194,60 @@ fn source_frame_validity_must_cover_the_entire_study_horizon() {
     let input = POSITIVE.replace(
         "reference_valid_until_seconds=100",
         "reference_valid_until_seconds=99",
+    );
+    assert!(audit(&input).is_err());
+}
+
+
+#[test]
+fn any_unresolved_candidate_suppresses_unfounded_omission_counts() {
+    let input = POSITIVE
+        .replace("OBSERVED|obs-c|IN_SCOPE|-|-|-|-|0|100\n", "")
+        .replace(
+            "LINK|obs-c|IN_SCOPE|ref-c|MATCH|review-team|pair-c|0|100\n",
+            "",
+        )
+        .replace(
+            "LINK|obs-b|IN_SCOPE|ref-b|MATCH|review-team|pair-b|0|100",
+            "LINK|obs-b|IN_SCOPE|ref-b|UNRESOLVED|review-team|pair-b|0|100",
+        );
+    let report = audit(&input).expect("valid unresolved candidate fixture");
+    assert_eq!(report.omitted_reference_units, 0);
+    assert_eq!(report.unresolved_reference_units, 3);
+}
+
+#[test]
+fn report_is_invariant_to_record_row_order() {
+    let original = audit(POSITIVE).expect("valid fixture").render();
+    let mut metadata = Vec::new();
+    let mut header = String::new();
+    let mut rows = Vec::new();
+    for line in POSITIVE.lines() {
+        if line.starts_with('#') {
+            metadata.push(line);
+        } else if line.starts_with("record_type|") {
+            header = line;
+        } else if !line.trim().is_empty() {
+            rows.push(line);
+        }
+    }
+    rows.reverse();
+    let reordered = format!("{}\n{}\n{}\n", metadata.join("\n"), header, rows.join("\n"));
+    assert_eq!(audit(&reordered).expect("reordered fixture").render(), original);
+}
+
+#[test]
+fn duplicate_crosswalk_assertion_is_rejected() {
+    let duplicate = "LINK|obs-a|IN_SCOPE|ref-a|MATCH|review-team|pair-a|0|100";
+    let input = POSITIVE.replace(duplicate, &format!("{duplicate}\n{duplicate}"));
+    assert!(audit(&input).is_err());
+}
+
+#[test]
+fn resolved_and_unresolved_decisions_for_same_observed_record_are_rejected() {
+    let input = POSITIVE.replace(
+        "LINK|obs-a|IN_SCOPE|ref-a|MATCH|review-team|pair-a|0|100",
+        "LINK|obs-a|IN_SCOPE|ref-a|MATCH|review-team|pair-a|0|100\nLINK|obs-a|IN_SCOPE|ref-b|UNRESOLVED|review-team|pair-ab|0|100",
     );
     assert!(audit(&input).is_err());
 }
