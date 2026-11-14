@@ -7,7 +7,7 @@ use std::process::ExitCode;
 const BENCHMARK_ID: &str = "CIV-TRACE-001";
 const SCHEMA_VERSION: &str = "civ-trace-fixtures-v0.2";
 const SCHEMA_ID: &str = "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/civ-trace-001/CIV_TRACE_FIXTURES_V0_2.schema.json";
-const FIXTURE_COUNT: usize = 43;
+const FIXTURE_COUNT: usize = 44;
 const FAMILIES: [&str; 7] = [
     "hindsight_isolation",
     "authority_at_event_time",
@@ -58,7 +58,7 @@ fn validate_event(event: &Value) -> Result<String, String> {
         "Decision" => status == "Adopted",
         "AuthorityGrant" => status == "Granted",
         "AuthorityRevoke" => status == "Revoked",
-        "Attempt" => ["Succeeded","Failed","Partial","Unknown"].contains(&status),
+        "Attempt" => status == "Succeeded",
         "EffectObservation" => ["Confirmed","Partial","Contradicted"].contains(&status),
         "Challenge" => ["Open","Resolved"].contains(&status),
         "Correction" => status == "Corrected",
@@ -326,7 +326,15 @@ fn systemic_action_state(fixture: &Value) -> &'static str {
     }
     match text(actions[0], "status").unwrap_or("") {
         "Open" => "OPEN",
-        "Verified" => "VERIFIED",
+        "Verified" => {
+            let issuer = text(actions[0], "issuer_ref").unwrap_or("");
+            let observer = text(actions[0], "observer_ref").unwrap_or("");
+            if observer == "NONE" || observer == issuer {
+                "INDEPENDENCE_UNESTABLISHED"
+            } else {
+                "VERIFIED"
+            }
+        }
         "Ineffective" => "INEFFECTIVE",
         _ => "INDETERMINATE",
     }
@@ -461,9 +469,15 @@ fn validate_schema(schema:&Value)->Result<(),String>{
         ||text(schema,"type")!=Some("object")
         ||schema["additionalProperties"]!=false
         ||schema["properties"]["fixtures"]["type"]!="array"
+        ||schema["properties"]["fixture_count"].as_u64()!=Some(FIXTURE_COUNT as u64)
+        ||schema["properties"]["family_count"].as_u64()!=Some(FAMILIES.len() as u64)
         ||items["additionalProperties"]!=false
         ||items["properties"]["events"]["items"]["additionalProperties"]!=false
-        ||items["properties"]["expected"]["additionalProperties"]!=false{
+        ||items["properties"]["expected"]["additionalProperties"]!=false
+        ||items["properties"]["remedy_order_ref"]["type"]!="string"
+        ||items["properties"]["expected"]["properties"]["remedy_state"]["type"]!="string"
+        ||!items["properties"]["events"]["items"]["properties"]["kind"]["enum"].as_array().is_some_and(|values| values.iter().any(|value| value == "RemedyOrder"))
+        ||!items["properties"]["events"]["items"]["properties"]["kind"]["enum"].as_array().is_some_and(|values| values.iter().any(|value| value == "CorrectiveAction")){
         return Err("schema identity or closed nested-object contract mismatch".into());
     }
     Ok(())
@@ -536,7 +550,7 @@ mod tests{
         let counts = validate_manifest(&parsed()).expect("manifest qualifies");
         assert_eq!(counts.len(), 7);
         for family in FAMILIES {
-            let expected = if family == "remedy_execution" { 7 } else { 6 };
+            let expected = if family == "remedy_execution" { 8 } else { 6 };
             assert_eq!(counts.get(family), Some(&expected));
         }
     }
@@ -578,13 +592,18 @@ mod tests{
         assert_eq!(f["expected"]["remedy_authority_current_assessment"], "UNAUTHORIZED");
     }
     #[test]
-    fn systemic_corrective_action_requires_explicit_verification() {
+    fn systemic_corrective_action_requires_independent_verification() {
         let verified = fixture("CIVT-REMEDY-03");
         let open = fixture("CIVT-REMEDY-02");
         let ineffective = fixture("CIVT-REMEDY-04");
+        let self_attested = fixture("CIVT-REMEDY-08");
         assert_eq!(verified["expected"]["systemic_action_state"], "VERIFIED");
         assert_eq!(open["expected"]["systemic_action_state"], "OPEN");
         assert_eq!(ineffective["expected"]["systemic_action_state"], "INEFFECTIVE");
+        assert_eq!(
+            self_attested["expected"]["systemic_action_state"],
+            "INDEPENDENCE_UNESTABLISHED"
+        );
     }
     #[test]fn late_backdated_evidence_is_not_in_historical_knowledge(){let f=fixture("CIVT-HINDSIGHT-02");assert!(!strings(&f["expected"]["known_event_ids"]).contains("H-LATE-BACKDATED-2"));}
     #[test]fn late_revocation_changes_current_assessment_not_as_known_view(){let f=fixture("CIVT-AUTHORITY-04");assert_eq!(f["expected"]["authority_as_known_at_action"],"AUTHORIZED");assert_eq!(f["expected"]["authority_current_assessment"],"UNAUTHORIZED");}
