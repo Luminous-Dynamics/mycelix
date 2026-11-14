@@ -1,0 +1,79 @@
+{
+  "benchmark_id": "GCPN-001-FEDERATED-CIVIL-PROTECTION-CONFORMANCE",
+  "schema_version": "1.0.0",
+  "status": "research-specification-only",
+  "evaluation_split": "public-development-and-synthetic-only",
+  "active_in_curriculum": false,
+  "safety_scope": {
+    "includes": [
+      "federated warning records",
+      "public alerting",
+      "civil resilience",
+      "evidence provenance",
+      "crisis risk-reduction interfaces"
+    ],
+    "excludes": [
+      "weapon design",
+      "interceptor guidance",
+      "fire-control",
+      "targeting",
+      "launch authorization",
+      "autonomous engagement",
+      "tactical sensor-placement"
+    ]
+  },
+  "conformance_dimensions": [
+    "source identity and custody",
+    "event and observation timestamp separation",
+    "measurement uncertainty and quality",
+    "source-family independence",
+    "contradiction and missing-data handling",
+    "local operation during network partition",
+    "public alert accessibility and receipt",
+    "civil-service continuity",
+    "privacy and purpose limitation",
+    "revocation and auditability",
+    "no global engagement authority"
+  ],
+  "negative_controls": [
+    "authentic but physically inaccurate sensor report",
+    "duplicate reports from one upstream source miscounted as independent corroboration",
+    "stale observation treated as current",
+    "missing observation silently converted to negative",
+    "replayed signed record",
+    "compromised member credential",
+    "cross-border network partition",
+    "central service outage",
+    "single member suppresses a regional public warning",
+    "public alert has no receiver-side receipt",
+    "derived alert lacks traceability to source records",
+    "warning score silently authorizes weapons action",
+    "sensitive personal data shared without purpose authorization"
+  ],
+  "proposed_metrics": [
+    "false-alert and missed-event rates",
+    "calibration and abstention",
+    "source-family effective independence",
+    "end-to-end alert delivery and acknowledgement",
+    "local service availability during partition",
+    "recovery time",
+    "civil-service deficit and time below floor",
+    "privacy exposure and revocation latency",
+    "audit traceability and dispute rate"
+  ],
+  "proposed_targets_not_results": [
+    "zero silent evidence coercion",
+    "zero single-member global warning suppression",
+    "local civil warning continuity during international network partition",
+    "complete source-to-alert traceability",
+    "receiver-side accessibility and receipt evidence",
+    "explicit uncertainty and abstention when evidence is insufficient"
+  ],
+  "non_claims": [
+    "No global interception shield or near-100-percent kill probability.",
+    "No weapon design, targeting or engagement capability.",
+    "No autonomous global command authority.",
+    "No physical inspection or treaty compliance certification.",
+    "No operational readiness or SOTA superiority."
+  ]
+}
