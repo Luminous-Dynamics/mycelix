@@ -307,12 +307,19 @@ fn parse_stock_flow(source: &str) -> Result<StockSeries, InputError> {
         .map_err(|error| InputError(format!("stock-flow reference rejected input: {error}")))?;
     let mut values = BTreeMap::<String, String>::new();
     let mut intervals = Vec::new();
+    let mut interval_ids = BTreeSet::new();
     for line in report.lines() {
         if let Some((key, value)) = line.split_once('=') {
             if key == "interval" {
                 let fields: Vec<&str> = value.split('|').collect();
                 if fields.len() != 11 {
                     return Err(InputError("malformed stock-flow reference interval report".to_owned()));
+                }
+                if !interval_ids.insert(fields[0].to_owned()) {
+                    return Err(InputError(format!(
+                        "duplicate stock-flow interval ID {}",
+                        fields[0]
+                    )));
                 }
                 intervals.push(StockInterval {
                     id: fields[0].to_owned(),
@@ -714,6 +721,17 @@ mod tests {
         );
         let report = run(PLAN, &changed);
         assert!(report.contains("time_expanded_disposition=NOT_ESTIMABLE"));
+    }
+
+    #[test]
+    fn duplicate_stock_interval_ids_are_rejected() {
+        let changed = STOCK.replace(
+            "stock-01|1|hour-01|",
+            "stock-01|1|hour-00|",
+        );
+        assert_ne!(changed, STOCK);
+        let error = validate_and_report(PLAN, &[changed]).unwrap_err();
+        assert!(error.0.contains("duplicate stock-flow interval ID"));
     }
 
     #[test]
