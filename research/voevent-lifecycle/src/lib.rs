@@ -581,7 +581,7 @@ mod tests {
     #[test]
     fn raw_packet_manifest_preserves_creation_receipt_and_digest_separately() {
         let manifest: ReplayManifest = serde_json::from_str(include_str!(
-            "../tests/fixtures/parser-projection-thread.json"
+            "../tests/fixtures/raw-replay-thread-v0.2.json"
         ))
         .expect("raw packet/receipt manifest");
         let before = replay_manifest(manifest.clone()).expect("historical replay");
