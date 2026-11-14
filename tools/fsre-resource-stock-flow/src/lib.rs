@@ -44,15 +44,14 @@ fn valid_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 160
         && value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric()
-                || matches!(byte, b'_' | b'-' | b'.' | b':' | b'/')
+            byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.' | b':' | b'/')
         })
 }
 
 fn parse_u64(value: &str, label: &str, line: usize) -> Result<u64, InputError> {
-    value.parse::<u64>().map_err(|error| {
-        InputError(format!("line {line}: invalid {label}: {error}"))
-    })
+    value
+        .parse::<u64>()
+        .map_err(|error| InputError(format!("line {line}: invalid {label}: {error}")))
 }
 
 fn optional_u64(value: &str, label: &str, line: usize) -> Result<Option<u64>, InputError> {
@@ -92,9 +91,7 @@ fn parse_interval(line: &str, line_number: usize) -> Result<Interval, InputError
         ("source_owner", interval.owner.as_str()),
     ] {
         if !valid_id(value) {
-            return Err(InputError(format!(
-                "line {line_number}: invalid {label}"
-            )));
+            return Err(InputError(format!("line {line_number}: invalid {label}")));
         }
     }
     if interval.start >= interval.end {
@@ -168,7 +165,10 @@ fn parse_series(source: &str) -> Result<Series, InputError> {
         }
         if let Some(comment) = line.strip_prefix('#') {
             if let Some((key, value)) = comment.trim().split_once('=') {
-                if metadata.insert(key.trim().to_owned(), value.trim().to_owned()).is_some() {
+                if metadata
+                    .insert(key.trim().to_owned(), value.trim().to_owned())
+                    .is_some()
+                {
                     return Err(InputError(format!(
                         "line {line_number}: duplicate metadata key"
                     )));
@@ -290,8 +290,12 @@ fn evaluate(series: &Series) -> Result<String, InputError> {
             )));
         } else {
             let opening = interval.opening.expect("KNOWN interval has opening stock");
-            let replenishment = interval.replenishment.expect("KNOWN interval has replenishment");
-            let consumption = interval.consumption.expect("KNOWN interval has consumption");
+            let replenishment = interval
+                .replenishment
+                .expect("KNOWN interval has replenishment");
+            let consumption = interval
+                .consumption
+                .expect("KNOWN interval has consumption");
             let loss = interval.loss.expect("KNOWN interval has loss");
             let closing = interval.closing.expect("KNOWN interval has closing stock");
 
@@ -353,11 +357,15 @@ fn evaluate(series: &Series) -> Result<String, InputError> {
         format!("stock_flow_disposition={disposition}"),
         format!(
             "opening_stock={}",
-            first_opening.map(|v| v.to_string()).unwrap_or_else(|| "UNKNOWN".to_owned())
+            first_opening
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "UNKNOWN".to_owned())
         ),
         format!(
             "closing_stock={}",
-            final_closing.map(|v| v.to_string()).unwrap_or_else(|| "UNKNOWN".to_owned())
+            final_closing
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "UNKNOWN".to_owned())
         ),
     ];
     for result in &results {
@@ -366,11 +374,26 @@ fn evaluate(series: &Series) -> Result<String, InputError> {
             result.id,
             result.start,
             result.end,
-            result.opening.map(|v| v.to_string()).unwrap_or_else(|| "UNKNOWN".to_owned()),
-            result.replenishment.map(|v| v.to_string()).unwrap_or_else(|| "UNKNOWN".to_owned()),
-            result.consumption.map(|v| v.to_string()).unwrap_or_else(|| "UNKNOWN".to_owned()),
-            result.loss.map(|v| v.to_string()).unwrap_or_else(|| "UNKNOWN".to_owned()),
-            result.closing.map(|v| v.to_string()).unwrap_or_else(|| "UNKNOWN".to_owned()),
+            result
+                .opening
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "UNKNOWN".to_owned()),
+            result
+                .replenishment
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "UNKNOWN".to_owned()),
+            result
+                .consumption
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "UNKNOWN".to_owned()),
+            result
+                .loss
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "UNKNOWN".to_owned()),
+            result
+                .closing
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "UNKNOWN".to_owned()),
             result.state,
             result.owner,
             result.source_ref
@@ -490,7 +513,10 @@ mod tests {
 
     #[test]
     fn row_order_does_not_change_stock_flow_report() {
-        let metadata: Vec<&str> = FIXTURE.lines().filter(|line| line.starts_with('#')).collect();
+        let metadata: Vec<&str> = FIXTURE
+            .lines()
+            .filter(|line| line.starts_with('#'))
+            .collect();
         let rows: Vec<&str> = FIXTURE
             .lines()
             .filter(|line| !line.starts_with('#') && !line.is_empty())
@@ -544,21 +570,25 @@ mod tests {
                             "# scenario_id=sweep-scenario\n# resource_id=sweep-resource\n# resource_unit=unit\n# time_basis_id=sweep-clock\n{HEADER}\nsweep-row|0|sweep-interval|0|60|{opening}|{replenishment}|{consumption}|{loss}|{closing}|operator|synthetic:sweep|KNOWN\n"
                         );
                         let report = validate_and_report(&source).expect("balanced sweep case");
-                        assert!(report.contains("stock_flow_disposition=BALANCED_FOR_DECLARED_HORIZON"));
+                        assert!(
+                            report.contains("stock_flow_disposition=BALANCED_FOR_DECLARED_HORIZON")
+                        );
                         let wrong_closing = closing + 1;
                         let invalid = source.replace(
                             &format!("|{loss}|{closing}|operator|synthetic:sweep|KNOWN"),
                             &format!("|{loss}|{wrong_closing}|operator|synthetic:sweep|KNOWN"),
                         );
-                        let invalid_report = validate_and_report(&invalid).expect("mismatch report");
+                        let invalid_report =
+                            validate_and_report(&invalid).expect("mismatch report");
                         assert!(invalid_report.contains("stock_flow_disposition=NOT_BALANCED"));
                         checked += 1;
                     }
                 }
             }
         }
-        assert!(checked >= 3_000, "expected broad arithmetic sweep, got {checked}");
+        assert!(
+            checked >= 3_000,
+            "expected broad arithmetic sweep, got {checked}"
+        );
     }
-
-
 }
