@@ -235,9 +235,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::RecoveryVote(_) => Ok(ValidateCallbackResult::Invalid(
                     "Recovery votes cannot be updated".into(),
                 )),
-                EntryTypes::SelfRecoveryConfig(_) => {
-                    // Updates allowed (adding/removing anchors, marking superseded)
-                    Ok(ValidateCallbackResult::Valid)
+                EntryTypes::SelfRecoveryConfig(config) => {
+                    validate_update_self_recovery_config(action, config)
                 }
                 EntryTypes::SelfRecoveryRequest(request) => {
                     validate_update_self_recovery_request(action, request)
@@ -245,19 +244,261 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            link_type,
+            base_address,
+            target_address,
+            tag,
+            action,
+        } => {
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
                 ));
             }
+
             match link_type {
-                LinkTypes::DidToRecoveryConfig
-                | LinkTypes::DidToRecoveryRequest
-                | LinkTypes::RequestToVotes
-                | LinkTypes::TrusteeToConfig
-                | LinkTypes::DidToSelfRecoveryConfig
-                | LinkTypes::DidToSelfRecoveryRequest => Ok(ValidateCallbackResult::Valid),
+                LinkTypes::DidToRecoveryConfig => {
+                    let target_hash = match target_address.into_action_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Recovery config link target must be an action hash".into(),
+                            ));
+                        }
+                    };
+                    let record = must_get_valid_record(target_hash)?;
+                    let Some(config) = record
+                        .entry()
+                        .to_app_option::<RecoveryConfig>()
+                        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                    else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "DID recovery-config link must target a RecoveryConfig".into(),
+                        ));
+                    };
+                    let base_hash = match base_address.into_entry_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "DID recovery-config link base must be an entry hash".into(),
+                            ));
+                        }
+                    };
+                    match validate_recovery_config_link_fields(
+                        &base_hash,
+                        &config.did,
+                        &config.owner,
+                        &action.author,
+                    ) {
+                        Ok(()) => Ok(ValidateCallbackResult::Valid),
+                        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason.into())),
+                    }
+                }
+                LinkTypes::DidToSelfRecoveryConfig => {
+                    let target_hash = match target_address.into_action_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Self-recovery config link target must be an action hash".into(),
+                            ));
+                        }
+                    };
+                    let record = must_get_valid_record(target_hash)?;
+                    let Some(config) = record
+                        .entry()
+                        .to_app_option::<SelfRecoveryConfig>()
+                        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                    else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "DID self-recovery link must target a SelfRecoveryConfig".into(),
+                        ));
+                    };
+                    let base_hash = match base_address.into_entry_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "DID self-recovery config link base must be an entry hash".into(),
+                            ));
+                        }
+                    };
+                    match validate_recovery_config_link_fields(
+                        &base_hash,
+                        &config.did,
+                        &config.owner,
+                        &action.author,
+                    ) {
+                        Ok(()) => Ok(ValidateCallbackResult::Valid),
+                        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason.into())),
+                    }
+                }
+                LinkTypes::DidToRecoveryRequest => {
+                    let target_hash = match target_address.into_action_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Recovery request link target must be an action hash".into(),
+                            ));
+                        }
+                    };
+                    let record = must_get_valid_record(target_hash)?;
+                    let Some(request) = record
+                        .entry()
+                        .to_app_option::<RecoveryRequest>()
+                        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                    else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "DID recovery-request link must target a RecoveryRequest".into(),
+                        ));
+                    };
+                    let base_hash = match base_address.into_entry_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "DID recovery-request link base must be an entry hash".into(),
+                            ));
+                        }
+                    };
+                    if base_hash != string_index_hash(&request.did) {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Recovery request link base must match the request DID".into(),
+                        ));
+                    }
+                    if record.action().author() != &action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the recovery-request author may create its DID index link".into(),
+                        ));
+                    }
+                    if request.initiated_by != format!("did:mycelix:{}", action.author) {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Recovery-request link author must match the authenticated initiator".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
+                LinkTypes::DidToSelfRecoveryRequest => {
+                    let target_hash = match target_address.into_action_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Self-recovery request link target must be an action hash".into(),
+                            ));
+                        }
+                    };
+                    let record = must_get_valid_record(target_hash)?;
+                    let Some(request) = record
+                        .entry()
+                        .to_app_option::<SelfRecoveryRequest>()
+                        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                    else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "DID self-recovery link must target a SelfRecoveryRequest".into(),
+                        ));
+                    };
+                    let base_hash = match base_address.into_entry_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "DID self-recovery request link base must be an entry hash".into(),
+                            ));
+                        }
+                    };
+                    if base_hash != string_index_hash(&request.did) {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Self-recovery request link base must match the request DID".into(),
+                        ));
+                    }
+                    if record.action().author() != &action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the self-recovery request author may create its DID index link".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
+                LinkTypes::TrusteeToConfig => {
+                    let target_hash = match target_address.into_action_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Trustee config link target must be an action hash".into(),
+                            ));
+                        }
+                    };
+                    let record = must_get_valid_record(target_hash)?;
+                    let Some(config) = record
+                        .entry()
+                        .to_app_option::<RecoveryConfig>()
+                        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                    else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Trustee config link must target a RecoveryConfig".into(),
+                        ));
+                    };
+                    if record.action().author() != &action.author || config.owner != action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the recovery-config owner may create trustee index links".into(),
+                        ));
+                    }
+                    let base_hash = match base_address.into_entry_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Trustee config link base must be an entry hash".into(),
+                            ));
+                        }
+                    };
+                    if !config
+                        .trustees
+                        .iter()
+                        .any(|trustee| string_index_hash(trustee) == base_hash)
+                    {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Trustee config link base must match an enrolled trustee DID".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
+                LinkTypes::RequestToVotes => {
+                    // The coordinator indexes votes beneath the deterministic
+                    // request_id entry hash, not the request action hash. This
+                    // shared anchor lets every conductor query the same DHT
+                    // vote set without depending on the initiator's local chain.
+                    let request_id_hash = match base_address.into_entry_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Request vote link base must be a request-ID entry hash".into(),
+                            ));
+                        }
+                    };
+                    let vote_hash = match target_address.into_action_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Request vote link target must be an action hash".into(),
+                            ));
+                        }
+                    };
+                    let vote_record = must_get_valid_record(vote_hash)?;
+                    let Some(vote) = vote_record
+                        .entry()
+                        .to_app_option::<RecoveryVote>()
+                        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                    else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Request vote link target must target a RecoveryVote".into(),
+                        ));
+                    };
+                    match validate_request_vote_link_fields(
+                        &request_id_hash,
+                        &vote,
+                        vote_record.action().author(),
+                        &action.author,
+                    ) {
+                        Ok(()) => Ok(ValidateCallbackResult::Valid),
+                        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason.into())),
+                    }
+                }
             }
         }
         FlatOp::RegisterDeleteLink {
@@ -302,6 +543,62 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+/// Deterministically reproduce the DID-string link base used by the
+/// recovery coordinator. This hash is an index only; identity authority is
+/// checked separately against the config owner and the committing action.
+fn string_index_hash(value: &str) -> EntryHash {
+    EntryHash::from_raw_36(
+        holo_hash::blake2b_256(value.as_bytes())
+            .into_iter()
+            .chain([0u8; 4])
+            .collect(),
+    )
+}
+
+/// Validate the request-ID indexed vote link shared by all conductors.
+/// Holochain link targets are DHT-wide, while request IDs are deterministic
+/// string identifiers; this keeps vote lookup independent of the initiator's
+/// local source-chain placement.
+fn validate_request_vote_link_fields(
+    base_hash: &EntryHash,
+    vote: &RecoveryVote,
+    vote_author: &AgentPubKey,
+    link_author: &AgentPubKey,
+) -> Result<(), &'static str> {
+    if base_hash != &string_index_hash(&vote.request_id) {
+        return Err("Vote link base must match the vote's request ID");
+    }
+    if vote_author != link_author {
+        return Err("Only the vote author may create its request index link");
+    }
+    if vote.trustee != format!("did:mycelix:{}", link_author) {
+        return Err("Vote index link author must match the authenticated trustee");
+    }
+    Ok(())
+}
+
+/// Check the ownership and target/base binding for a DID-to-recovery-config
+/// link. This is integrity validation, so a coordinator cannot substitute a
+/// config for a different DID by writing an arbitrary DHT link.
+fn validate_recovery_config_link_fields(
+    base_hash: &EntryHash,
+    did: &str,
+    owner: &AgentPubKey,
+    link_author: &AgentPubKey,
+) -> Result<(), &'static str> {
+    let expected_did = format!("did:mycelix:{}", owner);
+    if did != expected_did {
+        return Err("Recovery config DID must correspond to its owner");
+    }
+    if owner != link_author {
+        return Err("Only the recovery-config owner may create its DID index link");
+    }
+    if base_hash != &string_index_hash(did) {
+        return Err("Recovery config link base must match the config DID");
+    }
+    Ok(())
+}
+
 /// Validate recovery config creation
 fn validate_create_recovery_config(
     action: EntryCreationAction,
@@ -314,7 +611,13 @@ fn validate_create_recovery_config(
         ));
     }
 
-    // Validate owner is author
+    // Bind the config DID to the committing agent as well as the owner
+    // field. Checking config.owner alone allows a caller to claim a victim DID.
+    if config.did != format!("did:mycelix:{}", action.author()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery config DID must correspond to the committing owner".into(),
+        ));
+    }
     if config.owner != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Owner must be the author".into(),
@@ -606,35 +909,119 @@ fn validate_update_recovery_request(
 // =============================================================================
 
 /// Validate self-recovery config creation
+/// Validate the structural and ownership invariants of a self-recovery
+/// configuration. The expected owner is supplied by the committing action,
+/// never by the entry itself.
+fn validate_self_recovery_config_fields(
+    config: &SelfRecoveryConfig,
+    expected_owner: &AgentPubKey,
+) -> Result<(), &'static str> {
+    if !config.did.starts_with("did:mycelix:") {
+        return Err("DID must start with 'did:mycelix:'");
+    }
+
+    let expected_did = format!("did:mycelix:{}", expected_owner);
+    if config.did != expected_did {
+        return Err("Self-recovery config DID must correspond to the committing owner");
+    }
+    if config.owner != *expected_owner {
+        return Err("Self-recovery config owner must be the committing agent");
+    }
+    if config.time_lock < SELF_RECOVERY_MIN_TIME_LOCK {
+        return Err("Self-recovery time lock must be at least 72 hours");
+    }
+    if config.anchor_threshold == 0 {
+        return Err("Self-recovery anchor threshold must be at least one");
+    }
+    if !config.anchors.is_empty() && config.anchor_threshold as usize > config.anchors.len() {
+        return Err("Anchor threshold cannot exceed anchor count");
+    }
+
+    // Duplicate anchors must not increase the apparent number of independent
+    // recovery factors. Use equality over the typed anchor values rather than
+    // relying on a non-cryptographic string/hash cardinality.
+    for (index, anchor) in config.anchors.iter().enumerate() {
+        if config.anchors[..index].contains(anchor) {
+            return Err("Duplicate self-recovery anchors are not allowed");
+        }
+        let value = match anchor {
+            VerificationAnchor::PhoneHash(value)
+            | VerificationAnchor::EmailHash(value)
+            | VerificationAnchor::PasskeyCredentialId(value)
+            | VerificationAnchor::DeviceAttestation(value)
+            | VerificationAnchor::BiometricHash(value) => value,
+        };
+        if value.trim().is_empty() {
+            return Err("Self-recovery anchor values must not be empty");
+        }
+    }
+
+    Ok(())
+}
+
+/// Validate immutable identity and append-only anchor semantics for a
+/// self-recovery configuration update. Existing anchor removal/replacement
+/// requires a future explicit revocation workflow with its own audit record.
+fn validate_self_recovery_config_update_fields(
+    original: &SelfRecoveryConfig,
+    updated: &SelfRecoveryConfig,
+) -> Result<(), &'static str> {
+    if updated.did != original.did {
+        return Err("Self-recovery config DID cannot be changed");
+    }
+    if updated.owner != original.owner {
+        return Err("Self-recovery config owner cannot be changed");
+    }
+    if updated.created != original.created {
+        return Err("Self-recovery config creation timestamp cannot be changed");
+    }
+    if updated.updated <= original.updated {
+        return Err("Self-recovery config updated timestamp must advance");
+    }
+    if original.superseded_by_social && !updated.superseded_by_social {
+        return Err("Self-recovery cannot be unsuperseded by an update");
+    }
+    if original.anchors.iter().any(|anchor| !updated.anchors.contains(anchor)) {
+        return Err("Previously enrolled self-recovery anchors cannot be removed or replaced");
+    }
+    validate_self_recovery_config_fields(updated, &original.owner)
+}
+
+/// Validate self-recovery config creation. A DID's self-recovery config must
+/// be committed by the agent whose key is embedded in that DID. Checking only
+/// config.owner is insufficient: without the DID binding, an attacker could
+/// create a config that names a victim DID while recording the attacker as
+/// owner, then place an attacker-controlled link under the victim DID.
 fn validate_create_self_recovery_config(
     action: EntryCreationAction,
     config: SelfRecoveryConfig,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !config.did.starts_with("did:mycelix:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID must start with 'did:mycelix:'".into(),
-        ));
+    match validate_self_recovery_config_fields(&config, action.author()) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason.into())),
     }
-    if config.owner != *action.author() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Owner must be the author".into(),
-        ));
+}
+
+/// Validate self-recovery config updates. The generic RegisterUpdate callback
+/// also enforces that the original entry author committed the update; this
+/// function additionally protects the identity and recovery-factor history.
+fn validate_update_self_recovery_config(
+    action: Update,
+    config: SelfRecoveryConfig,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: SelfRecoveryConfig = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original self-recovery config not found".into()
+        )))?;
+
+    match validate_self_recovery_config_update_fields(&original, &config) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason.into())),
     }
-    // Time lock minimum: 72 hours for self-recovery (stronger than social's 24h)
-    if config.time_lock < SELF_RECOVERY_MIN_TIME_LOCK {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "Self-recovery time lock must be at least {} seconds (72 hours)",
-            SELF_RECOVERY_MIN_TIME_LOCK
-        )));
-    }
-    // Anchors can be empty at creation (progressive enrollment)
-    // Threshold must not exceed anchor count (when anchors exist)
-    if !config.anchors.is_empty() && config.anchor_threshold as usize > config.anchors.len() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Anchor threshold cannot exceed anchor count".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate self-recovery request creation
@@ -657,25 +1044,54 @@ fn validate_create_self_recovery_config(
 /// proof-of-possession gap, architecturally different from the
 /// author-identity forgeries fixed elsewhere this pass (same class as the
 /// report_reputation forgery gap documented in the bridge zome).
+/// Validate the initial self-recovery request fields. The request is
+/// deliberately not bound to the recovered DID owner's key because a new
+/// device must be able to initiate recovery after the old key is lost.
+/// Until cryptographic proof receipts exist, however, no anchor may be
+/// recorded as already verified.
+fn validate_self_recovery_request_creation_fields(
+    request: &SelfRecoveryRequest,
+) -> Result<(), &'static str> {
+    if !request.did.starts_with("did:mycelix:") {
+        return Err("DID must start with 'did:mycelix:'");
+    }
+    if request.reason.is_empty() {
+        return Err("Recovery reason is required");
+    }
+    if request.status != RecoveryStatus::Pending {
+        return Err("Initial status must be Pending");
+    }
+    if !request.verified_anchors.is_empty() {
+        return Err("Self-recovery cannot record verified anchors without proof receipts");
+    }
+    Ok(())
+}
+
+/// Self-recovery approval is deliberately unavailable in v1. There is no
+/// proof receipt in SelfRecoveryRequest, so a transition to Approved would
+/// rely only on mutable caller-supplied strings rather than proof-of-control.
+fn self_recovery_status_transition_allowed(
+    from: &RecoveryStatus,
+    to: &RecoveryStatus,
+) -> bool {
+    match (from, to) {
+        (RecoveryStatus::Pending, RecoveryStatus::Cancelled) => true,
+        (RecoveryStatus::Approved, RecoveryStatus::ReadyToExecute)
+        | (RecoveryStatus::Approved, RecoveryStatus::Cancelled) => true,
+        (RecoveryStatus::ReadyToExecute, RecoveryStatus::Completed)
+        | (RecoveryStatus::ReadyToExecute, RecoveryStatus::Cancelled) => true,
+        (a, b) if a == b => true,
+        _ => false,
+    }
+}
+
 fn validate_create_self_recovery_request(
     request: SelfRecoveryRequest,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !request.did.starts_with("did:mycelix:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID must start with 'did:mycelix:'".into(),
-        ));
+    match validate_self_recovery_request_creation_fields(&request) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason.into())),
     }
-    if request.reason.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Recovery reason is required".into(),
-        ));
-    }
-    if request.status != RecoveryStatus::Pending {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Initial status must be Pending".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate self-recovery request updates (same state machine as social recovery)
@@ -711,17 +1127,33 @@ fn validate_update_self_recovery_request(
         ));
     }
 
-    // Same state machine as social recovery
-    let valid_transition = match (&original.status, &request.status) {
-        (RecoveryStatus::Pending, RecoveryStatus::Approved)
-        | (RecoveryStatus::Pending, RecoveryStatus::Cancelled) => true,
-        (RecoveryStatus::Approved, RecoveryStatus::ReadyToExecute)
-        | (RecoveryStatus::Approved, RecoveryStatus::Cancelled) => true,
-        (RecoveryStatus::ReadyToExecute, RecoveryStatus::Completed)
-        | (RecoveryStatus::ReadyToExecute, RecoveryStatus::Cancelled) => true,
-        (a, b) if a == b => true,
-        _ => false,
-    };
+    // Self-recovery v1 does not carry any cryptographically verifiable
+    // possession-proof receipt. The legacy coordinator merely compares
+    // caller-supplied anchor strings, so Pending -> Approved is unsafe.
+    // Keep this transition blocked until a versioned proof envelope and
+    // verifier are implemented. Social Recovery uses a separate entry type
+    // and is not affected by this restriction.
+    if original.status == RecoveryStatus::Pending
+        && request.status == RecoveryStatus::Approved
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery approval is disabled until cryptographic possession-proof receipts are implemented".into(),
+        ));
+    }
+
+    // No proof receipt is available in v1. Until that is fixed, changes to
+    // the verified_anchors field are rejected rather than treating caller-
+    // supplied strings as authenticated proof of control.
+    if request.verified_anchors != original.verified_anchors {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery anchor verification is disabled until proof receipts are implemented".into(),
+        ));
+    }
+
+    // Same state machine as social recovery, except the proofless v1
+    // Pending -> Approved transition is intentionally unavailable.
+    let valid_transition =
+        self_recovery_status_transition_allowed(&original.status, &request.status);
     if !valid_transition {
         return Ok(ValidateCallbackResult::Invalid(format!(
             "Invalid self-recovery status transition from {:?} to {:?}",
@@ -862,6 +1294,141 @@ mod tests {
         }
     }
 
+    // ── Self-Recovery Configuration Boundary Tests ──
+
+    fn test_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn test_other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn test_self_recovery_config(owner: AgentPubKey) -> SelfRecoveryConfig {
+        SelfRecoveryConfig {
+            did: format!("did:mycelix:{}", owner),
+            owner,
+            anchors: vec![],
+            anchor_threshold: 1,
+            time_lock: SELF_RECOVERY_DEFAULT_TIME_LOCK,
+            active: true,
+            superseded_by_social: false,
+            created: Timestamp::from_micros(1),
+            updated: Timestamp::from_micros(1),
+        }
+    }
+
+    #[test]
+    fn self_recovery_config_must_bind_did_to_committing_owner() {
+        let owner = test_agent();
+        let config = test_self_recovery_config(owner.clone());
+        assert!(validate_self_recovery_config_fields(&config, &owner).is_ok());
+
+        let attacker = test_other_agent();
+        let mut forged = test_self_recovery_config(attacker.clone());
+        forged.did = format!("did:mycelix:{}", owner);
+        assert!(
+            validate_self_recovery_config_fields(&forged, &attacker).is_err(),
+            "an attacker must not create a recovery config for another agent's DID"
+        );
+    }
+
+    #[test]
+    fn self_recovery_config_rejects_zero_or_excessive_anchor_threshold() {
+        let owner = test_agent();
+        let mut config = test_self_recovery_config(owner.clone());
+        config.anchor_threshold = 0;
+        assert!(validate_self_recovery_config_fields(&config, &owner).is_err());
+
+        config.anchor_threshold = 2;
+        config.anchors = vec![VerificationAnchor::PhoneHash("sha256:one".into())];
+        assert!(validate_self_recovery_config_fields(&config, &owner).is_err());
+    }
+
+    #[test]
+    fn self_recovery_config_rejects_duplicate_or_empty_anchors() {
+        let owner = test_agent();
+        let mut config = test_self_recovery_config(owner.clone());
+        let anchor = VerificationAnchor::EmailHash("sha256:mail".into());
+        config.anchors = vec![anchor.clone(), anchor];
+        config.anchor_threshold = 1;
+        assert!(validate_self_recovery_config_fields(&config, &owner).is_err());
+
+        config.anchors = vec![VerificationAnchor::PhoneHash("  ".into())];
+        assert!(validate_self_recovery_config_fields(&config, &owner).is_err());
+    }
+
+    #[test]
+    fn self_recovery_config_update_preserves_identity_and_anchor_history() {
+        let owner = test_agent();
+        let original = test_self_recovery_config(owner.clone());
+        let mut valid = original.clone();
+        valid.updated = Timestamp::from_micros(2);
+        valid.anchors.push(VerificationAnchor::EmailHash("sha256:mail".into()));
+        assert!(validate_self_recovery_config_update_fields(&original, &valid).is_ok());
+
+        let mut retargeted = valid.clone();
+        retargeted.did = format!("did:mycelix:{}", test_other_agent());
+        assert!(validate_self_recovery_config_update_fields(&original, &retargeted).is_err());
+
+        let mut owner_changed = valid.clone();
+        owner_changed.owner = test_other_agent();
+        assert!(validate_self_recovery_config_update_fields(&original, &owner_changed).is_err());
+
+        let mut no_timestamp_advance = valid.clone();
+        no_timestamp_advance.updated = original.updated;
+        assert!(validate_self_recovery_config_update_fields(&original, &no_timestamp_advance).is_err());
+
+        let mut removed = valid.clone();
+        removed.anchors.clear();
+        assert!(validate_self_recovery_config_update_fields(&valid, &removed).is_err());
+    }
+
+    #[test]
+    fn self_recovery_social_supersession_is_monotonic() {
+        let owner = test_agent();
+        let mut original = test_self_recovery_config(owner);
+        original.superseded_by_social = true;
+        let mut updated = original.clone();
+        updated.updated = Timestamp::from_micros(2);
+        updated.superseded_by_social = false;
+        assert!(validate_self_recovery_config_update_fields(&original, &updated).is_err());
+    }
+
+    #[test]
+    fn self_recovery_request_creation_rejects_claimed_verified_anchors() {
+        let mut request = SelfRecoveryRequest {
+            id: "self-recovery-test".into(),
+            did: "did:mycelix:owner".into(),
+            new_agent: test_agent(),
+            verified_anchors: vec![],
+            status: RecoveryStatus::Pending,
+            created: Timestamp::from_micros(1),
+            time_lock_expires: None,
+            reason: "lost original device".into(),
+        };
+        assert!(validate_self_recovery_request_creation_fields(&request).is_ok());
+
+        request.verified_anchors.push(VerificationAnchor::EmailHash("sha256:known".into()));
+        assert!(validate_self_recovery_request_creation_fields(&request).is_err());
+    }
+
+    #[test]
+    fn self_recovery_cannot_be_approved_without_a_proof_receipt() {
+        assert!(!self_recovery_status_transition_allowed(
+            &RecoveryStatus::Pending,
+            &RecoveryStatus::Approved
+        ));
+        assert!(self_recovery_status_transition_allowed(
+            &RecoveryStatus::Pending,
+            &RecoveryStatus::Cancelled
+        ));
+        assert!(self_recovery_status_transition_allowed(
+            &RecoveryStatus::Approved,
+            &RecoveryStatus::ReadyToExecute
+        ));
+    }
+
     // ── Self-Recovery Tests ──
 
     #[test]
@@ -990,6 +1557,108 @@ mod author_binding_tests {
 
     fn other_agent() -> AgentPubKey {
         AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_social_config(did: String, owner: AgentPubKey) -> RecoveryConfig {
+        RecoveryConfig {
+            did,
+            owner,
+            trustees: vec![
+                format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![2u8; 36])),
+                format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![3u8; 36])),
+                format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![4u8; 36])),
+            ],
+            threshold: 2,
+            time_lock: 86400,
+            active: true,
+            created: Timestamp::from_micros(1),
+            updated: Timestamp::from_micros(1),
+        }
+    }
+
+    #[test]
+    fn social_recovery_config_must_bind_did_to_committing_owner() {
+        let owner = me();
+        let valid = valid_social_config(format!("did:mycelix:{}", owner), owner.clone());
+        assert_eq!(
+            validate_create_recovery_config(EntryCreationAction::Create(test_action(owner.clone())), valid)
+                .unwrap(),
+            ValidateCallbackResult::Valid
+        );
+
+        let forged = valid_social_config(
+            format!("did:mycelix:{}", other_agent()),
+            owner.clone(),
+        );
+        assert!(matches!(
+            validate_create_recovery_config(EntryCreationAction::Create(test_action(owner)), forged)
+                .unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn recovery_config_link_must_match_did_base_and_owner_author() {
+        let owner = me();
+        let did = format!("did:mycelix:{}", owner);
+        let correct_base = string_index_hash(&did);
+        assert!(validate_recovery_config_link_fields(
+            &correct_base,
+            &did,
+            &owner,
+            &owner
+        ).is_ok());
+
+        let victim_base = string_index_hash(&format!("did:mycelix:{}", other_agent()));
+        assert!(validate_recovery_config_link_fields(
+            &victim_base,
+            &did,
+            &owner,
+            &owner
+        ).is_err());
+
+        assert!(validate_recovery_config_link_fields(
+            &correct_base,
+            &did,
+            &owner,
+            &other_agent()
+        ).is_err());
+    }
+
+    #[test]
+    fn request_vote_link_uses_shared_request_id_index_and_authenticated_author() {
+        let author = me();
+        let vote = valid_vote(format!("did:mycelix:{}", author));
+        let request_id_base = string_index_hash(&vote.request_id);
+        assert!(validate_request_vote_link_fields(
+            &request_id_base,
+            &vote,
+            &author,
+            &author
+        ).is_ok());
+
+        let wrong_request_base = string_index_hash("another-request");
+        assert!(validate_request_vote_link_fields(
+            &wrong_request_base,
+            &vote,
+            &author,
+            &author
+        ).is_err());
+
+        assert!(validate_request_vote_link_fields(
+            &request_id_base,
+            &vote,
+            &other_agent(),
+            &author
+        ).is_err());
+
+        let forged_trustee = valid_vote(format!("did:mycelix:{}", other_agent()));
+        assert!(validate_request_vote_link_fields(
+            &request_id_base,
+            &forged_trustee,
+            &author,
+            &author
+        ).is_err());
     }
 
     fn valid_request(initiated_by: String) -> RecoveryRequest {
