@@ -93,9 +93,7 @@ fn removing_the_only_independent_auditor_changes_safe_control_into_capture() {
         .iter_mut()
         .find(|domain| domain.domain == ControlDomain::Audit)
         .expect("audit domain exists");
-    audit
-        .available_controllers
-        .remove("independent-reviewer");
+    audit.available_controllers.remove("independent-reviewer");
 
     let mutated =
         evaluate_capture(&mutated_scenario).expect("availability mutation remains well-formed");
@@ -141,15 +139,9 @@ fn unauthorized_active_controller_is_rejected_instead_of_counted() {
     );
 }
 
-
 fn seven_domain_fixture() -> CaptureScenario {
     let coalition = actors(&["cartel-a", "cartel-b"]);
-    let controllers = actors(&[
-        "cartel-a",
-        "cartel-b",
-        "independent-c",
-        "independent-d",
-    ]);
+    let controllers = actors(&["cartel-a", "cartel-b", "independent-c", "independent-d"]);
     let mut domains = Vec::new();
     for domain in [
         ControlDomain::Agenda,
@@ -168,16 +160,8 @@ fn seven_domain_fixture() -> CaptureScenario {
     }
     domains.push(DomainControl {
         domain: ControlDomain::ConstitutionalAmendment,
-        authorized_controllers: actors(&[
-            "independent-c",
-            "independent-d",
-            "independent-e",
-        ]),
-        available_controllers: actors(&[
-            "independent-c",
-            "independent-d",
-            "independent-e",
-        ]),
+        authorized_controllers: actors(&["independent-c", "independent-d", "independent-e"]),
+        available_controllers: actors(&["independent-c", "independent-d", "independent-e"]),
         required_signers: 3,
     });
 
@@ -194,10 +178,7 @@ fn seven_domain_fixture() -> CaptureScenario {
                 ControlDomain::Authorization,
                 ControlDomain::TreasuryCustody,
             ]),
-            oversight_domains: BTreeSet::from([
-                ControlDomain::Audit,
-                ControlDomain::Appeal,
-            ]),
+            oversight_domains: BTreeSet::from([ControlDomain::Audit, ControlDomain::Appeal]),
             minimum_compromised_oversight_domains: 2,
             minimum_independent_oversight_controllers_per_domain: 1,
         },
