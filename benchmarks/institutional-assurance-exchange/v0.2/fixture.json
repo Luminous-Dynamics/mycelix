@@ -385,9 +385,9 @@
       "asset_ref": "PROPERTY-001",
       "actor_ref": "ACTOR-ASSET-MANAGER-01",
       "contracting_entity_ref": "ENTITY-TRUST-01",
-      "effective_at": "2026-01-25T10:00:00Z",
+      "effective_at": "2026-01-25T10:01:00Z",
       "known_at": "2026-01-25T10:00:00Z",
-      "action_at": "2026-01-25T10:00:00Z",
+      "action_at": "2026-01-25T10:01:00Z",
       "excluded_claim_refs": [
         "CLM-CONDITION-001",
         "CLM-CONDITION-UNRELATED"
@@ -416,9 +416,9 @@
       "asset_ref": "PROPERTY-001",
       "actor_ref": "ACTOR-ASSET-MANAGER-01",
       "contracting_entity_ref": "ENTITY-TRUST-01",
-      "effective_at": "2026-01-25T10:00:00Z",
+      "effective_at": "2026-01-25T10:01:00Z",
       "known_at": "2026-01-25T10:00:00Z",
-      "action_at": "2026-01-25T10:00:00Z",
+      "action_at": "2026-01-25T10:01:00Z",
       "excluded_claim_refs": [
         "CLM-TITLE-001"
       ],
@@ -432,9 +432,9 @@
       "asset_ref": "PROPERTY-001",
       "actor_ref": "ACTOR-ASSET-MANAGER-01",
       "contracting_entity_ref": "ENTITY-TRUST-01",
-      "effective_at": "2026-01-25T10:00:00Z",
+      "effective_at": "2026-01-25T10:01:00Z",
       "known_at": "2026-01-25T10:00:00Z",
-      "action_at": "2026-01-25T10:00:00Z",
+      "action_at": "2026-01-25T10:01:00Z",
       "excluded_claim_refs": [
         "CLM-CONDITION-001"
       ],
@@ -450,9 +450,9 @@
       "asset_ref": "PROPERTY-001",
       "actor_ref": "ACTOR-ASSET-MANAGER-01",
       "contracting_entity_ref": "ENTITY-TRUST-01",
-      "effective_at": "2026-01-25T10:00:00Z",
+      "effective_at": "2026-01-25T10:01:00Z",
       "known_at": "2026-01-25T10:00:00Z",
-      "action_at": "2026-01-25T10:00:00Z",
+      "action_at": "2026-01-25T10:01:00Z",
       "excluded_claim_refs": [],
       "added_claim_refs": [],
       "claim_bindings": [
@@ -469,9 +469,9 @@
       "asset_ref": "PROPERTY-001",
       "actor_ref": "ACTOR-ASSET-MANAGER-01",
       "contracting_entity_ref": "ENTITY-TRUST-01",
-      "effective_at": "2026-01-25T10:00:00Z",
+      "effective_at": "2026-01-25T10:01:00Z",
       "known_at": "2026-01-25T10:00:00Z",
-      "action_at": "2026-01-25T10:00:00Z",
+      "action_at": "2026-01-25T10:01:00Z",
       "excluded_claim_refs": [
         "CLM-CONDITION-001",
         "CLM-CONDITION-UNRELATED"
@@ -486,9 +486,9 @@
       "asset_ref": "PROPERTY-001",
       "actor_ref": "ACTOR-ASSET-MANAGER-01",
       "contracting_entity_ref": "ENTITY-TRUST-01",
-      "effective_at": "2026-01-25T10:00:00Z",
+      "effective_at": "2026-01-25T10:01:00Z",
       "known_at": "2026-01-25T10:00:00Z",
-      "action_at": "2026-01-25T10:00:00Z",
+      "action_at": "2026-01-25T10:01:00Z",
       "excluded_claim_refs": [
         "CLM-TITLE-001",
         "CLM-CUSTODY-001"
