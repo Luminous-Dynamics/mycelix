@@ -61,15 +61,7 @@
             "treasury_authorized",
             "exact_operation_match",
             "payout_state",
-            "request_sanction",
-            "misconduct_adjudicated",
-            "retraction_reason",
-            "within_grace_period",
-            "appeal_upheld",
-            "remedy_authorized",
-            "retry_safety_qualified",
-            "operation_already_applied",
-            "duplicate_requested"
+            "request_sanction"
           ],
           "properties": {
             "mode": {
@@ -263,11 +255,7 @@
             "exact_operation_match",
             "outcome_state",
             "steward_exit",
-            "anomaly_only_signal",
-            "misconduct_adjudicated",
-            "replacement_steward_appointed",
-            "historical_record_preserved",
-            "accrued_remedies_preserved"
+            "anomaly_only_signal"
           ],
           "properties": {
             "mode": {
