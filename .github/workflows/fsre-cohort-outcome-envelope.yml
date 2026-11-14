@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - research/fsre-distributional-service-outcome-envelope-v0.1
+      - research/fsre-cohort-manifest-qualification-v0.1
     paths:
       - "tools/fsre-cohort-outcome-envelope/**"
       - "tools/fsre-service-trajectory/**"
