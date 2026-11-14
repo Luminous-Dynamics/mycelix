@@ -1,0 +1,178 @@
+{
+  "oracle_version": "0.2",
+  "synthetic": true,
+  "status": "development_oracle_not_independently_adjudicated",
+  "claim_ceiling": "Synthetic engineering reference only. Not legal, title, land-use, financial, credential or operational adjudication.",
+  "requirement_expectations": [
+    {
+      "requirement_ref": "REQ-LEASE-TITLE",
+      "modality": "mandatory",
+      "hard_blocker": true
+    },
+    {
+      "requirement_ref": "REQ-LAND-USE-VARIANCE",
+      "modality": "conditional",
+      "hard_blocker_when_triggered": true
+    },
+    {
+      "requirement_ref": "REQ-PREFERRED-CONDITION",
+      "modality": "preferred",
+      "hard_blocker": false
+    },
+    {
+      "requirement_ref": "REQ-CONTINUITY-UNRESOLVED",
+      "modality": "unresolved",
+      "hard_blocker": false
+    }
+  ],
+  "query_expectations": [
+    {
+      "query_ref": "Q-HISTORICAL",
+      "expected_disposition": "ALLOW_SCOPED",
+      "expected_authority_state": "active",
+      "expected_permitted_use": "commercial_allowed",
+      "required_reason_codes": [
+        "intent.baseline.human_accepted",
+        "requirement.title.verified",
+        "requirement.conditional.not_triggered",
+        "preference.non_blocking"
+      ],
+      "required_claim_refs": [
+        "CLM-TITLE-001",
+        "CLM-CUSTODY-001",
+        "CLM-USE-V4"
+      ]
+    },
+    {
+      "query_ref": "Q-CURRENT-REPLAY",
+      "expected_disposition": "BLOCK",
+      "expected_authority_state": "revoked",
+      "expected_permitted_use": "commercial_prohibited",
+      "required_reason_codes": [
+        "authority.revoked_before_action",
+        "requirement.conditional.triggered",
+        "requirement.land_use_variance.missing"
+      ],
+      "required_claim_refs": [
+        "CLM-TITLE-001",
+        "CLM-CUSTODY-001",
+        "CLM-USE-V5"
+      ]
+    },
+    {
+      "query_ref": "Q-MISSING-TITLE",
+      "expected_disposition": "BLOCK",
+      "expected_authority_state": "active",
+      "expected_permitted_use": "commercial_allowed",
+      "required_reason_codes": [
+        "requirement.title.not_established"
+      ],
+      "required_claim_refs": [
+        "CLM-CUSTODY-001",
+        "CLM-USE-V4"
+      ]
+    },
+    {
+      "query_ref": "Q-UNRELATED-CLAIM",
+      "expected_disposition": "ALLOW_SCOPED",
+      "expected_authority_state": "active",
+      "expected_permitted_use": "commercial_allowed",
+      "required_reason_codes": [
+        "intent.baseline.human_accepted",
+        "requirement.title.verified",
+        "requirement.conditional.not_triggered",
+        "preference.non_blocking"
+      ],
+      "required_claim_refs": [
+        "CLM-TITLE-001",
+        "CLM-CUSTODY-001",
+        "CLM-USE-V4"
+      ]
+    },
+    {
+      "query_ref": "Q-WRONG-DIMENSION",
+      "expected_disposition": "BLOCK",
+      "expected_authority_state": "active",
+      "expected_permitted_use": "commercial_allowed",
+      "required_reason_codes": [
+        "requirement.title.source_competence_mismatch"
+      ],
+      "required_claim_refs": [
+        "CLM-CUSTODY-001",
+        "CLM-USE-V4"
+      ]
+    },
+    {
+      "query_ref": "Q-PREFERENCE-ABSENT",
+      "expected_disposition": "ALLOW_SCOPED",
+      "expected_authority_state": "active",
+      "expected_permitted_use": "commercial_allowed",
+      "required_reason_codes": [
+        "intent.baseline.human_accepted",
+        "requirement.title.verified",
+        "requirement.conditional.not_triggered",
+        "preference.non_blocking"
+      ],
+      "required_claim_refs": [
+        "CLM-TITLE-001",
+        "CLM-CUSTODY-001",
+        "CLM-USE-V4"
+      ]
+    },
+    {
+      "query_ref": "Q-INSPECTION-ONLY",
+      "expected_disposition": "ALLOW_SCOPED",
+      "expected_authority_state": "active",
+      "expected_permitted_use": "not_applicable",
+      "required_reason_codes": [
+        "authority.scope.verified",
+        "action.independent_of_title"
+      ],
+      "required_claim_refs": [
+        "CLM-CONDITION-001"
+      ]
+    }
+  ],
+  "execution_expectation": {
+    "state": "UNKNOWN",
+    "disposition": "HOLD_FOR_RECONCILIATION",
+    "operation_ref": "OP-LEASE-001",
+    "idempotency_ref": "IDEM-LEASE-001",
+    "mutation_count": 1,
+    "retry_count": 0,
+    "reattempt_permitted": false,
+    "reconciliation_required": true,
+    "required_reason_codes": [
+      "operation.outcome.unknown",
+      "operation.retry.blocked"
+    ]
+  },
+  "metamorphic_expectations": [
+    {
+      "probe_ref": "P-UNRELATED-CLAIM",
+      "base_query_ref": "Q-HISTORICAL",
+      "variant_query_ref": "Q-UNRELATED-CLAIM",
+      "invariant": "disposition_and_reason_codes",
+      "expected": "identical"
+    },
+    {
+      "probe_ref": "P-PREFERENCE-REMOVED",
+      "base_query_ref": "Q-HISTORICAL",
+      "variant_query_ref": "Q-PREFERENCE-ABSENT",
+      "invariant": "disposition",
+      "expected": "identical"
+    }
+  ],
+  "acceptance_tests": [
+    "mandatory title obligation cannot be satisfied by custody evidence",
+    "preferred condition inspection does not become a hard blocker",
+    "missing title blocks lease but does not block an independent condition inspection",
+    "authority revocation affects future action eligibility, not the earlier historical view",
+    "late land-use correction changes current projection without rewriting historical knowledge",
+    "adding unrelated condition evidence does not change the historical lease decision",
+    "unknown external outcome prevents a second mutation",
+    "report binds exact fixture, oracle, submission and evaluator digests",
+    "reviewer can reconstruct decisions from requirement, claim, source and authority references",
+    "fixture-only mode prevents all external I/O and mutation"
+  ]
+}
