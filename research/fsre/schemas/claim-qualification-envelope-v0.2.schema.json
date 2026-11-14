@@ -443,7 +443,8 @@
             "replay_evaluator_revision",
             "replay_report_ref",
             "hindsight_revocation_count",
-            "future_information_used"
+            "future_information_used",
+            "clock_uncertainty_handling"
           ],
           "properties": {
             "decision_cutoff": {
@@ -521,6 +522,16 @@
             },
             "future_information_used": {
               "const": false
+            },
+            "clock_uncertainty_handling": {
+              "enum": [
+                "EXACT_TIMESTAMP_ASSUMED",
+                "OWNER_BOUNDED_NOT_EVALUATED",
+                "BOUNDARY_SENSITIVE_UNRESOLVED",
+                "BOUNDED_AND_EVALUATED",
+                "NOT_ASSESSED"
+              ],
+              "description": "States whether clock uncertainty was considered by the as-of replay evaluator. The v0.1 as-of evaluator performs exact UTC-second comparisons and does not propagate non-zero clock bounds."
             }
           }
         }
