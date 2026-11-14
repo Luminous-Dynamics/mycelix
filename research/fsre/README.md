@@ -8,10 +8,11 @@
 - [As-of report → claim-envelope v0.2 crosswalk](schemas/as-of-evidence-envelope-crosswalk-v0.2.json) — field-level, versioned mapping for decision-time, evidence-snapshot, source-frontier and non-inference semantics.
 - [As-of evidence admissibility reference and independent oracle](../../tools/fsre-asof-evidence/README.md) — decision-cutoff replay of observed/available/valid/revocation times, claim-level freshness and hindsight corrections.
 - [As-of evidence to portfolio composer](../../tools/fsre-asof-portfolio-composer/README.md) — binds exact scenario, evidence snapshot, decision cutoff, clock basis and each portfolio owner/reference to the as-of replay.
+- [Independent as-of portfolio composition oracle](../../tools/fsre-asof-portfolio-oracle/README.md) — independently reproduces snapshot/cutoff/clock and owner-reference composition against the as-of and portfolio reference oracles.
 - [Portfolio feasibility reference and independent oracle](../../tools/fsre-portfolio-reference/README.md) — read-only Rust constraint evaluator plus a separately authored differential implementation.
 - [Independent portfolio oracle](../../tools/fsre-portfolio-oracle/README.md) — separately authored parser/evaluator checked against the production portfolio reference.
 - [Independent resource stock-flow oracle](../../tools/fsre-resource-stock-flow-oracle/README.md) — separately authored multi-interval arithmetic reference and differential workflow.
-- [Exact-head FSRE qualification workflow](../../.github/workflows/fsre-exact-head-suite.yml) — formatting, locked offline tests and Clippy across all 12 FSRE Rust crates; not a full Mycelix workspace pass.
+- [Exact-head FSRE qualification workflow](../../.github/workflows/fsre-exact-head-suite.yml) — formatting, locked offline tests and Clippy across the 18 crates explicitly listed in its matrix; not a full Mycelix workspace pass.
 - [Recovery portfolio benchmark extension v0.1](RECOVERY_PORTFOLIO_BENCHMARK_V0_1.md) — common-cause and shared-resource qualification of portfolios of recovery options.
 
 **Status:** Research architecture proposal, version 0.1.0  
@@ -31,7 +32,7 @@ It is not a new civic-governance programme, a second civilization simulator, an 
 - [Competitive landscape](COMPETITIVE_LANDSCAPE_V0_1.md)
 - [Water-service pilot admission protocol](WATER_SERVICE_PILOT_ADMISSION_PROTOCOL_V0_1.md) — explicit M1b/M2/M3 admission gates, real-data rights, independent outcomes and M4 exclusions.
 - [Water-service study manifest schema](schemas/water-service-study-manifest-v0.1.schema.json) — preregistration contract for source rights, snapshots, cohorts, baselines, outcomes and authority boundaries.
-- [TRACE-Water, DMDU and restoration benchmark crosswalk](TRACE_WATER_AND_RESTORATION_BENCHMARK_CROSSWALK_V0_1.md) — comparison with 2026 water evidence-chain maturity, deep-uncertainty planning and REWET restoration research. — direct comparison with enterprise ontology, asset-performance, infrastructure-twin and water-operations products, with testable differentiation hypotheses.
+- [TRACE-Water, DMDU and restoration benchmark crosswalk](TRACE_WATER_AND_RESTORATION_BENCHMARK_CROSSWALK_V0_1.md) — comparison with 2026 water evidence-chain maturity, deep-uncertainty planning and REWET restoration research.
 - [Water restoration industry baseline crosswalk](WATER_RESTORATION_INDUSTRY_BASELINE_CROSSWALK_V0_1.md) — compares EPANET, WNTR, Bentley OpenFlows and published restoration planning; defines matched service-outcome baselines.
 - [South African public-data inventory](ZA_PUBLIC_DATA_INVENTORY_V0_1.md) — dated water/sanitation data sources, admissibility, missingness and the minimum operator evidence needed for a qualified service study.
 - [South African public source register](ZA_PUBLIC_SOURCE_REGISTER_V0_1.psv) — machine-readable discovery register with source release, observation period, grain, denominator, currentness and extraction state.
