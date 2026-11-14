@@ -35,3 +35,6 @@ All timestamps are canonical UTC ISO 8601 strings ending in `Z`. The evaluator's
 ## Claim ceiling
 
 The digest fields are explicitly synthetic placeholders and are not cryptographically verified. The baseline approval is a synthetic human-record reference; the evaluator does not authenticate the human or legal effect of approval. The oracle is not independently adjudicated. A passing synthetic test is not operational/legal qualification.
+
+
+See [Research baseline](./RESEARCH_BASELINE_2026-11-14.md) for current SABench, TEMPO, requirements-quality and NIST critical-infrastructure references. The vertical-slice evaluator now audits normalized possible-write traces against explicit action/purpose/actor/asset/field authorization boundaries.
