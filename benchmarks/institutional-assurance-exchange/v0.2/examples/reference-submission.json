@@ -11,9 +11,9 @@
       "permitted_use": "commercial_allowed",
       "reason_codes": [
         "intent.baseline.human_accepted",
-        "requirement.title.verified",
+        "preference.non_blocking",
         "requirement.conditional.not_triggered",
-        "preference.non_blocking"
+        "requirement.title.verified"
       ],
       "supporting_claim_refs": [
         "CLM-TITLE-001",
@@ -41,8 +41,11 @@
       "permitted_use": "commercial_prohibited",
       "reason_codes": [
         "authority.revoked_before_action",
+        "intent.baseline.human_accepted",
+        "preference.non_blocking",
         "requirement.conditional.triggered",
-        "requirement.land_use_variance.missing"
+        "requirement.land_use_variance.missing",
+        "requirement.title.verified"
       ],
       "supporting_claim_refs": [
         "CLM-TITLE-001",
@@ -68,6 +71,9 @@
       "authority_state": "active",
       "permitted_use": "commercial_allowed",
       "reason_codes": [
+        "intent.baseline.human_accepted",
+        "preference.non_blocking",
+        "requirement.conditional.not_triggered",
         "requirement.title.not_established"
       ],
       "supporting_claim_refs": [
@@ -92,9 +98,9 @@
       "permitted_use": "commercial_allowed",
       "reason_codes": [
         "intent.baseline.human_accepted",
-        "requirement.title.verified",
+        "preference.non_blocking",
         "requirement.conditional.not_triggered",
-        "preference.non_blocking"
+        "requirement.title.verified"
       ],
       "supporting_claim_refs": [
         "CLM-TITLE-001",
@@ -121,6 +127,9 @@
       "authority_state": "active",
       "permitted_use": "commercial_allowed",
       "reason_codes": [
+        "intent.baseline.human_accepted",
+        "preference.non_blocking",
+        "requirement.conditional.not_triggered",
         "requirement.title.source_competence_mismatch"
       ],
       "supporting_claim_refs": [
@@ -145,9 +154,9 @@
       "permitted_use": "commercial_allowed",
       "reason_codes": [
         "intent.baseline.human_accepted",
-        "requirement.title.verified",
+        "preference.non_blocking",
         "requirement.conditional.not_triggered",
-        "preference.non_blocking"
+        "requirement.title.verified"
       ],
       "supporting_claim_refs": [
         "CLM-TITLE-001",
