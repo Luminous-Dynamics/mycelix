@@ -535,6 +535,11 @@ fn check_operation_finality(packet: &Value, submission: &Value) -> Result<bool, 
         ("canonical_operation_digest",required_str(approved,"canonical_operation_digest","approved operation")?),
         ("approval_ref",required_str(binding,"approval_ref","operation finality")?),
         ("constitution_digest",required_str(constitution,"constitution_digest","constitution")?),
+        ("action",required_str(approved,"action","approved operation")?),
+        ("principal_ref",required_str(approved,"principal_ref","approved operation")?),
+        ("target_ref",required_str(approved,"target_ref","approved operation")?),
+        ("purpose",required_str(approved,"purpose","approved operation")?),
+        ("idempotency_ref",required_str(approved,"idempotency_ref","approved operation")?),
     ];
     let mut exact=true;
     for (field,value) in expected_fields {
