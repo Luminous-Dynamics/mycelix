@@ -46,3 +46,12 @@ The fixture contains a separate synthetic human approval for the exact lease ope
 
 See [LISE mapping](./LISE_MAPPING.md). IAE owns the intent/claim/evidence packet; LISE owns exact-operation finality and retry/reconciliation semantics. This branch validates the mapping structurally but does not yet call the separate LISE Rust crate because that crate remains on its own draft PR.
 
+
+
+## Bitemporal claim interval semantics
+
+For claim observations, the schema field `effective_through` is an inclusive world-time upper bound. A claim is visible at a query when:
+
+`effective_from <= effective_at <= effective_through`
+
+and `observed_at <= known_at`. A null/missing `effective_through` is open-ended. Equal-rank conflicting claims or authority statuses are unresolved/unknown rather than resolved by array order. Submission citations are checked against the same temporal predicate.
