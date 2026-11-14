@@ -587,7 +587,7 @@ mod tests {
 
     #[test]
     fn evidence_reference_cannot_be_counted_twice_for_one_claim() {
-        let line = "EVIDENCE|e-pump-2|pump_capacity|synthetic-water-shock|3600|3700|3500|8500|||ASSERTED|UTC_UNIX_SECONDS_V1|symtropy|synthetic:evidence:pump:2|";
+        let line = "EVIDENCE|e-pump-2|pump_capacity|synthetic-water-shock|3600|3700|3500|8500|||ASSERTED|UTC_UNIX_SECONDS_V1|symtropy|synthetic:evidence:pump:2||";
         let duplicate = line.replace("e-pump-2", "e-pump-duplicate");
         let source = format!("{FIXTURE}{duplicate}\n");
         assert!(validate_and_report(&source)
