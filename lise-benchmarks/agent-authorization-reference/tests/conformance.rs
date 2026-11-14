@@ -10,7 +10,7 @@ fn all_cases_match_separate_oracle_on_both_axes() {
     assert_eq!(suite.case_count, suite.cases.len());
     assert_eq!(oracle.case_count, oracle.rows.len());
     assert_eq!(suite.suite_id, oracle.suite_id);
-    assert_eq!(suite.cases.len(), 22);
+    assert_eq!(suite.cases.len(), 26);
     let ids: BTreeSet<_> = suite.cases.iter().map(|x| x.id.as_str()).collect();
     let rows: BTreeMap<_, _> = oracle.rows.iter().map(|x| (x.case_id.as_str(), x)).collect();
     assert_eq!(ids.len(), suite.cases.len());
@@ -54,4 +54,31 @@ fn clarification_halts_ambiguous_action_before_dispatch() {
     let c=s.cases.iter().find(|x|x.id=="A02").unwrap();
     assert!(!c.execution.attempted);
     assert_eq!(evaluate(c).disposition,Disposition::ChallengeRequired);
+}
+
+
+#[test]
+fn no_primary_attempt_does_not_hide_unknown_or_partial_effects() {
+    let suite: ScenarioSuite = serde_json::from_str(SCENARIOS).unwrap();
+    for id in ["A23", "A24"] {
+        let case = suite.cases.iter().find(|case| case.id == id).unwrap();
+        assert!(!case.execution.attempted);
+        assert_eq!(evaluate(case).disposition, Disposition::Hold, "{id}");
+    }
+}
+#[test]
+fn collateral_effect_is_denied_even_when_primary_operation_was_not_attempted() {
+    let suite: ScenarioSuite = serde_json::from_str(SCENARIOS).unwrap();
+    let case = suite.cases.iter().find(|case| case.id == "A25").unwrap();
+    assert!(!case.execution.attempted);
+    assert_eq!(case.execution.unauthorized_collateral_effects, 1);
+    assert_eq!(evaluate(case).disposition, Disposition::Deny);
+}
+#[test]
+fn committed_effect_cannot_be_silently_coerced_to_not_attempted() {
+    let suite: ScenarioSuite = serde_json::from_str(SCENARIOS).unwrap();
+    let case = suite.cases.iter().find(|case| case.id == "A26").unwrap();
+    assert!(!case.execution.attempted);
+    assert_eq!(case.execution.effect_status, agent_authorization_reference::EffectStatus::Committed);
+    assert_eq!(evaluate(case).disposition, Disposition::Indeterminate);
 }
