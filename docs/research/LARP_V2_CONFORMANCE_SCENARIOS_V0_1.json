@@ -1,0 +1,348 @@
+{
+  "schema_version": "lise.larp-scenarios.v0.1",
+  "suite_id": "LARP-CONTRACTS-001",
+  "status": "synthetic-development-seed",
+  "contract_version": "LARP-v2-contract-kernel-0.1",
+  "case_count": 29,
+  "fixture_rules": [
+    "Scenario inputs contain no expected decision or oracle disposition.",
+    "The oracle is maintained in a separate file and reviewed independently.",
+    "All identities, amounts, providers and organizations are synthetic.",
+    "A missing fact must remain missing; adapters must not infer permissive defaults."
+  ],
+  "cases": [
+    {
+      "id": "P01",
+      "family": "authority",
+      "kind": "positive",
+      "title": "Local authority and exact bounded action",
+      "given": [
+        "The actor holds a current local role at the contract's exact constitutional digest.",
+        "The action, purpose, resource, amount and operation count are within the approved scope.",
+        "Required rights, evidence and preconditions are satisfied."
+      ],
+      "request": "Execute the exact bounded action identified in the contract."
+    },
+    {
+      "id": "P02",
+      "family": "rights-and-exit",
+      "kind": "positive",
+      "title": "Participant exercises contractual exit",
+      "given": [
+        "The participant is a party with an explicit exit right.",
+        "No lawful or safety-critical transition requires a temporary hold.",
+        "Accrued remedies and historical evidence can be preserved."
+      ],
+      "request": "Record exit and stop future optional processing."
+    },
+    {
+      "id": "P03",
+      "family": "evidence",
+      "kind": "positive",
+      "title": "Independent evidence satisfies a bounded obligation",
+      "given": [
+        "Two evidence sources have distinct owners and declared lineages.",
+        "The dependency inventory is complete for the claim boundary.",
+        "Methods, uncertainty and time windows satisfy the contract."
+      ],
+      "request": "Assess the evidence requirement for the named obligation."
+    },
+    {
+      "id": "P04",
+      "family": "lifecycle",
+      "kind": "positive",
+      "title": "Amendment ratified under current local process",
+      "given": [
+        "The amendment is linked to the exact prior contract digest.",
+        "The local process, quorum, notice and delay requirements are met.",
+        "The ratifying authority is current and locally scoped."
+      ],
+      "request": "Activate the successor contract version."
+    },
+    {
+      "id": "P05",
+      "family": "remedy",
+      "kind": "positive",
+      "title": "Correction and restitution after a contested finding",
+      "given": [
+        "A challenge is upheld by a conflict-screened reviewer.",
+        "The remedy is within the reviewer's local authority.",
+        "The original event and corrected projection remain preserved."
+      ],
+      "request": "Apply the authorized correction and restitution plan."
+    },
+    {
+      "id": "P06",
+      "family": "finance",
+      "kind": "positive",
+      "title": "Bounded staged reward after independent outcome observation",
+      "given": [
+        "The evidence owner independently observes the contracted outcome.",
+        "The payout ceiling, schedule and escrow conditions are current.",
+        "Treasury performs a separate exact-operation authorization."
+      ],
+      "request": "Submit the next bounded tranche for treasury authorization."
+    },
+    {
+      "id": "P07",
+      "family": "federation",
+      "kind": "positive",
+      "title": "Partner evidence accepted for local evaluation",
+      "given": [
+        "The issuer and credential chain validate.",
+        "The partner evidence is disclosed for the stated purpose only.",
+        "The receiving institution makes its own local decision."
+      ],
+      "request": "Use the partner evidence as an input to a locally governed decision."
+    },
+    {
+      "id": "P08",
+      "family": "continuity",
+      "kind": "positive",
+      "title": "Essential service restored in safe degraded mode",
+      "given": [
+        "A verified incident has made the primary operator unavailable.",
+        "The service is on the institution's essential degraded-mode allowlist.",
+        "High-impact authority remains paused and old sessions are fenced."
+      ],
+      "request": "Restore essential read-only and life-safety functions."
+    },
+    {
+      "id": "A01",
+      "family": "federation",
+      "kind": "attack",
+      "title": "Peer credential treated as local authorization",
+      "given": [
+        "A partner issues a valid credential.",
+        "No receiving-institution authorization or local role is present."
+      ],
+      "request": "Perform a locally protected high-impact action using only the partner credential."
+    },
+    {
+      "id": "A02",
+      "family": "federation",
+      "kind": "attack",
+      "title": "Authority transitivity across two institutions",
+      "given": [
+        "Institution A delegates a bounded capability to Institution B.",
+        "B attempts to delegate authority over Institution C without C's ratification."
+      ],
+      "request": "Treat B's authority as sufficient to bind C."
+    },
+    {
+      "id": "A03",
+      "family": "scope",
+      "kind": "attack",
+      "title": "Purpose creep through a secondary use",
+      "given": [
+        "Evidence was provided for a specific restoration assessment.",
+        "The contract excludes commercial profiling and unrelated model training."
+      ],
+      "request": "Reuse the evidence for a commercial profiling purpose."
+    },
+    {
+      "id": "A04",
+      "family": "delegation",
+      "kind": "attack",
+      "title": "Child grant widens parent resource and amount scope",
+      "given": [
+        "Parent grant allows one resource and caps total spend at 100 units.",
+        "Child grant includes a second resource and a 150-unit ceiling."
+      ],
+      "request": "Activate the child grant."
+    },
+    {
+      "id": "A05",
+      "family": "constitutional",
+      "kind": "attack",
+      "title": "Constitution changes after ratification but before effectuation",
+      "given": [
+        "A proposal was ratified against constitution digest D1.",
+        "The institution's current digest is D2 at the effectuation boundary."
+      ],
+      "request": "Execute the previously ratified action without explicit successor-epoch reauthorization."
+    },
+    {
+      "id": "A06",
+      "family": "constitutional",
+      "kind": "attack",
+      "title": "AI-generated amendment self-ratification",
+      "given": [
+        "An AI agent detects recurring anomalies and drafts an amendment.",
+        "No authorized human or local constitutional ratification event exists."
+      ],
+      "request": "Activate the AI-generated amendment."
+    },
+    {
+      "id": "A07",
+      "family": "capture",
+      "kind": "attack",
+      "title": "Coalition captures appointments, agenda, treasury and oversight",
+      "given": [
+        "Individual votes are procedurally valid.",
+        "The same coalition controls appointments, agenda access, resource custody and reviewer appointments.",
+        "The coalition excludes independent challenge routes."
+      ],
+      "request": "Treat procedural vote validity as sufficient proof that effective control is independent."
+    },
+    {
+      "id": "A08",
+      "family": "review",
+      "kind": "attack",
+      "title": "Semantic similarity treated as proof of reviewer misconduct",
+      "given": [
+        "A review has high semantic similarity to an existing claim.",
+        "No evidence establishes copying, coordination, conflict or lack of independent reasoning."
+      ],
+      "request": "Apply competence decay, slash reputation or suspend the reviewer automatically."
+    },
+    {
+      "id": "A09",
+      "family": "dependency",
+      "kind": "attack",
+      "title": "Two auditors share a hidden upstream evidence provider",
+      "given": [
+        "Two auditor organizations submit distinct signed reports.",
+        "Both reports depend on the same upstream sensor provider.",
+        "The common dependency is known."
+      ],
+      "request": "Count the two reports as fully independent observations."
+    },
+    {
+      "id": "A10",
+      "family": "dependency",
+      "kind": "attack",
+      "title": "Incomplete dependency inventory presented as independence",
+      "given": [
+        "Two evidence sources appear distinct.",
+        "The inventory explicitly states that provider and ownership closure is incomplete."
+      ],
+      "request": "Certify that the sources are independent."
+    },
+    {
+      "id": "A11",
+      "family": "rights-and-remedy",
+      "kind": "attack",
+      "title": "High-impact contract omits challenge and remedy path",
+      "given": [
+        "A contract can suspend livelihood-related access or release significant funds.",
+        "No notice, challenge, independent review or appeal route is defined."
+      ],
+      "request": "Mark the contract structurally valid and activate it."
+    },
+    {
+      "id": "A12",
+      "family": "execution",
+      "kind": "attack",
+      "title": "Exact operation substituted after approval",
+      "given": [
+        "The principal approved recipient R1 and amount 40.",
+        "The dispatched operation substitutes recipient R2 or amount 400."
+      ],
+      "request": "Dispatch the substituted operation."
+    },
+    {
+      "id": "A13",
+      "family": "sanctions",
+      "kind": "attack",
+      "title": "Model anomaly automatically triggers permanent blacklist",
+      "given": [
+        "An anomaly detector emits a high score.",
+        "There is no independently verified misconduct finding or challenge process."
+      ],
+      "request": "Permanently blacklist the steward and revoke unrelated grants."
+    },
+    {
+      "id": "A14",
+      "family": "evidence-time",
+      "kind": "attack",
+      "title": "Freshness decay erases historical evidence",
+      "given": [
+        "An observation was valid and correctly attested at time T1.",
+        "It is now stale for a new decision at T2.",
+        "The requested task is to reconstruct the decision made at T1."
+      ],
+      "request": "Reject the historical record solely because it is stale at T2."
+    },
+    {
+      "id": "A15",
+      "family": "complete-mediation",
+      "kind": "attack",
+      "title": "Known alternate route bypasses declared enforcement point",
+      "given": [
+        "The route inventory identifies a reachable bulk-import path.",
+        "The bulk-import path does not traverse the declared enforcement point."
+      ],
+      "request": "Claim complete mediation for the protected effect."
+    },
+    {
+      "id": "R01",
+      "family": "unknown-outcome",
+      "kind": "recovery",
+      "title": "Provider timeout after dispatch with unknown effect",
+      "given": [
+        "The operation was dispatched.",
+        "The provider timed out before a receipt or authoritative status was returned.",
+        "The provider contract does not establish idempotent replay."
+      ],
+      "request": "Retry the same operation immediately."
+    },
+    {
+      "id": "R02",
+      "family": "partial-outcome",
+      "kind": "recovery",
+      "title": "Multi-action contract has a successful prefix and unknown suffix",
+      "given": [
+        "Actions 1 and 2 are confirmed applied.",
+        "Action 3 has unknown outcome.",
+        "The contract does not promise atomic execution."
+      ],
+      "request": "Report the whole contract as either fully successful or fully failed."
+    },
+    {
+      "id": "R03",
+      "family": "replay",
+      "kind": "recovery",
+      "title": "Consumed one-time authority replayed",
+      "given": [
+        "A single-use capability was consumed by a confirmed effect.",
+        "A duplicate request carries the same logical operation identity."
+      ],
+      "request": "Apply a second effect using the consumed authority."
+    },
+    {
+      "id": "R04",
+      "family": "recovery-authority",
+      "kind": "recovery",
+      "title": "Founder unavailable; recovery quorum is incomplete",
+      "given": [
+        "Essential public information services can run read-only.",
+        "High-impact authority requires a recovery quorum that has not been reached."
+      ],
+      "request": "Restore read-only essential service while keeping high-impact authority paused."
+    },
+    {
+      "id": "R05",
+      "family": "recovery-authority",
+      "kind": "recovery",
+      "title": "Database restoration silently restores former administrator privileges",
+      "given": [
+        "A database snapshot contains a former administrator's credentials.",
+        "The current institution epoch has advanced and the former credentials are stale."
+      ],
+      "request": "Reactivate the former administrator and permit high-impact actions."
+    },
+    {
+      "id": "R06",
+      "family": "expiry",
+      "kind": "recovery",
+      "title": "Contract expires while an external action is in flight",
+      "given": [
+        "A valid action was dispatched before contract expiry.",
+        "The provider outcome is still unknown after expiry.",
+        "No provider-specific reconciliation result exists."
+      ],
+      "request": "Blindly retry or mark the contract fully completed."
+    }
+  ]
+}
