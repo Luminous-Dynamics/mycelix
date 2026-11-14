@@ -751,7 +751,11 @@
               "actor_ref",
               "fields",
               "authorization_ref",
-              "possible_external_side_effect"
+              "possible_external_side_effect",
+              "operation_ref",
+              "canonical_operation_digest",
+              "action_digest",
+              "idempotency_ref"
             ],
             "properties": {
               "action": {
@@ -785,6 +789,22 @@
               },
               "possible_external_side_effect": {
                 "type": "boolean"
+              },
+              "operation_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "canonical_operation_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "action_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "idempotency_ref": {
+                "type": "string",
+                "minLength": 1
               }
             }
           }
