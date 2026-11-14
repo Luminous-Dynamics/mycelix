@@ -253,7 +253,12 @@ These are finite-suite goals, not universal security guarantees.
 9. Publish all counterexamples and unsupported semantics.
 10. Invite external replication before superiority language.
 
-The current 29-case suite is a development seed, not a confirmatory benchmark. Expand it with held-out, adversarially generated and independently adjudicated fixtures before using percentages as a public performance claim.
+The current conformance portfolio contains three separate input/oracle suites:
+- LARP-CONTRACTS-001: 29 general institutional-contract cases;
+- LARP-EPISTEMIC-001: 12 scientific reward/reviewer-integrity cases;
+- LARP-RESTORATION-001: 12 ecological outcome/treasury cases.
+
+The 53 cases are synthetic development seeds, not a confirmatory benchmark. Their inputs and expected outcomes are kept separate, and their Rust reference evaluators are not production authorization or payment services. Expand with held-out, adversarially generated and independently adjudicated fixtures before using percentages as a public performance claim.
 
 ## 8. Paradigm-shift research hypotheses
 
