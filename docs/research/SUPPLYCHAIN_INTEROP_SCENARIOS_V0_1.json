@@ -1,6 +1,6 @@
 {
   "schema_version": "mycelix.supplychain.interop-scenarios.v0.1",
-  "snapshot_date": "2026-11-13",
+  "snapshot_date": "2026-11-14",
   "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6105",
   "data_class": "synthetic_development_blueprints",
   "gold_status": "not_adjudicated",
@@ -403,6 +403,46 @@
         "source_set_completeness"
       ],
       "claim_limit": "A deterministic event list or timestamp sort is not proof of happens-before, physical causality, complete source capture or independent corroboration."
+    },
+    {
+      "id": "SC-TIME-007",
+      "family": "time_semantics",
+      "name": "event occurrence validity versus decision-time admissibility",
+      "control": "negative",
+      "intent": "Given an EPCIS ObjectEvent whose eventTime predates target world time T but whose recordTime or capture receipt is after decision frontier K, evaluate two independent questions: what time the capturing application asserts the event occurred, and whether the evidence was actually available to the decision process by K. Also test the inverse case where a record is present in the repository before K but eventTime is outside the target-time validity window.",
+      "expected_control": "separate_world_event_time_from_repository_receipt_and_process_availability",
+      "required_fields": [
+        "eventID",
+        "eventTime",
+        "eventTimeZoneOffset",
+        "recordTime_if_defined_by_profile",
+        "source_publication_or_issuer_availability",
+        "adapter_ingestion_receipt",
+        "run_context_manifest",
+        "target_world_time_T",
+        "decision_frontier_K"
+      ],
+      "claim_limit": "eventTime is an occurrence-time assertion, not proof of source availability; recordTime is repository bookkeeping, not proof of event truth, downstream materialization or candidate-context inclusion. Event validity may require separate validity-interval evidence."
+    },
+    {
+      "id": "SC-TIME-008",
+      "family": "temporal_coverage",
+      "name": "required temporal periods and source roles are covered",
+      "control": "negative",
+      "intent": "A supply-chain investigation requires admissible evidence from pre-transition, transition-window and post-transition periods and from a frozen set of supplier, carrier, repository and inspection source roles. Candidate retrieval returns individually relevant events from only one period or omits one required source role, then claims complete coverage.",
+      "expected_control": "coverage_fail_against_frozen_temporal_bins_and_source_inventory",
+      "required_fields": [
+        "query_specification_digest",
+        "required_temporal_bins",
+        "required_source_roles",
+        "source_inventory_digest",
+        "retrieved_event_ids",
+        "event_time_and_uncertainty",
+        "record_or_receipt_times",
+        "admissibility_outcomes",
+        "coverage_report"
+      ],
+      "claim_limit": "Temporal coverage is measured against the evaluator-frozen required-bin and source-role denominators. Missing evidence is not proof that no event or impact occurred."
     }
   ],
   "decision_time_overlay": {
@@ -420,7 +460,9 @@
       "recordTime_is_not_consumer_index_or_model_visibility",
       "late_recorded_corrections_do_not_rewrite_prior_as_of_views",
       "overlapping_uncertainty_intervals_do_not_establish_total_order",
-      "exact_normative_validator_dependencies_are_version_pinned"
+      "exact_normative_validator_dependencies_are_version_pinned",
+      "event_time_validity_and_decision_frontier_admissibility_are_scored_as_separate_axes",
+      "temporal_coverage_uses_the_frozen_required_time_bin_and_source_role_denominators"
     ],
     "owner_composition": {
       "temporal_reasoning": "Symthaea #10600",
