@@ -90,7 +90,7 @@ pub struct VetoOverrideResult {
     pub override_votes_for: f64,
     pub override_votes_against: f64,
     pub total_eligible_voters: u64,
-    pub override_threshold: f64,  // always 0.80
+    pub override_threshold: f64,  // current resolver records the fixed 0.67 threshold
     pub override_succeeded: bool,
     pub resolved_at: Timestamp,
 }
@@ -98,7 +98,7 @@ pub struct VetoOverrideResult {
 
 ### State Machine
 ```
-Ready --[veto]--> Vetoed --[80% override]--> Ready --[sign]--> Executed
+Ready --[veto]--> Vetoed --[67% fixed aggregate threshold in current resolver]--> Ready --[sign]--> Executed
                          --[override fails/expires]--> Cancelled
 ```
 
@@ -142,19 +142,20 @@ pub fn cast_override_vote(input: CastOverrideVoteInput) -> ExternResult<Record>
 // Citizen-tier required. Duplicate detection. Phi-weighted votes.
 
 pub fn resolve_override(input: ResolveOverrideInput) -> ExternResult<Record>
-// Permission-less. Tallies votes, applies 80% threshold.
+// Permission-less. Current implementation tallies one aggregate weighted ratio and applies the fixed 67% threshold.
 // Override success: Vetoed -> Ready. Failure: Vetoed -> Cancelled.
 
 pub fn get_guardian_vetoes(guardian_did: String) -> ExternResult<Vec<Record>>
 // Accountability query for Guardian veto history.
 ```
 
-### Participation Insurance (DESIGNED, NOT YET IMPLEMENTED)
-If override quorum fails, extend window and lower threshold:
-- Attempt 1: 80% threshold
-- Attempt 2: 75% threshold (after 48h extension)
-- Attempt 3: 70% threshold (after another 48h)
-- Floor: 67% (never goes below 2/3 supermajority)
+### Participation Insurance (DRAFT POLICY; NOT ACTIVE IN THE RESOLVER)
+The v0.26 constitutional amendment proposal specifies a schedule that applies only when an override vote fails to reach quorum:
+- Attempt 1: 67% (the existing two-thirds threshold)
+- Attempt 2: 62% (after a 48-hour extension)
+- Attempt 3 and subsequent: 60% floor (each subsequent attempt extends the window by a further 48 hours)
+
+The integrity crate contains a helper that calculates these values, but the current resolver does not call it. This schedule is not an active runtime guarantee. Adoption requires the constitutional amendment to be approved and the quorum, retry, chamber-specific tally and voter-eligibility semantics to be implemented and independently tested.
 
 ---
 
