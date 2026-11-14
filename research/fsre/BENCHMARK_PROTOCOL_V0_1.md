@@ -131,6 +131,14 @@ Metrics include pairwise precision/recall by event type, false-continuity rate, 
 Prospective research gates: 100% cardinality conformance on sealed synthetic cases; zero synthetic/unresolved/disputed promotion; 100% of source rows carry an explicit population scope and assessment cycle; and at least 99% precision among accepted real identity links before making consequential longitudinal claims, with coverage published beside precision. The 99% figure is a proposed release target, not a measured result or confidence bound. Real-system matching remains blocked until lawful system-level records and independently reviewed labels exist.
 
 ## 2.5 Equity-aware service-floor evaluation
+## 2.7 As-known-at-the-time evidence qualification
+
+Recovery claims must be replayable against the evidence actually available to the decision process at the frozen cutoff. This is distinct from what later became known or what is present in today's source snapshot. The as-of evidence profile distinguishes observation time, decision-process availability, valid-time interval, revocation effective time and revocation knowledge time; it supports claim-specific freshness policy and preserves later-discovered corrections without rewriting the historical record.
+
+Bitemporal databases, OGC API - Records temporal properties and W3C PROV are established foundations; FSRE should reuse them rather than claim to invent temporal data or provenance. The proposed contribution is a portable decision-cutoff admissibility profile across owner-native records and independent evaluators. See [AS_OF_EVIDENCE_BENCHMARK_V0_1.md](AS_OF_EVIDENCE_BENCHMARK_V0_1.md) and the production/reference implementations at [`fsre-asof-evidence`](../../tools/fsre-asof-evidence/README.md) and [`fsre-asof-evidence-oracle`](../../tools/fsre-asof-evidence-oracle/README.md).
+
+Hard gates include zero future-information leakage, zero acceptance of evidence expired at the cutoff, zero acceptance of revocations both known and effective by the cutoff, exact half-open boundary agreement, claim-scoped freshness and complete source-reference preservation. Historical as-known qualification is not source authentication or proof of physical truth.
+
 ## 2.6 Time-expanded recovery portfolio evaluation
 
 The current Rust portfolio reference qualifies one frozen scenario/interval. A multi-interval schedule needs separate evidence for stock-flow conservation, replenishment, workforce windows, option validity, authority expiry, service-floor trajectories and the as-known-at-the-time information frontier. Multi-period restoration, RCPSP, crew routing and distributionally robust scheduling already exist; FSRE's hypothesis is a portable evidence/claim-qualification layer over those methods, not another general-purpose optimiser. See [the time-expanded recovery portfolio benchmark](TIME_EXPANDED_RECOVERY_PORTFOLIO_BENCHMARK_V0_1.md).
