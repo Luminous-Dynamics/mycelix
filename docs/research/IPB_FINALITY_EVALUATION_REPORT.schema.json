@@ -204,7 +204,12 @@
         "excess_privilege_admitted",
         "route_bypass_accepted",
         "clarification_not_requested",
-        "delegation_scope_inconsistencies"
+        "delegation_scope_inconsistencies",
+        "terminal_state_accuracy",
+        "false_allow_nonpositive",
+        "unsupported_cases",
+        "provider_contract_missing_on_dispatch",
+        "duplicate_effect_violations"
       ],
       "properties": {
         "case_conformance_rate": {
@@ -297,6 +302,27 @@
           "minimum": 0
         },
         "delegation_scope_inconsistencies": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "terminal_state_accuracy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "false_allow_nonpositive": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported_cases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "provider_contract_missing_on_dispatch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_effect_violations": {
           "type": "integer",
           "minimum": 0
         }
