@@ -37,7 +37,9 @@ use std::time::Duration;
 
 use finance_wire_types::SapBalanceResponse;
 // Import zome types
-use mycelix_finance_types::compute_demurrage_deduction;
+use mycelix_finance_types::{
+    compute_demurrage_deduction, PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
+};
 use payments::*;
 use payments_integrity::*;
 
@@ -136,7 +138,40 @@ mod payment_creation {
         );
         assert!(payment.memo.is_some(), "Memo should be present");
 
-        println!("  - Payment fields verified");
+        // Read back the receipt. The coordinator's successful create_entry call
+        // proves the integrity callback accepted a real sender-key signature
+        // over the exact Payment action and its immutable economic fields.
+        let receipt_record: Option<Record> = conductor
+            .call(
+                &alice_cell.zome("payments"),
+                "get_receipt",
+                payment.id.clone(),
+            )
+            .await;
+        let receipt_record = receipt_record.expect("A receipt must exist for the payment");
+        let receipt: Receipt = receipt_record
+            .entry()
+            .to_app_option()
+            .expect("Receipt decode failed")
+            .expect("Receipt entry missing");
+        assert_eq!(receipt.payment_id, payment.id);
+        assert_eq!(receipt.from_did, payment.from_did);
+        assert_eq!(receipt.to_did, payment.to_did);
+        assert_eq!(receipt.amount, payment.amount);
+        assert_eq!(receipt.fee, payment.fee);
+        assert_eq!(receipt.currency, payment.currency);
+        assert_eq!(receipt.timestamp, payment.created);
+        assert_eq!(
+            receipt.payment_action_hash.as_ref(),
+            Some(payment_record.action_address()),
+            "Receipt must reference the exact Payment create action"
+        );
+        assert!(
+            receipt.signature.starts_with(PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX),
+            "Receipt must use the versioned v1 signature profile"
+        );
+
+        println!("  - Payment and signed receipt subject verified");
         println!("  - Payment ID: {}", payment.id);
         println!("  - Status: {:?}", payment.status);
         println!("Test 1.1 PASSED: Basic payment creation works");

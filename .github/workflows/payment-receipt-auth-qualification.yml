@@ -1,0 +1,72 @@
+name: Finance Receipt Authorization Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-finance/types/**'
+      - 'mycelix-finance/zomes/payments/coordinator/**'
+      - 'mycelix-finance/zomes/payments/integrity/**'
+      - 'mycelix-finance/tests/payments_test.rs'
+      - 'mycelix-workspace/mycelix-finance/types/**'
+      - 'mycelix-workspace/mycelix-finance/zomes/payments/coordinator/**'
+      - 'mycelix-workspace/mycelix-finance/zomes/payments/integrity/**'
+      - 'mycelix-workspace/mycelix-finance/tests/payments_test.rs'
+      - 'mycelix-workspace/sdk-ts/src/clients/finance/types.ts'
+      - '.github/workflows/payment-receipt-auth-qualification.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-finance/types/**'
+      - 'mycelix-finance/zomes/payments/coordinator/**'
+      - 'mycelix-finance/zomes/payments/integrity/**'
+      - 'mycelix-finance/tests/payments_test.rs'
+      - '.github/workflows/payment-receipt-auth-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  receipt-auth:
+    name: Receipt v1 exact-head verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS: '--cfg getrandom_backend="custom" -C link-args=--import-undefined'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+          rustup target add wasm32-unknown-unknown --toolchain 1.96.0
+          rustup default 1.96.0
+          rustc --version
+          cargo --version
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path mycelix-finance/Cargo.toml --all -- --check
+
+      - name: Run receipt integrity and coordinator unit tests
+        run: cargo test --manifest-path mycelix-finance/Cargo.toml -p payments_integrity -p payments
+
+      - name: Emit resolved Finance lockfile for review
+        if: always()
+        run: |
+          if ! git diff --quiet -- mycelix-finance/Cargo.lock; then
+            echo "FINANCE_CARGO_LOCK_BASE64_BEGIN"
+            base64 -w0 mycelix-finance/Cargo.lock
+            echo
+            echo "FINANCE_CARGO_LOCK_BASE64_END"
+            sha256sum mycelix-finance/Cargo.lock
+          else
+            echo "Finance Cargo.lock unchanged by dependency resolution."
+          fi
+
+      - name: Run Clippy
+        run: cargo clippy --locked --manifest-path mycelix-finance/Cargo.toml -p payments_integrity -p payments --all-targets -- -D warnings
+
+      - name: Build both production WASM zomes
+        run: cargo build --locked --manifest-path mycelix-finance/Cargo.toml --target wasm32-unknown-unknown --release -p payments_integrity -p payments

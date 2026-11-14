@@ -16,9 +16,10 @@ use mycelix_finance_shared::{
 use mycelix_finance_types::{
     AMBER_CUSTODIAL_CAP_MICRO_SAP, AMBER_MAX_CAP_MICRO_SAP, AmberClass, AmberExemption,
     COMPOST_LOCAL_PCT, COMPOST_MAX_RETRIES, COMPOST_REGIONAL_PCT, CompostPoolTier,
-    DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, FeeTier, PendingCompost, SAP_MINT_ANNUAL_MAX,
-    SAP_MINT_PER_PROPOSAL_MAX, SapMintCapCounter, SapMintSource, SuccessionPreference,
-    compute_demurrage_deduction, compute_demurrage_with_exemption,
+    DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, FeeTier, PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
+    PaymentReceiptSigningDataV1, PendingCompost, SAP_MINT_ANNUAL_MAX, SAP_MINT_PER_PROPOSAL_MAX,
+    SapMintCapCounter, SapMintSource, SuccessionPreference, compute_demurrage_deduction,
+    compute_demurrage_with_exemption,
 };
 use payments_integrity::*;
 
@@ -1284,31 +1285,41 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         (),
     )?;
 
-    // Create receipt with Ed25519 signature
-    let sig_data = format!(
-        "{}|{}|{}|{}|{}|{}",
-        payment.id,
-        payment.from_did,
-        payment.to_did,
+    // Bind the signature to a domain-separated canonical transcript and the
+    // exact Payment create action. The shared type is used by both coordinator
+    // and integrity zomes so serialization cannot drift between them.
+    let payment_action_hash = action_hash.clone();
+    let signing_data = PaymentReceiptSigningDataV1::new(
+        payment_action_hash.as_ref().to_vec(),
+        payment.id.clone(),
+        payment.from_did.clone(),
+        payment.to_did.clone(),
         payment.amount,
-        payment.currency,
-        now.as_micros()
+        payment.fee,
+        payment.currency.clone(),
+        payment.created.as_micros(),
+    );
+    let agent = agent_info()?.agent_initial_pubkey;
+    let signature = sign(agent, signing_data)?;
+    let signature = format!(
+        "{}{}",
+        PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
+        signature
+            .0
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
     );
     let receipt = Receipt {
         payment_id: payment.id.clone(),
         from_did: input.from_did,
         to_did: input.to_did,
         amount: input.amount,
-        currency: payment.currency,
+        fee: payment.fee,
+        currency: payment.currency.clone(),
         timestamp: now,
-        signature: {
-            let agent = agent_info()?.agent_initial_pubkey;
-            let sig = sign(agent, sig_data.into_bytes())?;
-            sig.0
-                .iter()
-                .map(|b| format!("{:02x}", b))
-                .collect::<String>()
-        },
+        payment_action_hash: Some(payment_action_hash),
+        signature,
     };
     let receipt_hash = create_entry(&EntryTypes::Receipt(receipt))?;
     create_link(
