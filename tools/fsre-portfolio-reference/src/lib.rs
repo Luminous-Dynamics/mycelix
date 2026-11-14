@@ -43,6 +43,8 @@ struct Input {
     scenario_id: String,
     interval_id: String,
     snapshot_id: String,
+    decision_at: Option<u64>,
+    clock_basis_id: Option<String>,
     records: Vec<Record>,
 }
 
@@ -355,11 +357,36 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
             .filter(|value| valid_id(value))
             .ok_or_else(|| InputError(format!("missing or invalid metadata key {key}")))
     };
+    let portfolio_id = take("portfolio_id")?;
+    let scenario_id = take("scenario_id")?;
+    let interval_id = take("interval_id")?;
+    let snapshot_id = take("snapshot_id")?;
+    let decision_at_raw = metadata.remove("decision_at");
+    let clock_basis_raw = metadata.remove("clock_basis_id");
+    let (decision_at, clock_basis_id) = match (decision_at_raw, clock_basis_raw) {
+        (None, None) => (None, None),
+        (Some(at), Some(clock)) => {
+            let parsed_at = at.parse::<u64>().map_err(|error| {
+                InputError(format!("invalid decision_at metadata: {error}"))
+            })?;
+            if !valid_id(&clock) {
+                return Err(InputError("invalid clock_basis_id metadata".to_owned()));
+            }
+            (Some(parsed_at), Some(clock))
+        }
+        _ => {
+            return Err(InputError(
+                "decision_at and clock_basis_id metadata must be supplied together".to_owned(),
+            ));
+        }
+    };
     let input = Input {
-        portfolio_id: take("portfolio_id")?,
-        scenario_id: take("scenario_id")?,
-        interval_id: take("interval_id")?,
-        snapshot_id: take("snapshot_id")?,
+        portfolio_id,
+        scenario_id,
+        interval_id,
+        snapshot_id,
+        decision_at,
+        clock_basis_id,
         records,
     };
     if let Some(key) = metadata.keys().next() {
@@ -823,6 +850,12 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
         format!("portfolio_disposition={disposition}"),
         format!("option_service_pairs={}", option_eval.len()),
     ];
+    if let (Some(decision_at), Some(clock_basis_id)) =
+        (input.decision_at, input.clock_basis_id.as_deref())
+    {
+        lines.push(format!("decision_at={decision_at}"));
+        lines.push(format!("clock_basis_id={clock_basis_id}"));
+    }
     for (key, result) in &option_eval {
         let option_disposition = if result.unknown {
             "NOT_ESTIMABLE"
@@ -917,6 +950,25 @@ mod tests {
     use super::*;
 
     const FIXTURE: &str = include_str!("../fixtures/synthetic-feasible.psv");
+
+    #[test]
+    fn optional_decision_cutoff_and_clock_basis_are_bound_and_reported() {
+        let changed = format!(
+            "# decision_at=7200\n# clock_basis_id=UTC_UNIX_SECONDS_V1\n{FIXTURE}"
+        );
+        let report = validate_and_report(&changed).expect("paired decision metadata");
+        assert!(report.contains("decision_at=7200"));
+        assert!(report.contains("clock_basis_id=UTC_UNIX_SECONDS_V1"));
+    }
+
+    #[test]
+    fn partial_decision_time_metadata_is_rejected() {
+        let changed = format!("# decision_at=7200\n{FIXTURE}");
+        assert!(validate_and_report(&changed)
+            .unwrap_err()
+            .0
+            .contains("must be supplied together"));
+    }
 
     #[test]
     fn feasible_plan_respects_cohort_floors_and_shared_resource_caps() {
