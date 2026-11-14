@@ -737,9 +737,9 @@ mod tests {
     #[test]
     fn target_cannot_be_assigned_from_competing_transitions_on_same_date() {
         let extra = "tr-target-conflict|RENAMED|dws-2022|sys-other|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-a|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:conflict|SYNTHETIC|SYNTHETIC_ONLY";
-        assert!(parse(&format!("{FIXTURE}{extra}\n"))
-            .unwrap_err()
-            .contains("target identity is assigned from competing or scope-conflicting transitions"));
+        assert!(parse(&format!("{FIXTURE}{extra}\n")).unwrap_err().contains(
+            "target identity is assigned from competing or scope-conflicting transitions"
+        ));
     }
 
     #[test]
