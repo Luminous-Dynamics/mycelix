@@ -16,7 +16,7 @@ world_id|action_id|decision_value|safety_value
 w1|repair|80|90
 w1|inspect|70|95
 w1|replace|60|60
-w2|repair|75|90
+w2|repair|84|90
 w2|inspect|85|92
 w2|replace|90|55
 w3|repair|90|80
@@ -32,17 +32,19 @@ fn exact_bounds_regret_and_safety_are_reported_separately() {
     assert_eq!(report.action_count, 3);
     assert_eq!(report.ranking_status, "RANKING_NOT_INVARIANT");
     let repair = report.actions.iter().find(|a| a.action_id == "repair").unwrap();
-    assert_eq!((repair.decision_lower, repair.decision_upper), (75, 90));
-    assert_eq!(repair.best_case_regret, 0);
-    assert_eq!(repair.worst_case_regret, 15);
+    assert_eq!((repair.decision_lower, repair.decision_upper), (80, 90));
+    assert_eq!(repair.best_case_regret, Some(0));
+    assert_eq!(repair.worst_case_regret, Some(1));
     assert!(repair.robustly_safe);
     let replace = report.actions.iter().find(|a| a.action_id == "replace").unwrap();
     assert!(!replace.robustly_safe);
     let inspect = report.actions.iter().find(|a| a.action_id == "inspect").unwrap();
-    assert_eq!(inspect.best_case_regret, 5);
-    assert_eq!(inspect.worst_case_regret, 18);
+    assert_eq!(inspect.best_case_regret, Some(0));
+    assert_eq!(inspect.worst_case_regret, Some(10));
     assert!(report.robust_optimal_action.is_none());
     assert_eq!(report.minimax_regret_actions, vec!["repair".to_owned()]);
+    assert!(replace.best_case_regret.is_none());
+    assert!(replace.worst_case_regret.is_none());
 }
 
 #[test]
