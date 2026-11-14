@@ -1,0 +1,116 @@
+name: FSRE 50-case recovery challenge suite
+on:
+  pull_request:
+    paths:
+      - "tools/fsre-recovery-challenge-suite/**"
+      - "tools/fsre-recovery-qualification/**"
+      - "tools/fsre-recovery-reference/**"
+      - ".github/workflows/fsre-recovery-challenge-suite.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/fsre-recovery-challenge-suite/**"
+      - "tools/fsre-recovery-qualification/**"
+      - "tools/fsre-recovery-reference/**"
+      - ".github/workflows/fsre-recovery-challenge-suite.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  challenge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path tools/fsre-recovery-qualification/Cargo.toml --all -- --check
+          cargo fmt --manifest-path tools/fsre-recovery-reference/Cargo.toml --all -- --check
+      - name: Run evaluator tests
+        run: |
+          cargo test --locked --offline --manifest-path tools/fsre-recovery-qualification/Cargo.toml
+          cargo test --locked --offline --manifest-path tools/fsre-recovery-reference/Cargo.toml
+      - name: Compare both evaluators with the 50-case answer key
+        shell: bash
+        run: |
+          set -euo pipefail
+          scenario="tools/fsre-recovery-challenge-suite/fixtures/scenario-options.psv"
+          evidence="tools/fsre-recovery-challenge-suite/fixtures/predicate-evidence.psv"
+          debt="tools/fsre-recovery-qualification/fixtures/debt-items.psv"
+          production_out="$(mktemp)"
+          reference_out="$(mktemp)"
+          production_options="$(mktemp)"
+          reference_options="$(mktemp)"
+          trap 'rm -f "$production_out" "$reference_out" "$production_options" "$reference_options"' EXIT
+
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-recovery-qualification/Cargo.toml -- "$scenario" "$debt" "$evidence" > "$production_out"
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-recovery-reference/Cargo.toml -- "$scenario" "$evidence" > "$reference_out"
+
+          awk -F'|' '/^option=/ { print $1 "|" $2 "|" $3 "|" $5 }' "$production_out" > "$production_options"
+          grep '^option=' "$reference_out" > "$reference_options"
+          test "$(grep -c '^option=' "$reference_options")" -eq 50
+          diff -u tools/fsre-recovery-challenge-suite/fixtures/expected-options.txt "$reference_out"
+          diff -u "$reference_options" "$production_options"
+
+      - name: Reject malformed owner and scope evidence for every predicate
+        shell: bash
+        run: |
+          set -euo pipefail
+          scenario="tools/fsre-recovery-challenge-suite/fixtures/scenario-options.psv"
+          evidence="tools/fsre-recovery-challenge-suite/fixtures/predicate-evidence.psv"
+          debt="tools/fsre-recovery-qualification/fixtures/debt-items.psv"
+          production_bin="tools/fsre-recovery-qualification/target/debug/fsre-recovery-qualification"
+          reference_bin="tools/fsre-recovery-reference/target/debug/fsre-recovery-reference"
+          mutated="$(mktemp)"
+          trap 'rm -f "$mutated"' EXIT
+
+          cargo build --quiet --locked --offline --manifest-path tools/fsre-recovery-qualification/Cargo.toml
+          cargo build --quiet --locked --offline --manifest-path tools/fsre-recovery-reference/Cargo.toml
+
+          mutate_field() {
+            local predicate="$1"
+            local field="$2"
+            local value="$3"
+            awk -F'|' -v OFS='|' -v predicate="$predicate" -v field="$field" -v value="$value" '
+              NR == 1 { print; next }
+              $1 == "challenge_01" && $6 == predicate { $field = value; changed++ }
+              { print }
+              END { if (changed != 1) exit 2 }
+            ' "$evidence" > "$mutated"
+          }
+
+          expect_rejection() {
+            local label="$1"
+            if "$production_bin" "$scenario" "$debt" "$mutated" >/dev/null 2>&1; then
+              echo "production evaluator accepted malformed evidence: $label" >&2
+              exit 1
+            fi
+            if "$reference_bin" "$scenario" "$mutated" >/dev/null 2>&1; then
+              echo "independent reference accepted malformed evidence: $label" >&2
+              exit 1
+            fi
+          }
+
+          for predicate in physical_feasibility spatial_access dependency_independence staffing resources authority safety; do
+            mutate_field "$predicate" 8 "foreign-owner"
+            expect_rejection "wrong owner: $predicate"
+            mutate_field "$predicate" 5 "foreign.schema.v0.1"
+            expect_rejection "wrong schema: $predicate"
+          done
+
+          mutate_field physical_feasibility 2 "foreign-service"
+          expect_rejection "wrong service binding"
+          mutate_field physical_feasibility 3 "foreign-scenario"
+          expect_rejection "wrong scenario binding"
+          mutate_field physical_feasibility 4 "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+          expect_rejection "wrong scenario digest"
+          mutate_field physical_feasibility 10 "foreign-clock"
+          expect_rejection "wrong time basis"
+          mutate_field physical_feasibility 11 "2000"
+          expect_rejection "future observation"

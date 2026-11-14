@@ -1,0 +1,53 @@
+name: FSRE independent resource stock-flow oracle
+on:
+  pull_request:
+    paths:
+      - "tools/fsre-resource-stock-flow/**"
+      - "tools/fsre-resource-stock-flow-oracle/**"
+      - ".github/workflows/fsre-resource-stock-flow-oracle.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/fsre-resource-stock-flow/**"
+      - "tools/fsre-resource-stock-flow-oracle/**"
+      - ".github/workflows/fsre-resource-stock-flow-oracle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  differential:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path tools/fsre-resource-stock-flow/Cargo.toml --all -- --check
+          cargo fmt --manifest-path tools/fsre-resource-stock-flow-oracle/Cargo.toml --all -- --check
+      - name: Run both implementations
+        run: |
+          cargo test --locked --offline --manifest-path tools/fsre-resource-stock-flow/Cargo.toml
+          cargo test --locked --offline --manifest-path tools/fsre-resource-stock-flow-oracle/Cargo.toml
+      - name: Compare production and independent reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          input="tools/fsre-resource-stock-flow/fixtures/synthetic-balanced.psv"
+          production="$(mktemp)"
+          oracle="$(mktemp)"
+          trap 'rm -f "$production" "$oracle"' EXIT
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-resource-stock-flow/Cargo.toml -- "$input" > "$production"
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-resource-stock-flow-oracle/Cargo.toml -- "$input" > "$oracle"
+          diff -u tools/fsre-resource-stock-flow/fixtures/synthetic-balanced.expected.txt "$production"
+          diff -u tools/fsre-resource-stock-flow-oracle/fixtures/independent-balanced.expected.txt "$oracle"
+          diff -u "$production" "$oracle"
+      - name: Run Clippy
+        run: |
+          cargo clippy --locked --offline --manifest-path tools/fsre-resource-stock-flow/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --locked --offline --manifest-path tools/fsre-resource-stock-flow-oracle/Cargo.toml --all-targets -- -D warnings

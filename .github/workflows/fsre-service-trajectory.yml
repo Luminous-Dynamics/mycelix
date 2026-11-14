@@ -1,0 +1,41 @@
+name: FSRE service trajectory reference
+on:
+  pull_request:
+    paths:
+      - "tools/fsre-service-trajectory/**"
+      - ".github/workflows/fsre-service-trajectory.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/fsre-service-trajectory/**"
+      - ".github/workflows/fsre-service-trajectory.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/fsre-service-trajectory/Cargo.toml --all -- --check
+      - name: Run deterministic tests
+        run: cargo test --locked --offline --manifest-path tools/fsre-service-trajectory/Cargo.toml
+      - name: Verify CLI against golden service trajectory
+        shell: bash
+        run: |
+          output="$(mktemp)"
+          trap 'rm -f "$output"' EXIT
+          cargo run --locked --offline --manifest-path tools/fsre-service-trajectory/Cargo.toml -- tools/fsre-service-trajectory/examples/synthetic-water-service.csv > "$output"
+          diff -u tools/fsre-service-trajectory/examples/synthetic-water-service.expected.txt "$output"
+          cargo run --locked --offline --manifest-path tools/fsre-service-trajectory/Cargo.toml -- tools/fsre-service-trajectory/examples/unknown-gap-recovery.csv > "$output"
+          diff -u tools/fsre-service-trajectory/examples/unknown-gap-recovery.expected.txt "$output"
+      - name: Run Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/fsre-service-trajectory/Cargo.toml --all-targets -- -D warnings

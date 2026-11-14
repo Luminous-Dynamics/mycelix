@@ -1,0 +1,13 @@
+# fixture_kind=SYNTHETIC_ONLY
+# scope=synthetic Green Drop assessment cycles 2022 to 2025; no real system identities
+transition_id|relation|source_system|source_record_id|source_population_scope|source_owner_class|target_system|target_record_id|target_population_scope|target_owner_class|effective_date|evidence_ref|evidence_class|review_state
+tr-continuity|CONTINUITY|dws-2022|sys-a|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-a|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:continuity|SYNTHETIC|SYNTHETIC_ONLY
+tr-rename|RENAMED|dws-2022|sys-old-name|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-new-name|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:rename|SYNTHETIC|SYNTHETIC_ONLY
+tr-transfer|TRANSFERRED|dws-2022|sys-transfer|ALL_SECTOR_WORKS|DPWI|dws-2025|sys-transfer|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:transfer|SYNTHETIC|SYNTHETIC_ONLY
+tr-merge|MERGED_INTO|dws-2022|sys-a-old|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-merged|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY
+tr-merge|MERGED_INTO|dws-2022|sys-b-old|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-merged|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY
+tr-split|SPLIT_INTO|dws-2022|sys-parent|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-child-a|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:split|SYNTHETIC|SYNTHETIC_ONLY
+tr-split|SPLIT_INTO|dws-2022|sys-parent|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-child-b|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:split|SYNTHETIC|SYNTHETIC_ONLY
+tr-decom|DECOMMISSIONED|dws-2022|sys-closed|MUNICIPAL_SYSTEMS|MUNICIPAL|||||2023-07-01|synthetic:decom|SYNTHETIC|SYNTHETIC_ONLY
+tr-created|CREATED|||||dws-2025|sys-new|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:created|SYNTHETIC|SYNTHETIC_ONLY
+tr-unresolved|UNRESOLVED|dws-2022|sys-ambiguous|MUNICIPAL_SYSTEMS|MUNICIPAL|||||2023-07-01|synthetic:gap|SYNTHETIC|SYNTHETIC_ONLY

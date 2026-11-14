@@ -1,0 +1,16 @@
+report_schema=fsre-resource-stock-flow-report.v0.1
+scenario_id=synthetic-water-shock
+resource_id=diesel
+resource_unit=L
+time_basis_id=synthetic-utc-seconds-v1
+intervals=3
+stock_flow_disposition=BALANCED_FOR_DECLARED_HORIZON
+opening_stock=100
+closing_stock=50
+interval=hour-00|0|3600|100|0|30|0|70|BALANCED|operator|synthetic:stock:hour-00
+interval=hour-01|3600|7200|70|50|60|0|60|BALANCED|operator|synthetic:stock:hour-01
+interval=hour-02|7200|10800|60|0|10|0|50|BALANCED|operator|synthetic:stock:hour-02
+unreconciled_intervals=NONE
+source_authenticity=NOT_AUTHENTICATED_BY_THIS_TOOL
+execution_authority=NONE
+operational_actuation=NOT_AUTHORISED

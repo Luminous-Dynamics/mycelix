@@ -1,0 +1,15 @@
+# fsre-service-trajectory.v0.1
+# service_id=synthetic-unknown-gap
+# horizon_start_seconds=0
+# horizon_end_seconds=80
+# minimum_safe_service_fraction=0.50
+# max_observation_hold_seconds=10
+# recovery_stability_seconds=15
+# quality_required=true
+# Columns: at_seconds,service_fraction,quality_compliant
+0,1.0,true
+10,0.2,true
+20,1.0,true
+40,1.0,true
+50,1.0,true
+60,1.0,true

@@ -1,0 +1,14 @@
+# scenario_id=synthetic-water-compound-disruption
+# scenario_digest=sha256:80005cf843ae7f0c283658cb0d5fbac01e4530bf2ed32b79d55bc9c745e216af
+# time_basis_id=synthetic-clock-v1
+# evaluation_time_seconds=1000
+# clock_uncertainty_seconds=0
+# horizon_seconds=43200
+option_id|service_id|mobilisation_seconds
+backup_independent|household_water_service|3600
+feeder_transfer|household_water_service|1800
+manual_fallback|household_water_service|900
+mobile_treatment|hospital_water_service|10800
+mutual_aid|hospital_water_service|3600
+stale_spatial_backup|household_water_service|1200
+supplier_delivery|household_water_service|172800

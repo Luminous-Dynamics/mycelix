@@ -1,0 +1,28 @@
+# source_id=ZA-DWS-GREEN-DROP-2025-GOVZA
+# source_owner=department-of-water-and-sanitation
+# source_ref=https://www.gov.za/news/media-statements/water-and-sanitation-crowns-steve-tshwete-local-municipality-2025-green-drop
+# secondary_source_owner=sanews-gcis
+# secondary_source_ref=https://www.sanews.gov.za/south-africa/majodina-calls-accountability-and-collective-action-protect-water-resources
+# secondary_publication_date=2026-04-01
+# tertiary_source_owner=water-research-observatory
+# tertiary_source_ref=https://wrcwro01.arc.agric.za/en/dataset/green-drop-reports-2009-2025-south-african-municipal-wastewater-management-performance
+# publication_date=2026-04-01
+# observation_period=2023/24 municipal financial year
+# geographic_scope=South Africa; national aggregate
+# source_status=PUBLISHED_OFFICIAL_SUMMARY
+# report_vintage=2025 Green Drop National Report
+# system_level_records=NOT_EXTRACTED
+fact_id|metric_id|period|metric_kind|reported_value|unit|numerator|denominator|comparability
+all_sector_works_audited_2022|all_sector_works_audited|2022|PUBLISHED_COUNT|995|works|||REPORT_SCOPE_TOTAL
+municipal_systems_audited_2022|municipal_systems_audited|2022|PUBLISHED_COUNT|850|systems|||REPORT_SCOPE_TOTAL
+critical_share_2022|critical_share|2022|PUBLISHED_ROUNDED_PERCENT_WITH_DENOMINATOR|39|percent|334|850|SOURCE_REPORTED_COMPARISON
+critical_systems_2022|critical_systems|2022|PUBLISHED_COUNT|334|systems|||SOURCE_REPORTED_COMPARISON
+good_excellent_share_2022|good_excellent_share|2022|PUBLISHED_ROUNDED_PERCENT_WITH_DENOMINATOR|14|percent|118|850|SOURCE_REPORTED_COMPARISON
+good_excellent_systems_2022|good_excellent_systems|2022|PUBLISHED_COUNT|118|systems|||SOURCE_REPORTED_COMPARISON
+certified_systems_2022|certified_systems|2022|PUBLISHED_COUNT|22|systems|||SOURCE_REPORTED_COMPARISON
+critical_share_2025|critical_share|2025|PUBLISHED_ROUNDED_PERCENT_WITH_DENOMINATOR|47|percent|396|848|SOURCE_REPORTED_COMPARISON
+critical_systems_2025|critical_systems|2025|PUBLISHED_COUNT|396|systems|||SOURCE_REPORTED_COMPARISON
+good_excellent_share_2025|good_excellent_share|2025|PUBLISHED_ROUNDED_PERCENT_WITH_DENOMINATOR|8|percent|66|848|SOURCE_REPORTED_COMPARISON
+good_excellent_systems_2025|good_excellent_systems|2025|PUBLISHED_COUNT|66|systems|||SOURCE_REPORTED_COMPARISON
+certified_systems_2025|certified_systems|2025|PUBLISHED_COUNT|14|systems|||SOURCE_REPORTED_COMPARISON
+municipal_systems_audited_2025|municipal_systems_audited|2025|PUBLISHED_COUNT|848|systems|||REPORT_SCOPE_TOTAL

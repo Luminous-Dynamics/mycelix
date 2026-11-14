@@ -1,0 +1,57 @@
+# scenario_id=fsre-50-case-challenge
+# scenario_digest=sha256:80005cf843ae7f0c283658cb0d5fbac01e4530bf2ed32b79d55bc9c745e216af
+# time_basis_id=synthetic-clock-v1
+# evaluation_time_seconds=1000
+# clock_uncertainty_seconds=0
+# horizon_seconds=43200
+option_id|service_id|mobilisation_seconds
+challenge_01|service_lane_01|660
+challenge_02|service_lane_02|720
+challenge_03|service_lane_03|780
+challenge_04|service_lane_04|840
+challenge_05|service_lane_05|900
+challenge_06|service_lane_06|960
+challenge_07|service_lane_07|1020
+challenge_08|service_lane_08|1080
+challenge_09|service_lane_09|1140
+challenge_10|service_lane_10|1200
+challenge_11|service_lane_11|1260
+challenge_12|service_lane_12|1320
+challenge_13|service_lane_13|1380
+challenge_14|service_lane_14|1440
+challenge_15|service_lane_15|1500
+challenge_16|service_lane_16|1560
+challenge_17|service_lane_17|1620
+challenge_18|service_lane_18|1680
+challenge_19|service_lane_19|1740
+challenge_20|service_lane_20|1800
+challenge_21|service_lane_21|1860
+challenge_22|service_lane_22|1920
+challenge_23|service_lane_23|1980
+challenge_24|service_lane_24|2040
+challenge_25|service_lane_25|2100
+challenge_26|service_lane_26|2160
+challenge_27|service_lane_27|2220
+challenge_28|service_lane_28|2280
+challenge_29|service_lane_29|2340
+challenge_30|service_lane_30|2400
+challenge_31|service_lane_31|2460
+challenge_32|service_lane_32|2520
+challenge_33|service_lane_33|2580
+challenge_34|service_lane_34|2640
+challenge_35|service_lane_35|2700
+challenge_36|service_lane_36|2760
+challenge_37|service_lane_37|2820
+challenge_38|service_lane_38|2880
+challenge_39|service_lane_39|2940
+challenge_40|service_lane_40|3000
+challenge_41|service_lane_41|43201
+challenge_42|service_lane_42|43202
+challenge_43|service_lane_43|43203
+challenge_44|service_lane_44|43204
+challenge_45|service_lane_45|43205
+challenge_46|service_lane_46|3360
+challenge_47|service_lane_47|3420
+challenge_48|service_lane_48|3480
+challenge_49|service_lane_49|43209
+challenge_50|service_lane_50|3600
