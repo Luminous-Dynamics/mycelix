@@ -4,6 +4,7 @@
 - [Time-expanded recovery portfolio benchmark](TIME_EXPANDED_RECOVERY_PORTFOLIO_BENCHMARK_V0_1.md) — multi-interval stock-flow, crew capacity, option expiry, service floors and as-known-at-the-time replay.
 - [Equity-aware service-floor benchmark](EQUITY_AND_DISTRIBUTIONAL_RESILIENCE_BENCHMARK_V0_1.md) — cohort-specific minimum service, distributional/restorative equity, procedural evidence and transgenerational liabilities.
 - [Decision-grade monitoring benchmark](DECISION_GRADE_MONITORING_BENCHMARK_V0_1.md) — matched evaluation of sensor placement, observation latency, sequential EVSI, lifecycle cost and verified service outcomes.
+- [Claim envelope v0.2](schemas/claim-qualification-envelope-v0.2.schema.json) — versioned claim contract with decision-availability, valid-time, revocation, claim freshness and as-of replay metadata.
 - [As-of evidence admissibility reference and independent oracle](../../tools/fsre-asof-evidence/README.md) — decision-cutoff replay of observed/available/valid/revocation times, claim-level freshness and hindsight corrections.
 - [Portfolio feasibility reference and independent oracle](../../tools/fsre-portfolio-reference/README.md) — read-only Rust constraint evaluator plus a separately authored differential implementation.
 - [Independent portfolio oracle](../../tools/fsre-portfolio-oracle/README.md) — separately authored parser/evaluator checked against the production portfolio reference.
