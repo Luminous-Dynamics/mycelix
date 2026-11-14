@@ -523,53 +523,10 @@ mod tests {
 
     #[test]
     fn parser_projection_manifest_preserves_creation_receipt_and_digest_separately() {
-        let manifest_json = r#"{
-            "cutoff_unix_ms": 200,
-            "packets": [
-                {
-                    "received_at_unix_ms": 100,
-                    "packet": {
-                        "header": {
-                            "ivoid": "ivo://survey.example/event?one",
-                            "version": "2.1",
-                            "packet_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-                        },
-                        "who": {
-                            "present": true,
-                            "author_ivoid": "ivo://publisher.example/stream",
-                            "source_created_at": "2026-11-14T08:00:00Z"
-                        },
-                        "citations_present": false,
-                        "citations": [],
-                        "citations_description": null
-                    }
-                },
-                {
-                    "received_at_unix_ms": 300,
-                    "packet": {
-                        "header": {
-                            "ivoid": "ivo://survey.example/event?two",
-                            "version": "2.1",
-                            "packet_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                        },
-                        "who": {
-                            "present": true,
-                            "author_ivoid": "ivo://review.example/stream",
-                            "source_created_at": "2026-11-14T07:55:00Z"
-                        },
-                        "citations_present": true,
-                        "citations": [{
-                            "target_ivoid": "ivo://survey.example/event?one",
-                            "relation": "supersedes",
-                            "attributes": [{"name": "cite", "value": "supersedes"}]
-                        }],
-                        "citations_description": "Reprocessed."
-                    }
-                }
-            ]
-        }"#;
-        let manifest: ReplayManifest =
-            serde_json::from_str(manifest_json).expect("parser projection manifest");
+        let manifest: ReplayManifest = serde_json::from_str(include_str!(
+            "../tests/fixtures/parser-projection-thread.json"
+        ))
+        .expect("parser projection manifest");
         let before = replay_manifest(manifest.clone()).expect("historical replay");
         assert_eq!(before.visible_packets.len(), 1);
         assert!(before.edges.is_empty());
