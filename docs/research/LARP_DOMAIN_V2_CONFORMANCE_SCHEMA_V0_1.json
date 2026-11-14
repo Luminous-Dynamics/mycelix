@@ -67,7 +67,11 @@
             "recipient_eligible",
             "payout_bounded",
             "rights_satisfied",
-            "remedy_path_defined"
+            "remedy_path_defined",
+            "amount_units",
+            "amount_ceiling_units",
+            "currency",
+            "funding_source_valid"
           ],
           "properties": {
             "mode": {
@@ -241,6 +245,32 @@
                 "boolean",
                 "null"
               ]
+            },
+            "amount_units": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "amount_ceiling_units": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "currency": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "funding_source_valid": {
+              "type": [
+                "boolean",
+                "null"
+              ]
             }
           }
         }
@@ -299,7 +329,11 @@
             "steward_exit",
             "anomaly_only_signal",
             "affected_party_rights_satisfied",
-            "remedy_path_defined"
+            "remedy_path_defined",
+            "tranche_amount_units",
+            "remaining_budget_units",
+            "currency",
+            "funding_source_valid"
           ],
           "properties": {
             "mode": {
@@ -457,6 +491,32 @@
               ]
             },
             "remedy_path_defined": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "tranche_amount_units": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "remaining_budget_units": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "currency": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "funding_source_valid": {
               "type": [
                 "boolean",
                 "null"
