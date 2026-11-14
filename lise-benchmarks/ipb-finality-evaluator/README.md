@@ -21,7 +21,7 @@ cargo run --manifest-path lise-benchmarks/ipb-finality-evaluator/Cargo.toml -- \
 
 ## Reporting
 
-The evaluator reports case conformance, disposition and outcome-class accuracy, required-assertion precision/recall, high-severity false passes, positive-control false denials, unexpected provider dispatch, mutations under no-mutation controls, blind retries, missing effect/independent observations, operation substitution, stale authority, constitution/resource mismatches, delegation amplification, excess trajectory privilege, route bypass and missing clarification.
+The evaluator reports terminal-state, disposition and outcome-class accuracy, required-assertion precision/recall, high-severity false passes, any false ALLOW against a non-ALLOW oracle, positive-control false denials, unsupported cases, unexpected provider dispatch, dispatched operations without provider-contract references, duplicate effects, mutations under no-mutation controls, blind retries, missing effect/independent observations, operation substitution, stale authority, constitution/resource mismatches, delegation amplification, excess trajectory privilege, route bypass and missing clarification. A candidate's extra assertion claims must also be true.
 
 It emits SHA-256 receipts for the exact input manifest, oracle, submission and evaluator binary, plus the candidate's build/configuration/trace-bundle identities.
 
