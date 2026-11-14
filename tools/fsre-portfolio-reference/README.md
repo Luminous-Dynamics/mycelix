@@ -33,6 +33,10 @@ The report contains each option disposition, cohort floor result, shared-resourc
 
 If known infeasibility and unknown evidence coexist, the claim is conservatively `NOT_ESTIMABLE`; known violations remain visible.
 
+## Independent reference
+
+The separately authored [portfolio oracle](../fsre-portfolio-oracle/README.md) uses its own parser and evaluator. The differential workflow compares the two implementations on the frozen fixture; shared specification errors still require a disjoint external challenge set.
+
 ## Verification
 
 The deterministic test suite also contains five explicit unknown-bound controls (numeric bounds are rejected; genuinely unknown bounds abstain). It includes a generated 283-configuration boundary sweep across resource capacity, option capacity and per-cohort service floors, in addition to targeted common-cause, unknown-evidence, unit-mismatch, lineage and overflow controls.
