@@ -19,3 +19,6 @@ The harness checks exact case coverage and duplicate identifiers, then reports t
 ## Limits
 
 The harness compares declared output with a synthetic development oracle. It does not verify cryptographic proofs, trust roots, remote source bytes, production operation receipts or legal authority. Passing it is not a production safety claim or an independently adjudicated result.
+
+
+The blind-retry detector examines the full operation history. A later `RECONCILED_SUCCESS` does not erase the fact that a prior `UNKNOWN` interval existed; any retry or reattempt permission during that interval is flagged. This is covered by a regression unit test.
