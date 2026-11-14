@@ -1,0 +1,12 @@
+[package]
+name = "larp-contracts-reference"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Deterministic reference evaluator for the LARP v2 institutional contract conformance suite"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]

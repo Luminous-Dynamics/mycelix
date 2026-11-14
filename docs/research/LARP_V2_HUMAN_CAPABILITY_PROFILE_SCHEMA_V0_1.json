@@ -1,0 +1,283 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/LARP_V2_HUMAN_CAPABILITY_PROFILE_SCHEMA_V0_1.json",
+  "title": "LARP v2 participant outcome and capability crosswalk profiles",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/heartProfile"
+    },
+    {
+      "$ref": "#/$defs/niceCrosswalk"
+    }
+  ],
+  "$defs": {
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric_id",
+        "dimension",
+        "goal",
+        "signal",
+        "formula",
+        "counter_metrics",
+        "collection_method",
+        "consent_required",
+        "purpose",
+        "window_days",
+        "cohort_definition",
+        "numerator_definition",
+        "denominator_definition",
+        "missingness_policy",
+        "suppression_threshold"
+      ],
+      "properties": {
+        "metric_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dimension": {
+          "enum": [
+            "happiness",
+            "engagement",
+            "adoption",
+            "retention",
+            "task_success"
+          ]
+        },
+        "goal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "formula": {
+          "type": "string",
+          "minLength": 1
+        },
+        "counter_metrics": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "collection_method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "consent_required": {
+          "type": "boolean",
+          "const": true
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "window_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cohort_definition": {
+          "type": "string"
+        },
+        "numerator_definition": {
+          "type": "string"
+        },
+        "denominator_definition": {
+          "type": "string"
+        },
+        "missingness_policy": {
+          "type": "string"
+        },
+        "suppression_threshold": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "heartProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "profile_version",
+        "framework",
+        "status",
+        "metrics",
+        "rights_non_compensatory",
+        "composite_score_prohibited",
+        "individual_sanction_use_prohibited"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "framework": {
+          "const": "Google HEART"
+        },
+        "status": {
+          "const": "research"
+        },
+        "metrics": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/metric"
+          }
+        },
+        "rights_non_compensatory": {
+          "const": true
+        },
+        "composite_score_prohibited": {
+          "const": true
+        },
+        "individual_sanction_use_prohibited": {
+          "const": true
+        }
+      }
+    },
+    "niceCrosswalk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "crosswalk_id",
+        "crosswalk_version",
+        "framework",
+        "framework_version",
+        "status",
+        "duties",
+        "capability_is_not_authority"
+      ],
+      "properties": {
+        "crosswalk_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "crosswalk_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "framework": {
+          "const": "NIST NICE"
+        },
+        "framework_version": {
+          "const": "2.2.0"
+        },
+        "status": {
+          "const": "local-proposed-crosswalk"
+        },
+        "duties": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "duty_id",
+              "description",
+              "criticality",
+              "nice_references",
+              "capability_evidence",
+              "appointment_reference",
+              "authority_reference"
+            ],
+            "properties": {
+              "duty_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "criticality": {
+                "enum": [
+                  "low",
+                  "moderate",
+                  "high",
+                  "critical"
+                ]
+              },
+              "nice_references": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "component_kind",
+                    "component_id",
+                    "framework_version",
+                    "mapping_rationale"
+                  ],
+                  "properties": {
+                    "component_kind": {
+                      "enum": [
+                        "work_role",
+                        "competency_area",
+                        "task",
+                        "knowledge",
+                        "skill"
+                      ]
+                    },
+                    "component_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "framework_version": {
+                      "const": "2.2.0"
+                    },
+                    "mapping_rationale": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              },
+              "capability_evidence": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "appointment_reference": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "authority_reference": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "single_person_dependency": {
+                "type": "boolean"
+              },
+              "qualified_successor_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "independent_reviewer_required": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "capability_is_not_authority": {
+          "const": true
+        }
+      }
+    }
+  }
+}

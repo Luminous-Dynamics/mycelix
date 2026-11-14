@@ -215,7 +215,12 @@
         "rights",
         "evidence",
         "institution",
-        "execution"
+        "execution",
+        "recipient_eligible",
+        "amount_units",
+        "amount_ceiling_units",
+        "currency",
+        "funding_source_valid"
       ],
       "properties": {
         "mode": {
@@ -253,6 +258,38 @@
         },
         "execution": {
           "$ref": "#/$defs/executionFacts"
+        },
+        "recipient_eligible": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "amount_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "amount_ceiling_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "funding_source_valid": {
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
       }
     },
@@ -523,6 +560,12 @@
             "boolean",
             "null"
           ]
+        },
+        "continuity_trigger_verified": {
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
       }
     },
@@ -570,6 +613,12 @@
             "null"
           ],
           "minimum": 0
+        },
+        "operation_already_applied": {
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
       }
     }
