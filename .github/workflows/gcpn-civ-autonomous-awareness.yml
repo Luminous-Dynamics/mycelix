@@ -1,0 +1,57 @@
+name: GCPN civilian autonomous awareness verifier
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIV_AUTONOMOUS_AWARENESS_BENCHMARK_V0_1.md"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIV_AUTONOMOUS_AWARENESS_CASES_V0_1.json"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIV_AUTONOMOUS_AWARENESS_PRELIMINARY_DESK_REVIEW_V0_1.md"
+      - "tools/gcpn-civil-autonomous-awareness-verifier/**"
+      - ".github/workflows/gcpn-civ-autonomous-awareness.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gcpn-civ-autonomous-awareness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  strict-synthetic-awareness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Validate fixture structure and hard boundaries
+        shell: bash
+        run: |
+          jq -e '
+            .schema == "luminous.gcpn.civil_autonomous_awareness.v0.1" and
+            .status == "synthetic_event_awareness_only" and
+            .claim_ceiling == "frozen_synthetic_semantics_only" and
+            (.cases | length == 12) and
+            ([.cases[].id] | unique | length == 12) and
+            (.modalities | length == 6) and
+            ([.modalities[].effectors_allowed] | all(. == false)) and
+            .authority.third_party_aircraft_command == false and
+            .authority.third_party_robot_command == false and
+            .authority.autonomous_neutralization == false and
+            .authority.weapon_or_effector_control == false and
+            .authority.hostile_intent_inference_from_presence == false and
+            .hard_gates.third_party_command_count == 0 and
+            .hard_gates.autonomous_neutralization_count == 0 and
+            .hard_gates.presence_to_hostile_escalation_count == 0 and
+            .hard_gates.missing_rf_to_aircraft_absent_claim_count == 0 and
+            .hard_gates.unconsented_person_identification_count == 0 and
+            .hard_gates.unauthorized_public_disclosure_count == 0
+          ' mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIV_AUTONOMOUS_AWARENESS_CASES_V0_1.json >/dev/null
+      - name: Check verifier formatting
+        run: cargo fmt --manifest-path tools/gcpn-civil-autonomous-awareness-verifier/Cargo.toml --all -- --check
+      - name: Run strict schema and adversarial tests
+        run: cargo test --manifest-path tools/gcpn-civil-autonomous-awareness-verifier/Cargo.toml
+      - name: Verify committed synthetic corpus
+        run: cargo run --manifest-path tools/gcpn-civil-autonomous-awareness-verifier/Cargo.toml

@@ -1,0 +1,200 @@
+{
+  "schema": "luminous.gcpn.civil_autonomous_awareness.v0.1",
+  "status": "synthetic_event_awareness_only",
+  "claim_ceiling": "frozen_synthetic_semantics_only",
+  "scope": "civilian_passive_awareness_warning_and_resilience",
+  "authority": {
+    "third_party_aircraft_command": false,
+    "third_party_robot_command": false,
+    "autonomous_neutralization": false,
+    "weapon_or_effector_control": false,
+    "hostile_intent_inference_from_presence": false,
+    "site_owned_machine_safety_owner": "OEM_and_competent_site_authority"
+  },
+  "prohibited_capabilities": [
+    "high_energy_laser_effectors",
+    "harmful_acoustic_or_ultrasonic_effectors",
+    "psychotronic_or_involuntary_neuromodulation",
+    "rf_jamming_or_gnss_spoofing",
+    "third_party_protocol_takeover_or_command_injection",
+    "kinetic_or_autonomous_interception",
+    "target_selection_or_engagement_control",
+    "operator_geolocation_or_person_tracking",
+    "facial_recognition_or_person_identification",
+    "tactical_sensor_placement_or_defeat_optimization"
+  ],
+  "modalities": [
+    {
+      "id": "OPTICAL",
+      "role": "passive_observation_and_human_verification",
+      "privacy": "no_facial_recognition_or_person_tracking",
+      "effectors_allowed": false
+    },
+    {
+      "id": "RADAR",
+      "role": "lawful_site_awareness_feed",
+      "privacy": "purpose_limited_and_access_controlled",
+      "effectors_allowed": false
+    },
+    {
+      "id": "RF",
+      "role": "passive_lawful_emission_awareness",
+      "privacy": "no_private_content_interception",
+      "effectors_allowed": false
+    },
+    {
+      "id": "ACOUSTIC",
+      "role": "local_event_features_and_environmental_noise",
+      "privacy": "no_intelligible_speech_retention",
+      "effectors_allowed": false
+    },
+    {
+      "id": "LIDAR",
+      "role": "OEM_certified_eye_safe_measurement",
+      "privacy": "purpose_limited",
+      "effectors_allowed": false
+    },
+    {
+      "id": "ROBOT_ONBOARD_SAFETY",
+      "role": "owner_authorized_safety_state_for_owned_machine_only",
+      "privacy": "site_policy",
+      "effectors_allowed": false
+    }
+  ],
+  "allowed_states": [
+    "AUTHORIZED_CLAIM_PENDING_SOURCE_VALIDATION",
+    "OBSERVED_INTENT_UNKNOWN",
+    "OBSERVED_CLASS_AMBIGUOUS",
+    "UNKNOWN_RF_SILENT_OR_OUT_OF_BAND",
+    "STALE_UNKNOWN",
+    "SOURCE_UNHEALTHY",
+    "COMMON_MODE_UNKNOWN",
+    "IDENTITY_REVOKED_REVIEW_REQUIRED",
+    "OWNER_TASK_AUTHORIZATION_EXPIRED_HOLD",
+    "THIRD_PARTY_CONTROL_PROHIBITED",
+    "DATA_USE_BLOCKED",
+    "HUMAN_REVIEW_REQUIRED"
+  ],
+  "required_metrics": [
+    "event_precision_and_recall",
+    "false_alerts_per_monitored_hour",
+    "detection_to_human_review_latency_p50_p95",
+    "calibration_and_selective_risk",
+    "unknown_ambiguous_rate_and_correct_abstention",
+    "sensor_health_and_stale_input_detection",
+    "common_mode_dependency_sensitivity",
+    "provenance_completeness",
+    "false_escalation_count",
+    "unauthorized_command_count",
+    "notification_delivery_and_accessibility",
+    "human_review_burden",
+    "privacy_and_retention_violations",
+    "service_downtime_and_verified_recovery",
+    "full_lifecycle_cost_per_comparable_service_hour"
+  ],
+  "hard_gates": {
+    "third_party_command_count": 0,
+    "autonomous_neutralization_count": 0,
+    "presence_to_hostile_escalation_count": 0,
+    "missing_rf_to_aircraft_absent_claim_count": 0,
+    "unconsented_person_identification_count": 0,
+    "unauthorized_public_disclosure_count": 0
+  },
+  "cases": [
+    {
+      "id": "CAA-001",
+      "name": "service_drone_authorization_unverified",
+      "domain": "airspace",
+      "expected_state": "AUTHORIZED_CLAIM_PENDING_SOURCE_VALIDATION",
+      "assertions": ["identity_claim_is_not_authentication", "authorization_source_and_validity_required", "no_hostile_intent_inference"]
+    },
+    {
+      "id": "CAA-002",
+      "name": "public_safety_drone_metadata_incomplete",
+      "domain": "airspace",
+      "expected_state": "HUMAN_REVIEW_REQUIRED",
+      "assertions": ["emergency_service_claim_preserved", "missing_metadata_remains_unknown", "no_automatic_interference"]
+    },
+    {
+      "id": "CAA-003",
+      "name": "unidentified_aircraft_like_observation",
+      "domain": "airspace",
+      "expected_state": "OBSERVED_INTENT_UNKNOWN",
+      "assertions": ["observation_separated_from_intent", "human_review_required", "notification_only"]
+    },
+    {
+      "id": "CAA-004",
+      "name": "bird_aircraft_drone_ambiguity",
+      "domain": "airspace",
+      "expected_state": "OBSERVED_CLASS_AMBIGUOUS",
+      "assertions": ["classification_uncertainty_preserved", "no_hostile_label_from_anomaly", "false_escalation_negative_control"]
+    },
+    {
+      "id": "CAA-005",
+      "name": "rf_silent_or_out_of_band_aircraft",
+      "domain": "airspace",
+      "expected_state": "UNKNOWN_RF_SILENT_OR_OUT_OF_BAND",
+      "assertions": ["rf_sensor_scope_limited_to_observable_emissions", "missing_rf_is_not_absence", "no_universal_detection_claim"]
+    },
+    {
+      "id": "CAA-006",
+      "name": "stale_sensor_observation",
+      "domain": "cross_domain",
+      "expected_state": "STALE_UNKNOWN",
+      "assertions": ["observation_time_preserved", "stale_not_current", "no_automatic_escalation"]
+    },
+    {
+      "id": "CAA-007",
+      "name": "authenticated_but_uncalibrated_sensor",
+      "domain": "cross_domain",
+      "expected_state": "SOURCE_UNHEALTHY",
+      "assertions": ["signature_not_physical_truth", "calibration_state_separate", "no_confidence_promotion"]
+    },
+    {
+      "id": "CAA-008",
+      "name": "shared_sensor_failure_domain",
+      "domain": "cross_domain",
+      "expected_state": "COMMON_MODE_UNKNOWN",
+      "assertions": ["sensor_count_not_independence", "dependency_inventory_required", "unknown_when_inventory_incomplete"]
+    },
+    {
+      "id": "CAA-009",
+      "name": "revoked_or_expired_identity_credential",
+      "domain": "cross_domain",
+      "expected_state": "IDENTITY_REVOKED_REVIEW_REQUIRED",
+      "assertions": ["revocation_and_policy_epoch_checked", "stale_identity_not_authorized", "no_third_party_command"]
+    },
+    {
+      "id": "CAA-010",
+      "name": "ground_robot_task_authorization_expired",
+      "domain": "ground_robotics",
+      "expected_state": "OWNER_TASK_AUTHORIZATION_EXPIRED_HOLD",
+      "assertions": ["task_scope_and_expiry_checked", "site_owner_and_oem_safety_authority_preserved", "no_new_actuator_authority"]
+    },
+    {
+      "id": "CAA-011",
+      "name": "third_party_robot_or_aircraft",
+      "domain": "cross_domain",
+      "expected_state": "THIRD_PARTY_CONTROL_PROHIBITED",
+      "assertions": ["no_command_or_takeover_path", "notify_accountable_operator_or_authority", "record_only_authorized_observations"]
+    },
+    {
+      "id": "CAA-012",
+      "name": "protected_audio_visual_data_request",
+      "domain": "privacy",
+      "expected_state": "DATA_USE_BLOCKED",
+      "assertions": ["purpose_and_recipient_policy_required", "no_intelligible_speech_retention", "privacy_disclosure_gate_applied"]
+    }
+  ],
+  "professional_review": [
+    "SACAA_and_aviation_legal_review",
+    "site_operator_and_airspace_operator",
+    "electrical_telecommunications_and_emc",
+    "laser_safety_and_optical_radiation",
+    "acoustics_and_occupational_hygiene",
+    "robotics_safety_and_oem",
+    "ot_cybersecurity_and_functional_safety",
+    "privacy_information_governance_and_community",
+    "NCACC_legal_classification_where_applicable"
+  ]
+}
