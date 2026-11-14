@@ -583,7 +583,9 @@
       "currency": null,
       "purpose": "new_tenant_commercial_lease",
       "resource_revision": "PROPERTY-REVISION-7",
-      "idempotency_ref": "IDEM-LEASE-001"
+      "idempotency_ref": "IDEM-LEASE-001",
+      "action": "approve_commercial_lease",
+      "principal_ref": "ACTOR-ASSET-MANAGER-01"
     },
     "pending_operation": {
       "logical_operation_id": "OP-LEASE-001",
@@ -595,7 +597,9 @@
       "currency": null,
       "purpose": "new_tenant_commercial_lease",
       "resource_revision": "PROPERTY-REVISION-7",
-      "idempotency_ref": "IDEM-LEASE-001"
+      "idempotency_ref": "IDEM-LEASE-001",
+      "action": "approve_commercial_lease",
+      "principal_ref": "ACTOR-ASSET-MANAGER-01"
     },
     "constitution": {
       "institution_ref": "ENTITY-TRUST-01",
