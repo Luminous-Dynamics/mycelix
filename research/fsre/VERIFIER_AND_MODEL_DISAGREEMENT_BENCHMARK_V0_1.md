@@ -177,6 +177,12 @@ Start with a versioned public synthetic set of at least 50 deterministic cases:
 
 Then add a sealed, independently held challenge set with varied task families and hidden combinations. Do not publish sealed answer keys or root-cause labels in the agent-visible repository. Use Sol-Atlas #338 for the canonical pre-registered manifest and Mycelix's owner-native evidence/receipt systems for source identity.
 
+## 6.1 Public 50-case recovery regression suite
+
+The public deterministic regression corpus is available at [`tools/fsre-recovery-challenge-suite`](../../tools/fsre-recovery-challenge-suite/README.md). It contains 50 service-bound recovery candidates, 339 synthetic predicate-evidence rows, a frozen case register and an explicit expected-output file. The cases cover ten positive options, ten single-predicate omissions, ten non-qualified owner dispositions, ten temporal-boundary cases, five mobilisation-horizon failures and five compound negatives. A dedicated workflow runs both the production evaluator and the independently authored reference, compares option dispositions and reason codes to a frozen answer key, and injects wrong-owner, wrong-schema, wrong-service, wrong-scenario, wrong-digest, wrong-time-basis and future-observation mutations.
+
+The suite passed its first exact-head CI run on 14 November 2026. This is an open synthetic regression corpus, not an independently authored or sealed challenge set, not a field accuracy estimate and not evidence authentication. Its answer key is public and must not be treated as a blind holdout. The next independence step is a second reviewer preparing a disjoint challenge set and separately adjudicated expected answers.
+
 ## 7. Comparison with the infrastructure interdependency literature
 
 Shamsi, Helmrich and Deegan's 7 November 2026 comparative review identified seven explicitly cross-sector interdependency tools: IN-CORE, InfraRisk, REFIT, CIrcle, PRIIA, Kaleidoscope and CISIA-Pro. Its comparison covers interdependency breadth, data requirements, validation strength, integration potential, purpose fit, methods, context, readiness and sector coverage; it notes the absence of comparable runtime/hardware benchmark data across the tools.
