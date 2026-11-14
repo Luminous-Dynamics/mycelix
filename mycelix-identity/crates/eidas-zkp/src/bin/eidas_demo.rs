@@ -1,30 +1,28 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! eIDAS Credential Demo — issue, selectively disclose, verify.
+//! Experimental credential-shaped serialization walkthrough.
 //!
 //! Usage:
 //!   cargo run -p mycelix-eidas-zkp --bin eidas_demo
 //!
-//! Demonstrates the complete eIDAS 2.0 ZKP selective disclosure flow:
-//! 1. Issuer creates a credential with 5 claims
-//! 2. Holder selectively discloses only nationality
-//! 3. Holder proves age >= 18 via ZKP (without revealing age)
-//! 4. Verifier checks the presentation
+//! This program demonstrates only:
+//! 1. Construction of VC-shaped JSON data.
+//! 2. Filtering a set of claims for a presentation-shaped object.
+//! 3. Serialization of the resulting data structure.
+//!
+//! It does NOT generate or verify a signature, generate or verify a ZK proof,
+//! verify a credential, establish unlinkability, or demonstrate eIDAS/EUDI
+//! Wallet, W3C Data Integrity, or OpenID conformance. All proof strings below
+//! are explicit placeholders.
 
 use mycelix_eidas_zkp::*;
 
 fn main() {
-    println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  eIDAS 2.0 ZKP Selective Disclosure Demo                    ║");
-    println!("║  W3C VC 2.0 + DASTARK Cryptosuite                          ║");
-    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!("Experimental VC-shaped data / selective-claim walkthrough");
+    println!("NOT a cryptographic verification or standards-conformance test");
     println!();
 
-    // ── Step 1: Issuer creates credential ──
-    println!("Step 1: ISSUER creates credential with 5 claims");
-    println!("  Issuer: did:mycelix:government-nl");
-    println!("  Subject: did:mycelix:citizen-alice");
-
+    println!("Step 1: construct credential-shaped data");
     let credential = create_eidas_credential(
         "did:mycelix:government-nl",
         "did:mycelix:citizen-alice",
@@ -35,20 +33,15 @@ fn main() {
             "nationality": "NL",
             "age": 36
         }),
-        "z3DASTARK_ISSUER_PROOF_placeholder",
+        "EXAMPLE-ONLY-NOT-A-REAL-SIGNATURE",
     );
-
-    println!("  Created: {}", credential.id);
-    println!("  Cryptosuite: {}", credential.proof.cryptosuite);
-    println!("  Claims: givenName, familyName, dateOfBirth, nationality, age");
+    println!("  Credential ID: {}", credential.id);
+    println!("  Context URI present: {}", credential.context.iter().any(|x| x == "https://www.w3.org/ns/credentials/v2"));
+    println!("  Proof metadata label: {}", credential.proof.cryptosuite);
+    println!("  Proof value: caller-supplied example placeholder (not checked)");
     println!();
 
-    // ── Step 2: Holder creates selective presentation ──
-    println!("Step 2: HOLDER creates selective presentation");
-    println!("  Disclosing ONLY: nationality");
-    println!("  Proving via ZKP: age >= 18 (without revealing actual age)");
-    println!("  NOT disclosing: givenName, familyName, dateOfBirth, age value");
-
+    println!("Step 2: construct presentation-shaped data by filtering visible claims");
     let presentation = create_selective_presentation(
         &credential,
         &["nationality"],
@@ -56,89 +49,47 @@ fn main() {
             claim_key: "age".to_string(),
             proof_type: "range".to_string(),
             description: "age >= 18".to_string(),
-            proof_value: "z3WINTERFELL_STARK_AGE_RANGE_PROOF_46ms".to_string(),
+            proof_value: "EXAMPLE-ONLY-NOT-A-ZK-PROOF".to_string(),
         }],
-        "z3HOLDER_AUTH_DILITHIUM5_PROOF",
+        "EXAMPLE-ONLY-NOT-A-HOLDER-SIGNATURE",
     );
-
-    println!("  Presentation: {}", presentation.id);
-    println!();
-
-    // ── Step 3: Verifier checks presentation ──
-    println!("Step 3: VERIFIER checks presentation");
 
     let disclosed_credential = &presentation.verifiable_credential[0];
-    let claims = disclosed_credential
-        .credential_subject
-        .claims
-        .as_object()
-        .unwrap();
-    let sd = disclosed_credential
-        .proof
-        .selective_disclosure
-        .as_ref()
-        .unwrap();
+    let claims = disclosed_credential.credential_subject.claims.as_object().unwrap();
+    let metadata = disclosed_credential.proof.selective_disclosure.as_ref().unwrap();
 
-    println!("  Disclosed claims:");
+    println!("  Visible claims in this serialized object:");
     for (key, value) in claims {
-        println!("    ✓ {}: {}", key, value);
+        println!("    {}: {}", key, value);
     }
-
-    println!("  ZKP-proven claims:");
-    for claim in &sd.proven_claims {
-        println!(
-            "    🔒 {}: {} (proof: {})",
-            claim.claim_key, claim.description, claim.proof_type
-        );
-    }
-
-    println!("  Hidden claims (NOT in presentation):");
-    let all_keys = [
-        "givenName",
-        "familyName",
-        "dateOfBirth",
-        "nationality",
-        "age",
-    ];
-    for key in &all_keys {
-        if !claims.contains_key(*key) && !sd.proven_claims.iter().any(|p| p.claim_key == *key) {
-            println!("    ✗ {} — not disclosed, not proven", key);
+    println!("  Hidden from this object by ordinary JSON filtering:");
+    for key in ["givenName", "familyName", "dateOfBirth", "age"] {
+        if !claims.contains_key(key) {
+            println!("    {}", key);
         }
     }
-
-    println!();
-    println!("  Verification result:");
-    println!(
-        "    Credential cryptosuite: {} ✓",
-        disclosed_credential.proof.cryptosuite
-    );
-    println!(
-        "    Holder auth cryptosuite: {} ✓",
-        presentation.proof.cryptosuite
-    );
-    println!("    Proof purpose: {} ✓", presentation.proof.proof_purpose);
-    println!("    Post-quantum: Dilithium5 signature ✓");
-    println!("    Data minimization: only nationality visible ✓");
-    println!("    Age verified: >= 18 (actual age hidden) ✓");
+    println!("  Descriptive predicate metadata:");
+    for claim in &metadata.proven_claims {
+        println!("    {}: {}", claim.claim_key, claim.description);
+    }
+    println!("  Merkle proof entries present: {}", metadata.merkle_proofs.len());
     println!();
 
-    // ── Summary ──
-    println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  DEMO COMPLETE                                              ║");
-    println!("╠══════════════════════════════════════════════════════════════╣");
-    println!("║  eIDAS 2.0 Requirements Met:                                ║");
-    println!("║  ✓ Selective disclosure (Art. 5a)                           ║");
-    println!("║  ✓ Data minimization (GDPR Art. 25)                         ║");
-    println!("║  ✓ Unlinkability (different presentation per verifier)      ║");
-    println!("║  ✓ Post-quantum readiness (Dilithium5 / ML-DSA-87)         ║");
-    println!("║  ✓ W3C VC 2.0 compliant (DataIntegrityProof)               ║");
-    println!("║  ✓ Credential: dastark-2026 / Presentation: dilithium5-2026║");
-    println!("╠══════════════════════════════════════════════════════════════╣");
-    println!("║  Market: $102B projected (2030)                             ║");
-    println!("║  Deadline: EU Member States must issue EUDI Wallets by 2026 ║");
-    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!("Step 3: checks not performed by this crate");
+    println!("  Issuer signature verification: NOT RUN");
+    println!("  Holder signature verification: NOT RUN");
+    println!("  ZK predicate verification: NOT RUN");
+    println!("  Credential expiry / status verification: NOT RUN");
+    println!("  W3C Data Integrity cryptosuite conformance: NOT TESTED");
+    println!("  OpenID4VCI / OpenID4VP conformance: NOT TESTED");
+    println!("  eIDAS / EUDI Wallet conformance: NOT TESTED");
+    println!();
 
-    // Output JSON for integration testing
-    println!("\n--- Presentation JSON ---");
+    println!("Serialization walkthrough complete. No credential or predicate was verified.");
+    println!("See the Mycelix Identity interoperability and assurance roadmap before making");
+    println!("cryptographic, W3C, eIDAS, or EUDI Wallet claims.");
+
+    println!();
+    println!("--- Presentation-shaped JSON ---");
     println!("{}", serde_json::to_string_pretty(&presentation).unwrap());
 }

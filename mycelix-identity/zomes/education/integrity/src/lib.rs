@@ -3,7 +3,10 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Legacy Bridge: Academic Credential Integrity Zome
 //!
-//! Enhanced W3C Verifiable Credentials for educational institutions with:
+//! Academic credential records with VC-shaped fields and Mycelix extensions.
+//! The data shape alone does not establish W3C VC / Data Integrity conformance.
+//!
+//! This legacy bridge includes:
 //! - DNS-DID verification with DNSSEC validation
 //! - ZK commitments for selective disclosure
 //! - Mandatory revocation registry integration
@@ -58,7 +61,8 @@ pub enum AcademicCredentialStatus {
     Suspended,
 }
 
-/// Academic Credential - W3C VC 2.0 compliant with Mycelix enhancements
+/// Academic credential record with VC 2.0-shaped fields and Mycelix extensions.
+/// Full W3C VC / Data Integrity conformance is not established by this type.
 ///
 /// Key enhancements over base VerifiableCredential:
 /// - `zk_commitment`: SHA-256 hash enabling selective disclosure

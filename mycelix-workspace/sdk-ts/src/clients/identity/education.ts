@@ -5,8 +5,9 @@
  * Education Credential Client
  *
  * Client for academic credential management in Mycelix-Identity.
- * Supports W3C VC 2.0 compliant academic credentials, legacy imports,
- * DNS-DID verification, and epistemic claim publication.
+ * Supports Mycelix academic credential records with VC 2.0-shaped fields,
+ * legacy imports, DNS-DID verification, and epistemic claim publication.
+ * Data shape does not imply W3C Data Integrity or OpenID conformance.
  *
  * @module @mycelix/sdk/clients/identity/education
  */

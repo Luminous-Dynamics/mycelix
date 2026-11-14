@@ -3,13 +3,17 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Verifiable Credential Integrity Zome
 //!
-//! W3C Verifiable Credentials Data Model 2.0 compliant implementation
-//! <https://www.w3.org/TR/vc-data-model-2.0/>
+//! Mycelix credential and presentation data structures using VC Data Model 2.0-shaped fields.
+//!
+//! This integrity zome defines local Holochain entry types and structural constraints.
+//! Its presence of VC context/field names does not establish full W3C VC Data Model,
+//! Data Integrity cryptosuite, DID resolution, or OpenID interoperability. See
+//! `docs/identity/INTEROPERABILITY_AND_ASSURANCE.md` for the current conformance boundary.
 
 use hdi::prelude::*;
 
-/// W3C Verifiable Credential
-/// Full implementation of VC Data Model 2.0
+/// Verifiable-credential-shaped record with Mycelix-specific fields.
+/// External VC Data Model / Data Integrity conformance is tracked separately.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct VerifiableCredential {

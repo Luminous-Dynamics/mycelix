@@ -1,41 +1,36 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-//! Location-attestation trust tiers and attestation envelope.
+//! Location-attestation data structures and partial trust-tier adapters.
 //!
-//! Companion module to `circuits::jurisdiction_proof`. A jurisdiction
-//! proof cryptographically asserts "the attested value is inside the
-//! box"; this module defines *what "attested" means* — five tiers
-//! ranging from self-attest (low trust) to hardware-TEE / notary-oracle
-//! (high trust) — and the attestation envelope itself.
+//! The Winterfell-backed jurisdiction circuit can prove that a supplied
+//! coordinate is within a selected bounding box; it does not establish that
+//! the coordinate is truthful or that a trusted device measured it. The
+//! attestation source must be independently verified.
 //!
-//! ## Why tiers matter more than the STARK
+//! **Implementation boundary:** T0 accepts matching self-attested tier
+//! metadata. The current T1 phone-GPS adapter checks tier, an optional public-key
+//! allowlist, and non-empty signature bytes; it does not verify the signature
+//! cryptographically here and does not enforce `max_age_seconds` in
+//! `PhoneGps::verify`. T2 civic, T3 hardware-TEE, and T4 notary adapters return
+//! `NotImplemented`. The existence of an enum value or trust-tier label is not
+//! evidence that an attestation mechanism is implemented.
 //!
-//! A user can fake GPS. The STARK faithfully encodes whatever location
-//! the prover claims; it does not validate the claim against physics.
-//! Security comes from the *attestation source*, not the proof. A
-//! verifier that accepts T0 (self-attested) proofs is effectively
-//! accepting the prover's word; one that requires T3 (hardware TEE)
-//! has a meaningful integrity claim from the device.
-//!
-//! Verifiers MUST set a tier floor appropriate to their risk. The
-//! default floor is `T1PhoneGps` (per plan decision 2026-04-18), which
-//! avoids a bootstrap paradox where no one can produce any attestation
-//! until civic-bridge infrastructure is deployed.
+//! Callers must validate signature, key binding, freshness, device / sensor
+//! provenance, and trust policy using a concrete adapter before treating the
+//! coordinate as attested.
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub use crate::circuits::jurisdiction_proof::AttestationTier;
 
-/// A raw location attestation. Carries an attester-signed claim about
-/// where a user was at a given instant. Feeds into `prove_jurisdiction`
-/// as private input; the STARK proves containment of `(lat, lng)`
-/// without revealing it.
+/// Raw location-attestation data supplied by a producer.
 ///
-/// The envelope itself is never transmitted to a verifier — only the
-/// STARK proof's public surface is. This struct lives on the prover's
-/// device.
+/// The presence of a key and signature byte vector in this struct does not
+/// mean that the signature was verified. The downstream caller must establish
+/// the key's trust, signature validity, and freshness before passing the
+/// coordinate into a jurisdiction proof.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LocationAttestation {
     /// Unbiased latitude in decimal degrees.
@@ -47,9 +42,9 @@ pub struct LocationAttestation {
     /// Attester's public identifier (e.g., device-key DID, civic-bridge
     /// agent pubkey, notary network root). Hashed for the proof.
     pub attester_pubkey: Vec<u8>,
-    /// Signature over `(lat, lng, timestamp)` produced by the attester.
-    /// Format is attester-specific; this module does not verify it
-    /// (the `AttestationSource` trait impl does).
+    /// Claimed signature over `(lat, lng, timestamp)`.
+    /// The current T1 adapter only checks that this vector is non-empty; it
+    /// does not cryptographically verify these bytes in this crate.
     pub attester_signature: Vec<u8>,
     /// Which tier of attester produced this claim.
     pub tier: AttestationTier,
@@ -73,17 +68,17 @@ impl LocationAttestation {
     }
 }
 
-/// Trait implemented by concrete attestation sources. Each tier has its
-/// own mechanism for producing and verifying signatures. This crate
-/// defines the trait and ships stubs for T0 and T1; richer tiers are
-/// implemented by downstream crates that have the relevant hardware or
-/// oracle bindings.
+/// Trait for tier-specific attestation adapters. The contract requires a
+/// concrete implementation to verify its claimed source; the current T1
+/// adapter is only an envelope/allowlist check and T2–T4 are stubs. Callers
+/// must not infer cryptographic verification from the trait name alone.
 pub trait AttestationSource {
     /// Which tier this source produces.
     fn tier(&self) -> AttestationTier;
 
-    /// Verify that `attestation` was truthfully signed by a valid
-    /// attester of this source's tier. Returns `Ok(())` if trusted.
+    /// Apply this adapter's implemented checks to `attestation`.
+    /// `Ok(())` only means those checks passed; it does not imply signature
+    /// verification or freshness unless the adapter explicitly performs them.
     fn verify(&self, attestation: &LocationAttestation) -> Result<(), AttestationError>;
 }
 
@@ -134,17 +129,19 @@ impl AttestationSource for SelfAttested {
     }
 }
 
-/// T1 — phone-GPS attestation. The prover's own device reports its
-/// GPS fix and signs it with a device-bound key. Stronger than
-/// self-attest because the device-key is typically bound to
-/// installation; weaker than hardware-TEE because the GPS sensor
-/// itself can be spoofed by mock-location apps.
+/// T1 — phone-GPS envelope check (partial).
 ///
-/// Downstream integration lives in `symthaea-phone-embodiment`; this
-/// crate only defines the envelope and max-age policy.
+/// The current core implementation checks tier equality, an optional
+/// public-key allowlist, and non-empty signature bytes. It does NOT verify
+/// the signature, validate a hardware-backed key attestation, or enforce
+/// `max_age_seconds` inside `verify`. The `is_fresh` helper must be called
+/// separately by a trusted caller. A downstream integration must implement
+/// and test the missing signature and device-integrity checks before this
+/// adapter can be described as verified phone-GPS attestation.
 pub struct PhoneGps {
-    /// Maximum permitted attestation age in seconds. GPS fixes older
-    /// than this are rejected. Default: 300 (five minutes).
+    /// Intended maximum attestation age in seconds. The current `verify`
+    /// method does not enforce this value; callers must invoke `is_fresh`
+    /// or add a time-aware verifier. Default: 300 (five minutes).
     pub max_age_seconds: u64,
     /// Acceptable device-pubkey set. If empty, any pubkey is accepted
     /// (useful for first-run when the verifier has no device-key
@@ -184,9 +181,8 @@ impl AttestationSource for PhoneGps {
             return Err(AttestationError::UntrustedAttester);
         }
 
-        // Actual signature verification happens in the downstream
-        // phone bridge; here we only enforce envelope hygiene.
-        // A richer impl would plug in the device-key verifier here.
+        // This is only an envelope check. No cryptographic signature
+        // verification or freshness check is performed by this adapter.
         if attestation.attester_signature.is_empty() {
             return Err(AttestationError::SignatureInvalid {
                 reason: "empty signature".to_string(),
@@ -196,14 +192,11 @@ impl AttestationSource for PhoneGps {
     }
 }
 
-/// T2 — civic-bridge attestation. Signed by the `mycelix-civic`
-/// robotics-dispatch telemetry layer, which requires a live physical
-/// presence (robotic agent physically observed the user at a place)
-/// or multi-party attestation from civic infrastructure.
+/// T2 — reserved for a civic-bridge attestation adapter.
 ///
-/// Stub: the actual civic-bridge integration lives in a downstream
-/// crate that depends on `mycelix-civic`. This source, invoked in
-/// isolation, always returns `NotImplemented`.
+/// The implementation in this crate is a stub and always returns
+/// `NotImplemented`. No live civic observation or multi-party
+/// attestation is verified by this type.
 pub struct CivicBridge;
 
 impl AttestationSource for CivicBridge {
@@ -218,15 +211,11 @@ impl AttestationSource for CivicBridge {
     }
 }
 
-/// T3 — hardware TEE attestation (Android StrongBox, iOS Secure
-/// Enclave, Android Play Integrity with hardware-backed attestation).
-/// Signature is produced by a key that cannot be exported from the
-/// TEE, providing strong evidence the device was physically at the
-/// claimed location.
+/// T3 — reserved for a hardware-backed attestation adapter.
 ///
-/// Stub: real TEE integration requires per-platform bindings that
-/// live in downstream crates. This source always returns
-/// `NotImplemented` from the core crate.
+/// The implementation in this crate is a stub and always returns
+/// `NotImplemented`. It does not verify Android / iOS hardware attestation
+/// or prove physical presence.
 pub struct HardwareTee;
 
 impl AttestationSource for HardwareTee {
@@ -241,12 +230,10 @@ impl AttestationSource for HardwareTee {
     }
 }
 
-/// T4 — notary-oracle attestation. A threshold set of notary oracles
-/// jointly sign the location claim. Strongest tier; requires live
-/// oracle network infrastructure and is therefore the slowest to
-/// deploy.
+/// T4 — reserved for a notary-oracle attestation adapter.
 ///
-/// Stub: notary network integration is future work.
+/// The implementation in this crate is a stub and always returns
+/// `NotImplemented`. No notary network signature or threshold is verified.
 pub struct NotaryOracle;
 
 impl AttestationSource for NotaryOracle {

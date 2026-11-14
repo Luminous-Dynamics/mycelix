@@ -47,6 +47,14 @@ Honest per-cluster status, current as of this repo's own internal tracking (not 
 
 **None of this has been independently threat-modeled or externally audited.** "Multi-agent test: Yes" means real Tryorama/sweettest coverage exists for that cluster, not that it's been reviewed by anyone outside this project.
 
+### Identity interoperability and cryptographic claim boundary
+
+The public Identity implementation uses a custom `did:mycelix` method format and VC 2.0-shaped credential records. That does not by itself establish DID resolution interoperability, W3C Data Integrity cryptosuite conformance, OpenID4VCI/VP conformance, eIDAS/EUDI Wallet compliance, or independent security review.
+
+In the current public VC coordinator, Ed25519 verification uses a Mycelix-specific content hash. The hybrid signature path checks its Ed25519 component in WASM; the pure ML-DSA/SLH-DSA path currently checks signature structure/length rather than verifying the post-quantum signature cryptographically in WASM. The experimental `eidas-zkp` crate's placeholder proof fixtures and claim-filtering helpers are not evidence of proof verification or EUDI conformance.
+
+See [Mycelix Identity README](mycelix-identity/README.md) and the [Identity Interoperability and Assurance Roadmap](docs/identity/INTEROPERABILITY_AND_ASSURANCE.md) for the exact implementation boundary, signature-coverage risks, and staged standards/conformance work. Treat the [internal security-status note](SECURITY_STATUS.md) as a dated internal review, not an external audit; verify the exact public commit and component before relying on any remediation claim.
+
 ## Structure
 
 ```

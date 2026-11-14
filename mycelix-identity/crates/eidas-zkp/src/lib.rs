@@ -1,18 +1,24 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! eIDAS 2.0 compliant ZKP selective disclosure for EUDI Wallet.
+//! Experimental VC-shaped credential and selective-disclosure data structures.
+//!
+//! This crate demonstrates serialization shapes, metadata handling, and claim
+//! filtering. It accepts proof strings from callers; it does not generate or
+//! cryptographically verify DASTARK, ML-DSA, or holder proofs. It is not an
+//! eIDAS/EUDI Wallet implementation or a W3C Data Integrity cryptosuite.
 
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
-/// Cryptosuite identifier for DASTARK proofs in W3C Data Integrity.
+/// Project-local experimental identifier; not a registered W3C cryptosuite.
 pub const CRYPTOSUITE_DASTARK: &str = "dastark-2026";
 
-/// Cryptosuite for Dilithium5 post-quantum signatures.
+/// Project-local experimental identifier; not by itself a W3C cryptosuite.
 pub const CRYPTOSUITE_DILITHIUM5: &str = "dilithium5-2026";
 
-/// An eIDAS-compliant verifiable credential with selective-disclosure metadata.
+/// VC-shaped credential data structure with caller-supplied proof metadata.
+/// This type does not generate or validate the supplied proof string.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EidasCredential {
     /// W3C VC 2.0 context.
@@ -70,7 +76,7 @@ pub struct EidasSubject {
     pub claims_merkle_root: Option<String>,
 }
 
-/// DASTARK or Dilithium proof in W3C Data Integrity format.
+/// Project-local proof metadata; this type does not implement a standardized cryptosuite.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EidasProof {
     /// Must be "DataIntegrityProof".
@@ -132,7 +138,8 @@ pub struct MerkleClaimProof {
     pub leaf_hash: String,
 }
 
-/// Create an eIDAS-compliant credential with DASTARK proof.
+/// Construct a VC-shaped example with a caller-supplied proof string.
+/// No proof is generated or verified by this function.
 pub fn create_eidas_credential(
     issuer_did: &str,
     subject_did: &str,
@@ -170,7 +177,8 @@ pub fn create_eidas_credential(
     }
 }
 
-/// Create a selective disclosure presentation from a credential.
+/// Construct a presentation-shaped object by filtering visible claims.
+/// The supplied predicate/proof metadata is copied without verification.
 pub fn create_selective_presentation(
     credential: &EidasCredential,
     disclosed_keys: &[&str],

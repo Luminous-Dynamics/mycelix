@@ -1,17 +1,16 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-//! Unlinkability test — Vector 2 of the threat model.
+//! Synthetic nonce-dependent placeholder smoke tests.
 //!
-//! > Threat: repeated proofs from the same `legal` DID are byte-
-//! > identical, or timestamps cluster around known `legal` DID
-//! > actions, allowing an observer to link sessions.
+//! **These are not cryptographic unlinkability tests.** `synth_proof`
+//! computes SHA-256 digests from fixed inputs and a seeded nonce; it does
+//! not call a STARK prover, cross-DID coordinator, or privacy verifier.
+//! The byte-distinctness and byte-histogram checks characterize only these
+//! placeholder hashes. A chi-squared histogram over SHA-256 outputs is not
+//! cryptanalysis and cannot establish privacy or unlinkability.
 //!
-//! Construction: for the same `(legal_did, issuer, claim)` triple,
-//! vary only the nonce and assert all resulting proofs are:
-//!   1. Byte-distinct.
-//!   2. Statistically indistinguishable from random (rough chi-squared).
-//!   3. Not linkable by any per-claim deterministic field.
+//! See `mycelix-lawful-identity/docs/THREAT_MODEL.md` for current status.
 
 use base64::Engine;
 use cross_did_zkp_integrity::CrossDidProof;
@@ -83,7 +82,7 @@ fn fresh_nonce(i: usize) -> String {
 }
 
 #[test]
-fn repeated_proofs_same_claim_different_nonces_are_distinct() {
+fn placeholder_records_are_distinct_for_seeded_nonces() {
     let mut proofs = Vec::with_capacity(N_PROOFS);
     for i in 0..N_PROOFS {
         let nonce = fresh_nonce(i);
@@ -104,7 +103,7 @@ fn repeated_proofs_same_claim_different_nonces_are_distinct() {
 }
 
 #[test]
-fn proof_value_bytes_appear_uniformly_distributed() {
+fn placeholder_hash_histogram_passes_smoke_threshold() {
     // Rough chi-squared test over proof_value bytes — if the proof
     // carries a deterministic per-DID fingerprint, we'd see bias in
     // the byte distribution. This is a smoke test, not cryptanalysis.
@@ -150,7 +149,7 @@ fn proof_value_bytes_appear_uniformly_distributed() {
 }
 
 #[test]
-fn deterministic_fields_match_across_same_claim() {
+fn deterministic_placeholder_fields_match_across_same_claim() {
     // `issuer_pk_hash` and `claim_predicate_hash` MUST match across
     // proofs of the same claim (they're the public surface the
     // verifier uses to know what was proven). This test protects
@@ -165,14 +164,14 @@ fn deterministic_fields_match_across_same_claim() {
 }
 
 #[test]
-fn different_claims_produce_different_claim_hashes() {
+fn different_claims_produce_different_placeholder_claim_hashes() {
     let p_age = synth_proof(ISSUER, "age_over_21:true", &fresh_nonce(0), 0);
     let p_nat = synth_proof(ISSUER, "nationality:USA", &fresh_nonce(0), 0);
     assert_ne!(p_age.claim_predicate_hash, p_nat.claim_predicate_hash);
 }
 
 #[test]
-fn different_issuers_produce_different_issuer_hashes() {
+fn different_issuers_produce_different_placeholder_issuer_hashes() {
     let p_state = synth_proof("did:web:state.gov", CLAIM, &fresh_nonce(0), 0);
     let p_gov_uk = synth_proof("did:web:gov.uk", CLAIM, &fresh_nonce(0), 0);
     assert_ne!(p_state.issuer_pk_hash, p_gov_uk.issuer_pk_hash);

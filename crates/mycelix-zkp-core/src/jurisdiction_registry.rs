@@ -12,8 +12,10 @@
 //!
 //! In practice, a community or a regulator will publish a registry,
 //! users will import it, and verifiers will assert "I accept boxes
-//! from registry X." The registry itself is content-addressed via a
-//! BLAKE3 hash so mismatched versions fail loudly.
+//! from registry X." The project's deterministic digest uses SHA-256
+//! over the registry name, version, and sorted box IDs/bounds. It does
+//! not bind the publisher or publication timestamp; it is not a signature
+//! or a digest of the complete registry document.
 
 #[cfg(feature = "backend-winterfell")]
 use crate::circuits::jurisdiction_proof::JurisdictionBox;
@@ -40,10 +42,11 @@ pub struct JurisdictionRegistry {
 
 #[cfg(feature = "backend-winterfell")]
 impl JurisdictionRegistry {
-    /// Content-addressed digest over the canonical serialization of
-    /// the box list. Two registries with the same boxes have the same
-    /// digest; verifiers should compare digests when reporting "I
-    /// accept registry X version Y."
+    /// Project-specific SHA-256 digest over the registry name, version,
+    /// and sorted box IDs and bounds. The current digest excludes
+    /// `published_at` and `publisher`; it is not a signature or a digest
+    /// of every serialized registry field. Verifiers should not treat it
+    /// as authenticated publisher provenance.
     pub fn digest(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
         hasher.update(b"MYCELIX-JURISDICTION-REGISTRY:v1:");

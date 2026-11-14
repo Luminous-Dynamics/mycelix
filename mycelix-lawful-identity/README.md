@@ -1,6 +1,6 @@
 # mycelix-lawful-identity
 
-The **legal-DID** namespace for Mycelix. Handles government-ID-backed credentials, issuer trust tiers, and cross-DID zero-knowledge bridges — strictly isolated from the primary consciousness-gated identity.
+The **legal-DID** namespace for Mycelix. It explores government-ID-backed credential references, issuer trust tiers, and cross-DID coordination interfaces — strictly isolated from the primary identity namespace. The current cross-DID coordinator issues nonces and records submitted proof strings for replay bookkeeping; it explicitly does not verify those proof strings cryptographically.
 
 Part of the [state-coexistence extensions](../MYCELIX_STATE_COEXISTENCE.md).
 
@@ -11,7 +11,7 @@ did:mycelix:primary  ──  governance, MYCEL, TEND, social graph  (pseudonymou
 did:mycelix:legal    ──  ONLY state-facing interactions         (this cluster)
 ```
 
-The two DIDs share **zero on-chain linkability**. Any cross-link is **ZKP-only**: the primary DID can prove "I control a legal DID holding credential X from issuer Y" without revealing *which* legal DID.
+The design goal is to minimize direct on-chain linkability between the two DID namespaces. The current cross-DID zome provides nonce issuance and replay bookkeeping, not a verified zero-knowledge bridge. Do not claim that a submitted proof is valid or that unlinkability has been demonstrated until a real proof verifier, independent tests, and privacy analysis are in place.
 
 ## What's here
 
@@ -19,8 +19,8 @@ The two DIDs share **zero on-chain linkability**. Any cross-link is **ZKP-only**
 |------|------|
 | `zomes/legal-did/` | Isolated DID namespace with distinct DHT partition |
 | `zomes/issuer-trust-tier/` | Three tiers: Sovereign / RegulatedIntermediary / Peer |
-| `zomes/cross-did-zkp/` | Primary ↔ legal cross-proof with fresh-nonce replay protection |
-| `cli/` | `lawful-id` CLI for import + proof generation + onboarding disclosures |
+| `zomes/cross-did-zkp/` | Nonce issuance and proof-submission replay bookkeeping; current coordinator stores proof bytes without cryptographically verifying them |
+| `cli/` | `lawful-id` CLI for legal-DID lifecycle, credential-hash import, nonce requests, and onboarding disclosures; inspect each command for whether it is live or locally staged |
 | `docs/THREAT_MODEL.md` | Four adversary vectors: what's cryptographically neutralized, what isn't |
 | `docs/GOV_ID_CLAIM_SHAPES.md` | Claim-key conventions for mDL / passport / SSN-equivalent |
 
@@ -32,11 +32,13 @@ The two DIDs share **zero on-chain linkability**. Any cross-link is **ZKP-only**
 - No "legal name" field on the primary DID profile.
 - No court-order key disclosure protocol (separate `mycelix-lawful-response` cluster if ever built).
 
-## Underlying crypto
+## Underlying credential and proof components
 
-Reuses `mycelix-identity/crates/eidas-zkp/` — W3C VC 2.0, DASTARK + Dilithium5, Merkle selective disclosure, range/membership/equality proven claims. A passport credential is just an eIDAS credential with specific claim keys (see `GOV_ID_CLAIM_SHAPES.md`).
+The `mycelix-identity/crates/eidas-zkp/` crate currently provides experimental VC-shaped structures, caller-supplied proof metadata, and ordinary JSON claim filtering. It does **not** generate or verify DASTARK/ML-DSA proofs, implement an interoperable W3C Data Integrity cryptosuite, or establish eIDAS/EUDI Wallet conformance. Do not treat a `ProvenClaim` description as a verified predicate.
 
-Jurisdiction-in-credential range proofs reuse `crates/mycelix-zkp-core/src/circuits/range_proof.rs` via the new `jurisdiction_proof.rs` circuit.
+There is a separate, feature-gated Winterfell-backed jurisdiction-containment circuit in [`mycelix-zkp-core::circuits::jurisdiction_proof`](../crates/mycelix-zkp-core/src/circuits/jurisdiction_proof.rs). When built with `backend-winterfell`, it generates and verifies range proofs that a supplied coordinate lies within a selected bounding box. **This proves containment of the submitted coordinate, not that the coordinate is truthful or came from a trusted device.** The associated [location-attestation adapters](../crates/mycelix-zkp-core/src/location_attestation.rs) have separate trust requirements: the current T1 phone-GPS adapter does not perform the downstream device-signature verification itself, and T2–T4 adapters are documented stubs returning `NotImplemented`.
+
+The cross-DID coordinator is also separate from proof verification: it issues nonces and stores caller-submitted proof strings for replay bookkeeping; its own module documentation explicitly says it does not cryptographically verify `proof_value`. The claim-key conventions in `docs/GOV_ID_CLAIM_SHAPES.md` are data-shape guidance, not issuer assurance or proof-generation code. See the [Mycelix Identity Interoperability and Assurance Roadmap](../docs/identity/INTEROPERABILITY_AND_ASSURANCE.md).
 
 ## Build
 
