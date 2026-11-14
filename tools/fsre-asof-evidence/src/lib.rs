@@ -443,15 +443,21 @@ fn evaluate(input: &Input) -> String {
             "NOT_ESTIMABLE"
         };
         let hindsight = counts.map(|c| c.hindsight_revocation).unwrap_or(0);
+        let freshness_basis = if claim.max_age_override.is_some() {
+            "CLAIM_OWNER_DECLARED"
+        } else {
+            "STUDY_DEFAULT"
+        };
         total_hindsight += hindsight;
         out.push(format!(
-            "claim={}|{}|admissible={}|required={}|missing={}|max_age_seconds={}|hindsight_revocations={}|owner={}|ref={}",
+            "claim={}|{}|admissible={}|required={}|missing={}|max_age_seconds={}|freshness_policy_basis={}|hindsight_revocations={}|owner={}|ref={}",
             claim.id,
             disposition,
             admissible,
             claim.required_count,
             missing,
             claim.max_age_override.unwrap_or(input.max_age),
+            freshness_basis,
             hindsight,
             claim.owner,
             claim.source_ref
@@ -668,7 +674,7 @@ mod tests {
             "CLAIM|claim-fuel|fuel_stock|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:fuel|1|3000",
         );
         let report = validate_and_report(&source).expect("claim-specific freshness policy");
-        assert!(report.contains("claim=fuel_stock|NOT_ESTIMABLE|admissible=0|required=1|missing=1|max_age_seconds=3000"));
+        assert!(report.contains("claim=fuel_stock|NOT_ESTIMABLE|admissible=0|required=1|missing=1|max_age_seconds=3000|freshness_policy_basis=CLAIM_OWNER_DECLARED"));
         assert!(report.contains("e-fuel|fuel_stock|STALE|admissible=NO"));
     }
 
@@ -679,7 +685,7 @@ mod tests {
             "CLAIM|claim-fuel|fuel_stock|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:fuel|1|4000",
         );
         let report = validate_and_report(&source).expect("claim-specific freshness policy");
-        assert!(report.contains("claim=fuel_stock|SUPPORTED_AS_KNOWN_AT_CUTOFF|admissible=1|required=1|missing=0|max_age_seconds=4000"));
+        assert!(report.contains("claim=fuel_stock|SUPPORTED_AS_KNOWN_AT_CUTOFF|admissible=1|required=1|missing=0|max_age_seconds=4000|freshness_policy_basis=CLAIM_OWNER_DECLARED"));
         assert!(report.contains("e-fuel|fuel_stock|ADMISSIBLE|admissible=YES"));
     }
 
