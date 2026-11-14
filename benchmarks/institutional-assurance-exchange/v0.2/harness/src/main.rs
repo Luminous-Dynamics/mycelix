@@ -671,7 +671,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         let matching_event=operation_events.iter().find(|event|
             event.get("event_ref").and_then(Value::as_str)==Some(event_ref));
         let event=matching_event.ok_or_else(||invalid(format!("write trace event {event_ref} absent from operation history")))?;
-        for field in ["operation_ref","idempotency_ref","action","purpose","asset_ref","actor_ref"] {
+        for field in ["operation_ref","idempotency_ref","action","purpose","asset_ref","actor_ref","canonical_operation_digest","action_digest"] {
             if write.get(field)!=event.get(field) {
                 return Err(invalid(format!("write trace {event_ref}: {field} differs from operation event")));
             }
