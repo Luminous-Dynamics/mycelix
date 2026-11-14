@@ -6571,7 +6571,7 @@
           "projection_includes_payload": false,
           "supersedes_ref": "NONE",
           "issuer_ref": "REMEDY-OBS-ISSUER-R05",
-          "observer_ref": "REMEDY-EXECUTOR-R05"
+          "observer_ref": "REMEDY-OBSERVER-R05"
         }
       ],
       "expected": {
