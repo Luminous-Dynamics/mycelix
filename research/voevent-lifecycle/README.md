@@ -2,7 +2,7 @@
 
 A dependency-free, read-only Rust reference implementation for replaying the lifecycle citations of VOEvent packets as they were **received by a specified cutoff**.
 
-This is the executable slice tracked by [ASTRO-VOEVENT-LIFECYCLE-001](https://github.com/Luminous-Dynamics/mycelix/issues/6158). It complements, rather than replaces, the bounded XML root-header parser in [#6157](https://github.com/Luminous-Dynamics/mycelix/pull/6157).
+This is the executable slice tracked by [ASTRO-VOEVENT-LIFECYCLE-001](https://github.com/Luminous-Dynamics/mycelix/issues/6158). It complements, rather than replaces, the bounded XML root-header parser in [#6157](https://github.com/Luminous-Dynamics/mycelix/pull/6157). The full evaluation protocol is in [BENCHMARKS.md](BENCHMARKS.md).
 
 ## Why this exists
 
