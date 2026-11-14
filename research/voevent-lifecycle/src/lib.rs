@@ -91,7 +91,7 @@ pub struct Packet {
     pub packet_sha256: Option<String>,
     /// Publisher identifier asserted by the packet source; this is not authentication.
     pub publisher: Option<String>,
-    /// Fabric receipt time in Unix milliseconds.
+    /// Caller-supplied receipt-time assertion in Unix milliseconds; not authenticated here.
     pub received_at_unix_ms: u64,
     /// Exact publication-time lexical value, if supplied. Not parsed or compared.
     pub published_at: Option<String>,
@@ -104,10 +104,10 @@ pub struct Packet {
     pub citations: Vec<Citation>,
 }
 
-/// A raw source packet paired with an independently supplied ingress receipt.
+/// A raw source packet paired with a caller-supplied receipt-time assertion.
 ///
-/// Receipt identity and time are assertions of the ingest boundary. This crate
-/// does not authenticate the receipt or replace a signed append-only receipt log.
+/// This is suitable for synthetic/retrospective fixtures. It is not an
+/// authenticated ingress receipt and must not be used as production authority.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct ReceivedPacket {
     pub received_at_unix_ms: u64,
@@ -219,8 +219,9 @@ fn packet_from_source(
 
 /// Reconstruct the event graph from exact source XML and separate ingress receipts.
 ///
-/// Receipt-time cutoff is applied before parsing: future packets cannot poison a
-/// historical replay with malformed XML or metadata. Each included packet is
+/// The manifest's asserted receipt-time cutoff is applied before parsing: future
+/// packets cannot poison a historical replay with malformed XML or metadata.
+/// The returned replay marks that time basis unattested. Each included packet is
 /// parsed directly by the same versioned parser crate used by the CLI.
 pub fn replay_manifest(manifest: ReplayManifest) -> Result<Replay, ManifestError> {
     let mut packets = Vec::with_capacity(manifest.packets.len());
@@ -354,9 +355,10 @@ impl Error for ReplayError {}
 
 /// Reconstruct the lifecycle graph using only packets received at or before the cutoff.
 ///
-/// Only receipt time controls visibility. Publication time and event time are copied verbatim
-/// and are never used to make a packet visible earlier. Validation is cutoff-scoped, so
-/// malformed future packets cannot poison a past view.
+/// Only the supplied receipt-time assertion controls visibility. Publication time and
+/// event time are copied verbatim and never used to make a packet visible earlier.
+/// Validation is cutoff-scoped, so malformed future packets cannot poison a past view.
+/// The output labels this time basis as unattested.
 pub fn replay_as_of(
     packets: &[Packet],
     cutoff_unix_ms: u64,
