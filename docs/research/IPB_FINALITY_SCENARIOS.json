@@ -295,17 +295,6 @@
         "atomicity": "not-claimed",
         "observation": "independent-reference-available"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "ALLOW",
-        "outcome_class": "CONFIRMED_APPLIED",
-        "required": [
-          "exact_operation_match",
-          "constitution_digest_current",
-          "authority_current_at_effectuation",
-          "effect_observed"
-        ]
-      },
       "owner_refs": [
         "60",
         "1161",
@@ -369,16 +358,6 @@
         "precondition": "supported",
         "idempotency": "not-needed-single-attempt"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "ALLOW",
-        "outcome_class": "AUTHORIZED_FOR_CURRENT_EPOCH",
-        "required": [
-          "old_approval_not_carried_forward",
-          "new_authorization_binds_epoch_8",
-          "new_authorization_binds_exact_operation"
-        ]
-      },
       "owner_refs": [
         "60",
         "1161",
@@ -428,16 +407,6 @@
       "provider_contract": {
         "conditional_update": "supported",
         "atomicity": "not-claimed"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "ALLOW",
-        "outcome_class": "CONFIRMED_APPLIED",
-        "required": [
-          "resource_precondition_matched",
-          "exact_target_match",
-          "independent_effect_observation"
-        ]
       },
       "owner_refs": [
         "2953",
@@ -489,17 +458,6 @@
       ],
       "provider_contract": {
         "effect": "read-only"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "ALLOW",
-        "outcome_class": "AUTHORIZED_READ",
-        "required": [
-          "child_scope_subset",
-          "purpose_match",
-          "expiry_not_exceeded",
-          "local_authority_current"
-        ]
       },
       "owner_refs": [
         "2953",
@@ -567,18 +525,6 @@
         "idempotency": "same-key-same-logical-operation",
         "status_query": "supported",
         "retry_after_confirmed_no_effect": "supported"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "ALLOW",
-        "outcome_class": "CONFIRMED_APPLIED_AFTER_RECONCILED_RETRY",
-        "required": [
-          "confirmed_no_effect_before_retry",
-          "same_operation_identity",
-          "same_idempotency_key",
-          "authority_rechecked",
-          "no_duplicate_effect"
-        ]
       },
       "owner_refs": [
         "1607",
@@ -648,16 +594,6 @@
         "per_action_receipts": "supported",
         "batch_atomicity": "not-claimed"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "ALLOW",
-        "outcome_class": "ALL_ACTIONS_CONFIRMED_APPLIED",
-        "required": [
-          "stable_action_identities",
-          "all_action_observations_present",
-          "no_atomicity_overclaim"
-        ]
-      },
       "owner_refs": [
         "1607",
         "2953",
@@ -710,16 +646,6 @@
       "provider_contract": {
         "effect_not_dispatched_before_preflight": "required"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "DENY",
-        "outcome_class": "NO_EFFECT",
-        "required": [
-          "ready_is_not_execution_lease",
-          "constitution_digest_mismatch_denies",
-          "no_provider_dispatch"
-        ]
-      },
       "owner_refs": [
         "60",
         "1161",
@@ -760,16 +686,6 @@
       ],
       "provider_contract": {
         "effect_not_dispatched_before_preflight": "required"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "DENY",
-        "outcome_class": "NO_EFFECT",
-        "required": [
-          "exact_digest_comparison",
-          "friendly_id_and_epoch_number_insufficient",
-          "no_provider_dispatch"
-        ]
       },
       "owner_refs": [
         "60",
@@ -820,16 +736,6 @@
       "provider_contract": {
         "effect_not_dispatched_before_exact_match": "required"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "DENY",
-        "outcome_class": "NO_EFFECT",
-        "required": [
-          "recipient_substitution_detected",
-          "payload_digest_mismatch_denies",
-          "no_provider_dispatch"
-        ]
-      },
       "owner_refs": [
         "2953",
         "60",
@@ -874,16 +780,6 @@
       ],
       "provider_contract": {
         "effect_not_dispatched_before_exact_match": "required"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "DENY",
-        "outcome_class": "NO_EFFECT",
-        "required": [
-          "amount_substitution_detected",
-          "payload_digest_mismatch_denies",
-          "no_provider_dispatch"
-        ]
       },
       "owner_refs": [
         "2953",
@@ -933,16 +829,6 @@
       "provider_contract": {
         "effect_not_dispatched_before_authority_check": "required"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "DENY",
-        "outcome_class": "NO_EFFECT",
-        "required": [
-          "revoked_authority_denies",
-          "ready_does_not_preserve_old_grant",
-          "no_provider_dispatch"
-        ]
-      },
       "owner_refs": [
         "60",
         "2953",
@@ -991,16 +877,6 @@
       "provider_contract": {
         "conditional_write": "required-for-this-case"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "DENY",
-        "outcome_class": "NO_EFFECT",
-        "required": [
-          "resource_precondition_mismatch_denies",
-          "target_ownership_rechecked",
-          "no_provider_dispatch"
-        ]
-      },
       "owner_refs": [
         "2953",
         "1607",
@@ -1045,16 +921,6 @@
       "provider_contract": {
         "effect_not_dispatched_before_scope_check": "required"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "DENY",
-        "outcome_class": "NO_EFFECT",
-        "required": [
-          "delegation_non_amplification",
-          "local_scope_check",
-          "no_provider_dispatch"
-        ]
-      },
       "owner_refs": [
         "2953",
         "3117",
@@ -1094,16 +960,6 @@
       "provider_contract": {
         "replay_protection": "declared-by-owner-contract",
         "one_use_consumption": "declared-by-authority-profile"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "DENY",
-        "outcome_class": "NO_SECOND_EFFECT",
-        "required": [
-          "consumed_authority_not_reused",
-          "no_duplicate_effect",
-          "replay_attempt_recorded"
-        ]
       },
       "owner_refs": [
         "1607",
@@ -1147,17 +1003,6 @@
         "idempotency": "unknown",
         "status_query": "not-available",
         "reconciliation": "not-proven"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "HOLD_FOR_RECONCILIATION",
-        "outcome_class": "UNKNOWN",
-        "required": [
-          "no_blind_retry",
-          "preserve_operation_identity",
-          "do_not_claim_no_effect",
-          "retain_unknown_state"
-        ]
       },
       "owner_refs": [
         "1607",
@@ -1222,18 +1067,6 @@
         "per_action_receipts": "supported",
         "batch_atomicity": "not-proven"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "HOLD_FOR_RECONCILIATION",
-        "outcome_class": "PARTIALLY_APPLIED",
-        "required": [
-          "successful_prefix_preserved",
-          "unknown_suffix_preserved",
-          "no_failure_no_effect_claim",
-          "no_batch_atomicity_claim",
-          "new_compensation_is_separate_forward_action"
-        ]
-      },
       "owner_refs": [
         "1607",
         "2953",
@@ -1280,16 +1113,6 @@
       "provider_contract": {
         "resource_side_fencing": "required-for-this-case"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "DENY",
-        "outcome_class": "NO_EFFECT",
-        "required": [
-          "resource_rejects_stale_fence",
-          "no_duplicate_effect",
-          "failover_epoch_currentness_verified"
-        ]
-      },
       "owner_refs": [
         "1607",
         "2953",
@@ -1328,16 +1151,6 @@
         "status_query": "unsupported",
         "cancellation": "unsupported",
         "reconciliation": "unsupported"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "INDETERMINATE",
-        "outcome_class": "UNKNOWN",
-        "required": [
-          "no_guarantee_invention",
-          "no_blind_retry",
-          "explicit_unsupported_provider_semantics"
-        ]
       },
       "owner_refs": [
         "1607",
@@ -1395,17 +1208,6 @@
       "provider_contract": {
         "effect_not_dispatched_when_mandatory_guardrail_unresolved": "required"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "INDETERMINATE",
-        "outcome_class": "NO_EFFECT",
-        "required": [
-          "mandatory_policy_error_not_silently_ignored",
-          "diagnostics_preserved",
-          "missing_required_context_not_treated_as_satisfied",
-          "no_provider_dispatch"
-        ]
-      },
       "owner_refs": [
         "2953",
         "3126",
@@ -1458,17 +1260,6 @@
         "decision_log_completeness": "not-guaranteed-by-this-configuration",
         "effect_status_query": "not-yet-available"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "HOLD_FOR_RECONCILIATION",
-        "outcome_class": "UNKNOWN",
-        "required": [
-          "log_absence_not_interpreted_as_no_decision",
-          "log_coverage_gap_reported",
-          "no_blind_retry",
-          "wait_for_owner_native_attempt_or_effect_observation"
-        ]
-      },
       "owner_refs": [
         "2953",
         "1607",
@@ -1508,17 +1299,6 @@
       "provider_contract": {
         "acknowledgement": "provider_signed",
         "independent_observation": "not-available"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "HOLD_FOR_RECONCILIATION",
-        "outcome_class": "PROVIDER_REPORTED_APPLIED_NOT_INDEPENDENTLY_OBSERVED",
-        "required": [
-          "preserve_provider_report",
-          "do_not_label_provider_ack_independent",
-          "independent_observation_gap_explicit",
-          "no_false_independence_claim"
-        ]
       },
       "owner_refs": [
         "2953",
@@ -1563,16 +1343,6 @@
       "provider_contract": {
         "independence": "known-shared-source-data-dependency"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "INDETERMINATE",
-        "outcome_class": "KNOWN_SHARED_DEPENDENCY",
-        "required": [
-          "retain_both_source_lineages",
-          "known_overlap_not_independent",
-          "no_corroboration_inflation"
-        ]
-      },
       "owner_refs": [
         "4835",
         "5762",
@@ -1609,16 +1379,6 @@
       ],
       "provider_contract": {
         "dependency_inventory": "incomplete"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "INDETERMINATE",
-        "outcome_class": "INDEPENDENCE_NOT_ASSESSED",
-        "required": [
-          "retain_known_dependency_facts",
-          "unknown_remainder_not_independent",
-          "no_numeric_independence_claim"
-        ]
       },
       "owner_refs": [
         "4835",
@@ -1666,18 +1426,6 @@
       "provider_contract": {
         "per_action_observation": "expected",
         "batch_atomicity": "not-claimed"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "HOLD_FOR_RECONCILIATION",
-        "outcome_class": "PARTIAL_WITH_UNKNOWN_SUFFIX",
-        "required": [
-          "expected_action_set_frozen",
-          "missing_action_observation_is_unknown",
-          "successful_prefix_preserved",
-          "not_full_completion",
-          "no_failure_no_effect_claim"
-        ]
       },
       "owner_refs": [
         "1607",
@@ -1737,16 +1485,6 @@
       ],
       "provider_contract": {
         "effect": "read-only"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "ALLOW",
-        "outcome_class": "AUTHORIZED_READ",
-        "required": [
-          "session_epoch_matches_authority_epoch",
-          "delegation_is_attenuated",
-          "exact_action_resource_purpose_match"
-        ]
       },
       "owner_refs": [
         "2953",
@@ -1808,17 +1546,6 @@
       ],
       "provider_contract": {
         "effect_not_dispatched_on_revocation_or_stale_session_epoch": "required"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "DENY",
-        "outcome_class": "NO_EFFECT",
-        "required": [
-          "revocation_effective_before_action",
-          "revocation_known_before_action",
-          "stale_session_epoch_detected",
-          "no_provider_dispatch"
-        ]
       },
       "owner_refs": [
         "60",
@@ -1901,17 +1628,6 @@
       "provider_contract": {
         "effect_not_dispatched_when_any_delegation_edge_amplifies": "required"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "DENY",
-        "outcome_class": "NO_EFFECT",
-        "required": [
-          "grandchild_subset_of_immediate_parent",
-          "field_scope_non_amplification",
-          "action_scope_non_amplification",
-          "no_provider_dispatch"
-        ]
-      },
       "owner_refs": [
         "2953",
         "3117",
@@ -1965,16 +1681,6 @@
       ],
       "provider_contract": {
         "all_reachable_paths_must_be_mediated": "required"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "DENY",
-        "outcome_class": "NO_EFFECT",
-        "required": [
-          "reachable_bypass_detected",
-          "complete_mediation_claim_rejected",
-          "no_protected_effect"
-        ]
       },
       "owner_refs": [
         "2953",
@@ -2064,17 +1770,6 @@
       "provider_contract": {
         "no_excess_effective_privilege_for_task": "required"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "DENY",
-        "outcome_class": "NO_TOOL_SESSION_WITH_EXCESS_PRIVILEGE",
-        "required": [
-          "all_active_grants_included",
-          "trajectory_privilege_union_exceeds_task",
-          "excess_privilege_not_ignored_because_unused",
-          "no_mutation"
-        ]
-      },
       "owner_refs": [
         "2953",
         "3126",
@@ -2123,16 +1818,6 @@
       "provider_contract": {
         "subject_binding_required": "required"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "DENY",
-        "outcome_class": "NO_EFFECT",
-        "required": [
-          "credential_subject_equals_presenting_principal",
-          "valid_signature_not_enough",
-          "no_provider_dispatch"
-        ]
-      },
       "owner_refs": [
         "2953",
         "3117",
@@ -2178,16 +1863,6 @@
       ],
       "provider_contract": {
         "alternate_route_coverage": "unknown"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "INDETERMINATE",
-        "outcome_class": "MEDIATION_COVERAGE_UNPROVEN",
-        "required": [
-          "inventory_incompleteness_explicit",
-          "no_complete_mediation_claim",
-          "no_unverified_bypass_assumption"
-        ]
       },
       "owner_refs": [
         "4835",
@@ -2242,16 +1917,6 @@
       "provider_contract": {
         "revocation_status": "unavailable",
         "cache_freshness_guarantee": "not_provided"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "INDETERMINATE",
-        "outcome_class": "AUTHORITY_PROPAGATION_UNKNOWN",
-        "required": [
-          "stale_session_epoch_detected",
-          "unknown_status_not_treated_as_active",
-          "no_provider_dispatch"
-        ]
       },
       "owner_refs": [
         "2953",
@@ -2315,17 +1980,6 @@
         "write_effect": "external_vendor_purchase",
         "dispatch_requires_exact_operation_authority": "required"
       },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "INDETERMINATE",
-        "outcome_class": "NO_EFFECT_AWAITING_PRINCIPAL_CLARIFICATION",
-        "required": [
-          "ambiguity_preserved",
-          "no_inferred_recipient_or_amount",
-          "no_provider_dispatch",
-          "request_principal_clarification"
-        ]
-      },
       "owner_refs": [
         "2953",
         "3117",
@@ -2387,18 +2041,6 @@
         "write_effect": "external_vendor_purchase",
         "idempotency": "qualified_same_key",
         "effect_dispatch": "only_after_exact_approval"
-      },
-      "oracle": {
-        "terminal_state": "PASS",
-        "disposition": "ALLOW",
-        "outcome_class": "EXACT_OPERATION_AUTHORIZED",
-        "required": [
-          "clarification_fields_complete",
-          "human_operation_approval_separate_from_task_request",
-          "exact_operation_matches_approval",
-          "current_authority_and_constitution",
-          "idempotency_bound"
-        ]
       },
       "owner_refs": [
         "2953",
