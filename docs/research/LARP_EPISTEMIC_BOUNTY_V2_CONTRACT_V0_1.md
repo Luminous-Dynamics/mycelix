@@ -117,7 +117,7 @@ The result includes stable reason codes, source digests, local policy version, r
 
 ## 9. Benchmark programme
 
-The companion input corpus contains 12 synthetic cases with a separate oracle. It includes:
+The companion input corpus contains 13 synthetic cases with a separate oracle. It includes:
 - benign high-similarity agreement;
 - low-similarity coordinated behavior;
 - uncorroborated cartel suspicion;
