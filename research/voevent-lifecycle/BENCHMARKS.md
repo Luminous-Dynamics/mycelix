@@ -117,6 +117,17 @@ These are goals for future evaluations, not results achieved by v0.1.
 
 The 20% regret target is not a claim of current superiority. It must be tested with paired, held-out tasks and confidence intervals.
 
+### Research-frontier stretch targets
+
+These are intentionally ambitious, proposed targets, not achieved results:
+
+- **EarthShift-style geospatial OOD:** after faithfully reproducing the published baselines on the same 11 tasks and five shift families, target an average OOD degradation of **10% or less**, compared with the paper's reported 15–20% average degradation, while limiting in-domain regression to at most 1 percentage point and improving the weakest geography/scale/sensor/source shift. Report all five axes separately; a pooled gain cannot hide a worsening sensor or geographic shift.
+- **Full-cycle scientific rediscovery:** target **greater than 60 F1** on a FIRE-Bench-compatible evaluation under matched task, model, tool, compute and execution budgets, against the paper's reported frontier results below 50 F1. Require at least five independent runs per task or a power-justified larger sample, task-level confidence intervals, and independent verification of the reproduced finding. This is a research-agent benchmark target, not direct proof of success in astronomy, Earth science or field campaigns.
+- **Scientific ideation:** improve evidence-grounded novelty against literature retrieval while preserving or improving falsifiability and feasibility. Report the originality, grounding, clarity, specificity and feasibility critics independently; do not optimize a single blended LLM-judge reward.
+- **Decision quality:** preserve the ≥20% held-out regret-reduction stretch target at the same eligible follow-up/compute budget, with hard integrity and rights gates applied before scoring.
+
+A result only counts as a SOTA comparison after the reference protocol, dataset rights, split, model/harness configuration, adaptation budget and evaluator have been reproduced. An unavailable or non-equivalent baseline is `NOT_RUN`, not a loss or win.
+
 ### Scale gates
 
 Measure replay at 10^3, 10^4, 10^5 and 10^6 packet records, reporting throughput, memory, p50/p95 latency and index/build costs. Keep correctness tests enabled at each scale. Do not optimize away provenance or temporal semantics to improve throughput.
