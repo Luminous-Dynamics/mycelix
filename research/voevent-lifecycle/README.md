@@ -23,11 +23,11 @@ The API is deliberately an **as-known-at** view:
 3. Validation is scoped to the cutoff. A malformed or duplicate packet received in the future cannot alter a past replay.
 4. References to packets not yet visible remain explicit unresolved edges. They can resolve in a later replay without rewriting the earlier result.
 5. Retractions and supersessions add effects; they never delete historical packets or citations.
-6. The parser projection is bound to the supplied exact UTF-8 XML bytes by both byte length and a SHA-256 recomputed by this adapter before replay.
+6. The exact source XML is parsed by the canonical parser library in the same call that computes its byte length and SHA-256; the replay layer does not accept a caller-supplied metadata projection.
 
 The receipt timestamp is an input from the ingest layer; this crate does not attest that timestamp or provide an append-only receipt log. A production fabric must bind it to a trusted, independently auditable ingress receipt.
 
-This crate does not parse timestamps, convert TT/TDB/UTC, interpret coordinate frames, validate XML, authenticate IVOIDs or publishers, check signatures, evaluate rights, qualify calibration, infer physical independence, or assess astrophysical truth. An attributed publisher is not an authenticated publisher. A carried digest is not a verified digest unless the upstream byte-binding step has been independently checked.
+This crate performs bounded VOEvent XML extraction using the adjacent parser, but it does not perform full XSD/STC validation, parse or convert WhereWhen time scales, interpret coordinate frames, authenticate IVOIDs or publishers, check signatures, evaluate rights, qualify calibration, infer physical independence, or assess astrophysical truth. An attributed publisher is not an authenticated publisher. The digest is computed from the exact string's UTF-8 bytes, but the ingress timestamp remains unauthenticated until backed by a trusted receipt.
 
 ## Run
 
@@ -41,7 +41,7 @@ The isolated package uses a local path dependency on the adjacent VOEvent parser
 
 ## Tests in v0.1
 
-The 12-case unit corpus covers:
+The synthetic unit corpus covers:
 
 - late-arriving supersession must not leak into an earlier replay;
 - retraction by a different publisher with the original packet retained;
@@ -69,7 +69,7 @@ This package is a semantic oracle for a larger scientific-observability benchmar
 | Contradictory relation coercions | 0 |
 | Rights, source-authentication, or instrument-authority bypasses | 0 |
 
-Do not report these as achieved benchmark scores until the complete frozen corpus and independent evaluator exist. The current unit tests only exercise the cases listed above.
+Do not report these as achieved benchmark scores until the complete frozen corpus and independent evaluator exist. The current unit tests exercise the cases listed above and use the same parser crate directly; they are not real astronomical observations.
 
 For a full investigation benchmark, report per-domain results rather than one pooled score: proper prediction scores, event false alarms per exposure, decision regret at equal resource budgets, follow-up cost, time-to-resolution, reviewer burden, worst-stratum performance, and reproducibility. Include no-follow-up, fixed-schedule, expert/broker, anomaly-greedy, information-gain-greedy, decision-theoretic EVSI/ENBS, and model/agent baselines. A hidden-truth oracle is a synthetic upper bound only.
 
