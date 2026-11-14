@@ -640,6 +640,13 @@ mod tests {
         .into_bytes()
     }
 
+    fn packet_with_body(body: &str) -> Vec<u8> {
+        format!(
+            "<VOEvent ivorn=\"ivo://example.org/stream?packet-1\" version=\"2.1\">{body}</VOEvent>"
+        )
+        .into_bytes()
+    }
+
     #[test]
     fn preserves_explicit_observation_role_and_source_identity() {
         let bytes = packet(
@@ -775,6 +782,140 @@ mod tests {
             parse_header(&[0xff, 0xfe, 0x00, 0x00]),
             Err(ParseError::UnsupportedEncoding)
         );
+    }
+
+    #[test]
+    fn packet_without_citations_preserves_new_event_semantics() {
+        let bytes = packet_with_body("<Who/><What/>");
+        let parsed = parse_packet(&bytes).expect("packet");
+        assert!(!parsed.citations_present);
+        assert!(parsed.citations.is_empty());
+        assert_eq!(parsed.citations_description, None);
+        assert_eq!(parsed.header.packet_byte_length, bytes.len());
+    }
+
+    #[test]
+    fn extracts_multiple_typed_citations_and_preserves_attributes_and_description() {
+        let bytes = packet_with_body(
+            r#"<Citations>
+                <EventIVORN cite="followup">ivo://survey.example/event?first</EventIVORN>
+                <EventIVORN cite="supersedes" publisher-note="reprocessed">ivo://survey.example/event?second&amp;revised</EventIVORN>
+                <Description> Reprocessed &amp; corrected after independent review. </Description>
+            </Citations>"#,
+        );
+        let parsed = parse_packet(&bytes).expect("packet with citations");
+
+        assert!(parsed.citations_present);
+        assert_eq!(parsed.citations.len(), 2);
+        assert_eq!(parsed.citations[0].relation, CitationRelation::Followup);
+        assert_eq!(
+            parsed.citations[0].target_ivoid,
+            "ivo://survey.example/event?first"
+        );
+        assert_eq!(parsed.citations[1].relation, CitationRelation::Supersedes);
+        assert_eq!(
+            parsed.citations[1].target_ivoid,
+            "ivo://survey.example/event?second&revised"
+        );
+        assert!(parsed.citations[1].attributes.iter().any(|attribute| {
+            attribute.name == "publisher-note" && attribute.value == "reprocessed"
+        }));
+        assert_eq!(
+            parsed.citations_description.as_deref(),
+            Some("Reprocessed & corrected after independent review.")
+        );
+        assert_eq!(parsed.header.packet_sha256.len(), 64);
+    }
+
+    #[test]
+    fn decodes_numeric_references_in_event_ivoid_text() {
+        let bytes = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup">ivo://survey.example/event&#x2D;42</EventIVORN></Citations>"#,
+        );
+        let parsed = parse_packet(&bytes).expect("numeric character reference");
+        assert_eq!(
+            parsed.citations[0].target_ivoid,
+            "ivo://survey.example/event-42"
+        );
+    }
+
+    #[test]
+    fn rejects_event_ivoid_without_required_cite_attribute() {
+        let bytes = packet_with_body(
+            r#"<Citations><EventIVORN>ivo://survey.example/event-1</EventIVORN></Citations>"#,
+        );
+        assert_eq!(
+            parse_packet(&bytes),
+            Err(ParseError::MissingCitationAttribute)
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_citation_relations() {
+        let bytes = packet_with_body(
+            r#"<Citations><EventIVORN cite="associated">ivo://survey.example/event-1</EventIVORN></Citations>"#,
+        );
+        assert!(matches!(
+            parse_packet(&bytes),
+            Err(ParseError::InvalidCitationRelation(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_non_ivoid_citation_targets_and_empty_event_ivoorn() {
+        let invalid = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup">https://example.org/event-1</EventIVORN></Citations>"#,
+        );
+        assert!(matches!(
+            parse_packet(&invalid),
+            Err(ParseError::InvalidCitationTarget(_))
+        ));
+
+        let empty = packet_with_body(
+            r#"<Citations><EventIVORN cite="retraction"/></Citations>"#,
+        );
+        assert!(matches!(
+            parse_packet(&empty),
+            Err(ParseError::InvalidCitationTarget(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_empty_duplicate_and_nested_citation_structures() {
+        let empty = packet_with_body("<Citations/>");
+        assert_eq!(parse_packet(&empty), Err(ParseError::EmptyCitations));
+
+        let duplicate = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup">ivo://survey.example/a</EventIVORN></Citations><Citations><EventIVORN cite="followup">ivo://survey.example/b</EventIVORN></Citations>"#,
+        );
+        assert_eq!(parse_packet(&duplicate), Err(ParseError::DuplicateCitations));
+
+        let nested = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup"><Name>ivo://survey.example/a</Name></EventIVORN></Citations>"#,
+        );
+        assert!(matches!(
+            parse_packet(&nested),
+            Err(ParseError::NestedCitationElement(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_duplicate_citation_descriptions_and_external_entities() {
+        let duplicate = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup">ivo://survey.example/a</EventIVORN><Description>one</Description><Description>two</Description></Citations>"#,
+        );
+        assert_eq!(
+            parse_packet(&duplicate),
+            Err(ParseError::DuplicateCitationsDescription)
+        );
+
+        let unresolved = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup">ivo://survey.example/a&custom;</EventIVORN></Citations>"#,
+        );
+        assert!(matches!(
+            parse_packet(&unresolved),
+            Err(ParseError::MalformedXml(_) | ParseError::InvalidCitationCharacterReference(_))
+        ));
     }
 
     #[test]
