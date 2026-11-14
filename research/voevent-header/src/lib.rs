@@ -589,7 +589,7 @@ fn parse_citations(
                 if let Some(builder) = current_citation.as_ref() {
                     if builder.depth == depth && name == b"EventIVORN" {
                         let builder = current_citation.take().expect("citation builder exists");
-                        let target_ivoid = builder.text.trim().to_owned();
+                        let target_ivoid = builder.text;
                         validate_ivoid(&target_ivoid)
                             .map_err(ParseError::InvalidCitationTarget)?;
                         citations.push(VoEventCitation {
@@ -605,7 +605,7 @@ fn parse_citations(
                         let builder = current_description
                             .take()
                             .expect("description builder exists");
-                        description = Some(builder.text.trim().to_owned());
+                        description = Some(builder.text);
                     }
                 }
 
@@ -837,7 +837,7 @@ mod tests {
         }));
         assert_eq!(
             parsed.citations_description.as_deref(),
-            Some("Reprocessed & corrected after independent review.")
+            Some(" Reprocessed & corrected after independent review. ")
         );
         assert_eq!(parsed.header.packet_sha256.len(), 64);
     }
@@ -852,6 +852,17 @@ mod tests {
             parsed.citations[0].target_ivoid,
             "ivo://survey.example/event-42"
         );
+    }
+
+    #[test]
+    fn citation_identifier_whitespace_is_not_silently_normalized() {
+        let bytes = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup"> ivo://survey.example/event-1 </EventIVORN></Citations>"#,
+        );
+        assert!(matches!(
+            parse_packet(&bytes),
+            Err(ParseError::InvalidCitationTarget(_))
+        ));
     }
 
     #[test]
