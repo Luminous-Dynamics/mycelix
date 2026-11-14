@@ -157,7 +157,8 @@
           "replay_state",
           "duplicate_effect_count",
           "protected_effect_state",
-          "execution_lease_state"
+          "execution_lease_state",
+          "expected_action_set_state"
         ],
         "properties": {
           "scenario_id": {
@@ -475,6 +476,14 @@
               "live",
               "absent",
               "stale",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "expected_action_set_state": {
+            "enum": [
+              "frozen",
+              "changed",
               "unknown",
               "not_applicable"
             ]
