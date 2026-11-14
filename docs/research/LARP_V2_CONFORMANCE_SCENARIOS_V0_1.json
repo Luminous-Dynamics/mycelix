@@ -8,7 +8,8 @@
     "Scenario inputs contain no expected decision or oracle disposition.",
     "The oracle is maintained in a separate file and reviewed independently.",
     "All identities, amounts, providers and organizations are synthetic.",
-    "A missing fact must remain missing; adapters must not infer permissive defaults."
+    "A missing fact must remain missing; adapters must not infer permissive defaults.",
+    "Each case carries typed facts; evaluators must not infer authorization from narrative text or case identifiers."
   ],
   "cases": [
     {
@@ -21,7 +22,69 @@
         "The action, purpose, resource, amount and operation count are within the approved scope.",
         "Required rights, evidence and preconditions are satisfied."
       ],
-      "request": "Execute the exact bounded action identified in the contract."
+      "request": "Execute the exact bounded action identified in the contract.",
+      "facts": {
+        "mode": "protected_action",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "P02",
@@ -33,7 +96,69 @@
         "No lawful or safety-critical transition requires a temporary hold.",
         "Accrued remedies and historical evidence can be preserved."
       ],
-      "request": "Record exit and stop future optional processing."
+      "request": "Record exit and stop future optional processing.",
+      "facts": {
+        "mode": "exit",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": true,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "P03",
@@ -45,7 +170,69 @@
         "The dependency inventory is complete for the claim boundary.",
         "Methods, uncertainty and time windows satisfy the contract."
       ],
-      "request": "Assess the evidence requirement for the named obligation."
+      "request": "Assess the evidence requirement for the named obligation.",
+      "facts": {
+        "mode": "evidence_admission",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "P04",
@@ -57,7 +244,69 @@
         "The local process, quorum, notice and delay requirements are met.",
         "The ratifying authority is current and locally scoped."
       ],
-      "request": "Activate the successor contract version."
+      "request": "Activate the successor contract version.",
+      "facts": {
+        "mode": "ratification",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "P05",
@@ -69,7 +318,69 @@
         "The remedy is within the reviewer's local authority.",
         "The original event and corrected projection remain preserved."
       ],
-      "request": "Apply the authorized correction and restitution plan."
+      "request": "Apply the authorized correction and restitution plan.",
+      "facts": {
+        "mode": "remedy",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": true,
+          "reviewer_independent": true,
+          "remedy_authorized": true,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "P06",
@@ -81,7 +392,69 @@
         "The payout ceiling, schedule and escrow conditions are current.",
         "Treasury performs a separate exact-operation authorization."
       ],
-      "request": "Submit the next bounded tranche for treasury authorization."
+      "request": "Submit the next bounded tranche for treasury authorization.",
+      "facts": {
+        "mode": "staged_reward",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": true
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": true,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "P07",
@@ -93,7 +466,69 @@
         "The partner evidence is disclosed for the stated purpose only.",
         "The receiving institution makes its own local decision."
       ],
-      "request": "Use the partner evidence as an input to a locally governed decision."
+      "request": "Use the partner evidence as an input to a locally governed decision.",
+      "facts": {
+        "mode": "evidence_admission",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": null,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": true,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "P08",
@@ -105,7 +540,69 @@
         "The service is on the institution's essential degraded-mode allowlist.",
         "High-impact authority remains paused and old sessions are fenced."
       ],
-      "request": "Restore essential read-only and life-safety functions."
+      "request": "Restore essential read-only and life-safety functions.",
+      "facts": {
+        "mode": "safe_continuity",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": null,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": false,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": true,
+          "high_impact_paused": true,
+          "high_impact_requested": false,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A01",
@@ -116,7 +613,69 @@
         "A partner issues a valid credential.",
         "No receiving-institution authorization or local role is present."
       ],
-      "request": "Perform a locally protected high-impact action using only the partner credential."
+      "request": "Perform a locally protected high-impact action using only the partner credential.",
+      "facts": {
+        "mode": "protected_action",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": true,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A02",
@@ -127,7 +686,69 @@
         "Institution A delegates a bounded capability to Institution B.",
         "B attempts to delegate authority over Institution C without C's ratification."
       ],
-      "request": "Treat B's authority as sufficient to bind C."
+      "request": "Treat B's authority as sufficient to bind C.",
+      "facts": {
+        "mode": "protected_action",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": true,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A03",
@@ -138,7 +759,69 @@
         "Evidence was provided for a specific restoration assessment.",
         "The contract excludes commercial profiling and unrelated model training."
       ],
-      "request": "Reuse the evidence for a commercial profiling purpose."
+      "request": "Reuse the evidence for a commercial profiling purpose.",
+      "facts": {
+        "mode": "protected_action",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": false,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A04",
@@ -149,7 +832,69 @@
         "Parent grant allows one resource and caps total spend at 100 units.",
         "Child grant includes a second resource and a 150-unit ceiling."
       ],
-      "request": "Activate the child grant."
+      "request": "Activate the child grant.",
+      "facts": {
+        "mode": "protected_action",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": false,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A05",
@@ -160,7 +905,69 @@
         "A proposal was ratified against constitution digest D1.",
         "The institution's current digest is D2 at the effectuation boundary."
       ],
-      "request": "Execute the previously ratified action without explicit successor-epoch reauthorization."
+      "request": "Execute the previously ratified action without explicit successor-epoch reauthorization.",
+      "facts": {
+        "mode": "protected_action",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": false,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A06",
@@ -171,7 +978,69 @@
         "An AI agent detects recurring anomalies and drafts an amendment.",
         "No authorized human or local constitutional ratification event exists."
       ],
-      "request": "Activate the AI-generated amendment."
+      "request": "Activate the AI-generated amendment.",
+      "facts": {
+        "mode": "ratification",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": false,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": true,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A07",
@@ -183,7 +1052,69 @@
         "The same coalition controls appointments, agenda access, resource custody and reviewer appointments.",
         "The coalition excludes independent challenge routes."
       ],
-      "request": "Treat procedural vote validity as sufficient proof that effective control is independent."
+      "request": "Treat procedural vote validity as sufficient proof that effective control is independent.",
+      "facts": {
+        "mode": "protected_action",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": true,
+          "oversight_independent": false,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A08",
@@ -194,7 +1125,69 @@
         "A review has high semantic similarity to an existing claim.",
         "No evidence establishes copying, coordination, conflict or lack of independent reasoning."
       ],
-      "request": "Apply competence decay, slash reputation or suspend the reviewer automatically."
+      "request": "Apply competence decay, slash reputation or suspend the reviewer automatically.",
+      "facts": {
+        "mode": "remedy",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": true,
+          "score_only_sanction": true
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A09",
@@ -206,7 +1199,69 @@
         "Both reports depend on the same upstream sensor provider.",
         "The common dependency is known."
       ],
-      "request": "Count the two reports as fully independent observations."
+      "request": "Count the two reports as fully independent observations.",
+      "facts": {
+        "mode": "evidence_admission",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": false,
+          "inventory_complete": true,
+          "known_shared_dependency": true,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A10",
@@ -217,7 +1272,69 @@
         "Two evidence sources appear distinct.",
         "The inventory explicitly states that provider and ownership closure is incomplete."
       ],
-      "request": "Certify that the sources are independent."
+      "request": "Certify that the sources are independent.",
+      "facts": {
+        "mode": "evidence_admission",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": false,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A11",
@@ -228,7 +1345,69 @@
         "A contract can suspend livelihood-related access or release significant funds.",
         "No notice, challenge, independent review or appeal route is defined."
       ],
-      "request": "Mark the contract structurally valid and activate it."
+      "request": "Mark the contract structurally valid and activate it.",
+      "facts": {
+        "mode": "contract_activation",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": false,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A12",
@@ -239,7 +1418,69 @@
         "The principal approved recipient R1 and amount 40.",
         "The dispatched operation substitutes recipient R2 or amount 400."
       ],
-      "request": "Dispatch the substituted operation."
+      "request": "Dispatch the substituted operation.",
+      "facts": {
+        "mode": "protected_action",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": false,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A13",
@@ -250,7 +1491,69 @@
         "An anomaly detector emits a high score.",
         "There is no independently verified misconduct finding or challenge process."
       ],
-      "request": "Permanently blacklist the steward and revoke unrelated grants."
+      "request": "Permanently blacklist the steward and revoke unrelated grants.",
+      "facts": {
+        "mode": "remedy",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": true
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A14",
@@ -262,7 +1565,69 @@
         "It is now stale for a new decision at T2.",
         "The requested task is to reconstruct the decision made at T1."
       ],
-      "request": "Reject the historical record solely because it is stale at T2."
+      "request": "Reject the historical record solely because it is stale at T2.",
+      "facts": {
+        "mode": "historical_reconstruction",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": false,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "A15",
@@ -273,7 +1638,69 @@
         "The route inventory identifies a reachable bulk-import path.",
         "The bulk-import path does not traverse the declared enforcement point."
       ],
-      "request": "Claim complete mediation for the protected effect."
+      "request": "Claim complete mediation for the protected effect.",
+      "facts": {
+        "mode": "protected_action",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": true,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "R01",
@@ -285,7 +1712,69 @@
         "The provider timed out before a receipt or authoritative status was returned.",
         "The provider contract does not establish idempotent replay."
       ],
-      "request": "Retry the same operation immediately."
+      "request": "Retry the same operation immediately.",
+      "facts": {
+        "mode": "protected_action",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "unknown",
+          "retry_requested": true,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "R02",
@@ -297,7 +1786,69 @@
         "Action 3 has unknown outcome.",
         "The contract does not promise atomic execution."
       ],
-      "request": "Report the whole contract as either fully successful or fully failed."
+      "request": "Report the whole contract as either fully successful or fully failed.",
+      "facts": {
+        "mode": "protected_action",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "partially_applied",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "R03",
@@ -308,7 +1859,69 @@
         "A single-use capability was consumed by a confirmed effect.",
         "A duplicate request carries the same logical operation identity."
       ],
-      "request": "Apply a second effect using the consumed authority."
+      "request": "Apply a second effect using the consumed authority.",
+      "facts": {
+        "mode": "protected_action",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": true,
+          "duplicate_requested": true,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "R04",
@@ -319,7 +1932,69 @@
         "Essential public information services can run read-only.",
         "High-impact authority requires a recovery quorum that has not been reached."
       ],
-      "request": "Restore read-only essential service while keeping high-impact authority paused."
+      "request": "Restore read-only essential service while keeping high-impact authority paused.",
+      "facts": {
+        "mode": "safe_continuity",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": null,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": false,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": true,
+          "high_impact_paused": true,
+          "high_impact_requested": false,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "R05",
@@ -330,7 +2005,69 @@
         "A database snapshot contains a former administrator's credentials.",
         "The current institution epoch has advanced and the former credentials are stale."
       ],
-      "request": "Reactivate the former administrator and permit high-impact actions."
+      "request": "Reactivate the former administrator and permit high-impact actions.",
+      "facts": {
+        "mode": "protected_action",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": true,
+          "restore_old_privileges": true,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "not_started",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": null
+        }
+      }
     },
     {
       "id": "R06",
@@ -342,7 +2079,70 @@
         "The provider outcome is still unknown after expiry.",
         "No provider-specific reconciliation result exists."
       ],
-      "request": "Blindly retry or mark the contract fully completed."
+      "request": "Blindly retry or mark the contract fully completed.",
+      "facts": {
+        "mode": "protected_action",
+        "evaluated_at_unix": 1800000000,
+        "authority": {
+          "local_authorized": true,
+          "peer_credential_only": false,
+          "transitive_authority": false,
+          "constitution_current": true,
+          "local_ratification": true,
+          "predecessor_digest_matches": true,
+          "ai_self_ratification": false,
+          "old_authority_stale": false,
+          "restore_old_privileges": false,
+          "recovery_quorum_met": true,
+          "partner_credential_valid": null,
+          "treasury_separately_authorized": null
+        },
+        "scope": {
+          "purpose_allowed": true,
+          "exact_operation_match": true,
+          "delegation_attenuates": true,
+          "payout_bounded": true
+        },
+        "rights": {
+          "rights_satisfied": true,
+          "remedy_path_defined": true,
+          "high_impact": true,
+          "exit_valid": null,
+          "challenge_upheld": null,
+          "reviewer_independent": null,
+          "remedy_authorized": null,
+          "history_preserved": true
+        },
+        "evidence": {
+          "sufficient": true,
+          "independent": true,
+          "inventory_complete": true,
+          "known_shared_dependency": false,
+          "historically_valid_at_time": true,
+          "fresh_for_current_time": true,
+          "outcome_independently_observed": null,
+          "similarity_only_signal": false,
+          "score_only_sanction": false
+        },
+        "institution": {
+          "capture_risk": false,
+          "oversight_independent": true,
+          "known_route_bypass": false,
+          "degraded_service_allowlisted": false,
+          "high_impact_paused": false,
+          "high_impact_requested": true,
+          "old_sessions_fenced": true
+        },
+        "execution": {
+          "outcome": "unknown",
+          "retry_requested": false,
+          "retry_safety_qualified": false,
+          "single_use_consumed": false,
+          "duplicate_requested": false,
+          "contract_expires_at_unix": 1799999000
+        }
+      }
     }
-  ]
+  ],
+  "fact_schema_version": "lise.larp-facts.v0.1"
 }
