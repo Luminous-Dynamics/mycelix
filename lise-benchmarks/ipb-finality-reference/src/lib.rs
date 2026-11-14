@@ -1265,6 +1265,232 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn every_approval_bound_operation_field_mutation_is_denied() {
+        let base = operation();
+        let mut mutations = Vec::new();
+
+        let mut candidate = base.clone();
+        candidate.logical_operation_id.push_str("-substitute");
+        mutations.push(candidate);
+
+        let mut candidate = base.clone();
+        candidate.canonical_operation_digest.push_str("-substitute");
+        mutations.push(candidate);
+
+        let mut candidate = base.clone();
+        candidate.action_digest.push_str("-substitute");
+        mutations.push(candidate);
+
+        let mut candidate = base.clone();
+        candidate.target_ref.push_str("-substitute");
+        mutations.push(candidate);
+
+        let mut candidate = base.clone();
+        candidate.destination_or_audience = Some("party-c".to_owned());
+        mutations.push(candidate);
+
+        let mut candidate = base.clone();
+        candidate.amount_minor = Some(10_001);
+        mutations.push(candidate);
+
+        let mut candidate = base.clone();
+        candidate.currency = Some("EUR".to_owned());
+        mutations.push(candidate);
+
+        let mut candidate = base.clone();
+        candidate.purpose = Some("different-purpose".to_owned());
+        mutations.push(candidate);
+
+        let mut candidate = base.clone();
+        candidate.resource_revision = Some("revision-8".to_owned());
+        mutations.push(candidate);
+
+        let mut candidate = base;
+        candidate.idempotency_ref = Some("idem-002".to_owned());
+        mutations.push(candidate);
+
+        for actual_operation in mutations {
+            let mut candidate = input();
+            candidate.actual_operation = actual_operation;
+            assert_eq!(
+                evaluate_finality(&candidate),
+                FinalityDecision::Deny(DenialCode::OperationMismatch)
+            );
+        }
+    }
+
+    #[test]
+    fn authority_narrowing_never_preserves_a_permit() {
+        let mut baseline = input();
+        assert_eq!(evaluate_finality(&baseline), FinalityDecision::Permit);
+
+        for state in [
+            AuthorityState::Revoked,
+            AuthorityState::Expired,
+            AuthorityState::NotYetValid,
+        ] {
+            baseline.authority = state;
+            assert!(matches!(evaluate_finality(&baseline), FinalityDecision::Deny(_)));
+        }
+
+        baseline.authority = AuthorityState::Unknown;
+        assert!(matches!(evaluate_finality(&baseline), FinalityDecision::Hold(_)));
+    }
+
+    #[test]
+    fn adding_a_reachable_route_cannot_improve_mediation_coverage() {
+        let route = ProtectedRoute {
+            route_ref: "primary-api".to_owned(),
+            protected_effect_ref: "effect:transfer".to_owned(),
+            reachable_from_agent: true,
+            enforcement_point_ref: Some("pep:current".to_owned()),
+        };
+        assert_eq!(
+            assess_mediation_coverage("effect:transfer", "pep:current", true, &[route.clone()]),
+            MediationCoverage::AllReachablePathsMediated
+        );
+
+        let bypass = ProtectedRoute {
+            route_ref: "alternate-connector".to_owned(),
+            protected_effect_ref: "effect:transfer".to_owned(),
+            reachable_from_agent: true,
+            enforcement_point_ref: None,
+        };
+        assert_eq!(
+            assess_mediation_coverage(
+                "effect:transfer",
+                "pep:current",
+                true,
+                &[route.clone(), bypass]
+            ),
+            MediationCoverage::ReachableBypass
+        );
+
+        let unrelated = ProtectedRoute {
+            route_ref: "other-service".to_owned(),
+            protected_effect_ref: "effect:unrelated".to_owned(),
+            reachable_from_agent: true,
+            enforcement_point_ref: None,
+        };
+        assert_eq!(
+            assess_mediation_coverage(
+                "effect:transfer",
+                "pep:current",
+                true,
+                &[route, unrelated]
+            ),
+            MediationCoverage::AllReachablePathsMediated
+        );
+    }
+
+    #[test]
+    fn adding_an_active_grant_never_reduces_effective_privilege() {
+        let narrow = CapabilityGrant {
+            grant_ref: "task-grant".to_owned(),
+            active_during_trajectory: true,
+            scope: scope(
+                &["read"], &["record-a"], &["case-review"], &["summary"],
+                1, Some(50), Some(10), Some(1)
+            ),
+        };
+        let broad = CapabilityGrant {
+            grant_ref: "ambient-grant".to_owned(),
+            active_during_trajectory: true,
+            scope: scope(
+                &["read", "update"], &["record-a", "record-b"],
+                &["case-review", "admin"], &["summary", "condition"],
+                1, Some(50), Some(20), Some(2)
+            ),
+        };
+
+        let before = union_effective_privilege(&[narrow.clone()]);
+        let after = union_effective_privilege(&[narrow, broad]);
+        assert!(before.actions.is_subset(&after.actions));
+        assert!(before.resources.is_subset(&after.resources));
+        assert!(before.purposes.is_subset(&after.purposes));
+        assert!(before.fields.is_subset(&after.fields));
+        assert!(
+            after.aggregate_amount_limit_minor.unwrap()
+                >= before.aggregate_amount_limit_minor.unwrap()
+        );
+        assert!(
+            after.aggregate_operation_limit.unwrap()
+                >= before.aggregate_operation_limit.unwrap()
+        );
+    }
+
+    #[test]
+    fn delegation_attenuation_is_transitive_when_every_edge_is_valid() {
+        let root = scope(
+            &["read", "update"], &["asset-a", "asset-b"],
+            &["inspection", "maintenance"], &["status", "condition"],
+            1, Some(100), Some(1000), Some(8)
+        );
+        let child = scope(
+            &["read", "update"], &["asset-a"],
+            &["inspection"], &["status", "condition"],
+            2, Some(80), Some(500), Some(4)
+        );
+        let grandchild = scope(
+            &["read"], &["asset-a"],
+            &["inspection"], &["status"],
+            3, Some(60), Some(100), Some(1)
+        );
+
+        assert!(delegation_is_attenuated(&root, &child));
+        assert!(delegation_is_attenuated(&child, &grandchild));
+        assert!(delegation_is_attenuated(&root, &grandchild));
+    }
+
+    #[test]
+    fn bitemporal_revocation_moves_from_unknown_to_denied_without_rewriting_old_view() {
+        let base = SessionRevocationState {
+            authority_state: AuthorityState::Revoked,
+            authoritative_epoch: 12,
+            session_observed_epoch: 12,
+            action_at: 100,
+            known_at: 100,
+            revocation_effective_at: Some(90),
+            revocation_observed_at: Some(110),
+        };
+        assert_eq!(
+            evaluate_session_revocation(base),
+            SessionAuthorizationDecision::HoldUnknown
+        );
+
+        let later_knowledge = SessionRevocationState {
+            known_at: 120,
+            ..base
+        };
+        assert_eq!(
+            evaluate_session_revocation(later_knowledge),
+            SessionAuthorizationDecision::DenyRevoked
+        );
+        assert_eq!(base.known_at, 100);
+        assert_eq!(base.action_at, 100);
+    }
+
+    #[test]
+    fn losing_retry_safety_evidence_cannot_preserve_retry_permit() {
+        let mut candidate = input();
+        candidate.prior_effect = PriorEffectState::ConfirmedNotApplied;
+        candidate.retry_safety = RetrySafety::SameOperationSameIdempotencyKeyQualified;
+        assert_eq!(evaluate_finality(&candidate), FinalityDecision::Permit);
+
+        candidate.retry_safety = RetrySafety::Unknown;
+        assert_eq!(
+            evaluate_finality(&candidate),
+            FinalityDecision::Hold(HoldCode::RetrySafetyUnproven)
+        );
+        candidate.retry_safety = RetrySafety::Unsupported;
+        assert_eq!(
+            evaluate_finality(&candidate),
+            FinalityDecision::Hold(HoldCode::RetrySafetyUnproven)
+        );
+    }
+
     #[test]
     fn exact_current_operation_is_permitted() {
         assert_eq!(evaluate_finality(&input()), FinalityDecision::Permit);
