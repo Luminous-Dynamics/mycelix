@@ -25,7 +25,10 @@ hybrid-rc = [
     "dep:zeroize",
     "dep:getrandom04",
 ]
-# Native CLI/tests: adds trait impls with real PQC libraries
+# LEGACY NATIVE PROVIDER: pqcrypto-* / PQClean C-FFI wrappers only. These
+# wrappers are not a qualified final-FIPS-204/205 provider and are not
+# independently audited. Keep off by default; envelope construction rejects
+# signatures that do not match the final-profile byte-length contract.
 native = [
     "dep:ed25519-dalek",
     "dep:pqcrypto-dilithium",

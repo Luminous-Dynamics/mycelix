@@ -16,9 +16,11 @@
 //! - **`wasm`** — Types and validation only; suitable for `wasm32-unknown-unknown`
 //!   targets (Holochain WASM zomes). No actual cryptographic operations.
 //!
-//! - **`native`** — Adds trait implementations backed by real cryptographic
-//!   libraries (ed25519-dalek, pqcrypto-dilithium, pqcrypto-kyber, etc.).
-//!   Used by the CLI and tests.
+//! - **`native`** — Adds trait implementations using legacy `pqcrypto-*` /
+//!   PQClean C-FFI wrappers. This is a compatibility/research path, not a
+//!   qualified final-FIPS-204/205 provider. The wrappers are not independently
+//!   audited and may fail the final-profile signature-length contract. It
+//!   remains off by default; passing a size guard is not standards conformance.
 
 pub mod algorithm;
 pub mod envelope;

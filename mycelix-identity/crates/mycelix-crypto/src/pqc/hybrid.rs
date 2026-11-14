@@ -1,12 +1,13 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
-//! Hybrid Ed25519 + ML-DSA-65 signer/verifier.
+//! Legacy hybrid Ed25519 + Dilithium signer/verifier using pqcrypto/PQClean.
 //!
-//! Produces concatenated signatures: `ed25519_sig (64 bytes) || mldsa65_sig (3293 bytes)`.
-//! During the quantum transition period, hybrid signatures provide:
-//! - Classical security via Ed25519 (verifiable on-chain by Holochain HDK)
-//! - Post-quantum security via ML-DSA-65 (verifiable off-chain)
+//! This is a compatibility/research path, not a qualified final-FIPS-204
+//! hybrid profile. Legacy Dilithium outputs may use a different signature
+//! length than final ML-DSA-65. The final-profile `TaggedSignature::new` guard
+//! must reject incompatible output; do not weaken it or publish legacy bytes
+//! under the final ML-DSA-65 identifier.
 
 use crate::algorithm::AlgorithmId;
 use crate::envelope::{TaggedPublicKey, TaggedSignature};
@@ -14,6 +15,8 @@ use crate::error::CryptoError;
 use crate::pqc::dilithium::{MlDsa65Signer, MlDsa65Verifier};
 use crate::pqc::ed25519_native::{Ed25519Signer, Ed25519Verifier};
 use crate::traits::{Signer, Verifier};
+use pqcrypto_dilithium::dilithium3;
+use pqcrypto_traits::sign::{DetachedSignature, SecretKey};
 use zeroize::Zeroizing;
 
 /// Hybrid signer that produces dual Ed25519 + ML-DSA-65 signatures.
@@ -162,29 +165,52 @@ impl Verifier for HybridVerifier {
 mod tests {
     use super::*;
 
-    #[test]
-    fn hybrid_sign_verify() {
-        let signer = HybridSigner::generate();
-        let msg = b"hybrid quantum-resistant message";
-        let sig = signer.sign(msg).unwrap();
-        let pk = signer.public_key();
-
-        assert_eq!(pk.algorithm, AlgorithmId::HybridEd25519MlDsa65);
-        assert_eq!(pk.key_bytes.len(), 32 + 1952);
-        assert!(sig.ed25519_component().is_some());
-        assert!(sig.pqc_component().is_some());
-
-        let verifier = HybridVerifier;
-        assert!(verifier.verify(&pk, msg, &sig).unwrap());
+    fn legacy_mldsa65_raw_signature_len(signer: &HybridSigner, message: &[u8]) -> usize {
+        let secret_bytes = signer.mldsa65.secret_key_bytes();
+        let secret_key = dilithium3::SecretKey::from_bytes(secret_bytes.as_slice())
+            .expect("native ML-DSA-65 signer exposes its own serialized secret key");
+        dilithium3::detached_sign(message, &secret_key).as_bytes().len()
     }
 
     #[test]
-    fn hybrid_wrong_message() {
+    fn hybrid_signing_fails_closed_unless_legacy_pqc_bytes_match_final_profile() {
         let signer = HybridSigner::generate();
-        let sig = signer.sign(b"correct").unwrap();
-        let pk = signer.public_key();
+        let msg = b"hybrid quantum-resistant message";
+        let raw_len = legacy_mldsa65_raw_signature_len(&signer, msg);
+        let expected = AlgorithmId::MlDsa65.signature_size();
 
-        let verifier = HybridVerifier;
-        assert!(!verifier.verify(&pk, b"wrong", &sig).unwrap());
+        match signer.sign(msg) {
+            Ok(signature) => {
+                assert_eq!(raw_len, expected);
+                assert_eq!(
+                    signature.signature_bytes.len(),
+                    AlgorithmId::HybridEd25519MlDsa65.signature_size()
+                );
+                let public_key = signer.public_key();
+                assert_eq!(public_key.algorithm, AlgorithmId::HybridEd25519MlDsa65);
+                assert_eq!(
+                    public_key.key_bytes.len(),
+                    AlgorithmId::HybridEd25519MlDsa65.public_key_size()
+                );
+                assert!(HybridVerifier.verify(&public_key, msg, &signature).unwrap());
+            }
+            Err(_) => assert_ne!(raw_len, expected),
+        }
+    }
+
+    #[test]
+    fn hybrid_wrong_message_fails_or_legacy_profile_is_rejected() {
+        let signer = HybridSigner::generate();
+        let raw_len = legacy_mldsa65_raw_signature_len(&signer, b"correct");
+        let expected = AlgorithmId::MlDsa65.signature_size();
+
+        match signer.sign(b"correct") {
+            Ok(signature) => {
+                assert_eq!(raw_len, expected);
+                let public_key = signer.public_key();
+                assert!(!HybridVerifier.verify(&public_key, b"wrong", &signature).unwrap());
+            }
+            Err(_) => assert_ne!(raw_len, expected),
+        }
     }
 }

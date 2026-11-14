@@ -20,6 +20,7 @@
 //! EXPERIMENTAL — feature `hybrid-rc`, off by default. Pending crypto audit
 //! before production wiring.
 
+use crate::algorithm::AlgorithmId;
 use crate::error::CryptoError;
 use ed25519_dalek::{
     Signature as EdSignature, Signer as _, SigningKey as EdSigningKey, Verifier as _,
@@ -142,6 +143,21 @@ pub fn verify(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rustcrypto_ml_dsa65_encoding_matches_final_fips204_profile_sizes() {
+        let signer = HybridSigner::generate();
+        let keys = signer.verifying_keys();
+        let signature = signer.sign(b"FIPS 204 profile-size regression");
+
+        // Profile-size regression only: this is not ACVP-vector coverage or
+        // independent audit evidence. The RustCrypto backend remains
+        // experimental and is not wired into the Holochain coordinator.
+        assert_eq!(AlgorithmId::MlDsa65.public_key_size(), 1952);
+        assert_eq!(AlgorithmId::MlDsa65.signature_size(), 3309);
+        assert_eq!(keys.ml_dsa.len(), AlgorithmId::MlDsa65.public_key_size());
+        assert_eq!(signature.ml_dsa.len(), AlgorithmId::MlDsa65.signature_size());
+    }
 
     #[test]
     fn signer_serialization_round_trip() {
