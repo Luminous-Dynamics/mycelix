@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/civ-trace-001/CIV_TRACE_FIXTURES_V0_1.schema.json",
-  "title": "CIV-TRACE-001 fixtures v0.1",
+  "title": "CIV-TRACE-001 fixtures v0.2 — remedy lifecycle extension",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -16,24 +16,24 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "civ-trace-fixtures-v0.1"
+      "const": "civ-trace-fixtures-v0.2"
     },
     "benchmark_id": {
       "const": "CIV-TRACE-001"
     },
     "status": {
-      "const": "synthetic_known_answer_design_unexecuted"
+      "const": "synthetic_remedy_lifecycle_extension_design_unexecuted"
     },
     "fixture_count": {
-      "const": 36
+      "const": 42
     },
     "family_count": {
-      "const": 6
+      "const": 7
     },
     "families": {
       "type": "array",
-      "minItems": 6,
-      "maxItems": 6,
+      "minItems": 7,
+      "maxItems": 7,
       "uniqueItems": true,
       "items": {
         "enum": [
@@ -42,14 +42,15 @@
           "correction_supersession",
           "outcome_observation",
           "contestability",
-          "privacy_projection"
+          "privacy_projection",
+          "remedy_execution"
         ]
       }
     },
     "fixtures": {
       "type": "array",
-      "minItems": 36,
-      "maxItems": 36,
+      "minItems": 42,
+      "maxItems": 42,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -63,7 +64,8 @@
           "decision_ref",
           "attempt_ref",
           "events",
-          "expected"
+          "expected",
+          "remedy_order_ref"
         ],
         "properties": {
           "fixture_id": {
@@ -142,7 +144,9 @@
                     "Attempt",
                     "EffectObservation",
                     "Challenge",
-                    "Correction"
+                    "Correction",
+                    "RemedyOrder",
+                    "CorrectiveAction"
                   ]
                 },
                 "transaction_time": {
@@ -223,7 +227,11 @@
               "current_decision_ref",
               "privacy_violation",
               "challenge_event_ids",
-              "decision_lineage_refs"
+              "decision_lineage_refs",
+              "remedy_authority_as_known_at_order",
+              "remedy_authority_current_assessment",
+              "remedy_state",
+              "systemic_action_state"
             ],
             "properties": {
               "known_event_ids": {
@@ -287,8 +295,52 @@
                   "type": "string",
                   "minLength": 1
                 }
+              },
+              "remedy_authority_as_known_at_order": {
+                "enum": [
+                  "NOT_APPLICABLE",
+                  "AUTHORIZED",
+                  "UNAUTHORIZED",
+                  "INDETERMINATE"
+                ]
+              },
+              "remedy_authority_current_assessment": {
+                "enum": [
+                  "NOT_APPLICABLE",
+                  "AUTHORIZED",
+                  "UNAUTHORIZED",
+                  "INDETERMINATE"
+                ]
+              },
+              "remedy_state": {
+                "enum": [
+                  "NOT_APPLICABLE",
+                  "WITHDRAWN",
+                  "ORDERED_NOT_STARTED",
+                  "ATTEMPT_NOT_SUCCESSFUL",
+                  "IN_PROGRESS_UNOBSERVED",
+                  "INDEPENDENCE_UNESTABLISHED",
+                  "COMPLETED_OBSERVED",
+                  "PARTIAL",
+                  "CONTRADICTED",
+                  "CONTESTED",
+                  "INDETERMINATE"
+                ]
+              },
+              "systemic_action_state": {
+                "enum": [
+                  "NOT_APPLICABLE",
+                  "OPEN",
+                  "VERIFIED",
+                  "INEFFECTIVE",
+                  "INDETERMINATE"
+                ]
               }
             }
+          },
+          "remedy_order_ref": {
+            "type": "string",
+            "minLength": 1
           }
         }
       }
