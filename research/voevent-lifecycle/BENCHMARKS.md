@@ -127,6 +127,10 @@ Autonomous Science Bench 0.1 is a useful methodological reference for full-confi
 
 CrossCD-Eval (Scientific Reports, 3 October 2026) evaluates remote-sensing change detection across in-domain, cross-domain and few-shot settings using CLCD, HRSCD and LEVIR-CD. Its findings reinforce that strong in-domain results do not guarantee cross-domain transfer. Our satellite evaluation should therefore hold out geography, sensor/platform, season, resolution, processing and annotation regimes independently.
 
+FIRE-Bench (ICML 2026, PMLR 306) evaluates full-cycle rediscovery of documented research findings through experiment design, execution and evidence-backed conclusions. Its authors report that even the strongest tested frontier agents remained below 50 F1, with high run-to-run variance and recurring failures in design, execution and evidence-based reasoning. This supports repeated trials, exact evaluation receipts and outcome verification rather than paper-style LLM judging.
+
+AgentIdeaBench (September 2026) compares static observation with active exploration across 33 models, 40 subfields and five disciplines. Active exploration improved grounding, feasibility, clarity and specificity, while measured originality did not improve under its critics. Our scientific-investigation scorecard must therefore separate novelty/originality from falsifiability, grounding, feasibility, experimental execution and verified outcome. An idea that is practical but not novel, or novel but not testable, must not be collapsed into one quality score.
+
 IVOA VOEvent 2.1 already standardizes event packets and lifecycle citations. This work should interoperate with that standard, not invent a competing astronomy packet format. The additional contribution is an auditable, receipt-time-aware evidence and decision layer around source-native packets. VOEvent itself does not define the transport layer, publisher policy or intellectual-property/rights policy; those remain explicit system responsibilities.
 
 ## 9. Industry comparison: integrate with alert brokers, do not clone them
