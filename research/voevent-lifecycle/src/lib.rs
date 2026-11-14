@@ -9,6 +9,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt;
 
+use sha2::{Digest, Sha256};
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -94,9 +96,11 @@ pub struct Packet {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct ParsedHeaderProjection {
     pub ivoid: String,
+    pub version: String,
     pub raw_role: Option<String>,
     pub effective_role: PacketRole,
     pub role_was_implicit: bool,
+    pub packet_byte_length: usize,
     pub packet_sha256: String,
 }
 
@@ -125,6 +129,8 @@ pub struct ParsedVoEventProjection {
 pub struct ReceivedParsedPacket {
     /// Supplied by the ingest receipt layer, not copied from Who/Date.
     pub received_at_unix_ms: u64,
+    /// Exact UTF-8 packet text whose digest is supplied in the parsed header.
+    pub raw_packet_xml: String,
     pub packet: ParsedVoEventProjection,
 }
 
@@ -165,12 +171,50 @@ fn is_sha256_hex(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
+const MAX_VOEVENT_PACKET_BYTES: usize = 2 * 1024 * 1024;
+
 fn packet_from_projection(
     received: ReceivedParsedPacket,
     packet_index: usize,
 ) -> Result<Packet, ManifestError> {
+    let raw_packet_bytes = received.raw_packet_xml.as_bytes();
+    if raw_packet_bytes.is_empty() || raw_packet_bytes.len() > MAX_VOEVENT_PACKET_BYTES {
+        return Err(ManifestError::InvalidProjection {
+            packet_index,
+            reason: "raw VOEvent packet is empty or exceeds the 2 MiB limit".to_owned(),
+        });
+    }
+
     let projection = received.packet;
     let header = projection.header;
+    if header.version != "2.1" {
+        return Err(ManifestError::InvalidProjection {
+            packet_index,
+            reason: format!("unsupported VOEvent version {:?}", header.version),
+        });
+    }
+    if header.packet_byte_length != raw_packet_bytes.len() {
+        return Err(ManifestError::InvalidProjection {
+            packet_index,
+            reason: "packet_byte_length does not match the supplied source bytes".to_owned(),
+        });
+    }
+
+    let packet_sha256 = header.packet_sha256;
+    if !is_sha256_hex(&packet_sha256) {
+        return Err(ManifestError::InvalidProjection {
+            packet_index,
+            reason: "packet SHA-256 must be exactly 64 hexadecimal characters".to_owned(),
+        });
+    }
+    let recomputed_sha256 = hex::encode(Sha256::digest(raw_packet_bytes));
+    if recomputed_sha256 != packet_sha256 {
+        return Err(ManifestError::InvalidProjection {
+            packet_index,
+            reason: "packet SHA-256 does not match the supplied exact source bytes".to_owned(),
+        });
+    }
+
     let id = header.ivoid;
     let role = header.effective_role;
     let role_was_implicit = header.role_was_implicit;
@@ -189,14 +233,6 @@ fn packet_from_projection(
         return Err(ManifestError::InvalidProjection {
             packet_index,
             reason: "root IVOID is empty, malformed, or contains whitespace".to_owned(),
-        });
-    }
-
-    let packet_sha256 = header.packet_sha256;
-    if !is_sha256_hex(&packet_sha256) {
-        return Err(ManifestError::InvalidProjection {
-            packet_index,
-            reason: "packet SHA-256 must be exactly 64 hexadecimal characters".to_owned(),
         });
     }
 
@@ -273,6 +309,11 @@ fn packet_from_projection(
 pub fn replay_manifest(manifest: ReplayManifest) -> Result<Replay, ManifestError> {
     let mut packets = Vec::with_capacity(manifest.packets.len());
     for (index, received) in manifest.packets.into_iter().enumerate() {
+        // Historical views must not be poisoned by malformed evidence that had
+        // not yet arrived at the requested cutoff.
+        if received.received_at_unix_ms > manifest.cutoff_unix_ms {
+            continue;
+        }
         packets.push(packet_from_projection(received, index)?);
     }
     replay_as_of(&packets, manifest.cutoff_unix_ms).map_err(ManifestError::Replay)
