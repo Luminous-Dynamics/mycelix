@@ -162,7 +162,7 @@ fn map_citation_relation(relation: ParsedCitationRelation) -> CitationRelation {
 }
 
 fn map_source_attributes(
-    attributes: Vec<mycelix_voevent_header::RootAttribute>,
+    attributes: Vec<SourceAttribute>,
 ) -> Vec<SourceAttribute> {
     attributes
         .into_iter()
@@ -251,7 +251,7 @@ pub struct VisiblePacket {
     pub role_was_implicit: bool,
     pub packet_sha256: Option<String>,
     pub parser_version: String,
-    pub source_attributes: Vec<mycelix_voevent_header::RootAttribute>,
+    pub source_attributes: Vec<SourceAttribute>,
     pub citations_description: Option<String>,
     pub publisher: Option<String>,
     pub received_at_unix_ms: u64,
@@ -287,7 +287,7 @@ pub struct UnresolvedCitation {
     pub cited_packet_id: String,
     pub relation: CitationRelation,
     /// Original EventIVORN attributes preserved by the parser.
-    pub citation_attributes: Vec<mycelix_voevent_header::RootAttribute>,
+    pub citation_attributes: Vec<SourceAttribute>,
     pub asserting_publisher: Option<String>,
     pub asserted_packet_received_at_unix_ms: u64,
 }
