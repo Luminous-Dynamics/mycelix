@@ -1,0 +1,210 @@
+schema: lise.ipb.meta.s3-mutation-catalog.v0
+suite:
+  id: IPB-META-S3-v0
+  parent_suite: IPB-S3-ICAP-v0
+  issue: https://github.com/Luminous-Dynamics/mycelix/issues/6128
+  implementation_pr: https://github.com/Luminous-Dynamics/mycelix/pull/6129
+  status: development
+  evidence_class: synthetic_conformance
+  claim_ceiling:
+    - "A passing finite fixture is conditional on its declared controller topology and policy thresholds."
+    - "No result establishes resistance to real-world institutional capture."
+    - "No common-cause independence claim is permitted before owner-native dependency closure is qualified."
+    - "No result changes production authority or governance behavior."
+
+dispositions:
+  semantic_projection:
+    fields:
+      - disposition
+      - coalition_controlled_execution_domains
+      - compromised_oversight_domains
+      - domain_assessments
+    excluded_from_equivalence:
+      - scenario_id
+      - coalition_id
+      - coalition_members
+      - input_sha256
+      - receipt_sha256
+    rationale: "Renaming or reordering changes serialized evidence identity while preserving the declared S3 control semantics."
+  invalid_input:
+    expected: typed_input_error
+    pass_condition: "Invalid topology is rejected; it is never interpreted as a safe or no-capture result."
+  execution_unavailable:
+    expected: execution_unavailable
+    pass_condition: "Loss of a required execution quorum is not reported as no_capture_observed."
+
+metamorphic_relations:
+  - id: META-S3-MR-001
+    name: actor-label-bijection
+    transform: "Apply a bijection to every controller and coalition-member identifier while preserving all membership relations."
+    invariant: [disposition, coalition_controlled_execution_domains, compromised_oversight_domains]
+    provenance: distinct_input_and_receipt_digests
+    status: inherited_executable
+    source: "capture.rs unit test renaming_actor_labels_preserves_capture_disposition"
+
+  - id: META-S3-MR-002
+    name: domain-vector-permutation
+    transform: "Permute the scenario domains vector without changing any domain record."
+    invariant: [disposition, coalition_controlled_execution_domains, compromised_oversight_domains, domain_assessments]
+    provenance: distinct_input_and_receipt_digests
+    exhaustive_permutations: 5040
+    status: executable_in_pr_6129
+    source: "meta_mutations.rs all_5040_domain_vector_permutations_preserve_semantics_and_distinct_provenance"
+
+  - id: META-S3-MR-003
+    name: deterministic-replay
+    transform: "Evaluate the same immutable scenario repeatedly."
+    invariant: [complete_receipt]
+    provenance: identical_input_and_receipt_digests
+    status: inherited_executable
+    source: "capture_suite.rs repeated_runs_produce_identical_s3_receipts"
+
+  - id: META-S3-MR-004
+    name: unordered-controller-set-canonicalization
+    transform: "Supply equivalent controller sets with different source ordering at an adapter boundary."
+    invariant: [semantic_projection]
+    provenance: adapter_specific
+    status: planned
+    limitation: "Rust BTreeSet canonicalizes order before the current evaluator; this relation requires an input-adapter/parser test."
+
+  - id: META-S3-MR-005
+    name: equivalent-serialization
+    transform: "Vary JSON whitespace and object-member order while preserving the decoded scenario."
+    invariant: [semantic_projection]
+    provenance: raw_payload_digest_must_remain_bound
+    status: planned
+    limitation: "The current typed evaluator does not accept raw JSON bytes; test at a future runner/parser boundary."
+
+  - id: META-S3-MR-006
+    name: irrelevant-controller-extension
+    transform: "Add an authorized but unavailable controller outside the declared coalition without changing quorum thresholds."
+    invariant: [disposition, coalition_controlled_execution_domains, compromised_oversight_domains]
+    provenance: distinct_input_and_receipt_digests
+    status: planned
+    precondition: "The added controller must not be available and must not alter the declared policy."
+
+mutations:
+  - id: META-S3-MUT-001
+    name: remove-only-independent-auditor
+    transform: "Remove the only independent reviewer from one oversight domain while retaining nominal authorization."
+    expected: capture_detected
+    status: executable_in_pr_6129
+    source: "removing_the_only_independent_auditor_changes_safe_control_into_capture"
+
+  - id: META-S3-MUT-002
+    name: single-oversight-domain-loss-below-threshold
+    transform: "Degrade one oversight domain while the configured capture threshold requires two compromised oversight domains."
+    expected: no_capture_observed
+    status: executable_in_pr_6129
+    source: "oversight_loss_threshold_changes_only_when_the_declared_number_of_domains_is_compromised"
+
+  - id: META-S3-MUT-003
+    name: two-oversight-domain-loss-at-threshold
+    transform: "Degrade both configured oversight domains while the coalition retains all critical execution quorums."
+    expected: capture_detected
+    status: executable_in_pr_6129
+    source: "oversight_loss_threshold_changes_only_when_the_declared_number_of_domains_is_compromised"
+
+  - id: META-S3-MUT-004
+    name: coalition-loses-one-critical-execution-quorum
+    transform: "Remove enough coalition-available controllers from one critical execution domain to fall below its signer threshold."
+    expected: no_capture_observed
+    status: executable_in_pr_6129
+    source: "loss_of_one_critical_execution_quorum_breaks_the_full_capture_predicate"
+
+  - id: META-S3-MUT-005
+    name: total-execution-quorum-unavailable
+    transform: "Reduce total available controllers in a critical execution domain below its required signer threshold."
+    expected: execution_unavailable
+    status: executable_in_pr_6129
+    source: "loss_of_execution_quorum_is_not_misreported_as_no_capture"
+
+  - id: META-S3-MUT-006
+    name: unauthorized-active-controller
+    transform: "Add an active controller who is absent from the authorized-controller set."
+    expected: typed_input_error
+    status: executable_in_pr_6129
+    source: "unauthorized_active_controller_is_rejected_instead_of_counted"
+
+  - id: META-S3-MUT-007
+    name: duplicate-domain-record
+    transform: "Add a second record for an already-declared control domain."
+    expected: typed_input_error
+    status: inherited_executable
+    source: "capture.rs unit test duplicate_domain_is_rejected"
+
+  - id: META-S3-MUT-008
+    name: missing-oversight-domain
+    transform: "Omit a policy-required oversight domain from the supplied domain records."
+    expected: typed_input_error
+    status: inherited_executable
+    source: "capture.rs unit test missing_oversight_domain_is_not_treated_as_safe"
+
+  - id: META-S3-MUT-009
+    name: zero-signer-threshold
+    transform: "Set a domain signer threshold to zero."
+    expected: typed_input_error
+    status: inherited_executable
+    source: "capture.rs unit test insufficient_signer_threshold_is_rejected"
+
+  - id: META-S3-MUT-010
+    name: missing-critical-execution-domain
+    transform: "Omit a policy-required execution domain from the supplied domain records."
+    expected: typed_input_error
+    status: inherited_executable
+    source: "validate() returns MissingExecutionDomain"
+
+  - id: META-S3-MUT-011
+    name: empty-coalition
+    transform: "Remove all declared coalition members."
+    expected: typed_input_error
+    status: inherited_executable
+    source: "validate() returns EmptyCoalition"
+
+  - id: META-S3-MUT-012
+    name: zero-oversight-threshold
+    transform: "Set minimum compromised oversight domains to zero."
+    expected: typed_input_error
+    status: inherited_executable
+    source: "validate() returns InvalidOversightThreshold"
+
+  - id: META-S3-MUT-013
+    name: coalition-membership-extension
+    transform: "Add a controller who can meet an additional execution quorum to the declared coalition."
+    expected: "Capture disposition must be recomputed; no invariant is assumed."
+    status: planned
+
+  - id: META-S3-MUT-014
+    name: execution-domain-scope-widening
+    transform: "Add a critical execution domain the coalition cannot exercise."
+    expected: no_capture_observed
+    status: planned
+
+  - id: META-S3-MUT-015
+    name: minimum-oversight-threshold-change
+    transform: "Change the constitution-configured number of compromised oversight domains required for capture."
+    expected: "Disposition must follow the new pinned policy threshold."
+    status: planned
+
+metrics:
+  mandatory_separate_reports:
+    - false_capture_pass_rate
+    - false_safe_rate
+    - invalid_input_acceptance_rate
+    - execution_unavailable_misclassification_rate
+    - metamorphic_semantic_projection_agreement
+    - provenance_digest_collision_count
+    - exact_case_denominator
+    - replay_success_rate
+  forbidden:
+    - "A composite institutional quality score."
+    - "A security probability inferred from capture disposition."
+    - "A claim of common-cause independence from this S3 fixture."
+
+next_expansion:
+  target_metapmorphic_relations: 20
+  target_semantic_mutants: 30
+  target_role_count: [2, 3, 4, 5]
+  target_event_count: [2, 3, 4, 5, 6, 7, 8]
+  target: "Research target, not an achieved benchmark result."
+  gate: "Freeze mutation semantics and holdout families before confirmatory comparisons."
