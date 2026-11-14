@@ -56,6 +56,14 @@ The source review is a literature comparison, not a head-to-head FSRE experiment
 
 Reference: Shamsi, N., Helmrich, A. & Deegan, M. (published 7 November 2026), *Toward system-of-systems resilience: a comparative framework for infrastructure interdependency assessment tools*, Environment Systems and Decisions. https://doi.org/10.1007/s10669-026-10162-2
 
+## 2.2 Water-sector domain-engine comparators
+
+For the first water-service wedge, EPANET and WNTR are mandatory public baselines; configured Bentley OpenFlows Water/WaterGEMS/WaterSight or other operator-native systems are the commercial baseline when actually deployed. EPANET provides extended-period hydraulic and water-quality simulation, operational pump/tank controls and emergency/security analysis. WNTR 1.5 is an EPANET-compatible resilience package that can inject disruptive events, add response/repair strategies, simulate impacts and compute multiple resilience metrics. Bentley's OpenFlows Water suite documents hydraulic, transient, scenario, model calibration, SCADA/GIS integration, pump-scheduling and emergency-condition capabilities; WaterSight documents live SCADA/GIS/model/IoT analytics and emergency response simulation.
+
+FSRE should consume outputs from these systems rather than replace their domain models. Its comparative claim is limited to cross-system evidence admissibility, owner-preserving resource/common-cause composition, cohort floors, stock-flow conservation, decision-time replay and independent outcome verification. See [the water restoration industry baseline crosswalk](WATER_RESTORATION_INDUSTRY_BASELINE_CROSSWALK_V0_1.md) for matched tasks, metrics, and falsification conditions.
+
+Primary sources: EPA EPANET https://www.epa.gov/water-research/epanet; EPA WNTR https://usepa.github.io/WNTR/; Bentley OpenFlows Water https://www.bentley.com/products/openflows-water/; Bentley WaterSight https://www.bentley.com/en/products/openflows-watersight/.
+
 ## 3. What is potentially distinctive about FSRE
 
 ### Prior-art boundary: resilience engineering is established
