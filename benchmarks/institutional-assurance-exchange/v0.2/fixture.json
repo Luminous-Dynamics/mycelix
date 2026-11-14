@@ -507,7 +507,15 @@
       "occurred_at": "2026-01-25T10:01:00Z",
       "observed_at": "2026-01-25T10:01:00Z",
       "mutation_count": 1,
-      "receipt_ref": null
+      "receipt_ref": null,
+      "action": "approve_commercial_lease",
+      "purpose": "new_tenant_commercial_lease",
+      "asset_ref": "PROPERTY-001",
+      "actor_ref": "ACTOR-ASSET-MANAGER-01",
+      "fields": [
+        "lease_submission_request"
+      ],
+      "possible_external_side_effect": true
     },
     {
       "event_ref": "OP-EVENT-TIMEOUT",
@@ -518,7 +526,15 @@
       "occurred_at": "2026-01-25T10:01:05Z",
       "observed_at": "2026-01-25T10:01:05Z",
       "mutation_count": 1,
-      "receipt_ref": null
+      "receipt_ref": null,
+      "action": "approve_commercial_lease",
+      "purpose": "new_tenant_commercial_lease",
+      "asset_ref": "PROPERTY-001",
+      "actor_ref": "ACTOR-ASSET-MANAGER-01",
+      "fields": [
+        "lease_submission_request"
+      ],
+      "possible_external_side_effect": true
     }
   ],
   "execution_control": {
@@ -528,7 +544,20 @@
     "mutation_count": 1,
     "retry_count": 0,
     "reattempt_permitted": false,
-    "reconciliation_required": true
+    "reconciliation_required": true,
+    "authorized_write_boundary": [
+      {
+        "action": "approve_commercial_lease",
+        "purpose": "new_tenant_commercial_lease",
+        "asset_ref": "PROPERTY-001",
+        "actor_ref": "ACTOR-ASSET-MANAGER-01",
+        "fields": [
+          "lease_submission_request"
+        ],
+        "authorization_ref": "AUTHZ-LEASE-001",
+        "possible_external_side_effect": true
+      }
+    ]
   },
   "environment": {
     "mode": "synthetic_fixture_only",
