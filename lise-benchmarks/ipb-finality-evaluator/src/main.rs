@@ -890,8 +890,8 @@ mod tests {
         let duplicate=vec![json!({"id":"F01"}),json!({"id":"F01"})];
         assert!(index(&duplicate,"id","inputs").is_err());
     }
-}
-
+    #[test]
+    fn exact_digest_comparison_requires_an_explicit_mismatch() {
         let mismatch=json!({"constitution_digest_state":"mismatch","observed_disposition":"DENY"});
         let unknown=json!({"constitution_digest_state":"unknown","observed_disposition":"DENY"});
         assert!(required_assertion_satisfied("exact_digest_comparison",&mismatch));
