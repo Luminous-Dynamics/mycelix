@@ -1,0 +1,52 @@
+name: FSRE independent as-of evidence oracle
+on:
+  pull_request:
+    paths:
+      - "tools/fsre-asof-evidence/**"
+      - "tools/fsre-asof-evidence-oracle/**"
+      - ".github/workflows/fsre-asof-evidence-oracle.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/fsre-asof-evidence/**"
+      - "tools/fsre-asof-evidence-oracle/**"
+      - ".github/workflows/fsre-asof-evidence-oracle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  differential:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path tools/fsre-asof-evidence/Cargo.toml --all -- --check
+          cargo fmt --manifest-path tools/fsre-asof-evidence-oracle/Cargo.toml --all -- --check
+      - name: Run both implementations
+        run: |
+          cargo test --locked --offline --manifest-path tools/fsre-asof-evidence/Cargo.toml
+          cargo test --locked --offline --manifest-path tools/fsre-asof-evidence-oracle/Cargo.toml
+      - name: Compare reports to frozen answer
+        shell: bash
+        run: |
+          set -euo pipefail
+          input="tools/fsre-asof-evidence/fixtures/synthetic-asof.psv"
+          production="$(mktemp)"
+          oracle="$(mktemp)"
+          trap 'rm -f "$production" "$oracle"' EXIT
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-asof-evidence/Cargo.toml -- "$input" > "$production"
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-asof-evidence-oracle/Cargo.toml -- "$input" > "$oracle"
+          diff -u tools/fsre-asof-evidence/fixtures/synthetic-asof.expected.txt "$production"
+          diff -u "$production" "$oracle"
+      - name: Run Clippy on both implementations
+        run: |
+          cargo clippy --locked --offline --manifest-path tools/fsre-asof-evidence/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --locked --offline --manifest-path tools/fsre-asof-evidence-oracle/Cargo.toml --all-targets -- -D warnings
