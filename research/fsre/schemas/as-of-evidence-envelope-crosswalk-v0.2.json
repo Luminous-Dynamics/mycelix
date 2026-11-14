@@ -22,6 +22,11 @@
       "rule": "Convert from Unix seconds using timestamp_conversion."
     },
     {
+      "source": "evidence_snapshot_id",
+      "target": "provenance.as_of_qualification.evidence_snapshot_id",
+      "rule": "Preserve the immutable source/evidence snapshot identifier exactly. A composed portfolio must use the same snapshot ID; do not infer equivalence from timestamps or scenario IDs."
+    },
+    {
       "source": "clock_basis_id",
       "target": "provenance.as_of_qualification.time_basis_id",
       "rule": "Preserve exact clock basis."
@@ -141,6 +146,32 @@
   "versioning": {
     "source": "fsre-asof-evidence-report.v0.1",
     "target": "claim-qualification-envelope.v0.2.0",
-    "note": "A future source report/schema or claim-envelope schema version requires an explicit crosswalk revision and replay; do not silently reuse this mapping."
-  }
+    "note": "The v0.2 crosswalk now requires evidence_snapshot_id and defines the exact point-in-time composition bindings. A source report, target envelope or composition contract version change requires an explicit crosswalk revision and replay."
+  },
+  "portfolio_composition_bindings": [
+    {
+      "source": "as-of report evidence_snapshot_id and portfolio report evidence_snapshot_id",
+      "rule": "Exact equality is required; mismatch or absent identifier produces SCOPE_MISMATCH."
+    },
+    {
+      "source": "scenario_id",
+      "rule": "The scenario must match exactly across both reports."
+    },
+    {
+      "source": "decision_at and portfolio decision_at",
+      "rule": "Exact Unix-second cutoff equality is required; this profile does not infer interval start, decision time or clock offset."
+    },
+    {
+      "source": "clock_basis_id",
+      "rule": "Exact clock-basis equality is required; incompatible or unbounded clock uncertainty remains unresolved."
+    },
+    {
+      "source": "portfolio source_owner/source_ref",
+      "rule": "Every pair must map to exactly one as-of evidence row; the row must be admissible at the cutoff and its enclosing claim must meet the declared minimum evidence count."
+    },
+    {
+      "source": "missing, ambiguous or non-admissible pair",
+      "rule": "Do not promote the portfolio; report EVIDENCE_NOT_ESTIMABLE or reject ambiguous bindings."
+    }
+  ]
 }
