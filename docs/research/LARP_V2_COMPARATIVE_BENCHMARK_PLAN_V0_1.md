@@ -151,7 +151,7 @@ The restoration slice must compare with ecological-domain standards and measurem
 
 Current reference points:
 - **SER International Principles and Standards, third edition (June 2026):** broad ecological restoration guidance covering assessment, planning, implementation, ongoing management, and monitoring/evaluation; includes an updated Restorative Continuum and more quantitative Five-star System. Use its ecological definitions and practice standards as the primary domain reference. https://www.ser.org/general/custom.asp?page=serstandards and https://doi.org/10.1111/rec.70441
-- **IUCN Global Standard for Nature-based Solutions:** eight criteria and 27 indicators for assessing and improving NbS. Use it where the project is an NbS intervention; do not treat it as a universal ecological restoration score. https://iucn.org/our-work/topic/iucn-global-standard-nature-based-solutions
+- **IUCN Global Standard for Nature-based Solutions, second edition (10 October 2025):** eight criteria and 27 indicators for assessing and improving NbS. Use it where the project is an NbS intervention; do not treat it as a universal ecological restoration score. https://iucn.org/our-work/topic/iucn-global-standard-nature-based-solutions
 - **Verra VM0047 v1.1:** active ARR carbon-removal methodology, using remote sensing and plot-based sampling with a dynamic performance benchmark for baseline/additionality within its defined carbon-accounting scope. It is not a complete biodiversity, hydrology, social-rights or restoration-equity measure. https://verra.org/methodologies/vm0047-afforestation-reforestation-and-revegetation-v1-1/
 
 Measure separately:
