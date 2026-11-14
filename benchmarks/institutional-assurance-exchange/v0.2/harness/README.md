@@ -48,3 +48,12 @@ The submission includes a normalized `write_trace`. Each possible or completed w
 Any extra asset, action, purpose, field, actor or external effect outside that boundary is reported as an unauthorized side effect. This follows the trace-based evaluation idea in SABench; final task/decision correctness cannot compensate for an unauthorized write.
 
 A timeout entry has `effect_status=possible` and `external_visibility=unknown`. The fixture must not rewrite that as a successful or failed operation.
+
+
+## Exact-operation finality mapping
+
+The example contains a separate operation-level human approval; it is not the intent-baseline approval. The evaluator compares approved and pending operation projections, and binds operation ID, canonical digest, action, principal, target, purpose, policy revision and idempotency identity to the packet/write trace.
+
+The timeout state maps to LISE's `PriorEffectState::OutcomeUnknownAfterDispatch` and the expected reference result is `Hold(HoldCode::PriorOutcomeUnknown)`. See [LISE_MAPPING.md](../LISE_MAPPING.md).
+
+This harness performs structural conformance only; it does not call the separate LISE crate or authenticate synthetic placeholder digests.
