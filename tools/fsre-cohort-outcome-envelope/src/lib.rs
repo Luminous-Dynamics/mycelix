@@ -453,13 +453,15 @@ fn compose(sources: &[String]) -> Result<String, InputError> {
     for lane in lanes {
         let report = lane.trajectory;
         lines.push(format!(
-            "cohort={}|{}|{}|{:.6}|{}|{}|{:.6}|{}|{}|{}|{}|{}|{}|{}",
+            "cohort={}|{}|{}|{:.6}|{}|{}|{}|{}|{:.6}|{}|{}|{}|{}|{}|{}|{}",
             lane.cohort_id,
             display_denominator(lane.population_denominator),
             lane.population_unit,
             lane.minimum_safe_service_fraction,
             report.known_seconds,
             report.unknown_seconds,
+            report.full_service_seconds,
+            report.safe_degraded_seconds,
             report.service_deficit_fraction_seconds,
             report.unsafe_service_seconds,
             report.quality_noncompliant_seconds,
