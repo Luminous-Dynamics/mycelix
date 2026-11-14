@@ -1,0 +1,519 @@
+{
+  "corpus_version": "0.2",
+  "synthetic": true,
+  "status": "development",
+  "as_of": "2026-11-14T08:00:00Z",
+  "cases": [
+    {
+      "scenario_id": "S6R-001",
+      "case_family": "valid_proof_untrusted_issuer",
+      "description": "valid proof untrusted issuer",
+      "assets": [
+        {
+          "asset_ref": "COLLECTION-001",
+          "owning_entity_ref": "ENTITY-A",
+          "asset_class": "synthetic_asset"
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACTOR-A",
+        "entity_ref": "ENTITY-A"
+      },
+      "request": {
+        "action": "complete_collection_handover",
+        "purpose": "approved_collection_transfer",
+        "asset_ref": "COLLECTION-001",
+        "requested_at": "2026-11-14T07:00:00Z",
+        "execute_at": "2026-11-14T07:07:00Z",
+        "requested_claim_dimension": "custody"
+      },
+      "authorization": {
+        "credential_ref": "CRED-001",
+        "issuer_ref": "ISSUER-UNLISTED",
+        "subject_ref": "ACTOR-A",
+        "entity_ref": "ENTITY-A",
+        "issuer_trust_state": "untrusted",
+        "proof_state": "valid",
+        "status_state": "active",
+        "status_observed_at": "2026-11-14T07:00:00Z",
+        "valid_from": "2026-11-01T00:00:00Z",
+        "valid_until": "2026-12-01T00:00:00Z",
+        "action_scope": [
+          "complete_collection_handover"
+        ],
+        "purpose_scope": [
+          "approved_collection_transfer"
+        ],
+        "asset_scope": [
+          "COLLECTION-001"
+        ],
+        "revoked_at": null,
+        "revocation_observed_at": null
+      },
+      "source_assertions": [],
+      "operation_history": []
+    },
+    {
+      "scenario_id": "S6R-002",
+      "case_family": "revocation_toctou",
+      "description": "revocation toctou",
+      "assets": [
+        {
+          "asset_ref": "VESSEL-002",
+          "owning_entity_ref": "ENTITY-B",
+          "asset_class": "synthetic_asset"
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACTOR-B",
+        "entity_ref": "ENTITY-B"
+      },
+      "request": {
+        "action": "sell_asset",
+        "purpose": "approved_disposal",
+        "asset_ref": "VESSEL-002",
+        "requested_at": "2026-11-14T07:10:00Z",
+        "execute_at": "2026-11-14T07:20:00Z",
+        "requested_claim_dimension": "operational_authority"
+      },
+      "authorization": {
+        "credential_ref": "CRED-002",
+        "issuer_ref": "ISSUER-TRUSTED",
+        "subject_ref": "ACTOR-B",
+        "entity_ref": "ENTITY-B",
+        "issuer_trust_state": "trusted",
+        "proof_state": "valid",
+        "status_state": "revoked",
+        "status_observed_at": "2026-11-14T07:19:00Z",
+        "valid_from": "2026-11-01T00:00:00Z",
+        "valid_until": "2026-12-01T00:00:00Z",
+        "action_scope": [
+          "sell_asset"
+        ],
+        "purpose_scope": [
+          "approved_disposal"
+        ],
+        "asset_scope": [
+          "VESSEL-002"
+        ],
+        "revoked_at": "2026-11-14T07:18:00Z",
+        "revocation_observed_at": "2026-11-14T07:19:00Z"
+      },
+      "source_assertions": [],
+      "operation_history": []
+    },
+    {
+      "scenario_id": "S6R-003",
+      "case_family": "revocation_status_unknown",
+      "description": "revocation status unknown",
+      "assets": [
+        {
+          "asset_ref": "PROPERTY-003",
+          "owning_entity_ref": "ENTITY-C",
+          "asset_class": "synthetic_asset"
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACTOR-C",
+        "entity_ref": "ENTITY-C"
+      },
+      "request": {
+        "action": "approve_property_access",
+        "purpose": "maintenance_entry",
+        "asset_ref": "PROPERTY-003",
+        "requested_at": "2026-11-14T07:00:00Z",
+        "execute_at": "2026-11-14T07:07:00Z",
+        "requested_claim_dimension": "operational_authority"
+      },
+      "authorization": {
+        "credential_ref": "CRED-003",
+        "issuer_ref": "ISSUER-TRUSTED",
+        "subject_ref": "ACTOR-C",
+        "entity_ref": "ENTITY-C",
+        "issuer_trust_state": "trusted",
+        "proof_state": "valid",
+        "status_state": "unknown",
+        "status_observed_at": "2026-11-14T06:00:00Z",
+        "valid_from": "2026-11-01T00:00:00Z",
+        "valid_until": "2026-12-01T00:00:00Z",
+        "action_scope": [
+          "approve_property_access"
+        ],
+        "purpose_scope": [
+          "maintenance_entry"
+        ],
+        "asset_scope": [
+          "PROPERTY-003"
+        ],
+        "revoked_at": null,
+        "revocation_observed_at": null
+      },
+      "source_assertions": [],
+      "operation_history": []
+    },
+    {
+      "scenario_id": "S6R-004",
+      "case_family": "external_timeout_after_possible_submission",
+      "description": "external timeout after possible submission",
+      "assets": [
+        {
+          "asset_ref": "COLLECTION-004",
+          "owning_entity_ref": "ENTITY-A",
+          "asset_class": "synthetic_asset"
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACTOR-D",
+        "entity_ref": "ENTITY-A"
+      },
+      "request": {
+        "action": "complete_collection_handover",
+        "purpose": "approved_collection_transfer",
+        "asset_ref": "COLLECTION-004",
+        "requested_at": "2026-11-14T07:00:00Z",
+        "execute_at": "2026-11-14T07:07:00Z",
+        "requested_claim_dimension": "custody"
+      },
+      "authorization": {
+        "credential_ref": "CRED-004",
+        "issuer_ref": "ISSUER-TRUSTED",
+        "subject_ref": "ACTOR-D",
+        "entity_ref": "ENTITY-A",
+        "issuer_trust_state": "trusted",
+        "proof_state": "valid",
+        "status_state": "active",
+        "status_observed_at": "2026-11-14T07:00:00Z",
+        "valid_from": "2026-11-01T00:00:00Z",
+        "valid_until": "2026-12-01T00:00:00Z",
+        "action_scope": [
+          "complete_collection_handover"
+        ],
+        "purpose_scope": [
+          "approved_collection_transfer"
+        ],
+        "asset_scope": [
+          "COLLECTION-004"
+        ],
+        "revoked_at": null,
+        "revocation_observed_at": null
+      },
+      "source_assertions": [],
+      "operation_history": [
+        {
+          "event_id": "EVT-004-A",
+          "operation_ref": "OP-004",
+          "idempotency_key": "IDEM-004",
+          "event_type": "submit_attempt",
+          "outcome": "submitted",
+          "occurred_at": "2026-11-14T07:01:00Z",
+          "observed_at": "2026-11-14T07:01:00Z",
+          "receipt_ref": null
+        },
+        {
+          "event_id": "EVT-004-B",
+          "operation_ref": "OP-004",
+          "idempotency_key": "IDEM-004",
+          "event_type": "timeout",
+          "outcome": "unknown",
+          "occurred_at": "2026-11-14T07:01:05Z",
+          "observed_at": "2026-11-14T07:01:05Z",
+          "receipt_ref": null
+        }
+      ]
+    },
+    {
+      "scenario_id": "S6R-005",
+      "case_family": "delayed_success_receipt",
+      "description": "delayed success receipt",
+      "assets": [
+        {
+          "asset_ref": "COLLECTION-005",
+          "owning_entity_ref": "ENTITY-A",
+          "asset_class": "synthetic_asset"
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACTOR-D",
+        "entity_ref": "ENTITY-A"
+      },
+      "request": {
+        "action": "complete_collection_handover",
+        "purpose": "approved_collection_transfer",
+        "asset_ref": "COLLECTION-005",
+        "requested_at": "2026-11-14T07:00:00Z",
+        "execute_at": "2026-11-14T07:07:00Z",
+        "requested_claim_dimension": "custody"
+      },
+      "authorization": {
+        "credential_ref": "CRED-005",
+        "issuer_ref": "ISSUER-TRUSTED",
+        "subject_ref": "ACTOR-D",
+        "entity_ref": "ENTITY-A",
+        "issuer_trust_state": "trusted",
+        "proof_state": "valid",
+        "status_state": "active",
+        "status_observed_at": "2026-11-14T07:00:00Z",
+        "valid_from": "2026-11-01T00:00:00Z",
+        "valid_until": "2026-12-01T00:00:00Z",
+        "action_scope": [
+          "complete_collection_handover"
+        ],
+        "purpose_scope": [
+          "approved_collection_transfer"
+        ],
+        "asset_scope": [
+          "COLLECTION-005"
+        ],
+        "revoked_at": null,
+        "revocation_observed_at": null
+      },
+      "source_assertions": [],
+      "operation_history": [
+        {
+          "event_id": "EVT-005-A",
+          "operation_ref": "OP-005",
+          "idempotency_key": "IDEM-005",
+          "event_type": "submit_attempt",
+          "outcome": "submitted",
+          "occurred_at": "2026-11-14T07:02:00Z",
+          "observed_at": "2026-11-14T07:02:00Z",
+          "receipt_ref": null
+        },
+        {
+          "event_id": "EVT-005-B",
+          "operation_ref": "OP-005",
+          "idempotency_key": "IDEM-005",
+          "event_type": "timeout",
+          "outcome": "unknown",
+          "occurred_at": "2026-11-14T07:02:05Z",
+          "observed_at": "2026-11-14T07:02:05Z",
+          "receipt_ref": null
+        },
+        {
+          "event_id": "EVT-005-C",
+          "operation_ref": "OP-005",
+          "idempotency_key": "IDEM-005",
+          "event_type": "completion_receipt",
+          "outcome": "success",
+          "occurred_at": "2026-11-14T07:02:03Z",
+          "observed_at": "2026-11-14T07:08:00Z",
+          "receipt_ref": "RECEIPT-005"
+        }
+      ]
+    },
+    {
+      "scenario_id": "S6R-006",
+      "case_family": "common_cause_source_dependency",
+      "description": "common cause source dependency",
+      "assets": [
+        {
+          "asset_ref": "PROPERTY-006",
+          "owning_entity_ref": "ENTITY-A",
+          "asset_class": "synthetic_asset"
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACTOR-E",
+        "entity_ref": "ENTITY-A"
+      },
+      "request": {
+        "action": "assert_independent_title",
+        "purpose": "disposal_due_diligence",
+        "asset_ref": "PROPERTY-006",
+        "requested_at": "2026-11-14T07:00:00Z",
+        "execute_at": "2026-11-14T07:07:00Z",
+        "requested_claim_dimension": "title"
+      },
+      "authorization": {
+        "credential_ref": "CRED-006",
+        "issuer_ref": "ISSUER-TRUSTED",
+        "subject_ref": "ACTOR-E",
+        "entity_ref": "ENTITY-A",
+        "issuer_trust_state": "trusted",
+        "proof_state": "valid",
+        "status_state": "active",
+        "status_observed_at": "2026-11-14T07:00:00Z",
+        "valid_from": "2026-11-01T00:00:00Z",
+        "valid_until": "2026-12-01T00:00:00Z",
+        "action_scope": [
+          "assert_independent_title"
+        ],
+        "purpose_scope": [
+          "disposal_due_diligence"
+        ],
+        "asset_scope": [
+          "PROPERTY-006"
+        ],
+        "revoked_at": null,
+        "revocation_observed_at": null
+      },
+      "source_assertions": [
+        {
+          "source_id": "SRC-006-A",
+          "record_family": "registry_mirror",
+          "claim_dimension": "title",
+          "claim_disposition": "supported_within_scope",
+          "competent_for": [
+            "title"
+          ],
+          "provider_ref": "AGGREGATOR-X",
+          "source_version": "17",
+          "digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "digest_state": "matched",
+          "observed_at": "2026-11-14T07:00:00Z",
+          "effective_from": "2020-01-01T00:00:00Z",
+          "scope": "mirror feed"
+        },
+        {
+          "source_id": "SRC-006-B",
+          "record_family": "portfolio_summary",
+          "claim_dimension": "title",
+          "claim_disposition": "supported_within_scope",
+          "competent_for": [
+            "title"
+          ],
+          "provider_ref": "AGGREGATOR-X",
+          "source_version": "v2026-11-14",
+          "digest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "digest_state": "matched",
+          "observed_at": "2026-11-14T07:00:00Z",
+          "effective_from": "2020-01-01T00:00:00Z",
+          "scope": "derived portfolio summary"
+        }
+      ],
+      "operation_history": []
+    },
+    {
+      "scenario_id": "S6R-007",
+      "case_family": "source_competence_dimension_mismatch",
+      "description": "source competence dimension mismatch",
+      "assets": [
+        {
+          "asset_ref": "COLLECTION-007",
+          "owning_entity_ref": "ENTITY-A",
+          "asset_class": "synthetic_asset"
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACTOR-F",
+        "entity_ref": "ENTITY-A"
+      },
+      "request": {
+        "action": "assert_legal_title",
+        "purpose": "disposal_due_diligence",
+        "asset_ref": "COLLECTION-007",
+        "requested_at": "2026-11-14T07:00:00Z",
+        "execute_at": "2026-11-14T07:07:00Z",
+        "requested_claim_dimension": "title"
+      },
+      "authorization": {
+        "credential_ref": "CRED-007",
+        "issuer_ref": "ISSUER-TRUSTED",
+        "subject_ref": "ACTOR-F",
+        "entity_ref": "ENTITY-A",
+        "issuer_trust_state": "trusted",
+        "proof_state": "valid",
+        "status_state": "active",
+        "status_observed_at": "2026-11-14T07:00:00Z",
+        "valid_from": "2026-11-01T00:00:00Z",
+        "valid_until": "2026-12-01T00:00:00Z",
+        "action_scope": [
+          "assert_legal_title"
+        ],
+        "purpose_scope": [
+          "disposal_due_diligence"
+        ],
+        "asset_scope": [
+          "COLLECTION-007"
+        ],
+        "revoked_at": null,
+        "revocation_observed_at": null
+      },
+      "source_assertions": [
+        {
+          "source_id": "SRC-007",
+          "record_family": "custody_register",
+          "claim_dimension": "title",
+          "claim_disposition": "supported_within_scope",
+          "competent_for": [
+            "custody"
+          ],
+          "provider_ref": "CUSTODIAN-A",
+          "source_version": "9",
+          "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "digest_state": "matched",
+          "observed_at": "2026-11-14T07:00:00Z",
+          "effective_from": "2025-01-01T00:00:00Z",
+          "scope": "physical custody only"
+        }
+      ],
+      "operation_history": []
+    },
+    {
+      "scenario_id": "S6R-008",
+      "case_family": "stale_cache_digest_mismatch",
+      "description": "stale cache digest mismatch",
+      "assets": [
+        {
+          "asset_ref": "PROPERTY-008",
+          "owning_entity_ref": "ENTITY-A",
+          "asset_class": "synthetic_asset"
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACTOR-G",
+        "entity_ref": "ENTITY-A"
+      },
+      "request": {
+        "action": "assert_current_encumbrance_status",
+        "purpose": "disposal_due_diligence",
+        "asset_ref": "PROPERTY-008",
+        "requested_at": "2026-11-14T07:00:00Z",
+        "execute_at": "2026-11-14T07:07:00Z",
+        "requested_claim_dimension": "encumbrance"
+      },
+      "authorization": {
+        "credential_ref": "CRED-008",
+        "issuer_ref": "ISSUER-TRUSTED",
+        "subject_ref": "ACTOR-G",
+        "entity_ref": "ENTITY-A",
+        "issuer_trust_state": "trusted",
+        "proof_state": "valid",
+        "status_state": "active",
+        "status_observed_at": "2026-11-14T07:00:00Z",
+        "valid_from": "2026-11-01T00:00:00Z",
+        "valid_until": "2026-12-01T00:00:00Z",
+        "action_scope": [
+          "assert_current_encumbrance_status"
+        ],
+        "purpose_scope": [
+          "disposal_due_diligence"
+        ],
+        "asset_scope": [
+          "PROPERTY-008"
+        ],
+        "revoked_at": null,
+        "revocation_observed_at": null
+      },
+      "source_assertions": [
+        {
+          "source_id": "SRC-008",
+          "record_family": "encumbrance_registry_extract",
+          "claim_dimension": "encumbrance",
+          "claim_disposition": "supported_within_scope",
+          "competent_for": [
+            "encumbrance"
+          ],
+          "provider_ref": "REGISTRY-A",
+          "source_version": "42",
+          "digest_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "digest_state": "mismatch",
+          "observed_at": "2026-11-14T06:30:00Z",
+          "effective_from": "2026-01-01T00:00:00Z",
+          "scope": "cached record not byte-identical to current source"
+        }
+      ],
+      "operation_history": []
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+[package]
+name = "ipb-s6-v0-2-harness"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+sha2 = "0.10"
+serde_json = "1"
