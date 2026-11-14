@@ -1479,5 +1479,12 @@
       "protected_effect_state": "unknown",
       "expected_action_set_state": "unknown"
     }
-  ]
+  ],
+  "total_runtime_ms": null,
+  "peak_memory_bytes": null,
+  "provider_call_count": null,
+  "total_input_tokens": null,
+  "total_output_tokens": null,
+  "total_cost_usd_micros": null,
+  "expert_reviewer_time_ms": null
 }
