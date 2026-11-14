@@ -142,7 +142,8 @@
       "replay_evaluator_revision": null,
       "replay_report_ref": null,
       "hindsight_revocation_count": 0,
-      "future_information_used": false
+      "future_information_used": false,
+      "clock_uncertainty_handling": "NOT_ASSESSED"
     }
   },
   "method": {
