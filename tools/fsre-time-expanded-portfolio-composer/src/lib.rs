@@ -765,7 +765,7 @@ mod tests {
         assert!(report.contains("asof_evidence=hour-00|12|12|0|0|ASOF_EVIDENCE_LINKED_AND_PORTFOLIO_FEASIBLE_FOR_DECLARED_DECISION"));
         assert!(report.contains("asof_evidence=hour-01|12|12|0|0|ASOF_EVIDENCE_LINKED_AND_PORTFOLIO_FEASIBLE_FOR_DECLARED_DECISION"));
         assert!(report.contains("asof_evidence=hour-02|12|12|0|0|ASOF_EVIDENCE_LINKED_AND_PORTFOLIO_FEASIBLE_FOR_DECLARED_DECISION"));
-        assert!(report.contains("as_known_at_cutoff=REPLAYED_PER_INTERVAL"));
+        assert!(report.contains("as_known_at_cutoff=CHECKED_BY_EXISTING_ASOF_COMPOSER_PER_INTERVAL"));
     }
 
     #[test]
