@@ -1005,6 +1005,16 @@ mod tests {
     }
 
     #[test]
+    fn complete_manifest_does_not_override_unknown_service_observations() {
+        let changed = HOUSEHOLDS.replace("40,0.6,true", "90,0.6,true");
+        let lanes = vec![HOSPITAL.to_owned(), changed, REMOTE.to_owned()];
+        let report = validate_and_report_with_manifest(MANIFEST, &lanes).unwrap();
+        assert!(report.contains("cohort_set_completeness=COMPLETE_FOR_DECLARED_MANIFEST"));
+        assert!(report.contains("manifest_disposition=COMPLETE_FOR_DECLARED_MANIFEST"));
+        assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
+    }
+
+    #[test]
     fn unexpected_lane_prevents_completeness_claim() {
         let extra = REMOTE.replace("# cohort_id=remote-community", "# cohort_id=other-community");
         let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), extra];
