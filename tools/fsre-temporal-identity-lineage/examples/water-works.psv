@@ -1,0 +1,4 @@
+event_id|event_type|predecessors|successors|effective_at|recorded_at|source_snapshot|evidence_owner|evidence_ref|adjudicator|rule_version
+rename-1|RENAME|works-001|works-001|10|10|dws-snapshot-1|registry-owner|doc-rename-1|reviewer-1|lineage-v1
+boundary-1|SERVICE_BOUNDARY_CHANGE|works-001|works-001|20|22|municipal-snapshot-2|municipal-owner|gazette-2|reviewer-2|lineage-v1
+split-1|SPLIT|works-001|works-002,works-003|30|35|dws-snapshot-3|registry-owner|doc-split-3|reviewer-1|lineage-v1
