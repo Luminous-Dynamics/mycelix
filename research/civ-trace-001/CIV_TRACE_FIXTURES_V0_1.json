@@ -1,0 +1,5232 @@
+{
+  "schema_version": "civ-trace-fixtures-v0.1",
+  "benchmark_id": "CIV-TRACE-001",
+  "status": "synthetic_known_answer_design_unexecuted",
+  "fixture_count": 36,
+  "family_count": 6,
+  "families": [
+    "hindsight_isolation",
+    "authority_at_event_time",
+    "correction_supersession",
+    "outcome_observation",
+    "contestability",
+    "privacy_projection"
+  ],
+  "fixtures": [
+    {
+      "fixture_id": "CIVT-HINDSIGHT-01",
+      "family": "hindsight_isolation",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-001",
+      "principal_ref": "PRIN-001",
+      "decision_ref": "DEC-001",
+      "attempt_ref": "ATT-001",
+      "events": [
+        {
+          "event_id": "DEC-001",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-001",
+          "principal_ref": "PRIN-001",
+          "target_ref": "TGT-001",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-001",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-1",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-001",
+          "principal_ref": "PRIN-001",
+          "target_ref": "TGT-001",
+          "parent_refs": [
+            "DEC-001"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07e",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-1",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-001",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-001",
+          "principal_ref": "PRIN-001",
+          "target_ref": "TGT-001",
+          "parent_refs": [
+            "DEC-001"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-001",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-001",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-001",
+          "principal_ref": "PRIN-001",
+          "target_ref": "TGT-001",
+          "parent_refs": [
+            "DEC-001",
+            "GRANT-001"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-001",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-1",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-001",
+          "principal_ref": "PRIN-001",
+          "target_ref": "TGT-001",
+          "parent_refs": [
+            "ATT-001"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e1",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-1",
+          "observer_ref": "OBSERVER-OBS-1"
+        },
+        {
+          "event_id": "H-EARLY-1",
+          "kind": "Evidence",
+          "transaction_time": 170,
+          "valid_from": 170,
+          "valid_until": null,
+          "subject_ref": "DEC-001",
+          "principal_ref": "PRIN-001",
+          "target_ref": "TGT-001",
+          "parent_refs": [
+            "DEC-001"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0b3",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-H-EARLY-1",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-001",
+          "EVID-1",
+          "GRANT-001",
+          "H-EARLY-1"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-001",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-001"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-HINDSIGHT-02",
+      "family": "hindsight_isolation",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-002",
+      "principal_ref": "PRIN-002",
+      "decision_ref": "DEC-002",
+      "attempt_ref": "ATT-002",
+      "events": [
+        {
+          "event_id": "DEC-002",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-002",
+          "principal_ref": "PRIN-002",
+          "target_ref": "TGT-002",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-002",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-2",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-002",
+          "principal_ref": "PRIN-002",
+          "target_ref": "TGT-002",
+          "parent_refs": [
+            "DEC-002"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07e",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-2",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-002",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-002",
+          "principal_ref": "PRIN-002",
+          "target_ref": "TGT-002",
+          "parent_refs": [
+            "DEC-002"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-002",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-002",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-002",
+          "principal_ref": "PRIN-002",
+          "target_ref": "TGT-002",
+          "parent_refs": [
+            "DEC-002",
+            "GRANT-002"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-002",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-2",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-002",
+          "principal_ref": "PRIN-002",
+          "target_ref": "TGT-002",
+          "parent_refs": [
+            "ATT-002"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e1",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-2",
+          "observer_ref": "OBSERVER-OBS-2"
+        },
+        {
+          "event_id": "H-LATE-BACKDATED-2",
+          "kind": "Evidence",
+          "transaction_time": 260,
+          "valid_from": 160,
+          "valid_until": null,
+          "subject_ref": "DEC-002",
+          "principal_ref": "PRIN-002",
+          "target_ref": "TGT-002",
+          "parent_refs": [
+            "DEC-002"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c116",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-H-LATE-BACKDATED-2",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-002",
+          "EVID-2",
+          "GRANT-002"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-002",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-002"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-HINDSIGHT-03",
+      "family": "hindsight_isolation",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-003",
+      "principal_ref": "PRIN-003",
+      "decision_ref": "DEC-003",
+      "attempt_ref": "ATT-003",
+      "events": [
+        {
+          "event_id": "DEC-003",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-003",
+          "principal_ref": "PRIN-003",
+          "target_ref": "TGT-003",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-003",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-3",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-003",
+          "principal_ref": "PRIN-003",
+          "target_ref": "TGT-003",
+          "parent_refs": [
+            "DEC-003"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07e",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-3",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-003",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-003",
+          "principal_ref": "PRIN-003",
+          "target_ref": "TGT-003",
+          "parent_refs": [
+            "DEC-003"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-003",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-003",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-003",
+          "principal_ref": "PRIN-003",
+          "target_ref": "TGT-003",
+          "parent_refs": [
+            "DEC-003",
+            "GRANT-003"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-003",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-3",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-003",
+          "principal_ref": "PRIN-003",
+          "target_ref": "TGT-003",
+          "parent_refs": [
+            "ATT-003"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e1",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-3",
+          "observer_ref": "OBSERVER-OBS-3"
+        },
+        {
+          "event_id": "H-POST-3",
+          "kind": "Evidence",
+          "transaction_time": 190,
+          "valid_from": 190,
+          "valid_until": null,
+          "subject_ref": "DEC-003",
+          "principal_ref": "PRIN-003",
+          "target_ref": "TGT-003",
+          "parent_refs": [
+            "DEC-003"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0c6",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-H-POST-3",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-003",
+          "EVID-3",
+          "GRANT-003"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-003",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-003"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-HINDSIGHT-04",
+      "family": "hindsight_isolation",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-004",
+      "principal_ref": "PRIN-004",
+      "decision_ref": "DEC-004",
+      "attempt_ref": "ATT-004",
+      "events": [
+        {
+          "event_id": "DEC-004",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-004",
+          "principal_ref": "PRIN-004",
+          "target_ref": "TGT-004",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-004",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-4",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-004",
+          "principal_ref": "PRIN-004",
+          "target_ref": "TGT-004",
+          "parent_refs": [
+            "DEC-004"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07e",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-4",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-004",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-004",
+          "principal_ref": "PRIN-004",
+          "target_ref": "TGT-004",
+          "parent_refs": [
+            "DEC-004"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-004",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-004",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-004",
+          "principal_ref": "PRIN-004",
+          "target_ref": "TGT-004",
+          "parent_refs": [
+            "DEC-004",
+            "GRANT-004"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-004",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-4",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-004",
+          "principal_ref": "PRIN-004",
+          "target_ref": "TGT-004",
+          "parent_refs": [
+            "ATT-004"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e1",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-4",
+          "observer_ref": "OBSERVER-OBS-4"
+        },
+        {
+          "event_id": "H-LATE-CORRECTION-4",
+          "kind": "Correction",
+          "transaction_time": 280,
+          "valid_from": 160,
+          "valid_until": null,
+          "subject_ref": "DEC-004",
+          "principal_ref": "PRIN-004",
+          "target_ref": "TGT-004",
+          "parent_refs": [
+            "EVID-4"
+          ],
+          "status": "Corrected",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c12b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-H-LATE-CORRECTION-4",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-004",
+          "EVID-4",
+          "GRANT-004"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-004",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-004"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-HINDSIGHT-05",
+      "family": "hindsight_isolation",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-005",
+      "principal_ref": "PRIN-005",
+      "decision_ref": "DEC-005",
+      "attempt_ref": "ATT-005",
+      "events": [
+        {
+          "event_id": "DEC-005",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-005",
+          "principal_ref": "PRIN-005",
+          "target_ref": "TGT-005",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-005",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-5",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-005",
+          "principal_ref": "PRIN-005",
+          "target_ref": "TGT-005",
+          "parent_refs": [
+            "DEC-005"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07e",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-5",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-005",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-005",
+          "principal_ref": "PRIN-005",
+          "target_ref": "TGT-005",
+          "parent_refs": [
+            "DEC-005"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-005",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-005",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-005",
+          "principal_ref": "PRIN-005",
+          "target_ref": "TGT-005",
+          "parent_refs": [
+            "DEC-005",
+            "GRANT-005"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-005",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-5",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-005",
+          "principal_ref": "PRIN-005",
+          "target_ref": "TGT-005",
+          "parent_refs": [
+            "ATT-005"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e1",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-5",
+          "observer_ref": "OBSERVER-OBS-5"
+        },
+        {
+          "event_id": "H-UNTRUSTED-5",
+          "kind": "Evidence",
+          "transaction_time": 165,
+          "valid_from": 165,
+          "valid_until": null,
+          "subject_ref": "DEC-005",
+          "principal_ref": "PRIN-005",
+          "target_ref": "TGT-005",
+          "parent_refs": [
+            "DEC-005"
+          ],
+          "status": "Untrusted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0b2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-H-UNTRUSTED-5",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-005",
+          "EVID-5",
+          "GRANT-005",
+          "H-UNTRUSTED-5"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-005",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-005"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-HINDSIGHT-06",
+      "family": "hindsight_isolation",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-006",
+      "principal_ref": "PRIN-006",
+      "decision_ref": "DEC-006",
+      "attempt_ref": "ATT-006",
+      "events": [
+        {
+          "event_id": "DEC-006",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-006",
+          "principal_ref": "PRIN-006",
+          "target_ref": "TGT-006",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-006",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-6",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-006",
+          "principal_ref": "PRIN-006",
+          "target_ref": "TGT-006",
+          "parent_refs": [
+            "DEC-006"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07e",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-6",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-006",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-006",
+          "principal_ref": "PRIN-006",
+          "target_ref": "TGT-006",
+          "parent_refs": [
+            "DEC-006"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-006",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-006",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-006",
+          "principal_ref": "PRIN-006",
+          "target_ref": "TGT-006",
+          "parent_refs": [
+            "DEC-006",
+            "GRANT-006"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-006",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-6",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-006",
+          "principal_ref": "PRIN-006",
+          "target_ref": "TGT-006",
+          "parent_refs": [
+            "OTHER-ATTEMPT"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e1",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-6",
+          "observer_ref": "OBSERVER-OBS-6"
+        },
+        {
+          "event_id": "H-REPLAY-6",
+          "kind": "Evidence",
+          "transaction_time": 175,
+          "valid_from": 175,
+          "valid_until": null,
+          "subject_ref": "DEC-006",
+          "principal_ref": "PRIN-006",
+          "target_ref": "TGT-006",
+          "parent_refs": [
+            "DEC-006"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0b9",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-H-REPLAY-6",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-006",
+          "EVID-6",
+          "GRANT-006",
+          "H-REPLAY-6"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "UNOBSERVED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-006",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-006"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-AUTHORITY-01",
+      "family": "authority_at_event_time",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-011",
+      "principal_ref": "PRIN-011",
+      "decision_ref": "DEC-011",
+      "attempt_ref": "ATT-011",
+      "events": [
+        {
+          "event_id": "DEC-011",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-011",
+          "principal_ref": "PRIN-011",
+          "target_ref": "TGT-011",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-011",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-11",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-011",
+          "principal_ref": "PRIN-011",
+          "target_ref": "TGT-011",
+          "parent_refs": [
+            "DEC-011"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-11",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-011",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-011",
+          "principal_ref": "PRIN-011",
+          "target_ref": "TGT-011",
+          "parent_refs": [
+            "DEC-011"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-011",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-011",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-011",
+          "principal_ref": "PRIN-011",
+          "target_ref": "TGT-011",
+          "parent_refs": [
+            "DEC-011",
+            "GRANT-011"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-011",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-11",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-011",
+          "principal_ref": "PRIN-011",
+          "target_ref": "TGT-011",
+          "parent_refs": [
+            "ATT-011"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-11",
+          "observer_ref": "OBSERVER-OBS-11"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-011",
+          "EVID-11",
+          "GRANT-011"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-011",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-011"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-AUTHORITY-02",
+      "family": "authority_at_event_time",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-012",
+      "principal_ref": "PRIN-012",
+      "decision_ref": "DEC-012",
+      "attempt_ref": "ATT-012",
+      "events": [
+        {
+          "event_id": "DEC-012",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-012",
+          "principal_ref": "PRIN-012",
+          "target_ref": "TGT-012",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-012",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-12",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-012",
+          "principal_ref": "PRIN-012",
+          "target_ref": "TGT-012",
+          "parent_refs": [
+            "DEC-012"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-12",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-012",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 190,
+          "subject_ref": "DEC-012",
+          "principal_ref": "PRIN-012",
+          "target_ref": "TGT-012",
+          "parent_refs": [
+            "DEC-012"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-012",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-012",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-012",
+          "principal_ref": "PRIN-012",
+          "target_ref": "TGT-012",
+          "parent_refs": [
+            "DEC-012",
+            "GRANT-012"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-012",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-12",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-012",
+          "principal_ref": "PRIN-012",
+          "target_ref": "TGT-012",
+          "parent_refs": [
+            "ATT-012"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-12",
+          "observer_ref": "OBSERVER-OBS-12"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-012",
+          "EVID-12",
+          "GRANT-012"
+        ],
+        "authority_as_known_at_action": "UNAUTHORIZED",
+        "authority_current_assessment": "UNAUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-012",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-012"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-AUTHORITY-03",
+      "family": "authority_at_event_time",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-013",
+      "principal_ref": "PRIN-013",
+      "decision_ref": "DEC-013",
+      "attempt_ref": "ATT-013",
+      "events": [
+        {
+          "event_id": "DEC-013",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-013",
+          "principal_ref": "PRIN-013",
+          "target_ref": "TGT-013",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-013",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-13",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-013",
+          "principal_ref": "PRIN-013",
+          "target_ref": "TGT-013",
+          "parent_refs": [
+            "DEC-013"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-13",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-013",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-013",
+          "principal_ref": "PRIN-013",
+          "target_ref": "TGT-013",
+          "parent_refs": [
+            "DEC-013"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-013",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-013",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-013",
+          "principal_ref": "PRIN-013",
+          "target_ref": "TGT-013",
+          "parent_refs": [
+            "DEC-013",
+            "GRANT-013"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-013",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-13",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-013",
+          "principal_ref": "PRIN-013",
+          "target_ref": "TGT-013",
+          "parent_refs": [
+            "ATT-013"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-13",
+          "observer_ref": "OBSERVER-OBS-13"
+        },
+        {
+          "event_id": "REV-3",
+          "kind": "AuthorityRevoke",
+          "transaction_time": 190,
+          "valid_from": 190,
+          "valid_until": null,
+          "subject_ref": "DEC-013",
+          "principal_ref": "PRIN-013",
+          "target_ref": "TGT-013",
+          "parent_refs": [
+            "GRANT-013"
+          ],
+          "status": "Revoked",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0c3",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-REV-3",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-013",
+          "EVID-13",
+          "GRANT-013"
+        ],
+        "authority_as_known_at_action": "UNAUTHORIZED",
+        "authority_current_assessment": "UNAUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-013",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-013"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-AUTHORITY-04",
+      "family": "authority_at_event_time",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-014",
+      "principal_ref": "PRIN-014",
+      "decision_ref": "DEC-014",
+      "attempt_ref": "ATT-014",
+      "events": [
+        {
+          "event_id": "DEC-014",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-014",
+          "principal_ref": "PRIN-014",
+          "target_ref": "TGT-014",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-014",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-14",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-014",
+          "principal_ref": "PRIN-014",
+          "target_ref": "TGT-014",
+          "parent_refs": [
+            "DEC-014"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-14",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-014",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-014",
+          "principal_ref": "PRIN-014",
+          "target_ref": "TGT-014",
+          "parent_refs": [
+            "DEC-014"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-014",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-014",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-014",
+          "principal_ref": "PRIN-014",
+          "target_ref": "TGT-014",
+          "parent_refs": [
+            "DEC-014",
+            "GRANT-014"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-014",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-14",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-014",
+          "principal_ref": "PRIN-014",
+          "target_ref": "TGT-014",
+          "parent_refs": [
+            "ATT-014"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-14",
+          "observer_ref": "OBSERVER-OBS-14"
+        },
+        {
+          "event_id": "REV-LATE-4",
+          "kind": "AuthorityRevoke",
+          "transaction_time": 260,
+          "valid_from": 190,
+          "valid_until": null,
+          "subject_ref": "DEC-014",
+          "principal_ref": "PRIN-014",
+          "target_ref": "TGT-014",
+          "parent_refs": [
+            "GRANT-014"
+          ],
+          "status": "Revoked",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c10e",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-REV-LATE-4",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-014",
+          "EVID-14",
+          "GRANT-014"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "UNAUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-014",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-014"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-AUTHORITY-05",
+      "family": "authority_at_event_time",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-015",
+      "principal_ref": "PRIN-015",
+      "decision_ref": "DEC-015",
+      "attempt_ref": "ATT-015",
+      "events": [
+        {
+          "event_id": "DEC-015",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-015",
+          "principal_ref": "PRIN-015",
+          "target_ref": "TGT-015",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-015",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-15",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-015",
+          "principal_ref": "PRIN-015",
+          "target_ref": "TGT-015",
+          "parent_refs": [
+            "DEC-015"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-15",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-015",
+          "kind": "AuthorityGrant",
+          "transaction_time": 260,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-015",
+          "principal_ref": "PRIN-015",
+          "target_ref": "TGT-015",
+          "parent_refs": [
+            "DEC-015"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-015",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-015",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-015",
+          "principal_ref": "PRIN-015",
+          "target_ref": "TGT-015",
+          "parent_refs": [
+            "DEC-015",
+            "GRANT-015"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-015",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-15",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-015",
+          "principal_ref": "PRIN-015",
+          "target_ref": "TGT-015",
+          "parent_refs": [
+            "ATT-015"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-15",
+          "observer_ref": "OBSERVER-OBS-15"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-015",
+          "EVID-15"
+        ],
+        "authority_as_known_at_action": "UNAUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-015",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-015"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-AUTHORITY-06",
+      "family": "authority_at_event_time",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-016",
+      "principal_ref": "PRIN-016",
+      "decision_ref": "DEC-016",
+      "attempt_ref": "ATT-016",
+      "events": [
+        {
+          "event_id": "DEC-016",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-016",
+          "principal_ref": "PRIN-016",
+          "target_ref": "TGT-016",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-016",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-16",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-016",
+          "principal_ref": "PRIN-016",
+          "target_ref": "TGT-016",
+          "parent_refs": [
+            "DEC-016"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-16",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-016",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-016",
+          "principal_ref": "PRIN-016",
+          "target_ref": "OTHER-TARGET",
+          "parent_refs": [
+            "DEC-016"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-016",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-016",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-016",
+          "principal_ref": "PRIN-016",
+          "target_ref": "TGT-016",
+          "parent_refs": [
+            "DEC-016",
+            "GRANT-016"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-016",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-16",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-016",
+          "principal_ref": "PRIN-016",
+          "target_ref": "TGT-016",
+          "parent_refs": [
+            "ATT-016"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-16",
+          "observer_ref": "OBSERVER-OBS-16"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-016",
+          "EVID-16",
+          "GRANT-016"
+        ],
+        "authority_as_known_at_action": "UNAUTHORIZED",
+        "authority_current_assessment": "UNAUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-016",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-016"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-SUPERSESSION-01",
+      "family": "correction_supersession",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-021",
+      "principal_ref": "PRIN-021",
+      "decision_ref": "DEC-021",
+      "attempt_ref": "ATT-021",
+      "events": [
+        {
+          "event_id": "DEC-021",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-021",
+          "principal_ref": "PRIN-021",
+          "target_ref": "TGT-021",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-021",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-21",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-021",
+          "principal_ref": "PRIN-021",
+          "target_ref": "TGT-021",
+          "parent_refs": [
+            "DEC-021"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-21",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-021",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-021",
+          "principal_ref": "PRIN-021",
+          "target_ref": "TGT-021",
+          "parent_refs": [
+            "DEC-021"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-021",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-021",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-021",
+          "principal_ref": "PRIN-021",
+          "target_ref": "TGT-021",
+          "parent_refs": [
+            "DEC-021",
+            "GRANT-021"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-021",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-21",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-021",
+          "principal_ref": "PRIN-021",
+          "target_ref": "TGT-021",
+          "parent_refs": [
+            "ATT-021"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-21",
+          "observer_ref": "OBSERVER-OBS-21"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-021",
+          "EVID-21",
+          "GRANT-021"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-021",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-021"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-SUPERSESSION-02",
+      "family": "correction_supersession",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-022",
+      "principal_ref": "PRIN-022",
+      "decision_ref": "DEC-022",
+      "attempt_ref": "ATT-022",
+      "events": [
+        {
+          "event_id": "DEC-022",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-022",
+          "principal_ref": "PRIN-022",
+          "target_ref": "TGT-022",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-022",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-22",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-022",
+          "principal_ref": "PRIN-022",
+          "target_ref": "TGT-022",
+          "parent_refs": [
+            "DEC-022"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-22",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-022",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-022",
+          "principal_ref": "PRIN-022",
+          "target_ref": "TGT-022",
+          "parent_refs": [
+            "DEC-022"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-022",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-022",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-022",
+          "principal_ref": "PRIN-022",
+          "target_ref": "TGT-022",
+          "parent_refs": [
+            "DEC-022",
+            "GRANT-022"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-022",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-22",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-022",
+          "principal_ref": "PRIN-022",
+          "target_ref": "TGT-022",
+          "parent_refs": [
+            "ATT-022"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-22",
+          "observer_ref": "OBSERVER-OBS-22"
+        },
+        {
+          "event_id": "DEC2-2",
+          "kind": "Decision",
+          "transaction_time": 270,
+          "valid_from": 270,
+          "valid_until": null,
+          "subject_ref": "DEC2-2",
+          "principal_ref": "PRIN-022",
+          "target_ref": "TGT-022",
+          "parent_refs": [
+            "DEC-022"
+          ],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c114",
+          "projection_includes_payload": false,
+          "supersedes_ref": "DEC-022",
+          "issuer_ref": "ISSUER-DEC2-2",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-022",
+          "EVID-22",
+          "GRANT-022"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC2-2",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-022",
+          "DEC2-2"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-SUPERSESSION-03",
+      "family": "correction_supersession",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-023",
+      "principal_ref": "PRIN-023",
+      "decision_ref": "DEC-023",
+      "attempt_ref": "ATT-023",
+      "events": [
+        {
+          "event_id": "DEC-023",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-023",
+          "principal_ref": "PRIN-023",
+          "target_ref": "TGT-023",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-023",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-23",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-023",
+          "principal_ref": "PRIN-023",
+          "target_ref": "TGT-023",
+          "parent_refs": [
+            "DEC-023"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-23",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-023",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-023",
+          "principal_ref": "PRIN-023",
+          "target_ref": "TGT-023",
+          "parent_refs": [
+            "DEC-023"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-023",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-023",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-023",
+          "principal_ref": "PRIN-023",
+          "target_ref": "TGT-023",
+          "parent_refs": [
+            "DEC-023",
+            "GRANT-023"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-023",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-23",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-023",
+          "principal_ref": "PRIN-023",
+          "target_ref": "TGT-023",
+          "parent_refs": [
+            "ATT-023"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-23",
+          "observer_ref": "OBSERVER-OBS-23"
+        },
+        {
+          "event_id": "DEC2-3",
+          "kind": "Decision",
+          "transaction_time": 270,
+          "valid_from": 270,
+          "valid_until": null,
+          "subject_ref": "DEC2-3",
+          "principal_ref": "PRIN-023",
+          "target_ref": "TGT-023",
+          "parent_refs": [
+            "DEC-023"
+          ],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c114",
+          "projection_includes_payload": false,
+          "supersedes_ref": "DEC-023",
+          "issuer_ref": "ISSUER-DEC2-3",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "DEC3-3",
+          "kind": "Decision",
+          "transaction_time": 300,
+          "valid_from": 300,
+          "valid_until": null,
+          "subject_ref": "DEC3-3",
+          "principal_ref": "PRIN-023",
+          "target_ref": "TGT-023",
+          "parent_refs": [
+            "DEC2-3"
+          ],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c132",
+          "projection_includes_payload": false,
+          "supersedes_ref": "DEC2-3",
+          "issuer_ref": "ISSUER-DEC3-3",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-023",
+          "EVID-23",
+          "GRANT-023"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC3-3",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-023",
+          "DEC2-3",
+          "DEC3-3"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-SUPERSESSION-04",
+      "family": "correction_supersession",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-024",
+      "principal_ref": "PRIN-024",
+      "decision_ref": "DEC-024",
+      "attempt_ref": "ATT-024",
+      "events": [
+        {
+          "event_id": "DEC-024",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-024",
+          "principal_ref": "PRIN-024",
+          "target_ref": "TGT-024",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-024",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-24",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-024",
+          "principal_ref": "PRIN-024",
+          "target_ref": "TGT-024",
+          "parent_refs": [
+            "DEC-024"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-24",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-024",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-024",
+          "principal_ref": "PRIN-024",
+          "target_ref": "TGT-024",
+          "parent_refs": [
+            "DEC-024"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-024",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-024",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-024",
+          "principal_ref": "PRIN-024",
+          "target_ref": "TGT-024",
+          "parent_refs": [
+            "DEC-024",
+            "GRANT-024"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-024",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-24",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-024",
+          "principal_ref": "PRIN-024",
+          "target_ref": "TGT-024",
+          "parent_refs": [
+            "ATT-024"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-24",
+          "observer_ref": "OBSERVER-OBS-24"
+        },
+        {
+          "event_id": "CORR-4",
+          "kind": "Correction",
+          "transaction_time": 275,
+          "valid_from": 275,
+          "valid_until": null,
+          "subject_ref": "DEC-024",
+          "principal_ref": "PRIN-024",
+          "target_ref": "TGT-024",
+          "parent_refs": [
+            "EVID-24"
+          ],
+          "status": "Corrected",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c119",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CORR-4",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-024",
+          "EVID-24",
+          "GRANT-024"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-024",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-024"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-SUPERSESSION-05",
+      "family": "correction_supersession",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-025",
+      "principal_ref": "PRIN-025",
+      "decision_ref": "DEC-025",
+      "attempt_ref": "ATT-025",
+      "events": [
+        {
+          "event_id": "DEC-025",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-025",
+          "principal_ref": "PRIN-025",
+          "target_ref": "TGT-025",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-025",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-25",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-025",
+          "principal_ref": "PRIN-025",
+          "target_ref": "TGT-025",
+          "parent_refs": [
+            "DEC-025"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-25",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-025",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-025",
+          "principal_ref": "PRIN-025",
+          "target_ref": "TGT-025",
+          "parent_refs": [
+            "DEC-025"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-025",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-025",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-025",
+          "principal_ref": "PRIN-025",
+          "target_ref": "TGT-025",
+          "parent_refs": [
+            "DEC-025",
+            "GRANT-025"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-025",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-25",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-025",
+          "principal_ref": "PRIN-025",
+          "target_ref": "TGT-025",
+          "parent_refs": [
+            "ATT-025"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-25",
+          "observer_ref": "OBSERVER-OBS-25"
+        },
+        {
+          "event_id": "DEC2-5",
+          "kind": "Decision",
+          "transaction_time": 270,
+          "valid_from": 270,
+          "valid_until": null,
+          "subject_ref": "DEC2-5",
+          "principal_ref": "PRIN-025",
+          "target_ref": "TGT-025",
+          "parent_refs": [
+            "DEC-025"
+          ],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c114",
+          "projection_includes_payload": false,
+          "supersedes_ref": "DEC-025",
+          "issuer_ref": "ISSUER-DEC2-5",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "APPEAL-5",
+          "kind": "Challenge",
+          "transaction_time": 260,
+          "valid_from": 260,
+          "valid_until": null,
+          "subject_ref": "DEC-025",
+          "principal_ref": "PRIN-025",
+          "target_ref": "TGT-025",
+          "parent_refs": [
+            "DEC-025"
+          ],
+          "status": "Resolved",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c10c",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-APPEAL-5",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-025",
+          "EVID-25",
+          "GRANT-025"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "RESOLVED_PRESERVED",
+        "current_decision_ref": "DEC2-5",
+        "privacy_violation": false,
+        "challenge_event_ids": [
+          "APPEAL-5"
+        ],
+        "decision_lineage_refs": [
+          "DEC-025",
+          "DEC2-5"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-SUPERSESSION-06",
+      "family": "correction_supersession",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-026",
+      "principal_ref": "PRIN-026",
+      "decision_ref": "DEC-026",
+      "attempt_ref": "ATT-026",
+      "events": [
+        {
+          "event_id": "DEC-026",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-026",
+          "principal_ref": "PRIN-026",
+          "target_ref": "TGT-026",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-026",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-26",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-026",
+          "principal_ref": "PRIN-026",
+          "target_ref": "TGT-026",
+          "parent_refs": [
+            "DEC-026"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-26",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-026",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-026",
+          "principal_ref": "PRIN-026",
+          "target_ref": "TGT-026",
+          "parent_refs": [
+            "DEC-026"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-026",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-026",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-026",
+          "principal_ref": "PRIN-026",
+          "target_ref": "TGT-026",
+          "parent_refs": [
+            "DEC-026",
+            "GRANT-026"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-026",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-26",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-026",
+          "principal_ref": "PRIN-026",
+          "target_ref": "TGT-026",
+          "parent_refs": [
+            "ATT-026"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-26",
+          "observer_ref": "OBSERVER-OBS-26"
+        },
+        {
+          "event_id": "APPEAL-6",
+          "kind": "Challenge",
+          "transaction_time": 260,
+          "valid_from": 260,
+          "valid_until": null,
+          "subject_ref": "DEC-026",
+          "principal_ref": "PRIN-026",
+          "target_ref": "TGT-026",
+          "parent_refs": [
+            "DEC-026"
+          ],
+          "status": "Open",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c10c",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-APPEAL-6",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-026",
+          "EVID-26",
+          "GRANT-026"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "OPEN_UNRESOLVED",
+        "current_decision_ref": "DEC-026",
+        "privacy_violation": false,
+        "challenge_event_ids": [
+          "APPEAL-6"
+        ],
+        "decision_lineage_refs": [
+          "DEC-026"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-OUTCOME-01",
+      "family": "outcome_observation",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-031",
+      "principal_ref": "PRIN-031",
+      "decision_ref": "DEC-031",
+      "attempt_ref": "ATT-031",
+      "events": [
+        {
+          "event_id": "DEC-031",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-031",
+          "principal_ref": "PRIN-031",
+          "target_ref": "TGT-031",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-031",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-31",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-031",
+          "principal_ref": "PRIN-031",
+          "target_ref": "TGT-031",
+          "parent_refs": [
+            "DEC-031"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-31",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-031",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-031",
+          "principal_ref": "PRIN-031",
+          "target_ref": "TGT-031",
+          "parent_refs": [
+            "DEC-031"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-031",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-031",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-031",
+          "principal_ref": "PRIN-031",
+          "target_ref": "TGT-031",
+          "parent_refs": [
+            "DEC-031",
+            "GRANT-031"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-031",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-031",
+          "EVID-31",
+          "GRANT-031"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "UNOBSERVED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-031",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-031"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-OUTCOME-02",
+      "family": "outcome_observation",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-032",
+      "principal_ref": "PRIN-032",
+      "decision_ref": "DEC-032",
+      "attempt_ref": "ATT-032",
+      "events": [
+        {
+          "event_id": "DEC-032",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-032",
+          "principal_ref": "PRIN-032",
+          "target_ref": "TGT-032",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-032",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-32",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-032",
+          "principal_ref": "PRIN-032",
+          "target_ref": "TGT-032",
+          "parent_refs": [
+            "DEC-032"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-32",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-032",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-032",
+          "principal_ref": "PRIN-032",
+          "target_ref": "TGT-032",
+          "parent_refs": [
+            "DEC-032"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-032",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-032",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-032",
+          "principal_ref": "PRIN-032",
+          "target_ref": "TGT-032",
+          "parent_refs": [
+            "DEC-032",
+            "GRANT-032"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-032",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-32",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-032",
+          "principal_ref": "PRIN-032",
+          "target_ref": "TGT-032",
+          "parent_refs": [
+            "ATT-032"
+          ],
+          "status": "Partial",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-32",
+          "observer_ref": "OBSERVER-OBS-32"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-032",
+          "EVID-32",
+          "GRANT-032"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "PARTIAL",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-032",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-032"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-OUTCOME-03",
+      "family": "outcome_observation",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-033",
+      "principal_ref": "PRIN-033",
+      "decision_ref": "DEC-033",
+      "attempt_ref": "ATT-033",
+      "events": [
+        {
+          "event_id": "DEC-033",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-033",
+          "principal_ref": "PRIN-033",
+          "target_ref": "TGT-033",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-033",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-33",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-033",
+          "principal_ref": "PRIN-033",
+          "target_ref": "TGT-033",
+          "parent_refs": [
+            "DEC-033"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-33",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-033",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-033",
+          "principal_ref": "PRIN-033",
+          "target_ref": "TGT-033",
+          "parent_refs": [
+            "DEC-033"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-033",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-033",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-033",
+          "principal_ref": "PRIN-033",
+          "target_ref": "TGT-033",
+          "parent_refs": [
+            "DEC-033",
+            "GRANT-033"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-033",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-33",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-033",
+          "principal_ref": "PRIN-033",
+          "target_ref": "TGT-033",
+          "parent_refs": [
+            "ATT-033"
+          ],
+          "status": "Contradicted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-33",
+          "observer_ref": "OBSERVER-OBS-33"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-033",
+          "EVID-33",
+          "GRANT-033"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONTRADICTED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-033",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-033"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-OUTCOME-04",
+      "family": "outcome_observation",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-034",
+      "principal_ref": "PRIN-034",
+      "decision_ref": "DEC-034",
+      "attempt_ref": "ATT-034",
+      "events": [
+        {
+          "event_id": "DEC-034",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-034",
+          "principal_ref": "PRIN-034",
+          "target_ref": "TGT-034",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-034",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-34",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-034",
+          "principal_ref": "PRIN-034",
+          "target_ref": "TGT-034",
+          "parent_refs": [
+            "DEC-034"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-34",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-034",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-034",
+          "principal_ref": "PRIN-034",
+          "target_ref": "TGT-034",
+          "parent_refs": [
+            "DEC-034"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-034",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-034",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-034",
+          "principal_ref": "PRIN-034",
+          "target_ref": "TGT-034",
+          "parent_refs": [
+            "DEC-034",
+            "GRANT-034"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-034",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-34",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-034",
+          "principal_ref": "PRIN-034",
+          "target_ref": "TGT-034",
+          "parent_refs": [
+            "ATT-034"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-34",
+          "observer_ref": "OBSERVER-OBS-34"
+        },
+        {
+          "event_id": "OBS2-4",
+          "kind": "EffectObservation",
+          "transaction_time": 230,
+          "valid_from": 230,
+          "valid_until": null,
+          "subject_ref": "DEC-034",
+          "principal_ref": "PRIN-034",
+          "target_ref": "TGT-034",
+          "parent_refs": [
+            "ATT-034"
+          ],
+          "status": "Contradicted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0ec",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS2-4",
+          "observer_ref": "OBSERVER-OBS2-4"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-034",
+          "EVID-34",
+          "GRANT-034"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONTESTED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-034",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-034"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-OUTCOME-05",
+      "family": "outcome_observation",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-035",
+      "principal_ref": "PRIN-035",
+      "decision_ref": "DEC-035",
+      "attempt_ref": "ATT-035",
+      "events": [
+        {
+          "event_id": "DEC-035",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-035",
+          "principal_ref": "PRIN-035",
+          "target_ref": "TGT-035",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-035",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-35",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-035",
+          "principal_ref": "PRIN-035",
+          "target_ref": "TGT-035",
+          "parent_refs": [
+            "DEC-035"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-35",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-035",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-035",
+          "principal_ref": "PRIN-035",
+          "target_ref": "TGT-035",
+          "parent_refs": [
+            "DEC-035"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-035",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-035",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-035",
+          "principal_ref": "PRIN-035",
+          "target_ref": "TGT-035",
+          "parent_refs": [
+            "DEC-035",
+            "GRANT-035"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-035",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-SAME-EXECUTOR-05",
+          "kind": "EffectObservation",
+          "transaction_time": 260,
+          "valid_from": 260,
+          "valid_until": null,
+          "subject_ref": "DEC-035",
+          "principal_ref": "PRIN-035",
+          "target_ref": "TGT-035",
+          "parent_refs": [
+            "ATT-035"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "OBSERVER-RECORDER-OBS-SAME-EXECUTOR-05",
+          "observer_ref": "EXECUTOR-ATT-035"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-035",
+          "EVID-35",
+          "GRANT-035"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "INDEPENDENCE_UNESTABLISHED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-035",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-035"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-OUTCOME-06",
+      "family": "outcome_observation",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-036",
+      "principal_ref": "PRIN-036",
+      "decision_ref": "DEC-036",
+      "attempt_ref": "ATT-036",
+      "events": [
+        {
+          "event_id": "DEC-036",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-036",
+          "principal_ref": "PRIN-036",
+          "target_ref": "TGT-036",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-036",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-36",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-036",
+          "principal_ref": "PRIN-036",
+          "target_ref": "TGT-036",
+          "parent_refs": [
+            "DEC-036"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-36",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-036",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-036",
+          "principal_ref": "PRIN-036",
+          "target_ref": "TGT-036",
+          "parent_refs": [
+            "DEC-036"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-036",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-036",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-036",
+          "principal_ref": "PRIN-036",
+          "target_ref": "TGT-036",
+          "parent_refs": [
+            "DEC-036",
+            "GRANT-036"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-036",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-36",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-036",
+          "principal_ref": "PRIN-036",
+          "target_ref": "TGT-036",
+          "parent_refs": [
+            "ATT-036"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-36",
+          "observer_ref": "OBSERVER-OBS-36"
+        },
+        {
+          "event_id": "OBS-LATE-6",
+          "kind": "EffectObservation",
+          "transaction_time": 300,
+          "valid_from": 300,
+          "valid_until": null,
+          "subject_ref": "DEC-036",
+          "principal_ref": "PRIN-036",
+          "target_ref": "TGT-036",
+          "parent_refs": [
+            "ATT-036"
+          ],
+          "status": "Partial",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c136",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-LATE-6",
+          "observer_ref": "OBSERVER-OBS-LATE-6"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-036",
+          "EVID-36",
+          "GRANT-036"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONTESTED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-036",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-036"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-CONTEST-01",
+      "family": "contestability",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-041",
+      "principal_ref": "PRIN-041",
+      "decision_ref": "DEC-041",
+      "attempt_ref": "ATT-041",
+      "events": [
+        {
+          "event_id": "DEC-041",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-041",
+          "principal_ref": "PRIN-041",
+          "target_ref": "TGT-041",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-041",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-41",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-041",
+          "principal_ref": "PRIN-041",
+          "target_ref": "TGT-041",
+          "parent_refs": [
+            "DEC-041"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-41",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-041",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-041",
+          "principal_ref": "PRIN-041",
+          "target_ref": "TGT-041",
+          "parent_refs": [
+            "DEC-041"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-041",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-041",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-041",
+          "principal_ref": "PRIN-041",
+          "target_ref": "TGT-041",
+          "parent_refs": [
+            "DEC-041",
+            "GRANT-041"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-041",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-41",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-041",
+          "principal_ref": "PRIN-041",
+          "target_ref": "TGT-041",
+          "parent_refs": [
+            "ATT-041"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-41",
+          "observer_ref": "OBSERVER-OBS-41"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-041",
+          "EVID-41",
+          "GRANT-041"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-041",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-041"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-CONTEST-02",
+      "family": "contestability",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-042",
+      "principal_ref": "PRIN-042",
+      "decision_ref": "DEC-042",
+      "attempt_ref": "ATT-042",
+      "events": [
+        {
+          "event_id": "DEC-042",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-042",
+          "principal_ref": "PRIN-042",
+          "target_ref": "TGT-042",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-042",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-42",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-042",
+          "principal_ref": "PRIN-042",
+          "target_ref": "TGT-042",
+          "parent_refs": [
+            "DEC-042"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-42",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-042",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-042",
+          "principal_ref": "PRIN-042",
+          "target_ref": "TGT-042",
+          "parent_refs": [
+            "DEC-042"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-042",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-042",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-042",
+          "principal_ref": "PRIN-042",
+          "target_ref": "TGT-042",
+          "parent_refs": [
+            "DEC-042",
+            "GRANT-042"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-042",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-42",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-042",
+          "principal_ref": "PRIN-042",
+          "target_ref": "TGT-042",
+          "parent_refs": [
+            "ATT-042"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-42",
+          "observer_ref": "OBSERVER-OBS-42"
+        },
+        {
+          "event_id": "CH-2",
+          "kind": "Challenge",
+          "transaction_time": 260,
+          "valid_from": 260,
+          "valid_until": null,
+          "subject_ref": "DEC-042",
+          "principal_ref": "PRIN-042",
+          "target_ref": "TGT-042",
+          "parent_refs": [
+            "DEC-042"
+          ],
+          "status": "Open",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c108",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CH-2",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-042",
+          "EVID-42",
+          "GRANT-042"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "OPEN_UNRESOLVED",
+        "current_decision_ref": "DEC-042",
+        "privacy_violation": false,
+        "challenge_event_ids": [
+          "CH-2"
+        ],
+        "decision_lineage_refs": [
+          "DEC-042"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-CONTEST-03",
+      "family": "contestability",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-043",
+      "principal_ref": "PRIN-043",
+      "decision_ref": "DEC-043",
+      "attempt_ref": "ATT-043",
+      "events": [
+        {
+          "event_id": "DEC-043",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-043",
+          "principal_ref": "PRIN-043",
+          "target_ref": "TGT-043",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-043",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-43",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-043",
+          "principal_ref": "PRIN-043",
+          "target_ref": "TGT-043",
+          "parent_refs": [
+            "DEC-043"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-43",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-043",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-043",
+          "principal_ref": "PRIN-043",
+          "target_ref": "TGT-043",
+          "parent_refs": [
+            "DEC-043"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-043",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-043",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-043",
+          "principal_ref": "PRIN-043",
+          "target_ref": "TGT-043",
+          "parent_refs": [
+            "DEC-043",
+            "GRANT-043"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-043",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-43",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-043",
+          "principal_ref": "PRIN-043",
+          "target_ref": "TGT-043",
+          "parent_refs": [
+            "ATT-043"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-43",
+          "observer_ref": "OBSERVER-OBS-43"
+        },
+        {
+          "event_id": "CH-3",
+          "kind": "Challenge",
+          "transaction_time": 260,
+          "valid_from": 260,
+          "valid_until": null,
+          "subject_ref": "DEC-043",
+          "principal_ref": "PRIN-043",
+          "target_ref": "TGT-043",
+          "parent_refs": [
+            "DEC-043"
+          ],
+          "status": "Resolved",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c108",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CH-3",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-043",
+          "EVID-43",
+          "GRANT-043"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "RESOLVED_PRESERVED",
+        "current_decision_ref": "DEC-043",
+        "privacy_violation": false,
+        "challenge_event_ids": [
+          "CH-3"
+        ],
+        "decision_lineage_refs": [
+          "DEC-043"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-CONTEST-04",
+      "family": "contestability",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-044",
+      "principal_ref": "PRIN-044",
+      "decision_ref": "DEC-044",
+      "attempt_ref": "ATT-044",
+      "events": [
+        {
+          "event_id": "DEC-044",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-044",
+          "principal_ref": "PRIN-044",
+          "target_ref": "TGT-044",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-044",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-44",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-044",
+          "principal_ref": "PRIN-044",
+          "target_ref": "TGT-044",
+          "parent_refs": [
+            "DEC-044"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-44",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-044",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-044",
+          "principal_ref": "PRIN-044",
+          "target_ref": "TGT-044",
+          "parent_refs": [
+            "DEC-044"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-044",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-044",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-044",
+          "principal_ref": "PRIN-044",
+          "target_ref": "TGT-044",
+          "parent_refs": [
+            "DEC-044",
+            "GRANT-044"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-044",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-44",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-044",
+          "principal_ref": "PRIN-044",
+          "target_ref": "TGT-044",
+          "parent_refs": [
+            "ATT-044"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-44",
+          "observer_ref": "OBSERVER-OBS-44"
+        },
+        {
+          "event_id": "CH-OPEN-4",
+          "kind": "Challenge",
+          "transaction_time": 250,
+          "valid_from": 250,
+          "valid_until": null,
+          "subject_ref": "DEC-044",
+          "principal_ref": "PRIN-044",
+          "target_ref": "TGT-044",
+          "parent_refs": [
+            "DEC-044"
+          ],
+          "status": "Open",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c103",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CH-OPEN-4",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "CH-RESOLVED-4",
+          "kind": "Challenge",
+          "transaction_time": 280,
+          "valid_from": 280,
+          "valid_until": null,
+          "subject_ref": "DEC-044",
+          "principal_ref": "PRIN-044",
+          "target_ref": "TGT-044",
+          "parent_refs": [
+            "DEC-044"
+          ],
+          "status": "Resolved",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c125",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CH-RESOLVED-4",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-044",
+          "EVID-44",
+          "GRANT-044"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "OPEN_UNRESOLVED",
+        "current_decision_ref": "DEC-044",
+        "privacy_violation": false,
+        "challenge_event_ids": [
+          "CH-OPEN-4",
+          "CH-RESOLVED-4"
+        ],
+        "decision_lineage_refs": [
+          "DEC-044"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-CONTEST-05",
+      "family": "contestability",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-045",
+      "principal_ref": "PRIN-045",
+      "decision_ref": "DEC-045",
+      "attempt_ref": "ATT-045",
+      "events": [
+        {
+          "event_id": "DEC-045",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-045",
+          "principal_ref": "PRIN-045",
+          "target_ref": "TGT-045",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-045",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-45",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-045",
+          "principal_ref": "PRIN-045",
+          "target_ref": "TGT-045",
+          "parent_refs": [
+            "DEC-045"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-45",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-045",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-045",
+          "principal_ref": "PRIN-045",
+          "target_ref": "TGT-045",
+          "parent_refs": [
+            "DEC-045"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-045",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-045",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-045",
+          "principal_ref": "PRIN-045",
+          "target_ref": "TGT-045",
+          "parent_refs": [
+            "DEC-045",
+            "GRANT-045"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-045",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-45",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-045",
+          "principal_ref": "PRIN-045",
+          "target_ref": "TGT-045",
+          "parent_refs": [
+            "ATT-045"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-45",
+          "observer_ref": "OBSERVER-OBS-45"
+        },
+        {
+          "event_id": "CH-EVID-5",
+          "kind": "Challenge",
+          "transaction_time": 260,
+          "valid_from": 260,
+          "valid_until": null,
+          "subject_ref": "EVID-45",
+          "principal_ref": "PRIN-045",
+          "target_ref": "TGT-045",
+          "parent_refs": [
+            "EVID-45"
+          ],
+          "status": "Open",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c10d",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CH-EVID-5",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-045",
+          "EVID-45",
+          "GRANT-045"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-045",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-045"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-CONTEST-06",
+      "family": "contestability",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-046",
+      "principal_ref": "PRIN-046",
+      "decision_ref": "DEC-046",
+      "attempt_ref": "ATT-046",
+      "events": [
+        {
+          "event_id": "DEC-046",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-046",
+          "principal_ref": "PRIN-046",
+          "target_ref": "TGT-046",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-046",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-46",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-046",
+          "principal_ref": "PRIN-046",
+          "target_ref": "TGT-046",
+          "parent_refs": [
+            "DEC-046"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-46",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-046",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-046",
+          "principal_ref": "PRIN-046",
+          "target_ref": "TGT-046",
+          "parent_refs": [
+            "DEC-046"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-046",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-046",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-046",
+          "principal_ref": "PRIN-046",
+          "target_ref": "TGT-046",
+          "parent_refs": [
+            "DEC-046",
+            "GRANT-046"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-046",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-46",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-046",
+          "principal_ref": "PRIN-046",
+          "target_ref": "TGT-046",
+          "parent_refs": [
+            "ATT-046"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-46",
+          "observer_ref": "OBSERVER-OBS-46"
+        },
+        {
+          "event_id": "CH-SECOND-6",
+          "kind": "Challenge",
+          "transaction_time": 275,
+          "valid_from": 275,
+          "valid_until": null,
+          "subject_ref": "DEC-046",
+          "principal_ref": "PRIN-046",
+          "target_ref": "TGT-046",
+          "parent_refs": [
+            "DEC-046"
+          ],
+          "status": "Open",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c11e",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CH-SECOND-6",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-046",
+          "EVID-46",
+          "GRANT-046"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "OPEN_UNRESOLVED",
+        "current_decision_ref": "DEC-046",
+        "privacy_violation": false,
+        "challenge_event_ids": [
+          "CH-SECOND-6"
+        ],
+        "decision_lineage_refs": [
+          "DEC-046"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-PRIVACY-01",
+      "family": "privacy_projection",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-051",
+      "principal_ref": "PRIN-051",
+      "decision_ref": "DEC-051",
+      "attempt_ref": "ATT-051",
+      "events": [
+        {
+          "event_id": "DEC-051",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-051",
+          "principal_ref": "PRIN-051",
+          "target_ref": "TGT-051",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-051",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-51",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-051",
+          "principal_ref": "PRIN-051",
+          "target_ref": "TGT-051",
+          "parent_refs": [
+            "DEC-051"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-51",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-051",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-051",
+          "principal_ref": "PRIN-051",
+          "target_ref": "TGT-051",
+          "parent_refs": [
+            "DEC-051"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-051",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-051",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-051",
+          "principal_ref": "PRIN-051",
+          "target_ref": "TGT-051",
+          "parent_refs": [
+            "DEC-051",
+            "GRANT-051"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-051",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-51",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-051",
+          "principal_ref": "PRIN-051",
+          "target_ref": "TGT-051",
+          "parent_refs": [
+            "ATT-051"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-51",
+          "observer_ref": "OBSERVER-OBS-51"
+        },
+        {
+          "event_id": "PR-1",
+          "kind": "Evidence",
+          "transaction_time": 130,
+          "valid_from": 130,
+          "valid_until": null,
+          "subject_ref": "DEC-051",
+          "principal_ref": "PRIN-051",
+          "target_ref": "TGT-051",
+          "parent_refs": [
+            "DEC-051"
+          ],
+          "status": "Verified",
+          "visibility": "Protected",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c086",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-PR-1",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-051",
+          "EVID-51",
+          "GRANT-051",
+          "PR-1"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-051",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-051"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-PRIVACY-02",
+      "family": "privacy_projection",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-052",
+      "principal_ref": "PRIN-052",
+      "decision_ref": "DEC-052",
+      "attempt_ref": "ATT-052",
+      "events": [
+        {
+          "event_id": "DEC-052",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-052",
+          "principal_ref": "PRIN-052",
+          "target_ref": "TGT-052",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-052",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-52",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-052",
+          "principal_ref": "PRIN-052",
+          "target_ref": "TGT-052",
+          "parent_refs": [
+            "DEC-052"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-52",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-052",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-052",
+          "principal_ref": "PRIN-052",
+          "target_ref": "TGT-052",
+          "parent_refs": [
+            "DEC-052"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-052",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-052",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-052",
+          "principal_ref": "PRIN-052",
+          "target_ref": "TGT-052",
+          "parent_refs": [
+            "DEC-052",
+            "GRANT-052"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-052",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-52",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-052",
+          "principal_ref": "PRIN-052",
+          "target_ref": "TGT-052",
+          "parent_refs": [
+            "ATT-052"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-52",
+          "observer_ref": "OBSERVER-OBS-52"
+        },
+        {
+          "event_id": "PR-2",
+          "kind": "Evidence",
+          "transaction_time": 130,
+          "valid_from": 130,
+          "valid_until": null,
+          "subject_ref": "DEC-052",
+          "principal_ref": "PRIN-052",
+          "target_ref": "TGT-052",
+          "parent_refs": [
+            "DEC-052"
+          ],
+          "status": "Verified",
+          "visibility": "Protected",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c086",
+          "projection_includes_payload": true,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-PR-2",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-052",
+          "EVID-52",
+          "GRANT-052",
+          "PR-2"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-052",
+        "privacy_violation": true,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-052"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-PRIVACY-03",
+      "family": "privacy_projection",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-053",
+      "principal_ref": "PRIN-053",
+      "decision_ref": "DEC-053",
+      "attempt_ref": "ATT-053",
+      "events": [
+        {
+          "event_id": "DEC-053",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-053",
+          "principal_ref": "PRIN-053",
+          "target_ref": "TGT-053",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-053",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-53",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-053",
+          "principal_ref": "PRIN-053",
+          "target_ref": "TGT-053",
+          "parent_refs": [
+            "DEC-053"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-53",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-053",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-053",
+          "principal_ref": "PRIN-053",
+          "target_ref": "TGT-053",
+          "parent_refs": [
+            "DEC-053"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-053",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-053",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-053",
+          "principal_ref": "PRIN-053",
+          "target_ref": "TGT-053",
+          "parent_refs": [
+            "DEC-053",
+            "GRANT-053"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-053",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-53",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-053",
+          "principal_ref": "PRIN-053",
+          "target_ref": "TGT-053",
+          "parent_refs": [
+            "ATT-053"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-53",
+          "observer_ref": "OBSERVER-OBS-53"
+        },
+        {
+          "event_id": "PR-3",
+          "kind": "Evidence",
+          "transaction_time": 130,
+          "valid_from": 130,
+          "valid_until": null,
+          "subject_ref": "DEC-053",
+          "principal_ref": "PRIN-053",
+          "target_ref": "TGT-053",
+          "parent_refs": [
+            "DEC-053"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c086",
+          "projection_includes_payload": true,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-PR-3",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-053",
+          "EVID-53",
+          "GRANT-053",
+          "PR-3"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-053",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-053"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-PRIVACY-04",
+      "family": "privacy_projection",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-054",
+      "principal_ref": "PRIN-054",
+      "decision_ref": "DEC-054",
+      "attempt_ref": "ATT-054",
+      "events": [
+        {
+          "event_id": "DEC-054",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-054",
+          "principal_ref": "PRIN-054",
+          "target_ref": "TGT-054",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-054",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-54",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-054",
+          "principal_ref": "PRIN-054",
+          "target_ref": "TGT-054",
+          "parent_refs": [
+            "DEC-054"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-54",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-054",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-054",
+          "principal_ref": "PRIN-054",
+          "target_ref": "TGT-054",
+          "parent_refs": [
+            "DEC-054"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-054",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-054",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-054",
+          "principal_ref": "PRIN-054",
+          "target_ref": "TGT-054",
+          "parent_refs": [
+            "DEC-054",
+            "GRANT-054"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-054",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-54",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-054",
+          "principal_ref": "PRIN-054",
+          "target_ref": "TGT-054",
+          "parent_refs": [
+            "ATT-054"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-54",
+          "observer_ref": "OBSERVER-OBS-54"
+        },
+        {
+          "event_id": "PR-PUBLIC-4",
+          "kind": "Evidence",
+          "transaction_time": 130,
+          "valid_from": 130,
+          "valid_until": null,
+          "subject_ref": "DEC-054",
+          "principal_ref": "PRIN-054",
+          "target_ref": "TGT-054",
+          "parent_refs": [
+            "DEC-054"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c08d",
+          "projection_includes_payload": true,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-PR-PUBLIC-4",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "PR-SEALED-4",
+          "kind": "Evidence",
+          "transaction_time": 135,
+          "valid_from": 135,
+          "valid_until": null,
+          "subject_ref": "DEC-054",
+          "principal_ref": "PRIN-054",
+          "target_ref": "TGT-054",
+          "parent_refs": [
+            "DEC-054"
+          ],
+          "status": "Verified",
+          "visibility": "Protected",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c092",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-PR-SEALED-4",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-054",
+          "EVID-54",
+          "GRANT-054",
+          "PR-PUBLIC-4",
+          "PR-SEALED-4"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-054",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-054"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-PRIVACY-05",
+      "family": "privacy_projection",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-055",
+      "principal_ref": "PRIN-055",
+      "decision_ref": "DEC-055",
+      "attempt_ref": "ATT-055",
+      "events": [
+        {
+          "event_id": "DEC-055",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-055",
+          "principal_ref": "PRIN-055",
+          "target_ref": "TGT-055",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-055",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-55",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-055",
+          "principal_ref": "PRIN-055",
+          "target_ref": "TGT-055",
+          "parent_refs": [
+            "DEC-055"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-55",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-055",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-055",
+          "principal_ref": "PRIN-055",
+          "target_ref": "TGT-055",
+          "parent_refs": [
+            "DEC-055"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-055",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-055",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-055",
+          "principal_ref": "PRIN-055",
+          "target_ref": "TGT-055",
+          "parent_refs": [
+            "DEC-055",
+            "GRANT-055"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-055",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-55",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-055",
+          "principal_ref": "PRIN-055",
+          "target_ref": "TGT-055",
+          "parent_refs": [
+            "ATT-055"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-55",
+          "observer_ref": "OBSERVER-OBS-55"
+        },
+        {
+          "event_id": "PR-SEALED-5",
+          "kind": "Evidence",
+          "transaction_time": 135,
+          "valid_from": 135,
+          "valid_until": null,
+          "subject_ref": "DEC-055",
+          "principal_ref": "PRIN-055",
+          "target_ref": "TGT-055",
+          "parent_refs": [
+            "DEC-055"
+          ],
+          "status": "Verified",
+          "visibility": "Protected",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c092",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-PR-SEALED-5",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-055",
+          "EVID-55",
+          "GRANT-055",
+          "PR-SEALED-5"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-055",
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-055"
+        ]
+      }
+    },
+    {
+      "fixture_id": "CIVT-PRIVACY-06",
+      "family": "privacy_projection",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-056",
+      "principal_ref": "PRIN-056",
+      "decision_ref": "DEC-056",
+      "attempt_ref": "ATT-056",
+      "events": [
+        {
+          "event_id": "DEC-056",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-056",
+          "principal_ref": "PRIN-056",
+          "target_ref": "TGT-056",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-056",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-56",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-056",
+          "principal_ref": "PRIN-056",
+          "target_ref": "TGT-056",
+          "parent_refs": [
+            "DEC-056"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-56",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-056",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-056",
+          "principal_ref": "PRIN-056",
+          "target_ref": "TGT-056",
+          "parent_refs": [
+            "DEC-056"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-056",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-056",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-056",
+          "principal_ref": "PRIN-056",
+          "target_ref": "TGT-056",
+          "parent_refs": [
+            "DEC-056",
+            "GRANT-056"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-056",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-56",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-056",
+          "principal_ref": "PRIN-056",
+          "target_ref": "TGT-056",
+          "parent_refs": [
+            "ATT-056"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-56",
+          "observer_ref": "OBSERVER-OBS-56"
+        },
+        {
+          "event_id": "PR-SEALED-6",
+          "kind": "Evidence",
+          "transaction_time": 135,
+          "valid_from": 135,
+          "valid_until": null,
+          "subject_ref": "DEC-056",
+          "principal_ref": "PRIN-056",
+          "target_ref": "TGT-056",
+          "parent_refs": [
+            "DEC-056"
+          ],
+          "status": "Verified",
+          "visibility": "Protected",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c092",
+          "projection_includes_payload": true,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-PR-SEALED-6",
+          "observer_ref": "NONE"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-056",
+          "EVID-56",
+          "GRANT-056",
+          "PR-SEALED-6"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "NONE",
+        "current_decision_ref": "DEC-056",
+        "privacy_violation": true,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-056"
+        ]
+      }
+    }
+  ],
+  "claim_ceiling": "Synthetic temporal reconstruction, authority-as-known/current, outcome observation, challenge visibility, supersession and privacy-projection contract only. No legal, institutional legitimacy, empirical truth or production readiness claim."
+}
