@@ -147,16 +147,17 @@ Source: [Rubin Observatory — Alerts and brokers](https://rubinobservatory.org/
 
 ## 10. Cross-domain adapter change control
 
-Adapter correctness includes endpoint lifecycle, not just conformance to a schema snapshot. The Copernicus Data Space Ecosystem's October 2026 catalogue API announcement identifies a new beta STAC endpoint at `https://stac.opensearch.dataspace.copernicus.eu/v1/`, a planned Q1 2027 redirect to the canonical `https://stac.dataspace.copernicus.eu/v1/`, and planned decommissioning of the current STAC endpoint in Q1 2027. OData is described as planned for decommissioning after 2028.
+Adapter correctness includes endpoint lifecycle, not just conformance to a schema snapshot. The Copernicus Data Space Ecosystem's **16 October 2026** announcement says the new SFEOS/OpenSearch-backed STAC endpoint `https://stac.opensearch.dataspace.copernicus.eu/v1/` will run in parallel with the current `https://stac.dataspace.copernicus.eu/v1/` **until 12 January 2027**, when the old endpoint will be replaced by the new one. The announcement also describes faster response times, a fixed collections-search endpoint, more queryable attributes, thematic collection grouping and changed rate limits. The separate October 2026 catalogue API presentation describes OData as planned for decommissioning after 2028.
 
 For satellite adapter evaluations:
-- test the current and beta STAC endpoint profiles explicitly;
-- preserve endpoint identity, API version, query, pagination tokens, collection/item IDs and exact response digest;
-- test redirects, schema drift, missing assets and pagination differences as separate failure modes;
+- test both current and new SFEOS endpoint profiles explicitly before 12 January 2027;
+- preserve endpoint identity, backend/profile version, query, pagination tokens, collection/item IDs and exact response digest;
+- compare landing/conformance, collection and item search, queryables, pagination, sorting and asset hrefs;
+- test redirects, schema/behavior drift, missing assets and rate-limit responses as separate failure modes;
 - do not silently switch endpoint or assume catalogue equivalence;
-- keep beta opt-in until a frozen cross-endpoint fixture suite supports migration.
+- keep a dated endpoint-selection receipt in every replay so the same query can be reconstructed after the migration.
 
-Sources: [Copernicus Data Space catalogue API update, October 2026](https://dataspace.copernicus.eu/sites/default/files/media/files/2026-10/1630_new_stac_catalogue_1.pdf) and [STAC API documentation](https://documentation.dataspace.copernicus.eu/APIs/STAC.html). This is endpoint lifecycle information, not evidence that all collections or assets are equivalent across endpoints.
+Sources: [Copernicus Data Space — New SFEOS STAC catalogue endpoint, 16 October 2026](https://dataspace.copernicus.eu/news/2026-10-16-new-sfeos-stac-catalogue-endpoint), [Catalogue APIs in CDSE (October 2026 PDF)](https://dataspace.copernicus.eu/sites/default/files/media/files/2026-10/1630_new_stac_catalogue_1.pdf), and [STAC API documentation](https://documentation.dataspace.copernicus.eu/APIs/STAC.html). This is endpoint lifecycle information, not evidence that all collections or assets are equivalent across endpoints.
 
 ## 11. Correlated-evidence and false-independence benchmark
 
