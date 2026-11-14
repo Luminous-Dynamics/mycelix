@@ -2,7 +2,7 @@
   "schema_version": "civ-trace-fixtures-v0.2",
   "benchmark_id": "CIV-TRACE-001",
   "status": "synthetic_remedy_lifecycle_extension_design_unexecuted",
-  "fixture_count": 43,
+  "fixture_count": 44,
   "family_count": 7,
   "families": [
     "hindsight_isolation",
@@ -7030,6 +7030,264 @@
         "remedy_authority_current_assessment": "UNAUTHORIZED",
         "remedy_state": "ORDERED_NOT_STARTED",
         "systemic_action_state": "OPEN"
+      }
+    },
+    {
+      "fixture_id": "CIVT-REMEDY-08",
+      "family": "remedy_execution",
+      "cutoff_unix": 180,
+      "action_time_unix": 200,
+      "target_ref": "TGT-R08",
+      "principal_ref": "PRIN-R08",
+      "decision_ref": "DEC-R08",
+      "attempt_ref": "ATT-R08",
+      "remedy_order_ref": "RO-R08",
+      "events": [
+        {
+          "event_id": "DEC-R08",
+          "kind": "Decision",
+          "transaction_time": 100,
+          "valid_from": 100,
+          "valid_until": null,
+          "subject_ref": "DEC-R08",
+          "principal_ref": "PRIN-R08",
+          "target_ref": "TGT-R08",
+          "parent_refs": [],
+          "status": "Adopted",
+          "visibility": "Public",
+          "payload_sha256": "0000000000000000000000000000000000000000000000000000000000000066",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-R08",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "EVID-R08",
+          "kind": "Evidence",
+          "transaction_time": 120,
+          "valid_from": 120,
+          "valid_until": null,
+          "subject_ref": "DEC-R08",
+          "principal_ref": "PRIN-R08",
+          "target_ref": "TGT-R08",
+          "parent_refs": [
+            "DEC-R08"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000007a",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-R08",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "GRANT-R08",
+          "kind": "AuthorityGrant",
+          "transaction_time": 150,
+          "valid_from": 150,
+          "valid_until": 1000,
+          "subject_ref": "DEC-R08",
+          "principal_ref": "PRIN-R08",
+          "target_ref": "TGT-R08",
+          "parent_refs": [
+            "DEC-R08"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "0000000000000000000000000000000000000000000000000000000000000098",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-R08",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "ATT-R08",
+          "kind": "Attempt",
+          "transaction_time": 200,
+          "valid_from": 200,
+          "valid_until": null,
+          "subject_ref": "DEC-R08",
+          "principal_ref": "PRIN-R08",
+          "target_ref": "TGT-R08",
+          "parent_refs": [
+            "DEC-R08",
+            "GRANT-R08"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "00000000000000000000000000000000000000000000000000000000000000ca",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-R08",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "OBS-R08",
+          "kind": "EffectObservation",
+          "transaction_time": 220,
+          "valid_from": 220,
+          "valid_until": null,
+          "subject_ref": "DEC-R08",
+          "principal_ref": "PRIN-R08",
+          "target_ref": "TGT-R08",
+          "parent_refs": [
+            "ATT-R08"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "00000000000000000000000000000000000000000000000000000000000000de",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-R08",
+          "observer_ref": "OBSERVER-R08"
+        },
+        {
+          "event_id": "CH-R08",
+          "kind": "Challenge",
+          "transaction_time": 230,
+          "valid_from": 230,
+          "valid_until": null,
+          "subject_ref": "DEC-R08",
+          "principal_ref": "PRIN-R08",
+          "target_ref": "TGT-R08",
+          "parent_refs": [
+            "DEC-R08"
+          ],
+          "status": "Resolved",
+          "visibility": "Public",
+          "payload_sha256": "00000000000000000000000000000000000000000000000000000000000000e8",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CH-R08",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "RGRANT-R08",
+          "kind": "AuthorityGrant",
+          "transaction_time": 240,
+          "valid_from": 240,
+          "valid_until": 1000,
+          "subject_ref": "RO-R08",
+          "principal_ref": "REVIEWER-R08",
+          "target_ref": "TGT-R08",
+          "parent_refs": [
+            "DEC-R08",
+            "CH-R08"
+          ],
+          "status": "Granted",
+          "visibility": "Public",
+          "payload_sha256": "00000000000000000000000000000000000000000000000000000000000000f2",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "GOVERNANCE-R08",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "RO-R08",
+          "kind": "RemedyOrder",
+          "transaction_time": 250,
+          "valid_from": 250,
+          "valid_until": null,
+          "subject_ref": "DEC-R08",
+          "principal_ref": "PRIN-R08",
+          "target_ref": "TGT-R08",
+          "parent_refs": [
+            "DEC-R08",
+            "CH-R08",
+            "RGRANT-R08"
+          ],
+          "status": "Ordered",
+          "visibility": "Public",
+          "payload_sha256": "00000000000000000000000000000000000000000000000000000000000000fc",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "REVIEWER-R08",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "REM-ATT-R08",
+          "kind": "Attempt",
+          "transaction_time": 300,
+          "valid_from": 300,
+          "valid_until": null,
+          "subject_ref": "RO-R08",
+          "principal_ref": "REVIEWER-R08",
+          "target_ref": "TGT-R08",
+          "parent_refs": [
+            "RO-R08"
+          ],
+          "status": "Succeeded",
+          "visibility": "Public",
+          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000012e",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "REMEDY-EXECUTOR-R08",
+          "observer_ref": "NONE"
+        },
+        {
+          "event_id": "REM-OBS-R08",
+          "kind": "EffectObservation",
+          "transaction_time": 350,
+          "valid_from": 350,
+          "valid_until": null,
+          "subject_ref": "RO-R08",
+          "principal_ref": "REVIEWER-R08",
+          "target_ref": "TGT-R08",
+          "parent_refs": [
+            "REM-ATT-R08"
+          ],
+          "status": "Confirmed",
+          "visibility": "Public",
+          "payload_sha256": "0000000000000000000000000000000000000000000000000000000000000160",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "REMEDY-OBS-ISSUER-R08",
+          "observer_ref": "REMEDY-EXECUTOR-R08"
+        },
+        {
+          "event_id": "CA-R08",
+          "kind": "CorrectiveAction",
+          "transaction_time": 370,
+          "valid_from": 370,
+          "valid_until": null,
+          "subject_ref": "RO-R08",
+          "principal_ref": "INSTITUTION-R08",
+          "target_ref": "TGT-R08",
+          "parent_refs": [
+            "RO-R08"
+          ],
+          "status": "Verified",
+          "visibility": "Public",
+          "payload_sha256": "0000000000000000000000000000000000000000000000000000000000000174",
+          "projection_includes_payload": false,
+          "supersedes_ref": "NONE",
+          "issuer_ref": "SYSTEMIC-OWNER-R08",
+          "observer_ref": "SYSTEMIC-OWNER-R08"
+        }
+      ],
+      "expected": {
+        "known_event_ids": [
+          "DEC-R08",
+          "EVID-R08",
+          "GRANT-R08"
+        ],
+        "authority_as_known_at_action": "AUTHORIZED",
+        "authority_current_assessment": "AUTHORIZED",
+        "outcome_state": "CONFIRMED",
+        "challenge_state": "RESOLVED_PRESERVED",
+        "current_decision_ref": "DEC-R08",
+        "privacy_violation": false,
+        "challenge_event_ids": [
+          "CH-R08"
+        ],
+        "decision_lineage_refs": [
+          "DEC-R08"
+        ],
+        "remedy_authority_as_known_at_order": "AUTHORIZED",
+        "remedy_authority_current_assessment": "AUTHORIZED",
+        "remedy_state": "INDEPENDENCE_UNESTABLISHED",
+        "systemic_action_state": "INDEPENDENCE_UNESTABLISHED"
       }
     }
   ],
