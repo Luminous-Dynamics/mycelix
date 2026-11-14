@@ -53,16 +53,15 @@ fn exact_one_to_one_reconciliation_is_scoped_to_declared_register() {
 #[test]
 fn missing_reference_match_is_an_omission() {
     let input = POSITIVE
-        .replace("OBSERVED|obs-c|IN_SCOPE|-|-|-|-|0|100\\n", "")
+        .replace("OBSERVED|obs-c|IN_SCOPE|-|-|-|-|0|100\n", "")
         .replace(
-            "LINK|obs-c|IN_SCOPE|ref-c|MATCH|review-team|pair-c|0|100\\n",
+            "LINK|obs-c|IN_SCOPE|ref-c|MATCH|review-team|pair-c|0|100\n",
             "",
         );
     let report = audit(&input).expect("valid but incomplete fixture");
     assert_eq!(report.omitted_reference_units, 1);
     assert_eq!(report.disposition, "INCOMPLETE_OR_CONFLICTED");
-}
-#[test]
+}#[test]
 fn many_observed_records_matching_one_reference_is_duplicate_coverage() {
     let input = POSITIVE
         .replace(
