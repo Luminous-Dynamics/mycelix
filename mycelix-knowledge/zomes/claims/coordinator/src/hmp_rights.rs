@@ -152,6 +152,9 @@ pub fn authorize(request: AuthorizationRequest<'_>) -> AuthorizationDecision {
     let Some(authenticated_actor_id) = request.authenticated_actor_id else {
         return AuthorizationDecision::indeterminate(DecisionReason::ActorNotAuthenticated);
     };
+    if request.actor_id.trim().is_empty() || request.record_id.trim().is_empty() {
+        return AuthorizationDecision::indeterminate(DecisionReason::ActorNotAuthenticated);
+    }
     if authenticated_actor_id != request.actor_id {
         return AuthorizationDecision::deny(DecisionReason::ActorMismatch);
     }
@@ -189,7 +192,9 @@ pub fn authorize(request: AuthorizationRequest<'_>) -> AuthorizationDecision {
     if grant.grantee_id != request.actor_id {
         return AuthorizationDecision::deny(DecisionReason::GranteeMismatch);
     }
-    if grant.purpose != request.purpose {
+    if request.purpose.trim().is_empty() || grant.purpose.trim().is_empty()
+        || grant.purpose != request.purpose
+    {
         return AuthorizationDecision::deny(DecisionReason::PurposeMismatch);
     }
     if grant.permission_reference.trim().is_empty() {
@@ -208,6 +213,13 @@ pub fn authorize(request: AuthorizationRequest<'_>) -> AuthorizationDecision {
     }
     if grant.expires_at_micros.is_some_and(|expiry| request.now_micros >= expiry) {
         return AuthorizationDecision::deny(DecisionReason::GrantExpired);
+    }
+
+    // A reference-only record permits citation of its existence, not content access,
+    // retrieval, transformation, training or redistribution—even if a malformed grant
+    // accidentally lists one of those operations.
+    if request.access_class == AccessClass::ReferenceOnly && request.operation != Operation::Cite {
+        return AuthorizationDecision::deny(DecisionReason::OperationNotGranted);
     }
 
     let explicitly_allowed = grant.allowed_operations.contains(&request.operation);
@@ -391,6 +403,30 @@ mod tests {
             authorize(request(Some(&grant), Operation::Cite)).reason,
             DecisionReason::ConflictingOperationRules
         );
+    }
+
+    #[test]
+    fn reference_only_never_allows_content_operations() {
+        let grant = valid_grant();
+        let mut req = request(Some(&grant), Operation::Read);
+        req.access_class = AccessClass::ReferenceOnly;
+        assert_eq!(authorize(req).kind, DecisionKind::Deny);
+    }
+
+    #[test]
+    fn reference_only_citation_can_be_allowed_by_scoped_grant() {
+        let grant = valid_grant();
+        let mut req = request(Some(&grant), Operation::Cite);
+        req.access_class = AccessClass::ReferenceOnly;
+        assert_eq!(authorize(req).kind, DecisionKind::Allow);
+    }
+
+    #[test]
+    fn empty_purpose_is_denied() {
+        let grant = valid_grant();
+        let mut req = request(Some(&grant), Operation::Cite);
+        req.purpose = "";
+        assert_eq!(authorize(req).reason, DecisionReason::PurposeMismatch);
     }
 
     #[test]
