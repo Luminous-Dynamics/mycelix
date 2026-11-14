@@ -28,7 +28,7 @@ Unknown authority, unknown resource state, unknown prior outcome, incomplete ope
 
 The reference model also includes owner-input comparison helpers for:
 - **Delegation attenuation:** child scopes must be subsets of immediate parents for action/resource/purpose/field, time, amount and operation-count dimensions.
-- **Trajectory-wide privilege:** active task, ambient and tool/session grants are unioned; bounded amount and operation ceilings are conservatively summed and compared with the approved task scope.
+- **Trajectory-wide privilege:** active task, ambient and tool/session grants are unioned; bounded amount ceilings are summed per currency (never across currencies), while operation-count ceilings are conservatively summed and compared with the approved task scope.
 - **Complete mediation:** every reachable route to a protected effect must traverse the exact declared enforcement point; incomplete route inventories remain distinct.
 - **Revocation propagation:** active sessions are checked against authoritative and session-observed epochs plus bitemporal revocation effective/observed times.
 
@@ -43,7 +43,7 @@ cargo test --locked --all-targets --manifest-path Cargo.toml
 cargo clippy --locked --all-targets --manifest-path Cargo.toml -- -D warnings
 ```
 
-**56 Rust unit tests are authored; they have not been executed in this authoring environment.** Exact-head CI remains the validation authority.
+**62 Rust unit tests are authored; they have not been executed in this authoring environment.** Exact-head CI remains the validation authority.
 
 ## Relationship to owner contracts
 
@@ -68,3 +68,12 @@ Seven new tests exercise monotonic and temporal properties:
 - removing retry-safety evidence cannot preserve a retry permit.
 
 These are finite reference-model properties over owner-supplied data, not exhaustive proofs or live-system tests.
+
+
+## Currency-dimensional amount bounds
+
+A minor-unit amount is not a dimensionless scalar. `CapabilityScope` now binds every bounded amount to an explicit currency. The trajectory union accumulates ceilings in a currency-keyed map, so USD 600 + EUR 600 is never treated as one 1,200-minor-unit quantity. A task with a USD ceiling rejects any additional EUR capability unless the task scope explicitly permits that currency dimension. A bounded amount missing its currency is unqualified and fails closed.
+
+No implicit foreign-exchange conversion is performed. An owner adapter that genuinely needs cross-currency comparison must supply a separately versioned conversion policy, valuation timestamp, rate source and rounding rule; this reference model intentionally does not invent them.
+
+Four regression tests cover per-currency aggregation, extra-currency privilege, missing currency and currency substitution across a delegation edge.
