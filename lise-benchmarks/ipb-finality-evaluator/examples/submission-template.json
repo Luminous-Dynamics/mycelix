@@ -73,7 +73,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "F02",
@@ -131,7 +132,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "F03",
@@ -189,7 +191,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "F04",
@@ -247,7 +250,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "F05",
@@ -305,7 +309,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "F06",
@@ -363,7 +368,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A07",
@@ -421,7 +427,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A08",
@@ -479,7 +486,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A09",
@@ -537,7 +545,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A10",
@@ -595,7 +604,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A11",
@@ -653,7 +663,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A12",
@@ -711,7 +722,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A13",
@@ -769,7 +781,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A14",
@@ -827,7 +840,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "R15",
@@ -885,7 +899,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "R16",
@@ -943,7 +958,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "R17",
@@ -1001,7 +1017,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "R18",
@@ -1059,7 +1076,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A19",
@@ -1117,7 +1135,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "R20",
@@ -1175,7 +1194,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "R21",
@@ -1233,7 +1253,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "R22",
@@ -1291,7 +1312,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "R23",
@@ -1349,7 +1371,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "R24",
@@ -1407,7 +1430,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "F25",
@@ -1465,7 +1489,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A26",
@@ -1523,7 +1548,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A27",
@@ -1581,7 +1607,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A28",
@@ -1639,7 +1666,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A29",
@@ -1697,7 +1725,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A30",
@@ -1755,7 +1784,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "R31",
@@ -1813,7 +1843,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "R32",
@@ -1871,7 +1902,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "A33",
@@ -1929,7 +1961,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     },
     {
       "scenario_id": "F34",
@@ -1987,7 +2020,8 @@
       "revocation_effective_state": "unknown",
       "revocation_knowledge_state": "unknown",
       "approved_constitution_epoch": null,
-      "current_constitution_epoch": null
+      "current_constitution_epoch": null,
+      "observed_terminal_state": "UNSUPPORTED"
     }
   ],
   "total_runtime_ms": null,
