@@ -1,0 +1,286 @@
+{
+  "schema_version": "lise.larp-oracle.v0.1",
+  "suite_id": "LARP-CONTRACTS-001",
+  "status": "synthetic-reference-oracle-pending-independent-review",
+  "scenario_file": "LARP_V2_CONFORMANCE_SCENARIOS_V0_1.json",
+  "disposition_vocabulary": [
+    "permit",
+    "deny",
+    "hold",
+    "indeterminate",
+    "challenge_required"
+  ],
+  "case_count": 29,
+  "rows": [
+    {
+      "case_id": "P01",
+      "expected_disposition": "permit",
+      "reason_codes": [
+        "LOCAL_AUTHORITY_CURRENT",
+        "EXACT_SCOPE_MATCH",
+        "RIGHTS_AND_EVIDENCE_SATISFIED"
+      ],
+      "notes": "Owner execution must still re-check currentness at the effect boundary."
+    },
+    {
+      "case_id": "P02",
+      "expected_disposition": "permit",
+      "reason_codes": [
+        "EXIT_RIGHT_VALID",
+        "FUTURE_OPTIONAL_PROCESSING_STOPS",
+        "HISTORY_AND_REMEDIES_PRESERVED"
+      ],
+      "notes": "Exit is not deletion of past evidence or accrued remedies."
+    },
+    {
+      "case_id": "P03",
+      "expected_disposition": "permit",
+      "reason_codes": [
+        "EVIDENCE_OWNER_QUALIFIED",
+        "DEPENDENCY_CLOSURE_COMPLETE",
+        "METHOD_AND_TIME_REQUIREMENTS_MET"
+      ],
+      "notes": "Independent observation is scoped to the declared claim boundary."
+    },
+    {
+      "case_id": "P04",
+      "expected_disposition": "permit",
+      "reason_codes": [
+        "PREDECESSOR_DIGEST_MATCH",
+        "LOCAL_RATIFICATION_VALID",
+        "ACTIVATION_REQUIREMENTS_MET"
+      ],
+      "notes": "Only the successor version becomes active."
+    },
+    {
+      "case_id": "P05",
+      "expected_disposition": "permit",
+      "reason_codes": [
+        "CHALLENGE_UPHELD",
+        "REMEDY_AUTHORITY_VALID",
+        "HISTORY_PRESERVED"
+      ],
+      "notes": "Remedy event is new evidence, not rewriting."
+    },
+    {
+      "case_id": "P06",
+      "expected_disposition": "permit",
+      "reason_codes": [
+        "OUTCOME_INDEPENDENTLY_OBSERVED",
+        "PAYOUT_BOUNDS_CURRENT",
+        "TREASURY_AUTHORIZATION_SEPARATE"
+      ],
+      "notes": "LARP does not transfer funds."
+    },
+    {
+      "case_id": "P07",
+      "expected_disposition": "permit",
+      "reason_codes": [
+        "ISSUER_CREDENTIAL_VALID",
+        "PURPOSE_LIMITED_DISCLOSURE",
+        "LOCAL_AUTHORITY_DECISION_REQUIRED"
+      ],
+      "notes": "Acceptance as evidence is not automatic acceptance as authority."
+    },
+    {
+      "case_id": "P08",
+      "expected_disposition": "permit",
+      "reason_codes": [
+        "DEGRADED_MODE_ALLOWLISTED",
+        "OLD_SESSIONS_FENCED",
+        "HIGH_IMPACT_AUTHORITY_PAUSED"
+      ],
+      "notes": "Only the specified safe service subset may return."
+    },
+    {
+      "case_id": "A01",
+      "expected_disposition": "deny",
+      "reason_codes": [
+        "PEER_CREDENTIAL_NOT_LOCAL_AUTHORITY"
+      ],
+      "notes": "A valid peer credential is not a local authorization."
+    },
+    {
+      "case_id": "A02",
+      "expected_disposition": "deny",
+      "reason_codes": [
+        "AUTHORITY_NON_TRANSITIVE",
+        "RECIPIENT_INSTITUTION_NOT_RATIFIED"
+      ],
+      "notes": "Institution C must decide under its own authority."
+    },
+    {
+      "case_id": "A03",
+      "expected_disposition": "deny",
+      "reason_codes": [
+        "PURPOSE_CREEP_PROHIBITED"
+      ],
+      "notes": "Consent and purpose constraints remain bound to the original use."
+    },
+    {
+      "case_id": "A04",
+      "expected_disposition": "deny",
+      "reason_codes": [
+        "DELEGATION_NOT_ATTENUATING",
+        "RESOURCE_SCOPE_WIDENED",
+        "AMOUNT_CEILING_EXCEEDED"
+      ],
+      "notes": "Every supported scope dimension is checked."
+    },
+    {
+      "case_id": "A05",
+      "expected_disposition": "hold",
+      "reason_codes": [
+        "CONSTITUTION_DIGEST_STALE",
+        "SUCCESSOR_EPOCH_REAUTHORIZATION_REQUIRED"
+      ],
+      "notes": "Historical ratification remains evidence but cannot silently authorize under the new constitution."
+    },
+    {
+      "case_id": "A06",
+      "expected_disposition": "deny",
+      "reason_codes": [
+        "NO_LOCAL_RATIFICATION",
+        "AI_CANNOT_SELF_GRANT_AUTHORITY"
+      ],
+      "notes": "Model output can propose only."
+    },
+    {
+      "case_id": "A07",
+      "expected_disposition": "challenge_required",
+      "reason_codes": [
+        "EFFECTIVE_CONTROL_CONCENTRATION",
+        "OVERSIGHT_INDEPENDENCE_UNPROVEN"
+      ],
+      "notes": "A challenge/investigation is required; procedural validity alone does not settle capture."
+    },
+    {
+      "case_id": "A08",
+      "expected_disposition": "deny",
+      "reason_codes": [
+        "SIMILARITY_IS_NOT_MISCONDUCT_EVIDENCE",
+        "AUTOMATIC_SANCTION_PROHIBITED"
+      ],
+      "notes": "The signal may justify review, not punishment."
+    },
+    {
+      "case_id": "A09",
+      "expected_disposition": "indeterminate",
+      "reason_codes": [
+        "KNOWN_COMMON_DEPENDENCY",
+        "INDEPENDENCE_OVERSTATED"
+      ],
+      "notes": "Do not count as independent observations; preserve the dependency."
+    },
+    {
+      "case_id": "A10",
+      "expected_disposition": "indeterminate",
+      "reason_codes": [
+        "DEPENDENCY_INVENTORY_INCOMPLETE"
+      ],
+      "notes": "Unknown closure is not proof of independence."
+    },
+    {
+      "case_id": "A11",
+      "expected_disposition": "deny",
+      "reason_codes": [
+        "REMEDY_PATH_REQUIRED_FOR_HIGH_IMPACT_CONTRACT"
+      ],
+      "notes": "The contract is not activation-ready."
+    },
+    {
+      "case_id": "A12",
+      "expected_disposition": "deny",
+      "reason_codes": [
+        "EXACT_OPERATION_SUBSTITUTION",
+        "APPROVED_OPERATION_DIGEST_MISMATCH"
+      ],
+      "notes": "No dispatch of a substituted operation."
+    },
+    {
+      "case_id": "A13",
+      "expected_disposition": "deny",
+      "reason_codes": [
+        "MODEL_SCORE_NOT_A_VERDICT",
+        "PROPORTIONAL_REVIEW_AND_CHALLENGE_REQUIRED"
+      ],
+      "notes": "Permanent blacklisting is not authorized by the signal."
+    },
+    {
+      "case_id": "A14",
+      "expected_disposition": "permit",
+      "reason_codes": [
+        "HISTORICAL_AS_KNOWN_RECONSTRUCTION",
+        "CURRENT_FRESHNESS_SEPARATE"
+      ],
+      "notes": "Historical applicability is evaluated at T1, current applicability at T2."
+    },
+    {
+      "case_id": "A15",
+      "expected_disposition": "deny",
+      "reason_codes": [
+        "KNOWN_ROUTE_BYPASS",
+        "COMPLETE_MEDIATION_FALSE"
+      ],
+      "notes": "A known reachable bypass falsifies the complete-mediation claim."
+    },
+    {
+      "case_id": "R01",
+      "expected_disposition": "hold",
+      "reason_codes": [
+        "OUTCOME_UNKNOWN",
+        "NO_QUALIFIED_IDEMPOTENT_REPLAY",
+        "RECONCILIATION_REQUIRED"
+      ],
+      "notes": "No blind retry."
+    },
+    {
+      "case_id": "R02",
+      "expected_disposition": "hold",
+      "reason_codes": [
+        "PARTIAL_EFFECT",
+        "UNKNOWN_SUFFIX",
+        "RECONCILIATION_REQUIRED"
+      ],
+      "notes": "Preserve the confirmed prefix and unknown suffix."
+    },
+    {
+      "case_id": "R03",
+      "expected_disposition": "deny",
+      "reason_codes": [
+        "SINGLE_USE_AUTHORITY_CONSUMED",
+        "DUPLICATE_EFFECT_PREVENTED"
+      ],
+      "notes": "Logical operation identity prevents reuse."
+    },
+    {
+      "case_id": "R04",
+      "expected_disposition": "permit",
+      "reason_codes": [
+        "ESSENTIAL_DEGRADED_SERVICE_ONLY",
+        "RECOVERY_QUORUM_NOT_MET",
+        "HIGH_IMPACT_AUTHORITY_PAUSED"
+      ],
+      "notes": "Permitted service subset does not confer governance power."
+    },
+    {
+      "case_id": "R05",
+      "expected_disposition": "deny",
+      "reason_codes": [
+        "STALE_AUTHORITY_EPOCH",
+        "NO_AUTOMATIC_PRIVILEGE_RESTORATION"
+      ],
+      "notes": "Data restoration cannot reactivate stale authority."
+    },
+    {
+      "case_id": "R06",
+      "expected_disposition": "hold",
+      "reason_codes": [
+        "CONTRACT_EXPIRED",
+        "EXTERNAL_OUTCOME_UNKNOWN",
+        "RECONCILIATION_REQUIRED"
+      ],
+      "notes": "Expiry does not prove effect or non-effect."
+    }
+  ]
+}
