@@ -2084,5 +2084,6 @@
     "complete_mediation_claim_with_incomplete_inventory": 0,
     "ambiguous_operation_false_accepts": 0,
     "exact_operation_authorization_after_clarification": 1
-  }
+  },
+  "input_only": true
 }
