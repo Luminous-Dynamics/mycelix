@@ -232,7 +232,7 @@ fn evaluate_lanes(sources: &[String]) -> Result<Vec<EvaluatedLane>, InputError> 
         parsed.push(parse_lane(source)?);
     }
 
-    let first = &parsed[0];
+    let baseline = parsed[0].clone();
     let mut cohort_ids = BTreeSet::new();
     let mut evaluated = Vec::with_capacity(parsed.len());
 
@@ -243,28 +243,28 @@ fn evaluate_lanes(sources: &[String]) -> Result<Vec<EvaluatedLane>, InputError> 
                 lane.cohort_id
             )));
         }
-        if lane.service_family_id != first.service_family_id
-            || lane.cohort_set_id != first.cohort_set_id
-            || lane.contract.service_id != first.contract.service_id
+        if lane.service_family_id != baseline.service_family_id
+            || lane.cohort_set_id != baseline.cohort_set_id
+            || lane.contract.service_id != baseline.contract.service_id
         {
             return Err(InputError(
                 "all lanes must share service_family_id, cohort_set_id and service_id".to_owned(),
             ));
         }
-        if lane.contract.horizon_start_seconds != first.contract.horizon_start_seconds
-            || lane.contract.horizon_end_seconds != first.contract.horizon_end_seconds
+        if lane.contract.horizon_start_seconds != baseline.contract.horizon_start_seconds
+            || lane.contract.horizon_end_seconds != baseline.contract.horizon_end_seconds
             || lane.contract.max_observation_hold_seconds
-                != first.contract.max_observation_hold_seconds
+                != baseline.contract.max_observation_hold_seconds
             || lane.contract.recovery_stability_seconds
-                != first.contract.recovery_stability_seconds
-            || lane.contract.quality_required != first.contract.quality_required
+                != baseline.contract.recovery_stability_seconds
+            || lane.contract.quality_required != baseline.contract.quality_required
         {
             return Err(InputError(
                 "all lanes must share horizon, observation hold, recovery stability and quality policy"
                     .to_owned(),
             ));
         }
-        if lane.population_unit != first.population_unit {
+        if lane.population_unit != baseline.population_unit {
             return Err(InputError(
                 "all lanes must use the same population_denominator unit".to_owned(),
             ));
