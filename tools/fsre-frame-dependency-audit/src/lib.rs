@@ -72,6 +72,7 @@ pub struct FramePairResult {
     pub status: String,
     pub same_owner: bool,
     pub same_collection_process: bool,
+    pub same_source_snapshot: bool,
     pub shared_ancestors: Vec<String>,
     pub ancestor_relationship: bool,
 }
@@ -105,6 +106,7 @@ impl FrameAuditReport {
             writeln!(&mut out, "{prefix}.status={}", pair.status).expect("String write");
             writeln!(&mut out, "{prefix}.same_owner={}", pair.same_owner).expect("String write");
             writeln!(&mut out, "{prefix}.same_collection_process={}", pair.same_collection_process).expect("String write");
+            writeln!(&mut out, "{prefix}.same_source_snapshot={}", pair.same_source_snapshot).expect("String write");
             writeln!(&mut out, "{prefix}.shared_ancestors={}", pair.shared_ancestors.join(",")).expect("String write");
             writeln!(&mut out, "{prefix}.ancestor_relationship={}", pair.ancestor_relationship).expect("String write");
         }
@@ -409,9 +411,12 @@ pub fn audit(source: &str) -> Result<Result<FrameAuditReport, Qualification>, Fr
             let ancestor_relationship = left_ancestors.contains(&right.id) || right_ancestors.contains(&left.id);
             let same_owner = left.owner_id == right.owner_id;
             let same_collection_process = left.collection_process_id == right.collection_process_id;
+            let same_source_snapshot = left.snapshot_id == right.snapshot_id;
 
             let status = if same_collection_process {
                 "DECLARED_SHARED_COLLECTION_PROCESS"
+            } else if same_source_snapshot {
+                "DECLARED_SHARED_SOURCE_SNAPSHOT"
             } else if ancestor_relationship {
                 "DECLARED_DIRECT_OR_TRANSITIVE_ANCESTRY"
             } else if !shared_ancestors.is_empty() {
@@ -433,6 +438,7 @@ pub fn audit(source: &str) -> Result<Result<FrameAuditReport, Qualification>, Fr
                 status: status.to_owned(),
                 same_owner,
                 same_collection_process,
+                same_source_snapshot,
                 shared_ancestors,
                 ancestor_relationship,
             });
