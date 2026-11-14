@@ -363,15 +363,34 @@ fn validate_trace(trace: &Value) -> TraceReport {
                 }
                 let observation_kind = event_string(event, "observation_kind").unwrap_or("");
                 let independence = event_string(event, "independence_classification").unwrap_or("");
-                if observation_kind == "provider_acknowledgement"
+                let provider_report = observation_kind == "provider_acknowledgement"
                     || observation_kind == "provider_status_query"
                     || source_kind == "provider"
-                    || capture_origin == "provider_native"
-                {
+                    || capture_origin == "provider_native";
+                if provider_report {
                     report.provider_only_observations += 1;
                     if independence == "qualified_independent" {
                         report.errors.push(format!(
                             "{label}: provider-native evidence cannot claim qualified independent observation"
+                        ));
+                    }
+                    if event_effect(event) == Some("confirmed_applied") {
+                        report.errors.push(format!(
+                            "{label}: provider-only evidence must remain provider_reported_applied, not confirmed_applied"
+                        ));
+                    }
+                }
+                if event_effect(event) == Some("confirmed_applied") && !provider_report {
+                    let independently_observed = observation_kind == "independent_observation"
+                        && source_kind == "independent_observer"
+                        && independence == "qualified_independent"
+                        && capture_origin == "independent_harness";
+                    let owner_reconciled = observation_kind == "owner_reconciliation"
+                        && source_kind == "resource_owner"
+                        && capture_origin == "owner_native";
+                    if !independently_observed && !owner_reconciled {
+                        report.errors.push(format!(
+                            "{label}: confirmed_applied requires qualified independent observation or owner-native reconciliation"
                         ));
                     }
                 }
@@ -473,7 +492,16 @@ fn validate_trace(trace: &Value) -> TraceReport {
                     let reconciliation_source = event_string(reconciliation_event, "source_kind").unwrap_or("");
                     let reconciliation_origin = event_string(reconciliation_event, "capture_origin").unwrap_or("");
                     let provider_contract_ref = event_string(reconciliation_event, "provider_contract_ref");
+                    let retry_preflight_is_fresh = preflight_by_operation
+                        .get(operation_ref)
+                        .is_some_and(|(decision, digest, at)| {
+                            decision == "ALLOW"
+                                && digest == operation_digest
+                                && *at > *reconciled_at
+                                && *at < sequence
+                        });
                     if *reconciled_at >= sequence
+                        || !retry_preflight_is_fresh
                         || effect != "confirmed_no_effect"
                         || retry_safety != "same_operation_same_key_qualified"
                         || reconciled_digest != operation_digest
@@ -801,7 +829,11 @@ mod tests {
         retry_one["attempt_ref"] = json!("attempt-2");
         retry_one["idempotency_ref"] = json!("idem-1");
         retry_one["retry_safety"] = json!("same_operation_same_key_qualified");
-        let mut retry_two = event(4, "e4", "retry_attempt");
+        let mut retry_preflight = event(3, "e3", "preflight_decision");
+        retry_preflight["operation_ref"] = json!("op-1");
+        retry_preflight["operation_digest"] = json!("digest-1");
+        retry_preflight["decision"] = json!("ALLOW");
+        let mut retry_two = event(5, "e5", "retry_attempt");
         retry_two["operation_ref"] = json!("op-1");
         retry_two["operation_digest"] = json!("digest-1");
         retry_two["attempt_ref"] = json!("attempt-3");
@@ -811,6 +843,7 @@ mod tests {
             preflight,
             dispatch,
             reconciliation,
+            retry_preflight,
             retry_one,
             retry_two,
         ]));
@@ -838,13 +871,23 @@ mod tests {
         reconciliation["provider_contract_ref"] = json!("contract-1");
         reconciliation["expected_action_ids"] = json!(["action-1"]);
         reconciliation["observed_action_ids"] = json!([]);
-        let mut retry = event(3, "e3", "retry_attempt");
+        let mut retry_preflight = event(3, "e3", "preflight_decision");
+        retry_preflight["operation_ref"] = json!("op-1");
+        retry_preflight["operation_digest"] = json!("digest-1");
+        retry_preflight["decision"] = json!("ALLOW");
+        let mut retry = event(4, "e4", "retry_attempt");
         retry["operation_ref"] = json!("op-1");
         retry["operation_digest"] = json!("digest-1");
         retry["attempt_ref"] = json!("attempt-2");
         retry["idempotency_ref"] = json!("idem-1");
         retry["retry_safety"] = json!("same_operation_same_key_qualified");
-        let report = validate_trace(&trace(vec![preflight, dispatch, reconciliation, retry]));
+        let report = validate_trace(&trace(vec![
+            preflight,
+            dispatch,
+            reconciliation,
+            retry_preflight,
+            retry,
+        ]));
         assert!(report.errors.iter().any(|error| error.contains("later owner/provider reconciliation")));
     }
     #[test]
@@ -877,6 +920,32 @@ mod tests {
         retry["retry_safety"] = json!("same_operation_same_key_qualified");
         let report = validate_trace(&trace(vec![preflight,dispatch,reconciliation,retry]));
         assert!(report.errors.iter().any(|error| error.contains("confirmed_no_effect")));
+    }
+
+    #[test]
+    fn provider_acknowledgement_cannot_be_promoted_to_confirmed_effect() {
+        let mut observation = event(0, "e0", "protected_effect_observation");
+        observation["operation_ref"] = json!("op-1");
+        observation["action_id"] = json!("action-1");
+        observation["effect_state"] = json!("confirmed_applied");
+        observation["observation_kind"] = json!("provider_acknowledgement");
+        observation["source_kind"] = json!("provider");
+        observation["capture_origin"] = json!("provider_native");
+        let report = validate_trace(&trace(vec![observation]));
+        assert!(report.errors.iter().any(|error| error.contains("must remain provider_reported_applied")));
+    }
+
+    #[test]
+    fn confirmed_effect_requires_independent_or_owner_native_evidence() {
+        let mut observation = event(0, "e0", "protected_effect_observation");
+        observation["operation_ref"] = json!("op-1");
+        observation["action_id"] = json!("action-1");
+        observation["effect_state"] = json!("confirmed_applied");
+        observation["observation_kind"] = json!("independent_observation");
+        observation["source_kind"] = json!("harness");
+        observation["capture_origin"] = json!("candidate_reported");
+        let report = validate_trace(&trace(vec![observation]));
+        assert!(report.errors.iter().any(|error| error.contains("requires qualified independent observation")));
     }
 
     #[test]
