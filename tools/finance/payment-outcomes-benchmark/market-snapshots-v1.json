@@ -1,0 +1,138 @@
+{
+  "schema": "mycelix.payment-market-snapshots/v1",
+  "status": "public_context_only",
+  "as_of": "2026-11-03",
+  "snapshots": [
+    {
+      "id": "UPI-IN-2026-10",
+      "operator": "National Payments Corporation of India",
+      "system": "Unified Payments Interface (UPI)",
+      "jurisdiction": "IN",
+      "source_url": "https://www.npci.org.in/what-we-do/upi/product-statistics",
+      "observed_on": "2026-11-03",
+      "period": {
+        "kind": "calendar_month",
+        "label": "October 2026",
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "metric_definition_id": "npci-upi-monthly-product-statistics-v1",
+      "population_scope": "NPCI UPI monthly system aggregate; official NPCI product statistics",
+      "transaction_count": {
+        "display": "25,466.70 million",
+        "numeric": "25466.70",
+        "unit": "million_transactions",
+        "qualifier": "exact_published_value"
+      },
+      "transaction_value": {
+        "display": "INR 3,152,929.46 crore",
+        "numeric": "3152929.46",
+        "unit": "crore_INR",
+        "currency": "INR",
+        "qualifier": "exact_published_value"
+      },
+      "active_users": null,
+      "institution_coverage": {
+        "display": "758 banks live",
+        "numeric": "758",
+        "unit": "banks"
+      },
+      "limitations": [
+        "System-level monthly aggregate, not a matched task cohort",
+        "Active payer and merchant denominators are not supplied in this snapshot",
+        "Product definition and population scope differ from other national payment systems",
+        "Not evidence of Mycelix or South African service capability"
+      ]
+    },
+    {
+      "id": "PIX-BR-2026-09",
+      "operator": "Banco Central do Brasil",
+      "system": "Pix",
+      "jurisdiction": "BR",
+      "source_url": "https://www.bcb.gov.br/estabilidadefinanceira/estatisticaspix",
+      "observed_on": "2026-11-03",
+      "period": {
+        "kind": "calendar_month",
+        "label": "September 2026",
+        "start": "2026-09-01",
+        "end": "2026-09-30"
+      },
+      "metric_definition_id": "bcb-pix-monthly-statistics-v1",
+      "population_scope": "Banco Central do Brasil Pix monthly ecosystem statistics",
+      "transaction_count": {
+        "display": "approximately 7.8 billion",
+        "numeric": "7.8",
+        "unit": "billion_transactions",
+        "qualifier": "approximate_published_value"
+      },
+      "transaction_value": {
+        "display": "approximately BRL 3.8 trillion",
+        "numeric": "3.8",
+        "unit": "trillion_BRL",
+        "currency": "BRL",
+        "qualifier": "approximate_published_value"
+      },
+      "active_users": {
+        "display": "150 million individuals",
+        "numeric": "150",
+        "unit": "million_individuals",
+        "qualifier": "published_population_context_not_monthly_active_users"
+      },
+      "institution_coverage": null,
+      "peak_context": {
+        "date": "2026-09-04",
+        "display": "318.1 million transactions in one day",
+        "numeric": "318.1",
+        "unit": "million_transactions_daily_peak"
+      },
+      "limitations": [
+        "Monthly ecosystem snapshot; the active-individual count is not defined here as monthly active users",
+        "Not a matched cohort with UPI or PayShap",
+        "Published transaction population and product scope differ across systems",
+        "Not evidence of Mycelix or South African service capability"
+      ]
+    },
+    {
+      "id": "PAYSHAP-ZA-2026-10-20",
+      "operator": "PayInc / South African National Payment System",
+      "system": "PayShap",
+      "jurisdiction": "ZA",
+      "source_url": "https://www.resbank.co.za/en/home/publications/publication-detail-pages/speeches/speeches-by-governors/2026/kganyago-payments-conference",
+      "observed_on": "2026-11-03",
+      "period": {
+        "kind": "cumulative_since_launch",
+        "label": "Cumulative since 2023 launch, as reported 20 October 2026",
+        "start": null,
+        "end": "2026-10-20"
+      },
+      "metric_definition_id": "sarb-governor-payshap-cumulative-speech-2026-10-20",
+      "population_scope": "National PayShap cumulative activity as described in SARB Governor's 20 October 2026 speech",
+      "transaction_count": {
+        "display": "more than 1 billion",
+        "numeric": "1",
+        "unit": "billion_transactions",
+        "qualifier": "lower_bound_gt"
+      },
+      "transaction_value": {
+        "display": "more than ZAR 1 trillion",
+        "numeric": "1",
+        "unit": "trillion_ZAR",
+        "currency": "ZAR",
+        "qualifier": "lower_bound_gt"
+      },
+      "active_users": null,
+      "institution_coverage": null,
+      "adoption_comparison_context": {
+        "display": "Prior-year PayShap transaction count described as roughly 6% of card count and less than 40% of EFT credit volume",
+        "comparison_window": "prior year as described in the 2026-10-20 speech",
+        "qualifier": "speaker_reported_approximate_comparison"
+      },
+      "limitations": [
+        "Cumulative since launch, not a monthly window; not directly rankable against monthly UPI or Pix snapshots",
+        "The prior-year relative comparisons are speaker-reported and do not provide a matched participant/user cohort",
+        "Participant parity, fees, availability and merchant acceptance are not measured by the cumulative total",
+        "Not evidence of Mycelix or South African service capability"
+      ]
+    }
+  ]
+}

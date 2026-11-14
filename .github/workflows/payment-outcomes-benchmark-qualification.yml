@@ -1,0 +1,45 @@
+name: Payment Outcomes Benchmark Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'tools/finance/payment-outcomes-benchmark/**'
+      - '.github/workflows/payment-outcomes-benchmark-qualification.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/finance/payment-outcomes-benchmark/**'
+      - '.github/workflows/payment-outcomes-benchmark-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  payment-outcomes:
+    name: Effects-disabled matched outcome benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+          rustup default 1.96.0
+          rustc --version
+          cargo --version
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/finance/payment-outcomes-benchmark/Cargo.toml -- --check
+
+      - name: Run schema, comparison and hard-gate unit tests
+        run: cargo test --manifest-path tools/finance/payment-outcomes-benchmark/Cargo.toml
+
+      - name: Run deterministic negative mutation campaign
+        run: cargo run --manifest-path tools/finance/payment-outcomes-benchmark/Cargo.toml -- --self-test
+
+      - name: Run Clippy
+        run: cargo clippy --manifest-path tools/finance/payment-outcomes-benchmark/Cargo.toml --all-targets -- -D warnings

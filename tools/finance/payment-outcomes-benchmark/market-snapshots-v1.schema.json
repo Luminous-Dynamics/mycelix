@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.luminousdynamics.io/schemas/payment-market-snapshots-v1.schema.json",
+  "title": "Payment market context snapshots v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "status",
+    "as_of",
+    "snapshots"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.payment-market-snapshots/v1"
+    },
+    "status": {
+      "const": "public_context_only"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "snapshots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/snapshot"
+      }
+    }
+  },
+  "$defs": {
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "label",
+        "start",
+        "end"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "calendar_month",
+            "cumulative_since_launch",
+            "daily_peak"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "end": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
+    "count": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "display",
+        "numeric",
+        "unit",
+        "qualifier"
+      ],
+      "properties": {
+        "display": {
+          "type": "string",
+          "minLength": 1
+        },
+        "numeric": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?$"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "qualifier": {
+          "enum": [
+            "exact_published_value",
+            "approximate_published_value",
+            "lower_bound_gt"
+          ]
+        }
+      }
+    },
+    "value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "display",
+        "numeric",
+        "unit",
+        "currency",
+        "qualifier"
+      ],
+      "properties": {
+        "display": {
+          "type": "string",
+          "minLength": 1
+        },
+        "numeric": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?$"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "qualifier": {
+          "enum": [
+            "exact_published_value",
+            "approximate_published_value",
+            "lower_bound_gt"
+          ]
+        }
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "operator",
+        "system",
+        "jurisdiction",
+        "source_url",
+        "observed_on",
+        "period",
+        "metric_definition_id",
+        "population_scope",
+        "transaction_count",
+        "transaction_value",
+        "limitations"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "operator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "system": {
+          "type": "string",
+          "minLength": 1
+        },
+        "jurisdiction": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$"
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "period": {
+          "$ref": "#/$defs/period"
+        },
+        "metric_definition_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "population_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transaction_count": {
+          "$ref": "#/$defs/count"
+        },
+        "transaction_value": {
+          "$ref": "#/$defs/value"
+        },
+        "active_users": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "institution_coverage": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "peak_context": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "adoption_comparison_context": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
