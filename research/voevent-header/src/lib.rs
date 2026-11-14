@@ -9,8 +9,8 @@
 //! citations, publisher authentication, rights and scientific validity remain
 //! separate qualification steps.
 
-use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
+use quick_xml::events::{BytesStart, Event};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::io::Cursor;
@@ -105,8 +105,7 @@ fn parse_root_attributes(element: &BytesStart<'_>) -> Result<VoEventHeader, Pars
     let mut raw_role: Option<String> = None;
 
     for attribute in element.attributes().with_checks(true) {
-        let attribute =
-            attribute.map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+        let attribute = attribute.map_err(|error| ParseError::MalformedXml(error.to_string()))?;
         let name = std::str::from_utf8(attribute.key.as_ref())
             .map_err(|_| ParseError::MalformedXml("non-UTF-8 attribute name".to_owned()))?
             .to_owned();
@@ -319,10 +318,12 @@ mod tests {
 
     #[test]
     fn rejects_unknown_roles() {
-        let bytes = packet(
-            "ivorn=\"ivo://example.org/stream?bad\" version=\"2.1\" role=\"candidate\"",
-        );
-        assert!(matches!(parse_header(&bytes), Err(ParseError::InvalidRole(_))));
+        let bytes =
+            packet("ivorn=\"ivo://example.org/stream?bad\" version=\"2.1\" role=\"candidate\"");
+        assert!(matches!(
+            parse_header(&bytes),
+            Err(ParseError::InvalidRole(_))
+        ));
     }
 
     #[test]
@@ -360,14 +361,21 @@ mod tests {
         let doctype = br#"<!DOCTYPE VOEvent [<!ENTITY x "y">]><VOEvent ivorn="ivo://example.org/a" version="2.1"/>"#;
         assert_eq!(parse_header(doctype), Err(ParseError::DoctypeNotAllowed));
 
-        let duplicate = br#"<VOEvent ivorn="ivo://example.org/a" ivorn="ivo://example.org/b" version="2.1"/>"#;
-        assert!(matches!(parse_header(duplicate), Err(ParseError::MalformedXml(_))));
+        let duplicate =
+            br#"<VOEvent ivorn="ivo://example.org/a" ivorn="ivo://example.org/b" version="2.1"/>"#;
+        assert!(matches!(
+            parse_header(duplicate),
+            Err(ParseError::MalformedXml(_))
+        ));
     }
 
     #[test]
     fn rejects_multiple_roots_and_incomplete_xml() {
         let multiple = br#"<VOEvent ivorn="ivo://example.org/a" version="2.1"/><VOEvent ivorn="ivo://example.org/b" version="2.1"/>"#;
-        assert_eq!(parse_header(multiple), Err(ParseError::MultipleRootElements));
+        assert_eq!(
+            parse_header(multiple),
+            Err(ParseError::MultipleRootElements)
+        );
 
         let incomplete = br#"<VOEvent ivorn="ivo://example.org/a" version="2.1"><Who>"#;
         assert!(matches!(
@@ -378,7 +386,8 @@ mod tests {
 
     #[test]
     fn rejects_mismatched_nested_element_names() {
-        let mismatched = br#"<VOEvent ivorn="ivo://example.org/a" version="2.1"><Who></What></VOEvent>"#;
+        let mismatched =
+            br#"<VOEvent ivorn="ivo://example.org/a" version="2.1"><Who></What></VOEvent>"#;
         assert!(matches!(
             parse_header(mismatched),
             Err(ParseError::MismatchedElement { .. } | ParseError::MalformedXml(_))
@@ -404,13 +413,14 @@ mod tests {
 
     #[test]
     fn retains_uninterpreted_root_attributes_for_loss_accounting() {
-        let bytes = packet(
-            "ivorn=\"ivo://example.org/stream?3\" version=\"2.1\" custom=\"preserve-me\"",
-        );
+        let bytes =
+            packet("ivorn=\"ivo://example.org/stream?3\" version=\"2.1\" custom=\"preserve-me\"");
         let header = parse_header(&bytes).unwrap();
-        assert!(header
-            .root_attributes
-            .iter()
-            .any(|attribute| attribute.name == "custom" && attribute.value == "preserve-me"));
+        assert!(
+            header
+                .root_attributes
+                .iter()
+                .any(|attribute| attribute.name == "custom" && attribute.value == "preserve-me")
+        );
     }
 }
