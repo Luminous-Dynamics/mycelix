@@ -1,0 +1,34 @@
+name: LISE temporal institution Go replay
+
+on:
+  pull_request:
+    paths:
+      - "lise-benchmarks/temporal-institution-reference/go-oracle/**"
+      - "lise-benchmarks/temporal-institution-reference/fixtures/**"
+      - ".github/workflows/temporal-institution-go-oracle.yml"
+  push:
+    branches:
+      - "research/lise-temporal-independent-go-oracle-v0.1"
+    paths:
+      - "lise-benchmarks/temporal-institution-reference/go-oracle/**"
+      - "lise-benchmarks/temporal-institution-reference/fixtures/**"
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lise-benchmarks/temporal-institution-reference/go-oracle
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+          cache: false
+      - name: Race-enabled fixture and invariant tests
+        run: go test -race ./...
+      - name: Static analysis
+        run: go vet ./...
