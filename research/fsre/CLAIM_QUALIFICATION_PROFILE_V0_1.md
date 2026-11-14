@@ -41,6 +41,16 @@ A claim record should reference, not duplicate, the owner-native evidence:
 
 The exact record should be versioned through Mycelix's canonical evidence/provenance owners. FSRE may render a derived claim report, but it must not become the authoritative copy of underlying evidence or authority.
 
+### Temporal evidence envelope v0.2
+
+The v0.1 envelope remains unchanged for existing consumers. Version 0.2 adds distinct observation, decision-process availability, valid-from/valid-until, revocation effective/knowledge times, a claim-specific freshness policy and an explicit as-of replay receipt. The machine-readable mapping contract is [`schemas/as-of-evidence-envelope-crosswalk-v0.2.json`](schemas/as-of-evidence-envelope-crosswalk-v0.2.json).
+
+The mapping deliberately keeps two dimensions separate:
+- source authenticity/adequacy, which remain owner-native and require their own evidence; and
+- as-of admissibility, which only establishes whether the cited record was eligible for a historical decision cutoff under the declared temporal policy.
+
+The current as-of evaluator compares exact integer UTC seconds. It does not propagate non-zero clock uncertainty. The v0.2 envelope therefore records `clock_uncertainty_handling`; non-zero uncertainty must not be represented as exact-time qualification. The evaluator's `future_information_used=false` and `execution_authority=NONE` boundaries remain mandatory.
+
 ## 3. Claim classes — keep these separate
 
 | Class | What it establishes | What it does not establish | Example FSRE language |
