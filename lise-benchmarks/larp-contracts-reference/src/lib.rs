@@ -155,6 +155,7 @@ pub struct InstitutionFacts {
     pub high_impact_paused: Option<bool>,
     pub high_impact_requested: Option<bool>,
     pub old_sessions_fenced: Option<bool>,
+    pub continuity_trigger_verified: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -165,6 +166,7 @@ pub struct ExecutionFacts {
     pub retry_safety_qualified: Option<bool>,
     pub single_use_consumed: Option<bool>,
     pub duplicate_requested: Option<bool>,
+    pub operation_already_applied: Option<bool>,
     pub contract_expires_at_unix: Option<i64>,
 }
 
@@ -275,6 +277,11 @@ pub fn evaluate(facts: &EvaluationFacts, now_unix: i64) -> Decision {
     }
     if facts.evidence.score_only_sanction == Some(true) {
         return Decision::deny("MODEL_SCORE_ALONE_CANNOT_JUSTIFY_SANCTION");
+    }
+    if facts.execution.operation_already_applied == Some(true)
+        && facts.execution.duplicate_requested == Some(true)
+    {
+        return Decision::deny("LOGICAL_OPERATION_ALREADY_APPLIED");
     }
     if facts.execution.single_use_consumed == Some(true)
         && facts.execution.duplicate_requested == Some(true)
@@ -401,9 +408,12 @@ pub fn evaluate(facts: &EvaluationFacts, now_unix: i64) -> Decision {
             Decision::permit("STAGED_REWARD_REQUEST_QUALIFIED_FOR_OWNER_TREASURY")
         }
         EvaluationMode::SafeContinuity => {
+            require!(facts.institution.continuity_trigger_verified, "CONTINUITY_TRIGGER_UNKNOWN", "CONTINUITY_TRIGGER_NOT_VERIFIED");
             require!(facts.institution.degraded_service_allowlisted, "DEGRADED_SERVICE_ALLOWLIST_UNKNOWN", "SERVICE_NOT_ALLOWLISTED");
             require!(facts.institution.high_impact_paused, "HIGH_IMPACT_PAUSE_UNKNOWN", "HIGH_IMPACT_NOT_PAUSED");
             require!(facts.institution.old_sessions_fenced, "OLD_SESSION_FENCING_UNKNOWN", "OLD_SESSIONS_NOT_FENCED");
+            require!(facts.rights.rights_satisfied, "RIGHTS_STATUS_UNKNOWN", "RIGHTS_FLOOR_NOT_SATISFIED");
+            require!(facts.evidence.sufficient, "RECOVERY_EVIDENCE_UNKNOWN", "RECOVERY_EVIDENCE_INSUFFICIENT");
             if facts.institution.high_impact_requested == Some(true) {
                 require!(facts.authority.recovery_quorum_met, "RECOVERY_QUORUM_UNKNOWN", "RECOVERY_QUORUM_NOT_MET");
             }
