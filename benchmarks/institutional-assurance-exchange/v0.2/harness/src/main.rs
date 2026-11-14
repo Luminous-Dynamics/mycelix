@@ -544,8 +544,6 @@ fn compare_submission(packet: &Value, oracle: &Value, submission: &Value) -> Res
             let claim=packet["claim_observations"].as_array().unwrap().iter()
                 .find(|c|c.get("claim_ref").and_then(Value::as_str)==Some(claim_ref))
                 .ok_or_else(||invalid(format!("{id}: submission cites unknown claim {claim_ref}")))?;
-            let start=required_str(claim,"effective_from","claim")?;
-            let observed=required_str(claim,"observed_at","claim")?;
             if !observation_is_visible_at(
                 claim,
                 required_str(query,"effective_at","query")?,
