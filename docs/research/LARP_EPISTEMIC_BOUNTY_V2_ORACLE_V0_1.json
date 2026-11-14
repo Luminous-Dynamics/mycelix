@@ -3,7 +3,7 @@
   "suite_id": "LARP-EPISTEMIC-001",
   "status": "reference-oracle-pending-independent-review",
   "scenario_file": "LARP_EPISTEMIC_BOUNTY_V2_SCENARIOS_V0_1.json",
-  "case_count": 12,
+  "case_count": 13,
   "rows": [
     {
       "case_id": "EB01",
@@ -76,6 +76,12 @@
       "expected_disposition": "deny",
       "reason_code": "LOGICAL_REWARD_OPERATION_ALREADY_APPLIED",
       "notes": "A duplicate reward is prohibited."
+    },
+    {
+      "case_id": "EB13",
+      "expected_disposition": "deny",
+      "reason_code": "PAYOUT_AMOUNT_EXCEEDS_CEILING",
+      "notes": "An over-ceiling reward request must be denied before treasury dispatch."
     }
   ]
 }
