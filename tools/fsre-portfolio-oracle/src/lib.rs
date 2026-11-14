@@ -140,7 +140,7 @@ fn parse_fact(line: &str, line_number: usize) -> Result<Fact, ReferenceError> {
             }
             match fact.status.as_str() {
                 "QUALIFIED" if fact.quantity.is_some() && fact.unit.is_some() => {}
-                "UNKNOWN" if fact.quantity.is_none() && fact.unit.is_none() => {}
+                "UNKNOWN" if fact.quantity.is_none() => {}
                 _ => {
                     return Err(ReferenceError(format!(
                         "line {line_number}: option capacity status/measurement mismatch"
@@ -202,7 +202,7 @@ fn parse_fact(line: &str, line_number: usize) -> Result<Fact, ReferenceError> {
             }
             match fact.status.as_str() {
                 "QUALIFIED" if fact.quantity.is_some() && fact.unit.is_some() => {}
-                "UNKNOWN" if fact.quantity.is_none() && fact.unit.is_none() => {}
+                "UNKNOWN" if fact.quantity.is_none() => {}
                 _ => {
                     return Err(ReferenceError(format!(
                         "line {line_number}: resource-use status/measurement mismatch"
@@ -222,7 +222,7 @@ fn parse_fact(line: &str, line_number: usize) -> Result<Fact, ReferenceError> {
             }
             match fact.status.as_str() {
                 "QUALIFIED" if fact.quantity.is_some() && fact.unit.is_some() => {}
-                "UNKNOWN" if fact.quantity.is_none() && fact.unit.is_none() => {}
+                "UNKNOWN" if fact.quantity.is_none() => {}
                 _ => {
                     return Err(ReferenceError(format!(
                         "line {line_number}: resource-capacity status/measurement mismatch"
@@ -614,13 +614,21 @@ fn reference_evaluate(snapshot: &Snapshot) -> Result<String, ReferenceError> {
             unknown_evidence = true;
         }
         let resource = resources.entry(usage.subject.clone()).or_default();
-        if resource.unit.as_ref().is_some_and(|unit| Some(unit) != usage.unit.as_ref()) {
-            return Err(ReferenceError(format!(
-                "resource unit mismatch for {}",
-                usage.subject
-            )));
+        if let Some(provided_unit) = &usage.unit {
+            if resource
+                .unit
+                .as_ref()
+                .is_some_and(|known_unit| known_unit != provided_unit)
+            {
+                return Err(ReferenceError(format!(
+                    "resource unit mismatch for {}",
+                    usage.subject
+                )));
+            }
+            if resource.unit.is_none() {
+                resource.unit = Some(provided_unit.clone());
+            }
         }
-        resource.unit = usage.unit.clone();
         if usage.status == "UNKNOWN" {
             resource.unknown = true;
             unknown_evidence = true;
@@ -639,6 +647,20 @@ fn reference_evaluate(snapshot: &Snapshot) -> Result<String, ReferenceError> {
                 unknown_evidence = true;
             }
             Some(fact) if fact.status != "QUALIFIED" => {
+                if let Some(provided_unit) = &fact.unit {
+                    if resource
+                        .unit
+                        .as_ref()
+                        .is_some_and(|known_unit| known_unit != provided_unit)
+                    {
+                        return Err(ReferenceError(format!(
+                            "resource capacity unit mismatch for {id}"
+                        )));
+                    }
+                    if resource.unit.is_none() {
+                        resource.unit = Some(provided_unit.clone());
+                    }
+                }
                 resource.unknown = true;
                 unknown_evidence = true;
             }
@@ -841,6 +863,36 @@ mod tests {
             .unwrap_err()
             .0
             .contains("status/measurement mismatch"));
+    }
+
+    #[test]
+    fn unknown_usage_with_known_unit_is_permutation_invariant() {
+        let changed = FIXTURE.replace(
+            "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours|6|h|QUALIFIED|operator|synthetic:resource:pump-crew",
+            "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours||h|UNKNOWN|operator|synthetic:resource:pump-crew",
+        );
+        assert_ne!(changed, FIXTURE);
+        let mut metadata = Vec::new();
+        let mut rows = Vec::new();
+        for line in changed.lines() {
+            if line.starts_with('#') {
+                metadata.push(line);
+            } else if !line.is_empty() {
+                rows.push(line);
+            }
+        }
+        let header = rows.remove(0);
+        rows.reverse();
+        let reordered = format!(
+            "{}\n{}\n{}\n",
+            metadata.join("\n"),
+            header,
+            rows.join("\n")
+        );
+        assert_eq!(
+            validate_and_report(&changed).expect("original unknown resource row"),
+            validate_and_report(&reordered).expect("reordered unknown resource row")
+        );
     }
 
     #[test]
