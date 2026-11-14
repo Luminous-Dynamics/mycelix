@@ -22,3 +22,8 @@ The harness compares declared output with a synthetic development oracle. It doe
 
 
 The blind-retry detector examines the full operation history. A later `RECONCILED_SUCCESS` does not erase the fact that a prior `UNKNOWN` interval existed; any retry or reattempt permission during that interval is flagged. This is covered by a regression unit test.
+
+
+## Reproducibility receipt
+
+The evaluator report includes SHA-256 digests for the exact corpus file, oracle file, submitted result file and evaluator executable. Preserve this receipt with the system build SHA and configuration digest when publishing results. A digest establishes file identity, not the correctness or truth of its contents.
