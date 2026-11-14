@@ -23,7 +23,7 @@ The API is deliberately an **as-known-at** view:
 3. Validation is scoped to the cutoff. A malformed or duplicate packet received in the future cannot alter a past replay.
 4. References to packets not yet visible remain explicit unresolved edges. They can resolve in a later replay without rewriting the earlier result.
 5. Retractions and supersessions add effects; they never delete historical packets or citations.
-6. When the upstream parser supplies a packet SHA-256, the replay carries it on the visible packet and both sides of a resolved lifecycle edge. It does not recompute or verify the digest.
+6. The parser projection is bound to the supplied exact UTF-8 XML bytes by both byte length and a SHA-256 recomputed by this adapter before replay.
 
 The receipt timestamp is an input from the ingest layer; this crate does not attest that timestamp or provide an append-only receipt log. A production fabric must bind it to a trusted, independently auditable ingress receipt.
 
@@ -37,7 +37,7 @@ From this directory:
     cargo test --all-targets
     cargo clippy --all-targets -- -D warnings
 
-No external crates or network access are needed.
+The isolated package uses pinned direct Rust dependencies for JSON serialization, SHA-256 and hexadecimal encoding. Normal Cargo dependency resolution may require the configured crate cache or registry; the replay itself makes no network requests.
 
 ## Tests in v0.1
 
@@ -84,13 +84,16 @@ Run it from the repository root:
 
 The output is a JSON `Replay` containing visible packets, lifecycle edges, unresolved citations, effects and diagnostics.
 
-The expected packet shape comes from the `parse_packet` JSON projection emitted by `research/voevent-header`. Each manifest entry wraps that parser object as follows:
+The expected packet shape comes from the `parse_packet` JSON projection emitted by `research/voevent-header`. Each manifest entry includes the exact original UTF-8 XML string, the parser projection and a separately supplied ingress receipt:
 
     {
       "received_at_unix_ms": 1731580000000,
+      "raw_packet_xml": "<VOEvent ivorn=\\"ivo://publisher.example/stream?event-1\\" version=\\"2.1\\">...</VOEvent>",
       "packet": {
         "header": {
           "ivoid": "ivo://publisher.example/stream?event-1",
+          "version": "2.1",
+          "packet_byte_length": 123,
           "packet_sha256": "<64 hex characters>"
         },
         "who": {
@@ -102,11 +105,13 @@ The expected packet shape comes from the `parse_packet` JSON projection emitted 
       }
     }
 
-Unknown parser fields (such as role and root attributes) are ignored by the replay DTO so the parser projection can evolve without breaking the minimum replay contract. Evidence-bearing fields remain required. The adapter validates digest lexical shape and citation presence/edge consistency, but **does not recompute the digest** because the original XML bytes are not part of this manifest. It also does not authenticate AuthorIVORN.
+The adapter checks version 2.1, the 2 MiB packet limit, exact UTF-8 byte length and a freshly recomputed SHA-256 against the parser projection before accepting a visible packet. It also checks role consistency, citation presence/edge consistency and IVOID lexical shape. Unknown parser fields (such as root attributes and the citation description) are ignored by the replay DTO so the projection can evolve without breaking the minimum replay contract; evidence-bearing fields remain required. This verifies that the projection's digest refers to the provided XML bytes, but it does not re-run the XML parser or prove that every projected metadata field was faithfully derived from those bytes. It also does not authenticate AuthorIVORN.
 
 The ingest layer must supply `received_at_unix_ms` from its own receipt record. Do not derive it from `Who/Date`, the XML file's modification time, event time, or a publisher's assertion. This manifest format carries the receipt value; it does not authenticate it or replace an append-only ingress receipt log.
 
 This version maps `Who/AuthorIVORN` to asserted publisher attribution and `Who/Date` to source creation/publication time. `WhereWhen` event time and time-scale/frame metadata are not yet extracted, so `Packet.event_time` remains absent. No UTC/TDB/TT conversion is attempted.
+
+Historical cutoff filtering occurs before projection validation: malformed packets whose supplied receipt time is later than the requested cutoff cannot poison that historical view. The same packet is validated when a later cutoff includes it. The CLI's 64 MiB manifest bound and each packet's 2 MiB bound limit untrusted input size.
 
 ## Complexity
 
