@@ -61,12 +61,18 @@ impl CitationRelation {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SourceAttribute {
+    pub name: String,
+    pub value: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Citation {
     /// Identifier of the previously published packet being cited.
     pub target_id: String,
     pub relation: CitationRelation,
     /// All source EventIVORN attributes, including attributes this replay does not interpret.
-    pub attributes: Vec<mycelix_voevent_header::RootAttribute>,
+    pub attributes: Vec<SourceAttribute>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -82,7 +88,7 @@ pub struct Packet {
     /// Exact parser implementation version that derived this packet projection.
     pub parser_version: String,
     /// Uninterpreted VOEvent root attributes retained for loss accounting.
-    pub source_attributes: Vec<mycelix_voevent_header::RootAttribute>,
+    pub source_attributes: Vec<SourceAttribute>,
     /// Source text from Citations/Description, kept as decoded text.
     pub citations_description: Option<String>,
     /// Publisher identifier asserted by the packet source; this is not authentication.
@@ -100,6 +106,7 @@ pub struct Packet {
 /// The parsed metadata is never accepted from the manifest; this crate derives it
 /// by invoking the pinned parser directly over these bytes.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ReceivedRawPacket {
     /// Supplied by the receipt layer; never inferred from XML Who/Date.
     pub received_at_unix_ms: u64,
@@ -108,6 +115,7 @@ pub struct ReceivedRawPacket {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ReplayManifest {
     pub cutoff_unix_ms: u64,
     pub packets: Vec<ReceivedRawPacket>,
@@ -151,6 +159,18 @@ fn map_citation_relation(relation: ParsedCitationRelation) -> CitationRelation {
     }
 }
 
+fn map_source_attributes(
+    attributes: Vec<mycelix_voevent_header::RootAttribute>,
+) -> Vec<SourceAttribute> {
+    attributes
+        .into_iter()
+        .map(|attribute| SourceAttribute {
+            name: attribute.name,
+            value: attribute.value,
+        })
+        .collect()
+}
+
 fn packet_from_raw(
     received: ReceivedRawPacket,
     packet_index: usize,
@@ -185,7 +205,7 @@ fn packet_from_raw(
         .map(|citation| Citation {
             target_id: citation.target_ivoid,
             relation: map_citation_relation(citation.relation),
-            attributes: citation.attributes,
+            attributes: map_source_attributes(citation.attributes),
         })
         .collect();
 
@@ -195,7 +215,7 @@ fn packet_from_raw(
         role_was_implicit: parsed.header.role_was_implicit,
         packet_sha256: Some(parsed.header.packet_sha256),
         parser_version: mycelix_voevent_header::PARSER_VERSION.to_owned(),
-        source_attributes: parsed.header.root_attributes,
+        source_attributes: map_source_attributes(parsed.header.root_attributes),
         citations_description: parsed.citations_description,
         publisher: parsed.who.author_ivoid,
         received_at_unix_ms: received.received_at_unix_ms,
@@ -249,7 +269,7 @@ pub struct LifecycleEdge {
     pub cited_packet_sha256: Option<String>,
     pub relation: CitationRelation,
     /// Original EventIVORN attributes preserved by the parser.
-    pub citation_attributes: Vec<mycelix_voevent_header::RootAttribute>,
+    pub citation_attributes: Vec<SourceAttribute>,
     /// Publisher attribution copied from the asserting packet, not verified identity.
     pub asserting_publisher: Option<String>,
     /// Receipt time of the asserting packet; not event time or publication time.
