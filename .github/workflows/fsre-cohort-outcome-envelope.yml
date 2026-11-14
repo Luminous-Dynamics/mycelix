@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - research/fsre-distributional-service-outcome-envelope-v0.1
+      - research/fsre-cohort-manifest-qualification-v0.1
     paths:
       - "tools/fsre-cohort-outcome-envelope/**"
       - "tools/fsre-service-trajectory/**"
@@ -38,9 +39,10 @@ jobs:
           output="$(mktemp)"
           trap 'rm -f "$output"' EXIT
           cargo run --quiet --locked --offline --manifest-path tools/fsre-cohort-outcome-envelope/Cargo.toml -- \
+            tools/fsre-cohort-outcome-envelope/fixtures/cohort-manifest.psv \
             tools/fsre-cohort-outcome-envelope/examples/hospital.csv \
             tools/fsre-cohort-outcome-envelope/examples/households.csv \
             tools/fsre-cohort-outcome-envelope/examples/remote-community.csv > "$output"
-          diff -u tools/fsre-cohort-outcome-envelope/fixtures/envelope.expected.txt "$output"
+          diff -u tools/fsre-cohort-outcome-envelope/fixtures/envelope.manifest.expected.txt "$output"
       - name: Run Clippy
         run: cargo clippy --locked --offline --manifest-path tools/fsre-cohort-outcome-envelope/Cargo.toml --all-targets -- -D warnings

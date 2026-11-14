@@ -3,6 +3,8 @@
 # service_family_id=potable-water
 # cohort_set_id=synthetic-water-service-area
 # cohort_id=households
+# identity_source_owner=cohort-register
+# identity_source_ref=synthetic:cohort:households
 # outcome_snapshot_id=synthetic-outcome-snapshot-01
 # delivery_source_owner=operator
 # delivery_source_ref=synthetic:delivery:households

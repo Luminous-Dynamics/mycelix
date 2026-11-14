@@ -30,6 +30,8 @@ struct CohortLane {
     quality_source_ref: String,
     denominator_source_owner: String,
     denominator_source_ref: String,
+    identity_source_owner: String,
+    identity_source_ref: String,
     population_denominator: Option<u64>,
     population_unit: String,
     contract: ServiceContract,
@@ -40,6 +42,8 @@ struct CohortLane {
 struct EvaluatedLane {
     cohort_id: String,
     outcome_snapshot_id: String,
+    identity_source_owner: String,
+    identity_source_ref: String,
     delivery_source_owner: String,
     delivery_source_ref: String,
     quality_source_owner: String,
@@ -140,6 +144,8 @@ fn parse_lane(source: &str) -> Result<CohortLane, InputError> {
     let quality_source_ref = required(&metadata, "quality_source_ref")?.to_owned();
     let denominator_source_owner = required(&metadata, "denominator_source_owner")?.to_owned();
     let denominator_source_ref = required(&metadata, "denominator_source_ref")?.to_owned();
+    let identity_source_owner = required(&metadata, "identity_source_owner")?.to_owned();
+    let identity_source_ref = required(&metadata, "identity_source_ref")?.to_owned();
     let population_value = required(&metadata, "population_denominator")?;
     let population_unit = required(&metadata, "population_unit")?.to_owned();
 
@@ -155,6 +161,8 @@ fn parse_lane(source: &str) -> Result<CohortLane, InputError> {
         ("quality_source_ref", quality_source_ref.as_str()),
         ("denominator_source_owner", denominator_source_owner.as_str()),
         ("denominator_source_ref", denominator_source_ref.as_str()),
+        ("identity_source_owner", identity_source_owner.as_str()),
+        ("identity_source_ref", identity_source_ref.as_str()),
         ("population_unit", population_unit.as_str()),
     ] {
         if !valid_id(value) {
@@ -213,6 +221,8 @@ fn parse_lane(source: &str) -> Result<CohortLane, InputError> {
                 | "quality_source_ref"
                 | "denominator_source_owner"
                 | "denominator_source_ref"
+                | "identity_source_owner"
+                | "identity_source_ref"
                 | "population_denominator"
                 | "population_unit"
                 | "horizon_start_seconds"
@@ -237,6 +247,8 @@ fn parse_lane(source: &str) -> Result<CohortLane, InputError> {
         quality_source_ref,
         denominator_source_owner,
         denominator_source_ref,
+        identity_source_owner,
+        identity_source_ref,
         population_denominator,
         population_unit,
         contract: ServiceContract {
@@ -250,6 +262,308 @@ fn parse_lane(source: &str) -> Result<CohortLane, InputError> {
         },
         observations,
     })
+}
+
+
+const MANIFEST_HEADER: &str = "record_type|cohort_id|population_denominator|population_unit|identity_source_owner|identity_source_ref|denominator_source_owner|denominator_source_ref|valid_from_seconds|valid_until_seconds";
+
+#[derive(Clone, Debug)]
+struct ManifestCohort {
+    population_denominator: Option<u64>,
+    population_unit: String,
+    identity_source_owner: String,
+    identity_source_ref: String,
+    denominator_source_owner: String,
+    denominator_source_ref: String,
+    valid_from_seconds: u64,
+    valid_until_seconds: u64,
+}
+
+#[derive(Clone, Debug)]
+struct CohortManifest {
+    manifest_id: String,
+    manifest_snapshot_id: String,
+    manifest_owner: String,
+    manifest_ref: String,
+    service_id: String,
+    service_family_id: String,
+    cohort_set_id: String,
+    outcome_snapshot_id: String,
+    population_unit: String,
+    cohorts: BTreeMap<String, ManifestCohort>,
+}
+
+fn parse_manifest(source: &str) -> Result<CohortManifest, InputError> {
+    let mut metadata = BTreeMap::<String, String>::new();
+    let mut cohorts = BTreeMap::<String, ManifestCohort>::new();
+    let mut header_seen = false;
+
+    for (offset, raw) in source.lines().enumerate() {
+        let line_number = offset + 1;
+        let line = raw.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(comment) = line.strip_prefix('#') {
+            if let Some((key, value)) = comment.trim().split_once('=') {
+                let key = key.trim().to_owned();
+                let value = value.trim().to_owned();
+                if metadata.insert(key.clone(), value).is_some() {
+                    return Err(InputError(format!(
+                        "manifest line {line_number}: duplicate metadata key {key}"
+                    )));
+                }
+            }
+            continue;
+        }
+        if !header_seen {
+            if line != MANIFEST_HEADER {
+                return Err(InputError(format!(
+                    "manifest line {line_number}: unexpected cohort manifest header"
+                )));
+            }
+            header_seen = true;
+            continue;
+        }
+        let fields: Vec<&str> = line.split('|').map(str::trim).collect();
+        if fields.len() != 10 || fields[0] != "COHORT" {
+            return Err(InputError(format!(
+                "manifest line {line_number}: expected COHORT row with 9 values"
+            )));
+        }
+        let cohort_id = fields[1].to_owned();
+        if !valid_id(&cohort_id) {
+            return Err(InputError(format!("manifest line {line_number}: invalid cohort_id")));
+        }
+        let population_denominator = if fields[2] == "UNKNOWN" {
+            None
+        } else {
+            let value = parse_u64(fields[2], "manifest population_denominator")?;
+            if value == 0 {
+                return Err(InputError(format!(
+                    "manifest line {line_number}: population_denominator must be positive or UNKNOWN"
+                )));
+            }
+            Some(value)
+        };
+        let population_unit = fields[3].to_owned();
+        let identity_source_owner = fields[4].to_owned();
+        let identity_source_ref = fields[5].to_owned();
+        let denominator_source_owner = fields[6].to_owned();
+        let denominator_source_ref = fields[7].to_owned();
+        for (key, value) in [
+            ("population_unit", population_unit.as_str()),
+            ("identity_source_owner", identity_source_owner.as_str()),
+            ("identity_source_ref", identity_source_ref.as_str()),
+            ("denominator_source_owner", denominator_source_owner.as_str()),
+            ("denominator_source_ref", denominator_source_ref.as_str()),
+        ] {
+            if !valid_id(value) {
+                return Err(InputError(format!(
+                    "manifest line {line_number}: invalid {key}"
+                )));
+            }
+        }
+        let valid_from_seconds = parse_u64(fields[8], "manifest valid_from_seconds")?;
+        let valid_until_seconds = parse_u64(fields[9], "manifest valid_until_seconds")?;
+        if valid_from_seconds >= valid_until_seconds {
+            return Err(InputError(format!(
+                "manifest line {line_number}: cohort membership validity interval is empty"
+            )));
+        }
+        let cohort = ManifestCohort {
+            population_denominator,
+            population_unit,
+            identity_source_owner,
+            identity_source_ref,
+            denominator_source_owner,
+            denominator_source_ref,
+            valid_from_seconds,
+            valid_until_seconds,
+        };
+        if cohorts.insert(cohort_id.clone(), cohort).is_some() {
+            return Err(InputError(format!(
+                "manifest line {line_number}: duplicate cohort_id {cohort_id}"
+            )));
+        }
+    }
+
+    if !header_seen || cohorts.is_empty() {
+        return Err(InputError(
+            "cohort manifest requires a header and at least one COHORT row".to_owned(),
+        ));
+    }
+
+    let manifest_id = required(&metadata, "manifest_id")?.to_owned();
+    let manifest_snapshot_id = required(&metadata, "manifest_snapshot_id")?.to_owned();
+    let manifest_owner = required(&metadata, "manifest_owner")?.to_owned();
+    let manifest_ref = required(&metadata, "manifest_ref")?.to_owned();
+    let service_id = required(&metadata, "service_id")?.to_owned();
+    let service_family_id = required(&metadata, "service_family_id")?.to_owned();
+    let cohort_set_id = required(&metadata, "cohort_set_id")?.to_owned();
+    let outcome_snapshot_id = required(&metadata, "outcome_snapshot_id")?.to_owned();
+    let population_unit = required(&metadata, "population_unit")?.to_owned();
+
+    for (key, value) in [
+        ("manifest_id", manifest_id.as_str()),
+        ("manifest_snapshot_id", manifest_snapshot_id.as_str()),
+        ("manifest_owner", manifest_owner.as_str()),
+        ("manifest_ref", manifest_ref.as_str()),
+        ("service_id", service_id.as_str()),
+        ("service_family_id", service_family_id.as_str()),
+        ("cohort_set_id", cohort_set_id.as_str()),
+        ("outcome_snapshot_id", outcome_snapshot_id.as_str()),
+        ("population_unit", population_unit.as_str()),
+    ] {
+        if !valid_id(value) {
+            return Err(InputError(format!("invalid manifest metadata {key}")));
+        }
+    }
+    if cohorts
+        .values()
+        .any(|cohort| cohort.population_unit != population_unit)
+    {
+        return Err(InputError(
+            "manifest cohort population units do not match manifest population_unit".to_owned(),
+        ));
+    }
+    if let Some(key) = metadata.keys().find(|key| {
+        !matches!(
+            key.as_str(),
+            "manifest_id"
+                | "manifest_snapshot_id"
+                | "manifest_owner"
+                | "manifest_ref"
+                | "service_id"
+                | "service_family_id"
+                | "cohort_set_id"
+                | "outcome_snapshot_id"
+                | "population_unit"
+        )
+    }) {
+        return Err(InputError(format!("unknown cohort manifest metadata key {key}")));
+    }
+
+    Ok(CohortManifest {
+        manifest_id,
+        manifest_snapshot_id,
+        manifest_owner,
+        manifest_ref,
+        service_id,
+        service_family_id,
+        cohort_set_id,
+        outcome_snapshot_id,
+        population_unit,
+        cohorts,
+    })
+}
+
+fn qualify_manifest(
+    manifest_source: &str,
+    lane_sources: &[String],
+    report: &str,
+) -> Result<String, InputError> {
+    let manifest = parse_manifest(manifest_source)?;
+    let lanes: Vec<CohortLane> = lane_sources
+        .iter()
+        .map(|source| parse_lane(source))
+        .collect::<Result<_, _>>()?;
+    if lanes.is_empty() {
+        return Err(InputError("at least one cohort lane is required".to_owned()));
+    }
+
+    let first = &lanes[0];
+    let mut received = BTreeMap::<String, &CohortLane>::new();
+    for lane in &lanes {
+        received.insert(lane.cohort_id.clone(), lane);
+    }
+
+    let scope_match = manifest.service_id == first.contract.service_id
+        && manifest.service_family_id == first.service_family_id
+        && manifest.cohort_set_id == first.cohort_set_id
+        && manifest.outcome_snapshot_id == first.outcome_snapshot_id
+        && manifest.population_unit == first.population_unit;
+
+    let expected_ids: BTreeSet<String> = manifest.cohorts.keys().cloned().collect();
+    let received_ids: BTreeSet<String> = received.keys().cloned().collect();
+    let missing: Vec<String> = expected_ids.difference(&received_ids).cloned().collect();
+    let unexpected: Vec<String> = received_ids.difference(&expected_ids).cloned().collect();
+
+    let mut mismatch_ids = Vec::new();
+    for cohort_id in expected_ids.intersection(&received_ids) {
+        let expected = manifest.cohorts.get(cohort_id).expect("set membership checked");
+        let actual = received.get(cohort_id).expect("set membership checked");
+        let valid_for_horizon = expected.valid_from_seconds <= first.contract.horizon_start_seconds
+            && expected.valid_until_seconds >= first.contract.horizon_end_seconds;
+        let fields_match = expected.population_denominator == actual.population_denominator
+            && expected.population_unit == actual.population_unit
+            && expected.denominator_source_owner == actual.denominator_source_owner
+            && expected.denominator_source_ref == actual.denominator_source_ref
+            && expected.identity_source_owner == actual.identity_source_owner
+            && expected.identity_source_ref == actual.identity_source_ref
+            && valid_for_horizon;
+        if !fields_match {
+            mismatch_ids.push(cohort_id.clone());
+        }
+    }
+
+    let complete = scope_match && missing.is_empty() && unexpected.is_empty() && mismatch_ids.is_empty();
+    let lane_disposition = report
+        .lines()
+        .find_map(|line| line.strip_prefix("cohort_outcome_disposition="))
+        .unwrap_or("NOT_ESTIMABLE");
+    let final_disposition = if !complete || lane_disposition != "ESTIMABLE_FOR_DECLARED_LANES" {
+        "NOT_ESTIMABLE"
+    } else {
+        "ESTIMABLE_FOR_DECLARED_MANIFEST"
+    };
+
+    let mut lines: Vec<String> = report.lines().map(str::to_owned).collect();
+    for line in &mut lines {
+        if line == "cohort_set_completeness=NOT_ESTABLISHED_BY_THIS_TOOL" {
+            *line = if complete {
+                "cohort_set_completeness=COMPLETE_FOR_DECLARED_MANIFEST".to_owned()
+            } else {
+                "cohort_set_completeness=INCOMPLETE_OR_MISMATCHED_TO_DECLARED_MANIFEST".to_owned()
+            };
+        } else if line == "cohort_outcome_disposition=ESTIMABLE_FOR_DECLARED_LANES"
+            || line == "cohort_outcome_disposition=NOT_ESTIMABLE"
+        {
+            *line = format!("cohort_outcome_disposition={final_disposition}");
+        }
+    }
+    lines.extend([
+        format!("manifest_id={}", manifest.manifest_id),
+        format!("manifest_snapshot_id={}", manifest.manifest_snapshot_id),
+        format!("manifest_owner={}", manifest.manifest_owner),
+        format!("manifest_ref={}", manifest.manifest_ref),
+        format!("manifest_expected_cohort_count={}", manifest.cohorts.len()),
+        format!("manifest_received_cohort_count={}", lanes.len()),
+        format!("manifest_scope_match={scope_match}"),
+        format!("manifest_disposition={}", if complete {
+            "COMPLETE_FOR_DECLARED_MANIFEST"
+        } else {
+            "INCOMPLETE_OR_MISMATCHED"
+        }),
+        format!("manifest_missing_cohort_ids={}", if missing.is_empty() {
+            "NONE".to_owned()
+        } else {
+            missing.join(",")
+        }),
+        format!("manifest_unexpected_cohort_ids={}", if unexpected.is_empty() {
+            "NONE".to_owned()
+        } else {
+            unexpected.join(",")
+        }),
+        format!("manifest_mismatched_cohort_ids={}", if mismatch_ids.is_empty() {
+            "NONE".to_owned()
+        } else {
+            mismatch_ids.join(",")
+        }),
+        "manifest_completeness_scope=DECLARED_MANIFEST_ONLY_NOT_REAL_POPULATION_AUTHENTICATION".to_owned(),
+        "manifest_source_authenticity=NOT_AUTHENTICATED_BY_THIS_TOOL".to_owned(),
+    ]);
+    Ok(lines.join("\n") + "\n")
 }
 
 fn percentile_nearest_rank(values: &[f64], percentile: f64) -> Option<f64> {
@@ -334,6 +648,8 @@ fn evaluate_lanes(sources: &[String]) -> Result<Vec<EvaluatedLane>, InputError> 
         evaluated.push(EvaluatedLane {
             cohort_id: lane.cohort_id,
             outcome_snapshot_id: lane.outcome_snapshot_id,
+            identity_source_owner: lane.identity_source_owner,
+            identity_source_ref: lane.identity_source_ref,
             delivery_source_owner: lane.delivery_source_owner,
             delivery_source_ref: lane.delivery_source_ref,
             quality_source_owner: lane.quality_source_owner,
@@ -529,8 +845,10 @@ fn compose(sources: &[String]) -> Result<String, InputError> {
             }
         ));
         lines.push(format!(
-            "cohort_evidence={}|{}|{}|{}|{}|{}|{}",
+            "cohort_evidence={}|{}|{}|{}|{}|{}|{}|{}|{}",
             lane.cohort_id,
+            lane.identity_source_owner,
+            lane.identity_source_ref,
             lane.delivery_source_owner,
             lane.delivery_source_ref,
             lane.quality_source_owner,
@@ -561,6 +879,16 @@ pub fn validate_and_report(lane_sources: &[String]) -> Result<String, InputError
     compose(lane_sources)
 }
 
+/// Validate the submitted cohort lanes against an owner-declared, frozen cohort manifest.
+/// A complete result is only complete relative to the manifest; the manifest itself is not authenticated.
+pub fn validate_and_report_with_manifest(
+    manifest_source: &str,
+    lane_sources: &[String],
+) -> Result<String, InputError> {
+    let report = compose(lane_sources)?;
+    qualify_manifest(manifest_source, lane_sources, &report)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -569,6 +897,8 @@ mod tests {
     const HOUSEHOLDS: &str = include_str!("../examples/households.csv");
     const REMOTE: &str = include_str!("../examples/remote-community.csv");
     const EXPECTED: &str = include_str!("../fixtures/envelope.expected.txt");
+    const MANIFEST: &str = include_str!("../fixtures/cohort-manifest.psv");
+    const MANIFEST_EXPECTED: &str = include_str!("../fixtures/envelope.manifest.expected.txt");
 
     fn run(sources: &[&str]) -> String {
         let owned: Vec<String> = sources.iter().map(|source| (*source).to_owned()).collect();
@@ -657,6 +987,107 @@ mod tests {
         let owned = vec![changed, HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
         let error = validate_and_report(&owned).unwrap_err();
         assert!(error.0.contains("empty metadata key quality_source_owner"));
+    }
+
+    #[test]
+    fn manifest_complete_cohort_set_matches_golden_report() {
+        let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
+        assert_eq!(validate_and_report_with_manifest(MANIFEST, &lanes).unwrap(), MANIFEST_EXPECTED);
+    }
+
+    #[test]
+    fn manifest_missing_lane_prevents_completeness_claim() {
+        let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned()];
+        let report = validate_and_report_with_manifest(MANIFEST, &lanes).unwrap();
+        assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
+        assert!(report.contains("cohort_set_completeness=INCOMPLETE_OR_MISMATCHED_TO_DECLARED_MANIFEST"));
+        assert!(report.contains("manifest_missing_cohort_ids=remote-community"));
+    }
+
+    #[test]
+    fn complete_manifest_does_not_override_unknown_service_observations() {
+        let changed = HOUSEHOLDS.replace("40,0.6,true", "90,0.6,true");
+        let lanes = vec![HOSPITAL.to_owned(), changed, REMOTE.to_owned()];
+        let report = validate_and_report_with_manifest(MANIFEST, &lanes).unwrap();
+        assert!(report.contains("cohort_set_completeness=COMPLETE_FOR_DECLARED_MANIFEST"));
+        assert!(report.contains("manifest_disposition=COMPLETE_FOR_DECLARED_MANIFEST"));
+        assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
+    }
+
+    #[test]
+    fn unexpected_lane_prevents_completeness_claim() {
+        let extra = REMOTE.replace("# cohort_id=remote-community", "# cohort_id=other-community");
+        let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), extra];
+        let report = validate_and_report_with_manifest(MANIFEST, &lanes).unwrap();
+        assert!(report.contains("manifest_unexpected_cohort_ids=other-community"));
+        assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
+    }
+
+    #[test]
+    fn manifest_identity_reference_mismatch_is_not_accepted() {
+        let changed = MANIFEST.replace(
+            "COHORT|households|1000|persons|cohort-register|synthetic:cohort:households",
+            "COHORT|households|1000|persons|cohort-register|synthetic:cohort:other-households",
+        );
+        let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
+        let report = validate_and_report_with_manifest(&changed, &lanes).unwrap();
+        assert!(report.contains("manifest_mismatched_cohort_ids=households"));
+        assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
+    }
+
+    #[test]
+    fn manifest_scope_mismatch_is_not_accepted() {
+        let changed = MANIFEST.replace(
+            "# service_family_id=potable-water",
+            "# service_family_id=other-service",
+        );
+        let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
+        let report = validate_and_report_with_manifest(&changed, &lanes).unwrap();
+        assert!(report.contains("manifest_scope_match=false"));
+        assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
+    }
+
+    #[test]
+    fn manifest_denominator_mismatch_is_not_accepted() {
+        let changed = MANIFEST.replace("COHORT|households|1000|", "COHORT|households|999|");
+        let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
+        let report = validate_and_report_with_manifest(&changed, &lanes).unwrap();
+        assert!(report.contains("manifest_mismatched_cohort_ids=households"));
+        assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
+    }
+
+    #[test]
+    fn manifest_membership_must_cover_the_complete_horizon() {
+        let changed = MANIFEST.replace("|0|1000", "|0|99");
+        let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
+        let report = validate_and_report_with_manifest(&changed, &lanes).unwrap();
+        assert!(report.contains("manifest_mismatched_cohort_ids=hospital,households,remote-community"));
+    }
+
+    #[test]
+    fn duplicate_manifest_cohort_ids_are_rejected() {
+        let changed = MANIFEST.replace(
+            "COHORT|remote-community|250|persons|",
+            "COHORT|households|250|persons|",
+        );
+        let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
+        let error = validate_and_report_with_manifest(&changed, &lanes).unwrap_err();
+        assert!(error.0.contains("duplicate cohort_id households"));
+    }
+
+    #[test]
+    fn manifest_row_order_does_not_change_report() {
+        let changed = MANIFEST.lines().collect::<Vec<_>>();
+        let header = changed.iter().position(|line| line.starts_with("record_type|")).unwrap();
+        let metadata = changed[..header].to_vec();
+        let mut rows = changed[header + 1..].to_vec();
+        rows.reverse();
+        let reordered = format!("{}\n{}\n{}\n", metadata.join("\n"), MANIFEST_HEADER, rows.join("\n"));
+        let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
+        assert_eq!(
+            validate_and_report_with_manifest(MANIFEST, &lanes).unwrap(),
+            validate_and_report_with_manifest(&reordered, &lanes).unwrap()
+        );
     }
 
     #[test]
