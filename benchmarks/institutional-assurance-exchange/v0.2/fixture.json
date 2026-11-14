@@ -1,0 +1,535 @@
+{
+  "exchange_version": "0.2",
+  "synthetic": true,
+  "status": "development",
+  "packet_id": "IAE-VS-001",
+  "institution": {
+    "entity_ref": "ENTITY-TRUST-01",
+    "label": "Synthetic Stewardship Trust"
+  },
+  "asset": {
+    "asset_ref": "PROPERTY-001",
+    "asset_class": "land_building",
+    "contracting_entity_ref": "ENTITY-TRUST-01"
+  },
+  "source_brief": {
+    "document_ref": "BRIEF-PROPERTY-001",
+    "version": "1",
+    "content": "Before approving a commercial lease, the institution MUST verify that the registered title holder is the contracting entity.\nIF the competent land-use record excludes commercial occupancy, the institution MUST obtain a written variance before approving a commercial lease.\nA current building-condition inspection is PREFERRED before lease commencement, but it is not a condition of lease approval.\nThe institution should make appropriate arrangements for continuity."
+  },
+  "intent_candidates": [
+    {
+      "requirement_ref": "REQ-LEASE-TITLE",
+      "source_document_ref": "BRIEF-PROPERTY-001",
+      "source_version": "1",
+      "span_start_byte": 0,
+      "span_end_byte": 124,
+      "exact_text": "Before approving a commercial lease, the institution MUST verify that the registered title holder is the contracting entity.",
+      "modality": "mandatory",
+      "applies_to_actions": [
+        "approve_commercial_lease"
+      ],
+      "claim_dimensions": [
+        "title"
+      ],
+      "conditions": []
+    },
+    {
+      "requirement_ref": "REQ-LAND-USE-VARIANCE",
+      "source_document_ref": "BRIEF-PROPERTY-001",
+      "source_version": "1",
+      "span_start_byte": 125,
+      "span_end_byte": 272,
+      "exact_text": "IF the competent land-use record excludes commercial occupancy, the institution MUST obtain a written variance before approving a commercial lease.",
+      "modality": "conditional",
+      "applies_to_actions": [
+        "approve_commercial_lease"
+      ],
+      "claim_dimensions": [
+        "permitted_use",
+        "land_use_variance"
+      ],
+      "conditions": [
+        "permitted_use excludes commercial occupancy"
+      ]
+    },
+    {
+      "requirement_ref": "REQ-PREFERRED-CONDITION",
+      "source_document_ref": "BRIEF-PROPERTY-001",
+      "source_version": "1",
+      "span_start_byte": 273,
+      "span_end_byte": 397,
+      "exact_text": "A current building-condition inspection is PREFERRED before lease commencement, but it is not a condition of lease approval.",
+      "modality": "preferred",
+      "applies_to_actions": [
+        "approve_commercial_lease"
+      ],
+      "claim_dimensions": [
+        "condition"
+      ],
+      "conditions": []
+    },
+    {
+      "requirement_ref": "REQ-CONTINUITY-UNRESOLVED",
+      "source_document_ref": "BRIEF-PROPERTY-001",
+      "source_version": "1",
+      "span_start_byte": 398,
+      "span_end_byte": 466,
+      "exact_text": "The institution should make appropriate arrangements for continuity.",
+      "modality": "unresolved",
+      "applies_to_actions": [
+        "approve_commercial_lease"
+      ],
+      "claim_dimensions": [],
+      "conditions": [
+        "Meaning, scope, owner and verification method require human clarification"
+      ]
+    }
+  ],
+  "intent_baseline": {
+    "system_id": "symthaea",
+    "baseline_id": "INTENT-BASELINE-PROPERTY-001",
+    "version": "1",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "digest_verification": "synthetic_placeholder_not_cryptographically_verified",
+    "approval": {
+      "approval_ref": "APPROVAL-BASELINE-001",
+      "approved_by_ref": "ACTOR-TRUSTEE-01",
+      "approver_role": "trustee",
+      "state": "accepted",
+      "approved_at": "2026-01-20T08:30:00Z",
+      "approval_kind": "human_record_not_cryptographically_verified"
+    },
+    "requirement_refs": [
+      "REQ-LEASE-TITLE",
+      "REQ-LAND-USE-VARIANCE",
+      "REQ-PREFERRED-CONDITION",
+      "REQ-CONTINUITY-UNRESOLVED"
+    ]
+  },
+  "claim_observations": [
+    {
+      "claim_ref": "CLM-TITLE-001",
+      "asset_ref": "PROPERTY-001",
+      "dimension": "title",
+      "disposition": "supported_within_scope",
+      "value": {
+        "registered_entity_ref": "ENTITY-TRUST-01"
+      },
+      "source_ref": "synthetic://land-registry/property-001/title",
+      "source_version": "1",
+      "competent_for": [
+        "title"
+      ],
+      "provider_ref": "LAND-REGISTRY-A",
+      "effective_from": "2025-01-01T00:00:00Z",
+      "effective_through": null,
+      "observed_at": "2025-01-03T09:00:00Z",
+      "source_receipt_ref": "RCPT-TITLE-V1",
+      "limitations": [
+        "Establishes the registered title-holder only; does not establish custody or permitted use."
+      ]
+    },
+    {
+      "claim_ref": "CLM-CUSTODY-001",
+      "asset_ref": "PROPERTY-001",
+      "dimension": "custody",
+      "disposition": "supported_within_scope",
+      "value": {
+        "custodian_entity_ref": "CUSTODIAN-A",
+        "custody_state": "held"
+      },
+      "source_ref": "synthetic://custodian/property-001/custody",
+      "source_version": "4",
+      "competent_for": [
+        "custody"
+      ],
+      "provider_ref": "CUSTODIAN-A",
+      "effective_from": "2025-01-01T00:00:00Z",
+      "effective_through": null,
+      "observed_at": "2026-01-20T08:00:00Z",
+      "source_receipt_ref": "RCPT-CUSTODY-V4",
+      "limitations": [
+        "Establishes the custodian's recorded physical custody only; does not establish legal title."
+      ]
+    },
+    {
+      "claim_ref": "CLM-USE-V4",
+      "asset_ref": "PROPERTY-001",
+      "dimension": "permitted_use",
+      "disposition": "supported_within_scope",
+      "value": {
+        "commercial_occupancy_allowed": true,
+        "use_class": "commercial"
+      },
+      "source_ref": "synthetic://municipal-land-use/property-001",
+      "source_version": "4",
+      "competent_for": [
+        "permitted_use"
+      ],
+      "provider_ref": "MUNICIPAL-PLANNING-A",
+      "effective_from": "2026-01-01T00:00:00Z",
+      "effective_through": null,
+      "observed_at": "2026-01-02T09:00:00Z",
+      "source_receipt_ref": "RCPT-USE-V4",
+      "limitations": [
+        "Version 4 was the version available to the institution on 2026-01-25."
+      ]
+    },
+    {
+      "claim_ref": "CLM-USE-V5",
+      "asset_ref": "PROPERTY-001",
+      "dimension": "permitted_use",
+      "disposition": "supported_within_scope",
+      "value": {
+        "commercial_occupancy_allowed": false,
+        "use_class": "conservation_only"
+      },
+      "source_ref": "synthetic://municipal-land-use/property-001",
+      "source_version": "5-correction",
+      "competent_for": [
+        "permitted_use"
+      ],
+      "provider_ref": "MUNICIPAL-PLANNING-A",
+      "effective_from": "2026-01-15T00:00:00Z",
+      "effective_through": null,
+      "observed_at": "2026-02-05T15:00:00Z",
+      "source_receipt_ref": "RCPT-USE-V5",
+      "limitations": [
+        "Correction effective 2026-01-15 but first observed by the institution on 2026-02-05."
+      ]
+    },
+    {
+      "claim_ref": "CLM-CONDITION-001",
+      "asset_ref": "PROPERTY-001",
+      "dimension": "condition",
+      "disposition": "unavailable",
+      "value": {
+        "inspection_report_available": false
+      },
+      "source_ref": "synthetic://inspection-provider/property-001/condition",
+      "source_version": "none",
+      "competent_for": [
+        "condition"
+      ],
+      "provider_ref": "INSPECTOR-A",
+      "effective_from": "2026-01-20T00:00:00Z",
+      "effective_through": null,
+      "observed_at": "2026-01-20T08:00:00Z",
+      "source_receipt_ref": "RCPT-CONDITION-UNAVAILABLE",
+      "limitations": [
+        "No current condition inspection is available; the requirement is preferred, not mandatory."
+      ]
+    },
+    {
+      "claim_ref": "CLM-CONDITION-UNRELATED",
+      "asset_ref": "PROPERTY-001",
+      "dimension": "condition",
+      "disposition": "supported_within_scope",
+      "value": {
+        "inspection_report_available": true,
+        "minor_note": "decorative paint wear"
+      },
+      "source_ref": "synthetic://inspector/property-001/condition-note",
+      "source_version": "1",
+      "competent_for": [
+        "condition"
+      ],
+      "provider_ref": "INSPECTOR-B",
+      "effective_from": "2026-02-01T00:00:00Z",
+      "effective_through": null,
+      "observed_at": "2026-02-03T10:00:00Z",
+      "source_receipt_ref": "RCPT-CONDITION-UNRELATED",
+      "limitations": [
+        "Condition-only note; irrelevant to title and permitted-use determinations."
+      ]
+    }
+  ],
+  "evidence_receipts": [
+    {
+      "receipt_ref": "RCPT-TITLE-V1",
+      "source_ref": "synthetic://land-registry/property-001/title",
+      "source_version": "1",
+      "content_digest_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "digest_verification": "synthetic_placeholder_not_cryptographically_verified",
+      "retrieved_at": "2026-02-06T10:00:00Z",
+      "adapter_ref": "ADAPTER-SYNTHETIC-REGISTRY",
+      "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "upstream_provider_refs": [
+        "LAND-REGISTRY-A"
+      ],
+      "completeness": "complete",
+      "signature_verification": "not_provided",
+      "issuer_trust_state": "unknown"
+    },
+    {
+      "receipt_ref": "RCPT-CUSTODY-V4",
+      "source_ref": "synthetic://custodian/property-001/custody",
+      "source_version": "4",
+      "content_digest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "digest_verification": "synthetic_placeholder_not_cryptographically_verified",
+      "retrieved_at": "2026-02-06T10:00:00Z",
+      "adapter_ref": "ADAPTER-SYNTHETIC-REGISTRY",
+      "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "upstream_provider_refs": [
+        "CUSTODIAN-A"
+      ],
+      "completeness": "complete",
+      "signature_verification": "not_provided",
+      "issuer_trust_state": "unknown"
+    },
+    {
+      "receipt_ref": "RCPT-USE-V4",
+      "source_ref": "synthetic://municipal-land-use/property-001",
+      "source_version": "4",
+      "content_digest_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "digest_verification": "synthetic_placeholder_not_cryptographically_verified",
+      "retrieved_at": "2026-02-06T10:00:00Z",
+      "adapter_ref": "ADAPTER-SYNTHETIC-REGISTRY",
+      "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "upstream_provider_refs": [
+        "MUNICIPAL-PLANNING-A"
+      ],
+      "completeness": "complete",
+      "signature_verification": "not_provided",
+      "issuer_trust_state": "unknown"
+    },
+    {
+      "receipt_ref": "RCPT-USE-V5",
+      "source_ref": "synthetic://municipal-land-use/property-001",
+      "source_version": "5-correction",
+      "content_digest_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "digest_verification": "synthetic_placeholder_not_cryptographically_verified",
+      "retrieved_at": "2026-02-06T10:00:00Z",
+      "adapter_ref": "ADAPTER-SYNTHETIC-REGISTRY",
+      "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "upstream_provider_refs": [
+        "MUNICIPAL-PLANNING-A"
+      ],
+      "completeness": "complete",
+      "signature_verification": "not_provided",
+      "issuer_trust_state": "unknown"
+    },
+    {
+      "receipt_ref": "RCPT-CONDITION-UNAVAILABLE",
+      "source_ref": "synthetic://inspection-provider/property-001/condition",
+      "source_version": "none",
+      "content_digest_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "digest_verification": "synthetic_placeholder_not_cryptographically_verified",
+      "retrieved_at": "2026-02-06T10:00:00Z",
+      "adapter_ref": "ADAPTER-SYNTHETIC-REGISTRY",
+      "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "upstream_provider_refs": [
+        "INSPECTOR-A"
+      ],
+      "completeness": "complete",
+      "signature_verification": "not_provided",
+      "issuer_trust_state": "unknown"
+    },
+    {
+      "receipt_ref": "RCPT-CONDITION-UNRELATED",
+      "source_ref": "synthetic://inspector/property-001/condition-note",
+      "source_version": "1",
+      "content_digest_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+      "digest_verification": "synthetic_placeholder_not_cryptographically_verified",
+      "retrieved_at": "2026-02-06T10:00:00Z",
+      "adapter_ref": "ADAPTER-SYNTHETIC-REGISTRY",
+      "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "upstream_provider_refs": [
+        "INSPECTOR-B"
+      ],
+      "completeness": "complete",
+      "signature_verification": "not_provided",
+      "issuer_trust_state": "unknown"
+    }
+  ],
+  "authority": {
+    "authorization_ref": "AUTHZ-LEASE-001",
+    "subject_ref": "ACTOR-ASSET-MANAGER-01",
+    "entity_ref": "ENTITY-TRUST-01",
+    "action_scope": [
+      "approve_commercial_lease",
+      "schedule_condition_inspection"
+    ],
+    "purpose_scope": [
+      "new_tenant_commercial_lease",
+      "property_condition_assessment"
+    ],
+    "asset_scope": [
+      "PROPERTY-001"
+    ],
+    "valid_from": "2025-01-01T00:00:00Z",
+    "valid_through": "2026-12-31T23:59:59Z",
+    "verification_state": "verified",
+    "verifier_ref": "SYNTHETIC-AUTHORITY-VERIFIER-1",
+    "status_events": [
+      {
+        "event_ref": "AUTH-EVENT-ACTIVE",
+        "status": "active",
+        "effective_at": "2025-01-01T00:00:00Z",
+        "observed_at": "2025-01-01T00:00:00Z"
+      },
+      {
+        "event_ref": "AUTH-EVENT-REVOKED",
+        "status": "revoked",
+        "effective_at": "2026-02-01T00:00:00Z",
+        "observed_at": "2026-02-02T12:00:00Z"
+      }
+    ]
+  },
+  "queries": [
+    {
+      "query_ref": "Q-HISTORICAL",
+      "action": "approve_commercial_lease",
+      "purpose": "new_tenant_commercial_lease",
+      "asset_ref": "PROPERTY-001",
+      "actor_ref": "ACTOR-ASSET-MANAGER-01",
+      "contracting_entity_ref": "ENTITY-TRUST-01",
+      "effective_at": "2026-01-25T10:00:00Z",
+      "known_at": "2026-01-25T10:05:00Z",
+      "action_at": "2026-01-25T10:00:00Z",
+      "excluded_claim_refs": [],
+      "added_claim_refs": [],
+      "claim_bindings": []
+    },
+    {
+      "query_ref": "Q-CURRENT-REPLAY",
+      "action": "approve_commercial_lease",
+      "purpose": "new_tenant_commercial_lease",
+      "asset_ref": "PROPERTY-001",
+      "actor_ref": "ACTOR-ASSET-MANAGER-01",
+      "contracting_entity_ref": "ENTITY-TRUST-01",
+      "effective_at": "2026-01-25T10:00:00Z",
+      "known_at": "2026-02-06T10:00:00Z",
+      "action_at": "2026-02-06T10:00:00Z",
+      "excluded_claim_refs": [],
+      "added_claim_refs": [],
+      "claim_bindings": []
+    },
+    {
+      "query_ref": "Q-MISSING-TITLE",
+      "action": "approve_commercial_lease",
+      "purpose": "new_tenant_commercial_lease",
+      "asset_ref": "PROPERTY-001",
+      "actor_ref": "ACTOR-ASSET-MANAGER-01",
+      "contracting_entity_ref": "ENTITY-TRUST-01",
+      "effective_at": "2026-01-25T10:00:00Z",
+      "known_at": "2026-01-25T10:05:00Z",
+      "action_at": "2026-01-25T10:00:00Z",
+      "excluded_claim_refs": [
+        "CLM-TITLE-001"
+      ],
+      "added_claim_refs": [],
+      "claim_bindings": []
+    },
+    {
+      "query_ref": "Q-UNRELATED-CLAIM",
+      "action": "approve_commercial_lease",
+      "purpose": "new_tenant_commercial_lease",
+      "asset_ref": "PROPERTY-001",
+      "actor_ref": "ACTOR-ASSET-MANAGER-01",
+      "contracting_entity_ref": "ENTITY-TRUST-01",
+      "effective_at": "2026-01-25T10:00:00Z",
+      "known_at": "2026-01-25T10:05:00Z",
+      "action_at": "2026-01-25T10:00:00Z",
+      "excluded_claim_refs": [],
+      "added_claim_refs": [
+        "CLM-CONDITION-UNRELATED"
+      ],
+      "claim_bindings": []
+    },
+    {
+      "query_ref": "Q-WRONG-DIMENSION",
+      "action": "approve_commercial_lease",
+      "purpose": "new_tenant_commercial_lease",
+      "asset_ref": "PROPERTY-001",
+      "actor_ref": "ACTOR-ASSET-MANAGER-01",
+      "contracting_entity_ref": "ENTITY-TRUST-01",
+      "effective_at": "2026-01-25T10:00:00Z",
+      "known_at": "2026-01-25T10:05:00Z",
+      "action_at": "2026-01-25T10:00:00Z",
+      "excluded_claim_refs": [],
+      "added_claim_refs": [],
+      "claim_bindings": [
+        {
+          "requirement_ref": "REQ-LEASE-TITLE",
+          "claim_ref": "CLM-CUSTODY-001"
+        }
+      ]
+    },
+    {
+      "query_ref": "Q-PREFERENCE-ABSENT",
+      "action": "approve_commercial_lease",
+      "purpose": "new_tenant_commercial_lease",
+      "asset_ref": "PROPERTY-001",
+      "actor_ref": "ACTOR-ASSET-MANAGER-01",
+      "contracting_entity_ref": "ENTITY-TRUST-01",
+      "effective_at": "2026-01-25T10:00:00Z",
+      "known_at": "2026-01-25T10:05:00Z",
+      "action_at": "2026-01-25T10:00:00Z",
+      "excluded_claim_refs": [
+        "CLM-CONDITION-001"
+      ],
+      "added_claim_refs": [],
+      "claim_bindings": []
+    },
+    {
+      "query_ref": "Q-INSPECTION-ONLY",
+      "action": "schedule_condition_inspection",
+      "purpose": "property_condition_assessment",
+      "asset_ref": "PROPERTY-001",
+      "actor_ref": "ACTOR-ASSET-MANAGER-01",
+      "contracting_entity_ref": "ENTITY-TRUST-01",
+      "effective_at": "2026-01-25T10:00:00Z",
+      "known_at": "2026-01-25T10:05:00Z",
+      "action_at": "2026-01-25T10:00:00Z",
+      "excluded_claim_refs": [
+        "CLM-TITLE-001",
+        "CLM-CUSTODY-001"
+      ],
+      "added_claim_refs": [],
+      "claim_bindings": []
+    }
+  ],
+  "operation_history": [
+    {
+      "event_ref": "OP-EVENT-SUBMIT",
+      "operation_ref": "OP-LEASE-001",
+      "idempotency_ref": "IDEM-LEASE-001",
+      "event_type": "submit_attempt",
+      "outcome": "submitted",
+      "occurred_at": "2026-01-25T10:01:00Z",
+      "observed_at": "2026-01-25T10:01:00Z",
+      "mutation_count": 1,
+      "receipt_ref": null
+    },
+    {
+      "event_ref": "OP-EVENT-TIMEOUT",
+      "operation_ref": "OP-LEASE-001",
+      "idempotency_ref": "IDEM-LEASE-001",
+      "event_type": "timeout",
+      "outcome": "unknown",
+      "occurred_at": "2026-01-25T10:01:05Z",
+      "observed_at": "2026-01-25T10:01:05Z",
+      "mutation_count": 1,
+      "receipt_ref": null
+    }
+  ],
+  "execution_control": {
+    "operation_ref": "OP-LEASE-001",
+    "idempotency_ref": "IDEM-LEASE-001",
+    "state": "UNKNOWN",
+    "mutation_count": 1,
+    "retry_count": 0,
+    "reattempt_permitted": false,
+    "reconciliation_required": true
+  },
+  "environment": {
+    "mode": "synthetic_fixture_only",
+    "external_io_enabled": false,
+    "network_enabled": false,
+    "mutations_enabled": false
+  },
+  "policy_ref": "POLICY-COMMERCIAL-LEASE-V1",
+  "evaluator_ref": "IAE-VERTICAL-SLICE-EVALUATOR-V0.2"
+}
