@@ -538,8 +538,12 @@ pub struct EffectivePrivilege {
     pub resources: BTreeSet<String>,
     pub purposes: BTreeSet<String>,
     pub fields: BTreeSet<String>,
-    pub has_unbounded_amount: bool,
-    pub has_unbounded_operation_count: bool,
+    /// Conservative sum of active grant amount ceilings; None means at least
+    /// one active grant is unbounded.
+    pub aggregate_amount_limit_minor: Option<u64>,
+    /// Conservative sum of active grant operation-count ceilings; None means
+    /// at least one active grant is unbounded.
+    pub aggregate_operation_limit: Option<u64>,
 }
 
 fn bounded_child_attenuates(parent: Option<u64>, child: Option<u64>) -> bool {
@@ -571,15 +575,25 @@ pub fn delegation_is_attenuated(parent: &CapabilityScope, child: &CapabilityScop
 /// during the supplied trajectory. The caller must include tool/session
 /// grants, forwarded credentials and ambient credentials in the input set.
 pub fn union_effective_privilege(grants: &[CapabilityGrant]) -> EffectivePrivilege {
-    let mut result = EffectivePrivilege::default();
+    let mut result = EffectivePrivilege {
+        aggregate_amount_limit_minor: Some(0),
+        aggregate_operation_limit: Some(0),
+        ..EffectivePrivilege::default()
+    };
     for grant in grants.iter().filter(|grant| grant.active_during_trajectory) {
         result.grant_refs.insert(grant.grant_ref.clone());
         result.actions.extend(grant.scope.actions.iter().cloned());
         result.resources.extend(grant.scope.resources.iter().cloned());
         result.purposes.extend(grant.scope.purposes.iter().cloned());
         result.fields.extend(grant.scope.fields.iter().cloned());
-        result.has_unbounded_amount |= grant.scope.max_amount_minor.is_none();
-        result.has_unbounded_operation_count |= grant.scope.max_operations.is_none();
+        result.aggregate_amount_limit_minor = match (result.aggregate_amount_limit_minor, grant.scope.max_amount_minor) {
+            (Some(total), Some(limit)) => Some(total.saturating_add(limit)),
+            _ => None,
+        };
+        result.aggregate_operation_limit = match (result.aggregate_operation_limit, grant.scope.max_operations) {
+            (Some(total), Some(limit)) => Some(total.saturating_add(limit)),
+            _ => None,
+        };
     }
     result
 }
@@ -587,6 +601,13 @@ pub fn union_effective_privilege(grants: &[CapabilityGrant]) -> EffectivePrivile
 /// Checks whether the trajectory-wide privilege union exceeds the approved
 /// task scope. It is possible for a final call to be harmless while the
 /// available credential envelope is materially broader than the task.
+fn limit_within_task(effective: Option<u64>, task: Option<u64>) -> bool {
+    match (effective, task) {
+        (_, None) => true,
+        (Some(actual), Some(approved)) => actual <= approved,
+        (None, Some(_)) => false,
+    }
+}
 pub fn effective_privilege_within_task(
     effective: &EffectivePrivilege,
     task: &CapabilityScope,
@@ -595,8 +616,8 @@ pub fn effective_privilege_within_task(
         && effective.resources.is_subset(&task.resources)
         && effective.purposes.is_subset(&task.purposes)
         && effective.fields.is_subset(&task.fields)
-        && (!effective.has_unbounded_amount || task.max_amount_minor.is_none())
-        && (!effective.has_unbounded_operation_count || task.max_operations.is_none())
+        && limit_within_task(effective.aggregate_amount_limit_minor, task.max_amount_minor)
+        && limit_within_task(effective.aggregate_operation_limit, task.max_operations)
 }
 
 /// One executable route to a protected resource/effect.
@@ -844,9 +865,30 @@ mod tests {
         assert!(effective.actions.contains("delete"));
         assert!(effective.resources.contains("record-2"));
         assert!(effective.fields.contains("private-notes"));
+        assert_eq!(effective.aggregate_amount_limit_minor, None);
+        assert_eq!(effective.aggregate_operation_limit, None);
         assert!(effective.grant_refs.contains("shared-service-token"));
         assert!(!effective.grant_refs.contains("inactive"));
         assert!(!effective_privilege_within_task(&effective, &requested));
+    }
+
+    #[test]
+    fn aggregate_bounded_grants_cannot_exceed_task_amount_or_operation_ceiling() {
+        let task = scope(&["transfer"], &["account-a"], &["settlement"], &["amount"], 1, Some(100), Some(1000), Some(2));
+        let first = CapabilityGrant {
+            grant_ref: "token-a".to_owned(),
+            active_during_trajectory: true,
+            scope: scope(&["transfer"], &["account-a"], &["settlement"], &["amount"], 1, Some(90), Some(600), Some(1)),
+        };
+        let second = CapabilityGrant {
+            grant_ref: "token-b".to_owned(),
+            active_during_trajectory: true,
+            scope: scope(&["transfer"], &["account-a"], &["settlement"], &["amount"], 1, Some(90), Some(600), Some(1)),
+        };
+        let effective = union_effective_privilege(&[first, second]);
+        assert_eq!(effective.aggregate_amount_limit_minor, Some(1200));
+        assert_eq!(effective.aggregate_operation_limit, Some(2));
+        assert!(!effective_privilege_within_task(&effective, &task));
     }
 
     #[test]
