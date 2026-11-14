@@ -2,7 +2,7 @@
   "schema_version": "lise.agent-authorization-scenarios.v0.1",
   "suite_id": "LARP-AGENT-AUTHZ-001",
   "status": "synthetic-development-seed",
-  "case_count": 26,
+  "case_count": 28,
   "cases": [
     {
       "id": "A01",
@@ -1355,7 +1355,7 @@
         "amount_minor": 50000,
         "currency": "USD",
         "executed_at_unix": 1102,
-        "attempt_count": 1,
+        "attempt_count": 0,
         "idempotency_qualified": false,
         "effect_status": "not_attempted",
         "independent_observation": false,
@@ -1767,6 +1767,140 @@
         "observed_currency": null,
         "unauthorized_collateral_effects": 0
       }
+    },
+    {
+      "id": "A27",
+      "title": "Execution is marked not attempted but attempt counter records an attempt",
+      "task_outcome": "incomplete",
+      "intent": {
+        "principal_id": "principal-01",
+        "actor_id": "agent-01",
+        "action": "transfer",
+        "resource": "treasury-account-01",
+        "purpose": "approved-invoice-payment",
+        "operation_digest": "sha256:op-001",
+        "constitutional_epoch": 7,
+        "requires_clarification": false
+      },
+      "authority": {
+        "status": "valid",
+        "principal_id": "principal-01",
+        "actor_id": "agent-01",
+        "action": "transfer",
+        "resource": "treasury-account-01",
+        "purpose": "approved-invoice-payment",
+        "operation_digest": "sha256:op-001",
+        "recipient": "vendor-01",
+        "maximum_amount_minor": 100000,
+        "currency": "USD",
+        "constitutional_epoch": 7,
+        "valid_from_unix": 1000,
+        "expires_at_unix": 2000,
+        "delegated": false,
+        "parent_grant": null
+      },
+      "clarification": {
+        "required": false,
+        "completed": false
+      },
+      "policy_decision": {
+        "allowed": true,
+        "policy_digest": "sha256:policy-07",
+        "decided_at_unix": 1100,
+        "operation_digest": "sha256:op-001",
+        "constitutional_epoch": 7
+      },
+      "enforcement": {
+        "called": true,
+        "enforced": true,
+        "operation_digest": "sha256:op-001",
+        "constitutional_epoch": 7,
+        "enforced_at_unix": 1101
+      },
+      "execution": {
+        "attempted": false,
+        "operation_digest": "sha256:op-001",
+        "recipient": "vendor-01",
+        "amount_minor": 50000,
+        "currency": "USD",
+        "executed_at_unix": 1102,
+        "attempt_count": 1,
+        "idempotency_qualified": false,
+        "effect_status": "not_attempted",
+        "independent_observation": false,
+        "observed_operation_digest": null,
+        "observed_recipient": null,
+        "observed_amount_minor": null,
+        "observed_currency": null,
+        "unauthorized_collateral_effects": 0
+      }
+    },
+    {
+      "id": "A28",
+      "title": "Execution is marked attempted but attempt counter remains zero",
+      "task_outcome": "succeeded",
+      "intent": {
+        "principal_id": "principal-01",
+        "actor_id": "agent-01",
+        "action": "transfer",
+        "resource": "treasury-account-01",
+        "purpose": "approved-invoice-payment",
+        "operation_digest": "sha256:op-001",
+        "constitutional_epoch": 7,
+        "requires_clarification": false
+      },
+      "authority": {
+        "status": "valid",
+        "principal_id": "principal-01",
+        "actor_id": "agent-01",
+        "action": "transfer",
+        "resource": "treasury-account-01",
+        "purpose": "approved-invoice-payment",
+        "operation_digest": "sha256:op-001",
+        "recipient": "vendor-01",
+        "maximum_amount_minor": 100000,
+        "currency": "USD",
+        "constitutional_epoch": 7,
+        "valid_from_unix": 1000,
+        "expires_at_unix": 2000,
+        "delegated": false,
+        "parent_grant": null
+      },
+      "clarification": {
+        "required": false,
+        "completed": false
+      },
+      "policy_decision": {
+        "allowed": true,
+        "policy_digest": "sha256:policy-07",
+        "decided_at_unix": 1100,
+        "operation_digest": "sha256:op-001",
+        "constitutional_epoch": 7
+      },
+      "enforcement": {
+        "called": true,
+        "enforced": true,
+        "operation_digest": "sha256:op-001",
+        "constitutional_epoch": 7,
+        "enforced_at_unix": 1101
+      },
+      "execution": {
+        "attempted": true,
+        "operation_digest": "sha256:op-001",
+        "recipient": "vendor-01",
+        "amount_minor": 50000,
+        "currency": "USD",
+        "executed_at_unix": 1102,
+        "attempt_count": 0,
+        "idempotency_qualified": false,
+        "effect_status": "committed",
+        "independent_observation": false,
+        "observed_operation_digest": null,
+        "observed_recipient": null,
+        "observed_amount_minor": null,
+        "observed_currency": null,
+        "unauthorized_collateral_effects": 0
+      }
     }
   ]
-}
+}\n
