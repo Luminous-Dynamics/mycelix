@@ -116,6 +116,12 @@ For a frozen deterministic challenge suite:
 
 These are conformance targets, not a real-world false-qualification rate. Operational evaluation must add independent source authentication, clock-quality assessment, actual decision logs, operator review, sealed holdouts and post-event outcome verification.
 
+## 7.1 Claim-envelope interoperability
+
+The v0.2 claim envelope now carries decision-process availability, valid-time start/end, revocation effective/knowledge times and the as-of report reference. The mapping is defined in [`as-of-evidence-envelope-crosswalk-v0.2.json`](schemas/as-of-evidence-envelope-crosswalk-v0.2.json), and the synthetic telemetry case illustrates a later-known revocation without rewriting the historical decision.
+
+One boundary remains explicit: the v0.1 evaluator compares exact UTC seconds and does not propagate non-zero clock uncertainty. The envelope records whether clock uncertainty was considered; records with non-zero or unresolved clock bounds cannot be presented as exact-time qualified by this evaluator.
+
 ## 8. Integration boundary and next step
 
 The current `fsre-asof-evidence` reference and its separate oracle demonstrate the point-in-time classification contract over a synthetic fixture. They do not yet gate the portfolio evaluator or the production recovery-option evaluator.
