@@ -1,0 +1,467 @@
+{
+  "schema": "mycelix.payment-initiation-assurance-corpus/v1",
+  "corpus_id": "PAYMENT-INITIATION-ADVERSARIAL-SYNTHETIC-V1",
+  "status": "synthetic_reference_only",
+  "as_of": "2026-11-03",
+  "external_effects_enabled": false,
+  "execution_enabled": false,
+  "qr_plus_profile": {
+    "version": "1.2",
+    "state": "published_standard",
+    "execution_rail": "selected_provider_rail",
+    "pilot_state": "unverified_future_milestone",
+    "source_url": "https://www.resbank.co.za/en/home/publications/publication-detail-pages/other-publications/2026/qr-1-2-overview"
+  },
+  "rulebook_references": [
+    {
+      "id": "SARB_QR_PLUS_1_2",
+      "url": "https://www.resbank.co.za/en/home/publications/publication-detail-pages/other-publications/2026/qr-1-2-overview",
+      "role": "initiation_standard_only"
+    },
+    {
+      "id": "CPMI_PAYMENT_PREVALIDATION_2025",
+      "url": "https://www.bis.org/publications/cpmi-brief-9-safety-and-efficiency-through-payment-pre-validation-spotting-issues-money-moves",
+      "role": "payee_prevalidation_guidance"
+    },
+    {
+      "id": "BIS_PROJECT_NEXUS_2024",
+      "url": "https://www.bis.org/publ/othp86.pdf",
+      "role": "recipient_display_mfa_and_proxy_rate_limit_controls"
+    }
+  ],
+  "required_lifecycle_order": [
+    "parsed",
+    "payee_resolved",
+    "payee_verified",
+    "presented",
+    "authorised",
+    "dispatched",
+    "provider_accepted",
+    "settled",
+    "recipient_available",
+    "final"
+  ],
+  "cases": [
+    {
+      "id": "QR-PI-001",
+      "category": "qr_payload_parsed_only",
+      "expected": "parsed_unverified",
+      "input": {
+        "parse_valid": true,
+        "profile_version": "1.2",
+        "raw_digest_present": true,
+        "profile_digest_present": true,
+        "payee_resolution_valid": false,
+        "payer_authorised": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_qr_payload_parsed_only_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-002",
+      "category": "verified_payee_presented",
+      "expected": "awaiting_payer_authorisation",
+      "input": {
+        "payee_resolution_valid": true,
+        "provider_signature_valid": true,
+        "provider_audience_valid": true,
+        "payee_presented": true,
+        "payer_authorised": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_verified_payee_presented_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-003",
+      "category": "payee_substitution",
+      "expected": "rejected",
+      "input": {
+        "payee_resolution_valid": true,
+        "payee_matches_signed_resolution": false,
+        "payer_authorised": true,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_payee_substitution_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-004",
+      "category": "amount_after_confirmation",
+      "expected": "rejected",
+      "input": {
+        "payer_authorised": true,
+        "amount_matches_authorised_intent": false,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_amount_after_confirmation_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-005",
+      "category": "static_qr_no_amount",
+      "expected": "requires_payer_amount",
+      "input": {
+        "qr_is_static": true,
+        "amount_present": false,
+        "payer_entered_amount": false,
+        "payer_authorised": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_static_qr_no_amount_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-006",
+      "category": "currency_scale_substitution",
+      "expected": "rejected",
+      "input": {
+        "currency_matches_profile": false,
+        "scale_matches_profile": false,
+        "payer_authorised": true,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_currency_scale_substitution_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-007",
+      "category": "expired_dynamic_qr",
+      "expected": "rejected",
+      "input": {
+        "qr_is_dynamic": true,
+        "expired": true,
+        "nonce_unused": true,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_expired_dynamic_qr_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-008",
+      "category": "exact_scan_replay",
+      "expected": "idempotent_same_intent",
+      "input": {
+        "same_operation_id": true,
+        "same_fingerprint": true,
+        "repeat_scan": true,
+        "second_effect_count": 0
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_exact_scan_replay_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-009",
+      "category": "same_nonce_changed_fingerprint",
+      "expected": "conflict",
+      "input": {
+        "same_operation_id": true,
+        "same_fingerprint": false,
+        "repeat_scan": true,
+        "second_effect_count": 0
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_same_nonce_changed_fingerprint_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-010",
+      "category": "untrusted_display_name",
+      "expected": "awaiting_provider_resolution",
+      "input": {
+        "qr_display_name_present": true,
+        "provider_resolution_valid": false,
+        "display_name_authoritative": false,
+        "payer_authorised": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_untrusted_display_name_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-011",
+      "category": "stale_directory_result",
+      "expected": "indeterminate_unverified",
+      "input": {
+        "payee_resolution_valid": true,
+        "resolution_expired": true,
+        "directory_available": false,
+        "payer_authorised": false,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_stale_directory_result_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-012",
+      "category": "invalid_provider_signature",
+      "expected": "rejected",
+      "input": {
+        "provider_signature_valid": false,
+        "payee_resolution_valid": true,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_invalid_provider_signature_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-013",
+      "category": "wrong_provider_audience",
+      "expected": "rejected",
+      "input": {
+        "provider_signature_valid": true,
+        "provider_audience_valid": false,
+        "payee_resolution_valid": true,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_wrong_provider_audience_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-014",
+      "category": "resolution_rate_limit",
+      "expected": "throttled",
+      "input": {
+        "resolution_requests_in_window": 100,
+        "limit": 20,
+        "dispatch_attempted": false,
+        "disclosure_over_limit": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_resolution_rate_limit_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-015",
+      "category": "user_cancel_before_dispatch",
+      "expected": "cancelled_no_effect",
+      "input": {
+        "payer_authorised": false,
+        "user_cancelled": true,
+        "dispatch_attempted": false,
+        "external_effect_possible": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_user_cancel_before_dispatch_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-016",
+      "category": "payment_timeout_unknown",
+      "expected": "indeterminate_same_operation_id",
+      "input": {
+        "dispatch_attempted": true,
+        "provider_response": "timeout_unknown",
+        "external_effect_possible": true,
+        "original_operation_id_retained": true,
+        "retry_policy": "query_original_only"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_payment_timeout_unknown_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-017",
+      "category": "provider_accepted_without_settlement",
+      "expected": "provider_accepted_not_settled",
+      "input": {
+        "provider_accepted": true,
+        "settlement_evidence_present": false,
+        "recipient_available_evidence_present": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_provider_accepted_without_settlement_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-018",
+      "category": "standard_published_pilot_unverified",
+      "expected": "standard_published_pilot_unverified",
+      "input": {
+        "qr_plus_version": "1.2",
+        "standard_published": true,
+        "pilot_commenced": false,
+        "merchant_implementation_verified": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_standard_published_pilot_unverified_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-019",
+      "category": "recipient_mismatch_requires_new_consent",
+      "expected": "reauthorisation_required",
+      "input": {
+        "payer_authorised": true,
+        "recipient_display_changed": true,
+        "original_consent_invalidated": true,
+        "new_consent_obtained": false,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_recipient_mismatch_requires_new_consent_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    }
+  ]
+}
