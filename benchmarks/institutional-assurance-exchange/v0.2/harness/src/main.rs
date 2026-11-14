@@ -548,10 +548,19 @@ fn check_operation_finality(packet: &Value, submission: &Value) -> Result<bool, 
     }
     let initial_authority=authority_state_at(packet,historical_query);
     let reattempt_authority=authority_state_at(packet,reattempt_query);
+    let approved_at=required_str(binding,"approved_at","operation finality")?;
+    let action_at=required_str(binding,"action_at_before_dispatch","operation finality")?;
+    let known_at=required_str(binding,"known_at_before_dispatch","operation finality")?;
+    let submit_event=required_array(packet,"operation_history","fixture")?.iter()
+        .find(|event|event.get("event_ref").and_then(Value::as_str)==write.get("event_ref").and_then(Value::as_str))
+        .ok_or_else(||invalid("write trace does not map to an operation-history event"))?;
+    let submit_at=required_str(submit_event,"occurred_at","submit event")?;
+    let chronology_ok=approved_at<=action_at && known_at<=action_at && action_at<=submit_at;
     let revoked_event=required_array(&packet["authority"],"status_events","authority")?.iter()
         .find(|event|event.get("status").and_then(Value::as_str)==Some("revoked"))
         .ok_or_else(||invalid("revocation event missing"))?;
-    let authority_cutoffs_match=initial_authority=="active"
+    let authority_cutoffs_match=chronology_ok
+        && initial_authority=="active"
         && reattempt_authority=="revoked"
         && required_str(binding,"authority_observed_at_after_timeout","operation finality")?
             == required_str(revoked_event,"observed_at","revocation event")?;
