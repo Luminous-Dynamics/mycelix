@@ -109,8 +109,7 @@ fn row_order_does_not_change_pair_report() {
 
 #[test]
 fn shared_snapshot_is_detected_even_without_declared_edge() {
-    let input = COMMON_ROOT.replace("field-enumeration", "operator-survey");
-    let input = input.replace("snapshot-c|0|100", "snapshot-b|0|100");
+    let input = COMMON_ROOT.replace("snapshot-c|0|100", "snapshot-b|0|100");
     let report = audit(&input).unwrap().unwrap();
     assert_eq!(report.pairs[0].status, "DECLARED_SHARED_SOURCE_SNAPSHOT");
 }
