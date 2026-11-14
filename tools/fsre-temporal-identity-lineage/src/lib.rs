@@ -5,6 +5,7 @@
 // infer physical identity, or establish population completeness.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::Write as _;
 
 const HEADER: &str = "event_id|event_type|predecessors|successors|effective_at|recorded_at|source_snapshot|evidence_owner|evidence_ref|adjudicator|rule_version";
 
