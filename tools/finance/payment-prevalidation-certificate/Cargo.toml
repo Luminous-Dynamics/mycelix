@@ -1,0 +1,12 @@
+[package]
+name = "payment-prevalidation-certificate"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Effects-disabled compositional payment pre-initiation evidence certificate evaluator"
+
+[dependencies]
+jsonschema = { version = "=0.60.2", default-features = false }
+serde_json = "=1.0.150"
+sha2 = "=0.10.9"
