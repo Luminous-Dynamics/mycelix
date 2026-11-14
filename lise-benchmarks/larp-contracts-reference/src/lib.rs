@@ -992,10 +992,11 @@ pub fn evaluate_epistemic_bounty(facts: &EpistemicBountyFacts) -> Decision {
             if facts.reviewer_conflict == Some(true) && facts.conflict_disclosed == Some(false) {
                 return Decision::challenge("UNDISCLOSED_REVIEWER_CONFLICT");
             }
-            if facts.shared_dependency == Some(true)
-                || facts.reviewers_independent == Some(false)
-            {
-                return Decision::indeterminate("KNOWN_COMMON_DEPENDENCY_OR_REVIEW_INDEPENDENCE_UNPROVEN");
+            if facts.shared_dependency == Some(true) {
+                return Decision::indeterminate("KNOWN_COMMON_DEPENDENCY");
+            }
+            if facts.reviewers_independent == Some(false) {
+                return Decision::indeterminate("REVIEW_INDEPENDENCE_UNPROVEN");
             }
             if facts.evidence_reproduced != Some(true) {
                 return match facts.evidence_reproduced {
@@ -1073,19 +1074,29 @@ pub fn evaluate_restoration_contract(facts: &RestorationFacts) -> Decision {
     if facts.baseline_pinned == Some(false) || facts.method_current == Some(false) {
         return Decision::hold("BASELINE_OR_MEASUREMENT_METHOD_NOT_CURRENT");
     }
-    for floor in [
+    if facts.native_biodiversity_floor_met == Some(false) {
+        return Decision::deny("NATIVE_BIODIVERSITY_FLOOR_BREACHED");
+    }
+    if facts.hydrology_floor_met == Some(false) {
+        return Decision::deny("HYDROLOGY_FLOOR_BREACHED");
+    }
+    if facts.soil_floor_met == Some(false) {
+        return Decision::deny("SOIL_FUNCTION_FLOOR_BREACHED");
+    }
+    if facts.structure_floor_met == Some(false) {
+        return Decision::deny("HABITAT_STRUCTURE_FLOOR_BREACHED");
+    }
+    if facts.downstream_externality_within_limit == Some(false) {
+        return Decision::deny("DOWNSTREAM_EXTERNALITY_LIMIT_BREACHED");
+    }
+    if [
         facts.native_biodiversity_floor_met,
         facts.hydrology_floor_met,
         facts.soil_floor_met,
         facts.structure_floor_met,
         facts.downstream_externality_within_limit,
-    ] {
-        if floor == Some(false) {
-            return Decision::deny("ECOLOGICAL_FLOOR_OR_EXTERNALITY_LIMIT_BREACHED");
-        }
-        if floor.is_none() {
-            return Decision::hold("ECOLOGICAL_OUTCOME_DIMENSION_UNKNOWN");
-        }
+    ].into_iter().any(Option::is_none) {
+        return Decision::hold("ECOLOGICAL_OUTCOME_DIMENSION_UNKNOWN");
     }
     if facts.uncertainty_acceptable == Some(false)
         || facts.independent_outcome_observed == Some(false)
