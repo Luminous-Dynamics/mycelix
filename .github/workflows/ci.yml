@@ -22,8 +22,11 @@ env:
 jobs:
   # Detect which clusters changed
   changes:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       commons: ${{ steps.filter.outputs.commons }}
       civic: ${{ steps.filter.outputs.civic }}
@@ -37,6 +40,9 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      cscp_asset_passport: ${{ steps.filter.outputs.cscp_asset_passport }}
+      physical_artwork_conformance: ${{ steps.filter.outputs.physical_artwork_conformance }}
+      cscp_derived_rights_vectors: ${{ steps.filter.outputs.cscp_derived_rights_vectors }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -80,6 +86,16 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+            cscp_asset_passport:
+              - 'mycelix-workspace/research/creator-asset-passport-core/**'
+            physical_artwork_conformance:
+              - 'specs/creative-assets/physical-artwork-extension.schema.json'
+              - 'specs/creative-assets/examples/synthetic-sculpture.json'
+              - 'tools/physical-artwork-conformance/**'
+            cscp_derived_rights_vectors:
+              - 'docs/creator-sovereignty/CSCP_DERIVED_ASSET_RIGHTS_PROFILE.md'
+              - 'specs/creative-assets/examples/derived-rights-conformance-vectors.json'
+              - 'tools/cscp-derived-rights-conformance/**'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -112,10 +128,194 @@ jobs:
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
           exit $status
 
+  # Narrow, read-only qualification for CSCP research code. This job may run
+  # on drafts; it checks out the exact PR head and receives no secrets/write token.
+  test-cscp-asset-passport:
+    name: CSCP creator asset passport (exact head)
+    needs: changes
+    if: needs.changes.outputs.cscp_asset_passport == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      CSCP_EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.CSCP_EXPECTED_SHA }}
+          persist-credentials: false
+      - name: Assert exact source revision
+        run: test "$(git rev-parse HEAD)" = "$CSCP_EXPECTED_SHA"
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+      - name: Generate isolated dependency lock
+        run: cargo generate-lockfile --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml --all --check
+      - name: Test exact source head
+        run: cargo test --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml --locked
+      - name: Write qualification receipt
+        if: always()
+        run: |
+          {
+            echo "schema=cscp-draft-qualification-receipt-v1"
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "expected_source_sha=${CSCP_EXPECTED_SHA}"
+            echo "checked_out_sha=$(git rev-parse HEAD 2>/dev/null || echo unavailable)"
+            echo "rustc_version=$(rustc --version 2>/dev/null || echo unavailable)"
+            echo "cargo_version=$(cargo --version 2>/dev/null || echo unavailable)"
+            if [ -f "mycelix-workspace/research/creator-asset-passport-core/Cargo.lock" ]; then
+              echo "cargo_lock_sha256=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/Cargo.lock | cut -d' ' -f1)"
+            else
+              echo "cargo_lock_sha256=missing"
+            fi
+            if [ "$(git rev-parse HEAD 2>/dev/null || echo unavailable)" = "$CSCP_EXPECTED_SHA" ]; then
+              echo "exact_source_match=true"
+            else
+              echo "exact_source_match=false"
+            fi
+          } > cscp-draft-qualification-receipt.txt
+      - name: Upload raw qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cscp-draft-qualification-${{ env.CSCP_EXPECTED_SHA }}
+          path: |
+            mycelix-workspace/research/creator-asset-passport-core/Cargo.lock
+            cscp-draft-qualification-receipt.txt
+          if-no-files-found: warn
+
+  # Standalone Rust conformance tool for the physical-artwork profile.
+  # It runs on drafts and uses only synthetic fixtures; no real artwork data.
+  test-physical-artwork-conformance:
+    name: CSCP physical artwork validator (exact head)
+    needs: changes
+    if: needs.changes.outputs.physical_artwork_conformance == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      CSCP_EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.CSCP_EXPECTED_SHA }}
+          persist-credentials: false
+      - name: Assert exact source revision
+        run: test "$(git rev-parse HEAD)" = "$CSCP_EXPECTED_SHA"
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+      - name: Generate isolated dependency lock
+        run: cargo generate-lockfile --manifest-path tools/physical-artwork-conformance/Cargo.toml
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/physical-artwork-conformance/Cargo.toml --all --check
+      - name: Test validator
+        run: cargo test --manifest-path tools/physical-artwork-conformance/Cargo.toml --locked
+      - name: Validate synthetic sculpture through CLI
+        run: cargo run --manifest-path tools/physical-artwork-conformance/Cargo.toml --locked -- specs/creative-assets/physical-artwork-extension.schema.json specs/creative-assets/examples/synthetic-sculpture.json
+      - name: Write qualification receipt
+        if: always()
+        run: |
+          {
+            echo "schema=cscp-physical-artwork-qualification-receipt-v1"
+            echo "expected_source_sha=${CSCP_EXPECTED_SHA}"
+            echo "checked_out_sha=$(git rev-parse HEAD 2>/dev/null || echo unavailable)"
+            echo "rustc_version=$(rustc --version 2>/dev/null || echo unavailable)"
+            echo "cargo_version=$(cargo --version 2>/dev/null || echo unavailable)"
+            if [ -f "tools/physical-artwork-conformance/Cargo.lock" ]; then
+              echo "cargo_lock_sha256=$(sha256sum tools/physical-artwork-conformance/Cargo.lock | cut -d' ' -f1)"
+            else
+              echo "cargo_lock_sha256=missing"
+            fi
+          } > cscp-physical-artwork-qualification-receipt.txt
+      - name: Upload raw qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cscp-physical-artwork-qualification-${{ env.CSCP_EXPECTED_SHA }}
+          path: |
+            tools/physical-artwork-conformance/Cargo.lock
+            cscp-physical-artwork-qualification-receipt.txt
+          if-no-files-found: warn
+
+  # Rust reference oracle for the frozen, synthetic CSCP rights corpus.
+  # This is a fixture conformance tool, not a production authorization service.
+  test-cscp-derived-rights-vectors:
+    name: CSCP derived-rights oracle (exact head)
+    needs: changes
+    if: needs.changes.outputs.cscp_derived_rights_vectors == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      CSCP_EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.CSCP_EXPECTED_SHA }}
+          persist-credentials: false
+      - name: Assert exact source revision
+        run: test "$(git rev-parse HEAD)" = "$CSCP_EXPECTED_SHA"
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - name: Generate isolated dependency lock
+        run: cargo generate-lockfile --manifest-path tools/cscp-derived-rights-conformance/Cargo.toml
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/cscp-derived-rights-conformance/Cargo.toml --all --check
+      - name: Clippy
+        run: cargo clippy --manifest-path tools/cscp-derived-rights-conformance/Cargo.toml --all-targets --locked -- -D warnings
+      - name: Test exact source head
+        run: cargo test --manifest-path tools/cscp-derived-rights-conformance/Cargo.toml --locked
+      - name: Evaluate frozen rights corpus
+        run: cargo run --manifest-path tools/cscp-derived-rights-conformance/Cargo.toml --locked -- --check specs/creative-assets/examples/derived-rights-conformance-vectors.json
+      - name: Write exact-head qualification receipt
+        if: always()
+        run: |
+          {
+            echo "schema=cscp-derived-rights-oracle-receipt-v1"
+            echo "expected_source_sha=${CSCP_EXPECTED_SHA}"
+            echo "checked_out_sha=$(git rev-parse HEAD 2>/dev/null || echo unavailable)"
+            echo "rustc_version=$(rustc --version 2>/dev/null || echo unavailable)"
+            echo "cargo_version=$(cargo --version 2>/dev/null || echo unavailable)"
+            if [ -f "tools/cscp-derived-rights-conformance/Cargo.lock" ]; then
+              echo "cargo_lock_sha256=$(sha256sum tools/cscp-derived-rights-conformance/Cargo.lock | cut -d' ' -f1)"
+            else
+              echo "cargo_lock_sha256=missing"
+            fi
+            sha256sum specs/creative-assets/examples/derived-rights-conformance-vectors.json
+            if [ "$(git rev-parse HEAD 2>/dev/null || echo unavailable)" = "$CSCP_EXPECTED_SHA" ]; then
+              echo "exact_source_match=true"
+            else
+              echo "exact_source_match=false"
+            fi
+          } > cscp-derived-rights-oracle-receipt.txt
+      - name: Upload raw qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cscp-derived-rights-oracle-${{ env.CSCP_EXPECTED_SHA }}
+          path: |
+            tools/cscp-derived-rights-conformance/Cargo.lock
+            cscp-derived-rights-oracle-receipt.txt
+          if-no-files-found: warn
+
   # Per-cluster test jobs
   test-cos-conformance:
     needs: changes
-    if: needs.changes.outputs.cos_conformance == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.cos_conformance == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -135,7 +335,7 @@ jobs:
 
   test-commons:
     needs: changes
-    if: needs.changes.outputs.commons == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.commons == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -153,7 +353,7 @@ jobs:
 
   test-civic:
     needs: changes
-    if: needs.changes.outputs.civic == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.civic == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -171,7 +371,7 @@ jobs:
 
   test-hearth:
     needs: changes
-    if: needs.changes.outputs.hearth == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.hearth == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -189,7 +389,7 @@ jobs:
 
   test-finance:
     needs: changes
-    if: needs.changes.outputs.finance == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.finance == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -222,7 +422,7 @@ jobs:
   test-finance-integration:
     name: Finance Integration (SweetConductor)
     needs: changes
-    if: needs.changes.outputs.finance == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.finance == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -267,7 +467,7 @@ jobs:
 
   test-governance:
     needs: changes
-    if: needs.changes.outputs.governance == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.governance == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -285,7 +485,7 @@ jobs:
 
   test-identity:
     needs: changes
-    if: needs.changes.outputs.identity == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.identity == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -303,7 +503,7 @@ jobs:
 
   test-personal:
     needs: changes
-    if: needs.changes.outputs.personal == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.personal == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -321,7 +521,7 @@ jobs:
 
   test-attribution:
     needs: changes
-    if: needs.changes.outputs.attribution == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.attribution == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -339,7 +539,7 @@ jobs:
 
   test-bridge:
     needs: changes
-    if: needs.changes.outputs.bridge == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.bridge == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -359,7 +559,7 @@ jobs:
 
   test-sdk:
     needs: changes
-    if: needs.changes.outputs.sdk == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.sdk == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -383,7 +583,7 @@ jobs:
 
   test-prism:
     needs: changes
-    if: needs.changes.outputs.prism == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.prism == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -452,6 +652,9 @@ jobs:
       - test-bridge
       - test-sdk
       - test-prism
+      - test-cscp-asset-passport
+      - test-physical-artwork-conformance
+      - test-cscp-derived-rights-vectors
     runs-on: ubuntu-latest
     steps:
       - name: Check results
@@ -472,9 +675,12 @@ jobs:
           echo "Bridge: ${{ needs.test-bridge.result }}"
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
+          echo "CSCP asset passport: ${{ needs.test-cscp-asset-passport.result }}"
+          echo "CSCP physical artwork: ${{ needs.test-physical-artwork-conformance.result }}"
+          echo "CSCP derived-rights vectors: ${{ needs.test-cscp-derived-rights-vectors.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}" "${{ needs.test-cscp-asset-passport.result }}" "${{ needs.test-physical-artwork-conformance.result }}" "${{ needs.test-cscp-derived-rights-vectors.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
