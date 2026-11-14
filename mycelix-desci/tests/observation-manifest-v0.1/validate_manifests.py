@@ -95,7 +95,15 @@ def main() -> int:
     del mutant["received_at"]
     expect_rejected(validator, "missing-fabric-receipt-time", mutant)
 
-    print("SUMMARY\tpositive=3\tnegative=5\tschema=draft2020-12\tpayload-digests=verified")
+    mutant = copy.deepcopy(base)
+    mutant["source"]["authentication"] = {"status": "authenticated"}
+    expect_rejected(validator, "authenticated-source-without-mechanism-or-assertion", mutant)
+
+    mutant = copy.deepcopy(base)
+    mutant["instrument"]["calibration"] = {"state": "qualified"}
+    expect_rejected(validator, "qualified-calibration-without-validity-or-applicability", mutant)
+
+    print("SUMMARY\tpositive=3\tnegative=7\tschema=draft2020-12\tpayload-digests=verified")
     print("CLAIM-CEILING\tsynthetic schema/byte-contract fixtures only; no source authentication or physical qualification")
     return 0
 
