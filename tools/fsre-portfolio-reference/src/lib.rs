@@ -158,11 +158,14 @@ fn validate_shape(record: &Record, line: usize) -> Result<(), InputError> {
                     "line {line}: invalid option-capacity scope"
                 )));
             }
-            require_measure(record, line)?;
-            if !matches!(record.status.as_str(), "QUALIFIED" | "UNKNOWN") {
-                return Err(InputError(format!(
-                    "line {line}: invalid option-capacity status"
-                )));
+            match record.status.as_str() {
+                "QUALIFIED" => require_measure(record, line)?,
+                "UNKNOWN" => require_no_measure(record, line)?,
+                _ => {
+                    return Err(InputError(format!(
+                        "line {line}: invalid option-capacity status"
+                    )));
+                }
             }
         }
         "ALLOCATION" => {
@@ -221,11 +224,14 @@ fn validate_shape(record: &Record, line: usize) -> Result<(), InputError> {
                 )));
             }
             required_id(&record.subject, "resource_id", line)?;
-            require_measure(record, line)?;
-            if !matches!(record.status.as_str(), "QUALIFIED" | "UNKNOWN") {
-                return Err(InputError(format!(
-                    "line {line}: invalid resource-use status"
-                )));
+            match record.status.as_str() {
+                "QUALIFIED" => require_measure(record, line)?,
+                "UNKNOWN" => require_no_measure(record, line)?,
+                _ => {
+                    return Err(InputError(format!(
+                        "line {line}: invalid resource-use status"
+                    )));
+                }
             }
         }
         "RESOURCE_CAPACITY" => {
@@ -236,11 +242,14 @@ fn validate_shape(record: &Record, line: usize) -> Result<(), InputError> {
                 )));
             }
             required_id(&record.subject, "resource_id", line)?;
-            require_measure(record, line)?;
-            if !matches!(record.status.as_str(), "QUALIFIED" | "UNKNOWN") {
-                return Err(InputError(format!(
-                    "line {line}: invalid resource-capacity status"
-                )));
+            match record.status.as_str() {
+                "QUALIFIED" => require_measure(record, line)?,
+                "UNKNOWN" => require_no_measure(record, line)?,
+                _ => {
+                    return Err(InputError(format!(
+                        "line {line}: invalid resource-capacity status"
+                    )));
+                }
             }
         }
         "OPTION_DOMAIN" => {
@@ -1087,6 +1096,69 @@ mod tests {
             };
             assert!(report.contains(expected), "service floor boundary {floor}");
         }
+    }
+
+    #[test]
+    fn unknown_capacity_cannot_smuggle_a_numeric_bound() {
+        let changed = FIXTURE.replace(
+            "OPTION_CAPACITY|cap-pump|backup_pump|water||synthetic-water-shock|hour-01||80|m3|QUALIFIED|symtropy|synthetic:capacity:pump",
+            "OPTION_CAPACITY|cap-pump|backup_pump|water||synthetic-water-shock|hour-01||80|m3|UNKNOWN|symtropy|synthetic:capacity:pump",
+        );
+        assert_ne!(changed, FIXTURE);
+        assert!(validate_and_report(&changed)
+            .unwrap_err()
+            .0
+            .contains("must not contain a quantity or unit"));
+    }
+
+    #[test]
+    fn unknown_resource_use_cannot_smuggle_a_numeric_demand() {
+        let changed = FIXTURE.replace(
+            "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours|6|h|QUALIFIED|operator|synthetic:resource:pump-crew",
+            "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours|6|h|UNKNOWN|operator|synthetic:resource:pump-crew",
+        );
+        assert_ne!(changed, FIXTURE);
+        assert!(validate_and_report(&changed)
+            .unwrap_err()
+            .0
+            .contains("must not contain a quantity or unit"));
+    }
+
+    #[test]
+    fn unknown_resource_capacity_cannot_smuggle_a_numeric_bound() {
+        let changed = FIXTURE.replace(
+            "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|60|L|QUALIFIED|operator|synthetic:stock:diesel",
+            "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|60|L|UNKNOWN|operator|synthetic:stock:diesel",
+        );
+        assert_ne!(changed, FIXTURE);
+        assert!(validate_and_report(&changed)
+            .unwrap_err()
+            .0
+            .contains("must not contain a quantity or unit"));
+    }
+
+    #[test]
+    fn unknown_resource_capacity_without_numeric_bounds_abstains() {
+        let changed = FIXTURE.replace(
+            "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|60|L|QUALIFIED|operator|synthetic:stock:diesel",
+            "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|||UNKNOWN|operator|synthetic:stock:diesel",
+        );
+        assert_ne!(changed, FIXTURE);
+        let report = validate_and_report(&changed).expect("unknown resource capacity is explicit");
+        assert!(report.contains("portfolio_disposition=NOT_ESTIMABLE"));
+        assert!(report.contains("resource=diesel|50|UNKNOWN|L|NOT_ESTIMABLE"));
+    }
+
+    #[test]
+    fn unknown_resource_use_without_numeric_demand_abstains() {
+        let changed = FIXTURE.replace(
+            "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours|6|h|QUALIFIED|operator|synthetic:resource:pump-crew",
+            "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours|||UNKNOWN|operator|synthetic:resource:pump-crew",
+        );
+        assert_ne!(changed, FIXTURE);
+        let report = validate_and_report(&changed).expect("unknown resource demand is explicit");
+        assert!(report.contains("portfolio_disposition=NOT_ESTIMABLE"));
+        assert!(report.contains("resource=qualified_crew_hours|4|12|h|NOT_ESTIMABLE"));
     }
 
     #[test]
