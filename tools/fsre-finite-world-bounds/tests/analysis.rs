@@ -115,3 +115,10 @@ fn no_action_meeting_floor_produces_no_minimax_recommendation() {
     assert!(report.minimax_regret_actions.is_empty());
     assert!(report.robust_optimal_action.is_none());
 }
+
+#[test]
+fn report_matches_frozen_exact_golden() {
+    let actual = analyze(FIXTURE).unwrap().unwrap().render();
+    let expected = include_str!("../examples/water-restoration.expected.txt");
+    assert_eq!(actual, expected);
+}
