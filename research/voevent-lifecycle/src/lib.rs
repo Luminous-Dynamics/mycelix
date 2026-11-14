@@ -674,6 +674,11 @@ mod tests {
         assert!(replay.edges[0].citation_attributes.iter().any(|attribute| {
             attribute.name == "publisher-note" && attribute.value == "retained"
         }));
+        assert_eq!(replay.unresolved_citations.len(), 1);
+        assert!(replay.unresolved_citations[0]
+            .citation_attributes
+            .iter()
+            .any(|attribute| attribute.name == "publisher-note" && attribute.value == "retained"));
     }
 
     #[test]
