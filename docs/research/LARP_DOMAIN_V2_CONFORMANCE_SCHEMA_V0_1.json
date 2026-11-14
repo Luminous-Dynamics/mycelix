@@ -1,0 +1,632 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/LARP_DOMAIN_V2_CONFORMANCE_SCHEMA_V0_1.json",
+  "title": "LARP Epistemic Bounty and Restoration v2 domain conformance suites",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/epistemicScenarioSuite"
+    },
+    {
+      "$ref": "#/$defs/epistemicOracleSuite"
+    },
+    {
+      "$ref": "#/$defs/restorationScenarioSuite"
+    },
+    {
+      "$ref": "#/$defs/restorationOracleSuite"
+    }
+  ],
+  "$defs": {
+    "epistemicCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "title",
+        "facts"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^EB[0-9]{2}$"
+        },
+        "kind": {
+          "enum": [
+            "positive",
+            "attack",
+            "recovery"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "facts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "evidence_reproduced",
+            "reviewer_conflict",
+            "conflict_disclosed",
+            "reviewers_independent",
+            "shared_dependency",
+            "similarity_high",
+            "coordination_corroborated",
+            "local_threshold_met",
+            "appeal_open",
+            "retraction",
+            "historical_record_preserved",
+            "treasury_authorized",
+            "exact_operation_match",
+            "payout_state",
+            "request_sanction",
+            "misconduct_adjudicated",
+            "retraction_reason",
+            "within_grace_period",
+            "appeal_upheld",
+            "remedy_authorized",
+            "retry_safety_qualified",
+            "operation_already_applied",
+            "duplicate_requested"
+          ],
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "reward_eligibility",
+                "sanction_request",
+                "reviewer_assessment",
+                "retraction",
+                "appeal_remedy",
+                "payout_request",
+                "payout_reconciliation"
+              ]
+            },
+            "evidence_reproduced": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "reviewer_conflict": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "conflict_disclosed": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "reviewers_independent": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "shared_dependency": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "similarity_high": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "coordination_corroborated": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "local_threshold_met": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "appeal_open": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "retraction": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "historical_record_preserved": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "treasury_authorized": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "exact_operation_match": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "payout_state": {
+              "type": "string",
+              "enum": [
+                "not_started",
+                "unknown_after_dispatch",
+                "applied"
+              ]
+            },
+            "request_sanction": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "misconduct_adjudicated": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "retraction_reason": {
+              "type": "string",
+              "enum": [
+                "evidence_anomaly",
+                "alleged_fabrication"
+              ]
+            },
+            "within_grace_period": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "appeal_upheld": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "remedy_authorized": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "retry_safety_qualified": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "operation_already_applied": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "duplicate_requested": {
+              "type": [
+                "boolean"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "restorationCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "title",
+        "facts"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^RST[0-9]{2}$"
+        },
+        "kind": {
+          "enum": [
+            "positive",
+            "attack",
+            "recovery"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "facts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "mandate_valid",
+            "consent_valid",
+            "baseline_pinned",
+            "method_current",
+            "method_bridged",
+            "evidence_current",
+            "evidence_complete",
+            "evidence_independent",
+            "dependency_inventory_complete",
+            "known_shared_dependency",
+            "native_biodiversity_floor_met",
+            "hydrology_floor_met",
+            "soil_floor_met",
+            "structure_floor_met",
+            "downstream_externality_within_limit",
+            "uncertainty_acceptable",
+            "independent_outcome_observed",
+            "treasury_authorized",
+            "exact_operation_match",
+            "outcome_state",
+            "steward_exit",
+            "anomaly_only_signal",
+            "misconduct_adjudicated",
+            "replacement_steward_appointed",
+            "historical_record_preserved",
+            "accrued_remedies_preserved"
+          ],
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "tranche_request",
+                "fraud_review",
+                "steward_exit"
+              ]
+            },
+            "mandate_valid": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "consent_valid": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "baseline_pinned": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "method_current": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "method_bridged": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "evidence_current": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "evidence_complete": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "evidence_independent": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "dependency_inventory_complete": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "known_shared_dependency": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "native_biodiversity_floor_met": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "hydrology_floor_met": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "soil_floor_met": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "structure_floor_met": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "downstream_externality_within_limit": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "uncertainty_acceptable": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "independent_outcome_observed": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "treasury_authorized": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "exact_operation_match": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "outcome_state": {
+              "type": "string",
+              "enum": [
+                "complete",
+                "incomplete",
+                "partial"
+              ]
+            },
+            "steward_exit": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "anomaly_only_signal": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "misconduct_adjudicated": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "replacement_steward_appointed": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "historical_record_preserved": {
+              "type": [
+                "boolean"
+              ]
+            },
+            "accrued_remedies_preserved": {
+              "type": [
+                "boolean"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "epistemicOracleRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "expected_disposition",
+        "reason_code",
+        "notes"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^EB[0-9]{2}$"
+        },
+        "expected_disposition": {
+          "enum": [
+            "permit",
+            "deny",
+            "hold",
+            "indeterminate",
+            "challenge_required"
+          ]
+        },
+        "reason_code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]+$"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "restorationOracleRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "expected_disposition",
+        "reason_code",
+        "notes"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^RST[0-9]{2}$"
+        },
+        "expected_disposition": {
+          "enum": [
+            "permit",
+            "deny",
+            "hold",
+            "indeterminate",
+            "challenge_required"
+          ]
+        },
+        "reason_code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]+$"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "epistemicScenarioSuite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "suite_id",
+        "status",
+        "case_count",
+        "cases"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "larp.epistemic-bounty-scenarios.v0.1"
+        },
+        "suite_id": {
+          "const": "LARP-EPISTEMIC-001"
+        },
+        "status": {
+          "const": "synthetic-development-seed"
+        },
+        "case_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/epistemicCase"
+          }
+        }
+      }
+    },
+    "epistemicOracleSuite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "suite_id",
+        "status",
+        "scenario_file",
+        "case_count",
+        "rows"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "larp.epistemic-bounty-oracle.v0.1"
+        },
+        "suite_id": {
+          "const": "LARP-EPISTEMIC-001"
+        },
+        "status": {
+          "const": "reference-oracle-pending-independent-review"
+        },
+        "scenario_file": {
+          "const": "LARP_EPISTEMIC_BOUNTY_V2_SCENARIOS_V0_1.json"
+        },
+        "case_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rows": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/epistemicOracleRow"
+          }
+        }
+      }
+    },
+    "restorationScenarioSuite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "suite_id",
+        "status",
+        "case_count",
+        "cases"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "larp.restoration-scenarios.v0.1"
+        },
+        "suite_id": {
+          "const": "LARP-RESTORATION-001"
+        },
+        "status": {
+          "const": "synthetic-development-seed"
+        },
+        "case_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/restorationCase"
+          }
+        }
+      }
+    },
+    "restorationOracleSuite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "suite_id",
+        "status",
+        "scenario_file",
+        "case_count",
+        "rows"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "larp.restoration-oracle.v0.1"
+        },
+        "suite_id": {
+          "const": "LARP-RESTORATION-001"
+        },
+        "status": {
+          "const": "reference-oracle-pending-independent-review"
+        },
+        "scenario_file": {
+          "const": "LARP_RESTORATION_V2_SCENARIOS_V0_1.json"
+        },
+        "case_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rows": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/restorationOracleRow"
+          }
+        }
+      }
+    }
+  }
+}
