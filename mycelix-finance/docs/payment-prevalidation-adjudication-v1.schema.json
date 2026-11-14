@@ -1,0 +1,621 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/payment-prevalidation-adjudication-v1.schema.json",
+  "title": "Mycelix Payment Prevalidation Independent Adjudication Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "as_of",
+    "study_design",
+    "source_register",
+    "cases"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.payment-prevalidation-adjudication/v1"
+    },
+    "corpus_id": {
+      "const": "PAYMENT-PREVALIDATION-ADJUDICATION-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_protocol_conformance_only"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "study_design": {
+      "$ref": "#/$defs/study_design"
+    },
+    "source_register": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "published_on",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "study_design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_id",
+        "preregistered",
+        "thresholds_frozen",
+        "held_out_test_tuning_access",
+        "development_partitions",
+        "calibration_partitions",
+        "held_out_partitions",
+        "split_policy",
+        "primary_false_ready_definition",
+        "false_quarantine_definition",
+        "confidence_interval_method",
+        "minimum_independent_clusters_for_interval",
+        "synthetic_fixture",
+        "tuning_partitions",
+        "required_systems",
+        "bootstrap_replicates",
+        "bootstrap_seed"
+      ],
+      "properties": {
+        "protocol_id": {
+          "const": "PAY-PREVALIDATION-ADJUDICATION-V1"
+        },
+        "preregistered": {
+          "const": true
+        },
+        "thresholds_frozen": {
+          "const": true
+        },
+        "held_out_test_tuning_access": {
+          "const": false
+        },
+        "development_partitions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "const": "development"
+          }
+        },
+        "calibration_partitions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "const": "calibration"
+          }
+        },
+        "held_out_partitions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "const": "held_out_test"
+          }
+        },
+        "split_policy": {
+          "const": "merchant_participant_payee_identity_and_time_block_disjoint"
+        },
+        "primary_false_ready_definition": {
+          "type": "string"
+        },
+        "false_quarantine_definition": {
+          "type": "string"
+        },
+        "confidence_interval_method": {
+          "const": "cluster_bootstrap_by_merchant_and_time_block"
+        },
+        "minimum_independent_clusters_for_interval": {
+          "type": "integer",
+          "minimum": 30
+        },
+        "synthetic_fixture": {
+          "type": "boolean"
+        },
+        "tuning_partitions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "development",
+              "calibration"
+            ]
+          }
+        },
+        "required_systems": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "incumbent",
+              "conventional",
+              "mycelix"
+            ]
+          }
+        },
+        "bootstrap_replicates": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 100000
+        },
+        "bootstrap_seed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_binding",
+        "payee_name_comparison",
+        "requester_identity",
+        "requester_authority",
+        "claim_validity",
+        "profile_eligibility",
+        "intent_integrity",
+        "evidence_freshness",
+        "final_disposition"
+      ],
+      "properties": {
+        "subject_binding": {
+          "enum": [
+            "confirmed",
+            "contradicted",
+            "indeterminate"
+          ]
+        },
+        "payee_name_comparison": {
+          "enum": [
+            "exact",
+            "close",
+            "no_match",
+            "not_applicable",
+            "indeterminate"
+          ]
+        },
+        "requester_identity": {
+          "enum": [
+            "verified",
+            "unverified",
+            "impersonated",
+            "indeterminate"
+          ]
+        },
+        "requester_authority": {
+          "enum": [
+            "evidenced",
+            "not_evidenced",
+            "contradicted",
+            "not_applicable",
+            "indeterminate"
+          ]
+        },
+        "claim_validity": {
+          "enum": [
+            "independently_supported",
+            "unsupported",
+            "disputed",
+            "out_of_scope",
+            "not_applicable",
+            "indeterminate"
+          ]
+        },
+        "profile_eligibility": {
+          "enum": [
+            "eligible",
+            "ineligible",
+            "unknown"
+          ]
+        },
+        "intent_integrity": {
+          "enum": [
+            "exact",
+            "changed",
+            "invalid",
+            "unavailable",
+            "indeterminate"
+          ]
+        },
+        "evidence_freshness": {
+          "enum": [
+            "verified",
+            "invalid",
+            "expired",
+            "future_dated",
+            "unknown"
+          ]
+        },
+        "final_disposition": {
+          "enum": [
+            "safe_to_present",
+            "warn_and_permit_choice",
+            "reconfirm",
+            "quarantine",
+            "reject",
+            "ineligible",
+            "indeterminate"
+          ]
+        }
+      }
+    },
+    "assessments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_binding",
+        "payee_name_comparison",
+        "requester_identity",
+        "requester_authority",
+        "claim_validity",
+        "profile_eligibility",
+        "intent_integrity",
+        "evidence_freshness"
+      ],
+      "properties": {
+        "subject_binding": {
+          "enum": [
+            "confirmed",
+            "contradicted",
+            "indeterminate"
+          ]
+        },
+        "payee_name_comparison": {
+          "enum": [
+            "exact",
+            "close",
+            "no_match",
+            "not_applicable",
+            "indeterminate"
+          ]
+        },
+        "requester_identity": {
+          "enum": [
+            "verified",
+            "unverified",
+            "impersonated",
+            "indeterminate"
+          ]
+        },
+        "requester_authority": {
+          "enum": [
+            "evidenced",
+            "not_evidenced",
+            "contradicted",
+            "not_applicable",
+            "indeterminate"
+          ]
+        },
+        "claim_validity": {
+          "enum": [
+            "independently_supported",
+            "unsupported",
+            "disputed",
+            "out_of_scope",
+            "not_applicable",
+            "indeterminate"
+          ]
+        },
+        "profile_eligibility": {
+          "enum": [
+            "eligible",
+            "ineligible",
+            "unknown"
+          ]
+        },
+        "intent_integrity": {
+          "enum": [
+            "exact",
+            "changed",
+            "invalid",
+            "unavailable",
+            "indeterminate"
+          ]
+        },
+        "evidence_freshness": {
+          "enum": [
+            "verified",
+            "invalid",
+            "expired",
+            "future_dated",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "adjudication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_id",
+        "sequence",
+        "adjudicator_id",
+        "role",
+        "status",
+        "supersedes_record_id",
+        "correction_reason",
+        "blinded_to_system_outputs",
+        "evidence_digest",
+        "protocol_version",
+        "labels",
+        "rationale_codes",
+        "confidence"
+      ],
+      "properties": {
+        "record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "adjudicator_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "enum": [
+            "primary",
+            "tie_breaker",
+            "correction"
+          ]
+        },
+        "status": {
+          "enum": [
+            "active",
+            "superseded"
+          ]
+        },
+        "supersedes_record_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "correction_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "blinded_to_system_outputs": {
+          "const": true
+        },
+        "evidence_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "protocol_version": {
+          "const": "PAY-PREVALIDATION-ADJUDICATION-V1"
+        },
+        "labels": {
+          "$ref": "#/$defs/labels"
+        },
+        "rationale_codes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "confidence": {
+          "enum": [
+            "high",
+            "moderate",
+            "low"
+          ]
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "system_id",
+        "decision",
+        "assessments",
+        "warnings_presented",
+        "reason_codes",
+        "output_digest"
+      ],
+      "properties": {
+        "system_id": {
+          "enum": [
+            "incumbent",
+            "conventional",
+            "mycelix"
+          ]
+        },
+        "decision": {
+          "enum": [
+            "safe_to_present",
+            "warn_and_permit_choice",
+            "reconfirm",
+            "quarantine",
+            "reject",
+            "ineligible",
+            "indeterminate"
+          ]
+        },
+        "assessments": {
+          "$ref": "#/$defs/assessments"
+        },
+        "warnings_presented": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "output_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "partition",
+        "case_snapshot_digest",
+        "merchant_entity_id",
+        "participant_id",
+        "payee_identity_id",
+        "time_block",
+        "source_refs",
+        "required_warning_codes",
+        "adjudication_records",
+        "system_outputs"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^PREV-ADJ-[0-9]{3}$"
+        },
+        "partition": {
+          "enum": [
+            "development",
+            "calibration",
+            "held_out_test"
+          ]
+        },
+        "case_snapshot_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "merchant_entity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "participant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payee_identity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time_block": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_warning_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "adjudication_records": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/adjudication"
+          }
+        },
+        "system_outputs": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/output"
+          }
+        }
+      }
+    }
+  }
+}

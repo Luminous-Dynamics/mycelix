@@ -1,0 +1,1383 @@
+{
+  "schema": "mycelix.payment-prevalidation-adjudication/v1",
+  "corpus_id": "PAYMENT-PREVALIDATION-ADJUDICATION-SYNTHETIC-V1",
+  "status": "synthetic_protocol_conformance_only",
+  "as_of": "2026-11-06",
+  "study_design": {
+    "protocol_id": "PAY-PREVALIDATION-ADJUDICATION-V1",
+    "preregistered": true,
+    "thresholds_frozen": true,
+    "held_out_test_tuning_access": false,
+    "development_partitions": [
+      "development"
+    ],
+    "calibration_partitions": [
+      "calibration"
+    ],
+    "held_out_partitions": [
+      "held_out_test"
+    ],
+    "split_policy": "merchant_participant_payee_identity_and_time_block_disjoint",
+    "primary_false_ready_definition": "system ready-for-payer decision while adjudicated disposition is reconfirm, quarantine, reject, ineligible or indeterminate",
+    "false_quarantine_definition": "system quarantine/reject/ineligible while adjudicated disposition is safe-to-present or warn-and-permit-choice",
+    "confidence_interval_method": "cluster_bootstrap_by_merchant_and_time_block",
+    "minimum_independent_clusters_for_interval": 30,
+    "synthetic_fixture": true,
+    "tuning_partitions": [
+      "development",
+      "calibration"
+    ],
+    "required_systems": [
+      "incumbent",
+      "conventional",
+      "mycelix"
+    ],
+    "bootstrap_replicates": 2000,
+    "bootstrap_seed": 20261106
+  },
+  "source_register": [
+    {
+      "id": "BIS_CPMI_PPV_2025",
+      "authority": "BIS CPMI",
+      "title": "Safety and efficiency through payment pre-validation",
+      "url": "https://www.bis.org/publications/cpmi-brief-9-safety-efficiency-payment-pre-validation-spotting-issues-money-moves",
+      "published_on": "2025-11-20",
+      "observed_on": "2026-11-06",
+      "evidence_class": "policy_brief",
+      "supports": [
+        "Payment details can be checked before initiation",
+        "PPV can reduce payment errors, fraud risk and manual intervention",
+        "Fees and delivery times can be made visible before commitment"
+      ],
+      "does_not_support": [
+        "Mycelix performance claims",
+        "Participant-specific South African product capabilities"
+      ]
+    },
+    {
+      "id": "SARB_NPS_VISION_2030_CONSULT_2026",
+      "authority": "South African Reserve Bank",
+      "title": "National Payment System Vision 2030+ Consultation Paper",
+      "url": "https://www.resbank.co.za/content/dam/sarb/what-we-do/payments-and-settlements/consultation-documents/2026/vision-2030--/NPS%202030%2B%20Consultation%20Paper%20-%2024%20February%202026.pdf",
+      "published_on": "2026-02-24",
+      "observed_on": "2026-11-06",
+      "evidence_class": "consultation_paper_not_final_policy",
+      "supports": [
+        "Consultation paper discusses authorised push-payment fraud and identity alone not being sufficient",
+        "Verification of Payee, monitoring, education and customer protection may assist"
+      ],
+      "does_not_support": [
+        "Final policy",
+        "A live nationwide fraud-scoring service"
+      ]
+    },
+    {
+      "id": "EPC_VOP_RULEBOOK_2026",
+      "authority": "European Payments Council",
+      "title": "Verification of Payee Scheme Rulebook v1.1",
+      "url": "https://www.europeanpaymentscouncil.eu/document-library/rulebooks/verification-payee-scheme-rulebook-0",
+      "published_on": "2026-06-01",
+      "observed_on": "2026-11-06",
+      "evidence_class": "scheme_rulebook",
+      "supports": [
+        "VoP distinguishes match, close match, no match and verification not possible"
+      ],
+      "does_not_support": [
+        "South African PayShap rules",
+        "Proof of debt validity or requester authority"
+      ]
+    },
+    {
+      "id": "EPC_VOP_MATCH_GUIDANCE_2026",
+      "authority": "European Payments Council",
+      "title": "Updated recommendations on matching processes under the VoP scheme",
+      "url": "https://www.europeanpaymentscouncil.eu/news-insights/news/epc-publishes-updated-recommendations-matching-processes-under-vop-scheme",
+      "published_on": "2026-11-03",
+      "observed_on": "2026-11-06",
+      "evidence_class": "scheme_guidance",
+      "supports": [
+        "Matching guidance addresses transliteration, character sets, spelling, initials, phonetics, commercial names and abbreviations"
+      ],
+      "does_not_support": [
+        "A universal fuzzy matcher",
+        "A name match as proof of identity or legitimacy"
+      ]
+    },
+    {
+      "id": "SYNTHETIC_ADJUDICATION_CASEBOOK_V1",
+      "authority": "Mycelix synthetic fixture authors",
+      "title": "Synthetic prevalidation adjudication casebook v1",
+      "url": "https://example.invalid/mycelix/synthetic-adjudication-casebook-v1",
+      "published_on": "2026-11-06",
+      "observed_on": "2026-11-06",
+      "evidence_class": "synthetic_fixture",
+      "supports": [
+        "Eight fictional cases for schema and report conformance"
+      ],
+      "does_not_support": [
+        "Real-world fraud, accuracy, fairness or safety claims"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "PREV-ADJ-001",
+      "partition": "development",
+      "case_snapshot_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "merchant_entity_id": "MERCHANT-DEV-01",
+      "participant_id": "PSP-DEV-01",
+      "payee_identity_id": "PAYEE-DEV-01",
+      "time_block": "TIME-DEV-2026-W40",
+      "source_refs": [
+        "SYNTHETIC_ADJUDICATION_CASEBOOK_V1"
+      ],
+      "required_warning_codes": [],
+      "adjudication_records": [
+        {
+          "record_id": "ADJ-1-A",
+          "sequence": 1,
+          "adjudicator_id": "PANEL-development-A",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "safe_to_present"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        },
+        {
+          "record_id": "ADJ-1-B",
+          "sequence": 2,
+          "adjudicator_id": "PANEL-development-B",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "safe_to_present"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        }
+      ],
+      "system_outputs": [
+        {
+          "system_id": "incumbent",
+          "decision": "safe_to_present",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [],
+          "reason_codes": [
+            "match"
+          ],
+          "output_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "system_id": "conventional",
+          "decision": "safe_to_present",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [],
+          "reason_codes": [
+            "verified"
+          ],
+          "output_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        {
+          "system_id": "mycelix",
+          "decision": "safe_to_present",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [],
+          "reason_codes": [
+            "evidence_complete"
+          ],
+          "output_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ]
+    },
+    {
+      "case_id": "PREV-ADJ-002",
+      "partition": "development",
+      "case_snapshot_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "merchant_entity_id": "MERCHANT-DEV-01",
+      "participant_id": "PSP-DEV-01",
+      "payee_identity_id": "PAYEE-DEV-01",
+      "time_block": "TIME-DEV-2026-W40",
+      "source_refs": [
+        "SYNTHETIC_ADJUDICATION_CASEBOOK_V1"
+      ],
+      "required_warning_codes": [],
+      "adjudication_records": [
+        {
+          "record_id": "ADJ-2-A",
+          "sequence": 1,
+          "adjudicator_id": "PANEL-development-A",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "unverified",
+            "requester_authority": "not_evidenced",
+            "claim_validity": "unsupported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "quarantine"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        },
+        {
+          "record_id": "ADJ-2-B",
+          "sequence": 2,
+          "adjudicator_id": "PANEL-development-B",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "unverified",
+            "requester_authority": "not_evidenced",
+            "claim_validity": "unsupported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "quarantine"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        }
+      ],
+      "system_outputs": [
+        {
+          "system_id": "incumbent",
+          "decision": "safe_to_present",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [],
+          "reason_codes": [
+            "authenticated_sender"
+          ],
+          "output_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+        },
+        {
+          "system_id": "conventional",
+          "decision": "warn_and_permit_choice",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "unverified",
+            "requester_authority": "not_evidenced",
+            "claim_validity": "unsupported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [
+            "requester_unverified",
+            "claim_unsupported"
+          ],
+          "reason_codes": [
+            "warning"
+          ],
+          "output_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+        },
+        {
+          "system_id": "mycelix",
+          "decision": "quarantine",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "unverified",
+            "requester_authority": "not_evidenced",
+            "claim_validity": "unsupported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [
+            "requester_unverified",
+            "claim_unsupported"
+          ],
+          "reason_codes": [
+            "authority_not_evidenced"
+          ],
+          "output_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+        }
+      ]
+    },
+    {
+      "case_id": "PREV-ADJ-003",
+      "partition": "development",
+      "case_snapshot_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "merchant_entity_id": "MERCHANT-DEV-02",
+      "participant_id": "PSP-DEV-01",
+      "payee_identity_id": "PAYEE-DEV-02",
+      "time_block": "TIME-DEV-2026-W40",
+      "source_refs": [
+        "SYNTHETIC_ADJUDICATION_CASEBOOK_V1"
+      ],
+      "required_warning_codes": [
+        "payee_name_close",
+        "claim_disputed"
+      ],
+      "adjudication_records": [
+        {
+          "record_id": "ADJ-3-A",
+          "sequence": 1,
+          "adjudicator_id": "PANEL-development-A",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "close",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "disputed",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "warn_and_permit_choice"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        },
+        {
+          "record_id": "ADJ-3-B",
+          "sequence": 2,
+          "adjudicator_id": "PANEL-development-B",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "close",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "disputed",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "quarantine"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        },
+        {
+          "record_id": "ADJ-3-C",
+          "sequence": 3,
+          "adjudicator_id": "PANEL-development-C",
+          "role": "tie_breaker",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "close",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "disputed",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "warn_and_permit_choice"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "moderate"
+        }
+      ],
+      "system_outputs": [
+        {
+          "system_id": "incumbent",
+          "decision": "safe_to_present",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [],
+          "reason_codes": [
+            "no_warning"
+          ],
+          "output_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+        },
+        {
+          "system_id": "conventional",
+          "decision": "warn_and_permit_choice",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "close",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "disputed",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [
+            "payee_name_close"
+          ],
+          "reason_codes": [
+            "partial_warning"
+          ],
+          "output_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+        },
+        {
+          "system_id": "mycelix",
+          "decision": "warn_and_permit_choice",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "close",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "disputed",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [
+            "payee_name_close",
+            "claim_disputed"
+          ],
+          "reason_codes": [
+            "warnings_presented"
+          ],
+          "output_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+        }
+      ]
+    },
+    {
+      "case_id": "PREV-ADJ-004",
+      "partition": "development",
+      "case_snapshot_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "merchant_entity_id": "MERCHANT-DEV-02",
+      "participant_id": "PSP-DEV-01",
+      "payee_identity_id": "PAYEE-DEV-02",
+      "time_block": "TIME-DEV-2026-W40",
+      "source_refs": [
+        "SYNTHETIC_ADJUDICATION_CASEBOOK_V1"
+      ],
+      "required_warning_codes": [],
+      "adjudication_records": [
+        {
+          "record_id": "ADJ-4-A",
+          "sequence": 1,
+          "adjudicator_id": "PANEL-development-A",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "contradicted",
+            "payee_name_comparison": "no_match",
+            "requester_identity": "impersonated",
+            "requester_authority": "contradicted",
+            "claim_validity": "out_of_scope",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "reject"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        },
+        {
+          "record_id": "ADJ-4-B",
+          "sequence": 2,
+          "adjudicator_id": "PANEL-development-B",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "contradicted",
+            "payee_name_comparison": "no_match",
+            "requester_identity": "impersonated",
+            "requester_authority": "contradicted",
+            "claim_validity": "out_of_scope",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "reject"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        }
+      ],
+      "system_outputs": [
+        {
+          "system_id": "incumbent",
+          "decision": "warn_and_permit_choice",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "close",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [
+            "payee_name_close"
+          ],
+          "reason_codes": [
+            "partial_match"
+          ],
+          "output_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "system_id": "conventional",
+          "decision": "reject",
+          "assessments": {
+            "subject_binding": "contradicted",
+            "payee_name_comparison": "no_match",
+            "requester_identity": "impersonated",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [
+            "no_match",
+            "identity_conflict"
+          ],
+          "reason_codes": [
+            "hard_reject"
+          ],
+          "output_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "system_id": "mycelix",
+          "decision": "reject",
+          "assessments": {
+            "subject_binding": "contradicted",
+            "payee_name_comparison": "no_match",
+            "requester_identity": "impersonated",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [
+            "identity_conflict"
+          ],
+          "reason_codes": [
+            "subject_mismatch"
+          ],
+          "output_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ]
+    },
+    {
+      "case_id": "PREV-ADJ-005",
+      "partition": "calibration",
+      "case_snapshot_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "merchant_entity_id": "MERCHANT-CAL-01",
+      "participant_id": "PSP-CAL-01",
+      "payee_identity_id": "PAYEE-CAL-01",
+      "time_block": "TIME-CAL-2026-W41",
+      "source_refs": [
+        "SYNTHETIC_ADJUDICATION_CASEBOOK_V1"
+      ],
+      "required_warning_codes": [],
+      "adjudication_records": [
+        {
+          "record_id": "ADJ-5-A",
+          "sequence": 1,
+          "adjudicator_id": "PANEL-calibration-A",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "indeterminate",
+            "requester_identity": "indeterminate",
+            "requester_authority": "indeterminate",
+            "claim_validity": "indeterminate",
+            "profile_eligibility": "unknown",
+            "intent_integrity": "exact",
+            "evidence_freshness": "expired",
+            "final_disposition": "indeterminate"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        },
+        {
+          "record_id": "ADJ-5-B",
+          "sequence": 2,
+          "adjudicator_id": "PANEL-calibration-B",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "indeterminate",
+            "requester_identity": "indeterminate",
+            "requester_authority": "indeterminate",
+            "claim_validity": "indeterminate",
+            "profile_eligibility": "unknown",
+            "intent_integrity": "exact",
+            "evidence_freshness": "expired",
+            "final_disposition": "indeterminate"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        }
+      ],
+      "system_outputs": [
+        {
+          "system_id": "incumbent",
+          "decision": "safe_to_present",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [],
+          "reason_codes": [
+            "provider_response_present"
+          ],
+          "output_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        {
+          "system_id": "conventional",
+          "decision": "reconfirm",
+          "assessments": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "exact",
+            "requester_identity": "indeterminate",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "unknown",
+            "intent_integrity": "exact",
+            "evidence_freshness": "expired"
+          },
+          "warnings_presented": [
+            "stale_evidence"
+          ],
+          "reason_codes": [
+            "reconfirm"
+          ],
+          "output_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        {
+          "system_id": "mycelix",
+          "decision": "warn_and_permit_choice",
+          "assessments": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "exact",
+            "requester_identity": "indeterminate",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "unknown",
+            "intent_integrity": "exact",
+            "evidence_freshness": "expired"
+          },
+          "warnings_presented": [
+            "indeterminate_evidence",
+            "reconfirm_requester_identity"
+          ],
+          "reason_codes": [
+            "uncertainty_exposed_but_not_sufficiently_escalated"
+          ],
+          "output_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        }
+      ]
+    },
+    {
+      "case_id": "PREV-ADJ-006",
+      "partition": "calibration",
+      "case_snapshot_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "merchant_entity_id": "MERCHANT-CAL-01",
+      "participant_id": "PSP-CAL-01",
+      "payee_identity_id": "PAYEE-CAL-01",
+      "time_block": "TIME-CAL-2026-W41",
+      "source_refs": [
+        "SYNTHETIC_ADJUDICATION_CASEBOOK_V1"
+      ],
+      "required_warning_codes": [],
+      "adjudication_records": [
+        {
+          "record_id": "ADJ-6-A",
+          "sequence": 1,
+          "adjudicator_id": "PANEL-calibration-A",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "safe_to_present"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        },
+        {
+          "record_id": "ADJ-6-B",
+          "sequence": 2,
+          "adjudicator_id": "PANEL-calibration-B",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "safe_to_present"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        }
+      ],
+      "system_outputs": [
+        {
+          "system_id": "incumbent",
+          "decision": "warn_and_permit_choice",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [
+            "minor_format_warning"
+          ],
+          "reason_codes": [
+            "warn"
+          ],
+          "output_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "system_id": "conventional",
+          "decision": "safe_to_present",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [],
+          "reason_codes": [
+            "match"
+          ],
+          "output_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "system_id": "mycelix",
+          "decision": "quarantine",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [
+            "unnecessary_quarantine"
+          ],
+          "reason_codes": [
+            "false_positive_control"
+          ],
+          "output_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ]
+    },
+    {
+      "case_id": "PREV-ADJ-007",
+      "partition": "held_out_test",
+      "case_snapshot_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "merchant_entity_id": "MERCHANT-HOLD-01",
+      "participant_id": "PSP-HOLD-01",
+      "payee_identity_id": "PAYEE-HOLD-01",
+      "time_block": "TIME-HOLD-2026-W42",
+      "source_refs": [
+        "SYNTHETIC_ADJUDICATION_CASEBOOK_V1"
+      ],
+      "required_warning_codes": [
+        "payee_no_match",
+        "payer_choice_remains"
+      ],
+      "adjudication_records": [
+        {
+          "record_id": "ADJ-7-A",
+          "sequence": 1,
+          "adjudicator_id": "PANEL-held_out_test-A",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "no_match",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "not_applicable",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "warn_and_permit_choice"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        },
+        {
+          "record_id": "ADJ-7-B",
+          "sequence": 2,
+          "adjudicator_id": "PANEL-held_out_test-B",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "no_match",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "not_applicable",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "warn_and_permit_choice"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        }
+      ],
+      "system_outputs": [
+        {
+          "system_id": "incumbent",
+          "decision": "safe_to_present",
+          "assessments": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "no_match",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [],
+          "reason_codes": [
+            "no_match_ignored"
+          ],
+          "output_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        {
+          "system_id": "conventional",
+          "decision": "warn_and_permit_choice",
+          "assessments": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "no_match",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [
+            "payee_no_match"
+          ],
+          "reason_codes": [
+            "warn"
+          ],
+          "output_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+        },
+        {
+          "system_id": "mycelix",
+          "decision": "warn_and_permit_choice",
+          "assessments": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "no_match",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [
+            "payee_no_match",
+            "payer_choice_remains"
+          ],
+          "reason_codes": [
+            "no_match_not_fraud_proof"
+          ],
+          "output_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+        }
+      ]
+    },
+    {
+      "case_id": "PREV-ADJ-008",
+      "partition": "held_out_test",
+      "case_snapshot_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "merchant_entity_id": "MERCHANT-HOLD-02",
+      "participant_id": "PSP-HOLD-02",
+      "payee_identity_id": "PAYEE-HOLD-02",
+      "time_block": "TIME-HOLD-2026-W43",
+      "source_refs": [
+        "SYNTHETIC_ADJUDICATION_CASEBOOK_V1"
+      ],
+      "required_warning_codes": [],
+      "adjudication_records": [
+        {
+          "record_id": "ADJ-8-A",
+          "sequence": 1,
+          "adjudicator_id": "PANEL-TEST-A",
+          "role": "primary",
+          "status": "superseded",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "indeterminate",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "quarantine"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        },
+        {
+          "record_id": "ADJ-8-B",
+          "sequence": 2,
+          "adjudicator_id": "PANEL-TEST-B",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "safe_to_present"
+          },
+          "rationale_codes": [
+            "independent_evidence_review"
+          ],
+          "confidence": "high"
+        },
+        {
+          "record_id": "ADJ-8-CORR",
+          "sequence": 3,
+          "adjudicator_id": "PANEL-TEST-A",
+          "role": "correction",
+          "status": "active",
+          "supersedes_record_id": "ADJ-8-A",
+          "correction_reason": "new authenticated source record corrected stale profile evidence",
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified",
+            "final_disposition": "safe_to_present"
+          },
+          "rationale_codes": [
+            "append_only_correction"
+          ],
+          "confidence": "high"
+        }
+      ],
+      "system_outputs": [
+        {
+          "system_id": "incumbent",
+          "decision": "warn_and_permit_choice",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [
+            "reconfirmed"
+          ],
+          "reason_codes": [
+            "manual_review"
+          ],
+          "output_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+        },
+        {
+          "system_id": "conventional",
+          "decision": "safe_to_present",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [],
+          "reason_codes": [
+            "verified"
+          ],
+          "output_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+        },
+        {
+          "system_id": "mycelix",
+          "decision": "quarantine",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "exact",
+            "requester_identity": "verified",
+            "requester_authority": "evidenced",
+            "claim_validity": "independently_supported",
+            "profile_eligibility": "eligible",
+            "intent_integrity": "exact",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [
+            "evidence_correction_not_applied"
+          ],
+          "reason_codes": [
+            "stale_superseded_adjudication_retained_as_current"
+          ],
+          "output_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+        }
+      ]
+    },
+    {
+      "case_id": "PREV-ADJ-009",
+      "partition": "held_out_test",
+      "case_snapshot_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+      "merchant_entity_id": "MERCHANT-HOLD-03",
+      "participant_id": "PSP-HOLD-03",
+      "payee_identity_id": "PAYEE-HOLD-03",
+      "time_block": "TIME-HOLD-2026-W44",
+      "source_refs": [
+        "SYNTHETIC_ADJUDICATION_CASEBOOK_V1"
+      ],
+      "required_warning_codes": [
+        "stale_evidence",
+        "identity_indeterminate"
+      ],
+      "adjudication_records": [
+        {
+          "record_id": "ADJ-9-A",
+          "sequence": 1,
+          "adjudicator_id": "PANEL-TEST-C",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "indeterminate",
+            "requester_identity": "indeterminate",
+            "requester_authority": "indeterminate",
+            "claim_validity": "indeterminate",
+            "profile_eligibility": "unknown",
+            "intent_integrity": "unavailable",
+            "evidence_freshness": "expired",
+            "final_disposition": "indeterminate"
+          },
+          "rationale_codes": [
+            "provider_evidence_expired",
+            "identity_status_unresolved"
+          ],
+          "confidence": "high"
+        },
+        {
+          "record_id": "ADJ-9-B",
+          "sequence": 2,
+          "adjudicator_id": "PANEL-TEST-D",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "indeterminate",
+            "requester_identity": "indeterminate",
+            "requester_authority": "indeterminate",
+            "claim_validity": "indeterminate",
+            "profile_eligibility": "unknown",
+            "intent_integrity": "unavailable",
+            "evidence_freshness": "expired",
+            "final_disposition": "indeterminate"
+          },
+          "rationale_codes": [
+            "participant_profile_not_current",
+            "identity_status_unresolved"
+          ],
+          "confidence": "high"
+        }
+      ],
+      "system_outputs": [
+        {
+          "system_id": "incumbent",
+          "decision": "safe_to_present",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "indeterminate",
+            "requester_identity": "verified",
+            "requester_authority": "indeterminate",
+            "claim_validity": "indeterminate",
+            "profile_eligibility": "unknown",
+            "intent_integrity": "unavailable",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [],
+          "reason_codes": [
+            "provider_response_accepted_without_freshness_check"
+          ],
+          "output_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+        },
+        {
+          "system_id": "conventional",
+          "decision": "quarantine",
+          "assessments": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "indeterminate",
+            "requester_identity": "indeterminate",
+            "requester_authority": "indeterminate",
+            "claim_validity": "indeterminate",
+            "profile_eligibility": "unknown",
+            "intent_integrity": "unavailable",
+            "evidence_freshness": "expired"
+          },
+          "warnings_presented": [
+            "stale_evidence",
+            "identity_indeterminate"
+          ],
+          "reason_codes": [
+            "stale_profile_quarantined"
+          ],
+          "output_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "system_id": "mycelix",
+          "decision": "warn_and_permit_choice",
+          "assessments": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "indeterminate",
+            "requester_identity": "indeterminate",
+            "requester_authority": "indeterminate",
+            "claim_validity": "indeterminate",
+            "profile_eligibility": "unknown",
+            "intent_integrity": "unavailable",
+            "evidence_freshness": "expired"
+          },
+          "warnings_presented": [
+            "stale_evidence",
+            "identity_indeterminate"
+          ],
+          "reason_codes": [
+            "uncertainty_shown_but_not_quarantined"
+          ],
+          "output_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  ]
+}
