@@ -1,0 +1,116 @@
+{
+  "exchange_version": "0.1",
+  "packet_id": "IAE-SYNTHETIC-001",
+  "created_at": "2026-11-14T06:00:00Z",
+  "query": {
+    "action": "complete_collection_handover",
+    "purpose": "approved_collection_transfer",
+    "asset_ref": "COLLECTION-001",
+    "requested_by_ref": "ACTOR-TRANSFER-AGENT-01",
+    "effective_at": "2026-11-14T05:55:00Z",
+    "known_at": "2026-11-14T06:00:00Z"
+  },
+  "intent_baseline": {
+    "system_id": "symthaea",
+    "baseline_id": "INTENT-BASELINE-001",
+    "version": "7",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "approval_ref": "MYCELIX-DECISION-APPROVAL-001",
+    "approved_by_ref": "ACTOR-TRUSTEE-01",
+    "approved_at": "2026-11-13T12:00:00Z",
+    "source_refs": [
+      "synthetic://briefs/transfer-001#section-3"
+    ]
+  },
+  "claims": [
+    {
+      "claim_ref": "CLAIM-CUSTODY-001",
+      "asset_ref": "COLLECTION-001",
+      "dimension": "custody",
+      "disposition": "supported_within_scope",
+      "source_refs": [
+        "synthetic://custody-register/entry-001"
+      ],
+      "competence_ref": "COMPETENCE-CUSTODY-REGISTER",
+      "effective_from": "2026-01-01T00:00:00Z",
+      "observed_at": "2026-11-14T05:00:00Z",
+      "freshness_until": "2026-11-15T05:00:00Z",
+      "limitations": [
+        "Supports recorded custody at observation time; does not establish legal title."
+      ]
+    },
+    {
+      "claim_ref": "CLAIM-IDENTITY-001",
+      "asset_ref": "COLLECTION-001",
+      "dimension": "object_identity",
+      "disposition": "supported_within_scope",
+      "source_refs": [
+        "synthetic://collection-catalogue/item-001"
+      ],
+      "competence_ref": "COMPETENCE-COLLECTION-CATALOGUE",
+      "effective_from": "2025-03-01T00:00:00Z",
+      "observed_at": "2026-11-14T05:00:00Z",
+      "freshness_until": "2026-12-14T05:00:00Z",
+      "limitations": [
+        "Catalogue identity is not a title or ownership determination."
+      ]
+    }
+  ],
+  "authority": {
+    "authorization_ref": "AUTHZ-DELEGATION-001",
+    "subject_ref": "ACTOR-TRANSFER-AGENT-01",
+    "entity_ref": "ENTITY-TRUST-01",
+    "action_scope": [
+      "complete_collection_handover"
+    ],
+    "purpose_scope": [
+      "approved_collection_transfer"
+    ],
+    "asset_scope": [
+      "COLLECTION-001"
+    ],
+    "valid_from": "2026-11-01T00:00:00Z",
+    "valid_through": "2026-12-01T00:00:00Z",
+    "verification_state": "verified",
+    "verifier_ref": "MYCELIX-AUTHORITY-VERIFIER-V0.1"
+  },
+  "decision": {
+    "disposition": "HOLD_FOR_RECONCILIATION",
+    "reason_codes": [
+      "operation.outcome.unknown"
+    ],
+    "supporting_claim_refs": [
+      "CLAIM-CUSTODY-001",
+      "CLAIM-IDENTITY-001"
+    ],
+    "required_evidence": [
+      "Receiving-custodian receipt or authoritative confirmation of non-completion for operation OP-HANDOVER-001."
+    ],
+    "limitations": [
+      "This packet does not establish legal title or the final physical location of the collection."
+    ],
+    "policy_ref": "POLICY-COLLECTION-HANDOVER-V3",
+    "evaluator_ref": "MYCELIX-DECISION-EVALUATOR-V0.1",
+    "evaluated_at": "2026-11-14T06:00:00Z"
+  },
+  "replay": {
+    "effective_at": "2026-11-14T05:55:00Z",
+    "known_at": "2026-11-14T06:00:00Z",
+    "prior_decision_refs": [
+      "DECISION-HANDOVER-001"
+    ],
+    "supersedes_refs": [],
+    "invalidation_refs": [
+      "INTENT-BASELINE-001#handover-completion"
+    ]
+  },
+  "execution": {
+    "state": "UNKNOWN",
+    "operation_ref": "OP-HANDOVER-001",
+    "idempotency_ref": "IDEMPOTENCY-HANDOVER-001",
+    "mutation_count": 1,
+    "retry_count": 0,
+    "reattempt_permitted": false,
+    "reconciliation_required": true
+  }
+}
