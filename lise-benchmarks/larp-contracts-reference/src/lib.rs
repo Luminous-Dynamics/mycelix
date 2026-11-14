@@ -282,7 +282,7 @@ pub fn evaluate(facts: &EvaluationFacts, now_unix: i64) -> Decision {
         if let Err(decision) = require_true(
             facts.rights.remedy_path_defined,
             "HIGH_IMPACT_REMEDY_PATH_UNKNOWN",
-            "HIGH_IMPACT_CONTRACT_REQUIRES_REMEDY_PATH",
+            "REMEDY_PATH_REQUIRED_FOR_HIGH_IMPACT_CONTRACT",
         ) {
             return decision;
         }
