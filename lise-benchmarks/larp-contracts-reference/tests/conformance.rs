@@ -35,6 +35,13 @@ fn all_scenarios_match_the_separate_reference_oracle() {
             case.id,
             case.title
         );
+        assert_eq!(
+            actual.reason_codes.first().map(String::as_str),
+            rows[case.id.as_str()].reason_codes.first().map(String::as_str),
+            "{} primary reason code — {}",
+            case.id,
+            case.title
+        );
         assert!(!actual.reason_codes.is_empty(), "{} must emit a stable reason code", case.id);
     }
 }
