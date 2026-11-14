@@ -193,11 +193,7 @@ pub fn replay_as_of(
     }
 
     // Explicit ordering makes replay output independent of caller input order.
-    visible.sort_by(|left, right| {
-        left.received_at_unix_ms
-            .cmp(&right.received_at_unix_ms)
-            .then_with(|| left.id.cmp(&right.id))
-    });
+    visible.sort_by_key(|packet| (packet.received_at_unix_ms, packet.id.clone()));
 
     let visible_ids: BTreeSet<String> = visible.iter().map(|packet| packet.id.clone()).collect();
     let visible_packets = visible
