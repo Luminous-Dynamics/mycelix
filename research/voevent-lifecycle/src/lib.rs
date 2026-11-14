@@ -9,8 +9,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt;
 
+use mycelix_voevent_header::{
+    parse_packet, CitationRelation as ParsedCitationRelation, PacketRole as ParsedPacketRole,
+};
 use serde::{Deserialize, Serialize};
-use mycelix_voevent_header::{parse_packet, CitationRelation as ParsedCitationRelation, PacketRole as ParsedPacketRole};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceTime {
