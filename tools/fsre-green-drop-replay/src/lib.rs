@@ -65,9 +65,7 @@ fn parse_date(value: &str) -> bool {
         && bytes[8..10].iter().all(u8::is_ascii_digit)
 }
 
-fn parse_metadata(
-    metadata: &mut BTreeMap<String, String>,
-) -> Result<Metadata, String> {
+fn parse_metadata(metadata: &mut BTreeMap<String, String>) -> Result<Metadata, String> {
     let parsed = Metadata {
         source_id: take_required(metadata, "source_id")?,
         source_owner: take_required(metadata, "source_owner")?,
@@ -119,7 +117,12 @@ fn parse_optional_integer(value: &str, label: &str, line: usize) -> Result<Optio
 
 fn parse_fact(line: &str, line_number: usize) -> Result<Fact, String> {
     let columns: Vec<&str> = line.split('|').map(str::trim).collect();
-    if columns.len() != 9 || columns.iter().enumerate().any(|(index, value)| value.is_empty() && index != 6 && index != 7) {
+    if columns.len() != 9
+        || columns
+            .iter()
+            .enumerate()
+            .any(|(index, value)| value.is_empty() && index != 6 && index != 7)
+    {
         return Err(format!(
             "line {line_number}: expected 9 fields; only numerator and denominator may be empty"
         ));
@@ -145,9 +148,14 @@ fn parse_fact(line: &str, line_number: usize) -> Result<Fact, String> {
         || !valid_identifier(columns[1])
         || period < 2000
         || columns[5].is_empty()
-        || !matches!(columns[8], "SOURCE_REPORTED_COMPARISON" | "REPORT_SCOPE_TOTAL")
+        || !matches!(
+            columns[8],
+            "SOURCE_REPORTED_COMPARISON" | "REPORT_SCOPE_TOTAL"
+        )
     {
-        return Err(format!("line {line_number}: invalid fact identity, period, unit or comparison class"));
+        return Err(format!(
+            "line {line_number}: invalid fact identity, period, unit or comparison class"
+        ));
     }
 
     match kind {
@@ -165,7 +173,9 @@ fn parse_fact(line: &str, line_number: usize) -> Result<Fact, String> {
         }
         MetricKind::PublishedRoundedPercentWithDenominator => {
             let (Some(numerator), Some(denominator)) = (numerator, denominator) else {
-                return Err(format!("line {line_number}: checked percentage requires numerator and denominator"));
+                return Err(format!(
+                    "line {line_number}: checked percentage requires numerator and denominator"
+                ));
             };
             if columns[5] != "percent"
                 || denominator == 0
@@ -214,7 +224,10 @@ fn parse(source: &str) -> Result<(Metadata, Vec<Fact>), String> {
         if let Some(comment) = line.strip_prefix('#') {
             if let Some((key, value)) = comment.trim().split_once('=') {
                 let key = key.trim().to_owned();
-                if metadata.insert(key.clone(), value.trim().to_owned()).is_some() {
+                if metadata
+                    .insert(key.clone(), value.trim().to_owned())
+                    .is_some()
+                {
                     return Err(format!("line {line_number}: duplicate metadata key {key}"));
                 }
             }
@@ -230,7 +243,10 @@ fn parse(source: &str) -> Result<(Metadata, Vec<Fact>), String> {
 
         let fact = parse_fact(line, line_number)?;
         if !fact_ids.insert(fact.fact_id.clone()) {
-            return Err(format!("line {line_number}: duplicate fact ID {}", fact.fact_id));
+            return Err(format!(
+                "line {line_number}: duplicate fact ID {}",
+                fact.fact_id
+            ));
         }
         if !metric_periods.insert((fact.metric_id.clone(), fact.period)) {
             return Err(format!(
@@ -272,22 +288,31 @@ fn render(metadata: &Metadata, facts: &[Fact]) -> String {
         "secondary_publication_date={}\n",
         metadata.secondary_publication_date
     ));
-    output.push_str(&format!("tertiary_source_owner={}\n", metadata.tertiary_source_owner));
-    output.push_str(&format!("tertiary_source_ref={}\n", metadata.tertiary_source_ref));
+    output.push_str(&format!(
+        "tertiary_source_owner={}\n",
+        metadata.tertiary_source_owner
+    ));
+    output.push_str(&format!(
+        "tertiary_source_ref={}\n",
+        metadata.tertiary_source_ref
+    ));
     output.push_str(&format!("publication_date={}\n", metadata.publication_date));
-    output.push_str(&format!("observation_period={}\n", metadata.observation_period));
+    output.push_str(&format!(
+        "observation_period={}\n",
+        metadata.observation_period
+    ));
     output.push_str(&format!("geographic_scope={}\n", metadata.geographic_scope));
     output.push_str(&format!("report_vintage={}\n", metadata.report_vintage));
     output.push_str(&format!("source_status={}\n", metadata.source_status));
-    output.push_str(&format!("system_level_records={}\n", metadata.system_level_records));
+    output.push_str(&format!(
+        "system_level_records={}\n",
+        metadata.system_level_records
+    ));
 
     let mut canonical = facts.to_vec();
     canonical.sort_by(|left, right| left.fact_id.cmp(&right.fact_id));
     for fact in &canonical {
-        output.push_str(&format!(
-            "fact.{}.period={}\n",
-            fact.fact_id, fact.period
-        ));
+        output.push_str(&format!("fact.{}.period={}\n", fact.fact_id, fact.period));
         output.push_str(&format!(
             "fact.{}.value={}\n",
             fact.fact_id, fact.reported_value
@@ -408,13 +433,19 @@ mod tests {
 
     #[test]
     fn a_zero_denominator_is_rejected() {
-        let mutated = FIXTURE.replace("|396|848|SOURCE_REPORTED_COMPARISON", "|396|0|SOURCE_REPORTED_COMPARISON");
+        let mutated = FIXTURE.replace(
+            "|396|848|SOURCE_REPORTED_COMPARISON",
+            "|396|0|SOURCE_REPORTED_COMPARISON",
+        );
         assert!(parse(&mutated).is_err());
     }
 
     #[test]
     fn a_missing_ratio_component_is_rejected() {
-        let mutated = FIXTURE.replace("|396|848|SOURCE_REPORTED_COMPARISON", "|396||SOURCE_REPORTED_COMPARISON");
+        let mutated = FIXTURE.replace(
+            "|396|848|SOURCE_REPORTED_COMPARISON",
+            "|396||SOURCE_REPORTED_COMPARISON",
+        );
         assert!(parse(&mutated).is_err());
     }
 
