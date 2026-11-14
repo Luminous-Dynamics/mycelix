@@ -119,4 +119,6 @@ Operational studies report service-hours by cohort, cumulative deficit, longest 
 4. Time-frozen replay controls preventing hindsight leakage.
 5. Only after operator data access, benchmark against actual restoration planning, inventory/crew systems and domain optimisers.
 
+The as-known-at-the-time primitive is implemented separately in [the decision-time replay reference](../../tools/fsre-decision-time-replay/README.md) and an independent oracle. It does not yet compose automatically with the multi-interval stock-flow and portfolio tools.
+
 The current `fsre-portfolio-reference` is a one-interval feasibility checker. The stock-flow reference verifies resource arithmetic. Neither is a multi-period scheduler. This profile remains a research protocol until the complete temporal composition is implemented and independently evaluated.
