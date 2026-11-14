@@ -91,3 +91,46 @@ fn evaluator_has_no_mutating_or_provider_capability_in_its_interface() {
     assert!(!source.contains("pub fn transfer_funds"));
     assert!(!source.contains("pub fn grant_authority"));
 }
+
+#[test]
+fn missing_authority_fact_never_becomes_permission() {
+    let scenarios: ScenarioSuite = serde_json::from_str(SCENARIOS).unwrap();
+    let positive = scenarios.cases.iter().find(|case| case.id == "P01").unwrap();
+    let mut facts = positive.facts.clone();
+    facts.authority.local_authorized = None;
+    let decision = evaluate(&facts, facts.evaluated_at_unix);
+    assert_eq!(decision.disposition, Disposition::Indeterminate);
+}
+
+#[test]
+fn adding_a_known_bypass_cannot_improve_a_disposition() {
+    let scenarios: ScenarioSuite = serde_json::from_str(SCENARIOS).unwrap();
+    let positive = scenarios.cases.iter().find(|case| case.id == "P01").unwrap();
+    let mut facts = positive.facts.clone();
+    facts.institution.known_route_bypass = Some(true);
+    let decision = evaluate(&facts, facts.evaluated_at_unix);
+    assert_eq!(decision.disposition, Disposition::Deny);
+}
+
+#[test]
+fn adding_a_common_dependency_invalidates_an_independence_claim() {
+    let scenarios: ScenarioSuite = serde_json::from_str(SCENARIOS).unwrap();
+    let positive = scenarios.cases.iter().find(|case| case.id == "P03").unwrap();
+    let mut facts = positive.facts.clone();
+    facts.evidence.known_shared_dependency = Some(true);
+    let decision = evaluate(&facts, facts.evaluated_at_unix);
+    assert_eq!(decision.disposition, Disposition::Indeterminate);
+}
+
+#[test]
+fn contract_expiry_uses_explicit_evaluation_time() {
+    let scenarios: ScenarioSuite = serde_json::from_str(SCENARIOS).unwrap();
+    let unknown = scenarios.cases.iter().find(|case| case.id == "R06").unwrap();
+    let facts = &unknown.facts;
+    let before_expiry = evaluate(facts, 1_799_998_000);
+    let after_expiry = evaluate(facts, 1_800_000_000);
+    assert_eq!(before_expiry.disposition, Disposition::Hold);
+    assert_eq!(after_expiry.disposition, Disposition::Hold);
+    assert_eq!(before_expiry.reason_codes[0], "EXTERNAL_OUTCOME_UNKNOWN_RECONCILIATION_REQUIRED");
+    assert_eq!(after_expiry.reason_codes[0], "EXPIRED_CONTRACT_WITH_UNRECONCILED_EFFECT");
+}
