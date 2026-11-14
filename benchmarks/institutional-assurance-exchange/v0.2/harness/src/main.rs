@@ -489,6 +489,72 @@ fn compare_submission(packet: &Value, oracle: &Value, submission: &Value) -> Res
         "per_query":rows
     }))
 }
+fn operation_binding_matches(approved: &Value, pending: &Value) -> bool {
+    approved == pending
+}
+fn unknown_finality_retry_is_blocked(prior_effect: &str, retry_count: u64, reattempt_permitted: bool) -> bool {
+    prior_effect == "outcome_unknown_after_dispatch" && (retry_count > 0 || reattempt_permitted)
+}
+fn check_operation_finality(packet: &Value, submission: &Value) -> Result<bool, Box<dyn Error>> {
+    let binding=&packet["operation_finality"];
+    let approved=&binding["approved_operation"];
+    let pending=&binding["pending_operation"];
+    if !operation_binding_matches(approved,pending) {
+        return Err(invalid("approved and pending exact-operation projections differ in the fixture"));
+    }
+    let execution=&packet["execution_control"];
+    let write=required_array(submission,"write_trace","submission")?
+        .first().ok_or_else(||invalid("missing normalized write trace"))?;
+    let checks=[
+        (required_str(approved,"logical_operation_id","approved operation")?,required_str(execution,"operation_ref","execution control")?,"operation reference"),
+        (required_str(approved,"idempotency_ref","approved operation")?,required_str(execution,"idempotency_ref","execution control")?,"idempotency reference"),
+        (required_str(approved,"target_ref","approved operation")?,required_str(packet,"asset_ref","asset")?,"target asset"),
+        (required_str(approved,"purpose","approved operation")?,required_str(write,"purpose","write trace")?,"operation purpose"),
+        (required_str(binding,"policy_revision","operation finality")?,required_str(packet,"policy_ref","policy")?,"policy revision"),
+    ];
+    for (a,b,label) in checks {
+        if a!=b { return Err(invalid(format!("operation finality {label} mismatch"))); }
+    }
+    if approved != pending
+        || required_str(binding,"approval_state","operation finality")? != "authorized"
+        || required_str(binding,"approval_kind","operation finality")? != "human_record_not_cryptographically_verified"
+        || required_str(binding,"authority_state_before_dispatch","operation finality")? != "current"
+        || required_str(binding,"resource_state_before_dispatch","operation finality")? != "matches"
+        || required_str(binding,"prior_effect_after_timeout","operation finality")? != "outcome_unknown_after_dispatch"
+        || required_str(binding,"retry_safety_after_timeout","operation finality")? != "unknown"
+        || required_str(binding,"expected_post_timeout_disposition","operation finality")? != "HOLD_FOR_RECONCILIATION"
+        || binding["expected_retry_permitted"].as_bool()!=Some(false) {
+        return Err(invalid("fixture operation-finality state is internally inconsistent"));
+    }
+    let reported=&submission["operation_finality_result"];
+    let constitution=&binding["constitution"];
+    let expected_fields=[
+        ("operation_ref",required_str(approved,"logical_operation_id","approved operation")?),
+        ("canonical_operation_digest",required_str(approved,"canonical_operation_digest","approved operation")?),
+        ("approval_ref",required_str(binding,"approval_ref","operation finality")?),
+        ("constitution_digest",required_str(constitution,"constitution_digest","constitution")?),
+    ];
+    let mut exact=true;
+    for (field,value) in expected_fields {
+        if reported.get(field).and_then(Value::as_str)!=Some(value) { exact=false; }
+    }
+    exact &= reported["constitution_epoch"].as_u64()==constitution["epoch"].as_u64();
+    exact &= reported["authority_state"].as_str()==Some("current");
+    exact &= reported["resource_state"].as_str()==Some("matches");
+    exact &= reported["prior_effect_state"].as_str()==Some("outcome_unknown_after_dispatch");
+    exact &= reported["retry_safety"].as_str()==Some("unknown");
+    exact &= reported["disposition"].as_str()==Some("HOLD_FOR_RECONCILIATION");
+    exact &= reported["retry_count"].as_u64()==Some(0);
+    exact &= reported["reattempt_permitted"].as_bool()==Some(false);
+    if unknown_finality_retry_is_blocked(
+        required_str(binding,"prior_effect_after_timeout","operation finality")?,
+        reported["retry_count"].as_u64().unwrap_or(0),
+        reported["reattempt_permitted"].as_bool().unwrap_or(true),
+    ) {
+        return Err(invalid("operation-finality submission permits retry after unknown outcome"));
+    }
+    Ok(exact)
+}
 fn run() -> Result<(), Box<dyn Error>> {
     let args:Vec<String>=env::args().collect();
     if args.len()!=4 { return Err(invalid("usage: iae-vertical-slice-v0-2 <fixture.json> <oracle.json> <submission.json>")); }
@@ -518,6 +584,8 @@ fn run() -> Result<(), Box<dyn Error>> {
     check_baseline(&fixture)?;
     check_receipts(&fixture)?;
     check_query_bindings(&fixture)?;
+    // Exact operation authorization is distinct from human acceptance of the intent baseline.
+    let operation_finality_ok=check_operation_finality(&fixture,&submission)?;
     if submission["intent_baseline_ref"].as_str()!=fixture["intent_baseline"]["baseline_id"].as_str() {
         return Err(invalid("submission baseline reference mismatch"));
     }
@@ -669,6 +737,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     }
     let query_coverage=metrics["query_count"].as_u64().unwrap_or(0) as usize==fixture["queries"].as_array().map(Vec::len).unwrap_or(0);
     let all_ok=query_coverage
+        && operation_finality_ok
         && write_authorization_ok
         && metrics["critical_false_clears"].as_u64()==Some(0)
         && metrics["trace_completeness_failures"].as_u64()==Some(0)
@@ -683,6 +752,14 @@ fn run() -> Result<(), Box<dyn Error>> {
         "requirement_source_spans_verified":fixture["intent_candidates"].as_array().map(Vec::len).unwrap_or(0),
         "bitemporal_query_rules":"canonical UTC lexical ordering: effective_from <= effective_at and observed_at <= known_at",
         "metrics":metrics,
+        "operation_finality":{
+            "approved_operation_equals_pending_operation":operation_binding_matches(&fixture["operation_finality"]["approved_operation"],&fixture["operation_finality"]["pending_operation"]),
+            "operation_finality_matches_submission":operation_finality_ok,
+            "distinct_human_operation_approval":fixture["operation_finality"]["approval_ref"]!=fixture["intent_baseline"]["approval"]["approval_ref"],
+            "constitution_epoch_bound":fixture["operation_finality"]["constitution"]["epoch"],
+            "retry_safety":"unknown",
+            "required_disposition":"HOLD_FOR_RECONCILIATION"
+        },
         "execution_control":{
             "unknown_event_in_history":unknown_history,
             "blind_retry_detected":blind_retry,
@@ -737,6 +814,22 @@ fn main() {
 mod tests {
     use super::{byte_span_matches,is_hard_modality,is_non_blocking_modality,canonical_utc,blind_retry_in_history,authority_state_at,write_is_authorized};
     use serde_json::json;
+
+    #[test]
+    fn approved_and_pending_operation_bindings_must_match_exactly() {
+        let approved=json!({"action":"approve","target":"asset-a","purpose":"lease"});
+        let pending=json!({"action":"approve","target":"asset-a","purpose":"lease"});
+        let substituted=json!({"action":"approve","target":"asset-b","purpose":"lease"});
+        assert!(operation_binding_matches(&approved,&pending));
+        assert!(!operation_binding_matches(&approved,&substituted));
+    }
+    #[test]
+    fn unknown_outcome_finality_blocks_any_reattempt() {
+        assert!(unknown_finality_retry_is_blocked("outcome_unknown_after_dispatch",0,true));
+        assert!(unknown_finality_retry_is_blocked("outcome_unknown_after_dispatch",1,false));
+        assert!(!unknown_finality_retry_is_blocked("outcome_unknown_after_dispatch",0,false));
+        assert!(!unknown_finality_retry_is_blocked("never_attempted",0,false));
+    }
 
     #[test]
     fn source_spans_use_utf8_bytes_not_character_offsets() {
