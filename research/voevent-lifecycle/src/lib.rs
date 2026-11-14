@@ -518,6 +518,9 @@ mod tests {
             role: PacketRole::Observation,
             role_was_implicit: true,
             packet_sha256: None,
+            parser_version: "unit-test-manual-packet".to_owned(),
+            source_attributes: Vec::new(),
+            citations_description: None,
             publisher: Some(publisher.to_owned()),
             received_at_unix_ms,
             published_at: None,
@@ -526,34 +529,16 @@ mod tests {
         }
     }
 
-    fn parser_received_packet(received_at_unix_ms: u64) -> ReceivedParsedPacket {
-        let raw_packet_xml = concat!(
-            "<VOEvent ivorn=\"ivo://survey.example/event?one\" version=\"2.1\">",
-            "<Who><AuthorIVORN>ivo://publisher.example/stream</AuthorIVORN>",
-            "<Date>2026-11-14T08:00:00Z</Date></Who><What/></VOEvent>"
-        )
-        .to_owned();
-        ReceivedParsedPacket {
+    fn parser_received_packet(received_at_unix_ms: u64) -> ReceivedRawPacket {
+        ReceivedRawPacket {
             received_at_unix_ms,
-            raw_packet_xml,
-            packet: ParsedVoEventProjection {
-                header: ParsedHeaderProjection {
-                    ivoid: "ivo://survey.example/event?one".to_owned(),
-                    version: "2.1".to_owned(),
-                    raw_role: None,
-                    effective_role: PacketRole::Observation,
-                    role_was_implicit: true,
-                    packet_byte_length: 180,
-                    packet_sha256: "9e21c6573ad6578d65a1591da4396cbc4fd8cec1effbf57e1ad1015ae512198c".to_owned(),
-                },
-                who: ParsedWhoProjection {
-                    present: true,
-                    author_ivoid: Some("ivo://publisher.example/stream".to_owned()),
-                    source_created_at: Some("2026-11-14T08:00:00Z".to_owned()),
-                },
-                citations_present: false,
-                citations: Vec::new(),
-            },
+            raw_packet_xml: concat!(
+                "<VOEvent ivorn=\"ivo://survey.example/event?one\" version=\"2.1\" ",
+                "survey=\"S1\">",
+                "<Who><AuthorIVORN>ivo://publisher.example/stream</AuthorIVORN>",
+                "<Date>2026-11-14T08:00:00Z</Date></Who><What/></VOEvent>"
+            )
+            .to_owned(),
         }
     }
 
@@ -561,6 +546,7 @@ mod tests {
         Citation {
             target_id: target_id.to_owned(),
             relation,
+            attributes: Vec::new(),
         }
     }
 
@@ -573,14 +559,23 @@ mod tests {
     }
 
     #[test]
-    fn parser_projection_manifest_preserves_creation_receipt_and_digest_separately() {
+    fn raw_packet_manifest_preserves_creation_receipt_and_digest_separately() {
         let manifest: ReplayManifest = serde_json::from_str(include_str!(
             "../tests/fixtures/parser-projection-thread.json"
         ))
-        .expect("parser projection manifest");
+        .expect("raw packet/receipt manifest");
         let before = replay_manifest(manifest.clone()).expect("historical replay");
         assert_eq!(before.visible_packets.len(), 1);
         assert!(before.edges.is_empty());
+        assert_eq!(before.visible_packets[0].id, "ivo://survey.example/event?one");
+        assert_eq!(
+            before.visible_packets[0].parser_version,
+            mycelix_voevent_header::PARSER_VERSION
+        );
+        assert!(before.visible_packets[0]
+            .source_attributes
+            .iter()
+            .any(|attribute| attribute.name == "survey" && attribute.value == "S1"));
 
         let mut later = manifest;
         later.cutoff_unix_ms = 300;
@@ -596,144 +591,141 @@ mod tests {
             Some("2026-11-14T07:55:00Z")
         );
         assert_eq!(
-            after.visible_packets[1].packet_sha256.as_deref(),
-            Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+            after.visible_packets[1].packet_sha256.as_ref().map(String::len),
+            Some(64)
         );
         assert_eq!(
-            after.edges[0].asserting_packet_received_at_unix_ms,
-            300
+            after.visible_packets[1].citations_description.as_deref(),
+            Some("Reprocessed.")
         );
+        assert!(after.edges[0].citation_attributes.iter().any(|attribute| {
+            attribute.name == "reviewer" && attribute.value == "independent"
+        }));
+        assert_eq!(after.edges[0].asserting_packet_received_at_unix_ms, 300);
         assert_eq!(
-            after.edges[0].asserting_packet_sha256.as_deref(),
-            Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+            after.edges[0].asserting_packet_sha256,
+            after.visible_packets[1].packet_sha256
         );
     }
 
     #[test]
-    fn parser_projection_preserves_explicit_and_implicit_voevent_roles() {
-        let explicit_test = ReplayManifest {
+    fn parser_derives_identity_role_who_and_citations_from_raw_xml() {
+        let xml = concat!(
+            "<VOEvent ivorn=\"ivo://survey.example/test?one\" version=\"2.1\" role=\"test\" ",
+            "custom=\"keep\">",
+            "<Who><AuthorIVORN>ivo://author.example/publisher</AuthorIVORN>",
+            "<Date>2026-11-14T08:00:00TT</Date></Who>",
+            "<Citations><EventIVORN cite=\"followup\" annotation=\"source-native\">",
+            "ivo://survey.example/prior?1</EventIVORN><Description>follow-up context</Description></Citations>",
+            "</VOEvent>"
+        )
+        .to_owned();
+        let replay = replay_manifest(ReplayManifest {
             cutoff_unix_ms: 10,
-            packets: vec![ReceivedParsedPacket {
+            packets: vec![ReceivedRawPacket {
                 received_at_unix_ms: 1,
-                packet: ParsedVoEventProjection {
-                    header: ParsedHeaderProjection {
-                        ivoid: "ivo://survey.example/test?one".to_owned(),
-                        raw_role: Some("test".to_owned()),
-                        effective_role: PacketRole::Test,
-                        role_was_implicit: false,
-                        packet_sha256: "d".repeat(64),
-                    },
-                    who: ParsedWhoProjection {
-                        present: false,
-                        author_ivoid: None,
-                        source_created_at: None,
-                    },
-                    citations_present: false,
-                    citations: Vec::new(),
-                },
+                raw_packet_xml: xml,
             }],
-        };
-        let replay = replay_manifest(explicit_test).expect("test role replay");
-        assert_eq!(replay.visible_packets[0].role, PacketRole::Test);
-        assert!(!replay.visible_packets[0].role_was_implicit);
-
-        let inconsistent = ReplayManifest {
-            cutoff_unix_ms: 10,
-            packets: vec![ReceivedParsedPacket {
-                received_at_unix_ms: 1,
-                packet: ParsedVoEventProjection {
-                    header: ParsedHeaderProjection {
-                        ivoid: "ivo://survey.example/test?two".to_owned(),
-                        raw_role: Some("test".to_owned()),
-                        effective_role: PacketRole::Observation,
-                        role_was_implicit: false,
-                        packet_sha256: "e".repeat(64),
-                    },
-                    who: ParsedWhoProjection {
-                        present: false,
-                        author_ivoid: None,
-                        source_created_at: None,
-                    },
-                    citations_present: false,
-                    citations: Vec::new(),
-                },
-            }],
-        };
-        assert!(matches!(
-            replay_manifest(inconsistent),
-            Err(ManifestError::InvalidProjection { .. })
-        ));
+        })
+        .expect("parser-derived replay");
+        let visible = &replay.visible_packets[0];
+        assert_eq!(visible.id, "ivo://survey.example/test?one");
+        assert_eq!(visible.role, PacketRole::Test);
+        assert!(!visible.role_was_implicit);
+        assert_eq!(visible.publisher.as_deref(), Some("ivo://author.example/publisher"));
+        assert_eq!(visible.published_at.as_deref(), Some("2026-11-14T08:00:00TT"));
+        assert!(visible.source_attributes.iter().any(|a| a.name == "custom" && a.value == "keep"));
+        assert_eq!(visible.citations_description.as_deref(), Some("follow-up context"));
+        assert_eq!(replay.edges.len(), 1);
+        assert_eq!(replay.edges[0].relation, CitationRelation::Followup);
+        assert!(replay.edges[0].citation_attributes.iter().any(|a| {
+            a.name == "annotation" && a.value == "source-native"
+        }));
     }
 
     #[test]
-    fn parser_projection_manifest_rejects_digest_byte_length_and_citation_mismatches() {
-        let mut invalid_digest = parser_received_packet(1);
-        invalid_digest.packet.header.packet_sha256 = "not-a-digest".to_owned();
-        assert!(matches!(
-            replay_manifest(ReplayManifest {
+    fn raw_manifest_rejects_caller_supplied_projection_fields() {
+        let value = serde_json::json!({
+            "cutoff_unix_ms": 10,
+            "packets": [{
+                "received_at_unix_ms": 1,
+                "raw_packet_xml": "<VOEvent ivorn=\\\"ivo://survey.example/a\\\" version=\\\"2.1\\\"/>",
+                "packet": {
+                    "header": {
+                        "ivoid": "ivo://attacker.example/forged",
+                        "version": "2.1",
+                        "packet_sha256": "a".repeat(64)
+                    }
+                }
+            }]
+        });
+        assert!(serde_json::from_value::<ReplayManifest>(value).is_err());
+    }
+
+    #[test]
+    fn parser_rejects_malformed_or_unsupported_raw_packet_bytes() {
+        for xml in [
+            "<VOEvent ivorn=\"ivo://survey.example/a\" version=\"2.1\"><Who>",
+            "<!DOCTYPE VOEvent><VOEvent ivorn=\"ivo://survey.example/a\" version=\"2.1\"/>",
+            "<VOEvent ivorn=\"ivo://survey.example/a\" version=\"2.0\"/>",
+        ] {
+            let result = replay_manifest(ReplayManifest {
                 cutoff_unix_ms: 10,
-                packets: vec![invalid_digest],
-            }),
-            Err(ManifestError::InvalidProjection { .. })
-        ));
+                packets: vec![ReceivedRawPacket {
+                    received_at_unix_ms: 1,
+                    raw_packet_xml: xml.to_owned(),
+                }],
+            });
+            assert!(matches!(result, Err(ManifestError::InvalidPacket { .. })));
+        }
+    }
 
-        let mut changed_source = parser_received_packet(1);
-        changed_source.raw_packet_xml = changed_source
+    #[test]
+    fn raw_packet_identity_and_digest_are_derived_from_the_same_exact_bytes() {
+        let first = parser_received_packet(1);
+        let mut second = first.clone();
+        second.raw_packet_xml = second
             .raw_packet_xml
             .replace("event?one", "event?two");
-        assert_eq!(
-            changed_source.raw_packet_xml.len(),
-            changed_source.packet.header.packet_byte_length
+        let first_replay = replay_manifest(ReplayManifest {
+            cutoff_unix_ms: 10,
+            packets: vec![first],
+        })
+        .expect("first source packet");
+        let second_replay = replay_manifest(ReplayManifest {
+            cutoff_unix_ms: 10,
+            packets: vec![second],
+        })
+        .expect("modified source packet");
+        assert_eq!(first_replay.visible_packets[0].id, "ivo://survey.example/event?one");
+        assert_eq!(second_replay.visible_packets[0].id, "ivo://survey.example/event?two");
+        assert_ne!(
+            first_replay.visible_packets[0].packet_sha256,
+            second_replay.visible_packets[0].packet_sha256
         );
-        assert!(matches!(
-            replay_manifest(ReplayManifest {
-                cutoff_unix_ms: 10,
-                packets: vec![changed_source],
-            }),
-            Err(ManifestError::InvalidProjection { .. })
-        ));
-
-        let mut wrong_length = parser_received_packet(1);
-        wrong_length.raw_packet_xml.push(' ');
-        assert!(matches!(
-            replay_manifest(ReplayManifest {
-                cutoff_unix_ms: 10,
-                packets: vec![wrong_length],
-            }),
-            Err(ManifestError::InvalidProjection { .. })
-        ));
-
-        let mut inconsistent = parser_received_packet(1);
-        inconsistent.packet.citations_present = true;
-        assert!(matches!(
-            replay_manifest(ReplayManifest {
-                cutoff_unix_ms: 10,
-                packets: vec![inconsistent],
-            }),
-            Err(ManifestError::InvalidProjection { .. })
-        ));
     }
 
     #[test]
-    fn malformed_future_projection_does_not_poison_a_historical_cutoff() {
+    fn malformed_future_raw_packet_does_not_poison_historical_cutoff() {
         let valid = parser_received_packet(1);
-        let mut future_invalid = parser_received_packet(30);
-        future_invalid.packet.header.packet_sha256 = "not-a-digest".to_owned();
-
+        let future_invalid = ReceivedRawPacket {
+            received_at_unix_ms: 30,
+            raw_packet_xml: "<VOEvent".to_owned(),
+        };
         let historical = replay_manifest(ReplayManifest {
             cutoff_unix_ms: 10,
             packets: vec![valid.clone(), future_invalid.clone()],
         })
         .expect("future invalid packet is outside this historical view");
         assert_eq!(historical.visible_packets.len(), 1);
-        assert_eq!(historical.visible_packets[0].id, valid.packet.header.ivoid);
+        assert_eq!(historical.visible_packets[0].id, "ivo://survey.example/event?one");
 
         assert!(matches!(
             replay_manifest(ReplayManifest {
                 cutoff_unix_ms: 30,
                 packets: vec![valid, future_invalid],
             }),
-            Err(ManifestError::InvalidProjection { .. })
+            Err(ManifestError::InvalidPacket { .. })
         ));
     }
 
