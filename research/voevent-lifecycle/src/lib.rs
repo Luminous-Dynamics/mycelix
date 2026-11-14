@@ -612,6 +612,37 @@ mod tests {
         }
     }
 
+    fn parser_received_packet(received_at_unix_ms: u64) -> ReceivedParsedPacket {
+        let raw_packet_xml = concat!(
+            "<VOEvent ivorn=\"ivo://survey.example/event?one\" version=\"2.1\">",
+            "<Who><AuthorIVORN>ivo://publisher.example/stream</AuthorIVORN>",
+            "<Date>2026-11-14T08:00:00Z</Date></Who><What/></VOEvent>"
+        )
+        .to_owned();
+        ReceivedParsedPacket {
+            received_at_unix_ms,
+            raw_packet_xml,
+            packet: ParsedVoEventProjection {
+                header: ParsedHeaderProjection {
+                    ivoid: "ivo://survey.example/event?one".to_owned(),
+                    version: "2.1".to_owned(),
+                    raw_role: None,
+                    effective_role: PacketRole::Observation,
+                    role_was_implicit: true,
+                    packet_byte_length: 180,
+                    packet_sha256: "9e21c6573ad6578d65a1591da4396cbc4fd8cec1effbf57e1ad1015ae512198c".to_owned(),
+                },
+                who: ParsedWhoProjection {
+                    present: true,
+                    author_ivoid: Some("ivo://publisher.example/stream".to_owned()),
+                    source_created_at: Some("2026-11-14T08:00:00Z".to_owned()),
+                },
+                citations_present: false,
+                citations: Vec::new(),
+            },
+        }
+    }
+
     fn citation(target_id: &str, relation: CitationRelation) -> Citation {
         Citation {
             target_id: target_id.to_owned(),
@@ -721,58 +752,73 @@ mod tests {
     }
 
     #[test]
-    fn parser_projection_manifest_rejects_invalid_digest_and_citation_presence_mismatch() {
-        let invalid_digest = ReplayManifest {
-            cutoff_unix_ms: 10,
-            packets: vec![ReceivedParsedPacket {
-                received_at_unix_ms: 1,
-                packet: ParsedVoEventProjection {
-                    header: ParsedHeaderProjection {
-                        ivoid: "ivo://survey.example/event?one".to_owned(),
-                        raw_role: None,
-                        effective_role: PacketRole::Observation,
-                        role_was_implicit: true,
-                        packet_sha256: "not-a-digest".to_owned(),
-                    },
-                    who: ParsedWhoProjection {
-                        present: false,
-                        author_ivoid: None,
-                        source_created_at: None,
-                    },
-                    citations_present: false,
-                    citations: Vec::new(),
-                },
-            }],
-        };
+    fn parser_projection_manifest_rejects_digest_byte_length_and_citation_mismatches() {
+        let mut invalid_digest = parser_received_packet(1);
+        invalid_digest.packet.header.packet_sha256 = "not-a-digest".to_owned();
         assert!(matches!(
-            replay_manifest(invalid_digest),
+            replay_manifest(ReplayManifest {
+                cutoff_unix_ms: 10,
+                packets: vec![invalid_digest],
+            }),
             Err(ManifestError::InvalidProjection { .. })
         ));
 
-        let inconsistent = ReplayManifest {
-            cutoff_unix_ms: 10,
-            packets: vec![ReceivedParsedPacket {
-                received_at_unix_ms: 1,
-                packet: ParsedVoEventProjection {
-                    header: ParsedHeaderProjection {
-                        ivoid: "ivo://survey.example/event?one".to_owned(),
-                        raw_role: None,
-                        effective_role: PacketRole::Observation,
-                        role_was_implicit: true,
-                        packet_sha256: "c".repeat(64),
-                    },
-                    who: ParsedWhoProjection {
-                        present: false,
-                        author_ivoid: None,
-                        source_created_at: None,
-                    },
-                    citations_present: true,
-                    citations: Vec::new(),
-                },
-            }],
-        };
+        let mut changed_source = parser_received_packet(1);
+        changed_source.raw_packet_xml = changed_source
+            .raw_packet_xml
+            .replace("event?one", "event?two");
+        assert_eq!(
+            changed_source.raw_packet_xml.len(),
+            changed_source.packet.header.packet_byte_length
+        );
         assert!(matches!(
-            replay_manifest(inconsistent),
+            replay_manifest(ReplayManifest {
+                cutoff_unix_ms: 10,
+                packets: vec![changed_source],
+            }),
+            Err(ManifestError::InvalidProjection { .. })
+        ));
+
+        let mut wrong_length = parser_received_packet(1);
+        wrong_length.raw_packet_xml.push(' ');
+        assert!(matches!(
+            replay_manifest(ReplayManifest {
+                cutoff_unix_ms: 10,
+                packets: vec![wrong_length],
+            }),
+            Err(ManifestError::InvalidProjection { .. })
+        ));
+
+        let mut inconsistent = parser_received_packet(1);
+        inconsistent.packet.citations_present = true;
+        assert!(matches!(
+            replay_manifest(ReplayManifest {
+                cutoff_unix_ms: 10,
+                packets: vec![inconsistent],
+            }),
+            Err(ManifestError::InvalidProjection { .. })
+        ));
+    }
+
+    #[test]
+    fn malformed_future_projection_does_not_poison_a_historical_cutoff() {
+        let valid = parser_received_packet(1);
+        let mut future_invalid = parser_received_packet(30);
+        future_invalid.packet.header.packet_sha256 = "not-a-digest".to_owned();
+
+        let historical = replay_manifest(ReplayManifest {
+            cutoff_unix_ms: 10,
+            packets: vec![valid.clone(), future_invalid.clone()],
+        })
+        .expect("future invalid packet is outside this historical view");
+        assert_eq!(historical.visible_packets.len(), 1);
+        assert_eq!(historical.visible_packets[0].id, valid.packet.header.ivoid);
+
+        assert!(matches!(
+            replay_manifest(ReplayManifest {
+                cutoff_unix_ms: 30,
+                packets: vec![valid, future_invalid],
+            }),
             Err(ManifestError::InvalidProjection { .. })
         ));
     }
