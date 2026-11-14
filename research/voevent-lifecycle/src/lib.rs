@@ -301,9 +301,20 @@ pub enum ReplayDiagnostic {
     },
 }
 
+/// Provenance of the time coordinate used to bound this replay.
+///
+/// This standalone research package only accepts a caller-supplied manifest
+/// timestamp. It is not the canonical DeSci signed authority-receipt proof.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReceiptTimeBasis {
+    UnattestedManifestAssertion,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Replay {
     pub cutoff_unix_ms: u64,
+    pub receipt_time_basis: ReceiptTimeBasis,
     pub visible_packets: Vec<VisiblePacket>,
     pub edges: Vec<LifecycleEdge>,
     pub unresolved_citations: Vec<UnresolvedCitation>,
@@ -487,6 +498,7 @@ pub fn replay_as_of(
 
     Ok(Replay {
         cutoff_unix_ms,
+        receipt_time_basis: ReceiptTimeBasis::UnattestedManifestAssertion,
         visible_packets,
         edges,
         unresolved_citations,
@@ -582,6 +594,23 @@ mod tests {
             .iter()
             .find(|item| item.packet_id == packet_id)
             .expect("expected lifecycle effect")
+    }
+
+    #[test]
+    fn manifest_cutoff_is_explicitly_marked_unattested() {
+        let replay = replay_manifest(ReplayManifest {
+            cutoff_unix_ms: 10,
+            packets: vec![received(
+                1,
+                source_packet("ivo://survey.example/event", None, None, &[]),
+            )],
+        })
+        .expect("synthetic manifest replay");
+
+        assert_eq!(
+            replay.receipt_time_basis,
+            ReceiptTimeBasis::UnattestedManifestAssertion
+        );
     }
 
     #[test]
