@@ -140,7 +140,7 @@ fn parse_fact(line: &str, line_number: usize) -> Result<Fact, ReferenceError> {
             }
             match fact.status.as_str() {
                 "QUALIFIED" if fact.quantity.is_some() && fact.unit.is_some() => {}
-                "UNKNOWN" if fact.quantity.is_none() => {}
+                "UNKNOWN" if fact.quantity.is_none() && fact.unit.is_some() => {}
                 _ => {
                     return Err(ReferenceError(format!(
                         "line {line_number}: option capacity status/measurement mismatch"
@@ -202,7 +202,7 @@ fn parse_fact(line: &str, line_number: usize) -> Result<Fact, ReferenceError> {
             }
             match fact.status.as_str() {
                 "QUALIFIED" if fact.quantity.is_some() && fact.unit.is_some() => {}
-                "UNKNOWN" if fact.quantity.is_none() => {}
+                "UNKNOWN" if fact.quantity.is_none() && fact.unit.is_some() => {}
                 _ => {
                     return Err(ReferenceError(format!(
                         "line {line_number}: resource-use status/measurement mismatch"
@@ -222,7 +222,7 @@ fn parse_fact(line: &str, line_number: usize) -> Result<Fact, ReferenceError> {
             }
             match fact.status.as_str() {
                 "QUALIFIED" if fact.quantity.is_some() && fact.unit.is_some() => {}
-                "UNKNOWN" if fact.quantity.is_none() => {}
+                "UNKNOWN" if fact.quantity.is_none() && fact.unit.is_some() => {}
                 _ => {
                     return Err(ReferenceError(format!(
                         "line {line_number}: resource-capacity status/measurement mismatch"
@@ -476,6 +476,12 @@ fn reference_evaluate(snapshot: &Snapshot) -> Result<String, ReferenceError> {
                 candidate.reasons.insert("MISSING_OPTION_CAPACITY".to_owned());
             }
             Some(fact) if fact.status == "UNKNOWN" => {
+                if fact.unit != *unit {
+                    return Err(ReferenceError(format!(
+                        "option capacity unit mismatch for {}",
+                        key.0
+                    )));
+                }
                 candidate.unknown = true;
                 candidate.reasons.insert("OPTION_CAPACITY_UNKNOWN".to_owned());
             }
@@ -857,6 +863,42 @@ mod tests {
         let changed = FIXTURE.replace(
             "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|60|L|QUALIFIED|operator|synthetic:stock:diesel",
             "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|60|L|UNKNOWN|operator|synthetic:stock:diesel",
+        );
+        assert_ne!(changed, FIXTURE);
+        assert!(validate_and_report(&changed)
+            .unwrap_err()
+            .0
+            .contains("status/measurement mismatch"));
+    }
+
+    #[test]
+    fn unknown_option_capacity_requires_matching_unit() {
+        let missing_unit = FIXTURE.replace(
+            "OPTION_CAPACITY|cap-pump|backup_pump|water||synthetic-water-shock|hour-01||80|m3|QUALIFIED|symtropy|synthetic:capacity:pump",
+            "OPTION_CAPACITY|cap-pump|backup_pump|water||synthetic-water-shock|hour-01|||UNKNOWN|symtropy|synthetic:capacity:pump",
+        );
+        assert_ne!(missing_unit, FIXTURE);
+        assert!(validate_and_report(&missing_unit)
+            .unwrap_err()
+            .0
+            .contains("status/measurement mismatch"));
+
+        let wrong_unit = FIXTURE.replace(
+            "OPTION_CAPACITY|cap-pump|backup_pump|water||synthetic-water-shock|hour-01||80|m3|QUALIFIED|symtropy|synthetic:capacity:pump",
+            "OPTION_CAPACITY|cap-pump|backup_pump|water||synthetic-water-shock|hour-01||L|UNKNOWN|symtropy|synthetic:capacity:pump",
+        );
+        assert_ne!(wrong_unit, FIXTURE);
+        assert!(validate_and_report(&wrong_unit)
+            .unwrap_err()
+            .0
+            .contains("option capacity unit mismatch"));
+    }
+
+    #[test]
+    fn unknown_resource_use_requires_known_unit() {
+        let changed = FIXTURE.replace(
+            "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours|6|h|QUALIFIED|operator|synthetic:resource:pump-crew",
+            "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours||||UNKNOWN|operator|synthetic:resource:pump-crew",
         );
         assert_ne!(changed, FIXTURE);
         assert!(validate_and_report(&changed)
