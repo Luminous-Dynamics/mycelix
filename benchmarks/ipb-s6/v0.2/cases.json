@@ -72,8 +72,8 @@
         "action": "sell_asset",
         "purpose": "approved_disposal",
         "asset_ref": "VESSEL-002",
-        "requested_at": "2026-11-14T07:00:00Z",
-        "execute_at": "2026-11-14T07:07:00Z",
+        "requested_at": "2026-11-14T07:10:00Z",
+        "execute_at": "2026-11-14T07:20:00Z",
         "requested_claim_dimension": "operational_authority"
       },
       "authorization": {
