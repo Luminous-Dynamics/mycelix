@@ -8,7 +8,7 @@ Pure Rust reference evaluator for a finite, claim-scoped authorization/effect co
 
 A successful task never upgrades an unauthorized action. A failed task does not automatically imply an authorization violation.
 
-The 22 synthetic cases cover clarification, structural parent/child delegation attenuation, revocation, expiry, epoch drift, enforcement bypass, operation substitution, collateral effects, failed tasks, executor-only acknowledgement, unknown/partial effects, replay, amount ceilings and observation mismatch. The input panel and separate oracle are stored independently. Strict serde parsing rejects unknown fields.
+The 26 synthetic cases cover clarification, structural parent/child delegation attenuation, revocation, expiry, epoch drift, enforcement bypass, operation substitution, collateral effects, failed tasks, executor-only acknowledgement, unknown/partial effects, replay, amount ceilings and observation mismatch. The input panel and separate oracle are stored independently. Strict serde parsing rejects unknown fields.
 
 This evaluator does not authenticate owner authority, enforce a real tool path, observe a real provider or perform an effect. It has no credential, signer, treasury or network capability.
 
@@ -21,6 +21,17 @@ cargo test --all-targets
 cargo clippy --all-targets -- -D warnings
 ```
 
-**11 unit and 6 integration tests are authored; they have not been compiled or executed in the authoring environment.** Exact-head CI is required before reporting a Rust pass.
+**16 unit and 9 integration tests are authored; they have not been compiled or executed in the authoring environment.** Exact-head CI is required before reporting a Rust pass.
 
 A finite fixture pass is not a security guarantee, certification or SOTA superiority claim. Comparative results require matched task semantics, versions, sandbox visibility, oracle rules, repeated runs and full denominators.
+
+
+## No-attempt and collateral-effect consistency
+
+The evaluator now checks collateral effects before its no-primary-attempt shortcut. When no primary tool attempt is recorded:
+- a genuinely 'not_attempted' effect remains a permitted no-op;
+- unknown or partial effect state is held for reconciliation;
+- a committed effect conflicts with the no-attempt record and is indeterminate;
+- any unauthorized collateral effect is denied, even if the primary operation was not attempted.
+
+The fixture/oracle add A23–A26 for these four distinctions. This prevents the absence of a primary tool call from being used as evidence that no external effect occurred.
