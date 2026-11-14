@@ -39,9 +39,9 @@ A challenge is linked to an exact decision reference. The output retains the exa
 
 ## Remedy lifecycle extension
 
-The new `RemedyOrder` event links an exact challenged decision and challenge to a remedy order. Its issuer must hold a matching `AuthorityGrant` over the exact remedy-order subject, principal and target at the order time. A `CorrectiveAction` is recorded separately as Open, Verified or Ineffective.
+The new `RemedyOrder` event links an exact challenged decision and challenge to a remedy order. Its issuer must hold a matching `AuthorityGrant` over the exact remedy-order subject, principal and target at the order time. A `CorrectiveAction` is recorded separately as Open, Verified or Ineffective. A Verified status whose observer is the issuer is downgraded to `INDEPENDENCE_UNESTABLISHED`.
 
-The new six-case family distinguishes: ordered but not started; attempt succeeded without observation; independently observed completion; partial observation; contradicted observation; and reviewer lacking order authority. A seventh case tests a late-recorded, retroactive revocation of the remedy reviewer's authority: as-known-at-order remains authorized while current reassessment becomes unauthorized. The fixture explicitly keeps remedy authority and remedy-effect state separate.
+The new eight-case family distinguishes: ordered but not started; attempt succeeded without observation; independently observed completion; partial observation; contradicted observation; and reviewer lacking order authority. A seventh case tests a late-recorded, retroactive revocation of the remedy reviewer's authority: as-known-at-order remains authorized while current reassessment becomes unauthorized. The fixture explicitly keeps remedy authority and remedy-effect state separate.
 
 `COMPLETED_OBSERVED` requires an EffectObservation linked to the exact remedy Attempt, with observer identity distinct from the Attempt issuer. An order, executor success, administrator closure, or partial/contradicted observation cannot be promoted into completed remedy.
 
