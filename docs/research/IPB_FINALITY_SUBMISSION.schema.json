@@ -180,7 +180,8 @@
           "revocation_effective_state",
           "revocation_knowledge_state",
           "approved_constitution_epoch",
-          "current_constitution_epoch"
+          "current_constitution_epoch",
+          "observed_terminal_state"
         ],
         "properties": {
           "scenario_id": {
@@ -628,6 +629,17 @@
               "null"
             ],
             "minimum": 0
+          },
+          "observed_terminal_state": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "INDETERMINATE",
+              "INVALID",
+              "UNSUPPORTED",
+              "TIMEOUT",
+              "NOT_RUN"
+            ]
           }
         }
       }
