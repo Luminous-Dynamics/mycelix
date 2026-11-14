@@ -15,9 +15,10 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_PATH = ROOT.parent.parent / "schemas" / "observation-manifest-v0.1.schema.json"
-FIXTURES = ROOT / "fixtures"
+TEST_DIR = Path(__file__).resolve().parent
+DESCI_ROOT = TEST_DIR.parents[1]
+SCHEMA_PATH = DESCI_ROOT / "schemas" / "observation-manifest-v0.1.schema.json"
+FIXTURES = TEST_DIR / "fixtures"
 PAYLOADS = FIXTURES / "payloads"
 
 PAYLOADS_BY_ID = {
