@@ -1,0 +1,35 @@
+# portfolio_id=synthetic-water-recovery-portfolio
+# scenario_id=synthetic-water-shock
+# interval_id=hour-01
+# snapshot_id=synthetic-decision-snapshot-01
+# decision_at=7200
+# clock_basis_id=UTC_UNIX_SECONDS_V1
+record_type|record_id|option_id|service_id|cohort_id|scenario_id|interval_id|subject_id|quantity|unit|status|source_owner|evidence_ref
+OPTION_QUALIFICATION|qual-pump|backup_pump|water||synthetic-water-shock|hour-01||||QUALIFIED|operator|synthetic:qualification:pump
+OPTION_QUALIFICATION|qual-tanker|tanker_delivery|water||synthetic-water-shock|hour-01||||QUALIFIED|operator|synthetic:qualification:tanker
+OPTION_QUALIFICATION|qual-mobile|mobile_treatment|water||synthetic-water-shock|hour-01||||QUALIFIED|operator|synthetic:qualification:mobile
+OPTION_CAPACITY|cap-pump|backup_pump|water||synthetic-water-shock|hour-01||80|m3|QUALIFIED|symtropy|synthetic:capacity:pump
+OPTION_CAPACITY|cap-tanker|tanker_delivery|water||synthetic-water-shock|hour-01||30|m3|QUALIFIED|symtropy|synthetic:capacity:tanker
+OPTION_CAPACITY|cap-mobile|mobile_treatment|water||synthetic-water-shock|hour-01||80|m3|QUALIFIED|symtropy|synthetic:capacity:mobile
+ALLOCATION|allocation-households|backup_pump|water|households|synthetic-water-shock|hour-01||80|m3|PROPOSED|operator|synthetic:plan:pump
+ALLOCATION|allocation-tanker|tanker_delivery|water|households|synthetic-water-shock|hour-01||20|m3|PROPOSED|operator|synthetic:plan:tanker
+ALLOCATION|allocation-hospital|mobile_treatment|water|hospital|synthetic-water-shock|hour-01||60|m3|PROPOSED|operator|synthetic:plan:mobile
+SERVICE_FLOOR|floor-households||water|households|synthetic-water-shock|hour-01||70|m3|REQUIRED|service-owner|synthetic:floor:households
+SERVICE_FLOOR|floor-hospital||water|hospital|synthetic-water-shock|hour-01||50|m3|REQUIRED|service-owner|synthetic:floor:hospital
+RESOURCE_PROFILE|resource-profile-pump|backup_pump|water||synthetic-water-shock|hour-01||||COMPLETE|operator|synthetic:resource-profile:backup_pump
+RESOURCE_PROFILE|resource-profile-tanker|tanker_delivery|water||synthetic-water-shock|hour-01||||COMPLETE|operator|synthetic:resource-profile:tanker_delivery
+RESOURCE_PROFILE|resource-profile-mobile|mobile_treatment|water||synthetic-water-shock|hour-01||||COMPLETE|operator|synthetic:resource-profile:mobile_treatment
+RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours|6|h|QUALIFIED|operator|synthetic:resource:pump-crew
+RESOURCE_USE|resource-use-tanker|tanker_delivery|water||synthetic-water-shock|hour-01|diesel|30|L|QUALIFIED|operator|synthetic:resource:tanker-diesel
+RESOURCE_USE|resource-use-mobile-crew|mobile_treatment|water||synthetic-water-shock|hour-01|qualified_crew_hours|4|h|QUALIFIED|operator|synthetic:resource:mobile-crew
+RESOURCE_USE|resource-use-mobile-diesel|mobile_treatment|water||synthetic-water-shock|hour-01|diesel|20|L|QUALIFIED|operator|synthetic:resource:mobile-diesel
+RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|60|L|QUALIFIED|operator|synthetic:stock:diesel
+RESOURCE_CAPACITY|resource-cap-crew||||synthetic-water-shock|hour-01|qualified_crew_hours|12|h|QUALIFIED|operator|synthetic:stock:crew
+DOMAIN_PROFILE|domain-profile-pump|backup_pump|water||synthetic-water-shock|hour-01||||COMPLETE|mycelix|synthetic:domain-profile:backup_pump
+DOMAIN_PROFILE|domain-profile-tanker|tanker_delivery|water||synthetic-water-shock|hour-01||||COMPLETE|mycelix|synthetic:domain-profile:tanker_delivery
+DOMAIN_PROFILE|domain-profile-mobile|mobile_treatment|water||synthetic-water-shock|hour-01||||COMPLETE|mycelix|synthetic:domain-profile:mobile_treatment
+OPTION_DOMAIN|domain-pump-power|backup_pump|water||synthetic-water-shock|hour-01|power_feed_east|||MEMBER|mycelix|synthetic:domain:pump-power
+OPTION_DOMAIN|domain-mobile-power|mobile_treatment|water||synthetic-water-shock|hour-01|power_feed_east|||MEMBER|mycelix|synthetic:domain:mobile-power
+OPTION_DOMAIN|domain-mobile-road|mobile_treatment|water||synthetic-water-shock|hour-01|road_east|||MEMBER|mycelix|synthetic:domain:mobile-road
+DOMAIN_STATE|domain-state-power||||synthetic-water-shock|hour-01|power_feed_east|||CLEAR|mycelix|synthetic:domain:power
+DOMAIN_STATE|domain-state-road||||synthetic-water-shock|hour-01|road_east|||CLEAR|mycelix|synthetic:domain:road
