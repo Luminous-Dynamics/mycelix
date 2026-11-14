@@ -1,0 +1,40 @@
+name: FSRE as-of evidence admissibility
+on:
+  pull_request:
+    paths:
+      - "tools/fsre-asof-evidence/**"
+      - ".github/workflows/fsre-asof-evidence.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/fsre-asof-evidence/**"
+      - ".github/workflows/fsre-asof-evidence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  as-of-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/fsre-asof-evidence/Cargo.toml --all -- --check
+      - name: Run deterministic tests
+        run: cargo test --locked --offline --manifest-path tools/fsre-asof-evidence/Cargo.toml
+      - name: Verify CLI golden report
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$(mktemp)"
+          trap 'rm -f "$output"' EXIT
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-asof-evidence/Cargo.toml -- tools/fsre-asof-evidence/fixtures/synthetic-asof.psv > "$output"
+          diff -u tools/fsre-asof-evidence/fixtures/synthetic-asof.expected.txt "$output"
+      - name: Run Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/fsre-asof-evidence/Cargo.toml --all-targets -- -D warnings
