@@ -1,0 +1,81 @@
+{
+  "schema_version": "larp.restoration-oracle.v0.1",
+  "suite_id": "LARP-RESTORATION-001",
+  "status": "reference-oracle-pending-independent-review",
+  "scenario_file": "LARP_RESTORATION_V2_SCENARIOS_V0_1.json",
+  "case_count": 12,
+  "rows": [
+    {
+      "case_id": "RST01",
+      "expected_disposition": "permit",
+      "reason_code": "LOCAL_MANDATE_RIGHTS_AND_MULTI_DIMENSIONAL_EVIDENCE_QUALIFIED",
+      "notes": "Permit only a bounded tranche request; treasury action remains separate."
+    },
+    {
+      "case_id": "RST02",
+      "expected_disposition": "deny",
+      "reason_code": "NATIVE_BIODIVERSITY_FLOOR_BREACHED",
+      "notes": "Canopy growth does not offset a known biodiversity floor breach."
+    },
+    {
+      "case_id": "RST03",
+      "expected_disposition": "deny",
+      "reason_code": "DOWNSTREAM_EXTERNALITY_LIMIT_BREACHED",
+      "notes": "Local improvement cannot override known downstream harm."
+    },
+    {
+      "case_id": "RST04",
+      "expected_disposition": "indeterminate",
+      "reason_code": "KNOWN_COMMON_EVIDENCE_DEPENDENCY",
+      "notes": "Do not claim independent observation."
+    },
+    {
+      "case_id": "RST05",
+      "expected_disposition": "indeterminate",
+      "reason_code": "EVIDENCE_OR_DEPENDENCY_INVENTORY_INCOMPLETE",
+      "notes": "Missing evidence is not success."
+    },
+    {
+      "case_id": "RST06",
+      "expected_disposition": "hold",
+      "reason_code": "OBSERVATION_STALE_FOR_CURRENT_TRANCHE",
+      "notes": "Require current monitoring; preserve the historical observation."
+    },
+    {
+      "case_id": "RST07",
+      "expected_disposition": "hold",
+      "reason_code": "MEASUREMENT_METHOD_NOT_BRIDGED",
+      "notes": "Method changes require an explicit comparable bridge and amendment."
+    },
+    {
+      "case_id": "RST08",
+      "expected_disposition": "deny",
+      "reason_code": "LOCAL_MANDATE_OR_REQUIRED_CONSENT_INVALID",
+      "notes": "No ecological result can cure invalid local authority or required consent."
+    },
+    {
+      "case_id": "RST09",
+      "expected_disposition": "challenge_required",
+      "reason_code": "ANOMALY_SIGNAL_REQUIRES_INDEPENDENT_REVIEW",
+      "notes": "Anomaly is not proof of fraud."
+    },
+    {
+      "case_id": "RST10",
+      "expected_disposition": "hold",
+      "reason_code": "OUTCOME_PARTIAL_OR_UNCERTAIN",
+      "notes": "No release on a partial outcome."
+    },
+    {
+      "case_id": "RST11",
+      "expected_disposition": "permit",
+      "reason_code": "STEWARD_EXIT_WITH_HISTORY_AND_REMEDIES_PRESERVED",
+      "notes": "Exit ends future optional duties without erasing accrued rights."
+    },
+    {
+      "case_id": "RST12",
+      "expected_disposition": "hold",
+      "reason_code": "TREASURY_AUTHORITY_MISSING",
+      "notes": "Outcome qualification does not itself move funds."
+    }
+  ]
+}
