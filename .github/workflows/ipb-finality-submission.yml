@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - research/ipb-finality-bench-v0
     paths:
       - "lise-benchmarks/ipb-finality-evaluator/**"
       - "docs/research/IPB_FINALITY_SUBMISSION.schema.json"
