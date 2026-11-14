@@ -183,8 +183,29 @@ This benchmark should compose with, not replace:
 - W3C Verifiable Credentials 2.0 and the 13 October 2026 JOSE/COSE Recommendation for credential representation and securing mechanisms.
 - Existing bitemporal database/event reconstruction and event-sourcing practices, with owner-native semantics and correction history.
 - Established model-based testing, explicit-state exploration and temporal logic/model checking.
+- Execution-finality work that binds the actual operation, current policy/state and authority evidence close to the effectuation boundary.
 
-NIST's federation guidance describes assertions between separately administered relying parties; it is an identity/federation foundation, not an institutional power or remedy model. W3C's JOSE/COSE Recommendation standardizes mechanisms for securing verifiable credentials and presentations; it does not prove the truth of a claim or grant local authority.
+NIST's federation guidance describes assertions between separately administered relying parties; it is an identity/federation foundation, not an institutional power or remedy model. W3C's JOSE/COSE Recommendation standardizes mechanisms for securing verifiable credentials and presentations; it does not prove the truth of a claim or grant local authority. The W3C Recommendation is dated 13 October 2026. See [NIST SP 800-63C-4](https://csrc.nist.gov/pubs/sp/800/63/c/4/final) and [W3C VC JOSE/COSE](https://www.w3.org/TR/2026/REC-vc-jose-cose-20261013/).
+
+### Execution-finality comparator
+
+The IETF Datatracker lists [draft-das-execution-finality-foundations-00](https://datatracker.ietf.org/doc/draft-das-execution-finality-foundations/00/), dated 23 October 2026, as an active **individual Internet-Draft**. It is not endorsed by the IETF and has no formal standing in the IETF standards process. It nonetheless provides a close technical comparator for authority continuity at the execution boundary: stale evidence, mutable policy/state, operation substitution, revocation races, execution-time validation, operation pinning and withholding effectuation when mandatory evidence is missing.
+
+LISE must not claim to invent execution-finality, TOCTOU prevention, scoped capabilities, cryptographic credential binding or independent effectuation checks. The additional institutional question is whether these controls are bound to the *current local constitution and institutional authority*, while preserving independent oversight, affected-party challenge, remedies and historical reconstruction across multiple institutions and time cutoffs.
+
+### Bitemporal research gap
+
+A 2026 systematic review of bitemporal databases analyzed 54 papers and identified limited industrial-scale empirical validation among the open challenges. LISE should treat this as a reason to build matched owner-native reconstruction experiments with realistic correction, revocation and event-volume patterns—not as a reason to implement another temporal database. See Neelamegam et al., [Comprehensive insights into bitemporal databases](https://doi.org/10.1007/s42488-026-00162-x), published 11 May 2026.
+
+### Metamorphic and mutation-testing comparators
+
+Recent work helps shape the test-generation method but does not establish LISE's performance:
+
+- The August 2026 Information and Software Technology study on LLM-assisted metamorphic testing treats relation inference and follow-up case generation as distinct tasks; it reports results across data-center, autonomous-vehicle and finite-automata domains. For LISE, any generated relation must still be independently checked against institutional semantics before it becomes an oracle.
+- MR-Coupler (FSE 2026) uses function-coupling analysis, generated candidate relations, test amplification and mutation analysis. Its most transferable lesson is the validation loop: generated relations are hypotheses until mutation analysis and independent semantic checks support them.
+- Ravi and Coblenz's OOPSLA 2025 property-based testing study is a useful test-budget reference, but it evaluates Python systems. Its numerical results should not be assumed to transfer to this Rust workspace or to institutional assurance.
+
+The matched comparison must distinguish relation quality, mutant quality, semantic correctness and state-space exploration cost.
 
 ## 10. Implementation sequence
 
