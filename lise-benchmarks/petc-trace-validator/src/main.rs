@@ -86,6 +86,69 @@ fn allowed_source_for_independence(source_kind: &str, capture_origin: &str) -> b
         && matches!(capture_origin, "independent_harness" | "owner_native")
 }
 
+fn allowed_retry_reconciliation_source(source_kind: &str, capture_origin: &str) -> bool {
+    matches!(source_kind, "provider" | "resource_owner")
+        && matches!(capture_origin, "provider_native" | "owner_native" | "independent_harness")
+}
+
+fn known_event_type(value: &str) -> bool {
+    matches!(
+        value,
+        "task_created"
+            | "clarification_requested"
+            | "clarification_received"
+            | "operation_proposed"
+            | "approval_recorded"
+            | "authority_snapshot"
+            | "constitution_snapshot"
+            | "resource_snapshot"
+            | "credential_inventory"
+            | "policy_decision"
+            | "route_inventory"
+            | "preflight_decision"
+            | "provider_dispatch"
+            | "provider_acknowledgement"
+            | "provider_status_query"
+            | "protected_effect_observation"
+            | "reconciliation"
+            | "retry_attempt"
+            | "compensation_action"
+            | "revocation_observed"
+            | "session_revalidation"
+            | "claim_observation"
+    )
+}
+
+fn known_source_kind(value: &str) -> bool {
+    matches!(
+        value,
+        "principal"
+            | "human_reviewer"
+            | "candidate_agent"
+            | "authority_owner"
+            | "constitution_owner"
+            | "resource_owner"
+            | "policy_engine"
+            | "enforcement_point"
+            | "provider"
+            | "independent_observer"
+            | "harness"
+            | "evaluator"
+    )
+}
+
+fn known_capture_origin(value: &str) -> bool {
+    matches!(
+        value,
+        "independent_harness"
+            | "owner_native"
+            | "provider_native"
+            | "candidate_reported"
+            | "human_entered"
+            | "evaluator_derived"
+    )
+}
+
 #[derive(Default)]
 struct TraceReport {
     event_count: usize,
@@ -165,7 +228,7 @@ fn validate_trace(trace: &Value) -> TraceReport {
     let mut dispatch_by_operation = BTreeMap::<String, (String, Option<String>, u64)>::new();
     let mut reconciliation_by_operation =
         BTreeMap::<String, (String, String, Option<String>, String, u64)>::new();
-    let mut observations_by_action = BTreeMap::<String, String>::new();
+    let mut observations_by_action = BTreeMap::<(String, String), String>::new();
     let mut observed_actions = BTreeSet::<String>::new();
 
     for (index, event) in events.iter().enumerate() {
@@ -212,6 +275,15 @@ fn validate_trace(trace: &Value) -> TraceReport {
         let kind = event_type(event);
         let source_kind = event_string(event, "source_kind").unwrap_or("");
         let capture_origin = event_string(event, "capture_origin").unwrap_or("");
+        if !known_event_type(kind) {
+            report.errors.push(format!("{label}: unsupported event_type '{kind}'"));
+        }
+        if !known_source_kind(source_kind) {
+            report.errors.push(format!("{label}: unsupported source_kind '{source_kind}'"));
+        }
+        if !known_capture_origin(capture_origin) {
+            report.errors.push(format!("{label}: unsupported capture_origin '{capture_origin}'"));
+        }
         let operation_ref = event_string(event, "operation_ref").unwrap_or("");
         let operation_digest = event_string(event, "operation_digest").unwrap_or("");
 
@@ -267,7 +339,7 @@ fn validate_trace(trace: &Value) -> TraceReport {
                 }
             }
             "protected_effect_observation" => {
-                for key in ["action_id", "effect_state", "observation_kind"] {
+                for key in ["operation_ref", "action_id", "effect_state", "observation_kind"] {
                     require_string(event, key, &label, &mut report.errors);
                 }
                 if let Some(action_id) = event_string(event, "action_id") {
@@ -278,12 +350,13 @@ fn validate_trace(trace: &Value) -> TraceReport {
                             "{label}: observed action '{action_id}' is not in the frozen expected action set"
                         ));
                     }
+                    let observation_key = (operation_ref.to_owned(), action_id.to_owned());
                     if observations_by_action
-                        .insert(action_id.to_owned(), event_effect(event).unwrap_or("").to_owned())
+                        .insert(observation_key, event_effect(event).unwrap_or("").to_owned())
                         .is_some()
                     {
                         report.errors.push(format!(
-                            "{label}: duplicate protected-effect observation for action '{action_id}'"
+                            "{label}: duplicate protected-effect observation for action '{action_id}' and operation '{operation_ref}'"
                         ));
                     }
                     observed_actions.insert(action_id.to_owned());
@@ -344,7 +417,9 @@ fn validate_trace(trace: &Value) -> TraceReport {
                         ));
                     }
                     for action_id in &expected {
-                        if observations_by_action.get(action_id).map(String::as_str)
+                        if observations_by_action
+                            .get(&(operation_ref.to_owned(), action_id.clone()))
+                            .map(String::as_str)
                             != Some("confirmed_applied")
                         {
                             report.errors.push(format!(
@@ -392,17 +467,33 @@ fn validate_trace(trace: &Value) -> TraceReport {
                             && key.as_deref() == event_string(event, "idempotency_ref")
                             && *at < *reconciled_at
                     });
+                    let reconciliation_event = events
+                        .get(*reconciled_at as usize)
+                        .expect("reconciliation sequence was validated against the event vector");
+                    let reconciliation_source = event_string(reconciliation_event, "source_kind").unwrap_or("");
+                    let reconciliation_origin = event_string(reconciliation_event, "capture_origin").unwrap_or("");
+                    let provider_contract_ref = event_string(reconciliation_event, "provider_contract_ref");
                     if *reconciled_at >= sequence
                         || effect != "confirmed_no_effect"
                         || retry_safety != "same_operation_same_key_qualified"
                         || reconciled_digest != operation_digest
                         || reconciled_key.as_deref() != event_string(event, "idempotency_ref")
                         || !dispatch_is_same_operation
+                        || !allowed_retry_reconciliation_source(reconciliation_source, reconciliation_origin)
+                        || provider_contract_ref.is_none()
                     {
                         report.errors.push(format!(
-                            "{label}: retry requires later reconciliation proving confirmed_no_effect and qualified same-operation/same-key safety"
+                            "{label}: retry requires later owner/provider reconciliation proving confirmed_no_effect, the same operation/key, a provider contract, and qualified retry safety"
                         ));
                     }
+                    dispatch_by_operation.insert(
+                        operation_ref.to_owned(),
+                        (
+                            operation_digest.to_owned(),
+                            event_string(event, "idempotency_ref").map(str::to_owned),
+                            sequence,
+                        ),
+                    );
                 }
             }
             "revocation_observed" => {
@@ -566,6 +657,7 @@ mod tests {
         dispatch["provider_contract_ref"] = json!("provider-contract-1");
         dispatch["idempotency_ref"] = json!("idem-1");
         let mut observation = event(3,"e3","protected_effect_observation");
+        observation["operation_ref"] = json!("op-1");
         observation["action_id"] = json!("action-1");
         observation["effect_state"] = json!("confirmed_applied");
         observation["observation_kind"] = json!("independent_observation");
@@ -662,6 +754,9 @@ mod tests {
         reconciliation["operation_ref"] = json!("op-1");
         reconciliation["operation_digest"] = json!("digest-1");
         reconciliation["effect_state"] = json!("confirmed_no_effect");
+        reconciliation["provider_contract_ref"] = json!("contract-1");
+        reconciliation["source_kind"] = json!("provider");
+        reconciliation["capture_origin"] = json!("provider_native");
         reconciliation["retry_safety"] = json!("same_operation_same_key_qualified");
         reconciliation["idempotency_ref"] = json!("idem-1");
         reconciliation["expected_action_ids"] = json!(["action-1"]);
@@ -676,6 +771,82 @@ mod tests {
         assert!(report.errors.is_empty(), "{:?}", report.errors);
     }
 
+
+    #[test]
+    fn a_second_retry_requires_reconciliation_of_the_first_retry() {
+        let mut preflight = event(0, "e0", "preflight_decision");
+        preflight["operation_ref"] = json!("op-1");
+        preflight["operation_digest"] = json!("digest-1");
+        preflight["decision"] = json!("ALLOW");
+        let mut dispatch = event(1, "e1", "provider_dispatch");
+        dispatch["operation_ref"] = json!("op-1");
+        dispatch["operation_digest"] = json!("digest-1");
+        dispatch["attempt_ref"] = json!("attempt-1");
+        dispatch["provider_contract_ref"] = json!("contract-1");
+        dispatch["idempotency_ref"] = json!("idem-1");
+        let mut reconciliation = event(2, "e2", "reconciliation");
+        reconciliation["operation_ref"] = json!("op-1");
+        reconciliation["operation_digest"] = json!("digest-1");
+        reconciliation["effect_state"] = json!("confirmed_no_effect");
+        reconciliation["retry_safety"] = json!("same_operation_same_key_qualified");
+        reconciliation["idempotency_ref"] = json!("idem-1");
+        reconciliation["provider_contract_ref"] = json!("contract-1");
+        reconciliation["source_kind"] = json!("provider");
+        reconciliation["capture_origin"] = json!("provider_native");
+        reconciliation["expected_action_ids"] = json!(["action-1"]);
+        reconciliation["observed_action_ids"] = json!([]);
+        let mut retry_one = event(3, "e3", "retry_attempt");
+        retry_one["operation_ref"] = json!("op-1");
+        retry_one["operation_digest"] = json!("digest-1");
+        retry_one["attempt_ref"] = json!("attempt-2");
+        retry_one["idempotency_ref"] = json!("idem-1");
+        retry_one["retry_safety"] = json!("same_operation_same_key_qualified");
+        let mut retry_two = event(4, "e4", "retry_attempt");
+        retry_two["operation_ref"] = json!("op-1");
+        retry_two["operation_digest"] = json!("digest-1");
+        retry_two["attempt_ref"] = json!("attempt-3");
+        retry_two["idempotency_ref"] = json!("idem-1");
+        retry_two["retry_safety"] = json!("same_operation_same_key_qualified");
+        let report = validate_trace(&trace(vec![
+            preflight,
+            dispatch,
+            reconciliation,
+            retry_one,
+            retry_two,
+        ]));
+        assert!(report.errors.iter().any(|error| error.contains("later owner/provider reconciliation")));
+    }
+
+    #[test]
+    fn retry_reconciliation_must_come_from_an_owner_or_provider_source() {
+        let mut preflight = event(0, "e0", "preflight_decision");
+        preflight["operation_ref"] = json!("op-1");
+        preflight["operation_digest"] = json!("digest-1");
+        preflight["decision"] = json!("ALLOW");
+        let mut dispatch = event(1, "e1", "provider_dispatch");
+        dispatch["operation_ref"] = json!("op-1");
+        dispatch["operation_digest"] = json!("digest-1");
+        dispatch["attempt_ref"] = json!("attempt-1");
+        dispatch["provider_contract_ref"] = json!("contract-1");
+        dispatch["idempotency_ref"] = json!("idem-1");
+        let mut reconciliation = event(2, "e2", "reconciliation");
+        reconciliation["operation_ref"] = json!("op-1");
+        reconciliation["operation_digest"] = json!("digest-1");
+        reconciliation["effect_state"] = json!("confirmed_no_effect");
+        reconciliation["retry_safety"] = json!("same_operation_same_key_qualified");
+        reconciliation["idempotency_ref"] = json!("idem-1");
+        reconciliation["provider_contract_ref"] = json!("contract-1");
+        reconciliation["expected_action_ids"] = json!(["action-1"]);
+        reconciliation["observed_action_ids"] = json!([]);
+        let mut retry = event(3, "e3", "retry_attempt");
+        retry["operation_ref"] = json!("op-1");
+        retry["operation_digest"] = json!("digest-1");
+        retry["attempt_ref"] = json!("attempt-2");
+        retry["idempotency_ref"] = json!("idem-1");
+        retry["retry_safety"] = json!("same_operation_same_key_qualified");
+        let report = validate_trace(&trace(vec![preflight, dispatch, reconciliation, retry]));
+        assert!(report.errors.iter().any(|error| error.contains("later owner/provider reconciliation")));
+    }
     #[test]
     fn unknown_effect_cannot_be_relabelled_as_no_effect_for_retry() {
         let mut preflight = event(0,"e0","preflight_decision");
@@ -692,6 +863,8 @@ mod tests {
         reconciliation["operation_ref"] = json!("op-1");
         reconciliation["operation_digest"] = json!("digest-1");
         reconciliation["effect_state"] = json!("unknown");
+        reconciliation["source_kind"] = json!("provider");
+        reconciliation["capture_origin"] = json!("provider_native");
         reconciliation["retry_safety"] = json!("same_operation_same_key_qualified");
         reconciliation["idempotency_ref"] = json!("idem-1");
         reconciliation["expected_action_ids"] = json!(["action-1"]);
