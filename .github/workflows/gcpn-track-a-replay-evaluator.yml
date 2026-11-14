@@ -1,0 +1,32 @@
+name: GCPN Track A replay evaluator
+
+on:
+  pull_request:
+    paths:
+      - "tools/gcpn-track-a-replay-evaluator/**"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_TRACK_A_REPLAY_EVALUATOR_V0_1.md"
+      - ".github/workflows/gcpn-track-a-replay-evaluator.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gcpn-track-a-replay-evaluator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deterministic-track-a-evaluator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path tools/gcpn-track-a-replay-evaluator/Cargo.toml --all -- --check
+      - name: Run evaluator unit and mutation tests
+        run: cargo test --manifest-path tools/gcpn-track-a-replay-evaluator/Cargo.toml
+      - name: Run byte-pinned synthetic Track A bundle
+        run: cargo run --manifest-path tools/gcpn-track-a-replay-evaluator/Cargo.toml

@@ -1,0 +1,541 @@
+{
+  "schema": "luminous.gcpn.track_a_evaluation_bundle.v0.1",
+  "comparison_id": "SYNTHETIC-TRACK-A-REFERENCE-001",
+  "track_id": "TRACK_A",
+  "evidence_tier": "SYNTHETIC_FIXTURE",
+  "simulation_only": true,
+  "event_set_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "ground_truth_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "operator_policy_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "ground_truth_independent": true,
+  "ground_truth_adjudication_receipt_sha256": null,
+  "privacy_review_receipt_sha256": null,
+  "authorization_review_receipt_sha256": null,
+  "monitoring_duration_seconds": 3600,
+  "review_budget_seconds_per_case": 120,
+  "oracle_cases": [
+    {
+      "case_id": "TAR-001",
+      "label": "CONFIRMED_RELEVANT"
+    },
+    {
+      "case_id": "TAR-002",
+      "label": "CONFIRMED_RELEVANT"
+    },
+    {
+      "case_id": "TAR-003",
+      "label": "CONFIRMED_RELEVANT"
+    },
+    {
+      "case_id": "TAR-004",
+      "label": "CONFIRMED_BENIGN"
+    },
+    {
+      "case_id": "TAR-005",
+      "label": "CONFIRMED_BENIGN"
+    },
+    {
+      "case_id": "TAR-006",
+      "label": "CONFIRMED_BENIGN"
+    },
+    {
+      "case_id": "TAR-007",
+      "label": "UNRESOLVED"
+    },
+    {
+      "case_id": "TAR-008",
+      "label": "UNRESOLVED"
+    }
+  ],
+  "pipelines": [
+    {
+      "pipeline_id": "REFERENCE_RULES",
+      "role": "RULES_ONLY",
+      "build_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "configuration_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "operator_policy_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "event_set_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "safety_boundary": {
+        "vendor_hostile_label_used_as_truth_count": 0,
+        "operator_location_export_count": 0,
+        "exact_flight_path_export_count": 0,
+        "raw_audio_video_export_count": 0,
+        "third_party_command_count": 0,
+        "active_mitigation_count": 0,
+        "privacy_violation_count": 0
+      },
+      "case_results": [
+        {
+          "case_id": "TAR-001",
+          "disposition": "REVIEW_REQUIRED",
+          "review_requests": 2,
+          "review_latency_ms": 100,
+          "human_review_seconds": 40,
+          "relevance_probability_micros": 850000,
+          "source_evidence": {
+            "source_count": 2,
+            "authenticated_source_count": 2,
+            "calibrated_source_count": 2,
+            "time_qualified_source_count": 2,
+            "dependency_inventory": "COMPLETE",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-002",
+          "disposition": "NO_REVIEW",
+          "review_requests": 0,
+          "review_latency_ms": null,
+          "human_review_seconds": null,
+          "relevance_probability_micros": 400000,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 1,
+            "time_qualified_source_count": 1,
+            "dependency_inventory": "COMPLETE",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-003",
+          "disposition": "REVIEW_REQUIRED",
+          "review_requests": 1,
+          "review_latency_ms": 300,
+          "human_review_seconds": 50,
+          "relevance_probability_micros": 750000,
+          "source_evidence": {
+            "source_count": 2,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 1,
+            "time_qualified_source_count": 2,
+            "dependency_inventory": "PARTIAL",
+            "conflict_observed": true,
+            "conflict_preserved": false,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-004",
+          "disposition": "REVIEW_REQUIRED",
+          "review_requests": 3,
+          "review_latency_ms": 200,
+          "human_review_seconds": 30,
+          "relevance_probability_micros": 650000,
+          "source_evidence": {
+            "source_count": 2,
+            "authenticated_source_count": 2,
+            "calibrated_source_count": 1,
+            "time_qualified_source_count": 2,
+            "dependency_inventory": "UNKNOWN",
+            "conflict_observed": true,
+            "conflict_preserved": false,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-005",
+          "disposition": "NO_REVIEW",
+          "review_requests": 0,
+          "review_latency_ms": null,
+          "human_review_seconds": null,
+          "relevance_probability_micros": 200000,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 1,
+            "time_qualified_source_count": 1,
+            "dependency_inventory": "COMPLETE",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-006",
+          "disposition": "REVIEW_REQUIRED",
+          "review_requests": 1,
+          "review_latency_ms": 400,
+          "human_review_seconds": 30,
+          "relevance_probability_micros": 550000,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 0,
+            "time_qualified_source_count": 1,
+            "dependency_inventory": "PARTIAL",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-007",
+          "disposition": "ABSTAIN",
+          "review_requests": 0,
+          "review_latency_ms": null,
+          "human_review_seconds": null,
+          "relevance_probability_micros": null,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 0,
+            "time_qualified_source_count": 1,
+            "dependency_inventory": "UNKNOWN",
+            "conflict_observed": true,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-008",
+          "disposition": "REVIEW_REQUIRED",
+          "review_requests": 1,
+          "review_latency_ms": 500,
+          "human_review_seconds": 140,
+          "relevance_probability_micros": null,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 0,
+            "calibrated_source_count": 0,
+            "time_qualified_source_count": 0,
+            "dependency_inventory": "UNKNOWN",
+            "conflict_observed": true,
+            "conflict_preserved": false,
+            "purpose_and_rights_verified": true
+          }
+        }
+      ]
+    },
+    {
+      "pipeline_id": "REFERENCE_SITE_WORKFLOW",
+      "role": "SITE_WORKFLOW",
+      "build_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "configuration_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "operator_policy_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "event_set_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "safety_boundary": {
+        "vendor_hostile_label_used_as_truth_count": 0,
+        "operator_location_export_count": 0,
+        "exact_flight_path_export_count": 0,
+        "raw_audio_video_export_count": 0,
+        "third_party_command_count": 0,
+        "active_mitigation_count": 0,
+        "privacy_violation_count": 0
+      },
+      "case_results": [
+        {
+          "case_id": "TAR-001",
+          "disposition": "REVIEW_REQUIRED",
+          "review_requests": 1,
+          "review_latency_ms": 130,
+          "human_review_seconds": 50,
+          "relevance_probability_micros": 800000,
+          "source_evidence": {
+            "source_count": 2,
+            "authenticated_source_count": 2,
+            "calibrated_source_count": 2,
+            "time_qualified_source_count": 2,
+            "dependency_inventory": "COMPLETE",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-002",
+          "disposition": "REVIEW_REQUIRED",
+          "review_requests": 1,
+          "review_latency_ms": 200,
+          "human_review_seconds": 60,
+          "relevance_probability_micros": 600000,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 1,
+            "time_qualified_source_count": 1,
+            "dependency_inventory": "COMPLETE",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-003",
+          "disposition": "ABSTAIN",
+          "review_requests": 0,
+          "review_latency_ms": null,
+          "human_review_seconds": null,
+          "relevance_probability_micros": null,
+          "source_evidence": {
+            "source_count": 2,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 1,
+            "time_qualified_source_count": 2,
+            "dependency_inventory": "PARTIAL",
+            "conflict_observed": true,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-004",
+          "disposition": "REVIEW_REQUIRED",
+          "review_requests": 1,
+          "review_latency_ms": 300,
+          "human_review_seconds": 40,
+          "relevance_probability_micros": 450000,
+          "source_evidence": {
+            "source_count": 2,
+            "authenticated_source_count": 2,
+            "calibrated_source_count": 2,
+            "time_qualified_source_count": 2,
+            "dependency_inventory": "COMPLETE",
+            "conflict_observed": true,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-005",
+          "disposition": "NO_REVIEW",
+          "review_requests": 0,
+          "review_latency_ms": null,
+          "human_review_seconds": null,
+          "relevance_probability_micros": 100000,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 1,
+            "time_qualified_source_count": 1,
+            "dependency_inventory": "COMPLETE",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-006",
+          "disposition": "NO_REVIEW",
+          "review_requests": 0,
+          "review_latency_ms": null,
+          "human_review_seconds": null,
+          "relevance_probability_micros": 300000,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 1,
+            "time_qualified_source_count": 1,
+            "dependency_inventory": "COMPLETE",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-007",
+          "disposition": "REVIEW_REQUIRED",
+          "review_requests": 1,
+          "review_latency_ms": 400,
+          "human_review_seconds": 60,
+          "relevance_probability_micros": null,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 0,
+            "time_qualified_source_count": 1,
+            "dependency_inventory": "UNKNOWN",
+            "conflict_observed": true,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-008",
+          "disposition": "NO_REVIEW",
+          "review_requests": 0,
+          "review_latency_ms": null,
+          "human_review_seconds": null,
+          "relevance_probability_micros": null,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 1,
+            "time_qualified_source_count": 1,
+            "dependency_inventory": "PARTIAL",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        }
+      ]
+    },
+    {
+      "pipeline_id": "REFERENCE_EVIDENCE_ASSISTANT",
+      "role": "EVIDENCE_ASSISTANT",
+      "build_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "configuration_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "operator_policy_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "event_set_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "safety_boundary": {
+        "vendor_hostile_label_used_as_truth_count": 0,
+        "operator_location_export_count": 0,
+        "exact_flight_path_export_count": 0,
+        "raw_audio_video_export_count": 0,
+        "third_party_command_count": 0,
+        "active_mitigation_count": 0,
+        "privacy_violation_count": 0
+      },
+      "case_results": [
+        {
+          "case_id": "TAR-001",
+          "disposition": "REVIEW_REQUIRED",
+          "review_requests": 1,
+          "review_latency_ms": 80,
+          "human_review_seconds": 25,
+          "relevance_probability_micros": 950000,
+          "source_evidence": {
+            "source_count": 2,
+            "authenticated_source_count": 2,
+            "calibrated_source_count": 2,
+            "time_qualified_source_count": 2,
+            "dependency_inventory": "COMPLETE",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-002",
+          "disposition": "REVIEW_REQUIRED",
+          "review_requests": 1,
+          "review_latency_ms": 90,
+          "human_review_seconds": 30,
+          "relevance_probability_micros": 900000,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 1,
+            "time_qualified_source_count": 1,
+            "dependency_inventory": "COMPLETE",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-003",
+          "disposition": "REVIEW_REQUIRED",
+          "review_requests": 1,
+          "review_latency_ms": 110,
+          "human_review_seconds": 35,
+          "relevance_probability_micros": 850000,
+          "source_evidence": {
+            "source_count": 2,
+            "authenticated_source_count": 2,
+            "calibrated_source_count": 2,
+            "time_qualified_source_count": 2,
+            "dependency_inventory": "COMPLETE",
+            "conflict_observed": true,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-004",
+          "disposition": "NO_REVIEW",
+          "review_requests": 0,
+          "review_latency_ms": null,
+          "human_review_seconds": null,
+          "relevance_probability_micros": 50000,
+          "source_evidence": {
+            "source_count": 2,
+            "authenticated_source_count": 2,
+            "calibrated_source_count": 2,
+            "time_qualified_source_count": 2,
+            "dependency_inventory": "COMPLETE",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-005",
+          "disposition": "NO_REVIEW",
+          "review_requests": 0,
+          "review_latency_ms": null,
+          "human_review_seconds": null,
+          "relevance_probability_micros": 100000,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 1,
+            "time_qualified_source_count": 1,
+            "dependency_inventory": "COMPLETE",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-006",
+          "disposition": "NO_REVIEW",
+          "review_requests": 0,
+          "review_latency_ms": null,
+          "human_review_seconds": null,
+          "relevance_probability_micros": 150000,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 1,
+            "time_qualified_source_count": 1,
+            "dependency_inventory": "COMPLETE",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-007",
+          "disposition": "ABSTAIN",
+          "review_requests": 0,
+          "review_latency_ms": null,
+          "human_review_seconds": null,
+          "relevance_probability_micros": null,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 0,
+            "time_qualified_source_count": 1,
+            "dependency_inventory": "UNKNOWN",
+            "conflict_observed": true,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        },
+        {
+          "case_id": "TAR-008",
+          "disposition": "ABSTAIN",
+          "review_requests": 0,
+          "review_latency_ms": null,
+          "human_review_seconds": null,
+          "relevance_probability_micros": null,
+          "source_evidence": {
+            "source_count": 1,
+            "authenticated_source_count": 1,
+            "calibrated_source_count": 1,
+            "time_qualified_source_count": 1,
+            "dependency_inventory": "PARTIAL",
+            "conflict_observed": false,
+            "conflict_preserved": true,
+            "purpose_and_rights_verified": true
+          }
+        }
+      ]
+    }
+  ]
+}
