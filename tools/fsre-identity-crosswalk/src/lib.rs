@@ -507,7 +507,7 @@ fn render(report: &Report) -> String {
                 row.source
                     .as_ref()
                     .zip(row.target.as_ref())
-                    .is_some_and( |(source, target)| {
+                    .is_some_and(|(source, target)| {
                         source.population_scope != target.population_scope
                     })
             })
@@ -521,9 +521,7 @@ fn render(report: &Report) -> String {
                 row.source
                     .as_ref()
                     .zip(row.target.as_ref())
-                    .is_some_and( |(source, target)| {
-                        source.owner_class != target.owner_class
-                    })
+                    .is_some_and(|(source, target)| source.owner_class != target.owner_class)
             })
         })
         .count();
