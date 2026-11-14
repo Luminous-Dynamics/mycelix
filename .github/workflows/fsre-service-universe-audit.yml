@@ -1,0 +1,34 @@
+name: FSRE service universe audit
+
+on:
+  pull_request:
+    paths:
+      - "tools/fsre-service-universe-audit/**"
+      - "research/fsre/SERVICE_UNIVERSE_COVERAGE_AUDIT_BENCHMARK_V0_1.md"
+      - ".github/workflows/fsre-service-universe-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-head-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Rust format
+        run: cargo fmt --manifest-path tools/fsre-service-universe-audit/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --locked --offline --manifest-path tools/fsre-service-universe-audit/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/fsre-service-universe-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Deterministic fixture golden
+        shell: bash
+        run: |
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-service-universe-audit/Cargo.toml -- tools/fsre-service-universe-audit/examples/three-frame-reference.psv > /tmp/fsre-service-universe-actual.txt
+          diff -u tools/fsre-service-universe-audit/examples/three-frame-reference.expected.txt /tmp/fsre-service-universe-actual.txt
