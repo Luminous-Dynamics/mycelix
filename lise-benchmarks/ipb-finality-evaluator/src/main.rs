@@ -685,6 +685,8 @@ mod tests {
         assert!(!required_assertion_satisfied("revocation_known_before_action",&actual));
     }
 
+    #[test]
+    fn digest_assertions_use_explicit_digest_state() {
         let mismatch=json!({"constitution_digest_state":"mismatch","observed_disposition":"DENY"});
         let unknown=json!({"constitution_digest_state":"unknown","observed_disposition":"DENY"});
         assert!(required_assertion_satisfied("exact_digest_comparison",&mismatch));
