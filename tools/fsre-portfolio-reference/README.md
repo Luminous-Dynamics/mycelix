@@ -20,7 +20,7 @@ Required record families:
 
 The cohort-floor regression intentionally creates a plan whose aggregate delivered volume equals the aggregate of all declared floors, while households receive only 60 against a floor of 70 and hospitals receive 60 against a floor of 50. The evaluator must still report `NOT_FEASIBLE`; surplus in one cohort never silently compensates for a protected cohort's shortfall.
 
-A missing or UNKNOWN required profile/capacity/state is not zero and yields `NOT_ESTIMABLE`. FAILED domains block affected options. Resource demand is summed once per option/service across the submitted proposal. Service floors are enforced separately for each cohort. Each option ID is restricted to one service lane in v0.1 to prevent capacity double-counting across services. Shared failure domains are reported even when currently CLEAR; the evaluator does not certify independence.
+An `UNKNOWN` option capacity, resource use or resource capacity must carry no numeric quantity or unit; a numeric bound on an unknown record is rejected. Missing or UNKNOWN required profile/capacity/state is not zero and yields `NOT_ESTIMABLE`. FAILED domains block affected options. Resource demand is summed once per option/service across the submitted proposal. Service floors are enforced separately for each cohort. Each option ID is restricted to one service lane in v0.1 to prevent capacity double-counting across services. Shared failure domains are reported even when currently CLEAR; the evaluator does not certify independence.
 
 ## Output
 
@@ -35,7 +35,7 @@ If known infeasibility and unknown evidence coexist, the claim is conservatively
 
 ## Verification
 
-The initial deterministic test suite includes a generated 283-configuration boundary sweep across resource capacity, option capacity and per-cohort service floors, in addition to targeted common-cause, unknown-evidence, unit-mismatch, lineage and overflow controls.
+The deterministic test suite also contains five explicit unknown-bound controls (numeric bounds are rejected; genuinely unknown bounds abstain). It includes a generated 283-configuration boundary sweep across resource capacity, option capacity and per-cohort service floors, in addition to targeted common-cause, unknown-evidence, unit-mismatch, lineage and overflow controls.
 
 `cargo test --locked --offline --manifest-path tools/fsre-portfolio-reference/Cargo.toml`
 
