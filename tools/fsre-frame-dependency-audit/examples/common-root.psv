@@ -1,0 +1,11 @@
+#audit_id=frame-dependency-demo
+#target_scope_id=municipal-wastewater
+#study_start_seconds=0
+#study_end_seconds=100
+#source_use_status=AUTHORIZED
+record_type|frame_id|upstream_frame_id|frame_role|owner_id|collection_process_id|snapshot_id|valid_from_seconds|valid_until_seconds|evidence_owner|evidence_ref|assessment
+FRAME|admin-register|-|UPSTREAM|department|admin-extract|snapshot-a|0|100|department|register-doc|UNKNOWN
+FRAME|operator-frame|-|CAPTURE|operator|operator-survey|snapshot-b|0|100|reviewer|operator-doc|SEPARATE_DESIGN_DECLARED
+FRAME|field-frame|-|CAPTURE|survey-team|field-enumeration|snapshot-c|0|100|reviewer|field-doc|SEPARATE_DESIGN_DECLARED
+DEPENDENCY|operator-frame|admin-register|-|-|-|-|0|100|reviewer|inherits-admin|-
+DEPENDENCY|field-frame|admin-register|-|-|-|-|0|100|reviewer|inherits-admin-too|-
