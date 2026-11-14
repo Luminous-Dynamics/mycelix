@@ -957,6 +957,18 @@ pub fn evaluate_epistemic_bounty(facts: &EpistemicBountyFacts) -> Decision {
             Decision::indeterminate("TREASURY_STATE_NOT_RECONCILED")
         }
         "payout_request" => {
+            for (value, unknown, denied) in [
+                (facts.local_authority_valid, "LOCAL_REWARD_AUTHORITY_UNKNOWN", "LOCAL_REWARD_AUTHORITY_INVALID"),
+                (facts.constitution_current, "REWARD_CONSTITUTION_UNKNOWN", "REWARD_CONSTITUTION_STALE"),
+                (facts.recipient_eligible, "REWARD_RECIPIENT_ELIGIBILITY_UNKNOWN", "REWARD_RECIPIENT_NOT_ELIGIBLE"),
+                (facts.payout_bounded, "PAYOUT_BOUND_UNKNOWN", "PAYOUT_UNBOUNDED"),
+                (facts.rights_satisfied, "REWARD_RIGHTS_STATUS_UNKNOWN", "REWARD_RIGHTS_NOT_SATISFIED"),
+                (facts.remedy_path_defined, "REWARD_REMEDY_PATH_UNKNOWN", "REWARD_REMEDY_PATH_MISSING"),
+            ] {
+                if let Err(decision) = require_true(value, unknown, denied) {
+                    return decision;
+                }
+            }
             if facts.local_threshold_met != Some(true) {
                 return match facts.local_threshold_met {
                     Some(false) => Decision::hold("LOCAL_EVIDENCE_THRESHOLD_NOT_MET"),
@@ -966,9 +978,6 @@ pub fn evaluate_epistemic_bounty(facts: &EpistemicBountyFacts) -> Decision {
             }
             if facts.treasury_authorized != Some(true) {
                 return Decision::hold("TREASURY_AUTHORIZATION_MISSING");
-            }
-            if facts.exact_operation_match != Some(true) {
-                return Decision::deny("EXACT_PAYOUT_BINDING_MISMATCH");
             }
             Decision::permit("BOUNDED_REWARD_REQUEST_READY_FOR_OWNER_EXECUTION")
         }
@@ -1048,6 +1057,20 @@ pub fn evaluate_restoration_contract(facts: &RestorationFacts) -> Decision {
         && facts.misconduct_adjudicated != Some(true)
     {
         return Decision::challenge("ANOMALY_SIGNAL_REQUIRES_INDEPENDENT_REVIEW");
+    }
+    if let Err(decision) = require_true(
+        facts.affected_party_rights_satisfied,
+        "AFFECTED_PARTY_RIGHTS_UNKNOWN",
+        "AFFECTED_PARTY_RIGHTS_NOT_SATISFIED",
+    ) {
+        return decision;
+    }
+    if let Err(decision) = require_true(
+        facts.remedy_path_defined,
+        "RESTORATION_REMEDY_PATH_UNKNOWN",
+        "RESTORATION_REMEDY_PATH_MISSING",
+    ) {
+        return decision;
     }
     if facts.outcome_state.as_deref() == Some("partial") {
         return Decision::hold("OUTCOME_PARTIAL_OR_UNCERTAIN");
