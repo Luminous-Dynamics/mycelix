@@ -166,12 +166,10 @@ struct PreflightSnapshot {
     decision: String,
     operation_digest: String,
     action_digest: String,
-    authority_state: String,
     constitution_ref: String,
     constitution_epoch: u64,
     constitution_digest: String,
     policy_revision: String,
-    resource_state: String,
     principal_ref: String,
     target_ref: String,
     sequence: u64,
@@ -179,6 +177,7 @@ struct PreflightSnapshot {
 
 fn preflight_was_invalidated(
     events: &[Value],
+    operation_ref: &str,
     preflight: &PreflightSnapshot,
     dispatch_sequence: u64,
 ) -> bool {
@@ -210,9 +209,13 @@ fn preflight_was_invalidated(
                     .is_none_or(|target| target == preflight.target_ref)
                     && event_string(event, "resource_state") != Some("matches")
             }
+            "approval_recorded" => {
+                optional_string(event, "operation_ref")
+                    .is_none_or(|operation| operation == operation_ref)
+            }
             "policy_decision" => {
                 optional_string(event, "operation_ref")
-                    .is_none_or(|operation| operation == event_string(event, "operation_ref").unwrap_or(""))
+                    .is_none_or(|operation| operation == operation_ref)
                     && (event_string(event, "decision") != Some("ALLOW")
                         || event_string(event, "policy_revision")
                             != Some(preflight.policy_revision.as_str()))
@@ -402,6 +405,8 @@ fn validate_trace(trace: &Value) -> TraceReport {
                             || approval.approval_state != "authorized"
                             || approval.operation_digest != operation_digest
                             || approval.action_digest != event_string(event, "action_digest").unwrap_or("")
+                            || approval.principal_ref != event_string(event, "principal_ref").unwrap_or("")
+                            || approval.target_ref != event_string(event, "target_ref").unwrap_or("")
                         {
                             report.errors.push(format!(
                                 "{label}: preflight is not bound to a prior authorized approval for the exact operation and action digests"
@@ -429,12 +434,10 @@ fn validate_trace(trace: &Value) -> TraceReport {
                             decision: event_string(event, "decision").unwrap_or("").to_owned(),
                             operation_digest: operation_digest.to_owned(),
                             action_digest: event_string(event, "action_digest").unwrap_or("").to_owned(),
-                            authority_state: event_string(event, "authority_state").unwrap_or("").to_owned(),
                             constitution_ref: event_string(event, "constitution_ref").unwrap_or("").to_owned(),
                             constitution_epoch,
                             constitution_digest: event_string(event, "constitution_digest").unwrap_or("").to_owned(),
                             policy_revision: event_string(event, "policy_revision").unwrap_or("").to_owned(),
-                            resource_state: event_string(event, "resource_state").unwrap_or("").to_owned(),
                             principal_ref: event_string(event, "principal_ref").unwrap_or("").to_owned(),
                             target_ref: event_string(event, "target_ref").unwrap_or("").to_owned(),
                             sequence,
@@ -460,9 +463,9 @@ fn validate_trace(trace: &Value) -> TraceReport {
                                 && preflight.action_digest == event_string(event, "action_digest").unwrap_or("")
                                 && preflight.approval_ref == event_string(event, "approval_ref").unwrap_or("")
                                 && preflight.sequence < sequence
-                                && !preflight_was_invalidated(events, preflight, sequence) => {}
+                                && !preflight_was_invalidated(events, operation_ref, preflight, sequence) => {}
                         Some(preflight) => {
-                            if preflight_was_invalidated(events, preflight, sequence) {
+                            if preflight_was_invalidated(events, operation_ref, preflight, sequence) {
                                 report.errors.push(format!(
                                     "{label}: an authority, constitution, resource or policy invalidation occurred after the latest preflight"
                                 ));
