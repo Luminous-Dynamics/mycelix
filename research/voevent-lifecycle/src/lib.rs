@@ -65,10 +65,18 @@ impl CitationRelation {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PacketAttribute {
+    pub name: String,
+    pub value: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Citation {
     /// Identifier of the previously published packet being cited.
     pub target_id: String,
     pub relation: CitationRelation,
+    /// Exact decoded EventIVORN attributes retained from the source packet.
+    pub attributes: Vec<PacketAttribute>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -90,6 +98,10 @@ pub struct Packet {
     pub published_at: Option<String>,
     /// Exact event-time fields, including source time scale/frame. Not normalized.
     pub event_time: Option<SourceTime>,
+    /// All root attributes in their source order, including uninterpreted values.
+    pub root_attributes: Vec<PacketAttribute>,
+    /// Exact decoded Citations/Description text, if present.
+    pub citations_description: Option<String>,
     pub citations: Vec<Citation>,
 }
 
@@ -153,12 +165,22 @@ fn packet_from_source(
         }
     })?;
 
-    let role = match parsed.header.effective_role {
+    let parsed_header = parsed.header;
+    let parsed_who = parsed.who;
+    let role = match parsed_header.effective_role {
         SourcePacketRole::Observation => PacketRole::Observation,
         SourcePacketRole::Prediction => PacketRole::Prediction,
         SourcePacketRole::Utility => PacketRole::Utility,
         SourcePacketRole::Test => PacketRole::Test,
     };
+    let root_attributes = parsed_header
+        .root_attributes
+        .into_iter()
+        .map(|attribute| PacketAttribute {
+            name: attribute.name,
+            value: attribute.value,
+        })
+        .collect();
     let citations = parsed
         .citations
         .into_iter()
@@ -169,18 +191,29 @@ fn packet_from_source(
                 SourceCitationRelation::Supersedes => CitationRelation::Supersedes,
                 SourceCitationRelation::Retraction => CitationRelation::Retraction,
             },
+            attributes: citation
+                .attributes
+                .into_iter()
+                .map(|attribute| PacketAttribute {
+                    name: attribute.name,
+                    value: attribute.value,
+                })
+                .collect(),
         })
         .collect();
+    let citations_description = parsed.citations_description;
 
     Ok(Packet {
-        id: parsed.header.ivoid,
+        id: parsed_header.ivoid,
         role,
-        role_was_implicit: parsed.header.role_was_implicit,
-        packet_sha256: Some(parsed.header.packet_sha256),
-        publisher: parsed.who.author_ivoid,
+        role_was_implicit: parsed_header.role_was_implicit,
+        packet_sha256: Some(parsed_header.packet_sha256),
+        publisher: parsed_who.author_ivoid,
         received_at_unix_ms: received.received_at_unix_ms,
-        published_at: parsed.who.source_created_at,
+        published_at: parsed_who.source_created_at,
         event_time: None,
+        root_attributes,
+        citations_description,
         citations,
     })
 }
@@ -211,6 +244,8 @@ pub struct VisiblePacket {
     pub received_at_unix_ms: u64,
     pub published_at: Option<String>,
     pub event_time: Option<SourceTime>,
+    pub root_attributes: Vec<PacketAttribute>,
+    pub citations_description: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -224,6 +259,8 @@ pub struct LifecycleEdge {
     pub cited_packet_id: String,
     pub cited_packet_sha256: Option<String>,
     pub relation: CitationRelation,
+    /// Exact decoded attributes on this EventIVORN source assertion.
+    pub citation_attributes: Vec<PacketAttribute>,
     /// Publisher attribution copied from the asserting packet, not verified identity.
     pub asserting_publisher: Option<String>,
     /// Receipt time of the asserting packet; not event time or publication time.
@@ -238,6 +275,7 @@ pub struct UnresolvedCitation {
     pub asserting_packet_sha256: Option<String>,
     pub cited_packet_id: String,
     pub relation: CitationRelation,
+    pub citation_attributes: Vec<PacketAttribute>,
     pub asserting_publisher: Option<String>,
     pub asserted_packet_received_at_unix_ms: u64,
 }
@@ -365,6 +403,8 @@ pub fn replay_as_of(
             received_at_unix_ms: packet.received_at_unix_ms,
             published_at: packet.published_at.clone(),
             event_time: packet.event_time.clone(),
+            root_attributes: packet.root_attributes.clone(),
+            citations_description: packet.citations_description.clone(),
         })
         .collect();
 
@@ -407,6 +447,7 @@ pub fn replay_as_of(
                     .cloned()
                     .flatten(),
                 relation: citation.relation,
+                citation_attributes: citation.attributes.clone(),
                 asserting_publisher: packet.publisher.clone(),
                 asserted_packet_received_at_unix_ms: packet.received_at_unix_ms,
             };
@@ -435,6 +476,7 @@ pub fn replay_as_of(
                     asserting_packet_sha256: packet.packet_sha256.clone(),
                     cited_packet_id: citation.target_id.clone(),
                     relation: citation.relation,
+                    citation_attributes: citation.attributes.clone(),
                     asserting_publisher: packet.publisher.clone(),
                     asserted_packet_received_at_unix_ms: packet.received_at_unix_ms,
                 });
@@ -489,6 +531,8 @@ mod tests {
             received_at_unix_ms,
             published_at: None,
             event_time: None,
+            root_attributes: Vec::new(),
+            citations_description: None,
             citations: Vec::new(),
         }
     }
@@ -529,6 +573,7 @@ mod tests {
         Citation {
             target_id: target_id.to_owned(),
             relation,
+            attributes: Vec::new(),
         }
     }
 
@@ -605,6 +650,29 @@ mod tests {
         assert_eq!(complete.edges[0].relation, CitationRelation::Supersedes);
         assert!(complete.visible_packets.iter().all(|packet| {
             packet.packet_sha256.as_ref().is_some_and(|digest| digest.len() == 64)
+        }));
+    }
+
+    #[test]
+    fn source_attributes_and_citation_description_survive_lifecycle_replay() {
+        let raw = "<VOEvent ivorn=\\"ivo://survey.example/event?attrs\\" version=\\"2.1\\" custom=\\"root-preserved\\"><Citations><EventIVORN cite=\\"followup\\" publisher-note=\\"retained\\">ivo://survey.example/previous</EventIVORN><Description> Preserve this source text. </Description></Citations></VOEvent>";
+        let replay = replay_manifest(ReplayManifest {
+            cutoff_unix_ms: 1,
+            packets: vec![received(1, raw.to_owned())],
+        })
+        .expect("source metadata replay");
+
+        let visible = &replay.visible_packets[0];
+        assert!(visible.root_attributes.iter().any(|attribute| {
+            attribute.name == "custom" && attribute.value == "root-preserved"
+        }));
+        assert_eq!(
+            visible.citations_description.as_deref(),
+            Some(" Preserve this source text. ")
+        );
+        assert_eq!(replay.edges.len(), 1);
+        assert!(replay.edges[0].citation_attributes.iter().any(|attribute| {
+            attribute.name == "publisher-note" && attribute.value == "retained"
         }));
     }
 
