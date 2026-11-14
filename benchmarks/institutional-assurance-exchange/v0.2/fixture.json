@@ -559,7 +559,11 @@
           "lease_submission_request"
         ],
         "authorization_ref": "AUTHZ-LEASE-001",
-        "possible_external_side_effect": true
+        "possible_external_side_effect": true,
+        "operation_ref": "OP-LEASE-001",
+        "canonical_operation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "action_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "idempotency_ref": "IDEM-LEASE-001"
       }
     ]
   },
