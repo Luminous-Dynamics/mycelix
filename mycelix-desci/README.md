@@ -225,6 +225,7 @@ Compose uses PostgreSQL for scientific events, receipts, credential authority, t
 | `GET` | `/api/v1/scientific/authority/actors/{actor}` | Resolve an actor at the current registry revision |
 | `POST` | `/api/v1/scientific/events` | Verify and append one client-signed canonical event |
 | `GET` | `/api/v1/scientific/claims/{id}` | Return the deterministic projection and assessment |
+| `GET` | `/api/v1/scientific/claims/{id}/as-known-at?known_at=RFC3339` | Rebuild the maximal event prefix with committed authority receipts by server time K |
 | `GET` | `/api/v1/scientific/claims/{id}/events` | Page through the signed source stream |
 | `GET` | `/api/v1/scientific/claims/{id}/authority-receipts` | Export the ordered receipt chain and unattested-event statuses |
 | `GET` | `/api/v1/scientific/events/{id}` | Retrieve one signed event, hash, and authority status |

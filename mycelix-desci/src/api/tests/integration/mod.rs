@@ -16,3 +16,4 @@ mod test_api_system;
 mod test_claim_lifecycle;
 mod test_concurrent_operations;
 mod test_error_handling;
+mod test_scientific_as_known_at;
