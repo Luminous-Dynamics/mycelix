@@ -33,7 +33,11 @@
         "steward_exit": false,
         "anomaly_only_signal": false,
         "affected_party_rights_satisfied": true,
-        "remedy_path_defined": true
+        "remedy_path_defined": true,
+        "tranche_amount_units": 100,
+        "remaining_budget_units": 1000,
+        "currency": "SAP",
+        "funding_source_valid": true
       }
     },
     {
@@ -65,7 +69,11 @@
         "steward_exit": false,
         "anomaly_only_signal": false,
         "affected_party_rights_satisfied": true,
-        "remedy_path_defined": true
+        "remedy_path_defined": true,
+        "tranche_amount_units": 100,
+        "remaining_budget_units": 1000,
+        "currency": "SAP",
+        "funding_source_valid": true
       }
     },
     {
@@ -97,7 +105,11 @@
         "steward_exit": false,
         "anomaly_only_signal": false,
         "affected_party_rights_satisfied": true,
-        "remedy_path_defined": true
+        "remedy_path_defined": true,
+        "tranche_amount_units": 100,
+        "remaining_budget_units": 1000,
+        "currency": "SAP",
+        "funding_source_valid": true
       }
     },
     {
@@ -129,7 +141,11 @@
         "steward_exit": false,
         "anomaly_only_signal": false,
         "affected_party_rights_satisfied": true,
-        "remedy_path_defined": true
+        "remedy_path_defined": true,
+        "tranche_amount_units": 100,
+        "remaining_budget_units": 1000,
+        "currency": "SAP",
+        "funding_source_valid": true
       }
     },
     {
@@ -161,7 +177,11 @@
         "steward_exit": false,
         "anomaly_only_signal": false,
         "affected_party_rights_satisfied": true,
-        "remedy_path_defined": true
+        "remedy_path_defined": true,
+        "tranche_amount_units": 100,
+        "remaining_budget_units": 1000,
+        "currency": "SAP",
+        "funding_source_valid": true
       }
     },
     {
@@ -193,7 +213,11 @@
         "steward_exit": false,
         "anomaly_only_signal": false,
         "affected_party_rights_satisfied": true,
-        "remedy_path_defined": true
+        "remedy_path_defined": true,
+        "tranche_amount_units": 100,
+        "remaining_budget_units": 1000,
+        "currency": "SAP",
+        "funding_source_valid": true
       }
     },
     {
@@ -225,7 +249,11 @@
         "steward_exit": false,
         "anomaly_only_signal": false,
         "affected_party_rights_satisfied": true,
-        "remedy_path_defined": true
+        "remedy_path_defined": true,
+        "tranche_amount_units": 100,
+        "remaining_budget_units": 1000,
+        "currency": "SAP",
+        "funding_source_valid": true
       }
     },
     {
@@ -257,7 +285,11 @@
         "steward_exit": false,
         "anomaly_only_signal": false,
         "affected_party_rights_satisfied": true,
-        "remedy_path_defined": true
+        "remedy_path_defined": true,
+        "tranche_amount_units": 100,
+        "remaining_budget_units": 1000,
+        "currency": "SAP",
+        "funding_source_valid": true
       }
     },
     {
@@ -290,7 +322,11 @@
         "anomaly_only_signal": true,
         "misconduct_adjudicated": false,
         "affected_party_rights_satisfied": true,
-        "remedy_path_defined": true
+        "remedy_path_defined": true,
+        "tranche_amount_units": null,
+        "remaining_budget_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -322,7 +358,11 @@
         "steward_exit": false,
         "anomaly_only_signal": false,
         "affected_party_rights_satisfied": true,
-        "remedy_path_defined": true
+        "remedy_path_defined": true,
+        "tranche_amount_units": 100,
+        "remaining_budget_units": 1000,
+        "currency": "SAP",
+        "funding_source_valid": true
       }
     },
     {
@@ -357,7 +397,11 @@
         "accrued_remedies_preserved": true,
         "anomaly_only_signal": false,
         "affected_party_rights_satisfied": true,
-        "remedy_path_defined": true
+        "remedy_path_defined": true,
+        "tranche_amount_units": null,
+        "remaining_budget_units": null,
+        "currency": null,
+        "funding_source_valid": null
       }
     },
     {
@@ -389,7 +433,11 @@
         "steward_exit": false,
         "anomaly_only_signal": false,
         "affected_party_rights_satisfied": true,
-        "remedy_path_defined": true
+        "remedy_path_defined": true,
+        "tranche_amount_units": 100,
+        "remaining_budget_units": 1000,
+        "currency": "SAP",
+        "funding_source_valid": true
       }
     }
   ]
