@@ -10,7 +10,7 @@ fn all_cases_match_separate_oracle_on_both_axes() {
     assert_eq!(suite.case_count, suite.cases.len());
     assert_eq!(oracle.case_count, oracle.rows.len());
     assert_eq!(suite.suite_id, oracle.suite_id);
-    assert_eq!(suite.cases.len(), 26);
+    assert_eq!(suite.cases.len(), 28);
     let ids: BTreeSet<_> = suite.cases.iter().map(|x| x.id.as_str()).collect();
     let rows: BTreeMap<_, _> = oracle.rows.iter().map(|x| (x.case_id.as_str(), x)).collect();
     assert_eq!(ids.len(), suite.cases.len());
@@ -81,4 +81,14 @@ fn committed_effect_cannot_be_silently_coerced_to_not_attempted() {
     assert!(!case.execution.attempted);
     assert_eq!(case.execution.effect_status, agent_authorization_reference::EffectStatus::Committed);
     assert_eq!(evaluate(case).disposition, Disposition::Indeterminate);
+}
+\n
+#[test]
+fn attempt_flag_and_counter_must_agree() {
+    let suite: ScenarioSuite = serde_json::from_str(SCENARIOS).unwrap();
+    for id in ["A27", "A28"] {
+        let case = suite.cases.iter().find(|case| case.id == id).unwrap();
+        assert_eq!(evaluate(case).disposition, Disposition::Indeterminate, "{id}");
+        assert_eq!(evaluate(case).reason_code, "ATTEMPT_AND_COUNT_TELEMETRY_INCONSISTENT");
+    }
 }
