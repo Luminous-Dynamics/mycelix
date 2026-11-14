@@ -2,6 +2,14 @@
 
 Fractal CivOS — decentralized civic infrastructure on Holochain. **Pre-alpha research project.** Most clusters below build and pass unit tests; substantially fewer have been exercised with real multi-agent (Tryorama/sweettest) integration tests, and only a couple have any deployed UI at all. See the Maturity Matrix before assuming any given cluster is ready to build on.
 
+## Holochain substrate status (2026-11-02)
+
+**The default `main` branch is not yet migrated to Holochain 0.7.** The unified workspace flake lock currently resolves Holochain 0.6.0; individual hApp workspaces also contain 0.6.0/0.6.1-era dependency tuples. Holochain 0.7 work exists on dedicated migration branches and draft PRs, but it is not a repository-wide or deployment qualification.
+
+The selected migration target is the stable Holochain 0.7.1 line, following the upstream 5 November 2026 readiness announcement. That upgrade has additional breaking changes from 0.7.0, including capability-grant re-issuance, explicit DirectSignal grants, and incompatible direct-signal wire encoding. **Do not point a 0.7 conductor at existing 0.6 conductor data.** The 0.6→0.7 upgrade has no in-place conductor database migration path.
+
+See [the Holochain 0.7.1 migration and benchmark profile](research/holochain/MIGRATION_AND_BENCHMARK_PROFILE_0.7.1_V0.1.md) and [the open consumer qualification matrix (#3617)](https://github.com/Luminous-Dynamics/mycelix/issues/3617). The 0.7.1 target is selected but Mycelix remains runtime-unqualified. The compatibility table still lists 0.7.0; this is tracked as stale upstream documentation relative to the later readiness announcement and upgrade guide. Canonical-source parity with the private umbrella monorepo exporter remains required. The Pulse evaluation candidate uses the Holochain source-tag Rust 1.96.1 toolchain locally; the moving Holonix bootstrap snapshot's Rust 1.95.0 is recorded separately. Treat all queued, pending, action-required, skipped, cancelled, or superseded checks as unqualified.
+
 ## What can I actually run today?
 
 The one cluster with a **live, canonical, user-facing application** is **[Pulse](https://mail.mycelix.net)** (decentralized email, `mycelix-workspace/mycelix-pulse/`) — install docs there. **[Praxis](https://praxis.mycelix.net)** (K-to-PhD curriculum platform) is also live. Everything else in this repo is a Holochain hApp with tests but no deployed frontend, a component-showcase scaffold, or research-stage code — check the matrix below, don't assume a cluster is deployment-ready because it "builds" or has tests.
@@ -127,7 +135,9 @@ Cross-cluster communication via `CallTargetCell::OtherRole` in the unified hApp.
 - **TEND** — Time Exchange Notes for Development (time banking)
 - **MYCEL** — Mycelial Recognition (reputation/contribution)
 
-## Holochain Version
+## Unified Workspace Holochain Version
+
+The following versions describe the unified workspace dev environment, not every isolated Cargo workspace. Individual hApps may have different 0.6.x pins; use the consumer qualification matrix before making compatibility claims.
 
 | Component | Version |
 |-----------|---------|
