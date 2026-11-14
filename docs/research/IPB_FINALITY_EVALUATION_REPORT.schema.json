@@ -1,0 +1,491 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/IPB_FINALITY_EVALUATION_REPORT.schema.json",
+  "title": "IPB-FINALITY evaluator report v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evaluator_version",
+    "suite_id",
+    "case_count",
+    "system",
+    "metrics",
+    "by_class",
+    "reproducibility_receipt",
+    "interpretation_limits",
+    "per_case"
+  ],
+  "properties": {
+    "evaluator_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "suite_id": {
+      "const": "IPB-FINALITY-v0"
+    },
+    "case_count": {
+      "const": 34
+    },
+    "system": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "system_id",
+        "system_version",
+        "build_sha",
+        "configuration_sha256",
+        "evaluation_arm",
+        "harness_name",
+        "harness_version",
+        "model_provider",
+        "model_name",
+        "model_version",
+        "seed",
+        "total_runtime_ms",
+        "peak_memory_bytes",
+        "provider_call_count",
+        "total_input_tokens",
+        "total_output_tokens",
+        "total_cost_usd_micros",
+        "expert_reviewer_time_ms"
+      ],
+      "properties": {
+        "system_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "system_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "build_sha": {
+          "type": "string",
+          "minLength": 1
+        },
+        "configuration_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "evaluation_arm": {
+          "enum": [
+            "manual_expert",
+            "fixed_checklist",
+            "rule_based",
+            "opa",
+            "cedar",
+            "zanzibar_style",
+            "conventional_workflow",
+            "general_llm",
+            "integrated_lise",
+            "other"
+          ]
+        },
+        "harness_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "harness_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_provider": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_runtime_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "peak_memory_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "provider_call_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "total_input_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "total_output_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "total_cost_usd_micros": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "expert_reviewer_time_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_conformance_rate",
+        "disposition_accuracy",
+        "outcome_class_accuracy",
+        "assertion_precision",
+        "assertion_recall",
+        "high_severity_false_pass",
+        "positive_control_false_deny",
+        "unauthorized_dispatch_cases",
+        "no_mutation_violations",
+        "no_protected_effect_violations",
+        "blind_retry_cases",
+        "effect_observation_gaps",
+        "independent_observation_gaps",
+        "operation_substitution_accepted",
+        "stale_authority_accepted",
+        "constitution_mismatch_accepted",
+        "resource_mismatch_accepted",
+        "delegation_amplification_accepted",
+        "excess_privilege_admitted",
+        "route_bypass_accepted",
+        "clarification_not_requested"
+      ],
+      "properties": {
+        "case_conformance_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "disposition_accuracy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "outcome_class_accuracy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "assertion_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "assertion_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "high_severity_false_pass": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "positive_control_false_deny": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unauthorized_dispatch_cases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "no_mutation_violations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "no_protected_effect_violations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blind_retry_cases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "effect_observation_gaps": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "independent_observation_gaps": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "operation_substitution_accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale_authority_accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "constitution_mismatch_accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resource_mismatch_accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "delegation_amplification_accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excess_privilege_admitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "route_bypass_accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "clarification_not_requested": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "by_class": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cases",
+          "conformant",
+          "rate"
+        ],
+        "properties": {
+          "cases": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "conformant": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "reproducibility_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_manifest_git_blob_sha1",
+        "oracle_git_blob_sha1",
+        "input_manifest_sha256",
+        "oracle_sha256",
+        "submission_sha256",
+        "evaluator_binary_sha256",
+        "trace_bundle_sha256"
+      ],
+      "properties": {
+        "input_manifest_git_blob_sha1": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "oracle_git_blob_sha1": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "input_manifest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "oracle_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "submission_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "evaluator_binary_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "trace_bundle_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "interpretation_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "per_case": {
+      "type": "array",
+      "minItems": 34,
+      "maxItems": 34,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "class",
+          "conformant",
+          "disposition_correct",
+          "outcome_class_correct",
+          "required_assertions",
+          "submitted_assertions",
+          "matched_assertions",
+          "missing_assertions",
+          "assertion_precision",
+          "assertion_recall",
+          "high_severity_false_pass",
+          "positive_control_false_deny",
+          "unauthorized_dispatch",
+          "no_mutation_violation",
+          "no_protected_effect_violation",
+          "blind_retry",
+          "effect_observation_gap",
+          "independent_observation_gap",
+          "operation_substitution_accepted",
+          "stale_authority_accepted",
+          "constitution_mismatch_accepted",
+          "resource_mismatch_accepted",
+          "delegation_amplification_accepted",
+          "excess_privilege_admitted",
+          "route_bypass_accepted",
+          "clarification_not_requested"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^(F|A|R)[0-9]{2}$"
+          },
+          "class": {
+            "type": "string"
+          },
+          "conformant": {
+            "type": "boolean"
+          },
+          "disposition_correct": {
+            "type": "boolean"
+          },
+          "outcome_class_correct": {
+            "type": "boolean"
+          },
+          "required_assertions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "submitted_assertions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "matched_assertions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "missing_assertions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "assertion_precision": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "assertion_recall": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "high_severity_false_pass": {
+            "type": "boolean"
+          },
+          "positive_control_false_deny": {
+            "type": "boolean"
+          },
+          "unauthorized_dispatch": {
+            "type": "boolean"
+          },
+          "no_mutation_violation": {
+            "type": "boolean"
+          },
+          "no_protected_effect_violation": {
+            "type": "boolean"
+          },
+          "blind_retry": {
+            "type": "boolean"
+          },
+          "effect_observation_gap": {
+            "type": "boolean"
+          },
+          "independent_observation_gap": {
+            "type": "boolean"
+          },
+          "operation_substitution_accepted": {
+            "type": "boolean"
+          },
+          "stale_authority_accepted": {
+            "type": "boolean"
+          },
+          "constitution_mismatch_accepted": {
+            "type": "boolean"
+          },
+          "resource_mismatch_accepted": {
+            "type": "boolean"
+          },
+          "delegation_amplification_accepted": {
+            "type": "boolean"
+          },
+          "excess_privilege_admitted": {
+            "type": "boolean"
+          },
+          "route_bypass_accepted": {
+            "type": "boolean"
+          },
+          "clarification_not_requested": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
