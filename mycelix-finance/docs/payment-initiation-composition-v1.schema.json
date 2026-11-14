@@ -1,0 +1,965 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/payment-initiation-composition-v1.schema.json",
+  "title": "Mycelix Payment Initiation Composition Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "created_on",
+    "as_of",
+    "external_effects_enabled",
+    "purpose",
+    "source_register",
+    "profiles",
+    "issuer_registry",
+    "scenarios"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.payment-initiation-composition/v1"
+    },
+    "corpus_id": {
+      "const": "PAYMENT-INIT-COMPOSE-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_reference_only"
+    },
+    "created_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "source_register": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    },
+    "issuer_registry": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "$ref": "#/$defs/issuer"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 30,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string"
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "jurisdiction",
+        "profile_class",
+        "participant_scope",
+        "product_scope",
+        "audience",
+        "effective_from",
+        "effective_to",
+        "observed_on",
+        "temporal_status",
+        "source_refs"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string"
+        },
+        "jurisdiction": {
+          "type": "string"
+        },
+        "profile_class": {
+          "type": "string"
+        },
+        "participant_scope": {
+          "type": "string"
+        },
+        "product_scope": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "effective_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "effective_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "temporal_status": {
+          "type": "string"
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "issuer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issuer_id",
+        "claim_types",
+        "audiences",
+        "profile_ids"
+      ],
+      "properties": {
+        "issuer_id": {
+          "type": "string"
+        },
+        "claim_types": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "audiences": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "profile_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "request_version",
+        "profile_id",
+        "request_digest",
+        "digest_verification_status",
+        "recomputed_request_digest",
+        "payer_subject_digest",
+        "requester_subject_digest",
+        "beneficiary_subject_digest",
+        "beneficiary_binding_digest",
+        "collection_authority_digest",
+        "invoice_digest",
+        "amount_minor_units",
+        "currency",
+        "fee_minor_units",
+        "product",
+        "channel",
+        "reference",
+        "purpose",
+        "issued_at",
+        "expiry_at",
+        "commercial_evidence_required"
+      ],
+      "properties": {
+        "request_id": {
+          "type": "string"
+        },
+        "request_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "request_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "digest_verification_status": {
+          "enum": [
+            "verified",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "recomputed_request_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "payer_subject_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "requester_subject_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "beneficiary_subject_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "beneficiary_binding_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "collection_authority_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "invoice_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "fee_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "product": {
+          "type": "string"
+        },
+        "channel": {
+          "type": "string"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expiry_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "commercial_evidence_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "message_authenticity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "subject_digest",
+        "issuer",
+        "audience",
+        "profile_id",
+        "observed_at",
+        "valid_until",
+        "claim_type",
+        "algorithm",
+        "purpose"
+      ],
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "subject_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "claim_type": {
+          "type": "string"
+        },
+        "algorithm": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        }
+      }
+    },
+    "requester_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "subject_digest",
+        "issuer",
+        "audience",
+        "profile_id",
+        "observed_at",
+        "valid_until",
+        "claim_type",
+        "scope"
+      ],
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "subject_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "claim_type": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        }
+      }
+    },
+    "beneficiary_match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "subject_digest",
+        "issuer",
+        "audience",
+        "profile_id",
+        "observed_at",
+        "valid_until",
+        "claim_type"
+      ],
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "subject_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "claim_type": {
+          "type": "string"
+        }
+      }
+    },
+    "collection_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "subject_digest",
+        "issuer",
+        "audience",
+        "profile_id",
+        "observed_at",
+        "valid_until",
+        "claim_type",
+        "requester_subject_digest",
+        "beneficiary_subject_digest",
+        "product",
+        "channel"
+      ],
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "subject_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "claim_type": {
+          "type": "string"
+        },
+        "requester_subject_digest": {
+          "type": "string"
+        },
+        "beneficiary_subject_digest": {
+          "type": "string"
+        },
+        "product": {
+          "type": "string"
+        },
+        "channel": {
+          "type": "string"
+        }
+      }
+    },
+    "commercial_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "subject_digest",
+        "issuer",
+        "audience",
+        "profile_id",
+        "observed_at",
+        "valid_until",
+        "claim_type",
+        "payer_subject_digest",
+        "amount_minor_units",
+        "currency",
+        "evidence_reference"
+      ],
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "subject_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "claim_type": {
+          "type": "string"
+        },
+        "payer_subject_digest": {
+          "type": "string"
+        },
+        "amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "currency": {
+          "type": "string"
+        },
+        "evidence_reference": {
+          "type": "string"
+        }
+      }
+    },
+    "fraud_signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "subject_digest",
+        "issuer",
+        "audience",
+        "profile_id",
+        "observed_at",
+        "valid_until",
+        "claim_type",
+        "purpose",
+        "maturity"
+      ],
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "subject_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "claim_type": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "maturity": {
+          "type": "string"
+        }
+      }
+    },
+    "local_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "subject_digest",
+        "issuer",
+        "audience",
+        "profile_id",
+        "observed_at",
+        "valid_until",
+        "claim_type",
+        "authority_state",
+        "reason_code"
+      ],
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "subject_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "claim_type": {
+          "type": "string"
+        },
+        "authority_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "reason_code": {
+          "type": "string"
+        }
+      }
+    },
+    "assertion_bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_authenticity",
+        "requester_identity",
+        "beneficiary_match",
+        "collection_authority",
+        "commercial_evidence",
+        "fraud_signal",
+        "local_policy_decision"
+      ],
+      "properties": {
+        "message_authenticity": {
+          "$ref": "#/$defs/message_authenticity"
+        },
+        "requester_identity": {
+          "$ref": "#/$defs/requester_identity"
+        },
+        "beneficiary_match": {
+          "$ref": "#/$defs/beneficiary_match"
+        },
+        "collection_authority": {
+          "$ref": "#/$defs/collection_authority"
+        },
+        "commercial_evidence": {
+          "$ref": "#/$defs/commercial_evidence"
+        },
+        "fraud_signal": {
+          "$ref": "#/$defs/fraud_signal"
+        },
+        "local_policy_decision": {
+          "$ref": "#/$defs/local_decision"
+        }
+      }
+    },
+    "payer_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision",
+        "subject_digest",
+        "accepted_request_digest",
+        "payer_subject_digest",
+        "issuer",
+        "audience",
+        "profile_id",
+        "authority_state",
+        "observed_at",
+        "valid_until",
+        "acknowledged_fields",
+        "acknowledged_warnings"
+      ],
+      "properties": {
+        "decision": {
+          "enum": [
+            "accept",
+            "decline",
+            "query",
+            "pay_later",
+            "none"
+          ]
+        },
+        "subject_digest": {
+          "type": "string"
+        },
+        "accepted_request_digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "payer_subject_digest": {
+          "type": "string"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "authority_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "acknowledged_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "acknowledged_warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "sequence",
+        "event_type",
+        "actor",
+        "authority_state",
+        "subject_digest",
+        "instruction_id",
+        "evidence_type",
+        "observed_at"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "event_type": {
+          "enum": [
+            "instruction_created",
+            "provider_outcome_unknown",
+            "recipient_available",
+            "settlement_observed",
+            "finality_qualified",
+            "instruction_creation_attempt_rejected",
+            "recipient_availability_claim_rejected"
+          ]
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "subject_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "instruction_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_type",
+        "evaluation_time",
+        "intent",
+        "assertions",
+        "payer_decision",
+        "events",
+        "expected_disposition",
+        "expected_effect_state",
+        "expected_claim_vector"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^PIC-[0-9]{3}$"
+        },
+        "scenario_type": {
+          "type": "string"
+        },
+        "evaluation_time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "intent": {
+          "$ref": "#/$defs/request"
+        },
+        "assertions": {
+          "$ref": "#/$defs/assertion_bundle"
+        },
+        "payer_decision": {
+          "$ref": "#/$defs/payer_decision"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "expected_disposition": {
+          "enum": [
+            "permit_instruction",
+            "no_instruction",
+            "quarantine",
+            "reject"
+          ]
+        },
+        "expected_effect_state": {
+          "enum": [
+            "none",
+            "instruction_created",
+            "provider_outcome_unknown",
+            "recipient_available",
+            "settlement_observed",
+            "finality_qualified"
+          ]
+        },
+        "expected_claim_vector": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
