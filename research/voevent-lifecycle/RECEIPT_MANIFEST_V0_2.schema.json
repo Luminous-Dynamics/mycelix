@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/voevent-lifecycle/RECEIPT_MANIFEST_V0_2.schema.json",
+  "title": "Parser-bound VOEvent receipt manifest v0.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cutoff_unix_ms",
+    "packets"
+  ],
+  "properties": {
+    "cutoff_unix_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "packets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "received_at_unix_ms",
+          "raw_packet_xml"
+        ],
+        "properties": {
+          "received_at_unix_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "raw_packet_xml": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Exact UTF-8 XML text. The Rust parser enforces a maximum of 2 MiB encoded UTF-8 bytes; JSON Schema character length is not a byte-length substitute."
+          }
+        }
+      }
+    }
+  },
+  "$comment": "Parsed metadata projections are intentionally forbidden. The pinned Rust parser derives every projection directly from raw_packet_xml."
+}
