@@ -1,7 +1,7 @@
 {
   "benchmark_id": "CIV-TRACE-001",
-  "version": "0.1.0",
-  "status": "synthetic-known-answer-protocol",
+  "version": "0.2.0",
+  "status": "synthetic-known-answer-protocol-with-remedy-lifecycle-extension",
   "owning_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6069",
   "composition": {
     "deliberation": "https://github.com/Luminous-Dynamics/mycelix/issues/5999",
@@ -19,7 +19,10 @@
     "outcome": "Executor attempt status is not an observed outcome. Only EffectObservation events linked to the exact attempt count, and each must identify an observer_ref distinct from the attempt's issuer_ref. Same-source observation yields INDEPENDENCE_UNESTABLISHED, not confirmation.",
     "challenge": "An open challenge remains visible even when a later resolution exists; resolution does not delete the historical challenge.",
     "supersession": "Decision successors are explicit through supersedes_ref; predecessors remain in the event history.",
-    "privacy": "Protected payload disclosure is a separate projection violation. A digest does not reveal or authenticate the underlying protected content."
+    "privacy": "Protected payload disclosure is a separate projection violation. A digest does not reveal or authenticate the underlying protected content.",
+    "remedy_order": "A RemedyOrder is a versioned institutional order linked to the challenged Decision and Challenge. Its issuer must hold an exact AuthorityGrant scoped to the RemedyOrder subject, principal and target at order time.",
+    "remedy_execution": "A RemedyOrder is not a completed remedy. It is complete only when its exact Attempt has an EffectObservation from an observer identity distinct from the Attempt issuer. Partial, contradicted, contested, same-source and unobserved states remain distinct.",
+    "systemic_action": "A CorrectiveAction remains Open, Verified or Ineffective. A policy/action record alone is not evidence of non-repetition; Verified is a declared independent evaluation state in this synthetic fixture only."
   },
   "families": [
     "hindsight_isolation",
@@ -27,7 +30,8 @@
     "correction_supersession",
     "outcome_observation",
     "contestability",
-    "privacy_projection"
+    "privacy_projection",
+    "remedy_execution"
   ],
   "metrics": [
     "as_of_reconstruction_exactness",
@@ -41,7 +45,12 @@
     "duplicate_and_replay_detection",
     "invalid_trace_rate",
     "independent_oracle_agreement",
-    "independent_observer_identity_validity"
+    "independent_observer_identity_validity",
+    "remedy_order_authority_at_order",
+    "remedy_authority_current_reassessment",
+    "remedy_order_to_execution_latency",
+    "remedy_completion_observation",
+    "systemic_corrective_action_state"
   ],
   "non_compensable_rules": [
     "No post-cutoff event may enter the as-known-at-cutoff set.",
@@ -49,7 +58,13 @@
     "Executor success is not an independent outcome observation.",
     "Unknown, contradictory and incomplete states remain typed.",
     "No protected payload is exposed by the audit projection without an explicitly authorized disclosure profile.",
-    "An EffectObservation without a distinct observer identity from the exact Attempt issuer cannot establish an independent outcome."
+    "An EffectObservation without a distinct observer identity from the exact Attempt issuer cannot establish an independent outcome.",
+    "A RemedyOrder does not imply an executed or completed remedy.",
+    "Remedy authority is checked against a grant scoped to the exact remedy order, reviewer and target at order time.",
+    "Late, retroactive revocation changes current remedy-authority reassessment without rewriting as-known-at-order.",
+    "A remedy attempt requires an independent EffectObservation to qualify as completed.",
+    "Partial, contradicted, contested, same-source and unobserved remedy outcomes are not completed.",
+    "CorrectiveAction status is reported separately from individual remedy completion."
   ],
-  "claim_ceiling": "Synthetic temporal reconstruction, authority-as-known/current, outcome observation, challenge visibility, supersession and privacy-projection contract only. No legal, institutional legitimacy, empirical truth or production readiness claim."
+  "claim_ceiling": "Synthetic temporal reconstruction, authority-as-known/current, decision/outcome/contestability, remedy-order authority, remedy execution/observation and privacy projection only. No legal, substantive-remedy-adequacy, institutional legitimacy, empirical truth or production readiness claim."
 }
