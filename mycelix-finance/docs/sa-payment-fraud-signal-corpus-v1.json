@@ -1,0 +1,4625 @@
+{
+  "schema": "mycelix.sa-payment-fraud-signal/v1",
+  "corpus_id": "ZA-SA-PAYMENT-FRAUD-SIGNAL-SYNTHETIC-V1",
+  "status": "synthetic_contract_fixture_only",
+  "jurisdiction": "ZA",
+  "as_of": "2026-11-05",
+  "created_on": "2026-11-05",
+  "purpose": "Qualify evidence assertions, recipient and purpose admission, data minimisation, correction propagation and action boundaries for a hypothetical cross-participant fraud-intelligence contract.",
+  "external_effects_enabled": false,
+  "source_register": [
+    {
+      "id": "ASAPP_STRATEGIC_POSITIONS_2026",
+      "authority": "Association of South African Payment Providers",
+      "title": "Strategic positions and priorities for 2026/2027",
+      "url": "https://www.asapp.co.za/asapp-strategic-positions-and-priorities",
+      "published_on": null,
+      "observed_on": "2026-11-05",
+      "evidence_class": "industry_association_policy_position",
+      "supports": [
+        "September 2026 position supports shared fraud intelligence with lawful purpose, permitted purposes, data quality, correction, appeal and retention requirements",
+        "Position supports consistent fraud-liability treatment and customer protection"
+      ],
+      "does_not_support": [
+        "A final binding technical specification",
+        "A private platform's authority to share personal information",
+        "An operational national fraud-scoring API"
+      ]
+    },
+    {
+      "id": "SARB_PEM_POSITION_2025",
+      "authority": "South African Reserve Bank",
+      "title": "Positioning the SARB's Payments Ecosystem Modernisation Programme: A Strategic Shift to a Higher Equilibrium",
+      "url": "https://www.resbank.co.za/content/dam/sarb/publications/other-publications/2025/pem-position-paper.pdf",
+      "published_on": null,
+      "observed_on": "2026-11-05",
+      "evidence_class": "official_policy_position_paper",
+      "supports": [
+        "Proposes a future NPU baseline fraud-protection capability",
+        "Proposes participant reporting of suspected and actual fraud and transaction-level risk scoring across channels and participants"
+      ],
+      "does_not_support": [
+        "Operational availability of the proposed service",
+        "Participant-specific sharing permission or production API",
+        "A public blacklist or automatic adverse-action rule"
+      ]
+    },
+    {
+      "id": "SARB_PEM_DIALOGUE_2026_04",
+      "authority": "South African Reserve Bank",
+      "title": "Payments Ecosystem Modernisation Industry Dialogue, 9 April 2026",
+      "url": "https://www.resbank.co.za/content/dam/sarb/what-we-do/payments-and-settlements/pem/dialogues/2026/april-day-one.pdf",
+      "published_on": "2026-04-09",
+      "observed_on": "2026-11-05",
+      "evidence_class": "official_programme_status_presentation",
+      "supports": [
+        "SARB reported the fraud framework had been developed and priority items were being scoped",
+        "SARB reported the insights platform remained in stakeholder alignment"
+      ],
+      "does_not_support": [
+        "Operational launch",
+        "A live fraud exchange, scoring endpoint or service level agreement"
+      ]
+    },
+    {
+      "id": "SARB_PEM_WORKING_GROUPS_2026",
+      "authority": "South African Reserve Bank",
+      "title": "Payments Ecosystem Modernisation Working Groups",
+      "url": "https://www.resbank.co.za/content/dam/sarb/what-we-do/payments-and-settlements/pem/working-groups.pdf",
+      "published_on": null,
+      "observed_on": "2026-11-05",
+      "evidence_class": "official_programme_governance_snapshot",
+      "supports": [
+        "A Fraud and Intelligence Information Sharing Forum exists for knowledge exchange among private-sector PEM stakeholders"
+      ],
+      "does_not_support": [
+        "A production transaction-level data exchange",
+        "Mycelix participation, access or endorsement"
+      ]
+    },
+    {
+      "id": "FSR_ACT_9_2017_SECTION_251",
+      "authority": "Republic of South Africa",
+      "title": "Financial Sector Regulation Act 9 of 2017, section 251",
+      "url": "https://www.gov.za/sites/default/files/gcis_document/201708/4106022-8act9of2017finansectorregulationa.pdf",
+      "published_on": "2017-08-22",
+      "observed_on": "2026-11-05",
+      "evidence_class": "primary_legislation",
+      "supports": [
+        "Section 251 scopes SARB/regulator information sharing to statutory duties and listed purposes including fraud prevention, detection, reporting and remedy",
+        "Section 251 imposes safeguards, purpose limitations and written processes for authorised and sufficiently senior officials"
+      ],
+      "does_not_support": [
+        "A blanket private-platform licence to share personal information",
+        "A universal lawful basis for every payment participant or processing purpose"
+      ]
+    },
+    {
+      "id": "POPIA_ACT_4_2013",
+      "authority": "Republic of South Africa / Information Regulator",
+      "title": "Protection of Personal Information Act 4 of 2013",
+      "url": "https://inforegulator.org.za/wp-content/uploads/2025/08/PROTECTION-OF-PERSONAL-INFORMATION-ACT-4-OF-2013.pdf",
+      "published_on": "2013-11-26",
+      "observed_on": "2026-11-05",
+      "evidence_class": "primary_legislation",
+      "supports": [
+        "Sections 10 and 13 require adequate, relevant and non-excessive processing for a specific lawful purpose",
+        "Sections 14 to 16 address retention, restricted processing where accuracy is contested, compatible further processing and information quality",
+        "Sections 23 and 24 address access and correction; section 26 covers personal information about alleged commission of an offence as special personal information"
+      ],
+      "does_not_support": [
+        "A generic permission for cross-participant fraud profiling",
+        "A conclusion that a synthetic review state establishes a live lawful basis"
+      ]
+    },
+    {
+      "id": "EU_INSTANT_PAYMENTS_VOP_2025",
+      "authority": "European Central Bank / European Union",
+      "title": "Instant Payments Regulation and Verification of Payee",
+      "url": "https://www.ecb.europa.eu/paym/retail/instant_payments/html/instant_payments_regulation.tr.html",
+      "published_on": null,
+      "observed_on": "2026-11-05",
+      "evidence_class": "jurisdictional_technical_policy_comparator",
+      "supports": [
+        "EU Verification of Payee provides match, close match, no match or other before payment initiation",
+        "Verification of Payee is a name/account verification service and not a fraud-guilt adjudication"
+      ],
+      "does_not_support": [
+        "South African law or participant requirements",
+        "A fraud score, adverse decision or criminal determination"
+      ]
+    },
+    {
+      "id": "UK_PSR_APP_DASHBOARD_2026_07",
+      "authority": "UK Payment Systems Regulator",
+      "title": "APP scams reimbursement dashboard for Q1 2026",
+      "url": "https://www.psr.org.uk/information-for-consumers/app-scams-reimbursement-dashboard/",
+      "published_on": "2026-07-30",
+      "observed_on": "2026-11-05",
+      "evidence_class": "regulatory_outcome_statistics_comparator",
+      "supports": [
+        "For the in-scope UK Faster Payments APP-claim cohort from 7 October 2024 to 31 March 2026, 88 percent of APP scam losses by value (£316m) were reimbursed",
+        "82 percent of claims were closed within five business days and 98 percent within 35 business days"
+      ],
+      "does_not_support": [
+        "A comparable South African recovery rate",
+        "A fraud-intelligence API or transaction-level suspicion rule",
+        "A causal effect attributable to Mycelix"
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+      "jurisdiction": "ZA",
+      "operational_state": "synthetic_only_not_live",
+      "controller_roles": [
+        "private_payment_participant"
+      ],
+      "allowed_recipient_classes": [
+        "regulated_payment_participant",
+        "scheme_operator"
+      ],
+      "allowed_signal_categories": [
+        "transaction_pattern_observed",
+        "beneficiary_mismatch_observed",
+        "credential_compromise_observed",
+        "customer_reported_scam",
+        "participant_reported_fraud",
+        "official_fraud_disposition"
+      ],
+      "allowed_data_classes": [
+        "transaction_only",
+        "business_entity",
+        "personal",
+        "special_personal_alleged_offence"
+      ],
+      "allowed_purposes": [
+        "fraud_prevention",
+        "fraud_investigation",
+        "recourse_case"
+      ],
+      "permitted_actions": [
+        "warning",
+        "step_up_authentication",
+        "manual_review",
+        "open_fraud_case",
+        "open_recourse_case"
+      ],
+      "source_refs": [
+        "ASAPP_STRATEGIC_POSITIONS_2026",
+        "POPIA_ACT_4_2013"
+      ],
+      "notes": "Synthetic participant contract only. Real private-participant disclosure requires controller-specific lawful-basis and privacy review.",
+      "allowed_issuer_ids": [
+        "BANK-A"
+      ],
+      "allowed_assertion_statuses": [
+        "corrected",
+        "corroborated",
+        "disputed",
+        "issuer_substantiated",
+        "not_substantiated",
+        "suspected",
+        "under_investigation",
+        "withdrawn"
+      ],
+      "max_signal_age_seconds": 86400
+    },
+    {
+      "profile_id": "ZA-FSR-ACT251-REGULATOR-SYNTHETIC-V1",
+      "jurisdiction": "ZA",
+      "operational_state": "synthetic_statutory_scope_fixture_only",
+      "controller_roles": [
+        "financial_sector_regulator",
+        "reserve_bank"
+      ],
+      "allowed_recipient_classes": [
+        "designated_authority"
+      ],
+      "allowed_signal_categories": [
+        "transaction_pattern_observed",
+        "participant_reported_fraud",
+        "official_fraud_disposition"
+      ],
+      "allowed_data_classes": [
+        "transaction_only",
+        "business_entity",
+        "personal",
+        "special_personal_alleged_offence"
+      ],
+      "allowed_purposes": [
+        "statutory_fraud_prevention",
+        "statutory_fraud_detection",
+        "statutory_fraud_reporting",
+        "statutory_fraud_remedy"
+      ],
+      "permitted_actions": [
+        "warning",
+        "manual_review",
+        "open_fraud_case"
+      ],
+      "source_refs": [
+        "FSR_ACT_9_2017_SECTION_251",
+        "POPIA_ACT_4_2013"
+      ],
+      "notes": "Section 251 is scoped to SARB/regulator duties and safeguards. Synthetic profile only; does not confer statutory status or sharing permission.",
+      "allowed_issuer_ids": [
+        "SARB-SYNTHETIC"
+      ],
+      "allowed_assertion_statuses": [
+        "official_determination",
+        "suspected"
+      ],
+      "max_signal_age_seconds": 86400
+    },
+    {
+      "profile_id": "ZA-PEM-FRAUD-FORUM-KNOWLEDGE-ONLY-V1",
+      "jurisdiction": "ZA",
+      "operational_state": "knowledge_exchange_only",
+      "controller_roles": [
+        "private_payment_participant",
+        "scheme_operator",
+        "financial_sector_regulator"
+      ],
+      "allowed_recipient_classes": [
+        "pem_forum_participant"
+      ],
+      "allowed_signal_categories": [
+        "programme_status_observation"
+      ],
+      "allowed_data_classes": [
+        "aggregate_non_personal"
+      ],
+      "allowed_purposes": [
+        "programme_knowledge_exchange"
+      ],
+      "permitted_actions": [
+        "manual_review"
+      ],
+      "source_refs": [
+        "SARB_PEM_WORKING_GROUPS_2026",
+        "SARB_PEM_DIALOGUE_2026_04"
+      ],
+      "notes": "Knowledge-exchange profile only. Does not model live customer-level fraud data sharing.",
+      "allowed_issuer_ids": [
+        "BANK-A"
+      ],
+      "allowed_assertion_statuses": [
+        "suspected"
+      ],
+      "max_signal_age_seconds": 2592000
+    },
+    {
+      "profile_id": "EU-VOP-COMPARATOR-V1",
+      "jurisdiction": "EU-SEPA",
+      "operational_state": "comparator_only",
+      "controller_roles": [
+        "payment_service_provider"
+      ],
+      "allowed_recipient_classes": [
+        "payment_service_provider"
+      ],
+      "allowed_signal_categories": [
+        "payee_name_match_result"
+      ],
+      "allowed_data_classes": [
+        "transaction_only",
+        "business_entity",
+        "personal"
+      ],
+      "allowed_purposes": [
+        "payee_verification"
+      ],
+      "permitted_actions": [
+        "warning",
+        "manual_review"
+      ],
+      "source_refs": [
+        "EU_INSTANT_PAYMENTS_VOP_2025"
+      ],
+      "notes": "Identity/account match comparator, not fraud guilt or a South African rule.",
+      "allowed_issuer_ids": [
+        "BANK-A"
+      ],
+      "allowed_assertion_statuses": [
+        "suspected"
+      ],
+      "max_signal_age_seconds": 86400
+    },
+    {
+      "profile_id": "UK-APP-OUTCOME-COMPARATOR-V1",
+      "jurisdiction": "UK",
+      "operational_state": "statistics_comparator_only",
+      "controller_roles": [
+        "payment_service_provider",
+        "regulator"
+      ],
+      "allowed_recipient_classes": [
+        "research_or_regulator"
+      ],
+      "allowed_signal_categories": [
+        "reimbursement_outcome"
+      ],
+      "allowed_data_classes": [
+        "aggregate_non_personal"
+      ],
+      "allowed_purposes": [
+        "fraud_outcome_analysis"
+      ],
+      "permitted_actions": [
+        "manual_review"
+      ],
+      "source_refs": [
+        "UK_PSR_APP_DASHBOARD_2026_07"
+      ],
+      "notes": "Aggregate outcome-statistics comparator, not a transaction risk signal or South African recovery baseline.",
+      "allowed_issuer_ids": [
+        "BANK-A"
+      ],
+      "allowed_assertion_statuses": [
+        "suspected"
+      ],
+      "max_signal_age_seconds": 7776000
+    },
+    {
+      "profile_id": "ZA-PEM-NPU-FRAUD-PROPOSAL-V1",
+      "jurisdiction": "ZA",
+      "operational_state": "proposed_or_being_scoped",
+      "controller_roles": [
+        "private_payment_participant",
+        "scheme_operator",
+        "financial_sector_regulator"
+      ],
+      "allowed_recipient_classes": [
+        "future_npu_participant"
+      ],
+      "allowed_signal_categories": [
+        "participant_reported_fraud"
+      ],
+      "allowed_data_classes": [
+        "transaction_only",
+        "business_entity",
+        "personal",
+        "special_personal_alleged_offence"
+      ],
+      "allowed_purposes": [
+        "fraud_prevention",
+        "fraud_investigation"
+      ],
+      "permitted_actions": [
+        "warning",
+        "manual_review",
+        "open_fraud_case"
+      ],
+      "source_refs": [
+        "SARB_PEM_POSITION_2025",
+        "SARB_PEM_DIALOGUE_2026_04"
+      ],
+      "notes": "Programme proposal/progress only. Cannot be used to claim operational NPU exchange capability.",
+      "allowed_issuer_ids": [
+        "BANK-A"
+      ],
+      "allowed_assertion_statuses": [
+        "suspected"
+      ],
+      "max_signal_age_seconds": 86400
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "SA-FIS-001",
+      "signal": {
+        "signal_id": "FIS-001",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-1",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-001",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:001",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-1-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-1",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-001",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-001"
+      },
+      "expected_admission": "admit_advisory",
+      "expected_reason_code": "valid_scoped_transaction_signal",
+      "expected_action_class": "advisory_only"
+    },
+    {
+      "scenario_id": "SA-FIS-002",
+      "signal": {
+        "signal_id": "FIS-002",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "invalid",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-2",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-002",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:002",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-2-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-2",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-002",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-002"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "invalid_signature",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-003",
+      "signal": {
+        "signal_id": "FIS-003",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "unknown",
+            "verification_receipt_ref": "SYN-VERIFY-3",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000003",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000003",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-003",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:003",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-3-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-3",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-003",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-003"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "unknown_signing_key",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-004",
+      "signal": {
+        "signal_id": "FIS-004",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "unknown",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-4",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000004",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000004",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-004",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:004",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-4-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-4",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-004",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-004"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "issuer_authority_unknown",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-005",
+      "signal": {
+        "signal_id": "FIS-005",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-5",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000005",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000005",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-005",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:005",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-5-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "FSR_ACT_251_REGULATOR_SCOPE",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-5",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-005",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-005"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "section_251_not_private_platform_basis",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-006",
+      "signal": {
+        "signal_id": "FIS-006",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-6",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000006",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000006",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "natural_person",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-006",
+          "data_classification": "personal"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:006",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-6-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "unknown",
+          "lawful_basis_ref": null,
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-006",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-006"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "personal_data_basis_unknown",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-007",
+      "signal": {
+        "signal_id": "FIS-007",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-7",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000007",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000007",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "natural_person",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-007",
+          "data_classification": "special_personal_alleged_offence"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:007",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-7-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-7",
+          "special_info_review_status": "pending",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-007",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-007"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "special_personal_review_pending",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-008",
+      "signal": {
+        "signal_id": "FIS-008",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-8",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000008",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000008",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "natural_person",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-008",
+          "data_classification": "special_personal_alleged_offence"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:008",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-8-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "consent",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-8",
+          "special_info_review_status": "reviewed_for_fixture",
+          "special_info_review_ref": "SYN-SPECIAL-REVIEW-8",
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-008",
+        "requested_purpose": "fraud_investigation",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-008"
+      },
+      "expected_admission": "admit_advisory",
+      "expected_reason_code": "reviewed_fixture_scope_only",
+      "expected_action_class": "advisory_only"
+    },
+    {
+      "scenario_id": "SA-FIS-009",
+      "signal": {
+        "signal_id": "FIS-009",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-9",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000009",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000009",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-009",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:009",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-9-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-9",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-009",
+        "requested_purpose": "credit_scoring",
+        "requested_action": "credit_scoring",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-009"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "prohibited_secondary_purpose",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-010",
+      "signal": {
+        "signal_id": "FIS-010",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-10",
+            "payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000000a",
+            "verified_payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000000a",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-010",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:010",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-10-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-10",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-X",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-X:SUBJECT-010",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-010"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "recipient_not_permitted",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-011",
+      "signal": {
+        "signal_id": "FIS-011",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-11",
+            "payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000000b",
+            "verified_payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000000b",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-011",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:011",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-11-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-11",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2026-11-04T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-011",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-011"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "retention_expired",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-012",
+      "signal": {
+        "signal_id": "FIS-012",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-12",
+            "payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000000c",
+            "verified_payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000000c",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-012",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:012",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "disputed",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-12-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-12",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "contested",
+          "previous_recipient_count": 2,
+          "notified_recipient_count": 2,
+          "correction_record_refs": [
+            "SYN-CONTEST-12"
+          ],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "notified_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "appeal_status": "open",
+          "appeal_record_ref": "SYN-APPEAL-12",
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-012",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-012"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "accuracy_contested",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-013",
+      "signal": {
+        "signal_id": "FIS-013",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-13",
+            "payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000000d",
+            "verified_payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000000d",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-013",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:013",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "corrected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-13-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-13",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "correction_applied",
+          "previous_recipient_count": 3,
+          "notified_recipient_count": 1,
+          "correction_record_refs": [
+            "SYN-CORRECTION-13"
+          ],
+          "superseding_signal_id": "FIS-013-V2",
+          "previous_recipient_ids": [
+            "BANK-B",
+            "BANK-C",
+            "BANK-D"
+          ],
+          "notified_recipient_ids": [
+            "BANK-B"
+          ],
+          "appeal_status": "open",
+          "appeal_record_ref": "SYN-APPEAL-13",
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-013",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-013"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "correction_not_propagated",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-014",
+      "signal": {
+        "signal_id": "FIS-014",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-14",
+            "payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000000e",
+            "verified_payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000000e",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-014",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:014",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "corrected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-14-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-14",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "correction_applied",
+          "previous_recipient_count": 2,
+          "notified_recipient_count": 2,
+          "correction_record_refs": [
+            "SYN-CORRECTION-14"
+          ],
+          "superseding_signal_id": "FIS-014-V2",
+          "previous_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "notified_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "appeal_status": "accepted",
+          "appeal_record_ref": "SYN-APPEAL-14",
+          "appeal_decision_ref": "SYN-APPEAL-DECISION-14"
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-014",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-014"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "superseded_assertion_not_current",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-015",
+      "signal": {
+        "signal_id": "FIS-015",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-15",
+            "payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000000f",
+            "verified_payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000000f",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-015",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:015",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "withdrawn",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-15-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-15",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "withdrawn",
+          "previous_recipient_count": 2,
+          "notified_recipient_count": 2,
+          "correction_record_refs": [
+            "SYN-WITHDRAWAL-15"
+          ],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "notified_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "appeal_status": "accepted",
+          "appeal_record_ref": "SYN-APPEAL-15",
+          "appeal_decision_ref": "SYN-APPEAL-DECISION-15"
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-015",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-015"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "withdrawn_assertion_not_current",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-016",
+      "signal": {
+        "signal_id": "FIS-016",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-16",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000010",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000010",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-016",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:016",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "corroborated",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-16-A",
+            "SYN-EVID-16-B"
+          ],
+          "evidence_group_ids": [
+            "SAME-UPSTREAM-GROUP"
+          ],
+          "confidence_level": "high",
+          "confidence_method_ref": "SYN-CALIBRATION-16",
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-16",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-016",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-016"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "correlated_copies_not_independent",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-017",
+      "signal": {
+        "signal_id": "FIS-017",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-17",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000011",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000011",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-017",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "official_fraud_disposition",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:017",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "official_determination",
+          "evidence_class": "model_derived_indicator",
+          "evidence_refs": [
+            "SYN-EVID-17-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": "MODEL-17",
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-17",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-017",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-017"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "assertion_status_not_permitted_by_profile",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-018",
+      "signal": {
+        "signal_id": "FIS-018",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-18",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000012",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000012",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-018",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "official_fraud_disposition",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:018",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "official_determination",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-18-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-18",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-018",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-018"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "assertion_status_not_permitted_by_profile",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-019",
+      "signal": {
+        "signal_id": "FIS-019",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-19",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000013",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000013",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "natural_person",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-019",
+          "data_classification": "personal"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:019",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-19-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-19",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "public_dht"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-019",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-019"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "personal_signal_in_public_dht",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-020",
+      "signal": {
+        "signal_id": "FIS-020",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-20",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000014",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000014",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-020",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:020",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-20-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-20",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "global:SUBJECT-00020",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-020"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "global_subject_identifier",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-021",
+      "signal": {
+        "signal_id": "FIS-021",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-21",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000015",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000015",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-021",
+          "data_classification": "unknown"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:021",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-21-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "unknown",
+          "lawful_basis_ref": null,
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-021",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-021"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "data_classification_unknown",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-022",
+      "signal": {
+        "signal_id": "FIS-022",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-22",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000016",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000016",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-022",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:022",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-22-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-22",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "research_or_regulator",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-022",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-022"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "recipient_class_not_permitted",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-023",
+      "signal": {
+        "signal_id": "FIS-023",
+        "profile_id": "ZA-FSR-ACT251-REGULATOR-SYNTHETIC-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "SARB-SYNTHETIC",
+          "issuer_role": "financial_sector_regulator",
+          "controller_role": "financial_sector_regulator",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-SARB-SYNTHETIC-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-23",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000017",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000017",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-023",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:023",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-23-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-SARB-SYNTHETIC"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "FSR_ACT_9_2017_SECTION_251",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "REGULATOR-B"
+          ],
+          "permitted_purposes": [
+            "statutory_fraud_reporting"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "FSR_ACT_251_REGULATOR_SCOPE",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-23",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "REGULATOR-B",
+        "recipient_class": "designated_authority",
+        "recipient_subject_ref": "pairwise:REGULATOR-B:SUBJECT-023",
+        "requested_purpose": "statutory_fraud_reporting",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-023"
+      },
+      "expected_admission": "admit_advisory",
+      "expected_reason_code": "regulator_statutory_scope_fixture",
+      "expected_action_class": "advisory_only"
+    },
+    {
+      "scenario_id": "SA-FIS-024",
+      "signal": {
+        "signal_id": "FIS-024",
+        "profile_id": "ZA-FSR-ACT251-REGULATOR-SYNTHETIC-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "SARB-SYNTHETIC",
+          "issuer_role": "financial_sector_regulator",
+          "controller_role": "financial_sector_regulator",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-SARB-SYNTHETIC-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-24",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000018",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000018",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-024",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:024",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-24-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-SARB-SYNTHETIC"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "FSR_ACT_9_2017_SECTION_251",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "REGULATOR-B"
+          ],
+          "permitted_purposes": [
+            "statutory_fraud_reporting"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "FSR_ACT_251_REGULATOR_SCOPE",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-24",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "THIRD-PARTY-X",
+        "recipient_class": "research_or_regulator",
+        "recipient_subject_ref": "pairwise:THIRD-PARTY-X:SUBJECT-024",
+        "requested_purpose": "statutory_fraud_reporting",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-024"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "section_251_recipient_scope_mismatch",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-025",
+      "signal": {
+        "signal_id": "FIS-025",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-25",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000019",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000019",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-025",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:025",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-25-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "unknown",
+          "lawful_basis_ref": null,
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-025",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-025"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "lawful_basis_unknown",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-026",
+      "signal": {
+        "signal_id": "FIS-026",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-26",
+            "payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000001a",
+            "verified_payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000001a",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-026",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:026",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-26-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "high",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-26",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-026",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-026"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "high_confidence_without_method",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-027",
+      "signal": {
+        "signal_id": "FIS-027",
+        "profile_id": "EU-VOP-COMPARATOR-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-27",
+            "payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000001b",
+            "verified_payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000001b",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-027",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "payee_name_match_result",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:027",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-27-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "EU_INSTANT_PAYMENTS_VOP_2025"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B"
+          ],
+          "permitted_purposes": [
+            "payee_verification"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-27",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-027",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-027"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "payee_match_not_fraud_adjudication",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-028",
+      "signal": {
+        "signal_id": "FIS-028",
+        "profile_id": "UK-APP-OUTCOME-COMPARATOR-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "financial_sector_regulator",
+          "controller_role": "financial_sector_regulator",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-28",
+            "payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000001c",
+            "verified_payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000001c",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-028",
+          "data_classification": "aggregate_non_personal"
+        },
+        "observed_event": {
+          "category": "reimbursement_outcome",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:028",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-28-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "UK_PSR_APP_DASHBOARD_2026_07"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "RESEARCH-UNIT"
+          ],
+          "permitted_purposes": [
+            "fraud_outcome_analysis"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-28",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "RESEARCH-UNIT",
+        "recipient_class": "research_or_regulator",
+        "recipient_subject_ref": "pairwise:RESEARCH-UNIT:SUBJECT-028",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-028"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "aggregate_reimbursement_outcome_not_live_fraud_signal",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-029",
+      "signal": {
+        "signal_id": "FIS-029",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-29",
+            "payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000001d",
+            "verified_payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000001d",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-029",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:029",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-29-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-29",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-029",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "automatic_irreversible_denial",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-029"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "single_signal_cannot_authorize_irreversible_denial",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-030",
+      "signal": {
+        "signal_id": "FIS-030",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-30",
+            "payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000001e",
+            "verified_payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000001e",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-030",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:030",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-30-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-30",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-030",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "execute_payment",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-030"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "fraud_signal_cannot_authorize_payment_execution",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-031",
+      "signal": {
+        "signal_id": "FIS-031",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-31",
+            "payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000001f",
+            "verified_payload_digest": "sha256:000000000000000000000000000000000000000000000000000000000000001f",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-031",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:031",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "not_substantiated",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-31-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-31",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-031",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-031"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "not_substantiated_assertion_not_current",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-032",
+      "signal": {
+        "signal_id": "FIS-032",
+        "profile_id": "ZA-PEM-FRAUD-FORUM-KNOWLEDGE-ONLY-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-32",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000020",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000020",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-032",
+          "data_classification": "personal"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:032",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-32-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "SARB_PEM_WORKING_GROUPS_2026",
+            "SARB_PEM_DIALOGUE_2026_04"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-32",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-032",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-032"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "knowledge_forum_not_customer_level_exchange",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-033",
+      "signal": {
+        "signal_id": "FIS-033",
+        "profile_id": "ZA-PEM-NPU-FRAUD-PROPOSAL-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-33",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000033",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000033",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-001",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "participant_reported_fraud",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:001",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-33-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "SARB_PEM_POSITION_2025",
+            "SARB_PEM_DIALOGUE_2026_04"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "FUTURE-NPU"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-33",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "FUTURE-NPU",
+        "recipient_class": "future_npu_participant",
+        "recipient_subject_ref": "pairwise:FUTURE-NPU:SUBJECT-033",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-033"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "proposed_programme_not_operational",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-034",
+      "signal": {
+        "signal_id": "FIS-034",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-34",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000034",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000034",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-001",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:034",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-34-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-1",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-C:SUBJECT-034",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-034"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "pairwise_subject_scope_mismatch",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-035",
+      "signal": {
+        "signal_id": "FIS-035",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-35",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000035",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000035",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-001",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:035",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-35-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-1",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-001",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "unknown",
+        "subject_binding_receipt_ref": null
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "subject_binding_unknown",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-036",
+      "signal": {
+        "signal_id": "FIS-036",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-36",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000036",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000036",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-001",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:036",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-36-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-1",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-001",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "mismatch",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-036"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "subject_binding_mismatch",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-037",
+      "signal": {
+        "signal_id": "FIS-037",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-037",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000037",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000037",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-001",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-02T08:00:00Z",
+          "recorded_at": "2026-11-02T08:01:00Z",
+          "event_reference": "issuer-event:037",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-037-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-1",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-001",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-001"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "signal_stale",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-038",
+      "signal": {
+        "signal_id": "FIS-038",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-038",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000038",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000038",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-001",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-06T08:00:00Z",
+          "recorded_at": "2026-11-06T08:01:00Z",
+          "event_reference": "issuer-event:038",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-038-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-1",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-001",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-001"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "signal_event_from_future",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-039",
+      "signal": {
+        "signal_id": "FIS-039",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-039",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000039",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000039",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-001",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:039",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-039-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-1",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "closed",
+          "appeal_record_ref": "SYN-APPEAL-39",
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-001",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-001"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "appeal_disposition_missing",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-040",
+      "signal": {
+        "signal_id": "FIS-040",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-UNLISTED",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-040",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000040",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000040",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-001",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:040",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-040-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-1",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-001",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-001"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "issuer_not_permitted_by_profile",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-041",
+      "signal": {
+        "signal_id": "FIS-041",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-041",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000041",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000041",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-001",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "official_fraud_disposition",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:041",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "official_determination",
+          "evidence_class": "court_or_official_record",
+          "evidence_refs": [
+            "SYN-EVID-041-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": "SYN-AUTHORITY-FAKE",
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-1",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-001",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-001"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "assertion_status_not_permitted_by_profile",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-042",
+      "signal": {
+        "signal_id": "FIS-042",
+        "profile_id": "ZA-FSR-ACT251-REGULATOR-SYNTHETIC-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "SARB-SYNTHETIC",
+          "issuer_role": "financial_sector_regulator",
+          "controller_role": "financial_sector_regulator",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-SARB-SYNTHETIC-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-42",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000042",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000042",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-023",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "official_fraud_disposition",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:042",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "official_determination",
+          "evidence_class": "court_or_official_record",
+          "evidence_refs": [
+            "SYN-EVID-42-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-SARB-SYNTHETIC"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": "SYN-AUTHORITY-SARB-01",
+          "source_refs": [
+            "FSR_ACT_9_2017_SECTION_251",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "REGULATOR-B"
+          ],
+          "permitted_purposes": [
+            "statutory_fraud_reporting"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "FSR_ACT_251_REGULATOR_SCOPE",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-23",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": [],
+          "appeal_status": "none",
+          "appeal_record_ref": null,
+          "appeal_decision_ref": null
+        }
+      },
+      "query": {
+        "recipient_id": "REGULATOR-B",
+        "recipient_class": "designated_authority",
+        "recipient_subject_ref": "pairwise:REGULATOR-B:SUBJECT-023",
+        "requested_purpose": "statutory_fraud_reporting",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-023"
+      },
+      "expected_admission": "admit_advisory",
+      "expected_reason_code": "regulator_statutory_scope_fixture",
+      "expected_action_class": "advisory_only"
+    }
+  ]
+}
