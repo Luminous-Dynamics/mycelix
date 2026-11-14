@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - research/ipb-finality-bench-v0
+      - research/ipb-finality-bench-v0.1-rebased
     paths:
       - "lise-benchmarks/ipb-finality-evaluator/**"
       - "docs/research/IPB_FINALITY_SUBMISSION.schema.json"
