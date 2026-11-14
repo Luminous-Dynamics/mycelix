@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/IPB_FINALITY_ORACLE.schema.json",
+  "title": "IPB-FINALITY independent known-answer oracle v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "oracle_version",
+    "suite_id",
+    "synthetic",
+    "status",
+    "claim_ceiling",
+    "cases"
+  ],
+  "properties": {
+    "oracle_version": {
+      "const": "0.1"
+    },
+    "suite_id": {
+      "const": "IPB-FINALITY-v0"
+    },
+    "synthetic": {
+      "const": true
+    },
+    "status": {
+      "const": "development_oracle_not_independently_adjudicated"
+    },
+    "claim_ceiling": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 34,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "terminal_state",
+          "disposition",
+          "outcome_class",
+          "required_assertions"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^(F|A|R)[0-9]{2}$"
+          },
+          "terminal_state": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "INDETERMINATE",
+              "INVALID",
+              "UNSUPPORTED",
+              "TIMEOUT",
+              "NOT_RUN"
+            ]
+          },
+          "disposition": {
+            "enum": [
+              "ALLOW",
+              "DENY",
+              "HOLD_FOR_RECONCILIATION",
+              "INDETERMINATE"
+            ]
+          },
+          "outcome_class": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required_assertions": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}
