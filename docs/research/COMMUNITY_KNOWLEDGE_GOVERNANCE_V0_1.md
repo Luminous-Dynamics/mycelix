@@ -153,3 +153,8 @@ The next required integration step is a separate HMP knowledge entry or access-c
 ## 8. Claim boundary
 
 This document is a governance contract only. It does not establish that the current Mycelix implementation enforces these rules, that any community has authorized the project, that existing DHT/storage behavior satisfies the requirements, or that legal compliance has been assessed.
+
+
+## 11. Protected-content architecture follow-up
+
+A source audit of the current `mycelix-knowledge/zomes/claims` path found that its legacy `Claim`, `ClassifiedClaim` and `Evidence` entries are public DHT data by default, and their read/search endpoints are not yet HMP-gated. HMP metadata cannot retroactively make published plaintext private. The next protected-data design is documented separately in [HMP Protected Knowledge and Authorization Boundary v0.1](HMP_PROTECTED_KNOWLEDGE_AUTHORIZATION_BOUNDARY_V0_1.md). That RFC distinguishes public legacy records from new encrypted payloads, signed operation-scoped grants, fresh authority status proofs and recipient-bound key release. None of those protected-content mechanisms is implemented yet.
