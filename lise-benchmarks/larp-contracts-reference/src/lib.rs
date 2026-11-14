@@ -976,6 +976,26 @@ pub fn evaluate_epistemic_bounty(facts: &EpistemicBountyFacts) -> Decision {
                     Some(true) => unreachable!(),
                 };
             }
+            match (facts.amount_units, facts.amount_ceiling_units) {
+                (Some(amount), Some(ceiling)) if amount == 0 => {
+                    return Decision::deny("PAYOUT_AMOUNT_MUST_BE_POSITIVE");
+                }
+                (Some(amount), Some(ceiling)) if amount > ceiling => {
+                    return Decision::deny("PAYOUT_AMOUNT_EXCEEDS_CEILING");
+                }
+                (Some(_), Some(_)) => {}
+                _ => return Decision::indeterminate("PAYOUT_AMOUNT_OR_CEILING_UNKNOWN"),
+            }
+            if facts.currency.as_deref().is_none_or(str::is_empty) {
+                return Decision::indeterminate("PAYOUT_CURRENCY_UNKNOWN");
+            }
+            if facts.funding_source_valid != Some(true) {
+                return match facts.funding_source_valid {
+                    Some(false) => Decision::deny("PAYOUT_FUNDING_SOURCE_INVALID"),
+                    None => Decision::indeterminate("PAYOUT_FUNDING_SOURCE_UNKNOWN"),
+                    Some(true) => unreachable!(),
+                };
+            }
             if facts.treasury_authorized != Some(true) {
                 return Decision::hold("TREASURY_AUTHORIZATION_MISSING");
             }
@@ -1126,6 +1146,26 @@ pub fn evaluate_restoration_contract(facts: &RestorationFacts) -> Decision {
     }
     if facts.uncertainty_acceptable.is_none() || facts.independent_outcome_observed.is_none() {
         return Decision::indeterminate("OUTCOME_UNCERTAINTY_OR_OBSERVATION_UNKNOWN");
+    }
+    match (facts.tranche_amount_units, facts.remaining_budget_units) {
+        (Some(amount), Some(_)) if amount == 0 => {
+            return Decision::deny("TRANCHE_AMOUNT_MUST_BE_POSITIVE");
+        }
+        (Some(amount), Some(remaining)) if amount > remaining => {
+            return Decision::deny("TRANCHE_EXCEEDS_REMAINING_BUDGET");
+        }
+        (Some(_), Some(_)) => {}
+        _ => return Decision::indeterminate("TRANCHE_AMOUNT_OR_BUDGET_UNKNOWN"),
+    }
+    if facts.currency.as_deref().is_none_or(str::is_empty) {
+        return Decision::indeterminate("TRANCHE_CURRENCY_UNKNOWN");
+    }
+    if facts.funding_source_valid != Some(true) {
+        return match facts.funding_source_valid {
+            Some(false) => Decision::deny("TRANCHE_FUNDING_SOURCE_INVALID"),
+            None => Decision::indeterminate("TRANCHE_FUNDING_SOURCE_UNKNOWN"),
+            Some(true) => unreachable!(),
+        };
     }
     if facts.treasury_authorized != Some(true) {
         return Decision::hold("TREASURY_AUTHORITY_MISSING");
