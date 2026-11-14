@@ -31,6 +31,8 @@ jobs:
           persist-credentials: false
       - name: Set up Rust 1.96.0
         uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt
       - name: Format
         run: cargo fmt --manifest-path research/civ-trace-001/qualifier/Cargo.toml --check
       - name: Unit and negative-control tests
