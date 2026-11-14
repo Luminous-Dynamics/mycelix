@@ -9,6 +9,7 @@ on:
   pull_request:
     paths:
       - "research/voevent-lifecycle/**"
+      - "research/voevent-header/**"
       - ".github/workflows/voevent-lifecycle.yml"
   workflow_dispatch:
 
