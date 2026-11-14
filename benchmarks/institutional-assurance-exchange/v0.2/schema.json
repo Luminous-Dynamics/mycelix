@@ -870,7 +870,9 @@
             "resource_revision",
             "idempotency_ref",
             "action",
-            "principal_ref"
+            "principal_ref",
+            "canonical_digest_verification",
+            "action_digest_verification"
           ],
           "properties": {
             "logical_operation_id": {
@@ -929,6 +931,12 @@
             "principal_ref": {
               "type": "string",
               "minLength": 1
+            },
+            "canonical_digest_verification": {
+              "const": "synthetic_placeholder_not_cryptographically_verified"
+            },
+            "action_digest_verification": {
+              "const": "synthetic_placeholder_not_cryptographically_verified"
             }
           }
         },
@@ -947,7 +955,9 @@
             "resource_revision",
             "idempotency_ref",
             "action",
-            "principal_ref"
+            "principal_ref",
+            "canonical_digest_verification",
+            "action_digest_verification"
           ],
           "properties": {
             "logical_operation_id": {
@@ -1006,6 +1016,12 @@
             "principal_ref": {
               "type": "string",
               "minLength": 1
+            },
+            "canonical_digest_verification": {
+              "const": "synthetic_placeholder_not_cryptographically_verified"
+            },
+            "action_digest_verification": {
+              "const": "synthetic_placeholder_not_cryptographically_verified"
             }
           }
         },
