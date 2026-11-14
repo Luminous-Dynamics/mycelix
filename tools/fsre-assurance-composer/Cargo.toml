@@ -1,0 +1,17 @@
+[package]
+name = "fsre-assurance-composer"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+publish = false
+
+[dependencies]
+fsre-decision-time-replay = { path = "../fsre-decision-time-replay" }
+fsre-portfolio-reference = { path = "../fsre-portfolio-reference" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "fsre-assurance-composer"
+path = "src/main.rs"
