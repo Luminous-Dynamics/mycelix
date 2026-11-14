@@ -73,6 +73,41 @@ Do not report these as achieved benchmark scores until the complete frozen corpu
 
 For a full investigation benchmark, report per-domain results rather than one pooled score: proper prediction scores, event false alarms per exposure, decision regret at equal resource budgets, follow-up cost, time-to-resolution, reviewer burden, worst-stratum performance, and reproducibility. Include no-follow-up, fixed-schedule, expert/broker, anomaly-greedy, information-gain-greedy, decision-theoretic EVSI/ENBS, and model/agent baselines. A hidden-truth oracle is a synthetic upper bound only.
 
+
+## Replay the parser's JSON packet projections
+
+The `voevent-lifecycle-replay` binary consumes a JSON manifest containing parser projections plus a separately supplied ingest receipt timestamp for each packet. The manifest cutoff is also explicit. A sample fixture is available at `tests/fixtures/parser-projection-thread.json`.
+
+Run it from the repository root:
+
+    cargo run --manifest-path research/voevent-lifecycle/Cargo.toml --bin voevent-lifecycle-replay -- research/voevent-lifecycle/tests/fixtures/parser-projection-thread.json
+
+The output is a JSON `Replay` containing visible packets, lifecycle edges, unresolved citations, effects and diagnostics.
+
+The expected packet shape comes from the `parse_packet` JSON projection emitted by `research/voevent-header`. Each manifest entry wraps that parser object as follows:
+
+    {
+      "received_at_unix_ms": 1731580000000,
+      "packet": {
+        "header": {
+          "ivoid": "ivo://publisher.example/stream?event-1",
+          "packet_sha256": "<64 hex characters>"
+        },
+        "who": {
+          "author_ivoid": "ivo://publisher.example/stream",
+          "source_created_at": "2026-11-14T08:00:00Z"
+        },
+        "citations_present": false,
+        "citations": []
+      }
+    }
+
+Unknown parser fields (such as role and root attributes) are ignored by the replay DTO so the parser projection can evolve without breaking the minimum replay contract. Evidence-bearing fields remain required. The adapter validates digest lexical shape and citation presence/edge consistency, but **does not recompute the digest** because the original XML bytes are not part of this manifest. It also does not authenticate AuthorIVORN.
+
+The ingest layer must supply `received_at_unix_ms` from its own receipt record. Do not derive it from `Who/Date`, the XML file's modification time, event time, or a publisher's assertion. This manifest format carries the receipt value; it does not authenticate it or replace an append-only ingress receipt log.
+
+This version maps `Who/AuthorIVORN` to asserted publisher attribution and `Who/Date` to source creation/publication time. `WhereWhen` event time and time-scale/frame metadata are not yet extracted, so `Packet.event_time` remains absent. No UTC/TDB/TT conversion is attempted.
+
 ## Complexity
 
 Replay sorts the visible packets and traverses the visible citations. No throughput claim is made by v0.1; benchmark scaling at 10^3, 10^4, 10^5, and 10^6 packets before selecting an indexed or streaming implementation.
