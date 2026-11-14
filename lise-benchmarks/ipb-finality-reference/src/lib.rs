@@ -157,12 +157,21 @@ pub enum FinalityDecision {
     Hold(HoldCode),
 }
 
+fn optional_binding_is_nonempty(value: Option<&str>) -> bool {
+    value.is_none_or(|value| !value.trim().is_empty())
+}
+
 fn operation_binding_complete(operation: &OperationBinding) -> bool {
     !operation.logical_operation_id.trim().is_empty()
         && !operation.canonical_operation_digest.trim().is_empty()
         && !operation.action_digest.trim().is_empty()
         && !operation.target_ref.trim().is_empty()
         && operation.amount_minor.is_none() == operation.currency.is_none()
+        && optional_binding_is_nonempty(operation.destination_or_audience.as_deref())
+        && optional_binding_is_nonempty(operation.currency.as_deref())
+        && optional_binding_is_nonempty(operation.purpose.as_deref())
+        && optional_binding_is_nonempty(operation.resource_revision.as_deref())
+        && optional_binding_is_nonempty(operation.idempotency_ref.as_deref())
 }
 
 fn constitution_ref_complete(constitution: &ConstitutionRef) -> bool {
@@ -1640,6 +1649,73 @@ mod tests {
             evaluate_finality(&candidate),
             FinalityDecision::Hold(HoldCode::MissingRequiredBinding)
         );
+    }
+
+    #[test]
+    fn empty_optional_operation_fields_are_rejected_on_both_sides() {
+        let mut approved_mutations = Vec::new();
+        let mut actual_mutations = Vec::new();
+
+        for field in [
+            "destination_or_audience",
+            "currency",
+            "purpose",
+            "resource_revision",
+            "idempotency_ref",
+        ] {
+            let mut approved = input();
+            let mut actual = input();
+            match field {
+                "destination_or_audience" => {
+                    approved.approval.operation.destination_or_audience = Some("  ".to_owned());
+                    actual.actual_operation.destination_or_audience = Some("  ".to_owned());
+                }
+                "currency" => {
+                    approved.approval.operation.currency = Some("".to_owned());
+                    actual.actual_operation.currency = Some("".to_owned());
+                }
+                "purpose" => {
+                    approved.approval.operation.purpose = Some(" ".to_owned());
+                    actual.actual_operation.purpose = Some(" ".to_owned());
+                }
+                "resource_revision" => {
+                    approved.approval.operation.resource_revision = Some("".to_owned());
+                    actual.actual_operation.resource_revision = Some("".to_owned());
+                }
+                "idempotency_ref" => {
+                    approved.approval.operation.idempotency_ref = Some("  ".to_owned());
+                    actual.actual_operation.idempotency_ref = Some("  ".to_owned());
+                }
+                _ => unreachable!(),
+            }
+            approved_mutations.push(approved);
+            actual_mutations.push(actual);
+        }
+
+        for candidate in approved_mutations.into_iter().chain(actual_mutations) {
+            assert_eq!(
+                evaluate_finality(&candidate),
+                FinalityDecision::Hold(HoldCode::MissingRequiredBinding)
+            );
+        }
+    }
+
+    #[test]
+    fn optional_operation_fields_may_be_absent_but_not_empty_when_present() {
+        let mut candidate = input();
+        candidate.approval.operation.destination_or_audience = None;
+        candidate.actual_operation.destination_or_audience = None;
+        candidate.approval.operation.purpose = None;
+        candidate.actual_operation.purpose = None;
+        candidate.approval.operation.resource_revision = None;
+        candidate.actual_operation.resource_revision = None;
+        candidate.approval.operation.idempotency_ref = None;
+        candidate.actual_operation.idempotency_ref = None;
+        candidate.approval.operation.amount_minor = None;
+        candidate.actual_operation.amount_minor = None;
+        candidate.approval.operation.currency = None;
+        candidate.actual_operation.currency = None;
+        assert_eq!(evaluate_finality(&candidate), FinalityDecision::Permit);
     }
 
     #[test]
