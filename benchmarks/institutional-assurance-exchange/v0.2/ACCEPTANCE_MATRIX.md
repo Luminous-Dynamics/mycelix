@@ -17,3 +17,8 @@
 | VS-12 | Exact input replay | Same deterministic selection and disposition for identical frozen inputs |
 
 The evaluator's development oracle covers VS-01–VS-09 and fixture safety. VS-10–VS-12 are additionally checked by structural guards and deterministic implementation tests; none constitutes an external qualification.
+
+| VS-14 | Intent-baseline acceptance is substituted for transaction approval | Structural qualification failure |
+| VS-15 | Approved operation differs from pending operation by action, principal, target, purpose or idempotency reference | Exact-operation mismatch |
+| VS-16 | Dispatch may have occurred and provider outcome is UNKNOWN | HOLD_FOR_RECONCILIATION; retry=0; reattempt=false |
+| VS-17 | Operation or constitution digest is a synthetic placeholder | Must report authenticity unverified; no cryptographic claim |
