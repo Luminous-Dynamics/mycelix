@@ -534,5 +534,91 @@
         }
       ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "execution": {
+            "properties": {
+              "state": {
+                "const": "UNKNOWN"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          }
+        },
+        "required": [
+          "execution"
+        ]
+      },
+      "then": {
+        "properties": {
+          "decision": {
+            "properties": {
+              "disposition": {
+                "const": "HOLD_FOR_RECONCILIATION"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "authority": {
+            "properties": {
+              "verification_state": {
+                "enum": [
+                  "invalid",
+                  "revoked",
+                  "expired",
+                  "not_yet_valid",
+                  "status_unknown",
+                  "issuer_untrusted",
+                  "scope_mismatch",
+                  "not_adjudicated"
+                ]
+              }
+            },
+            "required": [
+              "verification_state"
+            ]
+          }
+        },
+        "required": [
+          "authority"
+        ]
+      },
+      "then": {
+        "properties": {
+          "decision": {
+            "properties": {
+              "disposition": {
+                "enum": [
+                  "BLOCK",
+                  "HOLD_FOR_RECONCILIATION"
+                ]
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      }
+    }
+  ]
 }
