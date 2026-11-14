@@ -4,7 +4,11 @@ use std::{env, fs, process};
 fn main() {
     let mut paths = env::args().skip(1);
     let Some(manifest_path) = paths.next() else {
-        eprintln!("usage: fsre-cohort-outcome-envelope <cohort-manifest.psv> <cohort-lane.csv> <cohort-lane.csv> [...]");
+        eprintln!("usage: fsre-cohort-outcome-envelope <cohort-manifest.psv> <requested-purpose> <cohort-lane.csv> <cohort-lane.csv> [...]");
+        process::exit(2);
+    };
+    let Some(requested_purpose) = paths.next() else {
+        eprintln!("a requested processing purpose is required");
         process::exit(2);
     };
     let lane_paths: Vec<String> = paths.collect();
@@ -31,7 +35,7 @@ fn main() {
         }
     }
 
-    match validate_and_report_with_manifest(&manifest, &sources) {
+    match validate_and_report_with_manifest(&manifest, &requested_purpose, &sources) {
         Ok(report) => print!("{report}"),
         Err(error) => {
             eprintln!("invalid cohort outcome envelope: {error}");

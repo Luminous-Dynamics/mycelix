@@ -48,15 +48,18 @@ Each lane has its own minimum safe-service fraction. Other horizon and policy fi
 
 ### Cohort manifest
 
-The CLI requires a frozen manifest followed by one lane file per cohort. The manifest declares `manifest_id`, `manifest_snapshot_id`, `manifest_owner`, `manifest_ref`, service/family/cohort-set IDs, outcome snapshot and population unit. Each `COHORT` row declares the expected cohort ID, denominator, identity-source owner/reference, denominator-source owner/reference and half-open membership validity interval `[valid_from_seconds, valid_until_seconds)`.
+The CLI requires a frozen manifest followed by one lane file per cohort. The manifest declares `manifest_id`, `manifest_snapshot_id`, `manifest_owner`, `manifest_ref`, service/family/cohort-set IDs, outcome snapshot and population unit. It also declares the study horizon and a source-use assertion: `data_use_status`, `data_use_owner`, `data_use_ref`, `data_use_purpose`, `data_use_valid_from_seconds` and `data_use_valid_until_seconds`. The caller separately supplies the requested processing purpose; it must exactly match `data_use_purpose`. Each `COHORT` row declares the expected cohort ID, denominator, identity-source owner/reference, denominator-source owner/reference and half-open membership validity interval `[valid_from_seconds, valid_until_seconds)`.
 
-The evaluator compares exact cohort-set membership and checks every lane against its manifest row. It requires the declared membership interval to cover the full analysis horizon, exact denominator and source-reference agreement, and exact service/snapshot scope agreement. Missing lanes, extra lanes, expired membership, or denominator/identity-source drift prevent a completeness claim.
+The evaluator compares exact cohort-set membership and checks every lane against its manifest row. It requires the declared membership interval to cover the full analysis horizon, exact denominator and source-reference agreement, and exact service/snapshot/horizon scope agreement. Missing lanes, extra lanes, expired membership, or denominator/identity-source drift prevent a completeness claim.
+
+Before any lane is parsed or evaluated, the CLI checks the source-use status. `REVIEW_REQUIRED`, `NOT_AUTHORIZED`, and `AUTHORIZED_FOR_DECLARED_PURPOSE` whose validity interval does not cover the complete study horizon, or whose declared purpose differs from the caller-supplied requested purpose, return a blocked report with `service_metrics=NOT_COMPUTED`. Unknown states are rejected.
 
 Run:
 
     cargo test --locked --offline --manifest-path tools/fsre-cohort-outcome-envelope/Cargo.toml
     cargo run --quiet --locked --offline --manifest-path tools/fsre-cohort-outcome-envelope/Cargo.toml -- \
       tools/fsre-cohort-outcome-envelope/fixtures/cohort-manifest.psv \
+      synthetic-test \
       tools/fsre-cohort-outcome-envelope/examples/hospital.csv \
       tools/fsre-cohort-outcome-envelope/examples/households.csv \
       tools/fsre-cohort-outcome-envelope/examples/remote-community.csv
@@ -71,6 +74,8 @@ Run:
 
 The report preserves separate identity, delivery, laboratory-quality and population-denominator owner/reference pairs for each cohort, and declares one shared retrospective outcome snapshot. The manifest has a separate owner, opaque reference and snapshot identifier. These references are lineage aids, not authenticated or content-hashed receipts. Manifest completeness establishes coverage relative to the manifest only; it does not establish that the register includes every affected population.
 
+**Critical authorization limitation:** `AUTHORIZED_FOR_DECLARED_PURPOSE` is a supplied assertion. The current reference checks the status, purpose match and time scope but does not verify a signature, legal instrument, source-owner identity or the underlying permission document. An accepted output reports `data_use_authorization=ASSERTED_NOT_AUTHENTICATED_BY_THIS_TOOL` and `source_use_gate=UNVERIFIED_AUTHORIZATION_ASSERTION_SCOPE_ACCEPTED`. This is an engineering preflight, not a legal authorization system. Do not use it to promote external Green Drop or other restricted data into production.
+
 The report explicitly states:
 - `cohort_set_completeness=COMPLETE_FOR_DECLARED_MANIFEST` only when exact manifest reconciliation passes; otherwise `INCOMPLETE_OR_MISMATCHED_TO_DECLARED_MANIFEST`.
 - A complete manifest does not make unknown service observations estimable; the two dispositions are independent.
@@ -84,4 +89,4 @@ The report explicitly states:
 - It does not establish that a lane represents an entire neighbourhood, municipality or vulnerable group.
 - It does not define what an equitable allocation should be. Distributional and restorative equity require transparent, legitimate, owner-reviewed policy rather than weights inferred from labels.
 - No uncertainty interval is estimated in v0.1.
-- Future work should add content-bound manifest and lane receipts, independently adjudicated cohort mappings, external population-coverage audits, uncertainty and missingness analysis, and matched comparison against unweighted, population-weighted, threshold-gap and restorative-equity baselines.
+- Future work should replace the positive authorization assertion with a content-bound, owner-signed source-use receipt and independently trusted verification policy; then add independently adjudicated cohort mappings, external population-coverage audits, uncertainty and missingness analysis, and matched comparison against unweighted, population-weighted, threshold-gap and restorative-equity baselines.
