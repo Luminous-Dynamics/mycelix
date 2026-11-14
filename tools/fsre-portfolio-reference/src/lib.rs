@@ -359,7 +359,18 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
     let mut resource_uses = Vec::<&Record>::new();
     let mut option_domains = BTreeMap::<OptionKey, Vec<&Record>>::new();
 
+    let mut option_services = BTreeMap::<String, String>::new();
     for record in &input.records {
+        if !record.option.is_empty() {
+            if let Some(previous_service) = option_services.insert(record.option.clone(), record.service.clone()) {
+                if previous_service != record.service {
+                    return Err(InputError(format!(
+                        "option {} is assigned to multiple service lanes; v0.1 requires one service per option ID",
+                        record.option
+                    )));
+                }
+            }
+        }
         match record.kind.as_str() {
             "OPTION_QUALIFICATION" => unique_insert(&mut qualifications, record.option_key(), record, "option qualification")?,
             "OPTION_CAPACITY" => unique_insert(&mut capacities, record.option_key(), record, "option capacity")?,
@@ -533,7 +544,9 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
 
     let mut domain_members = BTreeMap::<String, BTreeSet<String>>::new();
     for (key, profile) in &domain_profiles {
-        if profile.status == "COMPLETE" && allocated_options.contains(key) {
+        if allocated_options.contains(key) {
+            // Even partial mappings are retained as observed common-cause links.
+            // An incomplete profile still forces NOT_ESTIMABLE above.
             if let Some(domains) = option_domains.get(key) {
                 for domain in domains {
                     domain_members.entry(domain.subject.clone()).or_default().insert(key.0.clone());
@@ -622,6 +635,15 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
         lines.push(format!("shared_domain={domain}|{}|{}", members.len(), members.join(",")));
     }
     lines.push(format!("blocked_allocations={blocked_allocations}"));
+    lines.push(format!("evidence_records={}", input.records.len()));
+    let mut evidence_records: Vec<&Record> = input.records.iter().collect();
+    evidence_records.sort_by(|left, right| left.id.cmp(&right.id));
+    for record in evidence_records {
+        lines.push(format!(
+            "evidence={}|{}|{}|{}",
+            record.id, record.kind, record.owner, record.evidence_ref
+        ));
+    }
     lines.push("claim_scope=DECLARED_SCENARIO_AND_INTERVAL_ONLY".to_owned());
     lines.push("option_independence_claim=NOT_MADE;SHARED_DOMAINS_REPORTED".to_owned());
     lines.push("source_authenticity=NOT_AUTHENTICATED_BY_THIS_TOOL".to_owned());
@@ -757,6 +779,27 @@ mod tests {
         );
         assert_ne!(changed, FIXTURE);
         assert!(validate_and_report(&changed).unwrap_err().0.contains("frozen scenario or interval"));
+    }
+
+    #[test]
+    fn one_option_id_cannot_be_double_counted_across_service_lanes() {
+        let changed = FIXTURE.replace(
+            "OPTION_QUALIFICATION|qual-tanker|tanker_delivery|water",
+            "OPTION_QUALIFICATION|qual-tanker|tanker_delivery|wastewater",
+        );
+        assert_ne!(changed, FIXTURE);
+        assert!(validate_and_report(&changed)
+            .unwrap_err()
+            .0
+            .contains("multiple service lanes"));
+    }
+
+    #[test]
+    fn report_preserves_owner_and_evidence_references() {
+        let report = validate_and_report(FIXTURE).expect("fixture should validate");
+        assert!(report.contains("evidence_records=28"));
+        assert!(report.contains("evidence=qual-pump|OPTION_QUALIFICATION|operator|synthetic:qualification:pump"));
+        assert!(report.contains("evidence=resource-cap-diesel|RESOURCE_CAPACITY|operator|synthetic:stock:diesel"));
     }
 
     #[test]
