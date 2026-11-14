@@ -1058,16 +1058,21 @@ mod tests {
 
     #[test]
     fn manifest_membership_must_cover_the_complete_horizon() {
-        let changed = MANIFEST.replace(
-            "COHORT|remote-community|250|persons|",
-            "COHORT|remote-community|250|persons|",
-        ).replace(
-            "|0|1000",
-            "|0|99",
-        );
+        let changed = MANIFEST.replace("|0|1000", "|0|99");
         let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
         let report = validate_and_report_with_manifest(&changed, &lanes).unwrap();
         assert!(report.contains("manifest_mismatched_cohort_ids=hospital,households,remote-community"));
+    }
+
+    #[test]
+    fn duplicate_manifest_cohort_ids_are_rejected() {
+        let changed = MANIFEST.replace(
+            "COHORT|remote-community|250|persons|",
+            "COHORT|households|250|persons|",
+        );
+        let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
+        let error = validate_and_report_with_manifest(&changed, &lanes).unwrap_err();
+        assert!(error.0.contains("duplicate cohort_id households"));
     }
 
     #[test]
