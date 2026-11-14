@@ -768,17 +768,17 @@ mod tests {
 
     #[test]
     fn retry_requires_confirmed_no_effect_and_same_key_reconciliation() {
-        let mut preflight = event(0,"e0","preflight_decision");
+        let mut preflight = event(0, "e0", "preflight_decision");
         preflight["operation_ref"] = json!("op-1");
         preflight["operation_digest"] = json!("digest-1");
         preflight["decision"] = json!("ALLOW");
-        let mut dispatch = event(1,"e1","provider_dispatch");
+        let mut dispatch = event(1, "e1", "provider_dispatch");
         dispatch["operation_ref"] = json!("op-1");
         dispatch["operation_digest"] = json!("digest-1");
         dispatch["attempt_ref"] = json!("attempt-1");
         dispatch["provider_contract_ref"] = json!("contract-1");
         dispatch["idempotency_ref"] = json!("idem-1");
-        let mut reconciliation = event(2,"e2","reconciliation");
+        let mut reconciliation = event(2, "e2", "reconciliation");
         reconciliation["operation_ref"] = json!("op-1");
         reconciliation["operation_digest"] = json!("digest-1");
         reconciliation["effect_state"] = json!("confirmed_no_effect");
@@ -789,17 +789,27 @@ mod tests {
         reconciliation["idempotency_ref"] = json!("idem-1");
         reconciliation["expected_action_ids"] = json!(["action-1"]);
         reconciliation["observed_action_ids"] = json!([]);
-        let mut retry = event(3,"e3","retry_attempt");
+        let mut retry_preflight = event(3, "e3", "preflight_decision");
+        retry_preflight["operation_ref"] = json!("op-1");
+        retry_preflight["operation_digest"] = json!("digest-1");
+        retry_preflight["decision"] = json!("ALLOW");
+        let mut retry = event(4, "e4", "retry_attempt");
         retry["operation_ref"] = json!("op-1");
         retry["operation_digest"] = json!("digest-1");
         retry["attempt_ref"] = json!("attempt-2");
         retry["idempotency_ref"] = json!("idem-1");
         retry["retry_safety"] = json!("same_operation_same_key_qualified");
-        let report = validate_trace(&trace(vec![preflight,dispatch,reconciliation,retry]));
+        let report = validate_trace(&trace(vec![
+            preflight,
+            dispatch,
+            reconciliation,
+            retry_preflight,
+            retry,
+        ]));
         assert!(report.errors.is_empty(), "{:?}", report.errors);
     }
 
-
+    
     #[test]
     fn a_second_retry_requires_reconciliation_of_the_first_retry() {
         let mut preflight = event(0, "e0", "preflight_decision");
@@ -823,17 +833,21 @@ mod tests {
         reconciliation["capture_origin"] = json!("provider_native");
         reconciliation["expected_action_ids"] = json!(["action-1"]);
         reconciliation["observed_action_ids"] = json!([]);
-        let mut retry_one = event(3, "e3", "retry_attempt");
+        let mut retry_preflight = event(3, "e3", "preflight_decision");
+        retry_preflight["operation_ref"] = json!("op-1");
+        retry_preflight["operation_digest"] = json!("digest-1");
+        retry_preflight["decision"] = json!("ALLOW");
+        let mut retry_one = event(4, "e4", "retry_attempt");
         retry_one["operation_ref"] = json!("op-1");
         retry_one["operation_digest"] = json!("digest-1");
         retry_one["attempt_ref"] = json!("attempt-2");
         retry_one["idempotency_ref"] = json!("idem-1");
         retry_one["retry_safety"] = json!("same_operation_same_key_qualified");
-        let mut retry_preflight = event(3, "e3", "preflight_decision");
-        retry_preflight["operation_ref"] = json!("op-1");
-        retry_preflight["operation_digest"] = json!("digest-1");
-        retry_preflight["decision"] = json!("ALLOW");
-        let mut retry_two = event(5, "e5", "retry_attempt");
+        let mut retry_two_preflight = event(5, "e5", "preflight_decision");
+        retry_two_preflight["operation_ref"] = json!("op-1");
+        retry_two_preflight["operation_digest"] = json!("digest-1");
+        retry_two_preflight["decision"] = json!("ALLOW");
+        let mut retry_two = event(6, "e6", "retry_attempt");
         retry_two["operation_ref"] = json!("op-1");
         retry_two["operation_digest"] = json!("digest-1");
         retry_two["attempt_ref"] = json!("attempt-3");
@@ -845,11 +859,13 @@ mod tests {
             reconciliation,
             retry_preflight,
             retry_one,
+            retry_two_preflight,
             retry_two,
         ]));
         assert!(report.errors.iter().any(|error| error.contains("later owner/provider reconciliation")));
     }
 
+    
     #[test]
     fn retry_reconciliation_must_come_from_an_owner_or_provider_source() {
         let mut preflight = event(0, "e0", "preflight_decision");
