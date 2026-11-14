@@ -149,6 +149,78 @@ fn known_capture_origin(value: &str) -> bool {
     )
 }
 
+#[derive(Clone, Debug)]
+struct ApprovalSnapshot {
+    approval_ref: String,
+    approval_state: String,
+    operation_digest: String,
+    action_digest: String,
+    principal_ref: String,
+    target_ref: String,
+    sequence: u64,
+}
+
+#[derive(Clone, Debug)]
+struct PreflightSnapshot {
+    approval_ref: String,
+    decision: String,
+    operation_digest: String,
+    action_digest: String,
+    authority_state: String,
+    constitution_ref: String,
+    constitution_epoch: u64,
+    constitution_digest: String,
+    policy_revision: String,
+    resource_state: String,
+    principal_ref: String,
+    target_ref: String,
+    sequence: u64,
+}
+
+fn preflight_was_invalidated(
+    events: &[Value],
+    preflight: &PreflightSnapshot,
+    dispatch_sequence: u64,
+) -> bool {
+    events
+        .iter()
+        .enumerate()
+        .skip(preflight.sequence as usize + 1)
+        .take(dispatch_sequence.saturating_sub(preflight.sequence + 1) as usize)
+        .any(|(_, event)| match event_type(event) {
+            "revocation_observed" => {
+                optional_string(event, "principal_ref")
+                    .is_none_or(|principal| principal == preflight.principal_ref)
+            }
+            "authority_snapshot" => {
+                optional_string(event, "principal_ref")
+                    .is_none_or(|principal| principal == preflight.principal_ref)
+                    && event_string(event, "authority_state") != Some("current")
+            }
+            "constitution_snapshot" => {
+                optional_string(event, "constitution_ref")
+                    .is_none_or(|reference| reference == preflight.constitution_ref)
+                    && (event_string(event, "constitution_digest")
+                        != Some(preflight.constitution_digest.as_str())
+                        || event.get("constitution_epoch").and_then(Value::as_u64)
+                            != Some(preflight.constitution_epoch))
+            }
+            "resource_snapshot" => {
+                optional_string(event, "target_ref")
+                    .is_none_or(|target| target == preflight.target_ref)
+                    && event_string(event, "resource_state") != Some("matches")
+            }
+            "policy_decision" => {
+                optional_string(event, "operation_ref")
+                    .is_none_or(|operation| operation == event_string(event, "operation_ref").unwrap_or(""))
+                    && (event_string(event, "decision") != Some("ALLOW")
+                        || event_string(event, "policy_revision")
+                            != Some(preflight.policy_revision.as_str()))
+            }
+            _ => false,
+        })
+}
+
 #[derive(Default)]
 struct TraceReport {
     event_count: usize,
@@ -224,7 +296,8 @@ fn validate_trace(trace: &Value) -> TraceReport {
     }
 
     let mut event_ids = BTreeMap::<String, u64>::new();
-    let mut preflight_by_operation = BTreeMap::<String, (String, String, u64)>::new();
+    let mut approval_by_operation = BTreeMap::<String, ApprovalSnapshot>::new();
+    let mut preflight_by_operation = BTreeMap::<String, PreflightSnapshot>::new();
     let mut dispatch_by_operation = BTreeMap::<String, (String, Option<String>, u64)>::new();
     let mut reconciliation_by_operation =
         BTreeMap::<String, (String, String, Option<String>, String, u64)>::new();
@@ -300,14 +373,72 @@ fn validate_trace(trace: &Value) -> TraceReport {
 
         match kind {
             "preflight_decision" => {
-                for key in ["operation_ref", "operation_digest", "decision"] {
+                for key in [
+                    "operation_ref",
+                    "operation_digest",
+                    "action_digest",
+                    "approval_ref",
+                    "decision",
+                    "authority_state",
+                    "constitution_ref",
+                    "constitution_digest",
+                    "policy_revision",
+                    "resource_state",
+                    "principal_ref",
+                    "target_ref",
+                ] {
                     require_string(event, key, &label, &mut report.errors);
                 }
+                let Some(constitution_epoch) = event.get("constitution_epoch").and_then(Value::as_u64) else {
+                    report.errors.push(format!("{label}: constitution_epoch must be a nonnegative integer"));
+                    continue;
+                };
                 if !operation_ref.is_empty() && !operation_digest.is_empty() {
-                    let decision = event_string(event, "decision").unwrap_or("");
+                    let approval_ref = event_string(event, "approval_ref").unwrap_or("");
+                    let approval = approval_by_operation.get(operation_ref);
+                    if let Some(approval) = approval {
+                        if approval.sequence >= sequence
+                            || approval.approval_ref != approval_ref
+                            || approval.approval_state != "authorized"
+                            || approval.operation_digest != operation_digest
+                            || approval.action_digest != event_string(event, "action_digest").unwrap_or("")
+                        {
+                            report.errors.push(format!(
+                                "{label}: preflight is not bound to a prior authorized approval for the exact operation and action digests"
+                            ));
+                        }
+                    } else if event_string(event, "decision") == Some("ALLOW") {
+                        report.errors.push(format!(
+                            "{label}: ALLOW preflight has no preceding authorized operation approval"
+                        ));
+                    }
+
+                    if event_string(event, "decision") == Some("ALLOW") {
+                        if event_string(event, "authority_state") != Some("current") {
+                            report.errors.push(format!("{label}: ALLOW requires current authority"));
+                        }
+                        if !matches!(event_string(event, "resource_state"), Some("matches" | "not_required")) {
+                            report.errors.push(format!("{label}: ALLOW requires a satisfied or explicitly not-required resource precondition"));
+                        }
+                    }
+
                     preflight_by_operation.insert(
                         operation_ref.to_owned(),
-                        (decision.to_owned(), operation_digest.to_owned(), sequence),
+                        PreflightSnapshot {
+                            approval_ref: approval_ref.to_owned(),
+                            decision: event_string(event, "decision").unwrap_or("").to_owned(),
+                            operation_digest: operation_digest.to_owned(),
+                            action_digest: event_string(event, "action_digest").unwrap_or("").to_owned(),
+                            authority_state: event_string(event, "authority_state").unwrap_or("").to_owned(),
+                            constitution_ref: event_string(event, "constitution_ref").unwrap_or("").to_owned(),
+                            constitution_epoch,
+                            constitution_digest: event_string(event, "constitution_digest").unwrap_or("").to_owned(),
+                            policy_revision: event_string(event, "policy_revision").unwrap_or("").to_owned(),
+                            resource_state: event_string(event, "resource_state").unwrap_or("").to_owned(),
+                            principal_ref: event_string(event, "principal_ref").unwrap_or("").to_owned(),
+                            target_ref: event_string(event, "target_ref").unwrap_or("").to_owned(),
+                            sequence,
+                        },
                     );
                 }
             }
@@ -323,13 +454,25 @@ fn validate_trace(trace: &Value) -> TraceReport {
                 }
                 if !operation_ref.is_empty() {
                     match preflight_by_operation.get(operation_ref) {
-                        Some((decision, digest, preflight_sequence))
-                            if decision.as_str() == "ALLOW"
-                                && digest.as_str() == operation_digest
-                                && *preflight_sequence < sequence => {}
-                        Some((decision, _, _)) => report.errors.push(format!(
-                            "{label}: provider dispatch requires a prior ALLOW preflight for the exact operation; latest decision was '{decision}'"
-                        )),
+                        Some(preflight)
+                            if preflight.decision == "ALLOW"
+                                && preflight.operation_digest == operation_digest
+                                && preflight.action_digest == event_string(event, "action_digest").unwrap_or("")
+                                && preflight.approval_ref == event_string(event, "approval_ref").unwrap_or("")
+                                && preflight.sequence < sequence
+                                && !preflight_was_invalidated(events, preflight, sequence) => {}
+                        Some(preflight) => {
+                            if preflight_was_invalidated(events, preflight, sequence) {
+                                report.errors.push(format!(
+                                    "{label}: an authority, constitution, resource or policy invalidation occurred after the latest preflight"
+                                ));
+                            } else {
+                                report.errors.push(format!(
+                                    "{label}: provider dispatch requires a prior ALLOW preflight for the exact operation, action and approval; latest decision was '{}'",
+                                    preflight.decision
+                                ));
+                            }
+                        }
                         None => report.errors.push(format!(
                             "{label}: provider dispatch has no preceding preflight decision"
                         )),
@@ -567,8 +710,35 @@ fn validate_trace(trace: &Value) -> TraceReport {
                 }
             }
             "approval_recorded" => {
-                for key in ["approval_ref", "approval_state", "operation_ref", "operation_digest"] {
+                for key in [
+                    "approval_ref",
+                    "approval_state",
+                    "operation_ref",
+                    "operation_digest",
+                    "action_digest",
+                    "principal_ref",
+                    "target_ref",
+                ] {
                     require_string(event, key, &label, &mut report.errors);
+                }
+                if source_kind == "candidate_agent" || capture_origin == "candidate_reported" {
+                    report.errors.push(format!(
+                        "{label}: operation approval cannot be self-asserted by the candidate agent"
+                    ));
+                }
+                if !operation_ref.is_empty() {
+                    approval_by_operation.insert(
+                        operation_ref.to_owned(),
+                        ApprovalSnapshot {
+                            approval_ref: event_string(event, "approval_ref").unwrap_or("").to_owned(),
+                            approval_state: event_string(event, "approval_state").unwrap_or("").to_owned(),
+                            operation_digest: operation_digest.to_owned(),
+                            action_digest: event_string(event, "action_digest").unwrap_or("").to_owned(),
+                            principal_ref: event_string(event, "principal_ref").unwrap_or("").to_owned(),
+                            target_ref: event_string(event, "target_ref").unwrap_or("").to_owned(),
+                            sequence,
+                        },
+                    );
                 }
             }
             _ => {}
