@@ -149,7 +149,7 @@ A baseline should not be marked as failed because it lacks a feature it was neve
 - At least three independent implementations or evaluators before any interoperability or comparative-performance claim.
 - Separate exact-head format, locked tests, strict Clippy and independent replay evidence.
 
-These are proposed engineering gates for the benchmark, not claims already achieved. The present eight-case fixture only establishes the first executable contract.
+These are proposed engineering gates for the benchmark, not claims already achieved. The nine known-answer fixtures establish the first executable contract. A follow-on metamorphic suite adds actor-relabeling invariance, input-order invariance, coalition-growth monotonicity, oversight-restoration monotonicity, execution-quorum threshold behavior, and a deterministic sweep over all 63 non-empty coalitions of a six-actor synthetic portfolio. These remain finite model checks, not a real-world capture-risk estimate.
 
 ## 8. Research questions that could produce real advances
 
@@ -186,6 +186,19 @@ References:
 - https://www.w3.org/TR/2026/REC-vc-jose-cose-20261013/
 
 
-## 13. Common-cause dependency integration status (2026-11-13)
+## 13. Metamorphic and generated-property checks
+
+The follow-on S3 branch adds transformations and generated scenarios in addition to the nine hand-authored known answers:
+
+- **Actor relabeling invariance:** a bijective renaming of all scenario actors must preserve the capture disposition and domain-level control counts/booleans.
+- **Domain input-order invariance:** reversing the input vector must produce the same sorted assessments, controlled execution domains and compromised oversight domains.
+- **Coalition-growth monotonicity:** adding an already-authorized and available actor to a coalition cannot make an existing `capture_detected` finding disappear when all other inputs remain fixed.
+- **Oversight-restoration monotonicity:** restoring enough independent non-coalition controllers to meet the exact configured oversight quorum removes the capture finding when execution conditions are unchanged.
+- **Threshold behavior:** raising an execution signer threshold cannot create a capture finding when the coalition no longer meets the execution quorum and the total active quorum remains available.
+- **Generated truth table:** the reference fixture sweeps all 63 non-empty coalitions of a six-actor portfolio. The expected predicate is independently computed from declared execution and independent-oversight counts.
+
+These are metamorphic checks over a bounded synthetic model. They do not establish that the declared coalition membership, quorum, available-controller inventory, or real-world dependency graph is complete or authentic.
+
+## 14. Common-cause dependency integration status (2026-11-13)
 
 S3 v0 does **not** currently compute common-cause or transitive dependency independence. The owner-native work is tracked by Mycelix #5762/#5695/#1243/#1371, but the #5762 issue remains open and its implementation PR #5696 is also open, based on the `research/assurance-portfolio-model-v0-1` research branch rather than merged `main`. Therefore the required dependency-closure/cut-set output is not yet a stable mainline integration contract. Until the owner implementation is merged, reviewed, and independently qualified, any S3 claim that audit and appeal are operationally independent across common causes must be **indeterminate / not evaluated**. S3's present identity/quorum fixture only tests the explicitly declared controller sets; it cannot prove failure-domain independence.
