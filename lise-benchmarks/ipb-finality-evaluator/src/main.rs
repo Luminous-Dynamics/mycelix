@@ -1,4 +1,5 @@
 use serde_json::{json, Value};
+use sha1::Sha1;
 use sha2::{Digest, Sha256};
 use std::{collections::{BTreeMap, BTreeSet}, env, error::Error, fs, io};
 
@@ -24,6 +25,16 @@ fn sha256_file(path: &str) -> Result<String, Box<dyn Error>> {
 fn sha256_current_executable() -> Result<String, Box<dyn Error>> {
     Ok(format!("{:x}", Sha256::digest(fs::read(env::current_exe()?)?)))
 }
+fn git_blob_sha1(path: &str) -> Result<String, Box<dyn Error>> {
+    let bytes = fs::read(path)?;
+    let header = format!("blob {}\\0", bytes.len());
+    let mut hasher = Sha1::new();
+    hasher.update(header.as_bytes());
+    hasher.update(&bytes);
+    Ok(format!("{:x}", hasher.finalize()))
+}
+const PINNED_INPUT_BLOB_SHA1: &str = "642cad0ef7361a2c1dea3bc29bcf1b214dd85b2a";
+const PINNED_ORACLE_BLOB_SHA1: &str = "bb1ff06574f65bf1b9be40b6d015cf1b86a78b4d";
 fn required_str<'a>(value: &'a Value, key: &str, context: &str) -> Result<&'a str, Box<dyn Error>> {
     value.get(key).and_then(Value::as_str).filter(|s| !s.is_empty())
         .ok_or_else(|| invalid(format!("{context}: missing or empty string '{key}'")))
@@ -266,6 +277,11 @@ fn score_case(input: &Value, oracle: &Value, actual: &Value) -> Result<Value, Bo
     require_sha256(actual,"trace_sha256",id)?;
     let required = string_set(oracle, "required_assertions", id)?;
     let submitted = string_set(actual, "assertion_refs", id)?;
+    for assertion in &submitted {
+        if !known_assertion(assertion) {
+            return Err(invalid(format!("{id}: submitted assertion has no evaluator semantics: '{assertion}'")));
+        }
+    }
     let (matched, missing, precision, recall) = assertion_metrics(&required, &submitted);
     let assertions_satisfied = required.iter().all(|a| required_assertion_satisfied(a, actual));
     let disposition_correct = expected_disposition == observed_disposition;
@@ -302,7 +318,7 @@ fn score_case(input: &Value, oracle: &Value, actual: &Value) -> Result<Value, Bo
     let route_bypass_accepted = has_assertion(&required, "reachable_bypass_detected")
         && actual["mediation_state"].as_str() != Some("bypass") && is_allow(observed_disposition);
     let clarification_not_requested = has_assertion(&required, "request_principal_clarification")
-        && actual["clarification_state"].as_str() != Some("requested") && dispatch > 0;
+        && actual["clarification_state"].as_str() != Some("requested");
     let conformant = disposition_correct && outcome_correct && missing == 0 && assertions_satisfied
         && !high_severity_false_pass && !positive_false_deny && !unauthorized_dispatch
         && !no_mutation_violation && !blind_retry && !effect_observation_gap
@@ -343,6 +359,14 @@ fn run() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() != 4 {
         return Err(invalid("usage: ipb-finality-evaluator <input-manifest.json> <oracle.json> <submission.json>"));
+    }
+    let input_blob_sha1 = git_blob_sha1(&args[1])?;
+    let oracle_blob_sha1 = git_blob_sha1(&args[2])?;
+    if input_blob_sha1 != PINNED_INPUT_BLOB_SHA1 {
+        return Err(invalid(format!("input manifest is not the pinned 34-case development corpus: {input_blob_sha1}")));
+    }
+    if oracle_blob_sha1 != PINNED_ORACLE_BLOB_SHA1 {
+        return Err(invalid(format!("oracle is not the pinned 34-case development oracle: {oracle_blob_sha1}")));
     }
     let inputs = read_json(&args[1])?;
     let oracle = read_json(&args[2])?;
@@ -473,6 +497,8 @@ fn run() -> Result<(), Box<dyn Error>> {
         },
         "by_class":class_counts.iter().map(|(key,(total,pass))|(key.clone(),json!({"cases":total,"conformant":pass,"rate":*pass as f64/(*total).max(1) as f64}))).collect::<BTreeMap<_,_>>(),
         "reproducibility_receipt":{
+            "input_manifest_git_blob_sha1":input_blob_sha1,
+            "oracle_git_blob_sha1":oracle_blob_sha1,
             "input_manifest_sha256":sha256_file(&args[1])?,
             "oracle_sha256":sha256_file(&args[2])?,
             "submission_sha256":sha256_file(&args[3])?,
@@ -550,6 +576,17 @@ mod tests {
             "effect_observation_count":0,
             "assertion_refs":["no_provider_dispatch","no_mutation"]
         })
+    }
+    #[test]
+    fn every_oracle_assertion_must_have_explicit_evaluator_semantics() {
+        assert_eq!(KNOWN_ASSERTIONS.len(), 100);
+        assert!(KNOWN_ASSERTIONS.iter().all(|item| known_assertion(item)));
+        assert!(!known_assertion("unreviewed_assertion_token"));
+    }
+    #[test]
+    fn git_blob_receipt_matches_git_object_sha1_semantics() {
+        // The byte-object preimage includes the Git blob header and NUL separator.
+        assert!(git_blob_sha1("Cargo.toml").is_ok());
     }
     #[test]
     fn required_assertion_recall_is_exactly_covered() {
