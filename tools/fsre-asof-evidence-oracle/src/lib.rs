@@ -562,6 +562,40 @@ mod tests {
     }
 
     #[test]
+    fn revocation_effective_and_knowledge_cutoffs_are_independent() {
+        for effective_at in [7199_u64, 7200, 7201] {
+            let changed = FIXTURE.replace(
+                "EVIDENCE|e-pending|pending_permit|synthetic-water-shock|6800|6900|6700|10000|7600|7000",
+                &format!(
+                    "EVIDENCE|e-pending|pending_permit|synthetic-water-shock|6800|6900|6700|10000|{effective_at}|7000"
+                ),
+            );
+            let report = validate_and_report(&changed).expect("effective-time case");
+            let expected = if effective_at <= 7200 {
+                "REVOKED_AS_KNOWN"
+            } else {
+                "REVOCATION_PENDING"
+            };
+            assert!(report.contains(&format!("e-pending|pending_permit|{expected}")));
+        }
+        for known_at in [7199_u64, 7200, 7201] {
+            let changed = FIXTURE.replace(
+                "EVIDENCE|e-telemetry|telemetry|synthetic-water-shock|6800|6900|6000|9500|6500|7600",
+                &format!(
+                    "EVIDENCE|e-telemetry|telemetry|synthetic-water-shock|6800|6900|6000|9500|6500|{known_at}"
+                ),
+            );
+            let report = validate_and_report(&changed).expect("knowledge-time case");
+            let expected = if known_at <= 7200 {
+                "REVOKED_AS_KNOWN"
+            } else {
+                "ADMISSIBLE_WITH_HINDSIGHT_REVOCATION"
+            };
+            assert!(report.contains(&format!("e-telemetry|telemetry|{expected}")));
+        }
+    }
+
+    #[test]
     fn cross_scenario_evidence_is_rejected() {
         let changed = FIXTURE.replace(
             "EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock",
