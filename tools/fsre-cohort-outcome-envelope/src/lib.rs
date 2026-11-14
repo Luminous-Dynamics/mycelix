@@ -267,7 +267,6 @@ const MANIFEST_HEADER: &str = "record_type|cohort_id|population_denominator|popu
 
 #[derive(Clone, Debug)]
 struct ManifestCohort {
-    cohort_id: String,
     population_denominator: Option<u64>,
     population_unit: String,
     identity_source_owner: String,
@@ -371,7 +370,6 @@ fn parse_manifest(source: &str) -> Result<CohortManifest, InputError> {
             )));
         }
         let cohort = ManifestCohort {
-            cohort_id: cohort_id.clone(),
             population_denominator,
             population_unit,
             identity_source_owner,
@@ -499,6 +497,8 @@ fn qualify_manifest(
             && expected.population_unit == actual.population_unit
             && expected.denominator_source_owner == actual.denominator_source_owner
             && expected.denominator_source_ref == actual.denominator_source_ref
+            && expected.identity_source_owner == actual.identity_source_owner
+            && expected.identity_source_ref == actual.identity_source_ref
             && valid_for_horizon;
         if !fields_match {
             mismatch_ids.push(cohort_id.clone());
