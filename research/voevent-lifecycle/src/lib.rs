@@ -142,8 +142,6 @@ impl fmt::Display for ManifestError {
 
 impl Error for ManifestError {}
 
-const MAX_VOEVENT_PACKET_BYTES: usize = 2 * 1024 * 1024;
-
 fn map_packet_role(role: ParsedPacketRole) -> PacketRole {
     match role {
         ParsedPacketRole::Observation => PacketRole::Observation,
@@ -178,7 +176,7 @@ fn packet_from_raw(
     packet_index: usize,
 ) -> Result<Packet, ManifestError> {
     let raw_packet_bytes = received.raw_packet_xml.as_bytes();
-    if raw_packet_bytes.is_empty() || raw_packet_bytes.len() > MAX_VOEVENT_PACKET_BYTES {
+    if raw_packet_bytes.is_empty() || raw_packet_bytes.len() > mycelix_voevent_header::MAX_PACKET_BYTES {
         return Err(ManifestError::InvalidPacket {
             packet_index,
             reason: "raw VOEvent packet is empty or exceeds the 2 MiB limit".to_owned(),
