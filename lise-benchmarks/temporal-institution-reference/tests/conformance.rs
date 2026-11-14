@@ -1,5 +1,5 @@
 use lise_temporal_institution_reference::{
-    replay_trace, Disposition, TraceOracle, TraceSuite,
+    replay_trace, TraceOracle, TraceSuite,
 };
 
 const SCENARIOS: &str = include_str!("../fixtures/scenarios.json");
