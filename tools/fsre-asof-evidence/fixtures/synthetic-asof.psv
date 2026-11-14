@@ -7,7 +7,7 @@ CLAIM|claim-crew|crew_authority|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SE
 CLAIM|claim-future|future_sensor|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|telemetry_owner|synthetic:claim:future|1
 CLAIM|claim-fuel|fuel_stock|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:fuel|1
 CLAIM|claim-missing|no_source|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:missing|1
-CLAIM|claim-pending|pending_permit|synthetic-water-shock|||||||REQUIRED|UTC_SECONDS_V1|authority_owner|synthetic:claim:pending|1
+CLAIM|claim-pending|pending_permit|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|authority_owner|synthetic:claim:pending|1
 CLAIM|claim-pump|pump_capacity|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:pump|2
 CLAIM|claim-road|road_access|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|spatial_owner|synthetic:claim:road|1
 CLAIM|claim-telemetry|telemetry|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|telemetry_owner|synthetic:claim:telemetry|1
