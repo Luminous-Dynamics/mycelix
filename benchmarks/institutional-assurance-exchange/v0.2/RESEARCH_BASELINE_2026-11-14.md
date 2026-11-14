@@ -32,7 +32,7 @@ Our vertical slice now records a normalized possible-write trace and an explicit
 - authorization reference;
 - whether the operation may affect an external party.
 
-The evaluator checks every submitted write-intent record against this boundary and reports unauthorized side effects separately from decision correctness. It also checks that the write-trace event maps to the same operation/idempotency identity as the timeout record.
+The evaluator checks every submitted write-intent record against this boundary and reports unauthorized side effects separately from decision correctness. It also checks that the logical operation reference, canonical operation digest, action digest and idempotency reference match the authorized-write boundary. Reusing an operation label with a different canonical digest or idempotency reference is a negative control, not a valid continuation.
 
 The synthetic lease submission is a *possible* external side effect with unknown external visibility, not a confirmed completed lease. It must be reconciled before any further mutation.
 
