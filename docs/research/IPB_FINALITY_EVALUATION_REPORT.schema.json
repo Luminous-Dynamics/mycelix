@@ -47,7 +47,10 @@
         "total_input_tokens",
         "total_output_tokens",
         "total_cost_usd_micros",
-        "expert_reviewer_time_ms"
+        "expert_reviewer_time_ms",
+        "prompt_sha256",
+        "tool_schema_sha256",
+        "trace_bundle_ref"
       ],
       "properties": {
         "system_id": {
@@ -158,6 +161,21 @@
             "null"
           ],
           "minimum": 0
+        },
+        "prompt_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "tool_schema_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "trace_bundle_ref": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
