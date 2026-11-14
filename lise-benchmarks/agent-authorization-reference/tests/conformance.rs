@@ -10,7 +10,7 @@ fn all_cases_match_separate_oracle_on_both_axes() {
     assert_eq!(suite.case_count, suite.cases.len());
     assert_eq!(oracle.case_count, oracle.rows.len());
     assert_eq!(suite.suite_id, oracle.suite_id);
-    assert_eq!(suite.cases.len(), 20);
+    assert_eq!(suite.cases.len(), 22);
     let ids: BTreeSet<_> = suite.cases.iter().map(|x| x.id.as_str()).collect();
     let rows: BTreeMap<_, _> = oracle.rows.iter().map(|x| (x.case_id.as_str(), x)).collect();
     assert_eq!(ids.len(), suite.cases.len());
@@ -31,7 +31,7 @@ fn parser_rejects_unknown_top_level_fields() {
 }
 #[test]
 fn parser_rejects_unknown_nested_authority_fields() {
-    let invalid = r#"{"status":"valid","principal_id":"p","actor_id":"a","action":"x","resource":"r","purpose":"p","operation_digest":"d","recipient":"r","maximum_amount_minor":10,"currency":"USD","constitutional_epoch":1,"valid_from_unix":0,"expires_at_unix":10,"delegated":false,"delegation_attenuated":true,"admin":true}"#;
+    let invalid = r#"{"status":"valid","principal_id":"p","actor_id":"a","action":"x","resource":"r","purpose":"p","operation_digest":"d","recipient":"r","maximum_amount_minor":10,"currency":"USD","constitutional_epoch":1,"valid_from_unix":0,"expires_at_unix":10,"delegated":false,"parent_grant":null,"admin":true}"#;
     assert!(serde_json::from_str::<Authority>(invalid).is_err());
 }
 #[test]

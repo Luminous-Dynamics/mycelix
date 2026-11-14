@@ -36,9 +36,9 @@ A November 2026 review introduces a preliminary Minimum Authorization Assurance 
 
 ## Executable finite reference
 
-The isolated Rust crate at lise-benchmarks/agent-authorization-reference implements a pure evaluator over a closed-schema synthetic panel of 20 cases. It cannot issue credentials, grant authority, call tools, transfer funds or observe providers.
+The isolated Rust crate at lise-benchmarks/agent-authorization-reference implements a pure evaluator over a closed-schema synthetic panel of 22 cases. It cannot issue credentials, grant authority, call tools, transfer funds or observe providers.
 
-The panel includes positive controls, clarification, qualified delegation and amplification, revocation, expiry, epoch drift, enforcement bypass, operation substitution, successful-task collateral writes, failed task with confirmed no effect, executor-only acknowledgement, unknown and partial effects, replay without idempotency, amount ceilings, observation mismatch and missing authority.
+The panel includes positive controls, clarification, qualified parent/child delegation and amplification, revocation, expiry, epoch drift, enforcement bypass, operation substitution, successful-task collateral writes, failed task with confirmed no effect, executor-only acknowledgement, unknown and partial effects, replay without idempotency, amount ceilings, observation mismatch and missing authority.
 
 ## Comparison and fair baselines
 
@@ -47,6 +47,8 @@ Cedar and OPA are suitable controls for equivalent local authorization semantics
 AuthorizationBench and SABench are trajectory comparators. Their headline rates are benchmark-specific. Reproduce task, permission, sandbox and trace semantics before a matched comparison; label reduced subsets and exclusions. Never compare raw percentages across non-matched task populations.
 
 Track task success; compliant protected effects; unauthorized effects per trajectory and effect; unauthorized writes among successful tasks; collateral effects; clarification precision/burden; revocation/epoch errors; unknown/partial classification; reconciliation; duplicate effects; repeat-run violation probability; worst-case trace; latency and cost separately.
+
+The reference checks delegation containment by comparing the child grant fields with the explicit parent grant; it does not accept a self-asserted attenuation boolean.
 
 ## Prospective targets — not achieved
 

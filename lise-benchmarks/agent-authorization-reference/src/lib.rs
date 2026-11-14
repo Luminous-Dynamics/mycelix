@@ -38,12 +38,26 @@ pub struct Intent {
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct GrantScope {
+    pub action: String,
+    pub resource: String,
+    pub purpose: String,
+    pub operation_digest: String,
+    pub recipient: String,
+    pub maximum_amount_minor: u64,
+    pub currency: String,
+    pub constitutional_epoch: u64,
+    pub valid_from_unix: Option<i64>,
+    pub expires_at_unix: Option<i64>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Authority {
     pub status: AuthorityStatus, pub principal_id: String, pub actor_id: String, pub action: String,
     pub resource: String, pub purpose: String, pub operation_digest: String, pub recipient: String,
     pub maximum_amount_minor: u64, pub currency: String, pub constitutional_epoch: u64,
     pub valid_from_unix: Option<i64>, pub expires_at_unix: Option<i64>,
-    pub delegated: bool, pub delegation_attenuated: bool,
+    pub delegated: bool, pub parent_grant: Option<GrantScope>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -136,8 +150,29 @@ pub fn evaluate(case: &Scenario) -> Decision {
         || a.currency != x.currency || x.amount_minor > a.maximum_amount_minor {
         return result(case, Disposition::Deny, "AUTHORITY_SCOPE_OR_AMOUNT_MISMATCH");
     }
-    if a.delegated && !a.delegation_attenuated {
-        return result(case, Disposition::Deny, "DELEGATION_SCOPE_NOT_ATTENUATED");
+    if !a.delegated && a.parent_grant.is_some() {
+        return result(case, Disposition::Deny, "UNEXPECTED_PARENT_GRANT_ON_DIRECT_AUTHORITY");
+    }
+    if a.delegated {
+        let Some(parent) = a.parent_grant.as_ref() else {
+            return result(case, Disposition::Indeterminate, "DELEGATION_PARENT_GRANT_MISSING");
+        };
+        let (Some(parent_start), Some(parent_expiry)) =
+            (parent.valid_from_unix, parent.expires_at_unix) else {
+                return result(case, Disposition::Indeterminate, "DELEGATION_PARENT_WINDOW_INCOMPLETE");
+            };
+        let (Some(child_start), Some(child_expiry)) =
+            (a.valid_from_unix, a.expires_at_unix) else {
+                return result(case, Disposition::Indeterminate, "AUTHORITY_VALIDITY_WINDOW_INCOMPLETE");
+            };
+        if a.action != parent.action || a.resource != parent.resource
+            || a.purpose != parent.purpose || a.operation_digest != parent.operation_digest
+            || a.recipient != parent.recipient || a.currency != parent.currency
+            || a.constitutional_epoch != parent.constitutional_epoch
+            || a.maximum_amount_minor > parent.maximum_amount_minor
+            || child_start < parent_start || child_expiry > parent_expiry {
+            return result(case, Disposition::Deny, "DELEGATION_SCOPE_NOT_ATTENUATED");
+        }
     }
     let (Some(start), Some(expiry)) = (a.valid_from_unix, a.expires_at_unix) else {
         return result(case, Disposition::Indeterminate, "AUTHORITY_VALIDITY_WINDOW_INCOMPLETE");
@@ -154,7 +189,8 @@ pub fn evaluate(case: &Scenario) -> Decision {
         return result(case, Disposition::Deny, "EXACT_OPERATION_BINDING_MISMATCH");
     }
     if p.policy_digest.is_empty() || p.decided_at_unix > x.executed_at_unix
-        || g.enforced_at_unix > x.executed_at_unix {
+        || g.enforced_at_unix > x.executed_at_unix
+        || g.enforced_at_unix < p.decided_at_unix {
         return result(case, Disposition::Deny, "DECISION_OR_ENFORCEMENT_ORDER_INVALID");
     }
     if !p.allowed { return result(case, Disposition::Deny, "POLICY_DECISION_NOT_PERMIT"); }
@@ -206,7 +242,7 @@ mod unit_tests {
             authority: Authority { status:AuthorityStatus::Valid, principal_id:"p".into(), actor_id:"a".into(),
                 action:"write".into(), resource:"r".into(), purpose:"p".into(), operation_digest:"op".into(),
                 recipient:"r".into(), maximum_amount_minor:100, currency:"USD".into(), constitutional_epoch:1,
-                valid_from_unix:Some(0), expires_at_unix:Some(100), delegated:false, delegation_attenuated:true },
+                valid_from_unix:Some(0), expires_at_unix:Some(100), delegated:false, parent_grant:None },
             clarification:Clarification { required:false, completed:false },
             policy_decision:PolicyDecision { allowed:true, policy_digest:"policy".into(), decided_at_unix:1,
                 operation_digest:"op".into(), constitutional_epoch:1 },
@@ -229,8 +265,22 @@ mod unit_tests {
         assert_eq!(evaluate(&c).disposition,Disposition::Hold);
     }
     #[test] fn delegated_scope_amplification_is_denied() {
-        let mut c=positive_case(); c.authority.delegated=true; c.authority.delegation_attenuated=false;
+        let mut c=positive_case();
+        c.authority.delegated=true;
+        c.authority.parent_grant=Some(GrantScope {
+            action:"write".into(), resource:"r".into(), purpose:"p".into(), operation_digest:"op".into(),
+            recipient:"r".into(), maximum_amount_minor:9, currency:"USD".into(), constitutional_epoch:1,
+            valid_from_unix:Some(0), expires_at_unix:Some(100),
+        });
         assert_eq!(evaluate(&c).reason_code,"DELEGATION_SCOPE_NOT_ATTENUATED");
+    }
+    #[test] fn missing_delegation_parent_is_indeterminate() {
+        let mut c=positive_case(); c.authority.delegated=true;
+        assert_eq!(evaluate(&c).reason_code,"DELEGATION_PARENT_GRANT_MISSING");
+    }
+    #[test] fn enforcement_cannot_precede_policy_decision() {
+        let mut c=positive_case(); c.policy_decision.decided_at_unix=3; c.enforcement.enforced_at_unix=2;
+        assert_eq!(evaluate(&c).reason_code,"DECISION_OR_ENFORCEMENT_ORDER_INVALID");
     }
     #[test] fn operation_substitution_is_denied() {
         let mut c=positive_case(); c.execution.operation_digest="other".into();

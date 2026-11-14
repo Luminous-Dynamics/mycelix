@@ -2,7 +2,7 @@
   "schema_version": "lise.agent-authorization-oracle.v0.1",
   "suite_id": "LARP-AGENT-AUTHZ-001",
   "status": "reference-oracle-pending-independent-review",
-  "case_count": 20,
+  "case_count": 22,
   "rows": [
     {
       "case_id": "A01",
@@ -123,6 +123,18 @@
       "expected_task_outcome": "incomplete",
       "expected_disposition": "permit",
       "reason_code": "NO_PROTECTED_EFFECT_ATTEMPTED"
+    },
+    {
+      "case_id": "A21",
+      "expected_task_outcome": "succeeded",
+      "expected_disposition": "deny",
+      "reason_code": "DECISION_OR_ENFORCEMENT_ORDER_INVALID"
+    },
+    {
+      "case_id": "A22",
+      "expected_task_outcome": "succeeded",
+      "expected_disposition": "indeterminate",
+      "reason_code": "DELEGATION_PARENT_GRANT_MISSING"
     }
   ]
 }

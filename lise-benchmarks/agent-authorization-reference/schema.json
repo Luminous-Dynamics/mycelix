@@ -91,7 +91,7 @@
         "valid_from_unix",
         "expires_at_unix",
         "delegated",
-        "delegation_attenuated"
+        "parent_grant"
       ],
       "properties": {
         "status": {
@@ -160,8 +160,15 @@
         "delegated": {
           "type": "boolean"
         },
-        "delegation_attenuated": {
-          "type": "boolean"
+        "parent_grant": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/grantScope"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       }
     },
@@ -439,12 +446,12 @@
         },
         "case_count": {
           "type": "integer",
-          "const": 20
+          "const": 22
         },
         "cases": {
           "type": "array",
-          "minItems": 20,
-          "maxItems": 20,
+          "minItems": 22,
+          "maxItems": 22,
           "items": {
             "$ref": "#/$defs/scenario"
           }
@@ -473,15 +480,79 @@
         },
         "case_count": {
           "type": "integer",
-          "const": 20
+          "const": 22
         },
         "rows": {
           "type": "array",
-          "minItems": 20,
-          "maxItems": 20,
+          "minItems": 22,
+          "maxItems": 22,
           "items": {
             "$ref": "#/$defs/oracleRow"
           }
+        }
+      }
+    },
+    "grantScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "resource",
+        "purpose",
+        "operation_digest",
+        "recipient",
+        "maximum_amount_minor",
+        "currency",
+        "constitutional_epoch",
+        "valid_from_unix",
+        "expires_at_unix"
+      ],
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "resource": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "operation_digest": {
+          "type": "string"
+        },
+        "recipient": {
+          "type": "string"
+        },
+        "maximum_amount_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string"
+        },
+        "constitutional_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "valid_from_unix": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expires_at_unix": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       }
     }
