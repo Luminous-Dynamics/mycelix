@@ -41,6 +41,7 @@ struct Observation {
 #[derive(Debug, Clone)]
 struct Replay {
     scenario: String,
+    evidence_snapshot: String,
     cutoff: u64,
     standard_freshness: u64,
     clock: String,
@@ -274,10 +275,11 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
             .ok_or_else(|| ReferenceError(format!("missing metadata {key}")))
     };
     let scenario = take("scenario_id")?;
+    let evidence_snapshot = take("evidence_snapshot_id")?;
     let cutoff = integer(&take("decision_at")?, "decision_at", 0)?;
     let standard_freshness = integer(&take("max_observation_age_seconds")?, "default freshness", 0)?;
     let clock = take("clock_basis_id")?;
-    if !identifier(&scenario) || clock != "UTC_UNIX_SECONDS_V1" {
+    if !identifier(&scenario) || !identifier(&evidence_snapshot) || clock != "UTC_UNIX_SECONDS_V1" {
         return Err(ReferenceError("unsupported scenario or replay clock".to_owned()));
     }
     if properties.keys().next().is_some() {
@@ -304,6 +306,7 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
 
     Ok(Replay {
         scenario,
+        evidence_snapshot,
         cutoff,
         standard_freshness,
         clock,
@@ -440,6 +443,7 @@ fn reproduce(replay: &Replay) -> String {
     let mut report = vec![
         "report_schema=fsre-asof-evidence-report.v0.1".to_owned(),
         format!("scenario_id={}", replay.scenario),
+        format!("evidence_snapshot_id={}", replay.evidence_snapshot),
         format!("decision_at={}", replay.cutoff),
         format!("max_observation_age_seconds={}", replay.standard_freshness),
         format!("clock_basis_id={}", replay.clock),
@@ -509,6 +513,21 @@ mod tests {
 
     const FIXTURE: &str =
         include_str!("../../fsre-asof-evidence/fixtures/synthetic-asof.psv");
+
+    #[test]
+    fn snapshot_binding_is_required_and_preserved() {
+        let report = validate_and_report(FIXTURE).expect("snapshot-bound fixture");
+        assert!(report.contains("evidence_snapshot_id=synthetic-decision-snapshot-01"));
+        let changed = FIXTURE
+            .lines()
+            .filter(|line| !line.starts_with("# evidence_snapshot_id="))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(validate_and_report(&changed)
+            .unwrap_err()
+            .0
+            .contains("missing metadata evidence_snapshot_id"));
+    }
 
     #[test]
     fn independent_oracle_matches_point_in_time_fixture() {
