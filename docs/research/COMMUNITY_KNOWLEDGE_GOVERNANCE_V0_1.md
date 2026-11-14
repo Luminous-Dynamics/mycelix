@@ -131,6 +131,25 @@ The first implementation target should be a domain-neutral, pure authorization e
 
 Before implementation, inspect the actual claims coordinator read/write paths and Chronicle maturity. The current HMP RFC does not yet prove that knowledge retrieval is permission-gated end-to-end. In particular, entry integrity validation alone cannot prevent an unauthorized coordinator from returning an otherwise valid record.
 
+## 10. First executable policy prototype — HMP-001 research branch
+
+A pure Rust decision kernel now exists at `mycelix-knowledge/zomes/claims/coordinator/src/hmp_rights.rs`. It returns ALLOW, DENY or INDETERMINATE for one requested operation using an already-authenticated actor and an already-fetched permission snapshot.
+
+The kernel checks:
+- authenticated actor binding and grantee binding;
+- record identity and declared purpose;
+- explicit permission status;
+- verified community authority and authority reference for community-controlled/restricted records;
+- known, active revocation state;
+- permission reference and basis;
+- grant validity window;
+- per-operation allowed and denied lists, including conflicting rules.
+
+It contains 15 focused unit tests for scoped citation/display, denied training/retrieval, revocation, unknown revocation, authentication mismatch, pending status, disputed authority, missing authority reference, record/grantee/purpose mismatch, expiry, conflicting rules and missing grants.
+
+**Important boundary:** this kernel is a deterministic policy function, not a complete authorization system. It does not verify signatures, fetch current DHT authority/revocation state, resolve authority disputes, persist grants, invalidate retrieval/index caches or enforce a read path. The existing `get_claim` and `latest_claim_records_from_links` paths are not yet wired to HMP rights. The public claims model is currently designed around broadly retrievable claims; community-controlled knowledge must not be placed into that path until authorization is enforced end-to-end.
+
+The next required integration step is a separate HMP knowledge entry or access-controlled envelope with immutable content digest, signed grant/revocation references and coordinator-level authorization before content retrieval. Do not retrofit access control onto public claims by silently changing their semantics.
 ## 8. Claim boundary
 
 This document is a governance contract only. It does not establish that the current Mycelix implementation enforces these rules, that any community has authorized the project, that existing DHT/storage behavior satisfies the requirements, or that legal compliance has been assessed.
