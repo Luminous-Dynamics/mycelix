@@ -253,6 +253,38 @@
         },
         "execution": {
           "$ref": "#/$defs/executionFacts"
+        },
+        "recipient_eligible": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "amount_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "amount_ceiling_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "funding_source_valid": {
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
       }
     },
