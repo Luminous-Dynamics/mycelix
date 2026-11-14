@@ -297,9 +297,185 @@ fn parse_metadata(metadata: &BTreeMap<String, String>) -> Result<Metadata, Audit
     })
 }
 
-mod evaluator;
-pub use evaluator::audit;
+
+
+fn parse_source(
+    source: &str,
+) -> Result<
+    (
+        Metadata,
+        BTreeMap<String, ReferenceRecord>,
+        BTreeMap<String, ObservedRecord>,
+        Vec<Link>,
+    ),
+    AuditError,
+> {
+    let mut metadata = BTreeMap::<String, String>::new();
+    let mut references = BTreeMap::<String, ReferenceRecord>::new();
+    let mut observed = BTreeMap::<String, ObservedRecord>::new();
+    let mut links = Vec::new();
+    let mut header_seen = false;
+
+    for (offset, raw) in source.lines().enumerate() {
+        let line_number = offset + 1;
+        let line = raw.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(comment) = line.strip_prefix('#') {
+            if let Some((key, value)) = comment.trim().split_once('=') {
+                let key = key.trim().to_owned();
+                let value = value.trim().to_owned();
+                if metadata.insert(key.clone(), value).is_some() {
+                    return Err(AuditError(format!(
+                        "line {line_number}: duplicate metadata key {key}"
+                    )));
+                }
+            }
+            continue;
+        }
+        if !header_seen {
+            if line != HEADER {
+                return Err(AuditError(format!(
+                    "line {line_number}: unexpected record table header"
+                )));
+            }
+            header_seen = true;
+            continue;
+        }
+
+        let fields: Vec<&str> = line.split('|').map(str::trim).collect();
+        if fields.len() != 9 {
+            return Err(AuditError(format!(
+                "line {line_number}: expected exactly 9 pipe-delimited fields"
+            )));
+        }
+        let record_id = checked_id(fields[1], "record_id")?;
+        let interval = parse_interval(fields[7], fields[8], "record")?;
+
+        match fields[0] {
+            "REFERENCE" => {
+                if fields[2] != "IN_SCOPE"
+                    || fields[3] != "-"
+                    || fields[4] != "-"
+                    || fields[5] != "-"
+                    || fields[6] != "-"
+                {
+                    return Err(AuditError(format!(
+                        "line {line_number}: invalid REFERENCE row shape"
+                    )));
+                }
+                if references
+                    .insert(record_id.clone(), ReferenceRecord { interval })
+                    .is_some()
+                {
+                    return Err(AuditError(format!(
+                        "duplicate reference record {record_id}"
+                    )));
+                }
+            }
+            "OBSERVED" => {
+                if fields[3] != "-" || fields[4] != "-" || fields[5] != "-" || fields[6] != "-" {
+                    return Err(AuditError(format!(
+                        "line {line_number}: invalid OBSERVED row shape"
+                    )));
+                }
+                let scope = ScopeStatus::parse(fields[2])?;
+                if observed
+                    .insert(record_id.clone(), ObservedRecord { scope, interval })
+                    .is_some()
+                {
+                    return Err(AuditError(format!(
+                        "duplicate observed record {record_id}"
+                    )));
+                }
+            }
+            "LINK" => {
+                let scope = ScopeStatus::parse(fields[2])?;
+                let reference_id = if fields[3] == "-" {
+                    None
+                } else {
+                    Some(checked_id(fields[3], "reference_record_id")?)
+                };
+                let decision = Decision::parse(fields[4])?;
+                let evidence_owner = checked_id(fields[5], "evidence_owner")?;
+                let evidence_ref = checked_id(fields[6], "evidence_ref")?;
+                match decision {
+                    Decision::Match
+                        if scope == ScopeStatus::InScope && reference_id.is_some() => {}
+                    Decision::Unresolved if scope != ScopeStatus::OutOfScope => {}
+                    Decision::NoMatchInScope
+                        if scope == ScopeStatus::InScope && reference_id.is_none() => {}
+                    Decision::OutOfScope
+                        if scope == ScopeStatus::OutOfScope && reference_id.is_none() => {}
+                    _ => {
+                        return Err(AuditError(format!(
+                            "line {line_number}: decision, scope status and reference ID disagree"
+                        )));
+                    }
+                }
+                links.push(Link {
+                    observed_id: record_id,
+                    scope,
+                    reference_id,
+                    decision,
+                    _evidence_owner: evidence_owner,
+                    _evidence_ref: evidence_ref,
+                    interval,
+                });
+            }
+            other => {
+                return Err(AuditError(format!(
+                    "line {line_number}: unknown row type {other}"
+                )));
+            }
+        }
+    }
+
+    if !header_seen {
+        return Err(AuditError("missing record table header".to_owned()));
+    }
+    let metadata = parse_metadata(&metadata)?;
+    if references.is_empty() {
+        return Err(AuditError(
+            "reference frame must contain at least one record".to_owned(),
+        ));
+    }
+
+    for (id, record) in &references {
+        if !record.interval.covers(
+            parse_u64(&required_from_metadata_placeholder(), "unused")?,
+            0,
+        ) {
+            let _ = id;
+        }
+    }
+
+    for (id, record) in &references {
+        if !record.interval.covers(study_start_from_source(source)?, study_end_from_source(source)?) {
+            return Err(AuditError(format!(
+                "reference record {id} membership does not cover the study horizon"
+            )));
+        }
+    }
+    for (id, record) in &observed {
+        if !record.interval.covers(study_start_from_source(source)?, study_end_from_source(source)?) {
+            return Err(AuditError(format!(
+                "observed record {id} membership does not cover the study horizon"
+            )));
+        }
+    }
+    for link in &links {
+        if !link.interval.covers(study_start_from_source(source)?, study_end_from_source(source)?) {
+            return Err(AuditError(format!(
+                "crosswalk evidence for {} does not cover the study horizon",
+                link.observed_id
+            )));
+        }
+    }
+
+    Ok((metadata, references, observed, links))
+}
 
 mod evaluator;
 pub use evaluator::audit;
-
