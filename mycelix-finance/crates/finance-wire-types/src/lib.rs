@@ -9,6 +9,13 @@
 use serde::{Deserialize, Serialize};
 use sovereign_profile::SovereignProfile;
 
+pub mod money_amount;
+pub use money_amount::{
+    MoneyAmountProfileV1, MoneyAmountV1, MoneyAmountV1Error,
+    MONEY_AMOUNT_V1_MAX_MINOR_UNITS, SAP_MICRO_PROFILE_V1, SAP_MICRO_V1_PROFILE_ID,
+    TEND_V1_PROFILE_ID, resolve_money_amount_profile_v1,
+};
+
 // =============================================================================
 // ASSET & COLLATERAL
 // =============================================================================

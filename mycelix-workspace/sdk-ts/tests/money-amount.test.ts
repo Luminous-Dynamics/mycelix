@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   checkedAddMoneyAmountV1,
+  checkedSubMoneyAmountV1,
   isPositiveMoneyAmountV1,
   requireMoneyAmountProfileV1,
   validateMoneyAmountV1,
@@ -29,6 +30,7 @@ type GoldenCorpus = {
   positive_vectors: GoldenVector[];
   negative_vectors: GoldenVector[];
   arithmetic_vectors: GoldenVector[];
+  subtraction_vectors: GoldenVector[];
   exact_json_roundtrip: string;
 };
 
@@ -103,6 +105,44 @@ describe('MoneyAmountV1 shared golden corpus', () => {
         expect(result.error, vector.id).toBe(vector.expected_error);
       }
     }
+  });
+
+  it('executes every subtraction vector without underflow or profile coercion', () => {
+    for (const vector of golden.subtraction_vectors) {
+      const result = checkedSubMoneyAmountV1(
+        {
+          instrument_profile_id: vector.left_profile,
+          minor_units: vector.left,
+        },
+        {
+          instrument_profile_id: vector.right_profile,
+          minor_units: vector.right,
+        },
+      );
+
+      if (vector.expected !== undefined) {
+        expect(result, vector.id).toEqual({
+          ok: true,
+          value: {
+            instrument_profile_id: vector.left_profile,
+            minor_units: vector.expected,
+          },
+        });
+      } else {
+        expect(result.ok, vector.id).toBe(false);
+        if (result.ok) continue;
+        expect(result.error, vector.id).toBe(vector.expected_error);
+      }
+    }
+  });
+
+  it('rejects JSON numeric minor units rather than coercing them', () => {
+    expect(
+      validateMoneyAmountV1({
+        instrument_profile_id: 'mycelix.finance.instrument.sap.micro.v1',
+        minor_units: 1,
+      }),
+    ).toEqual({ ok: false, error: 'InvalidMinorUnits' });
   });
 
   it('preserves the maximum u64 wire value through JSON serialization', () => {
