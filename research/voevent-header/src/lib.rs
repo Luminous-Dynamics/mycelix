@@ -62,6 +62,45 @@ pub struct VoEventHeader {
     pub packet_sha256: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CitationRelation {
+    Followup,
+    Supersedes,
+    Retraction,
+}
+
+impl CitationRelation {
+    fn parse(value: &str) -> Result<Self, ParseError> {
+        match value {
+            "followup" => Ok(Self::Followup),
+            "supersedes" => Ok(Self::Supersedes),
+            "retraction" => Ok(Self::Retraction),
+            other => Err(ParseError::InvalidCitationRelation(other.to_owned())),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct VoEventCitation {
+    /// Decoded IVOID text from the EventIVORN element, after XML entity resolution.
+    pub target_ivoid: String,
+    pub relation: CitationRelation,
+    /// All EventIVORN attributes in source order, including uninterpreted values.
+    pub attributes: Vec<RootAttribute>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct VoEventPacket {
+    pub header: VoEventHeader,
+    /// Absence is meaningful: a packet without Citations announces a new event.
+    pub citations_present: bool,
+    pub citations: Vec<VoEventCitation>,
+    /// Optional source text from Citations/Description.
+    pub citations_description: Option<String>,
+}
+
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ParseError {
     #[error("packet is empty")]
@@ -92,6 +131,35 @@ pub enum ParseError {
     InvalidIvoid(String),
     #[error("unsupported VOEvent role: {0}")]
     InvalidRole(String),
+    #[error("EventIVORN is missing its required cite attribute")]
+    MissingCitationAttribute,
+    #[error("unsupported EventIVORN cite relation: {0}")]
+    InvalidCitationRelation(String),
+    #[error("invalid IVOID in EventIVORN text: {0}")]
+    InvalidCitationTarget(String),
+    #[error("a VOEvent packet contains more than one Citations element")]
+    DuplicateCitations,
+    #[error("Citations must contain at least one EventIVORN element")]
+    EmptyCitations,
+    #[error("Citations contains more than one Description element")]
+    DuplicateCitationsDescription,
+    #[error("EventIVORN and Citations/Description must contain simple text only; found nested element {0}")]
+    NestedCitationElement(String),
+    #[error("unsupported or invalid XML character reference in citation text: {0}")]
+    InvalidCitationCharacterReference(String),
+}
+
+fn validate_ivoid(value: &str) -> Result<(), String> {
+    // Conservative lexical check only; registry resolution is a separate qualification step.
+    if !value.starts_with("ivo://")
+        || value.len() <= "ivo://".len()
+        || value
+            .chars()
+            .any(|character| character.is_control() || character.is_whitespace())
+    {
+        return Err(value.to_owned());
+    }
+    Ok(())
 }
 
 fn parse_root_attributes(element: &BytesStart<'_>) -> Result<VoEventHeader, ParseError> {
@@ -127,15 +195,7 @@ fn parse_root_attributes(element: &BytesStart<'_>) -> Result<VoEventHeader, Pars
     let ivoid = ivoid.ok_or(ParseError::MissingAttribute("ivorn"))?;
     let version = version.ok_or(ParseError::MissingAttribute("version"))?;
 
-    // Conservative lexical check only; this does not resolve the IVOID in a registry.
-    if !ivoid.starts_with("ivo://")
-        || ivoid.len() <= "ivo://".len()
-        || ivoid
-            .chars()
-            .any(|character| character.is_control() || character.is_whitespace())
-    {
-        return Err(ParseError::InvalidIvoid(ivoid));
-    }
+    validate_ivoid(&ivoid).map_err(ParseError::InvalidIvoid)?;
 
     if version != VOEVENT_VERSION {
         return Err(ParseError::UnsupportedVersion(version));
@@ -261,6 +321,312 @@ pub fn parse_header(packet: &[u8]) -> Result<VoEventHeader, ParseError> {
     header.packet_byte_length = packet.len();
     header.packet_sha256 = hex::encode(Sha256::digest(packet));
     Ok(header)
+}
+
+
+#[derive(Debug)]
+struct CitationTextBuilder {
+    depth: usize,
+    text: String,
+}
+
+#[derive(Debug)]
+struct CitationBuilder {
+    depth: usize,
+    relation: CitationRelation,
+    attributes: Vec<RootAttribute>,
+    text: String,
+}
+
+fn parse_citation_attributes(
+    element: &BytesStart<'_>,
+) -> Result<(CitationRelation, Vec<RootAttribute>), ParseError> {
+    let mut attributes = Vec::new();
+    let mut cite: Option<String> = None;
+
+    for attribute in element.attributes().with_checks(true) {
+        let attribute =
+            attribute.map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+        let name = std::str::from_utf8(attribute.key.as_ref())
+            .map_err(|_| ParseError::MalformedXml("non-UTF-8 citation attribute name".to_owned()))?
+            .to_owned();
+        let value = attribute
+            .unescape_value()
+            .map_err(|error| ParseError::MalformedXml(error.to_string()))?
+            .into_owned();
+
+        if name == "cite" {
+            cite = Some(value.clone());
+        }
+        attributes.push(RootAttribute { name, value });
+    }
+
+    let raw_cite = cite.ok_or(ParseError::MissingCitationAttribute)?;
+    Ok((CitationRelation::parse(&raw_cite)?, attributes))
+}
+
+fn is_legal_xml_character(value: u32) -> bool {
+    matches!(value, 0x9 | 0xA | 0xD)
+        || (0x20..=0xD7FF).contains(&value)
+        || (0xE000..=0xFFFD).contains(&value)
+        || (0x10000..=0x10FFFF).contains(&value)
+}
+
+fn decode_citation_reference(reference: &[u8]) -> Result<char, ParseError> {
+    let raw = std::str::from_utf8(reference)
+        .map_err(|_| ParseError::InvalidCitationCharacterReference("non-UTF-8 reference".to_owned()))?;
+
+    let character = match raw {
+        "amp" => '&',
+        "lt" => '<',
+        "gt" => '>',
+        "apos" => '\'',
+        "quot" => '"',
+        _ if raw.starts_with("#x") || raw.starts_with("#X") => {
+            let value = u32::from_str_radix(&raw[2..], 16).map_err(|_| {
+                ParseError::InvalidCitationCharacterReference(raw.to_owned())
+            })?;
+            char::from_u32(value).ok_or_else(|| {
+                ParseError::InvalidCitationCharacterReference(raw.to_owned())
+            })?
+        }
+        _ if raw.starts_with('#') => {
+            let value = raw[1..].parse::<u32>().map_err(|_| {
+                ParseError::InvalidCitationCharacterReference(raw.to_owned())
+            })?;
+            char::from_u32(value).ok_or_else(|| {
+                ParseError::InvalidCitationCharacterReference(raw.to_owned())
+            })?
+        }
+        _ => {
+            return Err(ParseError::InvalidCitationCharacterReference(
+                raw.to_owned(),
+            ));
+        }
+    };
+
+    if !is_legal_xml_character(character as u32) {
+        return Err(ParseError::InvalidCitationCharacterReference(
+            raw.to_owned(),
+        ));
+    }
+    Ok(character)
+}
+
+/// Extract the typed Citations/EventIVORN relationship set from an already
+/// well-formed, bounded packet. Only direct children of the root Citations
+/// element are interpreted; the exact original bytes remain hash-bound by the
+/// accompanying header.
+fn parse_citations(
+    packet: &[u8],
+) -> Result<(bool, Vec<VoEventCitation>, Option<String>), ParseError> {
+    let mut reader = Reader::from_reader(Cursor::new(packet));
+    // Preserve text chunks here; citation targets are trimmed only after all
+    // plain-text, CDATA and predefined/numeric character-reference segments
+    // have been assembled.
+    let mut buffer = Vec::new();
+    let mut element_stack: Vec<Vec<u8>> = Vec::new();
+    let mut citations_seen = false;
+    let mut citations_depth: Option<usize> = None;
+    let mut citations = Vec::new();
+    let mut current_citation: Option<CitationBuilder> = None;
+    let mut current_description: Option<CitationTextBuilder> = None;
+    let mut description_seen = false;
+    let mut description: Option<String> = None;
+
+    loop {
+        let event = reader
+            .read_event_into(&mut buffer)
+            .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+
+        match event {
+            Event::Start(element) => {
+                let name = element.name().as_ref().to_vec();
+                let depth = element_stack.len() + 1;
+
+                if element_stack.len() == 1 && name.as_slice() == b"Citations" {
+                    if citations_seen {
+                        return Err(ParseError::DuplicateCitations);
+                    }
+                    citations_seen = true;
+                    citations_depth = Some(depth);
+                } else if citations_depth == Some(element_stack.len())
+                    && name.as_slice() == b"EventIVORN"
+                {
+                    let (relation, attributes) = parse_citation_attributes(&element)?;
+                    current_citation = Some(CitationBuilder {
+                        depth,
+                        relation,
+                        attributes,
+                        text: String::new(),
+                    });
+                } else if citations_depth == Some(element_stack.len())
+                    && name.as_slice() == b"Description"
+                {
+                    if description_seen {
+                        return Err(ParseError::DuplicateCitationsDescription);
+                    }
+                    description_seen = true;
+                    current_description = Some(CitationTextBuilder {
+                        depth,
+                        text: String::new(),
+                    });
+                } else if current_citation
+                    .as_ref()
+                    .is_some_and(|builder| element_stack.len() >= builder.depth)
+                {
+                    return Err(ParseError::NestedCitationElement(
+                        String::from_utf8_lossy(&name).into_owned(),
+                    ));
+                } else if current_description
+                    .as_ref()
+                    .is_some_and(|builder| element_stack.len() >= builder.depth)
+                {
+                    return Err(ParseError::NestedCitationElement(
+                        String::from_utf8_lossy(&name).into_owned(),
+                    ));
+                }
+
+                element_stack.push(name);
+            }
+            Event::Empty(element) => {
+                let name = element.name().as_ref().to_vec();
+                if element_stack.len() == 1 && name.as_slice() == b"Citations" {
+                    if citations_seen {
+                        return Err(ParseError::DuplicateCitations);
+                    }
+                    return Err(ParseError::EmptyCitations);
+                }
+
+                if citations_depth == Some(element_stack.len())
+                    && name.as_slice() == b"EventIVORN"
+                {
+                    let (relation, attributes) = parse_citation_attributes(&element)?;
+                    return Err(ParseError::InvalidCitationTarget(format!(
+                        "empty EventIVORN with relation {relation:?} and {} attributes",
+                        attributes.len()
+                    )));
+                }
+
+                if citations_depth == Some(element_stack.len())
+                    && name.as_slice() == b"Description"
+                {
+                    if description_seen {
+                        return Err(ParseError::DuplicateCitationsDescription);
+                    }
+                    description_seen = true;
+                    description = Some(String::new());
+                }
+            }
+            Event::Text(text) => {
+                let decoded = text
+                    .decode()
+                    .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+                if let Some(builder) = current_citation.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        builder.text.push_str(&decoded);
+                    }
+                } else if let Some(builder) = current_description.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        builder.text.push_str(&decoded);
+                    }
+                }
+            }
+            Event::CData(text) => {
+                let decoded = text
+                    .decode()
+                    .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+                if let Some(builder) = current_citation.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        builder.text.push_str(&decoded);
+                    }
+                } else if let Some(builder) = current_description.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        builder.text.push_str(&decoded);
+                    }
+                }
+            }
+            Event::GeneralRef(reference) => {
+                let target = if let Some(builder) = current_citation.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        Some(&mut builder.text)
+                    } else {
+                        None
+                    }
+                } else if let Some(builder) = current_description.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        Some(&mut builder.text)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                if let Some(target) = target {
+                    target.push(decode_citation_reference(reference.as_ref())?);
+                }
+            }
+            Event::End(element) => {
+                let depth = element_stack.len();
+                let name = element.name().as_ref();
+
+                if let Some(builder) = current_citation.as_ref() {
+                    if builder.depth == depth && name == b"EventIVORN" {
+                        let builder = current_citation.take().expect("citation builder exists");
+                        let target_ivoid = builder.text.trim().to_owned();
+                        validate_ivoid(&target_ivoid)
+                            .map_err(ParseError::InvalidCitationTarget)?;
+                        citations.push(VoEventCitation {
+                            target_ivoid,
+                            relation: builder.relation,
+                            attributes: builder.attributes,
+                        });
+                    }
+                }
+
+                if let Some(builder) = current_description.as_ref() {
+                    if builder.depth == depth && name == b"Description" {
+                        let builder = current_description
+                            .take()
+                            .expect("description builder exists");
+                        description = Some(builder.text.trim().to_owned());
+                    }
+                }
+
+                if citations_depth == Some(depth) && name == b"Citations" {
+                    if citations.is_empty() {
+                        return Err(ParseError::EmptyCitations);
+                    }
+                    citations_depth = None;
+                }
+
+                element_stack.pop();
+            }
+            Event::DocType(_) => return Err(ParseError::DoctypeNotAllowed),
+            Event::Eof => break,
+            _ => {}
+        }
+
+        buffer.clear();
+    }
+
+    Ok((citations_seen, citations, description))
+}
+
+/// Parse the root header and the typed lifecycle citations from one exact packet.
+///
+/// This remains a bounded extraction profile, not full VOEvent XSD validation.
+/// The byte length and digest bind all extracted values to the same packet.
+pub fn parse_packet(packet: &[u8]) -> Result<VoEventPacket, ParseError> {
+    let header = parse_header(packet)?;
+    let (citations_present, citations, citations_description) = parse_citations(packet)?;
+    Ok(VoEventPacket {
+        header,
+        citations_present,
+        citations,
+        citations_description,
+    })
 }
 
 #[cfg(test)]
