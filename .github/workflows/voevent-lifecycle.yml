@@ -1,0 +1,37 @@
+name: VOEvent lifecycle replay
+
+on:
+  push:
+    paths:
+      - "research/voevent-lifecycle/**"
+      - ".github/workflows/voevent-lifecycle.yml"
+  pull_request:
+    paths:
+      - "research/voevent-lifecycle/**"
+      - ".github/workflows/voevent-lifecycle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lifecycle-replay:
+    name: Lifecycle replay package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install stable Rust toolchain
+        run: rustup toolchain install stable --profile minimal
+      - name: Check parser formatting
+        run: cargo +stable fmt --manifest-path research/voevent-header/Cargo.toml --all -- --check
+      - name: Test parser
+        run: cargo +stable test --manifest-path research/voevent-header/Cargo.toml --all-targets
+      - name: Clippy parser
+        run: cargo +stable clippy --manifest-path research/voevent-header/Cargo.toml --all-targets -- -D warnings
+      - name: Check replay formatting
+        run: cargo +stable fmt --manifest-path research/voevent-lifecycle/Cargo.toml --all -- --check
+      - name: Test source-native replay
+        run: cargo +stable test --manifest-path research/voevent-lifecycle/Cargo.toml --all-targets
+      - name: Clippy source-native replay
+        run: cargo +stable clippy --manifest-path research/voevent-lifecycle/Cargo.toml --all-targets -- -D warnings
