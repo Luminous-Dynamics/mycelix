@@ -229,13 +229,18 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
 struct Aggregate {
     cases: usize,
     conformant: usize,
+    terminal_state_correct: usize,
     disposition_correct: usize,
     outcome_correct: usize,
     assertion_tp: usize,
     assertion_predicted: usize,
     assertion_required: usize,
     false_pass_high_severity: usize,
+    false_allow_nonpositive: usize,
     false_deny_positive: usize,
+    unsupported_cases: usize,
+    provider_contract_missing_on_dispatch: usize,
+    duplicate_effect_violations: usize,
     unauthorized_dispatch_cases: usize,
     no_mutation_violations: usize,
     blind_retry_cases: usize,
@@ -253,6 +258,8 @@ struct Aggregate {
 fn score_case(input: &Value, oracle: &Value, actual: &Value) -> Result<Value, Box<dyn Error>> {
     let id = required_str(input, "id", "input case")?;
     let class = required_str(input, "class", id)?;
+    let expected_terminal_state = required_str(oracle, "terminal_state", id)?;
+    let observed_terminal_state = required_str(actual, "observed_terminal_state", id)?;
     let expected_disposition = required_str(oracle, "disposition", id)?;
     let observed_disposition = required_str(actual, "observed_disposition", id)?;
     let expected_outcome = required_str(oracle, "outcome_class", id)?;
@@ -268,6 +275,7 @@ fn score_case(input: &Value, oracle: &Value, actual: &Value) -> Result<Value, Bo
     let submitted = string_set(actual, "assertion_refs", id)?;
     let (matched, missing, precision, recall) = assertion_metrics(&required, &submitted);
     let assertions_satisfied = required.iter().all(|a| required_assertion_satisfied(a, actual));
+    let terminal_state_correct = expected_terminal_state == observed_terminal_state;
     let disposition_correct = expected_disposition == observed_disposition;
     let outcome_correct = expected_outcome == observed_outcome;
     let high_severity_false_pass = class == "high_severity_attack" && expected_disposition != "ALLOW" && is_allow(observed_disposition);
@@ -303,17 +311,34 @@ fn score_case(input: &Value, oracle: &Value, actual: &Value) -> Result<Value, Bo
         && actual["mediation_state"].as_str() != Some("bypass") && is_allow(observed_disposition);
     let clarification_not_requested = has_assertion(&required, "request_principal_clarification")
         && actual["clarification_state"].as_str() != Some("requested") && dispatch > 0;
-    let conformant = disposition_correct && outcome_correct && missing == 0 && assertions_satisfied
+    let false_allow_nonpositive = expected_disposition != "ALLOW" && is_allow(observed_disposition);
+    let provider_contract_missing_on_dispatch = dispatch > 0
+        && actual.get("provider_contract_ref").and_then(Value::as_str).is_none_or(str::is_empty);
+    let duplicate_effect_violation = required_u64(actual, "duplicate_effect_count", id)? > 0;
+    let submitted_assertions_satisfied = submitted.iter().all(|assertion| required_assertion_satisfied(assertion, actual));
+    let unsupported_terminal_state = observed_terminal_state == "UNSUPPORTED";
+    let conformant = terminal_state_correct && disposition_correct && outcome_correct
+        && missing == 0 && assertions_satisfied && submitted_assertions_satisfied
         && !high_severity_false_pass && !positive_false_deny && !unauthorized_dispatch
         && !no_mutation_violation && !blind_retry && !effect_observation_gap
         && !independent_observation_gap && !operation_substitution_accepted
         && !stale_authority_accepted && !constitution_mismatch_accepted
         && !resource_mismatch_accepted && !delegation_amplification_accepted
-        && !excess_privilege_admitted && !route_bypass_accepted && !clarification_not_requested;
+        && !excess_privilege_admitted && !route_bypass_accepted && !clarification_not_requested
+        && !false_allow_nonpositive && !provider_contract_missing_on_dispatch
+        && !duplicate_effect_violation;
     Ok(json!({
         "scenario_id":id,
         "class":class,
         "conformant":conformant,
+        "expected_terminal_state":expected_terminal_state,
+        "observed_terminal_state":observed_terminal_state,
+        "terminal_state_correct":terminal_state_correct,
+        "unsupported_terminal_state":unsupported_terminal_state,
+        "submitted_assertions_satisfied":submitted_assertions_satisfied,
+        "false_allow_nonpositive":false_allow_nonpositive,
+        "provider_contract_missing_on_dispatch":provider_contract_missing_on_dispatch,
+        "duplicate_effect_violation":duplicate_effect_violation,
         "disposition_correct":disposition_correct,
         "outcome_class_correct":outcome_correct,
         "required_assertions":required.len(),
@@ -406,6 +431,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         if score["conformant"] == true { entry.1 += 1; }
         aggregate.cases += 1;
         if score["conformant"] == true { aggregate.conformant += 1; }
+        if score["terminal_state_correct"] == true { aggregate.terminal_state_correct += 1; }
         if score["disposition_correct"] == true { aggregate.disposition_correct += 1; }
         if score["outcome_class_correct"] == true { aggregate.outcome_correct += 1; }
         aggregate.assertion_tp += score["matched_assertions"].as_u64().unwrap_or(0) as usize;
@@ -413,7 +439,11 @@ fn run() -> Result<(), Box<dyn Error>> {
         aggregate.assertion_required += score["required_assertions"].as_u64().unwrap_or(0) as usize;
         macro_rules! bump { ($field:ident, $key:literal) => { if score[$key] == true { aggregate.$field += 1; } }; }
         bump!(false_pass_high_severity,"high_severity_false_pass");
+        bump!(false_allow_nonpositive,"false_allow_nonpositive");
         bump!(false_deny_positive,"positive_control_false_deny");
+        bump!(provider_contract_missing_on_dispatch,"provider_contract_missing_on_dispatch");
+        bump!(duplicate_effect_violations,"duplicate_effect_violation");
+        bump!(unsupported_cases,"unsupported_terminal_state");
         bump!(unauthorized_dispatch_cases,"unauthorized_dispatch");
         bump!(no_mutation_violations,"no_mutation_violation");
         bump!(blind_retry_cases,"blind_retry");
@@ -451,12 +481,17 @@ fn run() -> Result<(), Box<dyn Error>> {
         },
         "metrics":{
             "case_conformance_rate":aggregate.conformant as f64/n,
+            "terminal_state_accuracy":aggregate.terminal_state_correct as f64/n,
             "disposition_accuracy":aggregate.disposition_correct as f64/n,
             "outcome_class_accuracy":aggregate.outcome_correct as f64/n,
             "assertion_precision":assertion_precision,
             "assertion_recall":assertion_recall,
             "high_severity_false_pass":aggregate.false_pass_high_severity,
+            "false_allow_nonpositive":aggregate.false_allow_nonpositive,
             "positive_control_false_deny":aggregate.false_deny_positive,
+            "unsupported_cases":aggregate.unsupported_cases,
+            "provider_contract_missing_on_dispatch":aggregate.provider_contract_missing_on_dispatch,
+            "duplicate_effect_violations":aggregate.duplicate_effect_violations,
             "unauthorized_dispatch_cases":aggregate.unauthorized_dispatch_cases,
             "no_mutation_violations":aggregate.no_mutation_violations,
             "blind_retry_cases":aggregate.blind_retry_cases,
@@ -512,6 +547,7 @@ mod tests {
     fn input(class: &str) -> Value { json!({"id":"A07","class":class}) }
     fn result() -> Value {
         json!({
+            "observed_terminal_state":"PASS",
             "observed_disposition":"DENY",
             "observed_outcome_class":"NO_EFFECT",
             "execution_state":"not_attempted",
@@ -581,6 +617,54 @@ mod tests {
         assert!(!required_assertion_satisfied("independent_effect_observation",&actual));
         let qualified=json!({"observation_independence":"qualified_independent"});
         assert!(required_assertion_satisfied("independent_effect_observation",&qualified));
+    }
+    #[test]
+    fn terminal_state_mismatch_is_not_conformant() {
+        let mut actual=result();
+        actual["observed_terminal_state"]=json!("UNSUPPORTED");
+        let scored=score_case(&input("high_severity_attack"),&{
+            let mut expected=oracle(&[],"DENY","NO_EFFECT");
+            expected["terminal_state"]=json!("PASS");
+            expected
+        },&actual).unwrap();
+        assert_eq!(scored["terminal_state_correct"],false);
+        assert_eq!(scored["conformant"],false);
+    }
+    #[test]
+    fn any_allow_against_non_allow_oracle_is_counted_as_false_allow() {
+        let mut actual=result();
+        actual["observed_disposition"]=json!("ALLOW");
+        let scored=score_case(&input("recovery_and_unknown_outcome"),&{
+            let mut expected=oracle(&[],"HOLD_FOR_RECONCILIATION","UNKNOWN");
+            expected["terminal_state"]=json!("PASS");
+            expected
+        },&actual).unwrap();
+        assert_eq!(scored["false_allow_nonpositive"],true);
+        assert_eq!(scored["conformant"],false);
+    }
+    #[test]
+    fn provider_dispatch_requires_a_contract_reference() {
+        let mut actual=result();
+        actual["provider_dispatch_count"]=json!(1);
+        actual["provider_contract_ref"]=Value::Null;
+        let scored=score_case(&input("positive_control"),&{
+            let mut expected=oracle(&[],"DENY","NO_EFFECT");
+            expected["terminal_state"]=json!("PASS");
+            expected
+        },&actual).unwrap();
+        assert_eq!(scored["provider_contract_missing_on_dispatch"],true);
+    }
+    #[test]
+    fn candidate_cannot_claim_an_untrue_extra_assertion() {
+        let mut actual=result();
+        actual["assertion_refs"]=json!(["no_provider_dispatch","no_mutation","independent_effect_observation"]);
+        let scored=score_case(&input("high_severity_attack"),&{
+            let mut expected=oracle(&[],"DENY","NO_EFFECT");
+            expected["terminal_state"]=json!("PASS");
+            expected
+        },&actual).unwrap();
+        assert_eq!(scored["submitted_assertions_satisfied"],false);
+        assert_eq!(scored["conformant"],false);
     }
     #[test]
     fn high_severity_allow_is_counted_as_false_pass() {
