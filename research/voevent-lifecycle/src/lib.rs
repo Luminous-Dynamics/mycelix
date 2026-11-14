@@ -1,0 +1,540 @@
+#![forbid(unsafe_code)]
+
+//! A read-only, receipt-time-bounded replay of VOEvent lifecycle citations.
+//!
+//! This crate preserves source-native time strings and publisher attribution.
+//! It does not authenticate publishers, validate VOEvent XML, or infer truth.
+
+use std::collections::{BTreeMap, BTreeSet};
+use std::error::Error;
+use std::fmt;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SourceTime {
+    /// Exact source-provided time lexical value. No parsing or normalization is performed.
+    pub value: String,
+    /// Source-provided time scale, such as UTC or TT, when available.
+    pub scale: Option<String>,
+    /// Source-provided reference frame, when available.
+    pub reference_frame: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CitationRelation {
+    Followup,
+    Supersedes,
+    Retraction,
+}
+
+impl CitationRelation {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Followup => "followup",
+            Self::Supersedes => "supersedes",
+            Self::Retraction => "retraction",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Citation {
+    /// Identifier of the previously published packet being cited.
+    pub target_id: String,
+    pub relation: CitationRelation,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Packet {
+    /// Stable packet identifier, kept as supplied by the source.
+    pub id: String,
+    /// Publisher identifier asserted by the packet source; this is not authentication.
+    pub publisher: Option<String>,
+    /// Fabric receipt time in Unix milliseconds.
+    pub received_at_unix_ms: u64,
+    /// Exact publication-time lexical value, if supplied. Not parsed or compared.
+    pub published_at: Option<String>,
+    /// Exact event-time fields, including source time scale/frame. Not normalized.
+    pub event_time: Option<SourceTime>,
+    pub citations: Vec<Citation>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VisiblePacket {
+    pub id: String,
+    pub publisher: Option<String>,
+    pub received_at_unix_ms: u64,
+    pub published_at: Option<String>,
+    pub event_time: Option<SourceTime>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LifecycleEdge {
+    /// The newly received packet that makes the citation assertion.
+    pub asserting_packet_id: String,
+    /// The prior packet named by the citation.
+    pub cited_packet_id: String,
+    pub relation: CitationRelation,
+    /// Publisher attribution copied from the asserting packet, not verified identity.
+    pub asserting_publisher: Option<String>,
+    /// Receipt time of the asserting packet; not event time or publication time.
+    pub asserted_packet_received_at_unix_ms: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnresolvedCitation {
+    pub asserting_packet_id: String,
+    pub cited_packet_id: String,
+    pub relation: CitationRelation,
+    pub asserting_publisher: Option<String>,
+    pub asserted_packet_received_at_unix_ms: u64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct LifecycleEffect {
+    pub packet_id: String,
+    /// Packets that assert this packet is superseded. History is never deleted.
+    pub superseded_by: Vec<String>,
+    /// Packets that assert this packet is retracted. History is never deleted.
+    pub retracted_by: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ReplayDiagnostic {
+    SelfReference {
+        packet_id: String,
+        relation: CitationRelation,
+    },
+    SupersessionCycle {
+        asserting_packet_id: String,
+        cited_packet_id: String,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Replay {
+    pub cutoff_unix_ms: u64,
+    pub visible_packets: Vec<VisiblePacket>,
+    pub edges: Vec<LifecycleEdge>,
+    pub unresolved_citations: Vec<UnresolvedCitation>,
+    pub effects: Vec<LifecycleEffect>,
+    /// Structural contradictions are reported, never used to erase or rewrite edges.
+    pub diagnostics: Vec<ReplayDiagnostic>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ReplayError {
+    EmptyPacketId { received_at_unix_ms: u64 },
+    EmptyPublisher { packet_id: String },
+    DuplicatePacketId { packet_id: String },
+    EmptyCitationTarget { packet_id: String },
+}
+
+impl fmt::Display for ReplayError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EmptyPacketId { received_at_unix_ms } => {
+                write!(f, "packet at receipt time {received_at_unix_ms} has an empty identifier")
+            }
+            Self::EmptyPublisher { packet_id } => {
+                write!(f, "packet {packet_id:?} has an empty publisher identifier")
+            }
+            Self::DuplicatePacketId { packet_id } => {
+                write!(f, "duplicate packet identifier in the as-of view: {packet_id:?}")
+            }
+            Self::EmptyCitationTarget { packet_id } => {
+                write!(f, "packet {packet_id:?} contains an empty citation target")
+            }
+        }
+    }
+}
+
+impl Error for ReplayError {}
+
+/// Reconstruct the lifecycle graph using only packets received at or before the cutoff.
+///
+/// Only receipt time controls visibility. Publication time and event time are copied verbatim
+/// and are never used to make a packet visible earlier. Validation is cutoff-scoped, so
+/// malformed future packets cannot poison a past view.
+pub fn replay_as_of(
+    packets: &[Packet],
+    cutoff_unix_ms: u64,
+) -> Result<Replay, ReplayError> {
+    let mut visible: Vec<&Packet> = packets
+        .iter()
+        .filter(|packet| packet.received_at_unix_ms <= cutoff_unix_ms)
+        .collect();
+
+    let mut seen_ids = BTreeSet::new();
+    for packet in &visible {
+        if packet.id.trim().is_empty() {
+            return Err(ReplayError::EmptyPacketId {
+                received_at_unix_ms: packet.received_at_unix_ms,
+            });
+        }
+        if let Some(publisher) = &packet.publisher {
+            if publisher.trim().is_empty() {
+                return Err(ReplayError::EmptyPublisher {
+                    packet_id: packet.id.clone(),
+                });
+            }
+        }
+        if !seen_ids.insert(packet.id.clone()) {
+            return Err(ReplayError::DuplicatePacketId {
+                packet_id: packet.id.clone(),
+            });
+        }
+        for citation in &packet.citations {
+            if citation.target_id.trim().is_empty() {
+                return Err(ReplayError::EmptyCitationTarget {
+                    packet_id: packet.id.clone(),
+                });
+            }
+        }
+    }
+
+    // Explicit ordering makes replay output independent of caller input order.
+    visible.sort_by(|left, right| {
+        left.received_at_unix_ms
+            .cmp(&right.received_at_unix_ms)
+            .then_with(|| left.id.cmp(&right.id))
+    });
+
+    let visible_ids: BTreeSet<String> = visible.iter().map(|packet| packet.id.clone()).collect();
+    let visible_packets = visible
+        .iter()
+        .map(|packet| VisiblePacket {
+            id: packet.id.clone(),
+            publisher: packet.publisher.clone(),
+            received_at_unix_ms: packet.received_at_unix_ms,
+            published_at: packet.published_at.clone(),
+            event_time: packet.event_time.clone(),
+        })
+        .collect();
+
+    let mut edges = Vec::new();
+    let mut unresolved_citations = Vec::new();
+    let mut effects_by_packet: BTreeMap<String, LifecycleEffect> = BTreeMap::new();
+    let mut diagnostics = Vec::new();
+    let mut supersession_graph: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+
+    for packet in &visible {
+        for citation in &packet.citations {
+            if citation.target_id == packet.id {
+                diagnostics.push(ReplayDiagnostic::SelfReference {
+                    packet_id: packet.id.clone(),
+                    relation: citation.relation,
+                });
+            }
+
+            if citation.relation == CitationRelation::Supersedes {
+                if has_path(&supersession_graph, &citation.target_id, &packet.id) {
+                    diagnostics.push(ReplayDiagnostic::SupersessionCycle {
+                        asserting_packet_id: packet.id.clone(),
+                        cited_packet_id: citation.target_id.clone(),
+                    });
+                }
+                supersession_graph
+                    .entry(packet.id.clone())
+                    .or_default()
+                    .insert(citation.target_id.clone());
+            }
+
+            let edge = LifecycleEdge {
+                asserting_packet_id: packet.id.clone(),
+                cited_packet_id: citation.target_id.clone(),
+                relation: citation.relation,
+                asserting_publisher: packet.publisher.clone(),
+                asserted_packet_received_at_unix_ms: packet.received_at_unix_ms,
+            };
+
+            if visible_ids.contains(&citation.target_id) {
+                let effect = effects_by_packet
+                    .entry(citation.target_id.clone())
+                    .or_insert_with(|| LifecycleEffect {
+                        packet_id: citation.target_id.clone(),
+                        ..LifecycleEffect::default()
+                    });
+                match citation.relation {
+                    CitationRelation::Followup => {}
+                    CitationRelation::Supersedes => {
+                        effect.superseded_by.push(packet.id.clone());
+                    }
+                    CitationRelation::Retraction => {
+                        effect.retracted_by.push(packet.id.clone());
+                    }
+                }
+            } else {
+                unresolved_citations.push(UnresolvedCitation {
+                    asserting_packet_id: packet.id.clone(),
+                    cited_packet_id: citation.target_id.clone(),
+                    relation: citation.relation,
+                    asserting_publisher: packet.publisher.clone(),
+                    asserted_packet_received_at_unix_ms: packet.received_at_unix_ms,
+                });
+            }
+            // Keep every source assertion in the edge stream, including unresolved edges.
+            edges.push(edge);
+        }
+    }
+
+    Ok(Replay {
+        cutoff_unix_ms,
+        visible_packets,
+        edges,
+        unresolved_citations,
+        effects: effects_by_packet.into_values().collect(),
+        diagnostics,
+    })
+}
+
+fn has_path(
+    graph: &BTreeMap<String, BTreeSet<String>>,
+    start: &str,
+    goal: &str,
+) -> bool {
+    let mut pending = vec![start.to_owned()];
+    let mut visited = BTreeSet::new();
+
+    while let Some(node) = pending.pop() {
+        if node == goal {
+            return true;
+        }
+        if visited.insert(node.clone()) {
+            if let Some(next_nodes) = graph.get(&node) {
+                pending.extend(next_nodes.iter().cloned());
+            }
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn packet(id: &str, publisher: &str, received_at_unix_ms: u64) -> Packet {
+        Packet {
+            id: id.to_owned(),
+            publisher: Some(publisher.to_owned()),
+            received_at_unix_ms,
+            published_at: None,
+            event_time: None,
+            citations: Vec::new(),
+        }
+    }
+
+    fn citation(target_id: &str, relation: CitationRelation) -> Citation {
+        Citation {
+            target_id: target_id.to_owned(),
+            relation,
+        }
+    }
+
+    fn effect<'a>(replay: &'a Replay, packet_id: &str) -> &'a LifecycleEffect {
+        replay
+            .effects
+            .iter()
+            .find(|item| item.packet_id == packet_id)
+            .expect("expected lifecycle effect")
+    }
+
+    #[test]
+    fn late_arrival_never_leaks_into_an_earlier_cutoff() {
+        let original = packet("ivo://survey/a#event-1", "ivo://survey/a", 10);
+        let mut correction = packet("ivo://survey/b#event-2", "ivo://survey/b", 30);
+        correction.published_at = Some("2026-11-14T09:00:00Z".to_owned());
+        correction.citations.push(citation(
+            &original.id,
+            CitationRelation::Supersedes,
+        ));
+
+        let history = vec![original, correction];
+        let earlier = replay_as_of(&history, 20).expect("earlier replay");
+        assert_eq!(earlier.visible_packets.len(), 1);
+        assert!(earlier.edges.is_empty());
+        assert!(earlier.effects.is_empty());
+
+        let later = replay_as_of(&history, 30).expect("later replay");
+        assert_eq!(later.visible_packets.len(), 2);
+        assert_eq!(
+            effect(&later, "ivo://survey/a#event-1").superseded_by,
+            vec!["ivo://survey/b#event-2"]
+        );
+    }
+
+    #[test]
+    fn retraction_by_another_publisher_is_attributed_and_history_is_retained() {
+        let original = packet("ivo://survey/a#candidate", "ivo://survey/a", 10);
+        let mut retraction = packet("ivo://review/b#notice", "ivo://review/b", 20);
+        retraction
+            .citations
+            .push(citation(&original.id, CitationRelation::Retraction));
+
+        let replay = replay_as_of(&[retraction, original], 20).expect("replay");
+        assert_eq!(replay.visible_packets.len(), 2);
+        assert_eq!(
+            effect(&replay, "ivo://survey/a#candidate").retracted_by,
+            vec!["ivo://review/b#notice"]
+        );
+        assert_eq!(
+            replay.edges[0].asserting_publisher.as_deref(),
+            Some("ivo://review/b")
+        );
+    }
+
+    #[test]
+    fn followup_does_not_mark_the_cited_packet_superseded_or_retracted() {
+        let original = packet("ivo://survey/a#event", "ivo://survey/a", 10);
+        let mut followup = packet("ivo://survey/b#followup", "ivo://survey/b", 20);
+        followup
+            .citations
+            .push(citation(&original.id, CitationRelation::Followup));
+
+        let replay = replay_as_of(&[original, followup], 20).expect("replay");
+        assert!(replay.effects.is_empty());
+        assert_eq!(replay.edges.len(), 1);
+        assert_eq!(replay.edges[0].relation, CitationRelation::Followup);
+    }
+
+    #[test]
+    fn unresolved_reference_resolves_only_when_target_is_received() {
+        let mut citing = packet("ivo://survey/b#followup", "ivo://survey/b", 20);
+        citing
+            .citations
+            .push(citation("ivo://survey/a#earlier", CitationRelation::Followup));
+        let mut target = packet("ivo://survey/a#earlier", "ivo://survey/a", 50);
+        target.published_at = Some("2026-11-14T08:00:00Z".to_owned());
+
+        let before = replay_as_of(&[citing.clone(), target.clone()], 30).expect("before");
+        assert_eq!(before.unresolved_citations.len(), 1);
+        assert_eq!(before.edges.len(), 1);
+
+        let after = replay_as_of(&[citing, target], 50).expect("after");
+        assert!(after.unresolved_citations.is_empty());
+        assert_eq!(after.edges.len(), 1);
+        assert_eq!(after.visible_packets.len(), 2);
+    }
+
+    #[test]
+    fn future_duplicate_does_not_poison_past_replay() {
+        let valid = packet("ivo://survey/a#event", "ivo://survey/a", 10);
+        let duplicate = packet("ivo://survey/a#event", "ivo://survey/b", 100);
+
+        let history = vec![valid, duplicate];
+        assert!(replay_as_of(&history, 50).is_ok());
+        assert!(matches!(
+            replay_as_of(&history, 100),
+            Err(ReplayError::DuplicatePacketId { .. })
+        ));
+    }
+
+    #[test]
+    fn future_malformed_packet_does_not_poison_past_replay() {
+        let valid = packet("ivo://survey/a#event", "ivo://survey/a", 10);
+        let mut malformed = packet("placeholder", "ivo://survey/c", 200);
+        malformed.id.clear();
+
+        let history = vec![valid, malformed];
+        assert!(replay_as_of(&history, 50).is_ok());
+        assert!(matches!(
+            replay_as_of(&history, 200),
+            Err(ReplayError::EmptyPacketId { .. })
+        ));
+    }
+
+    #[test]
+    fn supersession_cycle_is_reported_without_rewriting_the_citation_graph() {
+        let mut a = packet("ivo://survey/a#1", "ivo://survey/a", 10);
+        let mut b = packet("ivo://survey/b#1", "ivo://survey/b", 20);
+        a.citations
+            .push(citation(&b.id, CitationRelation::Supersedes));
+        b.citations
+            .push(citation(&a.id, CitationRelation::Supersedes));
+
+        let replay = replay_as_of(&[a, b], 20).expect("replay");
+        assert_eq!(replay.edges.len(), 2);
+        assert!(replay.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ReplayDiagnostic::SupersessionCycle { .. }
+        )));
+    }
+
+    #[test]
+    fn source_time_lexemes_and_time_scale_are_preserved_without_conversion() {
+        let mut source = packet("ivo://survey/a#event", "ivo://survey/a", 10);
+        source.event_time = Some(SourceTime {
+            value: "2026-11-14T12:00:00.000".to_owned(),
+            scale: Some("TT".to_owned()),
+            reference_frame: Some("source-native-frame".to_owned()),
+        });
+        source.published_at = Some("2026-11-14T11:58:00".to_owned());
+
+        let replay = replay_as_of(&[source], 10).expect("replay");
+        let visible = &replay.visible_packets[0];
+        assert_eq!(
+            visible.event_time.as_ref().expect("event time").scale.as_deref(),
+            Some("TT")
+        );
+        assert_eq!(
+            visible.event_time.as_ref().expect("event time").value,
+            "2026-11-14T12:00:00.000"
+        );
+        assert_eq!(
+            visible.published_at.as_deref(),
+            Some("2026-11-14T11:58:00")
+        );
+    }
+
+    #[test]
+    fn output_order_is_deterministic_for_different_input_packet_orders() {
+        let a = packet("ivo://survey/a#1", "ivo://survey/a", 10);
+        let b = packet("ivo://survey/b#1", "ivo://survey/b", 10);
+        let mut c = packet("ivo://survey/c#1", "ivo://survey/c", 20);
+        c.citations.push(citation(&a.id, CitationRelation::Followup));
+        c.citations.push(citation(&b.id, CitationRelation::Retraction));
+
+        let left = replay_as_of(&[a.clone(), b.clone(), c.clone()], 20).expect("left");
+        let right = replay_as_of(&[c, b, a], 20).expect("right");
+        assert_eq!(left, right);
+        assert_eq!(
+            left.visible_packets
+                .iter()
+                .map(|packet| packet.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["ivo://survey/a#1", "ivo://survey/b#1", "ivo://survey/c#1"]
+        );
+    }
+
+    #[test]
+    fn simultaneous_supersession_and_retraction_are_both_preserved() {
+        let original = packet("ivo://survey/a#event", "ivo://survey/a", 10);
+        let mut superseder = packet("ivo://survey/b#revision", "ivo://survey/b", 20);
+        superseder
+            .citations
+            .push(citation(&original.id, CitationRelation::Supersedes));
+        let mut retractor = packet("ivo://review/c#notice", "ivo://review/c", 30);
+        retractor
+            .citations
+            .push(citation(&original.id, CitationRelation::Retraction));
+
+        let replay = replay_as_of(&[original, superseder, retractor], 30).expect("replay");
+        let state = effect(&replay, "ivo://survey/a#event");
+        assert_eq!(state.superseded_by, vec!["ivo://survey/b#revision"]);
+        assert_eq!(state.retracted_by, vec!["ivo://review/c#notice"]);
+    }
+
+    #[test]
+    fn self_reference_is_reported_and_retained() {
+        let mut source = packet("ivo://survey/a#event", "ivo://survey/a", 10);
+        source
+            .citations
+            .push(citation(&source.id, CitationRelation::Followup));
+
+        let replay = replay_as_of(&[source], 10).expect("replay");
+        assert_eq!(replay.edges.len(), 1);
+        assert!(replay.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ReplayDiagnostic::SelfReference { .. }
+        )));
+    }
+}
