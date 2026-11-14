@@ -189,9 +189,7 @@ fn parse_input(source: &str) -> Result<ReplayInput, InputError> {
     };
     let scenario_id = take_id("scenario_id")?;
     let decision_id = take_id("decision_id")?;
-    let decision_time = metadata
-        .remove("decision_time")
-        .ok_or_else(|| InputError("missing metadata key decision_time".to_owned()))?
+    let decision_time = take_id("decision_time")?
         .parse::<u64>()
         .map_err(|error| InputError(format!("invalid decision_time: {error}")))?;
     let snapshot_id = take_id("snapshot_id")?;
@@ -501,6 +499,28 @@ mod tests {
             .unwrap_err()
             .0
             .contains("duplicate revision 2"));
+    }
+
+    #[test]
+    fn revocation_recorded_after_decision_does_not_rewrite_prior_knowledge() {
+        let future_revocation = "route-r2|route_access|2|claim-road-access|road-east|passable|950|1050|980|1210|990|ASSERTED|transport-owner|synthetic:route:r2";
+        let changed = format!("{FIXTURE}{future_revocation}\n");
+        let report = validate_and_report(&changed).expect("late revocation revision");
+        assert!(report.contains("decision_evidence_disposition=ALL_SUBMITTED_EVIDENCE_VALID_AT_DECISION"));
+        assert!(report.contains("evidence=route_access|1|claim-road-access|road-east|passable|KNOWN_VALID|transport-owner|synthetic:route:r1|future_revisions_excluded=1"));
+    }
+
+    #[test]
+    fn evidence_revision_cannot_silently_change_claim_identity() {
+        let changed = FIXTURE.replace(
+            "stock-r2|stock_receipt|2|claim-diesel-stock|diesel-tank-01",
+            "stock-r2|stock_receipt|2|claim-other-stock|diesel-tank-01",
+        );
+        assert_ne!(changed, FIXTURE);
+        assert!(validate_and_report(&changed)
+            .unwrap_err()
+            .0
+            .contains("changes claim identity"));
     }
 
     #[test]
