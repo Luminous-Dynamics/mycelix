@@ -1,0 +1,688 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/fsre/schemas/claim-qualification-envelope-v0.2.schema.json",
+  "title": "FSRE Claim Qualification Envelope v0.2",
+  "description": "Version 0.2 adds decision-process availability, explicit valid-time start, revocation effective/knowledge times, and a referenced as-of evidence replay contract. It references owner-native evidence and does not replace source ledgers or confer authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "claim_id",
+    "claim_type",
+    "claim_statement",
+    "claim_status",
+    "subject",
+    "scope",
+    "measurement",
+    "provenance",
+    "method",
+    "assessment",
+    "authority",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "luminous.fsre.claim-qualification-envelope"
+    },
+    "schema_version": {
+      "const": "0.2.0"
+    },
+    "claim_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "claim_type": {
+      "enum": [
+        "synthetic_fixture_semantics",
+        "software_conformance",
+        "published_public_source_report",
+        "derived_public_data_analysis",
+        "operator_observed_condition",
+        "model_supported_result",
+        "expert_assessment",
+        "intervention_associated_observation",
+        "causally_identified_intervention_effect",
+        "independently_verified_service_outcome",
+        "recovery_option_qualification"
+      ]
+    },
+    "claim_statement": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "claim_status": {
+      "enum": [
+        "SUPPORTED_WITHIN_DECLARED_SCOPE",
+        "NOT_SUPPORTED",
+        "INDETERMINATE",
+        "WITHDRAWN"
+      ]
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service_id",
+        "cohort_id",
+        "operator_ref",
+        "geography_ref"
+      ],
+      "properties": {
+        "service_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cohort_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "operator_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Owner-native operator reference; not an authority grant."
+        },
+        "geography_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Owner-native geographic or spatial reference."
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope_kind",
+        "scenario_id",
+        "scenario_digest",
+        "observation_start",
+        "observation_end",
+        "time_basis_id",
+        "geographic_grain"
+      ],
+      "properties": {
+        "scope_kind": {
+          "enum": [
+            "synthetic",
+            "public_data",
+            "operator_observation",
+            "model_study",
+            "field_study"
+          ]
+        },
+        "scenario_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scenario_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "observation_start": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "observation_end": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "time_basis_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "clock_uncertainty_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "geographic_grain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "population_boundary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "service_boundary": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "denominator",
+        "method_id",
+        "value",
+        "uncertainty",
+        "unknown_duration_seconds"
+      ],
+      "properties": {
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "denominator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "type": [
+            "number",
+            "integer",
+            "null"
+          ]
+        },
+        "uncertainty": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "lower",
+            "upper"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "confidence_interval",
+                "credible_interval",
+                "bounded_error",
+                "not_estimated"
+              ]
+            },
+            "lower": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "upper": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "coverage": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "unknown_duration_seconds": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "distributional_breakdown": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cohort_id",
+              "unit",
+              "value",
+              "unknown_duration_seconds"
+            ],
+            "properties": {
+              "cohort_id": {
+                "type": "string"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "value": {
+                "type": [
+                  "number",
+                  "integer",
+                  "null"
+                ]
+              },
+              "unknown_duration_seconds": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_frontier",
+        "source_authenticity",
+        "as_of_qualification"
+      ],
+      "properties": {
+        "source_frontier": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_owner",
+              "source_record_ref",
+              "source_schema_version",
+              "source_digest",
+              "observed_at",
+              "valid_until",
+              "time_basis_id",
+              "clock_uncertainty_seconds",
+              "admissibility",
+              "available_at",
+              "valid_from",
+              "revoked_effective_at",
+              "revocation_known_at",
+              "as_of_admissibility"
+            ],
+            "properties": {
+              "source_owner": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_record_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_schema_version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_digest": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "observed_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "valid_until": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "time_basis_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "clock_uncertainty_seconds": {
+                "type": "number",
+                "minimum": 0
+              },
+              "admissibility": {
+                "enum": [
+                  "AUTHENTICATED_BY_OWNER",
+                  "OWNER_ASSERTED_NOT_INDEPENDENTLY_VERIFIED",
+                  "SYNTHETIC",
+                  "PUBLIC_SOURCE_NOT_EXTRACTED",
+                  "EXTRACTED_UNREVIEWED",
+                  "DISPUTED",
+                  "STALE",
+                  "UNKNOWN"
+                ]
+              },
+              "available_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "When the declared decision process could access the source record; distinct from observation and valid time."
+              },
+              "valid_from": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "Inclusive start of the interval in which the owner asserts the fact is valid."
+              },
+              "revoked_effective_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "When an owner-native revocation or correction became effective in the represented world."
+              },
+              "revocation_known_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "When the revocation became available to the declared decision process."
+              },
+              "as_of_admissibility": {
+                "enum": [
+                  "ADMISSIBLE",
+                  "NOT_YET_AVAILABLE",
+                  "FUTURE_OBSERVATION",
+                  "NOT_YET_VALID",
+                  "EXPIRED",
+                  "STALE",
+                  "REVOKED_AS_KNOWN",
+                  "REVOCATION_PENDING",
+                  "ADMISSIBLE_WITH_HINDSIGHT_REVOCATION",
+                  "UNKNOWN",
+                  "NOT_ASSESSED",
+                  "SYNTHETIC_NOT_ASSESSED"
+                ],
+                "description": "Point-in-time result from the as-of evidence evaluator; does not authenticate source content."
+              }
+            }
+          }
+        },
+        "source_authenticity": {
+          "enum": [
+            "OWNER_AUTHENTICATED",
+            "INDEPENDENTLY_AUTHENTICATED",
+            "NOT_AUTHENTICATED",
+            "SYNTHETIC_ONLY",
+            "UNKNOWN"
+          ]
+        },
+        "as_of_qualification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decision_cutoff",
+            "time_basis_id",
+            "freshness_policy",
+            "disposition",
+            "replay_evaluator_id",
+            "replay_evaluator_revision",
+            "replay_report_ref",
+            "hindsight_revocation_count",
+            "future_information_used"
+          ],
+          "properties": {
+            "decision_cutoff": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "time_basis_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "freshness_policy": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "basis",
+                "max_observation_age_seconds",
+                "policy_ref"
+              ],
+              "properties": {
+                "basis": {
+                  "enum": [
+                    "CLAIM_OWNER_DECLARED",
+                    "STUDY_DEFAULT",
+                    "NONE_DECLARED",
+                    "SYNTHETIC_NOT_ASSESSED"
+                  ]
+                },
+                "max_observation_age_seconds": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "policy_ref": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "disposition": {
+              "enum": [
+                "SUPPORTED_AS_KNOWN_AT_CUTOFF",
+                "NOT_ESTIMABLE",
+                "NOT_ASSESSED",
+                "SYNTHETIC_ONLY"
+              ]
+            },
+            "replay_evaluator_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "replay_evaluator_revision": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "replay_report_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "hindsight_revocation_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "future_information_used": {
+              "const": false
+            }
+          }
+        }
+      }
+    },
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_manifest_ref",
+        "evaluator_id",
+        "evaluator_version",
+        "evaluator_revision",
+        "model_receipts",
+        "analysis_plan_ref"
+      ],
+      "properties": {
+        "scenario_manifest_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evaluator_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evaluator_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evaluator_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_receipts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "owner",
+              "model_ref",
+              "model_version",
+              "adequacy_status"
+            ],
+            "properties": {
+              "owner": {
+                "type": "string"
+              },
+              "model_ref": {
+                "type": "string"
+              },
+              "model_version": {
+                "type": "string"
+              },
+              "adequacy_status": {
+                "enum": [
+                  "QUALIFIED_FOR_SCOPE",
+                  "OUT_OF_DOMAIN",
+                  "NOT_QUALIFIED",
+                  "NOT_APPLICABLE",
+                  "UNKNOWN"
+                ]
+              }
+            }
+          }
+        },
+        "analysis_plan_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_adequacy",
+        "reproducibility",
+        "independence",
+        "limitations",
+        "unresolved_unknowns",
+        "verifier_ref"
+      ],
+      "properties": {
+        "evidence_adequacy": {
+          "enum": [
+            "ADEQUATE_FOR_CLAIM",
+            "PARTIALLY_ADEQUATE",
+            "INADEQUATE",
+            "NOT_ASSESSED"
+          ]
+        },
+        "reproducibility": {
+          "enum": [
+            "INDEPENDENTLY_REPRODUCED",
+            "DIFFERENTIAL_AGREEMENT_ON_SHARED_INPUTS",
+            "DETERMINISTIC_GOLDEN_MATCH",
+            "NOT_REPRODUCED",
+            "NOT_ASSESSED"
+          ]
+        },
+        "independence": {
+          "enum": [
+            "INDEPENDENT_EVALUATOR_AND_SOURCES",
+            "INDEPENDENT_EVALUATOR_SHARED_SOURCES",
+            "SEPARATE_IMPLEMENTATION_SHARED_SPEC_AND_FIXTURE",
+            "SAME_OPERATOR_OR_SOURCE",
+            "NOT_ASSESSED"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unresolved_unknowns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "verifier_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_right_owner",
+        "execution_authority",
+        "operational_actuation"
+      ],
+      "properties": {
+        "decision_right_owner": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "execution_authority": {
+          "const": "NONE"
+        },
+        "operational_actuation": {
+          "const": "NOT_AUTHORISED"
+        }
+      }
+    },
+    "claim_ceiling": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
