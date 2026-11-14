@@ -868,6 +868,197 @@ mod double_spend_prevention {
 
         println!("Test 3.4 PASSED: Insufficient balance transfers are rejected");
     }
+
+    /// A participant cannot debit the counterparty's side by flipping from_a.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore]
+    async fn test_channel_transfer_cannot_debit_counterparty_balance() {
+        println!("Test 3.5: Channel Debit Must Match Authenticated Participant");
+
+        let dna_path = std::path::PathBuf::from("../dna/mycelix_finance.dna");
+        let dna = SweetDnaFile::from_bundle(&dna_path)
+            .await
+            .expect("Failed to load DNA");
+        let mut conductor = SweetConductor::from_standard_config().await;
+
+        let agents = SweetAgents::get(conductor.keystore(), 2).await;
+        let apps = conductor
+            .setup_app_for_agents("mycelix-finance", &agents, &[dna])
+            .await
+            .expect("Failed to install app");
+
+        let alice_cell = &apps[0].cells()[0];
+        let bob_cell = &apps[1].cells()[0];
+        let alice_did = format!("did:mycelix:{}", agents[0]);
+        let bob_did = format!("did:mycelix:{}", agents[1]);
+
+        let channel_input = OpenChannelInput {
+            party_a: alice_did,
+            party_b: bob_did,
+            currency: TEST_CURRENCY.to_string(),
+            initial_deposit_a: 100_000_000,
+            initial_deposit_b: 100_000_000,
+        };
+        let channel_record: Record = conductor
+            .call(
+                &alice_cell.zome("payments"),
+                "open_payment_channel",
+                channel_input,
+            )
+            .await;
+        let channel: PaymentChannel = channel_record
+            .entry()
+            .to_app_option()
+            .expect("Deserialize failed")
+            .expect("No entry");
+        let channel_id = channel.id.clone();
+
+        let alice_wrong_direction = ChannelTransferInput {
+            channel_id: channel_id.clone(),
+            amount: 10_000_000,
+            from_a: false,
+        };
+        let alice_result: Result<Record, _> = conductor
+            .call_fallible(
+                &alice_cell.zome("payments"),
+                "channel_transfer",
+                alice_wrong_direction,
+            )
+            .await;
+        assert!(
+            alice_result.is_err(),
+            "Party A must not debit Party B's balance"
+        );
+
+        let bob_wrong_direction = ChannelTransferInput {
+            channel_id: channel_id.clone(),
+            amount: 10_000_000,
+            from_a: true,
+        };
+        let bob_result: Result<Record, _> = conductor
+            .call_fallible(
+                &bob_cell.zome("payments"),
+                "channel_transfer",
+                bob_wrong_direction,
+            )
+            .await;
+        assert!(
+            bob_result.is_err(),
+            "Party B must not debit Party A's balance"
+        );
+
+        // Positive controls: each authenticated party can still debit its own side.
+        let a_to_b = ChannelTransferInput {
+            channel_id: channel_id.clone(),
+            amount: 10_000_000,
+            from_a: true,
+        };
+        let _after_a: Record = conductor
+            .call(&alice_cell.zome("payments"), "channel_transfer", a_to_b)
+            .await;
+
+        let b_to_a = ChannelTransferInput {
+            channel_id,
+            amount: 20_000_000,
+            from_a: false,
+        };
+        let after_b: Record = conductor
+            .call(&bob_cell.zome("payments"), "channel_transfer", b_to_a)
+            .await;
+
+        let final_channel: PaymentChannel = after_b
+            .entry()
+            .to_app_option()
+            .expect("Deserialize failed")
+            .expect("No entry");
+        assert_eq!(final_channel.balance_a, 110_000_000);
+        assert_eq!(final_channel.balance_b, 90_000_000);
+
+        println!("Test 3.5 PASSED: debit direction is bound to caller identity");
+    }
+
+    /// Receiver-side additions are checked in both directions before any update.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore]
+    async fn test_channel_receiver_balance_overflow_rejected_both_directions() {
+        println!("Test 3.6: Receiver Balance Overflow");
+
+        let dna_path = std::path::PathBuf::from("../dna/mycelix_finance.dna");
+        let dna = SweetDnaFile::from_bundle(&dna_path)
+            .await
+            .expect("Failed to load DNA");
+        let mut conductor = SweetConductor::from_standard_config().await;
+
+        let agents = SweetAgents::get(conductor.keystore(), 2).await;
+        let apps = conductor
+            .setup_app_for_agents("mycelix-finance", &agents, &[dna])
+            .await
+            .expect("Failed to install app");
+
+        let alice_cell = &apps[0].cells()[0];
+        let bob_cell = &apps[1].cells()[0];
+        let channel_input = OpenChannelInput {
+            party_a: format!("did:mycelix:{}", agents[0]),
+            party_b: format!("did:mycelix:{}", agents[1]),
+            currency: TEST_CURRENCY.to_string(),
+            initial_deposit_a: u64::MAX,
+            initial_deposit_b: u64::MAX,
+        };
+        let channel_record: Record = conductor
+            .call(
+                &alice_cell.zome("payments"),
+                "open_payment_channel",
+                channel_input,
+            )
+            .await;
+        let channel: PaymentChannel = channel_record
+            .entry()
+            .to_app_option()
+            .expect("Deserialize failed")
+            .expect("No entry");
+
+        // A -> B would overflow B's receiver balance.
+        let a_to_b = ChannelTransferInput {
+            channel_id: channel.id.clone(),
+            amount: 1,
+            from_a: true,
+        };
+        let a_result: Result<Record, _> = conductor
+            .call_fallible(
+                &alice_cell.zome("payments"),
+                "channel_transfer",
+                a_to_b,
+            )
+            .await;
+        let a_error = format!("{:?}", a_result.expect_err("receiver overflow must reject"));
+        assert!(
+            a_error.contains("Receiver balance overflow for party B"),
+            "Expected party B receiver-overflow rejection, got: {}",
+            a_error
+        );
+
+        // B -> A would overflow A's receiver balance.
+        let b_to_a = ChannelTransferInput {
+            channel_id: channel.id,
+            amount: 1,
+            from_a: false,
+        };
+        let b_result: Result<Record, _> = conductor
+            .call_fallible(
+                &bob_cell.zome("payments"),
+                "channel_transfer",
+                b_to_a,
+            )
+            .await;
+        let b_error = format!("{:?}", b_result.expect_err("receiver overflow must reject"));
+        assert!(
+            b_error.contains("Receiver balance overflow for party A"),
+            "Expected party A receiver-overflow rejection, got: {}",
+            b_error
+        );
+
+        println!("Test 3.6 PASSED: both receiver-overflow directions reject");
+    }
 }
 
 // ============================================================================
@@ -1356,6 +1547,7 @@ mod failed_transaction_handling {
             .expect("Failed to install app");
 
         let alice_cell = &apps[0].cells()[0];
+        let bob_cell = &apps[1].cells()[0];
         let alice_did = format!("did:mycelix:{}", agents[0]);
         let bob_did = format!("did:mycelix:{}", agents[1]);
 
@@ -1405,9 +1597,10 @@ mod failed_transaction_handling {
                 from_a,
             };
 
+            let sender_cell = if from_a { alice_cell } else { bob_cell };
             let result: Record = conductor
                 .call(
-                    &alice_cell.zome("payments"),
+                    &sender_cell.zome("payments"),
                     "channel_transfer",
                     transfer_input,
                 )

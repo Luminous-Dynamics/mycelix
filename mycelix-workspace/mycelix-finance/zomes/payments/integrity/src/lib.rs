@@ -604,6 +604,11 @@ fn validate_create_payment_channel(
             "Parties must be valid DIDs".into(),
         ));
     }
+    if channel.party_a == channel.party_b {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment channel parties must be distinct".into(),
+        ));
+    }
     if channel.currency != "SAP" && channel.currency != "TEND" {
         return Ok(ValidateCallbackResult::Invalid(
             "Currency must be \"SAP\" or \"TEND\"".into(),
@@ -612,11 +617,104 @@ fn validate_create_payment_channel(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate one payment-channel state transition from the exact predecessor record.
+///
+/// A Holochain Update is an author-signed action, but the application must still
+/// bind that author to the side whose balance is being debited. The pure helper
+/// below also makes the conservation and immutable-term rules testable without
+/// an HDI runtime.
+fn validate_payment_channel_transition(
+    original: &PaymentChannel,
+    updated: &PaymentChannel,
+    author_did: &str,
+) -> ValidateCallbackResult {
+    if original.party_a == original.party_b {
+        return ValidateCallbackResult::Invalid(
+            "Payment channel parties must be distinct".into(),
+        );
+    }
+
+    if author_did != original.party_a.as_str() && author_did != original.party_b.as_str() {
+        return ValidateCallbackResult::Invalid(
+            "Payment-channel update must be authored by a participant".into(),
+        );
+    }
+
+    if updated.id != original.id
+        || updated.party_a != original.party_a
+        || updated.party_b != original.party_b
+        || updated.currency != original.currency
+        || updated.opened != original.opened
+    {
+        return ValidateCallbackResult::Invalid(
+            "Payment-channel identity and terms are immutable".into(),
+        );
+    }
+
+    // Closed is terminal. A close operation must not move funds, and the
+    // close timestamp must match the operation's recorded update timestamp.
+    if original.closed.is_some() {
+        return ValidateCallbackResult::Invalid(
+            "A closed payment channel cannot be updated or reopened".into(),
+        );
+    }
+
+    if let Some(closed_at) = updated.closed {
+        if updated.balance_a != original.balance_a
+            || updated.balance_b != original.balance_b
+            || closed_at != updated.last_updated
+        {
+            return ValidateCallbackResult::Invalid(
+                "Closing a payment channel cannot change balances".into(),
+            );
+        }
+        return ValidateCallbackResult::Valid;
+    }
+
+    // last_updated is informational, not a global ordering primitive: two
+    // participants may have different wall clocks. State lineage is bound by
+    // the Update's exact original_action_address, not by timestamp sorting.
+    let a_debit = original.balance_a.checked_sub(updated.balance_a);
+    let b_credit = updated.balance_b.checked_sub(original.balance_b);
+    if let (Some(debit), Some(credit)) = (a_debit, b_credit) {
+        if debit > 0 && debit == credit && author_did == original.party_a {
+            return ValidateCallbackResult::Valid;
+        }
+    }
+
+    let b_debit = original.balance_b.checked_sub(updated.balance_b);
+    let a_credit = updated.balance_a.checked_sub(original.balance_a);
+    if let (Some(debit), Some(credit)) = (b_debit, a_credit) {
+        if debit > 0 && debit == credit && author_did == original.party_b {
+            return ValidateCallbackResult::Valid;
+        }
+    }
+
+    ValidateCallbackResult::Invalid(
+        "Payment-channel update must debit only the author's balance and conserve total value"
+            .into(),
+    )
+}
+
 fn validate_update_payment_channel(
-    _action: Update,
-    _channel: PaymentChannel,
+    action: Update,
+    channel: PaymentChannel,
 ) -> ExternResult<ValidateCallbackResult> {
-    Ok(ValidateCallbackResult::Valid)
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original_channel: PaymentChannel = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original payment-channel entry not found".into()
+        )))?;
+
+    let author_did = format!("did:mycelix:{}", action.author);
+    Ok(validate_payment_channel_transition(
+        &original_channel,
+        &channel,
+        &author_did,
+    ))
 }
 
 fn validate_create_receipt(
@@ -1051,6 +1149,113 @@ mod tests {
         assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
+    #[test]
+    fn test_channel_transition_binds_debit_to_authorized_party() {
+        let original = valid_channel();
+
+        let mut a_to_b = original.clone();
+        a_to_b.balance_a = 400;
+        a_to_b.balance_b = 600;
+        a_to_b.last_updated = ts(2_000_000);
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &a_to_b, "did:mycelix:alice"),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &a_to_b, "did:mycelix:bob"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut b_to_a = original.clone();
+        b_to_a.balance_a = 600;
+        b_to_a.balance_b = 400;
+        b_to_a.last_updated = ts(2_000_000);
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &b_to_a, "did:mycelix:bob"),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &b_to_a, "did:mycelix:alice"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_channel_transition_rejects_nonparticipant_and_value_creation() {
+        let original = valid_channel();
+
+        let mut transfer = original.clone();
+        transfer.balance_a = 400;
+        transfer.balance_b = 600;
+        transfer.last_updated = ts(2_000_000);
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &transfer, "did:mycelix:mallory"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut value_created = original.clone();
+        value_created.balance_a = 400;
+        value_created.balance_b = 550;
+        value_created.last_updated = ts(2_000_000);
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &value_created, "did:mycelix:alice"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut no_op = original.clone();
+        no_op.last_updated = ts(2_000_000);
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &no_op, "did:mycelix:alice"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_channel_transition_rejects_immutable_term_changes() {
+        let original = valid_channel();
+
+        let mut changed = original.clone();
+        changed.party_b = "did:mycelix:mallory".into();
+        changed.balance_a = 400;
+        changed.balance_b = 600;
+        changed.last_updated = ts(2_000_000);
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &changed, "did:mycelix:alice"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_channel_transition_allows_close_without_balance_change_only() {
+        let original = valid_channel();
+
+        let mut closed = original.clone();
+        closed.last_updated = ts(2_000_000);
+        closed.closed = Some(ts(2_000_000));
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &closed, "did:mycelix:bob"),
+            ValidateCallbackResult::Valid
+        ));
+
+        let mut reopened = closed.clone();
+        reopened.last_updated = ts(3_000_000);
+        reopened.closed = None;
+        assert!(matches!(
+            validate_payment_channel_transition(&closed, &reopened, "did:mycelix:alice"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut close_and_move = original.clone();
+        close_and_move.balance_a = 400;
+        close_and_move.balance_b = 600;
+        close_and_move.last_updated = ts(2_000_000);
+        close_and_move.closed = Some(ts(2_000_000));
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &close_and_move, "did:mycelix:alice"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
     // ---- 10. PaymentChannel with invalid party DID (must fail) ----
 
     #[test]
@@ -1069,6 +1274,16 @@ mod tests {
     fn test_channel_unsupported_currency() {
         let mut ch = valid_channel();
         ch.currency = "ETH".into();
+        let result =
+            validate_create_payment_channel(EntryCreationAction::Create(make_create()), ch)
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_channel_same_party_rejected() {
+        let mut ch = valid_channel();
+        ch.party_b = ch.party_a.clone();
         let result =
             validate_create_payment_channel(EntryCreationAction::Create(make_create()), ch)
                 .unwrap();
