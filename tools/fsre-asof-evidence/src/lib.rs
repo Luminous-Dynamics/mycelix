@@ -53,15 +53,14 @@ fn valid_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 160
         && value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric()
-                || matches!(byte, b'_' | b'-' | b'.' | b':' | b'/')
+            byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.' | b':' | b'/')
         })
 }
 
 fn parse_u64(value: &str, label: &str, line: usize) -> Result<u64, InputError> {
-    value.parse::<u64>().map_err(|error| {
-        InputError(format!("line {line}: invalid {label}: {error}"))
-    })
+    value
+        .parse::<u64>()
+        .map_err(|error| InputError(format!("line {line}: invalid {label}: {error}")))
 }
 
 fn optional_u64(value: &str, label: &str, line: usize) -> Result<Option<u64>, InputError> {
@@ -96,15 +95,22 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
         }
         if let Some(comment) = line.strip_prefix('#') {
             if let Some((key, value)) = comment.trim().split_once('=') {
-                if metadata.insert(key.trim().to_owned(), value.trim().to_owned()).is_some() {
-                    return Err(InputError(format!("line {line_number}: duplicate metadata key")));
+                if metadata
+                    .insert(key.trim().to_owned(), value.trim().to_owned())
+                    .is_some()
+                {
+                    return Err(InputError(format!(
+                        "line {line_number}: duplicate metadata key"
+                    )));
                 }
             }
             continue;
         }
         if !header_seen {
             if line != HEADER {
-                return Err(InputError(format!("line {line_number}: unexpected evidence header")));
+                return Err(InputError(format!(
+                    "line {line_number}: unexpected evidence header"
+                )));
             }
             header_seen = true;
             continue;
@@ -132,10 +138,14 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
         require_id(clock_basis, "clock_basis_id", line_number)?;
         require_id(owner, "source_owner", line_number)?;
         if source_ref.is_empty() || source_ref.len() > 512 {
-            return Err(InputError(format!("line {line_number}: invalid source_ref")));
+            return Err(InputError(format!(
+                "line {line_number}: invalid source_ref"
+            )));
         }
         if !record_ids.insert(record_id.to_owned()) {
-            return Err(InputError(format!("line {line_number}: duplicate record_id")));
+            return Err(InputError(format!(
+                "line {line_number}: duplicate record_id"
+            )));
         }
 
         let observed = optional_u64(fields[4], "observed_at", line_number)?;
@@ -156,16 +166,23 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
                     || revocation_known.is_some()
                     || fields[10] != "REQUIRED"
                 {
-                    return Err(InputError(format!("line {line_number}: malformed CLAIM row")));
+                    return Err(InputError(format!(
+                        "line {line_number}: malformed CLAIM row"
+                    )));
                 }
                 if clock_basis != "UTC_UNIX_SECONDS_V1" {
-                    return Err(InputError(format!("line {line_number}: unsupported clock basis")));
+                    return Err(InputError(format!(
+                        "line {line_number}: unsupported clock basis"
+                    )));
                 }
                 let required_count = parse_u64(fields[14], "required_evidence_count", line_number)?;
                 if required_count == 0 {
-                    return Err(InputError(format!("line {line_number}: required evidence count must be positive")));
+                    return Err(InputError(format!(
+                        "line {line_number}: required evidence count must be positive"
+                    )));
                 }
-                let max_age_override = optional_u64(fields[15], "max_observation_age_seconds", line_number)?;
+                let max_age_override =
+                    optional_u64(fields[15], "max_observation_age_seconds", line_number)?;
                 claims.push(Claim {
                     id: claim_id.to_owned(),
                     owner: owner.to_owned(),
@@ -176,10 +193,14 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
             }
             "EVIDENCE" => {
                 if !fields[14].is_empty() || !fields[15].is_empty() {
-                    return Err(InputError(format!("line {line_number}: EVIDENCE row must not set claim policy fields")));
+                    return Err(InputError(format!(
+                        "line {line_number}: EVIDENCE row must not set claim policy fields"
+                    )));
                 }
                 if clock_basis != "UTC_UNIX_SECONDS_V1" {
-                    return Err(InputError(format!("line {line_number}: incompatible evidence clock basis")));
+                    return Err(InputError(format!(
+                        "line {line_number}: incompatible evidence clock basis"
+                    )));
                 }
                 if !evidence_refs.insert((claim_id.to_owned(), source_ref.to_owned())) {
                     return Err(InputError(format!(
@@ -196,16 +217,22 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
                         let available_value = available.expect("checked above");
                         let valid_from_value = valid_from.expect("checked above");
                         if observed_value > available_value {
-                            return Err(InputError(format!("line {line_number}: observed_at must not be after available_at")));
+                            return Err(InputError(format!(
+                                "line {line_number}: observed_at must not be after available_at"
+                            )));
                         }
                         // A document may be available before its future validity begins,
                         // or may describe a historical validity interval. The as-of
                         // evaluator classifies those cases; the parser must preserve them.
                         if valid_until.is_some_and(|end| end <= valid_from_value) {
-                            return Err(InputError(format!("line {line_number}: validity interval must be non-empty")));
+                            return Err(InputError(format!(
+                                "line {line_number}: validity interval must be non-empty"
+                            )));
                         }
                         if revoked_effective.is_some() != revocation_known.is_some() {
-                            return Err(InputError(format!("line {line_number}: revocation timestamps must be paired")));
+                            return Err(InputError(format!(
+                                "line {line_number}: revocation timestamps must be paired"
+                            )));
                         }
                         if let Some(known_at) = revocation_known {
                             if known_at < available_value {
@@ -224,7 +251,11 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
                             return Err(InputError(format!("line {line_number}: UNKNOWN evidence must not carry temporal assertions")));
                         }
                     }
-                    _ => return Err(InputError(format!("line {line_number}: unsupported evidence status"))),
+                    _ => {
+                        return Err(InputError(format!(
+                            "line {line_number}: unsupported evidence status"
+                        )))
+                    }
                 }
                 evidence.push(Evidence {
                     id: record_id.to_owned(),
@@ -240,12 +271,18 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
                     source_ref: source_ref.to_owned(),
                 });
             }
-            _ => return Err(InputError(format!("line {line_number}: unsupported record_type {record_type}"))),
+            _ => {
+                return Err(InputError(format!(
+                    "line {line_number}: unsupported record_type {record_type}"
+                )))
+            }
         }
     }
 
     if !header_seen || claims.is_empty() {
-        return Err(InputError("missing header or claim requirements".to_owned()));
+        return Err(InputError(
+            "missing header or claim requirements".to_owned(),
+        ));
     }
     let mut take = |key: &str| {
         metadata
@@ -273,12 +310,18 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
     let mut claim_ids = BTreeSet::new();
     for claim in &claims {
         if !claim_ids.insert(claim.id.clone()) {
-            return Err(InputError(format!("duplicate claim requirement {}", claim.id)));
+            return Err(InputError(format!(
+                "duplicate claim requirement {}",
+                claim.id
+            )));
         }
     }
     for row in &evidence {
         if row.claim_id.is_empty() || !claim_ids.contains(&row.claim_id) {
-            return Err(InputError(format!("evidence {} references an undeclared claim", row.id)));
+            return Err(InputError(format!(
+                "evidence {} references an undeclared claim",
+                row.id
+            )));
         }
     }
 
@@ -335,9 +378,15 @@ fn assess(evidence: &Evidence, input: &Input, max_age: u64) -> Assessment {
     if evidence.status == "UNKNOWN" {
         return Assessment::Unknown;
     }
-    let observed = evidence.observed_at.expect("ASSERTED evidence has observed_at");
-    let available = evidence.available_at.expect("ASSERTED evidence has available_at");
-    let valid_from = evidence.valid_from.expect("ASSERTED evidence has valid_from");
+    let observed = evidence
+        .observed_at
+        .expect("ASSERTED evidence has observed_at");
+    let available = evidence
+        .available_at
+        .expect("ASSERTED evidence has available_at");
+    let valid_from = evidence
+        .valid_from
+        .expect("ASSERTED evidence has valid_from");
 
     if observed > input.decision_at {
         return Assessment::FutureObservation;
@@ -359,13 +408,19 @@ fn assess(evidence: &Evidence, input: &Input, max_age: u64) -> Assessment {
     }
 
     match (evidence.revoked_effective_at, evidence.revocation_known_at) {
-        (Some(effective_at), Some(known_at)) if known_at <= input.decision_at && effective_at <= input.decision_at => {
+        (Some(effective_at), Some(known_at))
+            if known_at <= input.decision_at && effective_at <= input.decision_at =>
+        {
             Assessment::RevokedAsKnown
         }
-        (Some(effective_at), Some(known_at)) if known_at <= input.decision_at && effective_at > input.decision_at => {
+        (Some(effective_at), Some(known_at))
+            if known_at <= input.decision_at && effective_at > input.decision_at =>
+        {
             Assessment::RevocationPending
         }
-        (Some(effective_at), Some(known_at)) if effective_at <= input.decision_at && known_at > input.decision_at => {
+        (Some(effective_at), Some(known_at))
+            if effective_at <= input.decision_at && known_at > input.decision_at =>
+        {
             Assessment::HindsightRevocation
         }
         _ => Assessment::Admissible,
@@ -415,7 +470,12 @@ fn evaluate(input: &Input) -> String {
 
     let max_age_by_claim: BTreeMap<String, u64> = claims
         .iter()
-        .map(|claim| (claim.id.clone(), claim.max_age_override.unwrap_or(input.max_age)))
+        .map(|claim| {
+            (
+                claim.id.clone(),
+                claim.max_age_override.unwrap_or(input.max_age),
+            )
+        })
         .collect();
     let mut assessments = BTreeMap::<String, Assessment>::new();
     let mut counts_by_claim = BTreeMap::<String, Counts>::new();
@@ -423,7 +483,10 @@ fn evaluate(input: &Input) -> String {
         let max_age = max_age_by_claim[&row.claim_id];
         let assessment = assess(row, input, max_age);
         assessments.insert(row.id.clone(), assessment);
-        add_assessment(counts_by_claim.entry(row.claim_id.clone()).or_default(), assessment);
+        add_assessment(
+            counts_by_claim.entry(row.claim_id.clone()).or_default(),
+            assessment,
+        );
     }
 
     let mut out = vec![
@@ -518,19 +581,30 @@ mod tests {
     #[test]
     fn frozen_fixture_separates_world_validity_from_knowledge_time() {
         let report = validate_and_report(FIXTURE).expect("fixture is valid");
-        assert!(report.contains("claim=pump_capacity|SUPPORTED_AS_KNOWN_AT_CUTOFF|admissible=2|required=2|missing=0"));
-        assert!(report.contains("claim=crew_authority|NOT_ESTIMABLE|admissible=0|required=1|missing=1"));
+        assert!(report.contains(
+            "claim=pump_capacity|SUPPORTED_AS_KNOWN_AT_CUTOFF|admissible=2|required=2|missing=0"
+        ));
+        assert!(
+            report.contains("claim=crew_authority|NOT_ESTIMABLE|admissible=0|required=1|missing=1")
+        );
         assert!(report.contains("e-future|future_sensor|FUTURE_OBSERVATION|admissible=NO"));
         assert!(report.contains("e-road|road_access|EXPIRED|admissible=NO"));
-        assert!(report.contains("e-telemetry|telemetry|ADMISSIBLE_WITH_HINDSIGHT_REVOCATION|admissible=YES"));
+        assert!(report
+            .contains("e-telemetry|telemetry|ADMISSIBLE_WITH_HINDSIGHT_REVOCATION|admissible=YES"));
         assert!(report.contains("future_information_used=NO"));
     }
 
     #[test]
     fn availability_at_cutoff_is_inclusive_but_after_cutoff_is_not() {
         let source = FIXTURE
-            .replace("e-pump-1|pump_capacity|synthetic-water-shock|6000|6100", "e-pump-1|pump_capacity|synthetic-water-shock|6000|7200")
-            .replace("e-pump-2|pump_capacity|synthetic-water-shock|3600|3700", "e-pump-2|pump_capacity|synthetic-water-shock|3600|7201");
+            .replace(
+                "e-pump-1|pump_capacity|synthetic-water-shock|6000|6100",
+                "e-pump-1|pump_capacity|synthetic-water-shock|6000|7200",
+            )
+            .replace(
+                "e-pump-2|pump_capacity|synthetic-water-shock|3600|3700",
+                "e-pump-2|pump_capacity|synthetic-water-shock|3600|7201",
+            );
         let report = validate_and_report(&source).expect("temporal boundary fixture");
         assert!(report.contains("e-pump-1|pump_capacity|ADMISSIBLE|admissible=YES"));
         assert!(report.contains("e-pump-2|pump_capacity|NOT_YET_AVAILABLE|admissible=NO"));
@@ -549,8 +623,14 @@ mod tests {
     #[test]
     fn observation_age_threshold_is_inclusive() {
         let source = FIXTURE
-            .replace("e-pump-1|pump_capacity|synthetic-water-shock|6000|6100", "e-pump-1|pump_capacity|synthetic-water-shock|3600|6100")
-            .replace("e-pump-1|pump_capacity|synthetic-water-shock|3600|6100|5900", "e-pump-1|pump_capacity|synthetic-water-shock|3600|6100|3500");
+            .replace(
+                "e-pump-1|pump_capacity|synthetic-water-shock|6000|6100",
+                "e-pump-1|pump_capacity|synthetic-water-shock|3600|6100",
+            )
+            .replace(
+                "e-pump-1|pump_capacity|synthetic-water-shock|3600|6100|5900",
+                "e-pump-1|pump_capacity|synthetic-water-shock|3600|6100|3500",
+            );
         let report = validate_and_report(&source).expect("freshness boundary");
         assert!(report.contains("e-pump-1|pump_capacity|ADMISSIBLE|admissible=YES"));
     }
@@ -635,12 +715,7 @@ mod tests {
         }
         let header = rows.remove(0);
         rows.reverse();
-        let reordered = format!(
-            "{}\n{}\n{}\n",
-            metadata.join("\n"),
-            header,
-            rows.join("\n")
-        );
+        let reordered = format!("{}\n{}\n{}\n", metadata.join("\n"), header, rows.join("\n"));
         assert_eq!(
             validate_and_report(FIXTURE).expect("original"),
             validate_and_report(&reordered).expect("reordered")
@@ -683,7 +758,8 @@ mod tests {
             "EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|6000|6100|5900|9000",
             "EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|6000|6100|7300|9000",
         );
-        let report = validate_and_report(&source).expect("future-effective evidence is valid input");
+        let report =
+            validate_and_report(&source).expect("future-effective evidence is valid input");
         assert!(report.contains("e-pump-1|pump_capacity|NOT_YET_VALID|admissible=NO"));
     }
 
@@ -730,7 +806,9 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         let report = validate_and_report(&source).expect("missing evidence is an explicit state");
-        assert!(report.contains("claim=water_quality|NOT_ESTIMABLE|admissible=0|required=1|missing=1"));
+        assert!(
+            report.contains("claim=water_quality|NOT_ESTIMABLE|admissible=0|required=1|missing=1")
+        );
     }
 
     #[test]
@@ -741,7 +819,11 @@ mod tests {
                 &format!("EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|6000|{available_at}|5900|9000|||ASSERTED"),
             );
             let report = validate_and_report(&source).expect("availability sweep");
-            let expected = if available_at <= 7200 { "ADMISSIBLE" } else { "NOT_YET_AVAILABLE" };
+            let expected = if available_at <= 7200 {
+                "ADMISSIBLE"
+            } else {
+                "NOT_YET_AVAILABLE"
+            };
             assert!(report.contains(&format!("e-pump-1|pump_capacity|{expected}")));
         }
         for valid_until in [7199_u64, 7200, 7201] {
@@ -750,7 +832,11 @@ mod tests {
                 &format!("EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|6000|6100|5900|{valid_until}|||ASSERTED"),
             );
             let report = validate_and_report(&source).expect("validity sweep");
-            let expected = if valid_until > 7200 { "ADMISSIBLE" } else { "EXPIRED" };
+            let expected = if valid_until > 7200 {
+                "ADMISSIBLE"
+            } else {
+                "EXPIRED"
+            };
             assert!(report.contains(&format!("e-pump-1|pump_capacity|{expected}")));
         }
         for effective_at in [7199_u64, 7200, 7201] {
@@ -796,7 +882,11 @@ mod tests {
                 &format!("EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|{observed_at}|6100|3500|9000|||ASSERTED"),
             );
             let report = validate_and_report(&source).expect("freshness sweep");
-            let expected = if 7200 - observed_at <= 3600 { "ADMISSIBLE" } else { "STALE" };
+            let expected = if 7200 - observed_at <= 3600 {
+                "ADMISSIBLE"
+            } else {
+                "STALE"
+            };
             assert!(report.contains(&format!("e-pump-1|pump_capacity|{expected}")));
         }
     }
