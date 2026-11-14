@@ -43,6 +43,7 @@ fn exact_bounds_regret_and_safety_are_reported_separately() {
     assert_eq!(inspect.worst_case_regret, Some(10));
     assert!(report.robust_optimal_action.is_none());
     assert_eq!(report.minimax_regret_actions, vec!["repair".to_owned()]);
+    assert!(report.actions.iter().filter(|a| a.robustly_safe).all(|a| a.best_case_regret.is_some() && a.worst_case_regret.is_some()));
     assert!(replace.best_case_regret.is_none());
     assert!(replace.worst_case_regret.is_none());
 }
