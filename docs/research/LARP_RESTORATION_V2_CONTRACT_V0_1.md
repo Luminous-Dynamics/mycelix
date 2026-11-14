@@ -99,7 +99,7 @@ The contract can prepare a bounded tranche request when locally defined outcomes
 Each tranche binds:
 - contract and constitution digests;
 - bioregion and steward entitlement;
-- exact recipient, amount, currency and funding source;
+- exact recipient, tranche amount, remaining/total ceiling, currency and funding source;
 - tranche number and schedule;
 - evidence snapshot and independent assessment;
 - externality and rights checks;
