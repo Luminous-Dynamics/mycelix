@@ -94,10 +94,10 @@ fn require_no_measure(record: &Record, line: usize) -> Result<(), InputError> {
     Ok(())
 }
 
-fn require_no_quantity(record: &Record, line: usize) -> Result<(), InputError> {
-    if record.quantity.is_some() {
+fn require_unknown_measure(record: &Record, line: usize) -> Result<(), InputError> {
+    if record.quantity.is_some() || record.unit.is_none() {
         return Err(InputError(format!(
-            "line {line}: UNKNOWN {} cannot carry a numeric quantity",
+            "line {line}: UNKNOWN {} requires a known unit and no numeric quantity",
             record.kind
         )));
     }
@@ -170,7 +170,7 @@ fn validate_shape(record: &Record, line: usize) -> Result<(), InputError> {
             }
             match record.status.as_str() {
                 "QUALIFIED" => require_measure(record, line)?,
-                "UNKNOWN" => require_no_quantity(record, line)?,
+                "UNKNOWN" => require_unknown_measure(record, line)?,
                 _ => {
                     return Err(InputError(format!(
                         "line {line}: invalid option-capacity status"
@@ -236,7 +236,7 @@ fn validate_shape(record: &Record, line: usize) -> Result<(), InputError> {
             required_id(&record.subject, "resource_id", line)?;
             match record.status.as_str() {
                 "QUALIFIED" => require_measure(record, line)?,
-                "UNKNOWN" => require_no_quantity(record, line)?,
+                "UNKNOWN" => require_unknown_measure(record, line)?,
                 _ => {
                     return Err(InputError(format!(
                         "line {line}: invalid resource-use status"
@@ -254,7 +254,7 @@ fn validate_shape(record: &Record, line: usize) -> Result<(), InputError> {
             required_id(&record.subject, "resource_id", line)?;
             match record.status.as_str() {
                 "QUALIFIED" => require_measure(record, line)?,
-                "UNKNOWN" => require_no_quantity(record, line)?,
+                "UNKNOWN" => require_unknown_measure(record, line)?,
                 _ => {
                     return Err(InputError(format!(
                         "line {line}: invalid resource-capacity status"
@@ -550,9 +550,11 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
                 eval.reasons.insert("MISSING_OPTION_CAPACITY".to_owned());
             }
             Some(record) if record.status != "QUALIFIED" => {
-                if record.unit.as_deref().is_some_and(|provided| Some(provided) != unit.as_deref()) {
-                    eval.blocked = true;
-                    eval.reasons.insert("OPTION_CAPACITY_UNIT_MISMATCH".to_owned());
+                if record.unit.as_deref() != unit.as_deref() {
+                    return Err(InputError(format!(
+                        "option capacity unit mismatch for {}",
+                        key.0
+                    )));
                 }
                 eval.unknown = true;
                 eval.reasons.insert("OPTION_CAPACITY_UNKNOWN".to_owned());
@@ -1190,6 +1192,42 @@ mod tests {
         let report = validate_and_report(&changed).expect("unknown resource demand is explicit");
         assert!(report.contains("portfolio_disposition=NOT_ESTIMABLE"));
         assert!(report.contains("resource=qualified_crew_hours|4|12|h|NOT_ESTIMABLE"));
+    }
+
+    #[test]
+    fn unknown_option_capacity_requires_a_known_matching_unit() {
+        let missing_unit = FIXTURE.replace(
+            "OPTION_CAPACITY|cap-pump|backup_pump|water||synthetic-water-shock|hour-01||80|m3|QUALIFIED|symtropy|synthetic:capacity:pump",
+            "OPTION_CAPACITY|cap-pump|backup_pump|water||synthetic-water-shock|hour-01|||UNKNOWN|symtropy|synthetic:capacity:pump",
+        );
+        assert_ne!(missing_unit, FIXTURE);
+        assert!(validate_and_report(&missing_unit)
+            .unwrap_err()
+            .0
+            .contains("requires a known unit"));
+
+        let wrong_unit = FIXTURE.replace(
+            "OPTION_CAPACITY|cap-pump|backup_pump|water||synthetic-water-shock|hour-01||80|m3|QUALIFIED|symtropy|synthetic:capacity:pump",
+            "OPTION_CAPACITY|cap-pump|backup_pump|water||synthetic-water-shock|hour-01||L|UNKNOWN|symtropy|synthetic:capacity:pump",
+        );
+        assert_ne!(wrong_unit, FIXTURE);
+        assert!(validate_and_report(&wrong_unit)
+            .unwrap_err()
+            .0
+            .contains("option capacity unit mismatch"));
+    }
+
+    #[test]
+    fn unknown_resource_use_requires_a_known_unit() {
+        let changed = FIXTURE.replace(
+            "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours|6|h|QUALIFIED|operator|synthetic:resource:pump-crew",
+            "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours|||UNKNOWN|operator|synthetic:resource:pump-crew",
+        );
+        assert_ne!(changed, FIXTURE);
+        assert!(validate_and_report(&changed)
+            .unwrap_err()
+            .0
+            .contains("requires a known unit"));
     }
 
     #[test]
