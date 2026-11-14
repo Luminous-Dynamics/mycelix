@@ -265,10 +265,48 @@ pub fn evaluate_finality(input: &FinalityInput) -> FinalityDecision {
 
 /// Per-action outcome evidence. NotAttempted is distinct from a failed
 /// attempt: the latter needs owner evidence that no effect occurred.
+/// Source class for an outcome assertion. This is separate from the
+/// asserted effect state: a provider acknowledgement can say "applied" without
+/// being an independent observation of the external effect.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EffectEvidenceKind {
+    ProviderAcknowledgement,
+    ProviderStatusQuery,
+    IndependentObservation,
+    OwnerReconciliation,
+}
+
+/// Relationship to the candidate/effect under evaluation, supplied by the
+/// independent dependency/evaluator owner. This crate does not infer it.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EvidenceIndependence {
+    QualifiedIndependent,
+    KnownSharedDependency,
+    Unknown,
+    NotAssessed,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EffectEvidence {
+    pub source_ref: String,
+    pub kind: EffectEvidenceKind,
+    pub independence: EvidenceIndependence,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ObservationQualification {
+    QualifiedIndependentObservation,
+    ProviderReportedOnly,
+    KnownSharedDependency,
+    Indeterminate,
+    NoAppliedEffects,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ActionObservation {
     pub action_id: String,
     pub effect: ActionEffect,
+    pub evidence: Option<EffectEvidence>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -369,6 +407,80 @@ pub fn reconcile_actions(
     }
 
     Ok(ReconciledOutcome::ConfirmedNoEffect)
+}
+
+/// Qualify whether every observed applied effect in the expected action
+/// sequence has source evidence that the independent evaluator has already
+/// classified as independent.
+///
+/// This function does not compute independence or trust. It consumes the
+/// source/dependency classification supplied by the independent owner.
+/// Provider acknowledgements and provider status queries remain provider
+/// reports even when signed; they are not independent physical/external
+/// observation. Missing expected observations remain indeterminate.
+pub fn qualify_independent_effect_observation(
+    expected_action_ids: &[String],
+    observations: &[ActionObservation],
+) -> Result<ObservationQualification, ReconciliationError> {
+    let mut expected = BTreeSet::new();
+    for action_id in expected_action_ids {
+        if !expected.insert(action_id.as_str()) {
+            return Err(ReconciliationError::DuplicateExpectedActionId);
+        }
+    }
+
+    let mut observed = std::collections::BTreeMap::new();
+    for action in observations {
+        if !expected.contains(action.action_id.as_str()) {
+            return Err(ReconciliationError::UnexpectedObservedActionId);
+        }
+        if observed.insert(action.action_id.as_str(), action).is_some() {
+            return Err(ReconciliationError::DuplicateObservedActionId);
+        }
+    }
+
+    let mut has_applied = false;
+    for action_id in expected_action_ids {
+        let Some(action) = observed.get(action_id.as_str()).copied() else {
+            return Ok(ObservationQualification::Indeterminate);
+        };
+
+        if action.effect != ActionEffect::ConfirmedApplied {
+            continue;
+        }
+        has_applied = true;
+
+        let Some(evidence) = action.evidence.as_ref() else {
+            return Ok(ObservationQualification::Indeterminate);
+        };
+        if evidence.source_ref.trim().is_empty() {
+            return Ok(ObservationQualification::Indeterminate);
+        }
+
+        match evidence.kind {
+            EffectEvidenceKind::ProviderAcknowledgement
+            | EffectEvidenceKind::ProviderStatusQuery => {
+                return Ok(ObservationQualification::ProviderReportedOnly);
+            }
+            EffectEvidenceKind::IndependentObservation | EffectEvidenceKind::OwnerReconciliation => {
+                match evidence.independence {
+                    EvidenceIndependence::QualifiedIndependent => {}
+                    EvidenceIndependence::KnownSharedDependency => {
+                        return Ok(ObservationQualification::KnownSharedDependency);
+                    }
+                    EvidenceIndependence::Unknown | EvidenceIndependence::NotAssessed => {
+                        return Ok(ObservationQualification::Indeterminate);
+                    }
+                }
+            }
+        }
+    }
+
+    if has_applied {
+        Ok(ObservationQualification::QualifiedIndependentObservation)
+    } else {
+        Ok(ObservationQualification::NoAppliedEffects)
+    }
 }
 
 #[cfg(test)]
@@ -606,6 +718,134 @@ mod tests {
         assert_eq!(
             evaluate_finality(&candidate),
             FinalityDecision::Hold(HoldCode::PartialOutcomeRequiresReconciliation)
+        );
+    }
+
+    #[test]
+    fn provider_acknowledgement_is_not_independent_effect_observation() {
+        let observations = vec![ActionObservation {
+            action_id: "a".to_owned(),
+            effect: ActionEffect::ConfirmedApplied,
+            evidence: Some(EffectEvidence {
+                source_ref: "provider:ack-1".to_owned(),
+                kind: EffectEvidenceKind::ProviderAcknowledgement,
+                independence: EvidenceIndependence::Unknown,
+            }),
+        }];
+        assert_eq!(
+            qualify_independent_effect_observation(&["a".to_owned()], &observations),
+            Ok(ObservationQualification::ProviderReportedOnly)
+        );
+    }
+
+    #[test]
+    fn provider_status_query_is_not_independent_observation() {
+        let observations = vec![ActionObservation {
+            action_id: "a".to_owned(),
+            effect: ActionEffect::ConfirmedApplied,
+            evidence: Some(EffectEvidence {
+                source_ref: "provider:status-1".to_owned(),
+                kind: EffectEvidenceKind::ProviderStatusQuery,
+                independence: EvidenceIndependence::QualifiedIndependent,
+            }),
+        }];
+        assert_eq!(
+            qualify_independent_effect_observation(&["a".to_owned()], &observations),
+            Ok(ObservationQualification::ProviderReportedOnly)
+        );
+    }
+
+    #[test]
+    fn independent_observation_requires_owner_qualified_independence() {
+        let observations = vec![ActionObservation {
+            action_id: "a".to_owned(),
+            effect: ActionEffect::ConfirmedApplied,
+            evidence: Some(EffectEvidence {
+                source_ref: "observer:receipt-1".to_owned(),
+                kind: EffectEvidenceKind::IndependentObservation,
+                independence: EvidenceIndependence::QualifiedIndependent,
+            }),
+        }];
+        assert_eq!(
+            qualify_independent_effect_observation(&["a".to_owned()], &observations),
+            Ok(ObservationQualification::QualifiedIndependentObservation)
+        );
+    }
+
+    #[test]
+    fn known_shared_dependency_prevents_independent_observation_claim() {
+        let observations = vec![ActionObservation {
+            action_id: "a".to_owned(),
+            effect: ActionEffect::ConfirmedApplied,
+            evidence: Some(EffectEvidence {
+                source_ref: "observer:receipt-2".to_owned(),
+                kind: EffectEvidenceKind::IndependentObservation,
+                independence: EvidenceIndependence::KnownSharedDependency,
+            }),
+        }];
+        assert_eq!(
+            qualify_independent_effect_observation(&["a".to_owned()], &observations),
+            Ok(ObservationQualification::KnownSharedDependency)
+        );
+    }
+
+    #[test]
+    fn missing_or_unqualified_observation_remains_indeterminate() {
+        let missing = vec![ActionObservation {
+            action_id: "a".to_owned(),
+            effect: ActionEffect::ConfirmedApplied,
+            evidence: None,
+        }];
+        assert_eq!(
+            qualify_independent_effect_observation(&["a".to_owned()], &missing),
+            Ok(ObservationQualification::Indeterminate)
+        );
+
+        let unqualified = vec![ActionObservation {
+            action_id: "a".to_owned(),
+            effect: ActionEffect::ConfirmedApplied,
+            evidence: Some(EffectEvidence {
+                source_ref: "observer:receipt-3".to_owned(),
+                kind: EffectEvidenceKind::IndependentObservation,
+                independence: EvidenceIndependence::Unknown,
+            }),
+        }];
+        assert_eq!(
+            qualify_independent_effect_observation(&["a".to_owned()], &unqualified),
+            Ok(ObservationQualification::Indeterminate)
+        );
+    }
+
+    #[test]
+    fn missing_expected_action_observation_is_not_complete() {
+        let observations = vec![ActionObservation {
+            action_id: "a".to_owned(),
+            effect: ActionEffect::ConfirmedApplied,
+            evidence: Some(EffectEvidence {
+                source_ref: "observer:receipt-a".to_owned(),
+                kind: EffectEvidenceKind::IndependentObservation,
+                independence: EvidenceIndependence::QualifiedIndependent,
+            }),
+        }];
+        assert_eq!(
+            qualify_independent_effect_observation(
+                &["a".to_owned(), "b".to_owned()],
+                &observations
+            ),
+            Ok(ObservationQualification::Indeterminate)
+        );
+    }
+
+    #[test]
+    fn no_applied_effects_does_not_claim_independent_observation() {
+        let observations = vec![ActionObservation {
+            action_id: "a".to_owned(),
+            effect: ActionEffect::ConfirmedNotApplied,
+            evidence: None,
+        }];
+        assert_eq!(
+            qualify_independent_effect_observation(&["a".to_owned()], &observations),
+            Ok(ObservationQualification::NoAppliedEffects)
         );
     }
 
