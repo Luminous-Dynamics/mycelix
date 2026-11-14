@@ -680,7 +680,7 @@ mod tests {
         let extra = "tr-competing|RENAMED|dws-2022|sys-a|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-other|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:competing|SYNTHETIC|SYNTHETIC_ONLY";
         assert!(parse(&format!("{FIXTURE}{extra}\n"))
             .unwrap_err()
-            .contains("competing transitions"));
+            .contains("competing or scope-conflicting transitions"));
     }
 
     #[test]
@@ -739,7 +739,7 @@ mod tests {
         let extra = "tr-target-conflict|RENAMED|dws-2022|sys-other|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-a|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:conflict|SYNTHETIC|SYNTHETIC_ONLY";
         assert!(parse(&format!("{FIXTURE}{extra}\n"))
             .unwrap_err()
-            .contains("target identity is assigned from competing transitions"));
+            .contains("target identity is assigned from competing or scope-conflicting transitions"));
     }
 
     #[test]
