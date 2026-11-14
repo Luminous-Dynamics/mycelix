@@ -3,60 +3,11 @@
   "packets": [
     {
       "received_at_unix_ms": 100,
-      "raw_packet_xml": "<VOEvent ivorn=\"ivo://survey.example/event?one\" version=\"2.1\"><Who><AuthorIVORN>ivo://publisher.example/stream</AuthorIVORN><Date>2026-11-14T08:00:00Z</Date></Who><What/></VOEvent>",
-      "packet": {
-        "header": {
-          "ivoid": "ivo://survey.example/event?one",
-          "version": "2.1",
-          "raw_role": null,
-          "effective_role": "observation",
-          "role_was_implicit": true,
-          "packet_byte_length": 180,
-          "packet_sha256": "9e21c6573ad6578d65a1591da4396cbc4fd8cec1effbf57e1ad1015ae512198c"
-        },
-        "who": {
-          "present": true,
-          "author_ivoid": "ivo://publisher.example/stream",
-          "source_created_at": "2026-11-14T08:00:00Z"
-        },
-        "citations_present": false,
-        "citations": [],
-        "citations_description": null
-      }
+      "raw_packet_xml": "<VOEvent ivorn=\"ivo://survey.example/event?one\" version=\"2.1\" survey=\"S1\"><Who><AuthorIVORN>ivo://publisher.example/stream</AuthorIVORN><Date>2026-11-14T08:00:00Z</Date></Who><What/></VOEvent>"
     },
     {
       "received_at_unix_ms": 300,
-      "raw_packet_xml": "<VOEvent ivorn=\"ivo://survey.example/event?two\" version=\"2.1\" role=\"observation\"><Who><AuthorIVORN>ivo://review.example/stream</AuthorIVORN><Date>2026-11-14T07:55:00Z</Date></Who><Citations><EventIVORN cite=\"supersedes\">ivo://survey.example/event?one</EventIVORN><Description>Reprocessed.</Description></Citations></VOEvent>",
-      "packet": {
-        "header": {
-          "ivoid": "ivo://survey.example/event?two",
-          "version": "2.1",
-          "raw_role": "observation",
-          "effective_role": "observation",
-          "role_was_implicit": false,
-          "packet_byte_length": 324,
-          "packet_sha256": "d3b2e89805cc097d713231c9373aa259cb681602f88acc17ad3454fb1e6c2476"
-        },
-        "who": {
-          "present": true,
-          "author_ivoid": "ivo://review.example/stream",
-          "source_created_at": "2026-11-14T07:55:00Z"
-        },
-        "citations_present": true,
-        "citations": [
-          {
-            "target_ivoid": "ivo://survey.example/event?one",
-            "relation": "supersedes",
-            "attributes": [
-              {
-                "name": "cite",
-                "value": "supersedes"
-              }
-            ]
-          }
-        ],
-        "citations_description": "Reprocessed."
-      }
+      "raw_packet_xml": "<VOEvent ivorn=\"ivo://survey.example/event?two\" version=\"2.1\" role=\"observation\" reprocess=\"v2\"><Who><AuthorIVORN>ivo://review.example/stream</AuthorIVORN><Date>2026-11-14T07:55:00Z</Date></Who><Citations><EventIVORN cite=\"supersedes\" reviewer=\"independent\">ivo://survey.example/event?one</EventIVORN><Description>Reprocessed.</Description></Citations></VOEvent>"
     }
   ]
 }
