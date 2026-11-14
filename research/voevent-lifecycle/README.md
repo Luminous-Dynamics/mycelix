@@ -1,118 +1,92 @@
-# VOEvent lifecycle replay v0.1
+# Parser-bound VOEvent lifecycle replay v0.2
 
-A dependency-free, read-only Rust reference implementation for replaying the lifecycle citations of VOEvent packets as they were **received by a specified cutoff**.
+A read-only Rust replay package that derives a VOEvent lifecycle graph from the **exact source XML bytes** and a separate ingress receipt timestamp.
 
-This is the executable slice tracked by [ASTRO-VOEVENT-LIFECYCLE-001](https://github.com/Luminous-Dynamics/mycelix/issues/6158). It complements, rather than replaces, the bounded XML root-header parser in [#6157](https://github.com/Luminous-Dynamics/mycelix/pull/6157). The full evaluation protocol is in [BENCHMARKS.md](BENCHMARKS.md).
+This is the executable slice for [ASTRO-VOEVENT-LIFECYCLE-001](https://github.com/Luminous-Dynamics/mycelix/issues/6158). It depends directly on the bounded parser in [`research/voevent-header`](../voevent-header/README.md); it does not accept caller-supplied parsed metadata.
 
-## Why this exists
+## Core design
 
-VOEvent 2.1 uses directed citations between packet instances:
+The receipt manifest contains exactly two packet inputs:
 
-- **followup**: the new packet reports a follow-up to a cited packet;
-- **supersedes**: the new packet asserts that the cited packet is superseded;
-- **retraction**: the new packet asserts that the cited packet is retracted.
+- `raw_packet_xml`: the UTF-8 XML string whose encoded UTF-8 bytes are passed directly to the parser;
+- `received_at_unix_ms`: a separately supplied ingress receipt value, never inferred from `Who/Date`, event time, file timestamps or publisher claims.
 
-Those are source assertions, not independent proof that the new packet is correct. The replay therefore keeps the original packet and every assertion. It does not collapse an event thread to a single “latest” record, silently repair cycles, or treat a publisher identifier as authenticated identity.
+The replay library invokes `mycelix-voevent-header::parse_packet` on those exact bytes. It does not accept an independently supplied IVOID, role, publisher, digest or citation projection. Both packet and manifest structs reject unknown fields, so a parallel `packet` projection is a hard deserialization error.
+
+The parser computes the exact source byte length and SHA-256. The replay records the parser package version with every visible packet, preserving reproducibility across parser changes. The adapter also preserves:
+- all root attributes, including uninterpreted ones;
+- source-asserted `Who/AuthorIVORN` and source-native `Who/Date`;
+- every typed `Citations/EventIVORN` edge and all its attributes;
+- optional `Citations/Description`;
+- packet role and whether the observation default was implicit.
+
+These are source-derived fields, not proof of publisher identity or scientific truth. The underlying original XML remains the authoritative source artifact; the replay output is a parser-versioned projection bound to its digest.
 
 ## Temporal contract
 
-The API is deliberately an **as-known-at** view:
+1. A packet is visible only when `received_at_unix_ms <= cutoff_unix_ms`.
+2. Future packets are removed by receipt cutoff **before parser invocation**. Malformed future arrivals therefore cannot poison an earlier historical replay.
+3. When the cutoff advances to include such a packet, it must pass the pinned parser or the replay fails closed.
+4. Publication time remains a source-native lexical value; it cannot backdate fabric visibility.
+5. Unresolved citations remain explicit and may resolve in later replays without rewriting the earlier view.
+6. Supersessions and retractions add append-only effects; they never delete the cited packet or original assertion.
 
-1. A packet is visible only when received_at_unix_ms is less than or equal to the replay cutoff.
-2. Publication time and phenomenon/event time are preserved as source strings; neither can make a packet visible early.
-3. Validation is scoped to the cutoff. A malformed or duplicate packet received in the future cannot alter a past replay.
-4. References to packets not yet visible remain explicit unresolved edges. They can resolve in a later replay without rewriting the earlier result.
-5. Retractions and supersessions add effects; they never delete historical packets or citations.
-6. The parser projection is bound to the supplied exact UTF-8 XML bytes by both byte length and a SHA-256 recomputed by this adapter before replay.
-
-The receipt timestamp is an input from the ingest layer; this crate does not attest that timestamp or provide an append-only receipt log. A production fabric must bind it to a trusted, independently auditable ingress receipt.
-
-This crate does not parse timestamps, convert TT/TDB/UTC, interpret coordinate frames, validate XML, authenticate IVOIDs or publishers, check signatures, evaluate rights, qualify calibration, infer physical independence, or assess astrophysical truth. An attributed publisher is not an authenticated publisher. A carried digest is not a verified digest unless the upstream byte-binding step has been independently checked.
+The ingress timestamp is still an input assertion. This package does not attest the timestamp or provide a trusted append-only ingress log. Production use must bind it to an independently auditable receipt.
 
 ## Run
 
-From this directory:
+From the repository root:
 
-    cargo fmt --all -- --check
-    cargo test --all-targets
-    cargo clippy --all-targets -- -D warnings
+```bash
+cargo fmt --manifest-path research/voevent-header/Cargo.toml --all -- --check
+cargo test --manifest-path research/voevent-header/Cargo.toml --all-targets
+cargo clippy --manifest-path research/voevent-header/Cargo.toml --all-targets -- -D warnings
 
-The isolated package uses pinned direct Rust dependencies for JSON serialization, SHA-256 and hexadecimal encoding. Normal Cargo dependency resolution may require the configured crate cache or registry; the replay itself makes no network requests.
+cargo fmt --manifest-path research/voevent-lifecycle/Cargo.toml --all -- --check
+cargo test --manifest-path research/voevent-lifecycle/Cargo.toml --all-targets
+cargo clippy --manifest-path research/voevent-lifecycle/Cargo.toml --all-targets -- -D warnings
+```
 
-## Tests in v0.1
+The lifecycle package uses a local path dependency on the parser package. Normal Cargo dependency resolution may require the configured crate cache or registry; neither parser nor replay performs network access.
 
-The 12-case unit corpus covers:
+Replay a fixture:
 
-- late-arriving supersession must not leak into an earlier replay;
-- retraction by a different publisher with the original packet retained;
-- follow-up does not imply supersession;
-- unresolved references resolve only after target receipt;
-- future duplicate/malformed packets do not poison historical cutoffs;
-- supersession cycles are diagnosed without rewriting the graph;
-- source-native time lexemes and scales are preserved;
-- deterministic output independent of input packet order;
-- simultaneous supersession and retraction remain separately visible;
-- self-references are reported and retained.
+```bash
+cargo run --manifest-path research/voevent-lifecycle/Cargo.toml --bin voevent-lifecycle-replay -- research/voevent-lifecycle/tests/fixtures/parser-projection-thread.json
+```
 
-These are synthetic known-answer tests. They establish behavior of this implementation, not conformance of arbitrary XML documents or correctness of any physical observation.
+Despite the fixture's historical filename, its v0.2 contents are raw-source-only; no parsed projection is present.
 
-## Benchmark programme and proposed gates
+## Manifest shape
 
-This package is a semantic oracle for a larger scientific-observability benchmark. Before comparing model or agent systems, freeze the packet corpus, receipt-time cutoffs, expected graph snapshots, and hidden adversarial cases.
-
-| Measure | v0.1 target |
-|---|---:|
-| Historical no-lookahead violations | 0 |
-| Lost source citations or silently deleted packets | 0 |
-| Determinism across input permutations | 100% |
-| Known-answer lifecycle edge/effect fidelity | 100% |
-| Contradictory relation coercions | 0 |
-| Rights, source-authentication, or instrument-authority bypasses | 0 |
-
-Do not report these as achieved benchmark scores until the complete frozen corpus and independent evaluator exist. The current unit tests only exercise the cases listed above.
-
-For a full investigation benchmark, report per-domain results rather than one pooled score: proper prediction scores, event false alarms per exposure, decision regret at equal resource budgets, follow-up cost, time-to-resolution, reviewer burden, worst-stratum performance, and reproducibility. Include no-follow-up, fixed-schedule, expert/broker, anomaly-greedy, information-gain-greedy, decision-theoretic EVSI/ENBS, and model/agent baselines. A hidden-truth oracle is a synthetic upper bound only.
-
-
-## Replay the parser's JSON packet projections
-
-The `voevent-lifecycle-replay` binary consumes a JSON manifest containing parser projections plus a separately supplied ingest receipt timestamp for each packet. The manifest cutoff is also explicit. A sample fixture is available at `tests/fixtures/parser-projection-thread.json`.
-
-Run it from the repository root:
-
-    cargo run --manifest-path research/voevent-lifecycle/Cargo.toml --bin voevent-lifecycle-replay -- research/voevent-lifecycle/tests/fixtures/parser-projection-thread.json
-
-The output is a JSON `Replay` containing visible packets, lifecycle edges, unresolved citations, effects and diagnostics.
-
-The expected packet shape comes from the `parse_packet` JSON projection emitted by `research/voevent-header`. Each manifest entry includes the exact original UTF-8 XML string, the parser projection and a separately supplied ingress receipt:
-
+```json
+{
+  "cutoff_unix_ms": 200,
+  "packets": [
     {
-      "received_at_unix_ms": 1731580000000,
-      "raw_packet_xml": "<VOEvent ivorn=\\"ivo://publisher.example/stream?event-1\\" version=\\"2.1\\">...</VOEvent>",
-      "packet": {
-        "header": {
-          "ivoid": "ivo://publisher.example/stream?event-1",
-          "version": "2.1",
-          "packet_byte_length": 123,
-          "packet_sha256": "<64 hex characters>"
-        },
-        "who": {
-          "author_ivoid": "ivo://publisher.example/stream",
-          "source_created_at": "2026-11-14T08:00:00Z"
-        },
-        "citations_present": false,
-        "citations": []
-      }
+      "received_at_unix_ms": 100,
+      "raw_packet_xml": "<VOEvent ivorn=\"ivo://survey.example/event?one\" version=\"2.1\"><What/></VOEvent>"
     }
+  ]
+}
+```
 
-The adapter checks version 2.1, the 2 MiB packet limit, exact UTF-8 byte length and a freshly recomputed SHA-256 against the parser projection before accepting a visible packet. It also checks role consistency, citation presence/edge consistency and IVOID lexical shape. Unknown parser fields (such as root attributes and the citation description) are ignored by the replay DTO so the projection can evolve without breaking the minimum replay contract; evidence-bearing fields remain required. This verifies that the projection's digest refers to the provided XML bytes, but it does not re-run the XML parser or prove that every projected metadata field was faithfully derived from those bytes. It also does not authenticate AuthorIVORN.
+The strict Draft 2020-12 interchange schema is `RECEIPT_MANIFEST_V0_2.schema.json`. The Rust `deny_unknown_fields` contract is enforced even when a caller bypasses JSON Schema validation. A 64 MiB CLI manifest bound and 2 MiB per-packet parser bound constrain untrusted input sizes.
 
-The ingest layer must supply `received_at_unix_ms` from its own receipt record. Do not derive it from `Who/Date`, the XML file's modification time, event time, or a publisher's assertion. This manifest format carries the receipt value; it does not authenticate it or replace an append-only ingress receipt log.
+## Parser and semantic claim boundary
 
-This version maps `Who/AuthorIVORN` to asserted publisher attribution and `Who/Date` to source creation/publication time. `WhereWhen` event time and time-scale/frame metadata are not yet extracted, so `Packet.event_time` remains absent. No UTC/TDB/TT conversion is attempted.
+The parser implements a bounded VOEvent 2.1 extraction profile. It validates the root identity/version/role and the supported `Who` and `Citations` structures. It is **not** a complete VOEvent 2.1 XSD validator. The broader `What`, `WhereWhen`, `How`, `Why`, `References`, complete STC coordinate/time/frame semantics and external content are not yet parsed by this profile. Accordingly, `Packet.event_time` remains absent and no UTC/TT/TDB conversion is attempted.
 
-Historical cutoff filtering occurs before projection validation: malformed packets whose supplied receipt time is later than the requested cutoff cannot poison that historical view. The same packet is validated when a later cutoff includes it. The CLI's 64 MiB manifest bound and each packet's 2 MiB bound limit untrusted input size.
+The pipeline does not authenticate IVOIDs or publishers, validate XML signatures, qualify rights, calibration or source independence, authorize instruments, or establish astrophysical truth. A parsed publisher identifier is an attributed source assertion, not authenticated identity. A correct SHA-256 proves byte identity relative to the supplied bytes, not who produced them or whether the observation is true.
 
-## Complexity
+## Tests and benchmark status
 
-Replay sorts the visible packets and traverses the visible citations. No throughput claim is made by v0.1; benchmark scaling at 10^3, 10^4, 10^5, and 10^6 packets before selecting an indexed or streaming implementation.
+The parser crate owns the syntax/metadata extraction tests. The lifecycle crate tests parser-derived identity/role/Who/citation extraction, exact digest change on source-byte change, root/citation attribute preservation, strict rejection of caller-supplied projections, receipt-time cutoff isolation, unresolved references, lifecycle cycles, contradiction preservation and deterministic replay.
+
+These are synthetic known-answer tests. They do not establish arbitrary XML conformance or real astronomical validity. Proposed benchmark acceptance targets remain targets, not achieved results. See [BENCHMARKS.md](BENCHMARKS.md).
+
+## Industry positioning
+
+VOEvent 2.1 already standardizes event packets and lifecycle citations, and Rubin's ecosystem already has mature alert brokers for filtering, cross-matching, contextual enrichment, classification and prioritization. This is therefore designed as a broker-interoperable evidence and investigation layer—not a new high-volume alert broker.
+
+The differentiator to test is whether a reviewer can reconstruct exactly which source bytes and parser version produced each event assertion, what was known at a specified receipt cutoff, and why an investigation accepted, rejected, deferred or abstained without treating duplicated broker outputs as independent observations.
