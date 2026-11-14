@@ -526,4 +526,39 @@ mod tests {
         assert!(report.contains("operator|synthetic:stock:hour-01"));
         assert!(report.contains("operational_actuation=NOT_AUTHORISED"));
     }
+
+    #[test]
+    fn generated_stock_flow_arithmetic_sweep_rejects_one_unit_errors() {
+        let mut checked = 0_u64;
+        for opening in 0..=8_u64 {
+            for replenishment in 0..=8_u64 {
+                for consumption in 0..=8_u64 {
+                    for loss in 0..=8_u64 {
+                        let available = opening + replenishment;
+                        let outgoing = consumption + loss;
+                        if outgoing > available {
+                            continue;
+                        }
+                        let closing = available - outgoing;
+                        let source = format!(
+                            "# scenario_id=sweep-scenario\n# resource_id=sweep-resource\n# resource_unit=unit\n# time_basis_id=sweep-clock\n{HEADER}\nsweep-row|0|sweep-interval|0|60|{opening}|{replenishment}|{consumption}|{loss}|{closing}|operator|synthetic:sweep|KNOWN\n"
+                        );
+                        let report = validate_and_report(&source).expect("balanced sweep case");
+                        assert!(report.contains("stock_flow_disposition=BALANCED_FOR_DECLARED_HORIZON"));
+                        let wrong_closing = closing + 1;
+                        let invalid = source.replace(
+                            &format!("|{loss}|{closing}|operator|synthetic:sweep|KNOWN"),
+                            &format!("|{loss}|{wrong_closing}|operator|synthetic:sweep|KNOWN"),
+                        );
+                        let invalid_report = validate_and_report(&invalid).expect("mismatch report");
+                        assert!(invalid_report.contains("stock_flow_disposition=NOT_BALANCED"));
+                        checked += 1;
+                    }
+                }
+            }
+        }
+        assert!(checked >= 3_000, "expected broad arithmetic sweep, got {checked}");
+    }
+
+
 }
