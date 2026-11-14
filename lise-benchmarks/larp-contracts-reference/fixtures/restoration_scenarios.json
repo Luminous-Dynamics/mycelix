@@ -31,7 +31,9 @@
         "exact_operation_match": true,
         "outcome_state": "complete",
         "steward_exit": false,
-        "anomaly_only_signal": false
+        "anomaly_only_signal": false,
+        "affected_party_rights_satisfied": true,
+        "remedy_path_defined": true
       }
     },
     {
@@ -61,7 +63,9 @@
         "exact_operation_match": true,
         "outcome_state": "complete",
         "steward_exit": false,
-        "anomaly_only_signal": false
+        "anomaly_only_signal": false,
+        "affected_party_rights_satisfied": true,
+        "remedy_path_defined": true
       }
     },
     {
@@ -91,7 +95,9 @@
         "exact_operation_match": true,
         "outcome_state": "complete",
         "steward_exit": false,
-        "anomaly_only_signal": false
+        "anomaly_only_signal": false,
+        "affected_party_rights_satisfied": true,
+        "remedy_path_defined": true
       }
     },
     {
@@ -121,7 +127,9 @@
         "exact_operation_match": true,
         "outcome_state": "complete",
         "steward_exit": false,
-        "anomaly_only_signal": false
+        "anomaly_only_signal": false,
+        "affected_party_rights_satisfied": true,
+        "remedy_path_defined": true
       }
     },
     {
@@ -151,7 +159,9 @@
         "exact_operation_match": true,
         "outcome_state": "incomplete",
         "steward_exit": false,
-        "anomaly_only_signal": false
+        "anomaly_only_signal": false,
+        "affected_party_rights_satisfied": true,
+        "remedy_path_defined": true
       }
     },
     {
@@ -181,7 +191,9 @@
         "exact_operation_match": true,
         "outcome_state": "complete",
         "steward_exit": false,
-        "anomaly_only_signal": false
+        "anomaly_only_signal": false,
+        "affected_party_rights_satisfied": true,
+        "remedy_path_defined": true
       }
     },
     {
@@ -211,7 +223,9 @@
         "exact_operation_match": true,
         "outcome_state": "complete",
         "steward_exit": false,
-        "anomaly_only_signal": false
+        "anomaly_only_signal": false,
+        "affected_party_rights_satisfied": true,
+        "remedy_path_defined": true
       }
     },
     {
@@ -241,7 +255,9 @@
         "exact_operation_match": true,
         "outcome_state": "complete",
         "steward_exit": false,
-        "anomaly_only_signal": false
+        "anomaly_only_signal": false,
+        "affected_party_rights_satisfied": true,
+        "remedy_path_defined": true
       }
     },
     {
@@ -272,7 +288,9 @@
         "outcome_state": "complete",
         "steward_exit": false,
         "anomaly_only_signal": true,
-        "misconduct_adjudicated": false
+        "misconduct_adjudicated": false,
+        "affected_party_rights_satisfied": true,
+        "remedy_path_defined": true
       }
     },
     {
@@ -302,7 +320,9 @@
         "exact_operation_match": true,
         "outcome_state": "partial",
         "steward_exit": false,
-        "anomaly_only_signal": false
+        "anomaly_only_signal": false,
+        "affected_party_rights_satisfied": true,
+        "remedy_path_defined": true
       }
     },
     {
@@ -335,7 +355,9 @@
         "replacement_steward_appointed": false,
         "historical_record_preserved": true,
         "accrued_remedies_preserved": true,
-        "anomaly_only_signal": false
+        "anomaly_only_signal": false,
+        "affected_party_rights_satisfied": true,
+        "remedy_path_defined": true
       }
     },
     {
@@ -365,7 +387,9 @@
         "exact_operation_match": true,
         "outcome_state": "complete",
         "steward_exit": false,
-        "anomaly_only_signal": false
+        "anomaly_only_signal": false,
+        "affected_party_rights_satisfied": true,
+        "remedy_path_defined": true
       }
     }
   ]
