@@ -3,14 +3,13 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Verifiable Credential Coordinator Zome
 //!
-//! W3C Verifiable Credentials Data Model 2.0 compliant implementation
-//! Handles credential issuance, verification, and presentation
+//! W3C Verifiable Credentials Data Model 2.0-shaped entry types and Mycelix
+//! credential issuance, verification, and presentation workflows.
 //!
-//! # Cryptographic Signatures
-//!
-//! This implementation uses ed25519 signatures via Holochain's HDK signing API.
-//! Signatures are encoded in multibase format (base58btc with 'z' prefix) as per
-//! W3C Data Integrity EdDSA Cryptosuites v1.0 specification.
+//! The active v2 signing profile is a custom domain-separated JSON serialization
+//! profile. It is NOT the W3C eddsa-rdfc-2022 cryptosuite: RDFC-1.0 canonicalization
+//! is not implemented here. Do not claim standards-level Data Integrity
+//! interoperability until a conformant canonicalization and test-vector suite exists.
 
 use hdk::prelude::*;
 use mycelix_crypto::{AlgorithmId, TaggedSignature};
@@ -39,6 +38,11 @@ impl TryFrom<SerializedBytes> for SchemaMirror {
 const W3C_CREDENTIALS_V2: &str = "https://www.w3.org/ns/credentials/v2";
 const W3C_DATA_INTEGRITY: &str = "https://w3id.org/security/data-integrity/v2";
 
+// Mycelix's current WASM signing profile is an explicitly custom JSON payload
+// profile. It is NOT the W3C eddsa-rdfc-2022 cryptosuite (which requires RDF
+// Dataset Canonicalization). Do not advertise this identifier as that suite.
+const MYCELIX_VC_SIGNING_SUITE_V2: &str = "mycelix-ed25519-json-v2";
+
 /// API version for cross-zome compatibility detection.
 /// Increment when making breaking changes to extern signatures or types.
 const API_VERSION: u16 = 1;
@@ -59,37 +63,35 @@ fn string_to_entry_hash(s: &str) -> EntryHash {
     )
 }
 
-/// Compute cryptographic hash of credential content for signing
+/// Compute the Mycelix v2 signing digest over every unsigned credential field.
 ///
-/// Uses BLAKE2b-256 (via holo_hash) for a secure 32-byte hash.
-/// The hash covers the essential credential fields in a deterministic order
-/// to ensure consistent verification across signing and verification.
-fn compute_credential_hash(vc: &VerifiableCredential) -> Vec<u8> {
-    // Build deterministic content to hash:
-    // - Credential ID
-    // - Issuer DID
-    // - Subject DID
-    // - Valid from timestamp
-    // - Claims (JSON serialized)
-    // - Schema ID (if present)
-    let mut content = Vec::new();
-    content.extend(vc.id.as_bytes());
-    content.push(0); // null separator
-    content.extend(vc.issuer.did().as_bytes());
-    content.push(0);
-    content.extend(vc.credential_subject.id.as_bytes());
-    content.push(0);
-    content.extend(vc.valid_from.as_bytes());
-    content.push(0);
-    // Serialize claims deterministically (serde_json sorts keys by default for objects)
-    if let Ok(claims_json) = serde_json::to_string(&vc.credential_subject.claims) {
-        content.extend(claims_json.as_bytes());
-    }
-    content.push(0);
-    content.extend(vc.mycelix_schema_id.as_bytes());
+/// The serialized payload includes context, ID, types, issuer, validity, subject,
+/// schema, status, proof metadata, and Mycelix metadata. Only proof_value is
+/// cleared to avoid signing the signature itself. A domain separator prevents
+/// the digest from being reused as a different protocol's message.
+///
+/// This is a deterministic Mycelix JSON profile, not W3C RDFC-1.0 canonicalization.
+fn compute_credential_hash(vc: &VerifiableCredential) -> ExternResult<Vec<u8>> {
+    let mut unsigned_credential = vc.clone();
+    unsigned_credential.proof.proof_value.clear();
 
-    // Use BLAKE2b-256 for cryptographic hashing
-    holo_hash::blake2b_256(&content).to_vec()
+    let encoded = serde_json::to_vec(&unsigned_credential).map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Could not serialize unsigned credential for signing: {error}"
+        )))
+    })?;
+
+    let mut content = b"MYCELIX-VC-SIGNING-V2\0".to_vec();
+    content.extend_from_slice(&encoded);
+    Ok(holo_hash::blake2b_256(&content).to_vec())
+}
+
+fn credential_signature_algorithm_supported(algorithm: AlgorithmId) -> bool {
+    // This Holochain/WASM coordinator currently has a complete verifier only
+    // for Ed25519. Hybrid verification requires BOTH components; verifying only
+    // the Ed25519 half would falsely claim post-quantum assurance. Pure PQC
+    // signatures need a real ML-DSA/SLH-DSA verifier, not a length check.
+    matches!(algorithm, AlgorithmId::Ed25519)
 }
 
 /// Schema validation outcome — tells the caller what actually happened.
@@ -308,7 +310,7 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
             verification_method: format!("{}#keys-1", issuer_did),
             proof_purpose: "assertionMethod".to_string(),
             proof_value: String::new(), // Will be filled
-            cryptosuite: Some(AlgorithmId::Ed25519.cryptosuite().to_string()),
+            cryptosuite: Some(MYCELIX_VC_SIGNING_SUITE_V2.to_string()),
             algorithm: Some(AlgorithmId::Ed25519.as_u16()),
             challenge: None,
             domain: None,
@@ -1135,7 +1137,7 @@ pub fn create_derived_credential(input: CreateDerivedInput) -> ExternResult<Reco
     };
 
     // Compute hash of original credential
-    let original_hash = compute_credential_hash(&original_vc);
+    let original_hash = compute_credential_hash(&original_vc)?;
 
     // Create derivation proof with real ed25519 signature
     // Build data to sign: original hash + selected claims
@@ -1302,7 +1304,7 @@ pub fn verify_derived_credential(
         )))?;
 
     // Verify the original credential hash matches
-    let recomputed_hash = compute_credential_hash(&original_vc);
+    let recomputed_hash = compute_credential_hash(&original_vc)?;
     if recomputed_hash != derived.derivation_proof.original_credential_hash {
         errors.push("Original credential hash does not match derivation proof".to_string());
     }
@@ -2422,10 +2424,86 @@ mod tests {
             mycelix_schema_id: "mycelix:schema:test:v1".into(),
             mycelix_created: Timestamp::from_micros(0),
         };
-        let hash1 = compute_credential_hash(&vc);
-        let hash2 = compute_credential_hash(&vc);
+        let hash1 = compute_credential_hash(&vc).unwrap();
+        let hash2 = compute_credential_hash(&vc).unwrap();
         assert_eq!(hash1, hash2, "Hash must be deterministic");
         assert_eq!(hash1.len(), 32, "BLAKE2b-256 produces 32 bytes");
+    }
+
+    #[test]
+    fn credential_hash_binds_expiry_types_and_proof_metadata() {
+        let base = VerifiableCredential {
+            context: vec!["https://www.w3.org/ns/credentials/v2".into()],
+            id: "test-cred-v2".into(),
+            credential_type: vec!["VerifiableCredential".into(), "DegreeCredential".into()],
+            issuer: CredentialIssuer::Did("did:mycelix:issuer1".into()),
+            valid_from: "2026-01-01T00:00:00Z".into(),
+            valid_until: None,
+            credential_subject: CredentialSubject {
+                id: "did:mycelix:holder1".into(),
+                claims: serde_json::json!({"degree": "BSc"}),
+            },
+            credential_schema: None,
+            credential_status: None,
+            proof: CredentialProof {
+                proof_type: "DataIntegrityProof".into(),
+                created: "2026-01-01T00:00:00Z".into(),
+                verification_method: "did:mycelix:issuer1#keys-1".into(),
+                proof_purpose: "assertionMethod".into(),
+                proof_value: "zOldSignature".into(),
+                cryptosuite: Some(MYCELIX_VC_SIGNING_SUITE_V2.into()),
+                algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+                challenge: None,
+                domain: None,
+            },
+            mycelix_schema_id: "mycelix:schema:test:v1".into(),
+            mycelix_created: Timestamp::from_micros(1),
+        };
+        let baseline = compute_credential_hash(&base).unwrap();
+
+        let mut changed = base.clone();
+        changed.valid_until = Some("2027-01-01T00:00:00Z".into());
+        assert_ne!(baseline, compute_credential_hash(&changed).unwrap(), "expiry must be signed");
+
+        let mut changed = base.clone();
+        changed.credential_type.push("PrivilegedCredential".into());
+        assert_ne!(baseline, compute_credential_hash(&changed).unwrap(), "credential types must be signed");
+
+        let mut changed = base.clone();
+        changed.context.push("https://attacker.example/context".into());
+        assert_ne!(baseline, compute_credential_hash(&changed).unwrap(), "JSON-LD context must be signed");
+
+        let mut changed = base.clone();
+        changed.proof.verification_method = "did:mycelix:attacker#keys-1".into();
+        assert_ne!(baseline, compute_credential_hash(&changed).unwrap(), "verification method must be signed");
+
+        let mut changed = base.clone();
+        changed.proof.proof_purpose = "authentication".into();
+        assert_ne!(baseline, compute_credential_hash(&changed).unwrap(), "proof purpose must be signed");
+
+        let mut changed = base.clone();
+        changed.proof.cryptosuite = Some("different-suite".into());
+        assert_ne!(baseline, compute_credential_hash(&changed).unwrap(), "cryptosuite must be signed");
+
+        let mut changed = base.clone();
+        changed.mycelix_created = Timestamp::from_micros(2);
+        assert_ne!(baseline, compute_credential_hash(&changed).unwrap(), "Mycelix metadata must be signed");
+
+        let mut changed = base.clone();
+        changed.proof.proof_value = "replacement-signature".into();
+        assert_eq!(baseline, compute_credential_hash(&changed).unwrap(), "proof value must not self-sign");
+    }
+
+    #[test]
+    fn wasm_credential_verifier_rejects_unverified_pqc_and_hybrid_algorithms() {
+        assert!(credential_signature_algorithm_supported(AlgorithmId::Ed25519));
+        assert!(!credential_signature_algorithm_supported(AlgorithmId::HybridEd25519MlDsa65));
+        assert!(!credential_signature_algorithm_supported(AlgorithmId::MlDsa65));
+        assert!(!credential_signature_algorithm_supported(AlgorithmId::MlDsa87));
+        assert!(!credential_signature_algorithm_supported(AlgorithmId::SlhDsaSha2_128s));
+        assert!(!credential_signature_algorithm_supported(AlgorithmId::SlhDsaShake128s));
+        assert!(!credential_signature_algorithm_supported(AlgorithmId::MlKem768));
+        assert!(!credential_signature_algorithm_supported(AlgorithmId::XChaCha20Poly1305));
     }
 
     #[test]
@@ -2457,8 +2535,8 @@ mod tests {
             mycelix_schema_id: "mycelix:schema:test:v1".into(),
             mycelix_created: Timestamp::from_micros(0),
         };
-        let hash_a = compute_credential_hash(&make_vc("cred-A"));
-        let hash_b = compute_credential_hash(&make_vc("cred-B"));
+        let hash_a = compute_credential_hash(&make_vc("cred-A")).unwrap();
+        let hash_b = compute_credential_hash(&make_vc("cred-B")).unwrap();
         assert_ne!(hash_a, hash_b);
     }
 
@@ -2870,8 +2948,8 @@ mod tests {
 /// `TaggedSignature`-aware multibase string that includes the algorithm
 /// multicodec prefix so verifiers can detect the algorithm.
 fn sign_credential(vc: &VerifiableCredential) -> ExternResult<String> {
-    // Compute canonical hash of credential content
-    let content_hash = compute_credential_hash(vc);
+    // Compute the domain-separated Mycelix v2 payload digest.
+    let content_hash = compute_credential_hash(vc)?;
 
     // Sign with agent's ed25519 key via HDK
     let signature = sign_raw(agent_info()?.agent_initial_pubkey, content_hash.clone())?;
@@ -2897,7 +2975,16 @@ fn sign_credential(vc: &VerifiableCredential) -> ExternResult<String> {
 ///
 /// Falls back to legacy 64-byte raw Ed25519 for old credentials.
 fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> {
-    // Extract public key from issuer DID
+    // Accept only the explicitly versioned profile issued by this coordinator.
+    // Earlier entries claimed W3C eddsa-rdfc-2022 despite not applying RDFC-1.0,
+    // and their digest omitted security-relevant fields; they require reissuance.
+    if vc.proof.cryptosuite.as_deref() != Some(MYCELIX_VC_SIGNING_SUITE_V2)
+        || vc.proof.algorithm != Some(AlgorithmId::Ed25519.as_u16())
+        || vc.proof.proof_type != "DataIntegrityProof"
+    {
+        return Ok(false);
+    }
+
     let issuer_did = vc.issuer.did();
     let pubkey_str = issuer_did.strip_prefix("did:mycelix:").ok_or_else(|| {
         wasm_error!(WasmErrorInner::Guest(format!(
@@ -2905,84 +2992,31 @@ fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> 
             issuer_did
         )))
     })?;
-
-    let pubkey = AgentPubKey::try_from(pubkey_str.to_string()).map_err(|e| {
+    let pubkey = AgentPubKey::try_from(pubkey_str.to_string()).map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "Invalid public key in DID '{}': {:?}",
-            pubkey_str, e
+            pubkey_str, error
         )))
     })?;
 
-    // Compute expected content hash
-    let content_hash = compute_credential_hash(vc);
-
-    // Try to parse as TaggedSignature (algorithm-aware multibase)
-    match TaggedSignature::from_multibase(&vc.proof.proof_value) {
-        Ok(tagged_sig) => {
-            match tagged_sig.algorithm {
-                AlgorithmId::Ed25519 => {
-                    // Standard Ed25519 verification via HDK
-                    if tagged_sig.signature_bytes.len() != 64 {
-                        return Ok(false);
-                    }
-                    let sig = Signature::from(
-                        <[u8; 64]>::try_from(tagged_sig.signature_bytes.as_slice()).map_err(
-                            |_| {
-                                wasm_error!(WasmErrorInner::Guest(
-                                    "Invalid signature length".into()
-                                ))
-                            },
-                        )?,
-                    );
-                    verify_signature(pubkey, sig, content_hash)
-                }
-                AlgorithmId::HybridEd25519MlDsa65 => {
-                    // Verify Ed25519 component; PQC component verified off-chain
-                    let ed_bytes = tagged_sig.ed25519_component().ok_or_else(|| {
-                        wasm_error!(WasmErrorInner::Guest(
-                            "Hybrid signature missing Ed25519 component".into()
-                        ))
-                    })?;
-                    if ed_bytes.len() != 64 {
-                        return Ok(false);
-                    }
-                    let sig = Signature::from(<[u8; 64]>::try_from(ed_bytes).map_err(|_| {
-                        wasm_error!(WasmErrorInner::Guest("Invalid Ed25519 component".into()))
-                    })?);
-                    verify_signature(pubkey, sig, content_hash)
-                }
-                AlgorithmId::MlDsa65
-                | AlgorithmId::MlDsa87
-                | AlgorithmId::SlhDsaSha2_128s
-                | AlgorithmId::SlhDsaShake128s => {
-                    // Pure PQC: WASM cannot verify, accept structurally.
-                    // Real verification happens via CLI/SDK (off-chain).
-                    let expected_size = tagged_sig.algorithm.signature_size();
-                    Ok(tagged_sig.signature_bytes.len() == expected_size)
-                }
-                _ => {
-                    // Non-signature algorithm used as signature → reject
-                    Ok(false)
-                }
-            }
-        }
-        Err(_) => {
-            // Legacy fallback: try to decode as raw multibase (z + base58btc)
-            let signature_bytes = multibase_decode(&vc.proof.proof_value).ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest(
-                    "Invalid multibase signature encoding".into()
-                ))
-            })?;
-            if signature_bytes.len() != 64 {
-                return Ok(false);
-            }
-            let signature =
-                Signature::from(<[u8; 64]>::try_from(signature_bytes.as_slice()).map_err(
-                    |_| wasm_error!(WasmErrorInner::Guest("Invalid signature length".into())),
-                )?);
-            verify_signature(pubkey, signature, content_hash)
-        }
+    let tagged_sig = match TaggedSignature::from_multibase(&vc.proof.proof_value) {
+        Ok(signature) => signature,
+        Err(_) => return Ok(false),
+    };
+    if !credential_signature_algorithm_supported(tagged_sig.algorithm)
+        || tagged_sig.signature_bytes.len() != AlgorithmId::Ed25519.signature_size()
+    {
+        return Ok(false);
     }
+
+    let signature_bytes: [u8; 64] = tagged_sig
+        .signature_bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid Ed25519 signature length".into())))?;
+    let signature = Signature::from(signature_bytes);
+    let content_hash = compute_credential_hash(vc)?;
+    verify_signature(pubkey, signature, content_hash)
 }
 
 // =============================================================================

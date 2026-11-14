@@ -131,6 +131,24 @@ impl AlgorithmId {
         )
     }
 
+    /// Whether this algorithm defines asymmetric public-key material.
+    ///
+    /// Signature algorithms and KEM algorithms both have public keys. Symmetric
+    /// AEAD algorithms do not; they must never be encoded as TaggedPublicKey.
+    pub const fn is_public_key_algorithm(&self) -> bool {
+        matches!(
+            self,
+            Self::Ed25519
+                | Self::MlDsa65
+                | Self::MlDsa87
+                | Self::SlhDsaSha2_128s
+                | Self::SlhDsaShake128s
+                | Self::HybridEd25519MlDsa65
+                | Self::MlKem768
+                | Self::MlKem1024
+        )
+    }
+
     /// Try to identify algorithm from a 2-byte multicodec prefix.
     pub fn from_multicodec_prefix(prefix: [u8; 2]) -> Option<Self> {
         match prefix {
@@ -225,5 +243,36 @@ mod tests {
     fn unknown_u16_returns_none() {
         assert_eq!(AlgorithmId::from_u16(0x0000), None);
         assert_eq!(AlgorithmId::from_u16(0xFFFF), None);
+    }
+
+    #[test]
+    fn algorithm_roles_are_explicit_and_disjoint() {
+        for algorithm in [
+            AlgorithmId::Ed25519,
+            AlgorithmId::MlDsa65,
+            AlgorithmId::MlDsa87,
+            AlgorithmId::SlhDsaSha2_128s,
+            AlgorithmId::SlhDsaShake128s,
+            AlgorithmId::HybridEd25519MlDsa65,
+            AlgorithmId::MlKem768,
+            AlgorithmId::MlKem1024,
+        ] {
+            assert!(algorithm.is_public_key_algorithm());
+        }
+        assert!(!AlgorithmId::XChaCha20Poly1305.is_public_key_algorithm());
+
+        for algorithm in [
+            AlgorithmId::Ed25519,
+            AlgorithmId::MlDsa65,
+            AlgorithmId::MlDsa87,
+            AlgorithmId::SlhDsaSha2_128s,
+            AlgorithmId::SlhDsaShake128s,
+            AlgorithmId::HybridEd25519MlDsa65,
+        ] {
+            assert!(algorithm.is_signature_algorithm());
+        }
+        assert!(!AlgorithmId::MlKem768.is_signature_algorithm());
+        assert!(!AlgorithmId::MlKem1024.is_signature_algorithm());
+        assert!(!AlgorithmId::XChaCha20Poly1305.is_signature_algorithm());
     }
 }
