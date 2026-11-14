@@ -52,10 +52,10 @@ The lifecycle package uses a local path dependency on the parser package. Normal
 Replay a fixture:
 
 ```bash
-cargo run --manifest-path research/voevent-lifecycle/Cargo.toml --bin voevent-lifecycle-replay -- research/voevent-lifecycle/tests/fixtures/parser-projection-thread.json
+cargo run --manifest-path research/voevent-lifecycle/Cargo.toml --bin voevent-lifecycle-replay -- research/voevent-lifecycle/tests/fixtures/raw-replay-thread-v0.2.json
 ```
 
-Despite the fixture's historical filename, its v0.2 contents are raw-source-only; no parsed projection is present.
+The fixture contains raw XML and ingress receipt values only; no parsed projection is present.
 
 ## Manifest shape
 
