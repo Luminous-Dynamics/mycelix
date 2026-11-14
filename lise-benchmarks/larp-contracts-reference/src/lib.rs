@@ -977,7 +977,7 @@ pub fn evaluate_epistemic_bounty(facts: &EpistemicBountyFacts) -> Decision {
                 };
             }
             match (facts.amount_units, facts.amount_ceiling_units) {
-                (Some(amount), Some(ceiling)) if amount == 0 => {
+                (Some(0), Some(_)) => {
                     return Decision::deny("PAYOUT_AMOUNT_MUST_BE_POSITIVE");
                 }
                 (Some(amount), Some(ceiling)) if amount > ceiling => {
@@ -1148,7 +1148,7 @@ pub fn evaluate_restoration_contract(facts: &RestorationFacts) -> Decision {
         return Decision::indeterminate("OUTCOME_UNCERTAINTY_OR_OBSERVATION_UNKNOWN");
     }
     match (facts.tranche_amount_units, facts.remaining_budget_units) {
-        (Some(amount), Some(_)) if amount == 0 => {
+        (Some(0), Some(_)) => {
             return Decision::deny("TRANCHE_AMOUNT_MUST_BE_POSITIVE");
         }
         (Some(amount), Some(remaining)) if amount > remaining => {
