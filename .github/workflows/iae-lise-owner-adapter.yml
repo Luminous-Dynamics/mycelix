@@ -1,0 +1,46 @@
+name: IAE LISE Owner Adapter
+
+on:
+  pull_request:
+    branches:
+      - main
+      - "research/ipb-finality-reference-v0.1-rebased"
+    paths:
+      - "lise-benchmarks/iae-lise-owner-adapter/**"
+      - "lise-benchmarks/ipb-finality-reference/**"
+      - ".github/workflows/iae-lise-owner-adapter.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  iae-lise-adapter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: "0"
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha }}
+      MANIFEST: lise-benchmarks/iae-lise-owner-adapter/Cargo.toml
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Assert exact PR subject
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+      - uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$MANIFEST" --check
+      - name: Check all targets
+        run: cargo check --manifest-path "$MANIFEST" --all-targets
+      - name: Run adapter tests
+        run: cargo test --manifest-path "$MANIFEST" --all-targets
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+      - name: Verify exact subject and tracked source
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
