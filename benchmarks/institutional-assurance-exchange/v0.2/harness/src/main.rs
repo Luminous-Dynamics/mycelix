@@ -224,6 +224,10 @@ fn derive_query(packet: &Value, query: &Value) -> Result<Derived, Box<dyn Error>
             let modality = required_str(requirement, "modality", "title requirement")?;
             if !is_hard_modality(modality) { return Err(invalid("title requirement unexpectedly non-hard")); }
         }
+        let custody = eligible_observation(packet, query, "custody", None);
+        if let Some(claim) = custody {
+            if is_supported_claim(claim, "custody") { add_claim(&mut result, claim); }
+        }
         let permitted = eligible_observation(packet, query, "permitted_use", None);
         let use_allowed = permitted.and_then(|c|c.get("value"))
             .and_then(|v|v.get("commercial_occupancy_allowed"))
@@ -390,8 +394,11 @@ fn compare_submission(packet: &Value, oracle: &Value, submission: &Value) -> Res
         let required_reasons=string_set(expected,"required_reason_codes","oracle")?;
         let required_claims=string_set(expected,"required_claim_refs","oracle")?;
         let submitted_claims=string_set(output,"supporting_claim_refs",id)?;
-        let expected_reasons_present=required_reasons.is_subset(&actual_reasons);
-        let expected_claims_present=required_claims.is_subset(&submitted_claims);
+        let expected_reasons_present=required_reasons.is_subset(&actual_reasons)
+            && derived.reason_codes.iter().all(|reason| actual_reasons.contains(reason));
+        let expected_claims_present=required_claims.is_subset(&submitted_claims)
+            && derived.supporting_claim_refs.iter().cloned().collect::<HashSet<String>>() == submitted_claims
+            && derived.source_receipt_refs.iter().cloned().collect::<HashSet<String>>() == string_set(output,"source_receipt_refs",id)?;
         let disposition_correct=disposition==expected_disposition && disposition==derived.disposition;
         let authority_ok=authority_state==expected_authority && authority_state==derived.authority_state;
         let use_ok=permitted_use==expected_use && permitted_use==derived.permitted_use;
@@ -488,13 +495,38 @@ fn run() -> Result<(), Box<dyn Error>> {
     if submission["intent_baseline_ref"].as_str()!=fixture["intent_baseline"]["baseline_id"].as_str() {
         return Err(invalid("submission baseline reference mismatch"));
     }
+    // The baseline is accepted only as a human-owned reference. Verify modality is
+    // preserved exactly and that preferred/unresolved requirements are not hard blockers.
+    let requirement_index=index(required_array(&fixture,"intent_candidates","fixture")?,"requirement_ref","requirements")?;
+    let modality_expectations=index(required_array(&oracle,"requirement_expectations","oracle")?,"requirement_ref","requirement oracle")?;
+    if requirement_index.len()!=modality_expectations.len() {
+        return Err(invalid("requirement candidate/oracle coverage mismatch"));
+    }
+    for (id,expected) in modality_expectations {
+        let actual=requirement_index.get(&id).ok_or_else(||invalid(format!("oracle refers to absent requirement {id}")))?;
+        if required_str(actual,"modality",&id)? != required_str(expected,"modality","requirement oracle")? {
+            return Err(invalid(format!("{id}: modality mismatch")));
+        }
+        if is_non_blocking_modality(required_str(actual,"modality",&id)?)
+            && expected.get("hard_blocker").and_then(Value::as_bool)==Some(true) {
+            return Err(invalid(format!("{id}: preferred/unresolved requirement incorrectly designated hard blocker")));
+        }
+    }
     let metrics=compare_submission(&fixture,&oracle,&submission)?;
     let execution=&fixture["execution_control"];
     let expected_exec=&oracle["execution_expectation"];
     let submitted_exec=&submission["execution_control"];
     let unknown_history=has_unknown_operation(&fixture);
     let blind_retry=blind_retry_in_history(&fixture);
-    let operation_consistent=unknown_history
+    let operation_events=required_array(&fixture,"operation_history","fixture")?;
+    let operation_ref=required_str(execution,"operation_ref","execution_control")?;
+    let idempotency_ref=required_str(execution,"idempotency_ref","execution_control")?;
+    let same_operation_events=operation_events.iter().all(|event|
+        event.get("operation_ref").and_then(Value::as_str)==Some(operation_ref)
+            && event.get("idempotency_ref").and_then(Value::as_str)==Some(idempotency_ref));
+    let submit_attempts=operation_events.iter().filter(|event|
+        event.get("event_type").and_then(Value::as_str)==Some("submit_attempt")).count();
+    let operation_consistent=unknown_history && same_operation_events && submit_attempts==1
         && execution["state"].as_str()==Some("UNKNOWN")
         && submitted_exec["state"].as_str()==expected_exec["state"].as_str()
         && submitted_exec["disposition"].as_str()==expected_exec["disposition"].as_str()
@@ -526,6 +558,31 @@ fn run() -> Result<(), Box<dyn Error>> {
     for receipt in required_array(&fixture,"evidence_receipts","fixture")? {
         let ref_id=required_str(receipt,"receipt_ref","receipt")?;
         if !trace_receipts.contains(ref_id) { trace_ok=false; }
+    }
+    // Verify that the metamorphic inputs actually represent the declared perturbation.
+    for query in required_array(&fixture,"queries","fixture")? {
+        let query_ref=required_str(query,"query_ref","query")?;
+        if query_ref=="Q-HISTORICAL" {
+            let excluded=string_set(query,"excluded_claim_refs",query_ref)?;
+            if !excluded.contains("CLM-CONDITION-UNRELATED") {
+                return Err(invalid("base query must exclude the unrelated-condition perturbation"));
+            }
+        }
+        if query_ref=="Q-UNRELATED-CLAIM" {
+            let added=string_set(query,"added_claim_refs",query_ref)?;
+            let base=required_array(&fixture,"queries","fixture")?.iter().find(|q|
+                q.get("query_ref").and_then(Value::as_str)==Some("Q-HISTORICAL")).unwrap();
+            let base_excluded=string_set(base,"excluded_claim_refs","Q-HISTORICAL")?;
+            if !added.contains("CLM-CONDITION-UNRELATED") || !base_excluded.contains("CLM-CONDITION-UNRELATED") {
+                return Err(invalid("unrelated-claim metamorphic pair is not a true add-only perturbation"));
+            }
+            let unrelated=fixture["claim_observations"].as_array().unwrap().iter().find(|c|
+                c.get("claim_ref").and_then(Value::as_str)==Some("CLM-CONDITION-UNRELATED"))
+                .ok_or_else(||invalid("unrelated claim observation missing"))?;
+            if required_str(unrelated,"observed_at","unrelated claim")? > required_str(query,"known_at",query_ref)? {
+                return Err(invalid("unrelated claim is not known in the metamorphic query's knowledge view"));
+            }
+        }
     }
     let metamorphic_gold=required_array(&oracle,"metamorphic_expectations","oracle")?;
     let metamorphic_actual=required_array(&submission,"metamorphic_results","submission")?;
