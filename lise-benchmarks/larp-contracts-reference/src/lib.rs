@@ -774,3 +774,331 @@ mod tests {
         assert!(validate_contract(&contract).contains(&ContractViolation::HighImpactMissingIndependentRemedy));
     }
 }
+
+
+/// Input-only facts for the historical EpistemicBounty contract's v2 profile.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EpistemicBountyFacts {
+    pub mode: String,
+    pub evidence_reproduced: Option<bool>,
+    pub reviewer_conflict: Option<bool>,
+    pub conflict_disclosed: Option<bool>,
+    pub reviewers_independent: Option<bool>,
+    pub shared_dependency: Option<bool>,
+    pub similarity_high: Option<bool>,
+    pub coordination_corroborated: Option<bool>,
+    pub local_threshold_met: Option<bool>,
+    pub appeal_open: Option<bool>,
+    pub retraction: Option<bool>,
+    pub historical_record_preserved: Option<bool>,
+    pub treasury_authorized: Option<bool>,
+    pub exact_operation_match: Option<bool>,
+    pub payout_state: Option<String>,
+    pub request_sanction: Option<bool>,
+    pub misconduct_adjudicated: Option<bool>,
+    pub retraction_reason: Option<String>,
+    pub within_grace_period: Option<bool>,
+    pub appeal_upheld: Option<bool>,
+    pub remedy_authorized: Option<bool>,
+    pub retry_safety_qualified: Option<bool>,
+    pub operation_already_applied: Option<bool>,
+    pub duplicate_requested: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RestorationFacts {
+    pub mode: String,
+    pub mandate_valid: Option<bool>,
+    pub consent_valid: Option<bool>,
+    pub baseline_pinned: Option<bool>,
+    pub method_current: Option<bool>,
+    pub method_bridged: Option<bool>,
+    pub evidence_current: Option<bool>,
+    pub evidence_complete: Option<bool>,
+    pub evidence_independent: Option<bool>,
+    pub dependency_inventory_complete: Option<bool>,
+    pub known_shared_dependency: Option<bool>,
+    pub native_biodiversity_floor_met: Option<bool>,
+    pub hydrology_floor_met: Option<bool>,
+    pub soil_floor_met: Option<bool>,
+    pub structure_floor_met: Option<bool>,
+    pub downstream_externality_within_limit: Option<bool>,
+    pub uncertainty_acceptable: Option<bool>,
+    pub independent_outcome_observed: Option<bool>,
+    pub treasury_authorized: Option<bool>,
+    pub exact_operation_match: Option<bool>,
+    pub outcome_state: Option<String>,
+    pub steward_exit: Option<bool>,
+    pub anomaly_only_signal: Option<bool>,
+    pub misconduct_adjudicated: Option<bool>,
+    pub replacement_steward_appointed: Option<bool>,
+    pub historical_record_preserved: Option<bool>,
+    pub accrued_remedies_preserved: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DomainScenario<F> {
+    pub id: String,
+    pub kind: String,
+    pub title: String,
+    pub facts: F,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DomainScenarioSuite<F> {
+    pub schema_version: String,
+    pub suite_id: String,
+    pub status: String,
+    pub case_count: usize,
+    pub cases: Vec<DomainScenario<F>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DomainOracleRow {
+    pub case_id: String,
+    pub expected_disposition: String,
+    pub reason_code: String,
+    pub notes: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DomainOracleSuite {
+    pub schema_version: String,
+    pub suite_id: String,
+    pub status: String,
+    pub scenario_file: String,
+    pub case_count: usize,
+    pub rows: Vec<DomainOracleRow>,
+}
+
+/// Pure assessment for scientific reward eligibility.
+///
+/// The function produces an assessment only. It cannot issue a reward, transfer
+/// funds, change reputation, quarantine a reviewer or mutate scientific records.
+pub fn evaluate_epistemic_bounty(facts: &EpistemicBountyFacts) -> Decision {
+    if facts.exact_operation_match == Some(false) {
+        return Decision::deny("EXACT_PAYOUT_BINDING_MISMATCH");
+    }
+    if facts.operation_already_applied == Some(true) && facts.duplicate_requested == Some(true) {
+        return Decision::deny("LOGICAL_REWARD_OPERATION_ALREADY_APPLIED");
+    }
+    if facts.retraction == Some(true)
+        && facts.retraction_reason.as_deref() == Some("alleged_fabrication")
+        && facts.misconduct_adjudicated != Some(true)
+    {
+        return Decision::challenge("MISCONDUCT_NOT_ADJUDICATED");
+    }
+    if facts.request_sanction == Some(true) {
+        if facts.similarity_high == Some(true)
+            && facts.coordination_corroborated != Some(true)
+        {
+            return Decision::deny("SCORE_ONLY_SANCTION_PROHIBITED");
+        }
+        if facts.coordination_corroborated == Some(true)
+            && facts.misconduct_adjudicated != Some(true)
+        {
+            return Decision::challenge("COORDINATION_SIGNAL_REQUIRES_INDEPENDENT_ADJUDICATION");
+        }
+    }
+
+    match facts.mode.as_str() {
+        "retraction" => {
+            if facts.historical_record_preserved != Some(true) {
+                return Decision::indeterminate("HISTORICAL_RECORD_PRESERVATION_UNKNOWN");
+            }
+            if facts.retraction_reason.as_deref() == Some("evidence_anomaly")
+                && facts.within_grace_period == Some(true)
+            {
+                Decision::permit("HONEST_RETRACTION_PRESERVED")
+            } else if facts.misconduct_adjudicated == Some(true) {
+                Decision::challenge("ADJUDICATED_MISCONDUCT_REQUIRES_LOCAL_REMEDY_PROCESS")
+            } else {
+                Decision::challenge("RETRACTION_REQUIRES_REVIEW")
+            }
+        }
+        "appeal_remedy" => {
+            if facts.appeal_open == Some(true) {
+                return Decision::hold("APPEAL_STILL_OPEN");
+            }
+            if facts.historical_record_preserved != Some(true) {
+                return Decision::indeterminate("HISTORICAL_RECORD_PRESERVATION_UNKNOWN");
+            }
+            if facts.appeal_upheld != Some(true) || facts.remedy_authorized != Some(true) {
+                return Decision::hold("APPEAL_REMEDY_NOT_AUTHORIZED");
+            }
+            Decision::permit("APPEAL_UPHELD_REMEDY_AUTHORIZED")
+        }
+        "reviewer_assessment" => {
+            if facts.coordination_corroborated == Some(true)
+                && facts.misconduct_adjudicated != Some(true)
+            {
+                Decision::challenge("COORDINATION_SIGNAL_REQUIRES_INDEPENDENT_ADJUDICATION")
+            } else if facts.coordination_corroborated == Some(true) {
+                Decision::challenge("ADJUDICATED_REVIEWER_FINDING_REQUIRES_LOCAL_REMEDY_PROCESS")
+            } else {
+                Decision::indeterminate("REVIEWER_COORDINATION_NOT_ESTABLISHED")
+            }
+        }
+        "payout_reconciliation" => {
+            if facts.payout_state.as_deref() == Some("unknown_after_dispatch") {
+                return Decision::hold("TREASURY_OUTCOME_UNKNOWN");
+            }
+            if facts.payout_state.as_deref() == Some("applied")
+                && facts.duplicate_requested == Some(true)
+            {
+                return Decision::deny("LOGICAL_REWARD_OPERATION_ALREADY_APPLIED");
+            }
+            Decision::indeterminate("TREASURY_STATE_NOT_RECONCILED")
+        }
+        "payout_request" => {
+            if facts.local_threshold_met != Some(true) {
+                return match facts.local_threshold_met {
+                    Some(false) => Decision::hold("LOCAL_EVIDENCE_THRESHOLD_NOT_MET"),
+                    None => Decision::indeterminate("LOCAL_EVIDENCE_THRESHOLD_UNKNOWN"),
+                    Some(true) => unreachable!(),
+                };
+            }
+            if facts.treasury_authorized != Some(true) {
+                return Decision::hold("TREASURY_AUTHORIZATION_MISSING");
+            }
+            if facts.exact_operation_match != Some(true) {
+                return Decision::deny("EXACT_PAYOUT_BINDING_MISMATCH");
+            }
+            Decision::permit("BOUNDED_REWARD_REQUEST_READY_FOR_OWNER_EXECUTION")
+        }
+        "sanction_request" => {
+            if facts.similarity_high == Some(true)
+                && facts.coordination_corroborated != Some(true)
+            {
+                Decision::deny("SCORE_ONLY_SANCTION_PROHIBITED")
+            } else if facts.misconduct_adjudicated != Some(true) {
+                Decision::challenge("MISCONDUCT_NOT_ADJUDICATED")
+            } else {
+                Decision::challenge("LOCAL_DUE_PROCESS_AND_REMEDY_AUTHORITY_REQUIRED")
+            }
+        }
+        "reward_eligibility" => {
+            if facts.reviewer_conflict == Some(true) && facts.conflict_disclosed == Some(true)
+                && facts.local_threshold_met == Some(false)
+            {
+                return Decision::hold("INDEPENDENT_REVIEW_QUORUM_INCOMPLETE");
+            }
+            if facts.reviewer_conflict == Some(true) && facts.conflict_disclosed == Some(false) {
+                return Decision::challenge("UNDISCLOSED_REVIEWER_CONFLICT");
+            }
+            if facts.shared_dependency == Some(true)
+                || facts.reviewers_independent == Some(false)
+            {
+                return Decision::indeterminate("KNOWN_COMMON_DEPENDENCY_OR_REVIEW_INDEPENDENCE_UNPROVEN");
+            }
+            if facts.evidence_reproduced != Some(true) {
+                return match facts.evidence_reproduced {
+                    Some(false) => Decision::hold("EVIDENCE_REPRODUCTION_NOT_ESTABLISHED"),
+                    None => Decision::indeterminate("EVIDENCE_REPRODUCTION_UNKNOWN"),
+                    Some(true) => unreachable!(),
+                };
+            }
+            if facts.reviewers_independent != Some(true) {
+                return Decision::indeterminate("REVIEWER_INDEPENDENCE_UNKNOWN");
+            }
+            if facts.local_threshold_met != Some(true) {
+                return match facts.local_threshold_met {
+                    Some(false) => Decision::hold("LOCAL_EVIDENCE_THRESHOLD_NOT_MET"),
+                    None => Decision::indeterminate("LOCAL_EVIDENCE_THRESHOLD_UNKNOWN"),
+                    Some(true) => unreachable!(),
+                };
+            }
+            Decision::permit("LOCAL_EVIDENCE_AND_REVIEW_REQUIREMENTS_MET")
+        }
+        _ => Decision::indeterminate("UNSUPPORTED_EPISTEMIC_CONTRACT_MODE"),
+    }
+}
+
+/// Pure assessment for a staged ecological restoration tranche.
+///
+/// The evaluator never defines ecological truth from a scalar score and never
+/// executes a payment. Domain owners must supply current, method-qualified,
+/// independent outcome facts and separately authorize the exact treasury act.
+pub fn evaluate_restoration_contract(facts: &RestorationFacts) -> Decision {
+    if facts.exact_operation_match == Some(false) {
+        return Decision::deny("EXACT_TREASURY_OPERATION_MISMATCH");
+    }
+    if facts.steward_exit == Some(true) {
+        if facts.historical_record_preserved == Some(true)
+            && facts.accrued_remedies_preserved == Some(true)
+        {
+            return Decision::permit("STEWARD_EXIT_WITH_HISTORY_AND_REMEDIES_PRESERVED");
+        }
+        return Decision::indeterminate("STEWARD_EXIT_HISTORY_OR_REMEDIES_NOT_PRESERVED");
+    }
+    if facts.mandate_valid == Some(false) {
+        return Decision::deny("LOCAL_STEWARDSHIP_MANDATE_INVALID");
+    }
+    if facts.consent_valid == Some(false) {
+        return Decision::deny("REQUIRED_CONSENT_INVALID");
+    }
+    if facts.mandate_valid.is_none() || facts.consent_valid.is_none() {
+        return Decision::indeterminate("LOCAL_MANDATE_OR_CONSENT_UNKNOWN");
+    }
+    if facts.mode == "fraud_review" && facts.anomaly_only_signal == Some(true)
+        && facts.misconduct_adjudicated != Some(true)
+    {
+        return Decision::challenge("ANOMALY_SIGNAL_REQUIRES_INDEPENDENT_REVIEW");
+    }
+    if facts.outcome_state.as_deref() == Some("partial") {
+        return Decision::hold("OUTCOME_PARTIAL_OR_UNCERTAIN");
+    }
+    if facts.dependency_inventory_complete == Some(false)
+        || facts.evidence_complete == Some(false)
+    {
+        return Decision::indeterminate("EVIDENCE_OR_DEPENDENCY_INVENTORY_INCOMPLETE");
+    }
+    if facts.known_shared_dependency == Some(true)
+        || facts.evidence_independent == Some(false)
+    {
+        return Decision::indeterminate("KNOWN_COMMON_EVIDENCE_DEPENDENCY");
+    }
+    if facts.evidence_current == Some(false) {
+        return Decision::hold("OBSERVATION_STALE_FOR_CURRENT_TRANCHE");
+    }
+    if facts.method_bridged == Some(false) {
+        return Decision::hold("MEASUREMENT_METHOD_NOT_BRIDGED");
+    }
+    if facts.baseline_pinned == Some(false) || facts.method_current == Some(false) {
+        return Decision::hold("BASELINE_OR_MEASUREMENT_METHOD_NOT_CURRENT");
+    }
+    for floor in [
+        facts.native_biodiversity_floor_met,
+        facts.hydrology_floor_met,
+        facts.soil_floor_met,
+        facts.structure_floor_met,
+        facts.downstream_externality_within_limit,
+    ] {
+        if floor == Some(false) {
+            return Decision::deny("ECOLOGICAL_FLOOR_OR_EXTERNALITY_LIMIT_BREACHED");
+        }
+        if floor.is_none() {
+            return Decision::hold("ECOLOGICAL_OUTCOME_DIMENSION_UNKNOWN");
+        }
+    }
+    if facts.uncertainty_acceptable == Some(false)
+        || facts.independent_outcome_observed == Some(false)
+        || facts.outcome_state.as_deref() != Some("complete")
+    {
+        return Decision::hold("OUTCOME_PARTIAL_OR_UNCERTAIN");
+    }
+    if facts.uncertainty_acceptable.is_none() || facts.independent_outcome_observed.is_none() {
+        return Decision::indeterminate("OUTCOME_UNCERTAINTY_OR_OBSERVATION_UNKNOWN");
+    }
+    if facts.treasury_authorized != Some(true) {
+        return Decision::hold("TREASURY_AUTHORITY_MISSING");
+    }
+    Decision::permit("LOCAL_MANDATE_RIGHTS_AND_MULTI_DIMENSIONAL_EVIDENCE_QUALIFIED")
+}
+
