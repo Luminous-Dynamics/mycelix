@@ -165,7 +165,22 @@
           "duplicate_effect_count",
           "protected_effect_state",
           "execution_lease_state",
-          "expected_action_set_state"
+          "expected_action_set_state",
+          "operation_digest_state",
+          "constitution_digest_state",
+          "grant_inventory_state",
+          "authority_recheck_state",
+          "action_scope_state",
+          "field_scope_state",
+          "resource_scope_state",
+          "purpose_state",
+          "expiry_state",
+          "scope_check_state",
+          "ownership_check_state",
+          "revocation_effective_state",
+          "revocation_knowledge_state",
+          "approved_constitution_epoch",
+          "current_constitution_epoch"
         ],
         "properties": {
           "scenario_id": {
@@ -494,6 +509,125 @@
               "unknown",
               "not_applicable"
             ]
+          },
+          "operation_digest_state": {
+            "enum": [
+              "exact",
+              "mismatch",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "constitution_digest_state": {
+            "enum": [
+              "matches",
+              "mismatch",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "grant_inventory_state": {
+            "enum": [
+              "complete",
+              "incomplete",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "authority_recheck_state": {
+            "enum": [
+              "performed",
+              "omitted",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "action_scope_state": {
+            "enum": [
+              "subset",
+              "amplified",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "field_scope_state": {
+            "enum": [
+              "subset",
+              "amplified",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "resource_scope_state": {
+            "enum": [
+              "subset",
+              "amplified",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "purpose_state": {
+            "enum": [
+              "matches",
+              "mismatch",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "expiry_state": {
+            "enum": [
+              "valid",
+              "expired",
+              "not_yet_valid",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "scope_check_state": {
+            "enum": [
+              "performed",
+              "omitted",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "ownership_check_state": {
+            "enum": [
+              "rechecked",
+              "not_rechecked",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "revocation_effective_state": {
+            "enum": [
+              "before_action",
+              "after_action",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "revocation_knowledge_state": {
+            "enum": [
+              "known_before_action",
+              "known_after_action",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "approved_constitution_epoch": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "current_constitution_epoch": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
           }
         }
       }
