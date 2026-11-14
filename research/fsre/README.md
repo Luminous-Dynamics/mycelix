@@ -1,5 +1,6 @@
 # Federated Societal Resilience Engineering (FSRE) — Integration and Qualification Profile
 
+- [Time-expanded recovery portfolio benchmark](TIME_EXPANDED_RECOVERY_PORTFOLIO_BENCHMARK_V0_1.md) — multi-interval stock-flow, crew capacity, option expiry, service floors and as-known-at-the-time replay.
 - [Equity-aware service-floor benchmark](EQUITY_AND_DISTRIBUTIONAL_RESILIENCE_BENCHMARK_V0_1.md) — cohort-specific minimum service, distributional/restorative equity, procedural evidence and transgenerational liabilities.
 - [Portfolio feasibility reference and independent oracle](../../tools/fsre-portfolio-reference/README.md) — read-only Rust constraint evaluator plus a separately authored differential implementation.
 - [Recovery portfolio benchmark extension v0.1](RECOVERY_PORTFOLIO_BENCHMARK_V0_1.md) — common-cause and shared-resource qualification of portfolios of recovery options.
