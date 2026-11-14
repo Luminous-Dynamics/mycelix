@@ -11,13 +11,7 @@ const POPULATION_SCOPES: [&str; 4] = [
     "UNKNOWN",
 ];
 
-const OWNER_CLASSES: [&str; 5] = [
-    "MUNICIPAL",
-    "DPWI",
-    "PRIVATE",
-    "OTHER_PUBLIC",
-    "UNKNOWN",
-];
+const OWNER_CLASSES: [&str; 5] = ["MUNICIPAL", "DPWI", "PRIVATE", "OTHER_PUBLIC", "UNKNOWN"];
 
 const RELATIONS: [&str; 8] = [
     "CONTINUITY",
@@ -133,8 +127,10 @@ fn parse_metadata(metadata: &mut BTreeMap<String, String>) -> Result<Metadata, S
     if let Some(key) = metadata.keys().next() {
         return Err(format!("unknown metadata key: {key}"));
     }
-    if !matches!(parsed.fixture_kind.as_str(), "SYNTHETIC_ONLY" | "SOURCE_BACKED")
-        || parsed.scope.is_empty()
+    if !matches!(
+        parsed.fixture_kind.as_str(),
+        "SYNTHETIC_ONLY" | "SOURCE_BACKED"
+    ) || parsed.scope.is_empty()
     {
         return Err("invalid fixture kind or scope".to_owned());
     }
@@ -158,7 +154,9 @@ fn optional_endpoint(fields: &[&str], label: &str) -> Result<Option<Endpoint>, S
         || !POPULATION_SCOPES.contains(&fields[2])
         || !OWNER_CLASSES.contains(&fields[3])
     {
-        return Err(format!("{label} endpoint has an invalid namespace, ID, population scope or owner class"));
+        return Err(format!(
+            "{label} endpoint has an invalid namespace, ID, population scope or owner class"
+        ));
     }
     Ok(Some(Endpoint {
         system: fields[0].to_owned(),
@@ -175,7 +173,9 @@ fn parse_transition(line: &str, line_number: usize) -> Result<Transition, String
     }
 
     if !valid_identifier(fields[0]) || !RELATIONS.contains(&fields[1]) {
-        return Err(format!("line {line_number}: invalid transition ID or relation"));
+        return Err(format!(
+            "line {line_number}: invalid transition ID or relation"
+        ));
     }
     let source = optional_endpoint(&fields[2..6], "source")?;
     let target = optional_endpoint(&fields[6..10], "target")?;
@@ -183,17 +183,21 @@ fn parse_transition(line: &str, line_number: usize) -> Result<Transition, String
         return Err(format!("line {line_number}: invalid effective_date"));
     }
     if fields[11].is_empty() || !EVIDENCE_CLASSES.contains(&fields[12]) {
-        return Err(format!("line {line_number}: evidence reference/class is missing or unsupported"));
+        return Err(format!(
+            "line {line_number}: evidence reference/class is missing or unsupported"
+        ));
     }
     if !REVIEW_STATES.contains(&fields[13]) {
-        return Err(format!("line {line_number}: unsupported review_state {}", fields[13]));
+        return Err(format!(
+            "line {line_number}: unsupported review_state {}",
+            fields[13]
+        ));
     }
 
     let source_required = !matches!(fields[1], "CREATED");
     let target_required = matches!(
         fields[1],
-        "CONTINUITY" | "RENAMED" | "TRANSFERRED" | "MERGED_INTO" | "SPLIT_INTO"
-            | "CREATED"
+        "CONTINUITY" | "RENAMED" | "TRANSFERRED" | "MERGED_INTO" | "SPLIT_INTO" | "CREATED"
     );
     if source_required != source.is_some() || target_required != target.is_some() {
         return Err(format!(
@@ -202,7 +206,10 @@ fn parse_transition(line: &str, line_number: usize) -> Result<Transition, String
         ));
     }
     if fields[1] == "UNRESOLVED"
-        && !matches!(fields[13], "UNRESOLVED" | "DISPUTED" | "PROVISIONAL" | "SYNTHETIC_ONLY")
+        && !matches!(
+            fields[13],
+            "UNRESOLVED" | "DISPUTED" | "PROVISIONAL" | "SYNTHETIC_ONLY"
+        )
     {
         return Err(format!(
             "line {line_number}: unresolved identity cannot be marked {}",
@@ -228,13 +235,9 @@ fn parse_transition(line: &str, line_number: usize) -> Result<Transition, String
                 "line {line_number}: accepted transition lacks admissible source evidence"
             ));
         }
-        if source
-            .iter()
-            .chain(target.iter())
-            .any(|endpoint| {
-                endpoint.population_scope == "UNKNOWN" || endpoint.owner_class == "UNKNOWN"
-            })
-        {
+        if source.iter().chain(target.iter()).any(|endpoint| {
+            endpoint.population_scope == "UNKNOWN" || endpoint.owner_class == "UNKNOWN"
+        }) {
             return Err(format!(
                 "line {line_number}: accepted transition requires known population scope and owner class"
             ));
@@ -278,11 +281,19 @@ fn group_transitions(rows: Vec<Transition>) -> Result<Vec<Group>, String> {
 
         let sources: BTreeSet<&str> = rows
             .iter()
-            .filter_map(|row| row.source.as_ref().map(|endpoint| endpoint.record_id.as_str()))
+            .filter_map(|row| {
+                row.source
+                    .as_ref()
+                    .map(|endpoint| endpoint.record_id.as_str())
+            })
             .collect();
         let targets: BTreeSet<&str> = rows
             .iter()
-            .filter_map(|row| row.target.as_ref().map(|endpoint| endpoint.record_id.as_str()))
+            .filter_map(|row| {
+                row.target
+                    .as_ref()
+                    .map(|endpoint| endpoint.record_id.as_str())
+            })
             .collect();
         let valid_shape = match first.relation.as_str() {
             "CONTINUITY" | "RENAMED" | "TRANSFERRED" => {
@@ -294,8 +305,13 @@ fn group_transitions(rows: Vec<Transition>) -> Result<Vec<Group>, String> {
                     && targets.len() == 1
                     && rows.iter().all(|row| row.target == first.target)
                     && rows.iter().all(|row| {
-                        row.source.as_ref().map(|endpoint| &endpoint.population_scope)
-                            == first.source.as_ref().map(|endpoint| &endpoint.population_scope)
+                        row.source
+                            .as_ref()
+                            .map(|endpoint| &endpoint.population_scope)
+                            == first
+                                .source
+                                .as_ref()
+                                .map(|endpoint| &endpoint.population_scope)
                     })
             }
             "SPLIT_INTO" => {
@@ -388,7 +404,10 @@ fn parse(source: &str) -> Result<Report, String> {
         if let Some(comment) = line.strip_prefix('#') {
             if let Some((key, value)) = comment.trim().split_once('=') {
                 let key = key.trim().to_owned();
-                if metadata.insert(key.clone(), value.trim().to_owned()).is_some() {
+                if metadata
+                    .insert(key.clone(), value.trim().to_owned())
+                    .is_some()
+                {
                     return Err(format!("line {line_number}: duplicate metadata key {key}"));
                 }
             }
@@ -485,9 +504,12 @@ fn render(report: &Report) -> String {
         .iter()
         .filter(|group| {
             group.rows.iter().any(|row| {
-                row.source.as_ref().zip(row.target.as_ref()).map_or(false, |(source, target)| {
-                    source.population_scope != target.population_scope
-                })
+                row.source
+                    .as_ref()
+                    .zip(row.target.as_ref())
+                    .map_or(false, |(source, target)| {
+                        source.population_scope != target.population_scope
+                    })
             })
         })
         .count();
@@ -496,17 +518,24 @@ fn render(report: &Report) -> String {
         .iter()
         .filter(|group| {
             group.rows.iter().any(|row| {
-                row.source.as_ref().zip(row.target.as_ref()).map_or(false, |(source, target)| {
-                    source.owner_class != target.owner_class
-                })
+                row.source
+                    .as_ref()
+                    .zip(row.target.as_ref())
+                    .map_or(false, |(source, target)| {
+                        source.owner_class != target.owner_class
+                    })
             })
         })
         .count();
     output.push_str(&format!("accepted_transition_groups={accepted}\n"));
     output.push_str(&format!("unresolved_identity_groups={unresolved}\n"));
     output.push_str(&format!("merge_or_split_groups={multi_event}\n"));
-    output.push_str(&format!("population_scope_change_groups={population_scope_changes}\n"));
-    output.push_str(&format!("owner_class_change_groups={owner_class_changes}\n"));
+    output.push_str(&format!(
+        "population_scope_change_groups={population_scope_changes}\n"
+    ));
+    output.push_str(&format!(
+        "owner_class_change_groups={owner_class_changes}\n"
+    ));
     output.push_str("scope_changes_are_cohort_changes=REQUIRE_SEPARATE_COMPARABILITY_REVIEW\n");
     let claim_scope = if report.fixture_kind == "SYNTHETIC_ONLY" {
         "SYNTHETIC_SCHEMA_AND_CARDINALITY_CONFORMANCE_ONLY"
@@ -620,9 +649,8 @@ mod tests {
         let report = validate_and_report(FIXTURE).expect("fixture should validate");
         assert!(report.contains("population_scope_change_groups=1"));
         assert!(report.contains("owner_class_change_groups=1"));
-        assert!(report.contains(
-            "scope_changes_are_cohort_changes=REQUIRE_SEPARATE_COMPARABILITY_REVIEW"
-        ));
+        assert!(report
+            .contains("scope_changes_are_cohort_changes=REQUIRE_SEPARATE_COMPARABILITY_REVIEW"));
     }
 
     #[test]
@@ -657,19 +685,13 @@ mod tests {
 
     #[test]
     fn synthetic_evidence_cannot_be_marked_accepted() {
-        let invalid = FIXTURE.replace(
-            "SYNTHETIC|SYNTHETIC_ONLY",
-            "SYNTHETIC|ACCEPTED",
-        );
+        let invalid = FIXTURE.replace("SYNTHETIC|SYNTHETIC_ONLY", "SYNTHETIC|ACCEPTED");
         assert!(parse(&invalid).unwrap_err().contains("synthetic evidence"));
     }
 
     #[test]
     fn accepted_transition_requires_qualifying_evidence_class() {
-        let invalid = FIXTURE.replace(
-            "SYNTHETIC|SYNTHETIC_ONLY",
-            "OPERATOR_RECORD|ACCEPTED",
-        );
+        let invalid = FIXTURE.replace("SYNTHETIC|SYNTHETIC_ONLY", "OPERATOR_RECORD|ACCEPTED");
         assert!(parse(&invalid).unwrap_err().contains("accepted transition"));
     }
 
@@ -688,7 +710,9 @@ mod tests {
             "tr-decom|DECOMMISSIONED|dws-2022|sys-closed|MUNICIPAL_SYSTEMS|MUNICIPAL|||||2023-07-01|synthetic:decom|SYNTHETIC|SYNTHETIC_ONLY",
             "tr-decom|DECOMMISSIONED|dws-2022|sys-closed|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-new|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:decom|SYNTHETIC|SYNTHETIC_ONLY",
         );
-        assert!(parse(&invalid).unwrap_err().contains("source/target presence"));
+        assert!(parse(&invalid)
+            .unwrap_err()
+            .contains("source/target presence"));
     }
 
     #[test]
@@ -697,13 +721,17 @@ mod tests {
             "tr-created|CREATED|||||dws-2025|sys-new|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:created|SYNTHETIC|SYNTHETIC_ONLY",
             "tr-created|CREATED|dws-2022|sys-old|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-new|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:created|SYNTHETIC|SYNTHETIC_ONLY",
         );
-        assert!(parse(&invalid).unwrap_err().contains("source/target presence"));
+        assert!(parse(&invalid)
+            .unwrap_err()
+            .contains("source/target presence"));
     }
 
     #[test]
     fn invalid_calendar_date_is_rejected() {
         let invalid = FIXTURE.replace("2023-07-01", "2023-02-30");
-        assert!(parse(&invalid).unwrap_err().contains("invalid effective_date"));
+        assert!(parse(&invalid)
+            .unwrap_err()
+            .contains("invalid effective_date"));
     }
 
     #[test]
@@ -722,16 +750,29 @@ mod tests {
         source.push_str(HEADER);
         source.push('\n');
 
-        let mut append = |transition: &str,
-                          relation: &str,
-                          source_id: &str,
-                          target_id: &str| {
+        let mut append = |transition: &str, relation: &str, source_id: &str, target_id: &str| {
             let source_system = if source_id.is_empty() { "" } else { "dws-2022" };
-            let source_scope = if source_id.is_empty() { "" } else { "MUNICIPAL_SYSTEMS" };
-            let source_owner = if source_id.is_empty() { "" } else { "MUNICIPAL" };
+            let source_scope = if source_id.is_empty() {
+                ""
+            } else {
+                "MUNICIPAL_SYSTEMS"
+            };
+            let source_owner = if source_id.is_empty() {
+                ""
+            } else {
+                "MUNICIPAL"
+            };
             let target_system = if target_id.is_empty() { "" } else { "dws-2025" };
-            let target_scope = if target_id.is_empty() { "" } else { "MUNICIPAL_SYSTEMS" };
-            let target_owner = if target_id.is_empty() { "" } else { "MUNICIPAL" };
+            let target_scope = if target_id.is_empty() {
+                ""
+            } else {
+                "MUNICIPAL_SYSTEMS"
+            };
+            let target_owner = if target_id.is_empty() {
+                ""
+            } else {
+                "MUNICIPAL"
+            };
             source.push_str(&format!(
                 "{transition}|{relation}|{source_system}|{source_id}|{source_scope}|{source_owner}|{target_system}|{target_id}|{target_scope}|{target_owner}|2023-07-01|synthetic:{transition}|SYNTHETIC|SYNTHETIC_ONLY\n"
             ));
@@ -780,12 +821,7 @@ mod tests {
             .lines()
             .filter(|line| line.starts_with('#'))
             .collect();
-        let reordered = format!(
-            "{}\n{}\n{}\n",
-            metadata.join("\n"),
-            HEADER,
-            rows.join("\n")
-        );
+        let reordered = format!("{}\n{}\n{}\n", metadata.join("\n"), HEADER, rows.join("\n"));
         assert_eq!(
             validate_and_report(FIXTURE).expect("original fixture"),
             validate_and_report(&reordered).expect("reordered fixture")
