@@ -24,6 +24,7 @@ struct Interval {
     end: u64,
     records: Vec<String>,
     floors: BTreeSet<(String, String)>,
+    floor_units: BTreeMap<(String, String), String>,
 }
 
 #[derive(Clone, Debug)]
@@ -35,6 +36,7 @@ struct Plan {
     clock_basis_id: String,
     stock_resources: Vec<String>,
     cohort_coverage_complete: bool,
+    cohort_units_consistent: bool,
     intervals: Vec<Interval>,
 }
 
@@ -240,6 +242,7 @@ fn parse_plan(source: &str) -> Result<Plan, InputError> {
             end,
             records: Vec::new(),
             floors: BTreeSet::new(),
+            floor_units: BTreeMap::new(),
         })
         .collect();
 
@@ -263,9 +266,14 @@ fn parse_plan(source: &str) -> Result<Plan, InputError> {
             if fields[3].is_empty() || fields[4].is_empty() {
                 return Err(InputError(format!("line {line_number}: malformed service floor")));
             }
-            interval
-                .floors
-                .insert((fields[3].clone(), fields[4].clone()));
+            let key = (fields[3].clone(), fields[4].clone());
+            if fields[9].is_empty() || interval.floors.contains(&key) {
+                return Err(InputError(format!(
+                    "line {line_number}: empty unit or duplicate service-floor scope"
+                )));
+            }
+            interval.floors.insert(key.clone());
+            interval.floor_units.insert(key, fields[9].clone());
         }
         interval.records.push(raw);
     }
@@ -274,10 +282,15 @@ fn parse_plan(source: &str) -> Result<Plan, InputError> {
         return Err(InputError("every declared interval must contain portfolio records".to_owned()));
     }
     let first_floor_set = intervals[0].floors.clone();
+    let first_floor_units = intervals[0].floor_units.clone();
     let cohort_coverage_complete = !first_floor_set.is_empty()
         && intervals
             .iter()
             .all(|interval| interval.floors == first_floor_set);
+    let cohort_units_consistent = cohort_coverage_complete
+        && intervals
+            .iter()
+            .all(|interval| interval.floor_units == first_floor_units);
 
     Ok(Plan {
         portfolio_id,
@@ -287,6 +300,7 @@ fn parse_plan(source: &str) -> Result<Plan, InputError> {
         clock_basis_id,
         stock_resources,
         cohort_coverage_complete,
+        cohort_units_consistent,
         intervals,
     })
 }
@@ -435,7 +449,7 @@ fn compose(plan_source: &str, stock_sources: &[String]) -> Result<String, InputE
     }
 
     let mut not_estimable = !plan.cohort_coverage_complete;
-    let mut not_reconciled = false;
+    let mut not_reconciled = !plan.cohort_units_consistent;
     let mut not_feasible = false;
     let mut portfolio_results = Vec::new();
 
@@ -761,6 +775,33 @@ mod tests {
         );
         let report = run(&changed, STOCK);
         assert!(report.contains("time_expanded_disposition=NOT_ESTIMABLE"));
+    }
+
+    #[test]
+    fn service_floor_units_must_be_consistent_across_intervals() {
+        let changed = PLAN
+            .replace(
+                "OPTION_CAPACITY|cap-plant-01|backup_plant|water||shock|hour-01||120|m3|",
+                "OPTION_CAPACITY|cap-plant-01|backup_plant|water||shock|hour-01||120|L|",
+            )
+            .replace(
+                "ALLOCATION|allocation-households-01|backup_plant|water|households|shock|hour-01||60|m3|",
+                "ALLOCATION|allocation-households-01|backup_plant|water|households|shock|hour-01||60|L|",
+            )
+            .replace(
+                "ALLOCATION|allocation-hospital-01|backup_plant|water|hospital|shock|hour-01||40|m3|",
+                "ALLOCATION|allocation-hospital-01|backup_plant|water|hospital|shock|hour-01||40|L|",
+            )
+            .replace(
+                "SERVICE_FLOOR|floor-households-01||water|households|shock|hour-01||55|m3|",
+                "SERVICE_FLOOR|floor-households-01||water|households|shock|hour-01||55|L|",
+            )
+            .replace(
+                "SERVICE_FLOOR|floor-hospital-01||water|hospital|shock|hour-01||35|m3|",
+                "SERVICE_FLOOR|floor-hospital-01||water|hospital|shock|hour-01||35|L|",
+            );
+        let report = run(&changed, STOCK);
+        assert!(report.contains("time_expanded_disposition=NOT_RECONCILED"));
     }
 
     #[test]
