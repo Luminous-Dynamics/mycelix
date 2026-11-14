@@ -436,6 +436,7 @@
           "additionalProperties": false,
           "required": [
             "decision_cutoff",
+            "evidence_snapshot_id",
             "time_basis_id",
             "freshness_policy",
             "disposition",
@@ -532,6 +533,12 @@
                 "NOT_ASSESSED"
               ],
               "description": "States whether clock uncertainty was considered by the as-of replay evaluator. The v0.1 as-of evaluator performs exact UTC-second comparisons and does not propagate non-zero clock bounds."
+            },
+            "evidence_snapshot_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "description": "Immutable identifier for the exact frozen source/evidence snapshot used by the as-of replay; must match the portfolio snapshot in any composed qualification."
             }
           }
         }
