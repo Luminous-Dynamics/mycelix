@@ -43,7 +43,7 @@ cargo test --locked --all-targets --manifest-path Cargo.toml
 cargo clippy --locked --all-targets --manifest-path Cargo.toml -- -D warnings
 ```
 
-**62 Rust unit tests are authored; they have not been executed in this authoring environment.** Exact-head CI remains the validation authority.
+**64 Rust unit tests are authored; they have not been executed in this authoring environment.** Exact-head CI remains the validation authority.
 
 ## Relationship to owner contracts
 
@@ -72,8 +72,8 @@ These are finite reference-model properties over owner-supplied data, not exhaus
 
 ## Currency-dimensional amount bounds
 
-A minor-unit amount is not a dimensionless scalar. `CapabilityScope` now binds every bounded amount to an explicit currency. The trajectory union accumulates ceilings in a currency-keyed map, so USD 600 + EUR 600 is never treated as one 1,200-minor-unit quantity. A task with a USD ceiling rejects any additional EUR capability unless the task scope explicitly permits that currency dimension. A bounded amount missing its currency is unqualified and fails closed.
+A minor-unit amount is not a dimensionless scalar. `CapabilityScope` now binds every bounded amount to an explicit currency. The trajectory union accumulates ceilings in a currency-keyed map and preserves unbounded grants by currency, so USD 600 + EUR 600 is never treated as one 1,200-minor-unit quantity and an unbounded EUR grant cannot fit inside a USD-only task. A task with a USD ceiling rejects any additional EUR capability unless the task scope explicitly permits that currency dimension. A bounded amount missing its currency is unqualified and fails closed.
 
 No implicit foreign-exchange conversion is performed. An owner adapter that genuinely needs cross-currency comparison must supply a separately versioned conversion policy, valuation timestamp, rate source and rounding rule; this reference model intentionally does not invent them.
 
-Four regression tests cover per-currency aggregation, extra-currency privilege, missing currency and currency substitution across a delegation edge.
+Six regression tests cover per-currency aggregation, extra-currency privilege, missing currency, currency substitution across a delegation edge, and currency-scoped versus all-currency unbounded grants.
