@@ -23,6 +23,13 @@ struct CohortLane {
     service_family_id: String,
     cohort_set_id: String,
     cohort_id: String,
+    outcome_snapshot_id: String,
+    delivery_source_owner: String,
+    delivery_source_ref: String,
+    quality_source_owner: String,
+    quality_source_ref: String,
+    denominator_source_owner: String,
+    denominator_source_ref: String,
     population_denominator: Option<u64>,
     population_unit: String,
     contract: ServiceContract,
@@ -32,6 +39,13 @@ struct CohortLane {
 #[derive(Clone, Debug)]
 struct EvaluatedLane {
     cohort_id: String,
+    outcome_snapshot_id: String,
+    delivery_source_owner: String,
+    delivery_source_ref: String,
+    quality_source_owner: String,
+    quality_source_ref: String,
+    denominator_source_owner: String,
+    denominator_source_ref: String,
     population_denominator: Option<u64>,
     population_unit: String,
     minimum_safe_service_fraction: f64,
@@ -119,6 +133,13 @@ fn parse_lane(source: &str) -> Result<CohortLane, InputError> {
     let service_family_id = required(&metadata, "service_family_id")?.to_owned();
     let cohort_set_id = required(&metadata, "cohort_set_id")?.to_owned();
     let cohort_id = required(&metadata, "cohort_id")?.to_owned();
+    let outcome_snapshot_id = required(&metadata, "outcome_snapshot_id")?.to_owned();
+    let delivery_source_owner = required(&metadata, "delivery_source_owner")?.to_owned();
+    let delivery_source_ref = required(&metadata, "delivery_source_ref")?.to_owned();
+    let quality_source_owner = required(&metadata, "quality_source_owner")?.to_owned();
+    let quality_source_ref = required(&metadata, "quality_source_ref")?.to_owned();
+    let denominator_source_owner = required(&metadata, "denominator_source_owner")?.to_owned();
+    let denominator_source_ref = required(&metadata, "denominator_source_ref")?.to_owned();
     let population_value = required(&metadata, "population_denominator")?;
     let population_unit = required(&metadata, "population_unit")?.to_owned();
 
@@ -127,6 +148,13 @@ fn parse_lane(source: &str) -> Result<CohortLane, InputError> {
         ("service_family_id", service_family_id.as_str()),
         ("cohort_set_id", cohort_set_id.as_str()),
         ("cohort_id", cohort_id.as_str()),
+        ("outcome_snapshot_id", outcome_snapshot_id.as_str()),
+        ("delivery_source_owner", delivery_source_owner.as_str()),
+        ("delivery_source_ref", delivery_source_ref.as_str()),
+        ("quality_source_owner", quality_source_owner.as_str()),
+        ("quality_source_ref", quality_source_ref.as_str()),
+        ("denominator_source_owner", denominator_source_owner.as_str()),
+        ("denominator_source_ref", denominator_source_ref.as_str()),
         ("population_unit", population_unit.as_str()),
     ] {
         if !valid_id(value) {
@@ -178,6 +206,13 @@ fn parse_lane(source: &str) -> Result<CohortLane, InputError> {
                 | "service_family_id"
                 | "cohort_set_id"
                 | "cohort_id"
+                | "outcome_snapshot_id"
+                | "delivery_source_owner"
+                | "delivery_source_ref"
+                | "quality_source_owner"
+                | "quality_source_ref"
+                | "denominator_source_owner"
+                | "denominator_source_ref"
                 | "population_denominator"
                 | "population_unit"
                 | "horizon_start_seconds"
@@ -195,6 +230,13 @@ fn parse_lane(source: &str) -> Result<CohortLane, InputError> {
         service_family_id,
         cohort_set_id,
         cohort_id,
+        outcome_snapshot_id,
+        delivery_source_owner,
+        delivery_source_ref,
+        quality_source_owner,
+        quality_source_ref,
+        denominator_source_owner,
+        denominator_source_ref,
         population_denominator,
         population_unit,
         contract: ServiceContract {
@@ -262,9 +304,10 @@ fn evaluate_lanes(sources: &[String]) -> Result<Vec<EvaluatedLane>, InputError> 
         if lane.service_family_id != baseline.service_family_id
             || lane.cohort_set_id != baseline.cohort_set_id
             || lane.contract.service_id != baseline.contract.service_id
+            || lane.outcome_snapshot_id != baseline.outcome_snapshot_id
         {
             return Err(InputError(
-                "all lanes must share service_family_id, cohort_set_id and service_id".to_owned(),
+                "all lanes must share service_family_id, cohort_set_id, service_id and outcome_snapshot_id".to_owned(),
             ));
         }
         if lane.contract.horizon_start_seconds != baseline.contract.horizon_start_seconds
@@ -290,6 +333,13 @@ fn evaluate_lanes(sources: &[String]) -> Result<Vec<EvaluatedLane>, InputError> 
             .map_err(|error| InputError(format!("cohort {}: {error}", lane.cohort_id)))?;
         evaluated.push(EvaluatedLane {
             cohort_id: lane.cohort_id,
+            outcome_snapshot_id: lane.outcome_snapshot_id,
+            delivery_source_owner: lane.delivery_source_owner,
+            delivery_source_ref: lane.delivery_source_ref,
+            quality_source_owner: lane.quality_source_owner,
+            quality_source_ref: lane.quality_source_ref,
+            denominator_source_owner: lane.denominator_source_owner,
+            denominator_source_ref: lane.denominator_source_ref,
             population_denominator: lane.population_denominator,
             population_unit: lane.population_unit,
             minimum_safe_service_fraction: lane.contract.minimum_safe_service_fraction,
@@ -373,6 +423,7 @@ fn compose(sources: &[String]) -> Result<String, InputError> {
         format!("service_family_id={}", first_source.service_family_id),
         format!("service_id={}", first_source.contract.service_id),
         format!("cohort_set_id={}", first_source.cohort_set_id),
+        format!("outcome_snapshot_id={}", first_source.outcome_snapshot_id),
         format!("horizon_start_seconds={}", first_source.contract.horizon_start_seconds),
         format!("horizon_end_seconds={}", first_source.contract.horizon_end_seconds),
         format!("horizon_seconds={horizon_seconds}"),
@@ -477,6 +528,16 @@ fn compose(sources: &[String]) -> Result<String, InputError> {
                 "SAFE_RECOVERY_NOT_OBSERVED"
             }
         ));
+        lines.push(format!(
+            "cohort_evidence={}|{}|{}|{}|{}|{}|{}",
+            lane.cohort_id,
+            lane.delivery_source_owner,
+            lane.delivery_source_ref,
+            lane.quality_source_owner,
+            lane.quality_source_ref,
+            lane.denominator_source_owner,
+            lane.denominator_source_ref
+        ));
     }
 
     lines.extend([
@@ -574,6 +635,28 @@ mod tests {
         let report = run(&[HOSPITAL, HOUSEHOLDS, &changed]);
         assert!(report.contains("population_weighted_aggregation=NOT_COMPUTED"));
         assert!(report.contains("cohort=remote-community|UNKNOWN|persons|"));
+    }
+
+    #[test]
+    fn outcome_snapshot_must_match_across_cohort_lanes() {
+        let changed = HOUSEHOLDS.replace(
+            "# outcome_snapshot_id=synthetic-outcome-snapshot-01",
+            "# outcome_snapshot_id=other-outcome-snapshot",
+        );
+        let owned = vec![HOSPITAL.to_owned(), changed, REMOTE.to_owned()];
+        let error = validate_and_report(&owned).unwrap_err();
+        assert!(error.0.contains("outcome_snapshot_id"));
+    }
+
+    #[test]
+    fn missing_quality_source_owner_is_rejected() {
+        let changed = HOSPITAL.replace(
+            "# quality_source_owner=laboratory",
+            "# quality_source_owner=",
+        );
+        let owned = vec![changed, HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
+        let error = validate_and_report(&owned).unwrap_err();
+        assert!(error.0.contains("empty metadata key quality_source_owner"));
     }
 
     #[test]
