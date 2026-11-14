@@ -29,6 +29,8 @@ It is not a new civic-governance programme, a second civilization simulator, an 
 - [Verifier independence and model-disagreement benchmark](VERIFIER_AND_MODEL_DISAGREEMENT_BENCHMARK_V0_1.md) — differential evaluator checks, metamorphic tests, negative-control mutations, model disagreement and independent re-hosting.
 - [Standards and industry crosswalk](FRAMEWORK_CROSSWALK_V0_1.md) — positioning against existing resilience, critical-entity and digital-government frameworks.
 - [Competitive landscape](COMPETITIVE_LANDSCAPE_V0_1.md)
+- [Water-service pilot admission protocol](WATER_SERVICE_PILOT_ADMISSION_PROTOCOL_V0_1.md) — explicit M1b/M2/M3 admission gates, real-data rights, independent outcomes and M4 exclusions.
+- [Water-service study manifest schema](schemas/water-service-study-manifest-v0.1.schema.json) — preregistration contract for source rights, snapshots, cohorts, baselines, outcomes and authority boundaries.
 - [TRACE-Water, DMDU and restoration benchmark crosswalk](TRACE_WATER_AND_RESTORATION_BENCHMARK_CROSSWALK_V0_1.md) — comparison with 2026 water evidence-chain maturity, deep-uncertainty planning and REWET restoration research. — direct comparison with enterprise ontology, asset-performance, infrastructure-twin and water-operations products, with testable differentiation hypotheses.
 - [Water restoration industry baseline crosswalk](WATER_RESTORATION_INDUSTRY_BASELINE_CROSSWALK_V0_1.md) — compares EPANET, WNTR, Bentley OpenFlows and published restoration planning; defines matched service-outcome baselines.
 - [South African public-data inventory](ZA_PUBLIC_DATA_INVENTORY_V0_1.md) — dated water/sanitation data sources, admissibility, missingness and the minimum operator evidence needed for a qualified service study.
