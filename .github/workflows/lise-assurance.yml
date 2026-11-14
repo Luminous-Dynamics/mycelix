@@ -38,7 +38,7 @@ jobs:
         with:
           components: rustfmt, clippy
       - name: Check formatting
-        run: cargo fmt --manifest-path mycelix-governance/Cargo.toml --check
+        run: cargo fmt --all --manifest-path mycelix-governance/Cargo.toml --check
       - name: Resolve workspace lockfile in offline diagnostic mode
         run: cargo check --offline --all-targets --manifest-path mycelix-governance/Cargo.toml -p institutional-assurance
       - name: Show generated lockfile delta
