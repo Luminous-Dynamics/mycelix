@@ -1,0 +1,137 @@
+{
+  "schema_id": "luminous.fsre.water-service-study-manifest",
+  "schema_version": "0.1.0",
+  "study_id": "synthetic-water-study-admission-example",
+  "study_status": "DRAFT",
+  "proposed_maturity": "M1B_RETROSPECTIVE_REAL_DATA",
+  "operator": {
+    "operator_id": "SYNTHETIC_OPERATOR",
+    "service_owner_ref": null,
+    "study_sponsor_ref": null,
+    "participating_units": [
+      "SYNTHETIC_WATER_OPERATIONS"
+    ]
+  },
+  "service_boundary": {
+    "service_id": "synthetic-drinking-water-service",
+    "service_type": "DRINKING_WATER",
+    "geographic_boundary_ref": "synthetic:service-area:01",
+    "system_boundary_ref": "synthetic:system-boundary:01",
+    "inclusions": [
+      "treatment",
+      "storage",
+      "pumping",
+      "distribution",
+      "customer-delivery"
+    ],
+    "exclusions": [
+      "wastewater",
+      "household-internal-plumbing"
+    ]
+  },
+  "population_boundary": {
+    "population_definition_ref": "synthetic:population:01",
+    "cohort_register_ref": "synthetic:cohorts:01",
+    "denominator_policy": "Synthetic denominator only; no real population is represented.",
+    "identity_crosswalk_ref": "synthetic:identity-crosswalk:01",
+    "small_cell_policy": "Suppress cells below the synthetic demonstration threshold.",
+    "unclassified_population_policy": "Keep unknown/unclassified records separate; never impute them to zero."
+  },
+  "temporal_scope": {
+    "time_basis_id": "UTC_UNIX_SECONDS_V1",
+    "observation_start": "2025-01-01T00:00:00Z",
+    "observation_end": "2025-01-31T00:00:00Z",
+    "decision_cutoff_policy": "Synthetic frozen cutoff; replay only records available by the cutoff.",
+    "interval_granularity": "one hour",
+    "clock_uncertainty_policy": "NOT_ASSESSED"
+  },
+  "data_sources": [
+    {
+      "source_id": "synthetic-operator-log",
+      "source_owner": "SYNTHETIC_OPERATOR",
+      "source_schema_version": "0.1",
+      "source_ref": "synthetic:operator-log:01",
+      "source_grain": "service-area-hour",
+      "observation_period": "2025-01-01/2025-01-31",
+      "permission_basis": "UNKNOWN",
+      "permission_evidence_ref": null,
+      "purpose_scope": "Synthetic structural example only; no real access is requested.",
+      "extraction_state": "NOT_EXTRACTED",
+      "snapshot_or_digest_ref": null,
+      "known_denominator": "Synthetic only",
+      "missingness_profile_ref": null
+    }
+  ],
+  "frozen_evidence_snapshot": {
+    "snapshot_id": "synthetic-snapshot-01",
+    "snapshot_manifest_ref": "synthetic:snapshot-manifest:01",
+    "content_digest_ref": null,
+    "freeze_time": "2025-02-01T00:00:00Z",
+    "source_revision_register_ref": "synthetic:source-revisions:01",
+    "replayable": false
+  },
+  "benchmark_design": {
+    "protocol_ref": "research/fsre/WATER_SERVICE_PILOT_ADMISSION_PROTOCOL_V0_1.md",
+    "primary_question": "Can a bounded historical recovery decision be reproduced using only evidence available at its decision cutoff?",
+    "primary_outcome_id": "historical-evidence-replay-conformance",
+    "scenario_register_ref": "synthetic:scenario-register:01",
+    "holdout_design": "TEMPORAL_HOLDOUT",
+    "leakage_controls": [
+      "future observations excluded",
+      "late publication remains unavailable",
+      "retrospective revocation preserved as hindsight",
+      "snapshot and decision cutoff matched"
+    ],
+    "baseline_workflows": [
+      "synthetic incumbent runbook",
+      "synthetic as-of evidence replay"
+    ],
+    "ablations": [
+      "without temporal cutoff",
+      "without claim evidence threshold",
+      "without snapshot binding"
+    ],
+    "pre_registration_ref": null
+  },
+  "outcomes": [
+    {
+      "outcome_id": "historical-evidence-replay-conformance",
+      "definition": "Exact agreement with an independently adjudicated synthetic as-of evidence disposition.",
+      "unit": "fraction",
+      "denominator": "frozen synthetic evidence records",
+      "cohort_disaggregation": "not applicable to the synthetic software example",
+      "source_owner": "synthetic challenge custodian",
+      "verification_method": "separate deterministic reference evaluator and frozen expected output",
+      "missingness_policy": "Unknown/missing evidence stays not estimable.",
+      "minimum_detectable_effect": null,
+      "non_inferiority_margin": null
+    }
+  ],
+  "independent_evaluation": {
+    "evaluator_id": "SYNTHETIC_INDEPENDENT_ORACLE",
+    "independence_statement_ref": "synthetic:independence:01",
+    "adjudication_protocol_ref": "synthetic:adjudication:01",
+    "sealed_challenge_owner": null,
+    "conflict_of_interest_declaration_ref": null
+  },
+  "governance": {
+    "data_sharing_approval_ref": null,
+    "lawful_basis_ref": null,
+    "retention_policy_ref": "synthetic:retention:01",
+    "privacy_review_ref": null,
+    "community_or_customer_engagement_ref": null,
+    "decision_rights_matrix_ref": "synthetic:decision-rights:read-only",
+    "incident_and_withdrawal_process_ref": "synthetic:withdrawal:read-only"
+  },
+  "control_boundary": {
+    "read_only": true,
+    "write_access": false,
+    "actuation_enabled": false,
+    "human_override_owner": null,
+    "safety_case_ref": null
+  },
+  "claim_ceiling": [
+    "This is a synthetic example of the pre-registration structure only.",
+    "No real utility permission, operator partnership, source authentication, field observation or maturity qualification is established."
+  ]
+}
