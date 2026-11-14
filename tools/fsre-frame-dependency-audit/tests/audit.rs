@@ -113,3 +113,10 @@ fn shared_snapshot_is_detected_even_without_declared_edge() {
     let report = audit(&input).unwrap().unwrap();
     assert_eq!(report.pairs[0].status, "DECLARED_SHARED_SOURCE_SNAPSHOT");
 }
+
+#[test]
+fn report_matches_frozen_dependency_golden() {
+    let actual = audit(include_str!("../examples/common-root.psv")).unwrap().unwrap().render();
+    let expected = include_str!("../examples/common-root.expected.txt");
+    assert_eq!(actual, expected);
+}
