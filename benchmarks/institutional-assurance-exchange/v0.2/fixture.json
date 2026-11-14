@@ -621,6 +621,13 @@
     "prior_effect_after_timeout": "outcome_unknown_after_dispatch",
     "retry_safety_after_timeout": "unknown",
     "expected_post_timeout_disposition": "HOLD_FOR_RECONCILIATION",
-    "expected_retry_permitted": false
+    "expected_retry_permitted": false,
+    "action_at_before_dispatch": "2026-01-25T10:01:00Z",
+    "known_at_before_dispatch": "2026-01-25T10:05:00Z",
+    "authority_state_after_timeout": "revoked",
+    "authority_observed_at_after_timeout": "2026-02-02T12:00:00Z",
+    "reattempt_action_at": "2026-02-06T10:00:00Z",
+    "reattempt_known_at": "2026-02-06T10:00:00Z",
+    "expected_reattempt_disposition": "DENY"
   }
 }
