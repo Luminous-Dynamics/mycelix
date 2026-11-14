@@ -43,7 +43,7 @@ cargo test --locked --all-targets --manifest-path Cargo.toml
 cargo clippy --locked --all-targets --manifest-path Cargo.toml -- -D warnings
 ```
 
-**49 Rust unit tests are authored; they have not been executed in this authoring environment.** Exact-head CI remains the validation authority.
+**56 Rust unit tests are authored; they have not been executed in this authoring environment.** Exact-head CI remains the validation authority.
 
 ## Relationship to owner contracts
 
@@ -54,3 +54,17 @@ cargo clippy --locked --all-targets --manifest-path Cargo.toml -- -D warnings
 - #4835 — independent evaluator separation.
 
 The crate is a benchmark reference slice, not an implementation of those owners.
+
+
+## Metamorphic regression properties
+
+Seven new tests exercise monotonic and temporal properties:
+- changing any approval-bound operation field denies the substituted operation;
+- narrowing authority cannot preserve a permit;
+- adding a reachable path without the designated enforcement point breaks mediation;
+- adding an active grant cannot reduce the effective privilege union;
+- attenuation is transitive when every parent-child edge is valid;
+- a revocation first remains unknown when not yet known, then becomes denied as knowledge advances, without rewriting the earlier view;
+- removing retry-safety evidence cannot preserve a retry permit.
+
+These are finite reference-model properties over owner-supplied data, not exhaustive proofs or live-system tests.
