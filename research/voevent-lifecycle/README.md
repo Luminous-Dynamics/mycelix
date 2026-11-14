@@ -2,7 +2,7 @@
 
 A read-only Rust implementation for replaying lifecycle citations from exact VOEvent XML bytes as they were **received by a specified cutoff**.
 
-This is the executable slice tracked by [ASTRO-VOEVENT-LIFECYCLE-001](https://github.com/Luminous-Dynamics/mycelix/issues/6158). It directly depends on the same bounded VOEvent parser in [#6157](https://github.com/Luminous-Dynamics/mycelix/pull/6157) and its typed citation extension [#6180](https://github.com/Luminous-Dynamics/mycelix/pull/6180), so replay metadata is derived from the exact bytes being hashed. The full evaluation protocol is in [BENCHMARKS.md](BENCHMARKS.md).
+This is the executable slice tracked by [ASTRO-VOEVENT-LIFECYCLE-001](https://github.com/Luminous-Dynamics/mycelix/issues/6158). It directly depends on the same bounded VOEvent parser in [#6157](https://github.com/Luminous-Dynamics/mycelix/pull/6157) and its typed citation extension [#6180](https://github.com/Luminous-Dynamics/mycelix/pull/6180), so replay metadata is derived from the exact bytes being hashed. The full evaluation protocol is in [BENCHMARKS.md](BENCHMARKS.md). Source-native STC follow-on work is tracked in [ASTRO-WHEREWHEN-001](https://github.com/Luminous-Dynamics/mycelix/issues/6209).
 
 ## Why this exists
 
