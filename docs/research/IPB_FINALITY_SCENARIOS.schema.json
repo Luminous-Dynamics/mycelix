@@ -9,7 +9,8 @@
     "suite",
     "cases",
     "metric_dictionary",
-    "proposed_targets"
+    "proposed_targets",
+    "input_only"
   ],
   "properties": {
     "schema": {
@@ -110,7 +111,7 @@
           "operation",
           "events",
           "provider_contract",
-          "oracle",
+          "owner_refs",
           "owner_refs"
         ],
         "properties": {
@@ -162,47 +163,6 @@
           "provider_contract": {
             "type": "object"
           },
-          "oracle": {
-            "type": "object",
-            "required": [
-              "terminal_state",
-              "disposition",
-              "outcome_class",
-              "required"
-            ],
-            "properties": {
-              "terminal_state": {
-                "enum": [
-                  "PASS",
-                  "FAIL",
-                  "INDETERMINATE",
-                  "INVALID",
-                  "UNSUPPORTED",
-                  "TIMEOUT",
-                  "NOT_RUN"
-                ]
-              },
-              "disposition": {
-                "enum": [
-                  "ALLOW",
-                  "DENY",
-                  "HOLD_FOR_RECONCILIATION",
-                  "INDETERMINATE"
-                ]
-              },
-              "outcome_class": {
-                "type": "string"
-              },
-              "required": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "minItems": 1
-              }
-            },
-            "additionalProperties": true
-          },
           "owner_refs": {
             "type": "array",
             "items": {
@@ -211,7 +171,7 @@
             "minItems": 1
           }
         },
-        "additionalProperties": true
+        "additionalProperties": false
       }
     },
     "metric_dictionary": {
@@ -229,6 +189,9 @@
         }
       },
       "additionalProperties": true
+    },
+    "input_only": {
+      "const": true
     }
   }
 }
