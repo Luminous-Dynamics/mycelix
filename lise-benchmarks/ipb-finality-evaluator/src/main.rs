@@ -214,13 +214,13 @@ fn required_assertion_satisfied(assertion: &str, actual: &Value) -> bool {
         "human_operation_approval_separate_from_task_request" => approval == "new_authorization",
         "consumed_authority_not_reused" => replay == "consumed_replay_denied" && disposition == "DENY",
         "replay_attempt_recorded" => replay == "consumed_replay_denied" || replay == "replay_accepted",
-        "failover_epoch_currentness_verified" => fencing == "current",
+        "failover_epoch_currentness_verified" => fencing == "current" || (fencing == "stale" && disposition == "DENY"),
         "resource_rejects_stale_fence" => fencing == "stale" && disposition == "DENY",
         "credential_subject_equals_presenting_principal" =>
             subject == "matches" || (subject == "mismatch" && disposition == "DENY"),
         "valid_signature_not_enough" => subject == "mismatch" && disposition == "DENY",
         "session_epoch_matches_authority_epoch" => session_epoch == "current",
-        "stale_session_epoch_detected" => session_epoch == "stale" && disposition == "DENY",
+        "stale_session_epoch_detected" => session_epoch == "stale" && matches!(disposition, "DENY" | "INDETERMINATE"),
         "revocation_effective_before_action" | "revocation_known_before_action" =>
             revocation_timing == "effective_and_known",
         "mandatory_policy_error_not_silently_ignored" | "missing_required_context_not_treated_as_satisfied" =>
@@ -649,6 +649,26 @@ mod tests {
         let required=["revoked_authority_denies".to_owned()].into_iter().collect();
         assert!(!required_assertion_satisfied("revoked_authority_denies",&actual));
         assert_eq!(required.len(),1);
+    }
+    #[test]
+    fn unknown_effect_cannot_satisfy_no_protected_effect() {
+        let unknown=json!({"mutation_count":0,"protected_effect_state":"unknown"});
+        let no_effect=json!({"mutation_count":0,"protected_effect_state":"confirmed_no_effect"});
+        assert!(!required_assertion_satisfied("no_protected_effect",&unknown));
+        assert!(required_assertion_satisfied("no_protected_effect",&no_effect));
+    }
+    #[test]
+    fn stale_session_can_be_denied_or_held_when_propagation_is_unknown() {
+        let denied=json!({"session_epoch_state":"stale","observed_disposition":"DENY"});
+        let held=json!({"session_epoch_state":"stale","observed_disposition":"INDETERMINATE"});
+        assert!(required_assertion_satisfied("stale_session_epoch_detected",&denied));
+        assert!(required_assertion_satisfied("stale_session_epoch_detected",&held));
+    }
+    #[test]
+    fn stale_fencing_epoch_is_rejected_not_reported_current() {
+        let actual=json!({"fencing_state":"stale","observed_disposition":"DENY"});
+        assert!(required_assertion_satisfied("failover_epoch_currentness_verified",&actual));
+        assert!(required_assertion_satisfied("resource_rejects_stale_fence",&actual));
     }
     #[test]
     fn route_bypass_is_not_complete_mediation() {
