@@ -566,5 +566,49 @@
     "mutations_enabled": false
   },
   "policy_ref": "POLICY-COMMERCIAL-LEASE-V1",
-  "evaluator_ref": "IAE-VERTICAL-SLICE-EVALUATOR-V0.2"
+  "evaluator_ref": "IAE-VERTICAL-SLICE-EVALUATOR-V0.2",
+  "operation_finality": {
+    "approval_ref": "APPROVAL-LEASE-OPERATION-001",
+    "approval_state": "authorized",
+    "approved_by_ref": "ACTOR-TRUSTEE-01",
+    "approved_at": "2026-01-25T09:50:00Z",
+    "approval_kind": "human_record_not_cryptographically_verified",
+    "approved_operation": {
+      "logical_operation_id": "OP-LEASE-001",
+      "canonical_operation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "action_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "target_ref": "PROPERTY-001",
+      "destination_or_audience": "TENANT-SYNTHETIC-001",
+      "amount_minor": null,
+      "currency": null,
+      "purpose": "new_tenant_commercial_lease",
+      "resource_revision": "PROPERTY-REVISION-7",
+      "idempotency_ref": "IDEM-LEASE-001"
+    },
+    "pending_operation": {
+      "logical_operation_id": "OP-LEASE-001",
+      "canonical_operation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "action_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "target_ref": "PROPERTY-001",
+      "destination_or_audience": "TENANT-SYNTHETIC-001",
+      "amount_minor": null,
+      "currency": null,
+      "purpose": "new_tenant_commercial_lease",
+      "resource_revision": "PROPERTY-REVISION-7",
+      "idempotency_ref": "IDEM-LEASE-001"
+    },
+    "constitution": {
+      "institution_ref": "ENTITY-TRUST-01",
+      "epoch": 1,
+      "constitution_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "digest_verification": "synthetic_placeholder_not_cryptographically_verified"
+    },
+    "policy_revision": "POLICY-COMMERCIAL-LEASE-V1",
+    "authority_state_before_dispatch": "current",
+    "resource_state_before_dispatch": "matches",
+    "prior_effect_after_timeout": "outcome_unknown_after_dispatch",
+    "retry_safety_after_timeout": "unknown",
+    "expected_post_timeout_disposition": "HOLD_FOR_RECONCILIATION",
+    "expected_retry_permitted": false
+  }
 }
