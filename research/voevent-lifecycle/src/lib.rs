@@ -87,8 +87,7 @@ pub struct Packet {
     pub role: PacketRole,
     /// True only when observation was supplied through the VOEvent 2.1 implicit default.
     pub role_was_implicit: bool,
-    /// SHA-256 supplied by the upstream byte-preserving parser, when available.
-    /// This crate carries the value; it does not recompute or authenticate it.
+    /// SHA-256 computed by the canonical parser over the exact source XML bytes.
     pub packet_sha256: Option<String>,
     /// Publisher identifier asserted by the packet source; this is not authentication.
     pub publisher: Option<String>,
