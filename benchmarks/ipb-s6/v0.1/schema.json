@@ -92,7 +92,8 @@
         "availability",
         "evidence_state",
         "observed_at",
-        "valid_through",
+        "effective_from",
+        "effective_through",
         "claims"
       ],
       "properties": {
@@ -132,7 +133,11 @@
           "type": "string",
           "format": "date-time"
         },
-        "valid_through": {
+        "effective_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "effective_through": {
           "anyOf": [
             {
               "type": "string",
@@ -210,6 +215,29 @@
         }
       }
     },
+    "temporalQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "view",
+        "effective_at",
+        "known_at"
+      ],
+      "properties": {
+        "view": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effective_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "known_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "case": {
       "type": "object",
       "additionalProperties": false,
@@ -222,7 +250,8 @@
         "sources",
         "actor",
         "request",
-        "context"
+        "context",
+        "temporal_queries"
       ],
       "properties": {
         "scenario_id": {
@@ -265,6 +294,12 @@
           "items": {
             "type": "string",
             "minLength": 1
+          }
+        },
+        "temporal_queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/temporalQuery"
           }
         }
       }
