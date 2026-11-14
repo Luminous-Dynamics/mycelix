@@ -21,13 +21,15 @@ cargo run --manifest-path lise-benchmarks/ipb-finality-evaluator/Cargo.toml -- \
 
 ## Reporting
 
-The evaluator reports case conformance, disposition and outcome-class accuracy, required-assertion precision/recall, high-severity false passes, positive-control false denials, unexpected provider dispatch, mutations under no-mutation controls, blind retries, missing effect/independent observations, operation substitution, stale authority, constitution/resource mismatches, delegation amplification, excess trajectory privilege, route bypass and missing clarification. It separately requires evidence for exact digest state, approved/current constitution epochs, grant-inventory completeness, authority re-check, action/field/resource scope, purpose, expiry, scope-check execution, ownership re-check, and independent effective-time/knowledge-time revocation states.
+The evaluator reports terminal-state, disposition and outcome-class accuracy, required-assertion precision/recall, high-severity false passes, any false ALLOW against a non-ALLOW oracle, positive-control false denials, unsupported cases, unexpected provider dispatch, missing provider-contract references on dispatched operations, duplicate effects, mutations under no-mutation controls, blind retries, missing effect/independent observations, operation substitution, stale authority, constitution/resource mismatches, delegation amplification, excess trajectory privilege, route bypass and missing clarification. Candidate-supplied extra assurance claims must also be true. It separately requires evidence for exact digest state, approved/current constitution epochs, grant-inventory completeness, authority re-check, action/field/resource scope, purpose, expiry, scope-check execution, ownership re-check, and independent effective-time/knowledge-time revocation states.
 
 It emits SHA-256 receipts for the exact input manifest, oracle, submission and evaluator binary, plus the candidate's build/configuration/trace-bundle identities.
 
 ## Limits
 
 The evaluator compares declared outputs and assertion references; it does not authenticate raw evidence or inspect a trace bundle automatically. A digest binds bytes, not truth. Independent reviewers must inspect the referenced traces, provider contracts, owner-native authority records and protected-effect observations.
+
+**34 case results are required.** A candidate must report a terminal state separately from its authorization disposition: `UNSUPPORTED` is not a successful, correctly classified `INDETERMINATE` result.
 
 The public 34-case development oracle is not a hidden holdout. Do not claim SOTA performance or production qualification from this evaluator alone.
 
