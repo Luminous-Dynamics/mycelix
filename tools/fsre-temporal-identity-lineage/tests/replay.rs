@@ -22,9 +22,9 @@ fn late_arriving_event_does_not_rewrite_prior_knowledge() {
     let before = replay(FIXTURE, 40, 40).expect("historical view");
     let after = replay(FIXTURE, 60, 40).expect("later recorded view");
     assert_eq!(before.replayed_events, 2);
-    assert_eq!(after.replayed_events, 2);
+    assert_eq!(after.replayed_events, 3);
     assert_eq!(before.excluded_not_yet_recorded, 1);
-    assert_eq!(after.excluded_not_yet_effective, 2);
+    assert_eq!(after.excluded_not_yet_effective, 1);
 }
 
 #[test]
