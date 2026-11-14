@@ -1202,6 +1202,137 @@
         "2953",
         "3126"
       ]
+    },
+    {
+      "id": "A19",
+      "name": "mandatory-policy-guardrail-evaluation-error",
+      "class": "high_severity_attack",
+      "purpose": "A mandatory high-impact policy guardrail cannot evaluate because required entity/context data is missing. A permissive policy may otherwise match. The integration must inspect diagnostics and not dispatch on an incomplete mandatory evaluation.",
+      "policy_engine_comparator": {
+        "family": "Cedar-style",
+        "semantics": "A policy evaluation error is skipped by the Cedar authorization algorithm; the authorization response includes diagnostics. This scenario tests application handling, not a Cedar defect."
+      },
+      "operation": {
+        "institution": "inst-a",
+        "epoch": 6,
+        "constitution": "fixture:constitution:a6",
+        "action": "transfer",
+        "target": "asset:treasury-a",
+        "amount": 2000,
+        "currency": "USD",
+        "recipient": "party-d",
+        "operation": "op-019",
+        "required_guardrail": "high-impact-transfer-limit"
+      },
+      "events": [
+        {
+          "stage": "policy_evaluation",
+          "time": 10,
+          "policy": "mandatory-transfer-guardrail",
+          "result": "error",
+          "detail": "required-entity-context-missing"
+        },
+        {
+          "stage": "policy_evaluation",
+          "time": 10,
+          "policy": "general-permit-rule",
+          "result": "permit"
+        },
+        {
+          "stage": "authorization_response",
+          "time": 11,
+          "decision": "allow-with-diagnostics",
+          "diagnostic": "mandatory-policy-not-evaluated"
+        },
+        {
+          "stage": "execution_preflight",
+          "time": 12,
+          "diagnostics": "mandatory-guardrail-error"
+        }
+      ],
+      "provider_contract": {
+        "effect_not_dispatched_when_mandatory_guardrail_unresolved": "required"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "INDETERMINATE",
+        "outcome_class": "NO_EFFECT",
+        "required": [
+          "mandatory_policy_error_not_silently_ignored",
+          "diagnostics_preserved",
+          "missing_required_context_not_treated_as_satisfied",
+          "no_provider_dispatch"
+        ]
+      },
+      "owner_refs": [
+        "2953",
+        "3126",
+        "4835"
+      ]
+    },
+    {
+      "id": "R20",
+      "name": "decision-log-drop-is-not-proof-of-no-operation",
+      "class": "recovery_and_unknown_outcome",
+      "purpose": "A decision-log stream drops or filters an event under a configured rate limit/drop rule. An evaluator must not infer that no authorization or operation occurred from the missing log entry.",
+      "policy_engine_comparator": {
+        "family": "OPA-style",
+        "semantics": "Decision logs can be filtered and rate-limited; configured rate limits may drop events. The test treats logging coverage as distinct from source execution and effect evidence."
+      },
+      "operation": {
+        "institution": "inst-a",
+        "epoch": 6,
+        "constitution": "fixture:constitution:a6",
+        "action": "change-service-config",
+        "target": "service:water-ops",
+        "operation": "op-020"
+      },
+      "events": [
+        {
+          "stage": "policy_decision",
+          "time": 10,
+          "source": "policy-engine",
+          "decision": "allow",
+          "decision_ref": "decision-020"
+        },
+        {
+          "stage": "decision_log_transport",
+          "time": 11,
+          "result": "dropped-or-filtered",
+          "reason": "configured-rate-limit-or-drop-rule"
+        },
+        {
+          "stage": "external_observation",
+          "time": 12,
+          "result": "not-yet-available"
+        },
+        {
+          "stage": "reconciliation",
+          "time": 13,
+          "result": "effect-state-unresolved"
+        }
+      ],
+      "provider_contract": {
+        "decision_log_completeness": "not-guaranteed-by-this-configuration",
+        "effect_status_query": "not-yet-available"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "HOLD_FOR_RECONCILIATION",
+        "outcome_class": "UNKNOWN",
+        "required": [
+          "log_absence_not_interpreted_as_no_decision",
+          "log_coverage_gap_reported",
+          "no_blind_retry",
+          "wait_for_owner_native_attempt_or_effect_observation"
+        ]
+      },
+      "owner_refs": [
+        "2953",
+        "1607",
+        "6069",
+        "4835"
+      ]
     }
   ],
   "metric_dictionary": {
