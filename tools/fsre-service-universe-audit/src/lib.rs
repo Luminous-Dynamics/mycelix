@@ -3,7 +3,7 @@
 // This reference compares an observed frame with a declared reference frame.
 // It does not authenticate sources or prove that the reference frame is exhaustive.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 const HEADER: &str = "record_type|record_id|scope_status|reference_record_id|decision|evidence_owner|evidence_ref|valid_from_seconds|valid_until_seconds";
 
@@ -55,7 +55,7 @@ struct ObservedRecord {
     interval: Interval,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum Decision {
     Match,
     Unresolved,
@@ -300,3 +300,6 @@ fn parse_metadata(metadata: &BTreeMap<String, String>) -> Result<Metadata, Audit
         crosswalk_independence_assessment,
     })
 }
+
+mod evaluator;
+pub use evaluator::audit;
