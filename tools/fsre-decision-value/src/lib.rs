@@ -1062,7 +1062,7 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![1, 0]
         );
-        let ranked = evaluate(&posterior, &[perfect.clone()])
+        let ranked = evaluate(&posterior, std::slice::from_ref(&perfect))
             .expect("perfect measurement should evaluate against posterior");
         assert_eq!(ranked[0].outcome_choices.len(), 1);
         assert_eq!(ranked[0].outcome_choices[0].outcome_id, "cause-a");
