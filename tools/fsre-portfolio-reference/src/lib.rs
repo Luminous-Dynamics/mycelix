@@ -954,7 +954,7 @@ mod tests {
     #[test]
     fn missing_resource_profile_is_not_assumed_zero() {
         let changed = FIXTURE.replace(
-            "RESOURCE_PROFILE|resource-profile-mobile|mobile_treatment|water||synthetic-water-shock|hour-01||||COMPLETE|operator|synthetic:resource-profile:mobile\n",
+            "RESOURCE_PROFILE|resource-profile-mobile|mobile_treatment|water||synthetic-water-shock|hour-01||||COMPLETE|operator|synthetic:resource-profile:mobile_treatment\n",
             "",
         );
         assert_ne!(changed, FIXTURE);
@@ -1041,7 +1041,7 @@ mod tests {
                 "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|{capacity}|L|QUALIFIED|operator|synthetic:stock:diesel"
             );
             let changed = FIXTURE.replace(resource_old, &replacement);
-            assert_ne!(changed, FIXTURE);
+            assert_eq!(changed == FIXTURE, capacity == 60);
             let report = validate_and_report(&changed).expect("resource capacity sweep input");
             let expected = if capacity < 50 {
                 "portfolio_disposition=NOT_FEASIBLE"
@@ -1059,7 +1059,7 @@ mod tests {
                 "OPTION_CAPACITY|cap-pump|backup_pump|water||synthetic-water-shock|hour-01||{capacity}|m3|QUALIFIED|symtropy|synthetic:capacity:pump"
             );
             let changed = FIXTURE.replace(option_old, &replacement);
-            assert_ne!(changed, FIXTURE);
+            assert_eq!(changed == FIXTURE, capacity == 80);
             let report = validate_and_report(&changed).expect("option capacity sweep input");
             let expected = if capacity < 80 {
                 "portfolio_disposition=NOT_FEASIBLE"
@@ -1077,7 +1077,7 @@ mod tests {
                 "SERVICE_FLOOR|floor-households||water|households|synthetic-water-shock|hour-01||{floor}|m3|REQUIRED|service-owner|synthetic:floor:households"
             );
             let changed = FIXTURE.replace(floor_old, &replacement);
-            assert_ne!(changed, FIXTURE);
+            assert_eq!(changed == FIXTURE, floor == 70);
             let report = validate_and_report(&changed).expect("cohort floor sweep input");
             let expected = if floor > 100 {
                 "portfolio_disposition=NOT_FEASIBLE"
