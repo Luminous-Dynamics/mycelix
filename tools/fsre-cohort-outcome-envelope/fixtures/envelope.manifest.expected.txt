@@ -53,6 +53,7 @@ study_horizon_start_seconds=0
 study_horizon_end_seconds=100
 manifest_expected_cohort_count=3
 data_use_status=AUTHORIZED_FOR_DECLARED_PURPOSE
+requested_purpose=synthetic-test
 data_use_owner=synthetic-fixture-owner
 data_use_ref=synthetic:authorization:fixture-01
 data_use_purpose=synthetic-test
