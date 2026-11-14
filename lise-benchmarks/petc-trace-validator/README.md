@@ -13,6 +13,10 @@ cargo run --manifest-path lise-benchmarks/petc-trace-validator/Cargo.toml -- tra
 
 The validator emits a JSON report and exits 0 only when all structural/event-semantic checks pass. Exit 2 means invalid input, contract violations or digest mismatch.
 
+## Example fixture
+
+A complete sample trace is provided at `examples/valid-trace.json` and exercised by a unit test. It intentionally distinguishes provider acknowledgement (`provider_reported_applied`) from a later owner-independent protected-effect observation (`confirmed_applied`).
+
 ## Checks implemented
 
 - trace/system/task identity and SHA-256 shape;
