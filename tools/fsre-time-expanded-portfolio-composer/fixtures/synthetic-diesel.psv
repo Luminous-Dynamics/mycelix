@@ -1,0 +1,8 @@
+# scenario_id=shock
+# resource_id=diesel
+# resource_unit=L
+# time_basis_id=synthetic-utc-v1
+record_id|interval_index|interval_id|start_seconds|end_seconds|opening_quantity|replenishment_quantity|consumption_quantity|loss_quantity|closing_quantity|source_owner|source_ref|state
+stock-00|0|hour-00|0|3600|100|0|20|0|80|operator|stock:diesel:00|KNOWN
+stock-01|1|hour-01|3600|7200|80|10|20|0|70|operator|stock:diesel:01|KNOWN
+stock-02|2|hour-02|7200|10800|70|0|20|0|50|operator|stock:diesel:02|KNOWN
