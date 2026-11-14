@@ -27,6 +27,10 @@ Per evidence ID the report records the selected as-of revision or the absence of
 
 The aggregate result applies only to submitted evidence IDs. The tool does not know whether the submitted IDs form a complete set of required claims. It does not authenticate owners or references, determine the truth of assertions, establish legal authority, or authorise an action.
 
+## Independent reference
+
+The separately authored [decision-time oracle](../fsre-decision-time-oracle/README.md) independently parses and reconstructs the same frozen evidence frontier. The differential workflow compares the canonical reports; the shared v0.1 specification and fixture still require external challenge cases to test specification independence.
+
 ## Run
 
 `cargo test --locked --offline --manifest-path tools/fsre-decision-time-replay/Cargo.toml`
