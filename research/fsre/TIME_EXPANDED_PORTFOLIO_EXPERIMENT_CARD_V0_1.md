@@ -67,6 +67,7 @@ Each challenge family contains positive controls, known-infeasible controls, unk
 - cohort boundary and infrastructure identity changes across reporting periods;
 - delayed observations, clock uncertainty, future-information leakage and forecast/observation confusion;
 - contradictory source records, missing units, incomplete ownership and unknown capacity;
+- payload mutation under an unchanged owner/reference, stale content digest, digest-algorithm mismatch and snapshot substitution (once content-bound receipts are implemented);
 - repair crew, spare-parts and equipment contention across otherwise feasible plans.
 
 Use scenario-family holdouts, not only random row splits. At least one entire hazard/failure family, geography or operator period should remain untouched during design and tuning. Publish how the test set was constructed, but do not publish the sealed answers before the evaluation freeze.
