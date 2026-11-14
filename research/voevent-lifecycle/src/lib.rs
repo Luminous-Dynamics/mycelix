@@ -590,6 +590,8 @@ mod tests {
         assert_eq!(before.visible_packets.len(), 1);
         assert!(before.edges.is_empty());
         assert_eq!(before.visible_packets[0].id, "ivo://survey.example/event?one");
+        assert_eq!(before.visible_packets[0].role, PacketRole::Observation);
+        assert!(before.visible_packets[0].role_was_implicit);
         assert_eq!(
             before.visible_packets[0].parser_version,
             mycelix_voevent_header::PARSER_VERSION
@@ -671,7 +673,7 @@ mod tests {
             "cutoff_unix_ms": 10,
             "packets": [{
                 "received_at_unix_ms": 1,
-                "raw_packet_xml": "<VOEvent ivorn=\\\"ivo://survey.example/a\\\" version=\\\"2.1\\\"/>",
+                "raw_packet_xml": "<VOEvent/>",
                 "packet": {
                     "header": {
                         "ivoid": "ivo://attacker.example/forged",
