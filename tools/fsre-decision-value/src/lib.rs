@@ -165,10 +165,7 @@ fn validate_case(case: &DecisionCase) -> Result<u128, String> {
     Ok(prior_total)
 }
 
-fn validate_measurements(
-    case: &DecisionCase,
-    measurements: &[Measurement],
-) -> Result<(), String> {
+fn validate_measurements(case: &DecisionCase, measurements: &[Measurement]) -> Result<(), String> {
     if measurements.is_empty() {
         return Err("at least one measurement is required".to_owned());
     }
@@ -188,7 +185,10 @@ fn validate_measurements(
         let mut likelihood_totals = vec![0_u128; case.hypotheses.len()];
         for outcome in &measurement.outcomes {
             if !nonempty(&outcome.id) {
-                return Err(format!("measurement {} has an empty outcome ID", measurement.id));
+                return Err(format!(
+                    "measurement {} has an empty outcome ID",
+                    measurement.id
+                ));
             }
             if !outcome_ids.insert(outcome.id.as_str()) {
                 return Err(format!(
@@ -202,11 +202,7 @@ fn validate_measurements(
                     outcome.id, measurement.id
                 ));
             }
-            for (index, likelihood) in outcome
-                .likelihood_weight_by_hypothesis
-                .iter()
-                .enumerate()
-            {
+            for (index, likelihood) in outcome.likelihood_weight_by_hypothesis.iter().enumerate() {
                 likelihood_totals[index] = checked_add(
                     likelihood_totals[index],
                     u128::from(*likelihood),
@@ -219,10 +215,7 @@ fn validate_measurements(
             if *total != u128::from(case.likelihood_scale) {
                 return Err(format!(
                     "measurement {} likelihoods for hypothesis {} sum to {}, expected {}",
-                    measurement.id,
-                    case.hypotheses[index].id,
-                    total,
-                    case.likelihood_scale
+                    measurement.id, case.hypotheses[index].id, total, case.likelihood_scale
                 ));
             }
         }
@@ -248,8 +241,7 @@ fn minimum_loss_action(
         let replace = match &best {
             None => true,
             Some((best_id, best_loss)) => {
-                weighted_loss < *best_loss
-                    || (weighted_loss == *best_loss && action.id < *best_id)
+                weighted_loss < *best_loss || (weighted_loss == *best_loss && action.id < *best_id)
             }
         };
         if replace {
@@ -335,9 +327,9 @@ pub fn evaluate(
                     )
                 })
                 .collect::<Result<_, _>>()?;
-            let predictive_mass = joint_weights
-                .iter()
-                .try_fold(0_u128, |sum, mass| checked_add(sum, *mass, "predictive mass"))?;
+            let predictive_mass = joint_weights.iter().try_fold(0_u128, |sum, mass| {
+                checked_add(sum, *mass, "predictive mass")
+            })?;
             // Outcomes impossible under the current posterior contribute no expected loss.
             // They are omitted from the conditional recommendation, not treated as errors.
             if predictive_mass == 0 {
@@ -480,9 +472,9 @@ pub fn condition_case_on_outcome(
             )
         })
         .collect::<Result<_, _>>()?;
-    let predictive_mass = joint_weights
-        .iter()
-        .try_fold(0_u128, |sum, weight| checked_add(sum, *weight, "posterior mass"))?;
+    let predictive_mass = joint_weights.iter().try_fold(0_u128, |sum, weight| {
+        checked_add(sum, *weight, "posterior mass")
+    })?;
     if predictive_mass == 0 {
         return Err(format!(
             "observed outcome {observed_outcome_id} is impossible under the current hypothesis weights"
@@ -579,8 +571,11 @@ mod tests {
 
     #[test]
     fn exact_evsi_selects_a_measurement_that_changes_the_decision() {
-        let report = evaluate(&decision_case(), &[discriminating_measurement("flow-check")])
-            .expect("synthetic case should validate");
+        let report = evaluate(
+            &decision_case(),
+            &[discriminating_measurement("flow-check")],
+        )
+        .expect("synthetic case should validate");
         let result = &report[0];
         assert_eq!(
             result.disposition,
@@ -684,7 +679,10 @@ mod tests {
         let mut measurement = discriminating_measurement("unauthorised-inspection");
         measurement.authorised = false;
         let result = &evaluate(&decision_case(), &[measurement]).expect("case should validate")[0];
-        assert_eq!(result.disposition, MeasurementDisposition::BlockedUnauthorised);
+        assert_eq!(
+            result.disposition,
+            MeasurementDisposition::BlockedUnauthorised
+        );
         assert_eq!(result.gross_evsi, None);
         assert_eq!(result.net_evsi, None);
         assert!(!result.selected);
@@ -730,7 +728,10 @@ mod tests {
         let result = &evaluate(&case, &[discriminating_measurement("test")])
             .expect("case should validate")[0];
         assert_eq!(result.baseline_action_id.as_deref(), Some("ACTION_A"));
-        assert!(!result.outcome_choices.iter().any(|choice| choice.action_id == "FORBIDDEN_ZERO_LOSS"));
+        assert!(!result
+            .outcome_choices
+            .iter()
+            .any(|choice| choice.action_id == "FORBIDDEN_ZERO_LOSS"));
     }
 
     #[test]
@@ -773,8 +774,7 @@ mod tests {
     fn likelihood_and_prior_scale_changes_preserve_net_evsi() {
         let mut case = decision_case();
         let mut measurement = discriminating_measurement("scale-check");
-        let original = &evaluate(&case, &[measurement.clone()])
-            .expect("original scale")[0];
+        let original = &evaluate(&case, &[measurement.clone()]).expect("original scale")[0];
         let original_net = original.net_evsi.expect("net EVSI");
 
         case.likelihood_scale *= 2;
@@ -786,8 +786,7 @@ mod tests {
                 *likelihood *= 2;
             }
         }
-        let scaled = &evaluate(&case, &[measurement])
-            .expect("scaled weights")[0]
+        let scaled = &evaluate(&case, &[measurement]).expect("scaled weights")[0]
             .net_evsi
             .expect("scaled net EVSI");
         assert_eq!(
@@ -841,24 +840,17 @@ mod tests {
                 outcomes: vec![
                     Outcome {
                         id: "red".to_owned(),
-                        likelihood_weight_by_hypothesis: vec![
-                            signal_quality,
-                            100 - signal_quality,
-                        ],
+                        likelihood_weight_by_hypothesis: vec![signal_quality, 100 - signal_quality],
                     },
                     Outcome {
                         id: "blue".to_owned(),
-                        likelihood_weight_by_hypothesis: vec![
-                            100 - signal_quality,
-                            signal_quality,
-                        ],
+                        likelihood_weight_by_hypothesis: vec![100 - signal_quality, signal_quality],
                     },
                 ],
             };
-            let result = &evaluate(&case, &[measurement])
-                .expect("signal-quality case should validate")[0];
-            let expected_numerator =
-                u128::from(signal_quality.abs_diff(50)) * expected_denominator;
+            let result =
+                &evaluate(&case, &[measurement]).expect("signal-quality case should validate")[0];
+            let expected_numerator = u128::from(signal_quality.abs_diff(50)) * expected_denominator;
             assert_eq!(
                 result.gross_evsi,
                 Some(Rational {
@@ -929,8 +921,8 @@ mod tests {
                     ],
                 };
 
-                let result = &evaluate(&case, &[measurement])
-                    .expect("matrix case should validate")[0];
+                let result =
+                    &evaluate(&case, &[measurement]).expect("matrix case should validate")[0];
                 let baseline = result.baseline_expected_loss.expect("baseline loss");
                 let post = result
                     .expected_post_measurement_loss
@@ -995,11 +987,8 @@ mod tests {
         let mut more_expensive = discriminating_measurement("z-flow-survey");
         more_expensive.acquisition_cost = 8;
         let less_expensive = discriminating_measurement("a-meter-check");
-        let results = evaluate(
-            &decision_case(),
-            &[more_expensive, less_expensive],
-        )
-        .expect("both candidate measurements should validate");
+        let results = evaluate(&decision_case(), &[more_expensive, less_expensive])
+            .expect("both candidate measurements should validate");
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].measurement_id, "a-meter-check");
         assert!(results[0].selected);
@@ -1103,8 +1092,20 @@ mod tests {
         measurement.acquisition_cost = 50;
         measurement.delay_cost = 10;
         let result = &evaluate(&decision_case(), &[measurement]).expect("case should validate")[0];
-        assert_eq!(result.gross_evsi, Some(Rational { numerator: 400_000, denominator: 10_000 }));
-        assert_eq!(result.net_evsi, Some(SignedRational { numerator: -200_000, denominator: 10_000 }));
+        assert_eq!(
+            result.gross_evsi,
+            Some(Rational {
+                numerator: 400_000,
+                denominator: 10_000
+            })
+        );
+        assert_eq!(
+            result.net_evsi,
+            Some(SignedRational {
+                numerator: -200_000,
+                denominator: 10_000
+            })
+        );
         assert!(!result.selected);
     }
 }
