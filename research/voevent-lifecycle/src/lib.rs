@@ -9,7 +9,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceTime {
     /// Exact source-provided time lexical value. No parsing or normalization is performed.
     pub value: String,
@@ -19,7 +21,8 @@ pub struct SourceTime {
     pub reference_frame: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum CitationRelation {
     Followup,
     Supersedes,
@@ -36,14 +39,14 @@ impl CitationRelation {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Citation {
     /// Identifier of the previously published packet being cited.
     pub target_id: String,
     pub relation: CitationRelation,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Packet {
     /// Stable packet identifier, kept as supplied by the source.
     pub id: String,
@@ -61,7 +64,171 @@ pub struct Packet {
     pub citations: Vec<Citation>,
 }
 
+// JSON projection DTOs intentionally mirror the bounded fields emitted by
+// research/voevent-header's parse_packet CLI. Unknown parser fields are ignored
+// for forward compatibility; required evidence-bearing fields remain required.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct ParsedHeaderProjection {
+    pub ivoid: String,
+    pub packet_sha256: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct ParsedWhoProjection {
+    pub author_ivoid: Option<String>,
+    pub source_created_at: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct ParsedCitationProjection {
+    pub target_ivoid: String,
+    pub relation: CitationRelation,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct ParsedVoEventProjection {
+    pub header: ParsedHeaderProjection,
+    pub who: ParsedWhoProjection,
+    pub citations_present: bool,
+    pub citations: Vec<ParsedCitationProjection>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct ReceivedParsedPacket {
+    /// Supplied by the ingest receipt layer, not copied from Who/Date.
+    pub received_at_unix_ms: u64,
+    pub packet: ParsedVoEventProjection,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct ReplayManifest {
+    pub cutoff_unix_ms: u64,
+    pub packets: Vec<ReceivedParsedPacket>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ManifestError {
+    InvalidProjection { packet_index: usize, reason: String },
+    Replay(ReplayError),
+}
+
+impl fmt::Display for ManifestError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidProjection { packet_index, reason } => {
+                write!(f, "packet projection {packet_index} rejected: {reason}")
+            }
+            Self::Replay(error) => write!(f, "lifecycle replay rejected: {error}"),
+        }
+    }
+}
+
+impl Error for ManifestError {}
+
+fn is_ivoid_lexeme(value: &str) -> bool {
+    value.starts_with("ivo://")
+        && value.len() > "ivo://".len()
+        && !value
+            .chars()
+            .any(|character| character.is_control() || character.is_whitespace())
+}
+
+fn is_sha256_hex(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn packet_from_projection(
+    received: ReceivedParsedPacket,
+    packet_index: usize,
+) -> Result<Packet, ManifestError> {
+    let projection = received.packet;
+    let id = projection.header.ivoid;
+    if !is_ivoid_lexeme(&id) {
+        return Err(ManifestError::InvalidProjection {
+            packet_index,
+            reason: "root IVOID is empty, malformed, or contains whitespace".to_owned(),
+        });
+    }
+
+    let packet_sha256 = projection.header.packet_sha256;
+    if !is_sha256_hex(&packet_sha256) {
+        return Err(ManifestError::InvalidProjection {
+            packet_index,
+            reason: "packet SHA-256 must be exactly 64 hexadecimal characters".to_owned(),
+        });
+    }
+
+    let publisher = projection.who.author_ivoid;
+    if let Some(author_ivoid) = &publisher {
+        if !is_ivoid_lexeme(author_ivoid) {
+            return Err(ManifestError::InvalidProjection {
+                packet_index,
+                reason: "Who/AuthorIVORN is malformed or contains whitespace".to_owned(),
+            });
+        }
+    }
+
+    let published_at = projection.who.source_created_at;
+    if published_at.as_ref().is_some_and(|value| value.is_empty()) {
+        return Err(ManifestError::InvalidProjection {
+            packet_index,
+            reason: "Who/Date must not be an empty string".to_owned(),
+        });
+    }
+
+    if !projection.citations_present && !projection.citations.is_empty() {
+        return Err(ManifestError::InvalidProjection {
+            packet_index,
+            reason: "citations_present=false conflicts with a non-empty citation set".to_owned(),
+        });
+    }
+    if projection.citations_present && projection.citations.is_empty() {
+        return Err(ManifestError::InvalidProjection {
+            packet_index,
+            reason: "citations_present=true requires at least one parsed citation".to_owned(),
+        });
+    }
+
+    let mut citations = Vec::with_capacity(projection.citations.len());
+    for citation in projection.citations {
+        if !is_ivoid_lexeme(&citation.target_ivoid) {
+            return Err(ManifestError::InvalidProjection {
+                packet_index,
+                reason: format!(
+                    "citation target {:?} is not a valid IVOID lexeme",
+                    citation.target_ivoid
+                ),
+            });
+        }
+        citations.push(Citation {
+            target_id: citation.target_ivoid,
+            relation: citation.relation,
+        });
+    }
+
+    Ok(Packet {
+        id,
+        packet_sha256: Some(packet_sha256),
+        publisher,
+        received_at_unix_ms: received.received_at_unix_ms,
+        published_at,
+        event_time: None,
+        citations,
+    })
+}
+
+/// Convert the parser's JSON projections plus separately supplied ingress
+/// receipts into a receipt-time-bounded lifecycle replay.
+pub fn replay_manifest(manifest: ReplayManifest) -> Result<Replay, ManifestError> {
+    let mut packets = Vec::with_capacity(manifest.packets.len());
+    for (index, received) in manifest.packets.into_iter().enumerate() {
+        packets.push(packet_from_projection(received, index)?);
+    }
+    replay_as_of(&packets, manifest.cutoff_unix_ms).map_err(ManifestError::Replay)
+}
+
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VisiblePacket {
     pub id: String,
     pub packet_sha256: Option<String>,
@@ -71,7 +238,7 @@ pub struct VisiblePacket {
     pub event_time: Option<SourceTime>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LifecycleEdge {
     /// The newly received packet that makes the citation assertion.
     pub asserting_packet_id: String,
@@ -86,7 +253,7 @@ pub struct LifecycleEdge {
     pub asserted_packet_received_at_unix_ms: u64,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UnresolvedCitation {
     pub asserting_packet_id: String,
     pub asserting_packet_sha256: Option<String>,
@@ -96,7 +263,7 @@ pub struct UnresolvedCitation {
     pub asserted_packet_received_at_unix_ms: u64,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LifecycleEffect {
     pub packet_id: String,
     /// Packets that assert this packet is superseded. History is never deleted.
@@ -105,7 +272,8 @@ pub struct LifecycleEffect {
     pub retracted_by: Vec<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ReplayDiagnostic {
     SelfReference {
         packet_id: String,
@@ -117,7 +285,7 @@ pub enum ReplayDiagnostic {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Replay {
     pub cutoff_unix_ms: u64,
     pub visible_packets: Vec<VisiblePacket>,
@@ -351,6 +519,135 @@ mod tests {
             .iter()
             .find(|item| item.packet_id == packet_id)
             .expect("expected lifecycle effect")
+    }
+
+    #[test]
+    fn parser_projection_manifest_preserves_creation_receipt_and_digest_separately() {
+        let manifest_json = r#"{
+            "cutoff_unix_ms": 200,
+            "packets": [
+                {
+                    "received_at_unix_ms": 100,
+                    "packet": {
+                        "header": {
+                            "ivoid": "ivo://survey.example/event?one",
+                            "version": "2.1",
+                            "packet_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                        },
+                        "who": {
+                            "present": true,
+                            "author_ivoid": "ivo://publisher.example/stream",
+                            "source_created_at": "2026-11-14T08:00:00Z"
+                        },
+                        "citations_present": false,
+                        "citations": [],
+                        "citations_description": null
+                    }
+                },
+                {
+                    "received_at_unix_ms": 300,
+                    "packet": {
+                        "header": {
+                            "ivoid": "ivo://survey.example/event?two",
+                            "version": "2.1",
+                            "packet_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                        },
+                        "who": {
+                            "present": true,
+                            "author_ivoid": "ivo://review.example/stream",
+                            "source_created_at": "2026-11-14T07:55:00Z"
+                        },
+                        "citations_present": true,
+                        "citations": [{
+                            "target_ivoid": "ivo://survey.example/event?one",
+                            "relation": "supersedes",
+                            "attributes": [{"name": "cite", "value": "supersedes"}]
+                        }],
+                        "citations_description": "Reprocessed."
+                    }
+                }
+            ]
+        }"#;
+        let manifest: ReplayManifest =
+            serde_json::from_str(manifest_json).expect("parser projection manifest");
+        let before = replay_manifest(manifest.clone()).expect("historical replay");
+        assert_eq!(before.visible_packets.len(), 1);
+        assert!(before.edges.is_empty());
+
+        let mut later = manifest;
+        later.cutoff_unix_ms = 300;
+        let after = replay_manifest(later).expect("later replay");
+        assert_eq!(after.visible_packets.len(), 2);
+        assert_eq!(after.edges.len(), 1);
+        assert_eq!(
+            after.visible_packets[1].publisher.as_deref(),
+            Some("ivo://review.example/stream")
+        );
+        assert_eq!(
+            after.visible_packets[1].published_at.as_deref(),
+            Some("2026-11-14T07:55:00Z")
+        );
+        assert_eq!(
+            after.visible_packets[1].packet_sha256.as_deref(),
+            Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+        );
+        assert_eq!(
+            after.edges[0].asserting_packet_received_at_unix_ms,
+            300
+        );
+        assert_eq!(
+            after.edges[0].asserting_packet_sha256.as_deref(),
+            Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+        );
+    }
+
+    #[test]
+    fn parser_projection_manifest_rejects_invalid_digest_and_citation_presence_mismatch() {
+        let invalid_digest = ReplayManifest {
+            cutoff_unix_ms: 10,
+            packets: vec![ReceivedParsedPacket {
+                received_at_unix_ms: 1,
+                packet: ParsedVoEventProjection {
+                    header: ParsedHeaderProjection {
+                        ivoid: "ivo://survey.example/event?one".to_owned(),
+                        packet_sha256: "not-a-digest".to_owned(),
+                    },
+                    who: ParsedWhoProjection {
+                        author_ivoid: None,
+                        source_created_at: None,
+                    },
+                    citations_present: false,
+                    citations: Vec::new(),
+                },
+            }],
+        };
+        assert!(matches!(
+            replay_manifest(invalid_digest),
+            Err(ManifestError::InvalidProjection { .. })
+        ));
+
+        let inconsistent = ReplayManifest {
+            cutoff_unix_ms: 10,
+            packets: vec![ReceivedParsedPacket {
+                received_at_unix_ms: 1,
+                packet: ParsedVoEventProjection {
+                    header: ParsedHeaderProjection {
+                        ivoid: "ivo://survey.example/event?one".to_owned(),
+                        packet_sha256: "c".repeat(64),
+                    },
+                    who: ParsedWhoProjection {
+                        author_ivoid: None,
+                        source_created_at: None,
+                    },
+                    citations_present: true,
+                    citations: Vec::new(),
+                },
+            }],
+        };
+        assert!(matches!(
+            replay_manifest(inconsistent),
+            Err(ManifestError::InvalidProjection { .. })
+        ));
     }
 
     #[test]
