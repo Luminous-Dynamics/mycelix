@@ -1,0 +1,54 @@
+name: Bank Migration Corpus Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-finance/docs/BANK_MIGRATION_CUTOVER_CONTRACT_V1.md'
+      - 'mycelix-finance/docs/bank-migration-corpus-v1.json'
+      - 'mycelix-finance/docs/bank-migration-corpus-v1.schema.json'
+      - 'mycelix-workspace/mycelix-finance/docs/BANK_MIGRATION_CUTOVER_CONTRACT_V1.md'
+      - 'mycelix-workspace/mycelix-finance/docs/bank-migration-corpus-v1.json'
+      - 'mycelix-workspace/mycelix-finance/docs/bank-migration-corpus-v1.schema.json'
+      - 'tools/finance/bank-migration-evaluator/**'
+      - '.github/workflows/bank-migration-qualification.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-finance/docs/BANK_MIGRATION_CUTOVER_CONTRACT_V1.md'
+      - 'mycelix-finance/docs/bank-migration-corpus-v1.json'
+      - 'mycelix-finance/docs/bank-migration-corpus-v1.schema.json'
+      - 'tools/finance/bank-migration-evaluator/**'
+      - '.github/workflows/bank-migration-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migration-contract:
+    name: Effects-disabled migration corpus evaluator
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+          rustup default 1.96.0
+          rustc --version
+          cargo --version
+
+      - name: Check evaluator formatting
+        run: cargo fmt --manifest-path tools/finance/bank-migration-evaluator/Cargo.toml -- --check
+
+      - name: Run schema and semantic tests
+        run: cargo test --manifest-path tools/finance/bank-migration-evaluator/Cargo.toml
+
+      - name: Run adversarial mutation campaign
+        run: cargo run --manifest-path tools/finance/bank-migration-evaluator/Cargo.toml -- --self-test
+
+      - name: Run Clippy
+        run: cargo clippy --manifest-path tools/finance/bank-migration-evaluator/Cargo.toml --all-targets -- -D warnings
