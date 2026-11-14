@@ -12,7 +12,7 @@ A distributional outcome report needs to answer two different questions:
 
 These questions must not collapse into one boolean. A perfectly reconciled manifest can be legally inadmissible, and a licensed dataset can still contain incomplete or incorrect population identities.
 
-The manifest-qualified reference implements the first question relative to a supplied manifest. A separate source-use preflight now blocks outcome computation when the manifest states `REVIEW_REQUIRED`, `NOT_AUTHORIZED`, or an authorization interval that does not cover the full study horizon. The accepted `AUTHORIZED_FOR_DECLARED_PURPOSE` state is still a supplied assertion: the current reference does not authenticate the source owner, legal instrument, permission document or signature. The output explicitly reports `ASSERTED_NOT_AUTHENTICATED_BY_THIS_TOOL`. It must not be treated as legal authorization or as permission to ingest external Green Drop records.
+The manifest-qualified reference implements the first question relative to a supplied manifest. A separate source-use preflight now blocks outcome computation when the manifest states `REVIEW_REQUIRED`, `NOT_AUTHORIZED`, or an authorization interval that does not cover the full study horizon. The accepted `AUTHORIZED_FOR_DECLARED_PURPOSE` state and purpose match are still supplied assertions: the current reference does not authenticate the source owner, legal instrument, permission document or signature. The output explicitly reports `ASSERTED_NOT_AUTHENTICATED_BY_THIS_TOOL`. It must not be treated as legal authorization or as permission to ingest external Green Drop records.
 
 ## 2. Cohort manifest contract
 
