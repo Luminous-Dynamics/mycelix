@@ -1,0 +1,43 @@
+# Agent Authorization Claim Reference
+
+Pure Rust reference evaluator for a finite, claim-scoped authorization/effect contract.
+
+- Task outcome reports whether the task succeeded, failed or remained incomplete.
+- Authorization disposition reports permit, deny, hold, indeterminate or clarification required.
+- Effect state keeps committed, partial, unknown, confirmed-no-effect and not-attempted distinct.
+
+A successful task never upgrades an unauthorized action. A failed task does not automatically imply an authorization violation.
+
+The 28 synthetic cases cover clarification, structural parent/child delegation attenuation, revocation, expiry, epoch drift, enforcement bypass, operation substitution, collateral effects, failed tasks, executor-only acknowledgement, unknown/partial effects, replay, amount ceilings and observation mismatch. The input panel and separate oracle are stored independently. Strict serde parsing rejects unknown fields.
+
+This evaluator does not authenticate owner authority, enforce a real tool path, observe a real provider or perform an effect. It has no credential, signer, treasury or network capability.
+
+## Run
+
+```sh
+cargo fmt --check
+cargo check --all-targets
+cargo test --all-targets
+cargo clippy --all-targets -- -D warnings
+```
+
+**18 unit and 10 integration tests are authored; they have not been compiled or executed in the authoring environment.** Exact-head CI is required before reporting a Rust pass.
+
+A finite fixture pass is not a security guarantee, certification or SOTA superiority claim. Comparative results require matched task semantics, versions, sandbox visibility, oracle rules, repeated runs and full denominators.
+
+
+## No-attempt and collateral-effect consistency
+
+The evaluator now checks collateral effects before its no-primary-attempt shortcut. When no primary tool attempt is recorded:
+- a genuinely 'not_attempted' effect remains a permitted no-op;
+- unknown or partial effect state is held for reconciliation;
+- a committed effect conflicts with the no-attempt record and is indeterminate;
+- any unauthorized collateral effect is denied, even if the primary operation was not attempted.
+
+The fixture/oracle add A23–A28 for these four distinctions. This prevents the absence of a primary tool call from being used as evidence that no external effect occurred.
+
+
+## Attempt telemetry consistency
+
+The primary-attempt boolean must agree with the recorded attempt count. A contradictory record is indeterminate even if the effect label appears safe. The A20 clean no-op now records attempt_count=0; A27/A28 test false/positive disagreements between the attempt flag and counter.
+

@@ -1,0 +1,560 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LARP agent authorization scenario suite and separate oracle",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/scenarioSuite"
+    },
+    {
+      "$ref": "#/$defs/oracleSuite"
+    }
+  ],
+  "$defs": {
+    "taskOutcome": {
+      "enum": [
+        "succeeded",
+        "failed",
+        "incomplete"
+      ]
+    },
+    "disposition": {
+      "enum": [
+        "permit",
+        "deny",
+        "hold",
+        "indeterminate",
+        "challenge_required"
+      ]
+    },
+    "intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal_id",
+        "actor_id",
+        "action",
+        "resource",
+        "purpose",
+        "operation_digest",
+        "constitutional_epoch",
+        "requires_clarification"
+      ],
+      "properties": {
+        "principal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resource": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "constitutional_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "requires_clarification": {
+          "type": "boolean"
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "principal_id",
+        "actor_id",
+        "action",
+        "resource",
+        "purpose",
+        "operation_digest",
+        "recipient",
+        "maximum_amount_minor",
+        "currency",
+        "constitutional_epoch",
+        "valid_from_unix",
+        "expires_at_unix",
+        "delegated",
+        "parent_grant"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "valid",
+            "missing",
+            "unknown",
+            "revoked",
+            "expired",
+            "stale"
+          ]
+        },
+        "principal_id": {
+          "type": "string"
+        },
+        "actor_id": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        },
+        "resource": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "operation_digest": {
+          "type": "string"
+        },
+        "recipient": {
+          "type": "string"
+        },
+        "maximum_amount_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 1
+        },
+        "constitutional_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "valid_from_unix": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expires_at_unix": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "delegated": {
+          "type": "boolean"
+        },
+        "parent_grant": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/grantScope"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "clarification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "completed"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "completed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "policyDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed",
+        "policy_digest",
+        "decided_at_unix",
+        "operation_digest",
+        "constitutional_epoch"
+      ],
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "policy_digest": {
+          "type": "string"
+        },
+        "decided_at_unix": {
+          "type": "integer"
+        },
+        "operation_digest": {
+          "type": "string"
+        },
+        "constitutional_epoch": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "enforcement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "called",
+        "enforced",
+        "operation_digest",
+        "constitutional_epoch",
+        "enforced_at_unix"
+      ],
+      "properties": {
+        "called": {
+          "type": "boolean"
+        },
+        "enforced": {
+          "type": "boolean"
+        },
+        "operation_digest": {
+          "type": "string"
+        },
+        "constitutional_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "enforced_at_unix": {
+          "type": "integer"
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempted",
+        "operation_digest",
+        "recipient",
+        "amount_minor",
+        "currency",
+        "executed_at_unix",
+        "attempt_count",
+        "idempotency_qualified",
+        "effect_status",
+        "independent_observation",
+        "observed_operation_digest",
+        "observed_recipient",
+        "observed_amount_minor",
+        "observed_currency",
+        "unauthorized_collateral_effects"
+      ],
+      "properties": {
+        "attempted": {
+          "type": "boolean"
+        },
+        "operation_digest": {
+          "type": "string"
+        },
+        "recipient": {
+          "type": "string"
+        },
+        "amount_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string"
+        },
+        "executed_at_unix": {
+          "type": "integer"
+        },
+        "attempt_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "idempotency_qualified": {
+          "type": "boolean"
+        },
+        "effect_status": {
+          "enum": [
+            "not_attempted",
+            "committed",
+            "confirmed_no_effect",
+            "partial",
+            "unknown"
+          ]
+        },
+        "independent_observation": {
+          "type": "boolean"
+        },
+        "observed_operation_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observed_recipient": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observed_amount_minor": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observed_currency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unauthorized_collateral_effects": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "task_outcome",
+        "intent",
+        "authority",
+        "clarification",
+        "policy_decision",
+        "enforcement",
+        "execution"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^A[0-9]{2}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task_outcome": {
+          "$ref": "#/$defs/taskOutcome"
+        },
+        "intent": {
+          "$ref": "#/$defs/intent"
+        },
+        "authority": {
+          "$ref": "#/$defs/authority"
+        },
+        "clarification": {
+          "$ref": "#/$defs/clarification"
+        },
+        "policy_decision": {
+          "$ref": "#/$defs/policyDecision"
+        },
+        "enforcement": {
+          "$ref": "#/$defs/enforcement"
+        },
+        "execution": {
+          "$ref": "#/$defs/execution"
+        }
+      }
+    },
+    "oracleRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "expected_task_outcome",
+        "expected_disposition",
+        "reason_code"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^A[0-9]{2}$"
+        },
+        "expected_task_outcome": {
+          "$ref": "#/$defs/taskOutcome"
+        },
+        "expected_disposition": {
+          "$ref": "#/$defs/disposition"
+        },
+        "reason_code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]+$"
+        }
+      }
+    },
+    "scenarioSuite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "suite_id",
+        "status",
+        "case_count",
+        "cases"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "lise.agent-authorization-scenarios.v0.1"
+        },
+        "suite_id": {
+          "const": "LARP-AGENT-AUTHZ-001"
+        },
+        "status": {
+          "const": "synthetic-development-seed"
+        },
+        "case_count": {
+          "type": "integer",
+          "const": 28
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 28,
+          "maxItems": 28,
+          "items": {
+            "$ref": "#/$defs/scenario"
+          }
+        }
+      }
+    },
+    "oracleSuite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "suite_id",
+        "status",
+        "case_count",
+        "rows"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "lise.agent-authorization-oracle.v0.1"
+        },
+        "suite_id": {
+          "const": "LARP-AGENT-AUTHZ-001"
+        },
+        "status": {
+          "const": "reference-oracle-pending-independent-review"
+        },
+        "case_count": {
+          "type": "integer",
+          "const": 28
+        },
+        "rows": {
+          "type": "array",
+          "minItems": 28,
+          "maxItems": 28,
+          "items": {
+            "$ref": "#/$defs/oracleRow"
+          }
+        }
+      }
+    },
+    "grantScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "resource",
+        "purpose",
+        "operation_digest",
+        "recipient",
+        "maximum_amount_minor",
+        "currency",
+        "constitutional_epoch",
+        "valid_from_unix",
+        "expires_at_unix"
+      ],
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "resource": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "operation_digest": {
+          "type": "string"
+        },
+        "recipient": {
+          "type": "string"
+        },
+        "maximum_amount_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string"
+        },
+        "constitutional_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "valid_from_unix": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expires_at_unix": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
