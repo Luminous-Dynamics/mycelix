@@ -10,11 +10,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt;
 
-use serde::{Deserialize, Serialize};
 use mycelix_voevent_header::{
     parse_packet as parse_voevent_packet, CitationRelation as SourceCitationRelation,
     PacketRole as SourcePacketRole,
 };
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceTime {
@@ -590,7 +590,7 @@ mod tests {
     #[test]
     fn checked_in_source_packet_fixture_replays_without_a_metadata_projection() {
         let manifest: ReplayManifest = serde_json::from_str(include_str!(
-            "../tests/fixtures/parser-projection-thread.json"
+            "../tests/fixtures/source-packet-thread.json"
         ))
         .expect("raw source packet fixture");
         let historical = replay_manifest(manifest.clone()).expect("historical fixture replay");
