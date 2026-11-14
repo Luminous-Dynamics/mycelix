@@ -24,6 +24,6 @@ The first two are assertions supplied by the caller, not cryptographic or legal 
 
 ## Outputs
 
-Per-action decision and safety bounds, robust service-floor status, worst-case regret, robust dominance, rank invariance and minimax-regret actions among robustly safe candidates.
+Per-action decision and safety bounds, robust service-floor status, best/worst regret bounds for robustly safe actions, robust dominance, rank invariance and minimax-regret actions among robustly safe candidates.
 
 A successful result is conditional on the declared finite world set. It is not a real-world causal identification claim, source authentication or population completeness finding.
