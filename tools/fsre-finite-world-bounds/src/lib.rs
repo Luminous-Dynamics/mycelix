@@ -23,20 +23,6 @@ impl std::fmt::Display for BoundsError {
 }
 impl std::error::Error for BoundsError {}
 
-#[derive(Clone, Debug)]
-struct Metadata {
-    analysis_id: String,
-    estimand: String,
-    unit: String,
-    decision_cutoff: u64,
-    safety_floor: i64,
-    assumption_set_id: String,
-    input_snapshot_id: String,
-    source_use_status: String,
-    authority_status: String,
-    world_set_completeness: String,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Cell {
     decision_value: i64,
@@ -51,6 +37,7 @@ pub struct ActionBounds {
     pub safety_lower: i64,
     pub safety_upper: i64,
     pub robustly_safe: bool,
+    pub best_case_regret: i128,
     pub worst_case_regret: i128,
     pub robustly_dominates: Vec<String>,
 }
@@ -61,6 +48,7 @@ pub struct BoundsReport {
     pub estimand: String,
     pub unit: String,
     pub decision_cutoff: u64,
+    pub safety_floor: i64,
     pub assumption_set_id: String,
     pub input_snapshot_id: String,
     pub status: String,
@@ -81,6 +69,7 @@ impl BoundsReport {
         writeln!(&mut out, "estimand={}", self.estimand).expect("String write");
         writeln!(&mut out, "unit={}", self.unit).expect("String write");
         writeln!(&mut out, "decision_cutoff={}", self.decision_cutoff).expect("String write");
+        writeln!(&mut out, "safety_floor={}", self.safety_floor).expect("String write");
         writeln!(&mut out, "assumption_set_id={}", self.assumption_set_id).expect("String write");
         writeln!(&mut out, "input_snapshot_id={}", self.input_snapshot_id).expect("String write");
         writeln!(&mut out, "analysis_status={}", self.status).expect("String write");
@@ -100,13 +89,13 @@ impl BoundsReport {
             ).expect("String write");
             writeln!(&mut out, "action.{}.safety_bounds=[{},{}]", action.action_id, action.safety_lower, action.safety_upper).expect("String write");
             writeln!(&mut out, "action.{}.robust_safety={}", action.action_id, if action.robustly_safe { "PASS" } else { "FAIL" }).expect("String write");
+            writeln!(&mut out, "action.{}.regret_bounds=[{},{}]", action.action_id, action.best_case_regret, action.worst_case_regret).expect("String write");
             writeln!(&mut out, "action.{}.worst_case_regret={}", action.action_id, action.worst_case_regret).expect("String write");
             writeln!(&mut out, "action.{}.robustly_dominates={}", action.action_id, action.robustly_dominates.join(",")).expect("String write");
         }
         out.push_str("world_set_completeness=DECLARED_ASSERTION_NOT_AUTHENTICATED\n");
         out.push_str("source_authentication=ASSERTED_NOT_AUTHENTICATED\n");
         out.push_str("causal_model_authentication=NOT_ESTABLISHED\n");
-        Ok::<(), std::fmt::Error>(()).expect("infallible");
         out
     }
 }
@@ -344,6 +333,7 @@ pub fn analyze(source: &str) -> Result<Result<BoundsReport, Qualification>, Boun
         let mut safety_lower = i64::MAX;
         let mut safety_upper = i64::MIN;
         let mut robustly_safe = true;
+        let mut best_case_regret = i128::MAX;
         let mut worst_case_regret = 0_i128;
         for world in &world_ids {
             let cell = cells.get(&(world.clone(), action.clone())).expect("complete grid checked");
@@ -354,6 +344,7 @@ pub fn analyze(source: &str) -> Result<Result<BoundsReport, Qualification>, Boun
             robustly_safe &= cell.safety_value >= safety_floor;
             let best = *best_by_world.get(world).expect("known world");
             let regret = i128::from(best) - i128::from(cell.decision_value);
+            best_case_regret = best_case_regret.min(regret);
             worst_case_regret = worst_case_regret.max(regret);
         }
         let mut robustly_dominates = Vec::new();
@@ -378,6 +369,7 @@ pub fn analyze(source: &str) -> Result<Result<BoundsReport, Qualification>, Boun
             safety_lower,
             safety_upper,
             robustly_safe,
+            best_case_regret,
             worst_case_regret,
             robustly_dominates,
         });
@@ -401,6 +393,7 @@ pub fn analyze(source: &str) -> Result<Result<BoundsReport, Qualification>, Boun
         estimand,
         unit,
         decision_cutoff,
+        safety_floor,
         assumption_set_id,
         input_snapshot_id,
         status: if results.iter().any(|item| item.decision_lower != item.decision_upper) {
