@@ -395,6 +395,31 @@ fn restoring_independent_oversight_quorum_removes_capture_finding() {
 }
 
 #[test]
+fn declared_capture_predicate_matches_all_63_nonempty_coalitions() {
+    let actors = ["a", "b", "c", "d", "e", "f"];
+    for mask in 1_u8..(1_u8 << actors.len()) {
+        let coalition = actors
+            .iter()
+            .enumerate()
+            .filter_map(|(index, actor)| ((mask & (1_u8 << index)) != 0).then_some(*actor))
+            .collect::<Vec<_>>();
+        let scenario = metamorphic_scenario(&coalition, &actors, &actors, 2, 2);
+        let receipt = evaluate_capture(&scenario).expect("generated coalition validates");
+        let independent_count = actors.len() - coalition.len();
+        let expected = if coalition.len() >= 2 && independent_count < 2 {
+            CaptureDisposition::CaptureDetected
+        } else {
+            CaptureDisposition::NoCaptureObserved
+        };
+        assert_eq!(
+            receipt.disposition, expected,
+            "coalition size {} (mask {mask:#08b})",
+            coalition.len()
+        );
+    }
+}
+
+#[test]
 fn increasing_execution_quorum_does_not_create_capture_or_hide_unavailability() {
     let mut scenario = metamorphic_scenario(
         &["a", "b", "c"],
