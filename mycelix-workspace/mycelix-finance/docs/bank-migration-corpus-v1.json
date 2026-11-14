@@ -1,0 +1,241 @@
+{
+  "schema_version": "mycelix.bank-migration-corpus.v1",
+  "corpus_id": "BANK-MIGRATION-SYNTHETIC-V1",
+  "status": "synthetic_reference_only",
+  "currency_representation": "integer_minor_units",
+  "cases": [
+    {
+      "id": "BM-001",
+      "category": "complete_capture",
+      "input": {
+        "declared_records": 2,
+        "captured_records": 2,
+        "all_pages_present": true,
+        "source_snapshot_stable": true,
+        "items": [
+          {
+            "source_id": "src-001",
+            "revision": "r1",
+            "digest": "sha256:aa11",
+            "amount_minor": 1250,
+            "currency": "ZAR",
+            "status": "booked"
+          },
+          {
+            "source_id": "src-002",
+            "revision": "r1",
+            "digest": "sha256:bb22",
+            "amount_minor": -250,
+            "currency": "ZAR",
+            "status": "booked"
+          }
+        ]
+      },
+      "expected": "accept_import_and_reconcile",
+      "controls": [
+        "record_census_complete",
+        "exact_minor_units",
+        "per_currency_balance"
+      ]
+    },
+    {
+      "id": "BM-002",
+      "category": "exact_duplicate_replay",
+      "input": {
+        "source_id": "src-010",
+        "revision": "r4",
+        "digest": "sha256:cc33",
+        "idempotency_key": "bank-A:src-010:r4",
+        "deliveries": 2,
+        "payload_fingerprint_equal": true
+      },
+      "expected": "idempotent_no_second_effect",
+      "controls": [
+        "same_key_same_fingerprint",
+        "one_import_identity"
+      ]
+    },
+    {
+      "id": "BM-003",
+      "category": "conflicting_source_identity",
+      "input": {
+        "source_id": "src-011",
+        "revision": "r2",
+        "idempotency_key": "bank-A:src-011:r2",
+        "deliveries": 2,
+        "first_digest": "sha256:dd44",
+        "second_digest": "sha256:ee55",
+        "amounts_minor": [
+          5000,
+          5001
+        ]
+      },
+      "expected": "quarantine_conflict",
+      "controls": [
+        "same_key_changed_fingerprint",
+        "no_posting"
+      ]
+    },
+    {
+      "id": "BM-004",
+      "category": "incomplete_pagination",
+      "input": {
+        "declared_records": 120,
+        "captured_records": 100,
+        "expected_pages": 3,
+        "observed_pages": 2,
+        "source_snapshot_stable": true
+      },
+      "expected": "indeterminate_incomplete_scope",
+      "controls": [
+        "page_census",
+        "no_completeness_claim"
+      ]
+    },
+    {
+      "id": "BM-005",
+      "category": "late_return_after_cutover",
+      "input": {
+        "original_source_id": "src-020",
+        "original_status": "settled",
+        "late_event_id": "ret-020",
+        "late_event_type": "return",
+        "amount_minor": 2000,
+        "original_event_mutable": false
+      },
+      "expected": "append_correction_and_reconcile",
+      "controls": [
+        "preserve_original",
+        "late_event_lineage",
+        "reconcile_position"
+      ]
+    },
+    {
+      "id": "BM-006",
+      "category": "instrument_scale_substitution",
+      "input": {
+        "source_amount": "12.34",
+        "source_scale": 2,
+        "source_instrument": "iso4217:ZAR",
+        "target_amount_minor": 1234,
+        "target_scale": 2,
+        "target_instrument": "mycelix:SAP",
+        "fx_quote_present": false
+      },
+      "expected": "reject_instrument_substitution",
+      "controls": [
+        "instrument_identity_preserved",
+        "unit_scale_not_fx",
+        "no_implicit_conversion"
+      ]
+    },
+    {
+      "id": "BM-007",
+      "category": "unknown_lifecycle_status",
+      "input": {
+        "source_id": "src-030",
+        "source_status": "provider-provisionally-done",
+        "mapping_profile_version": "v1",
+        "known_statuses": [
+          "instructed",
+          "accepted",
+          "booked",
+          "clearing",
+          "settled",
+          "final",
+          "returned",
+          "reversed",
+          "disputed",
+          "failed",
+          "pending",
+          "indeterminate"
+        ]
+      },
+      "expected": "quarantine_unknown_status",
+      "controls": [
+        "no_favorable_fallback",
+        "preserve_source_value"
+      ]
+    },
+    {
+      "id": "BM-008",
+      "category": "false_settlement_promotion",
+      "input": {
+        "source_id": "src-040",
+        "source_status": "accepted",
+        "target_status": "final",
+        "settlement_evidence_present": false
+      },
+      "expected": "reject_semantic_promotion",
+      "controls": [
+        "accepted_not_final",
+        "settlement_evidence_required"
+      ]
+    },
+    {
+      "id": "BM-009",
+      "category": "legal_entity_substitution",
+      "input": {
+        "source_entity_token": "entity-A",
+        "target_entity_token": "entity-B",
+        "source_account_token": "acct-opaque-1",
+        "target_account_token": "acct-opaque-1"
+      },
+      "expected": "reject_scope_substitution",
+      "controls": [
+        "legal_entity_scope_bound",
+        "account_token_not_authority"
+      ]
+    },
+    {
+      "id": "BM-010",
+      "category": "pre_effect_rollback",
+      "input": {
+        "cutover_stage": "target_imported",
+        "external_effect_possible": false,
+        "source_snapshot_digest": "sha256:source-1",
+        "target_snapshot_digest": "sha256:target-1",
+        "all_effects_census_complete": true
+      },
+      "expected": "rollback_permitted",
+      "controls": [
+        "source_snapshot_restorable",
+        "no_external_effect",
+        "append_rollback_receipt"
+      ]
+    },
+    {
+      "id": "BM-011",
+      "category": "possible_effect_unknown",
+      "input": {
+        "cutover_stage": "provider_dispatch_attempted",
+        "external_effect_possible": true,
+        "provider_response": "timeout_unknown",
+        "original_effect_id": "effect-77",
+        "provider_query_available": false
+      },
+      "expected": "indeterminate_no_blind_retry",
+      "controls": [
+        "preserve_effect_identity",
+        "no_new_logical_operation",
+        "manual_reconciliation"
+      ]
+    },
+    {
+      "id": "BM-012",
+      "category": "timestamp_ambiguity",
+      "input": {
+        "source_effective_time": "2026-10-25T01:30:00",
+        "source_timezone": "unknown",
+        "recorded_at": "2026-10-25T01:45:00Z",
+        "dst_ambiguity": true
+      },
+      "expected": "indeterminate_temporal_scope",
+      "controls": [
+        "preserve_raw_time",
+        "no_timezone_guess",
+        "separate_effective_recorded_time"
+      ]
+    }
+  ]
+}
