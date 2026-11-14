@@ -32,6 +32,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.98.1
         with:
           components: rustfmt, clippy
+      - name: Validate schema JSON syntax
+        run: jq empty lise-benchmarks/ipb-finality-mutation-lab/schemas/*.json
       - name: Check formatting
         run: cargo fmt --manifest-path "$MANIFEST" --check
       - name: Check all targets
