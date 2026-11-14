@@ -542,7 +542,7 @@ mod tests {
     use serde_json::json;
 
     fn oracle(required: &[&str], disposition: &str, outcome: &str) -> Value {
-        json!({"required_assertions":required,"disposition":disposition,"outcome_class":outcome})
+        json!({"terminal_state":"PASS","required_assertions":required,"disposition":disposition,"outcome_class":outcome})
     }
     fn input(class: &str) -> Value { json!({"id":"A07","class":class}) }
     fn result() -> Value {
@@ -617,6 +617,23 @@ mod tests {
         assert!(!required_assertion_satisfied("independent_effect_observation",&actual));
         let qualified=json!({"observation_independence":"qualified_independent"});
         assert!(required_assertion_satisfied("independent_effect_observation",&qualified));
+    }
+    #[test]
+    fn duplicate_effect_counter_is_a_non_compensatory_violation() {
+        let mut actual=result();
+        actual["duplicate_effect_count"]=json!(1);
+        let scored=score_case(&input("positive_control"),&oracle(&[],"DENY","NO_EFFECT"),&actual).unwrap();
+        assert_eq!(scored["duplicate_effect_violation"],true);
+        assert_eq!(scored["conformant"],false);
+    }
+    #[test]
+    fn unsupported_terminal_state_is_reported_not_hidden() {
+        let mut actual=result();
+        actual["observed_terminal_state"]=json!("UNSUPPORTED");
+        let scored=score_case(&input("unsupported_provider_semantics"),&oracle(&[],"INDETERMINATE","UNKNOWN"),&actual).unwrap();
+        assert_eq!(scored["unsupported_terminal_state"],true);
+        assert_eq!(scored["terminal_state_correct"],false);
+        assert_eq!(scored["conformant"],false);
     }
     #[test]
     fn terminal_state_mismatch_is_not_conformant() {
