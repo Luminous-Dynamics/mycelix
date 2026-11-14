@@ -1,0 +1,4432 @@
+{
+  "corpus_id": "INGRESS-RECEIPT-QUALIFIER-CORPUS-V0.1",
+  "cases": [
+    {
+      "case_id": "IRT-001",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "eligible_by_cutoff"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-002",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 130,
+            "latest_ns": 140
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 130,
+            "latest_ns": 140
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "definitely_after_cutoff"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-003",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 115,
+            "latest_ns": 125
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 115,
+            "latest_ns": 125
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "cutoff_indeterminate"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-004",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 80,
+            "latest_ns": 110
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 80,
+            "latest_ns": 110
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "eligible_by_cutoff"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-005",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 110,
+            "latest_ns": 120
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 110,
+            "latest_ns": 120
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "cutoff_indeterminate"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-006",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 140,
+            "latest_ns": 130
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 140,
+            "latest_ns": 130
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "receipt_invalid"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-007",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 50,
+            "latest_ns": 200
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 50,
+            "latest_ns": 200
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "uncertainty_too_wide"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-008",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 100,
+          "latest_ns": 300
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "uncertainty_too_wide"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-009",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "failed",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "time_qualification_failed"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-010",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "indeterminate",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "time_qualification_indeterminate"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-011",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "unsupported",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "time_qualification_unsupported"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-012",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": null
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "time_qualification_indeterminate"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-013",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "gps-epoch",
+          "source_timebase_id": "GPS-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "GPS-NS",
+          "comparison_clock_epoch_id": "gps-epoch",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "gps-epoch",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "timebase_mismatch"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-014",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "other-epoch",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "timebase_mismatch"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-015",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "GPS-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "clock_mapping_missing"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-016",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "GPS-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": {
+            "mapping_id": "map-1",
+            "mapping_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "source_timebase_id": "GPS-NS",
+            "source_clock_epoch_id": "epoch-a",
+            "target_timebase_id": "TAI-NS",
+            "target_clock_epoch_id": "epoch-a",
+            "source_validity": {
+              "earliest_ns": 0,
+              "latest_ns": 200
+            },
+            "normalized_interval": {
+              "earliest_ns": 90,
+              "latest_ns": 100
+            },
+            "qualification": {
+              "disposition": "failed",
+              "verifier_receipt": {
+                "receipt_id": "map-verification",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-map-verification",
+                "verifier_version": "0.1.0",
+                "profile_id": "mapping-profile-v1",
+                "subject_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+              }
+            }
+          },
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "clock_mapping_unqualified"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-017",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "GPS-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": {
+            "mapping_id": "map-1",
+            "mapping_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "source_timebase_id": "GPS-NS",
+            "source_clock_epoch_id": "epoch-a",
+            "target_timebase_id": "TAI-NS",
+            "target_clock_epoch_id": "epoch-a",
+            "source_validity": {
+              "earliest_ns": 0,
+              "latest_ns": 200
+            },
+            "normalized_interval": {
+              "earliest_ns": 90,
+              "latest_ns": 100
+            },
+            "qualification": {
+              "disposition": "verified",
+              "verifier_receipt": null
+            }
+          },
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "clock_mapping_unqualified"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-018",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "GPS-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": {
+            "mapping_id": "map-1",
+            "mapping_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "source_timebase_id": "GPS-NS",
+            "source_clock_epoch_id": "epoch-a",
+            "target_timebase_id": "TAI-NS",
+            "target_clock_epoch_id": "epoch-a",
+            "source_validity": {
+              "earliest_ns": 91,
+              "latest_ns": 200
+            },
+            "normalized_interval": {
+              "earliest_ns": 90,
+              "latest_ns": 100
+            },
+            "qualification": {
+              "disposition": "verified",
+              "verifier_receipt": {
+                "receipt_id": "map-verification",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-map-verification",
+                "verifier_version": "0.1.0",
+                "profile_id": "mapping-profile-v1",
+                "subject_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+              }
+            }
+          },
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "clock_mapping_unqualified"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-019",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "GPS-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": {
+            "mapping_id": "map-1",
+            "mapping_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "source_timebase_id": "GPS-NS",
+            "source_clock_epoch_id": "epoch-a",
+            "target_timebase_id": "TAI-NS",
+            "target_clock_epoch_id": "epoch-a",
+            "source_validity": {
+              "earliest_ns": 0,
+              "latest_ns": 200
+            },
+            "normalized_interval": {
+              "earliest_ns": 90,
+              "latest_ns": 100
+            },
+            "qualification": {
+              "disposition": "verified",
+              "verifier_receipt": {
+                "receipt_id": "map-verification",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-map-verification",
+                "verifier_version": "0.1.0",
+                "profile_id": "mapping-profile-v1",
+                "subject_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+              }
+            }
+          },
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "eligible_by_cutoff"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-020",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "fork_observed",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "history_forked"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-021",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "unavailable",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "history_unproven"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-022",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "inclusion_only",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "history_unproven"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-023",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": false
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "unavailable",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "eligible_by_cutoff"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-024",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": []
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "history_unproven"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-025",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "history_unproven"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-026",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "not-a-digest",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "receipt_invalid"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-027",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "receipt_invalid"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-028",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 0,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "receipt_invalid"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-029",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "bad",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "receipt_invalid"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-030",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": " ",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "receipt_invalid"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-031",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        },
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "eligible_by_cutoff"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-032",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        },
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "receipt_identity_conflict"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-033",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-a",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        },
+        {
+          "receipt_id": "receipt-b",
+          "receipt_statement_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-a",
+          "disposition": "sequence_conflict"
+        },
+        {
+          "receipt_id": "receipt-b",
+          "disposition": "sequence_conflict"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-034",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-a",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        },
+        {
+          "receipt_id": "receipt-b",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-b",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "epoch-a",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-a",
+          "disposition": "eligible_by_cutoff"
+        },
+        {
+          "receipt_id": "receipt-b",
+          "disposition": "eligible_by_cutoff"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-035",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": null,
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "epoch-a",
+          "source_timebase_id": "TAI-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": null,
+          "sequence": null,
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "eligible_by_cutoff"
+        }
+      ]
+    },
+    {
+      "case_id": "IRT-036",
+      "cutoff": {
+        "cutoff_id": "cutoff-1",
+        "cutoff_statement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "timebase_id": "TAI-NS",
+        "clock_epoch_id": "epoch-a",
+        "interval": {
+          "earliest_ns": 110,
+          "latest_ns": 120
+        },
+        "qualification": {
+          "disposition": "verified",
+          "verifier_receipt": {
+            "receipt_id": "cutoff-verification-1",
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "verifier_id": "verifier-cutoff-verification-1",
+            "verifier_version": "0.1.0",
+            "profile_id": "time-profile-v1",
+            "subject_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      },
+      "policy": {
+        "policy_id": "receipt-time-policy-v1",
+        "required_time_profile_id": "time-profile-v1",
+        "required_mapping_profile_id": "mapping-profile-v1",
+        "required_history_profile_id": "history-profile-v1",
+        "maximum_receipt_interval_width_ns": 100,
+        "maximum_cutoff_interval_width_ns": 100,
+        "require_consistent_history": true
+      },
+      "receipts": [
+        {
+          "receipt_id": "receipt-001",
+          "receipt_statement_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "receiver_id": "broker-a",
+          "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_artifact_byte_length": 180,
+          "source_stream_id": "stream-a",
+          "source_clock_domain_id": "clock-domain-a",
+          "source_clock_epoch_id": "gps-epoch",
+          "source_timebase_id": "GPS-NS",
+          "source_receipt_interval": {
+            "earliest_ns": 80,
+            "latest_ns": 100
+          },
+          "comparison_timebase_id": "TAI-NS",
+          "comparison_clock_epoch_id": "epoch-a",
+          "comparison_receipt_interval": {
+            "earliest_ns": 90,
+            "latest_ns": 100
+          },
+          "mapping_receipt": {
+            "mapping_id": "map-1",
+            "mapping_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "source_timebase_id": "GPS-NS",
+            "source_clock_epoch_id": "gps-epoch",
+            "target_timebase_id": "TAI-NS",
+            "target_clock_epoch_id": "epoch-a",
+            "source_validity": {
+              "earliest_ns": 50,
+              "latest_ns": 110
+            },
+            "normalized_interval": {
+              "earliest_ns": 90,
+              "latest_ns": 100
+            },
+            "qualification": {
+              "disposition": "verified",
+              "verifier_receipt": {
+                "receipt_id": "map-verification",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-map-verification",
+                "verifier_version": "0.1.0",
+                "profile_id": "mapping-profile-v1",
+                "subject_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+              }
+            }
+          },
+          "sequence": {
+            "stream_id": "stream-a",
+            "clock_epoch_id": "gps-epoch",
+            "sequence_number": 42
+          },
+          "time_qualification": {
+            "disposition": "verified",
+            "verifier_receipt": {
+              "receipt_id": "time-verification-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-time-verification-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "time-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "history": {
+            "status": "consistent",
+            "log_id": "log-alpha",
+            "checkpoint_size": 64,
+            "checkpoint_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "inclusion_receipt": {
+              "receipt_id": "include-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-include-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "consistency_receipt": {
+              "receipt_id": "consistency-1",
+              "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "verifier_id": "verifier-consistency-1",
+              "verifier_version": "0.1.0",
+              "profile_id": "history-profile-v1",
+              "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "witness_profile_id": "qualified-witness-profile-v1",
+            "witnesses": [
+              {
+                "receipt_id": "witness-1",
+                "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "verifier_id": "verifier-witness-1",
+                "verifier_version": "0.1.0",
+                "profile_id": "history-profile-v1",
+                "subject_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            ]
+          }
+        }
+      ],
+      "expected": [
+        {
+          "receipt_id": "receipt-001",
+          "disposition": "eligible_by_cutoff"
+        }
+      ]
+    }
+  ]
+}
