@@ -855,14 +855,17 @@ mod tests {
             ActionObservation {
                 action_id: "a".to_owned(),
                 effect: ActionEffect::ConfirmedApplied,
+            evidence: None,
             },
             ActionObservation {
                 action_id: "b".to_owned(),
                 effect: ActionEffect::ConfirmedApplied,
+            evidence: None,
             },
             ActionObservation {
                 action_id: "c".to_owned(),
                 effect: ActionEffect::Unknown,
+            evidence: None,
             },
         ];
         assert_eq!(
@@ -880,10 +883,12 @@ mod tests {
             ActionObservation {
                 action_id: "a".to_owned(),
                 effect: ActionEffect::ConfirmedApplied,
+            evidence: None,
             },
             ActionObservation {
                 action_id: "b".to_owned(),
                 effect: ActionEffect::ConfirmedApplied,
+            evidence: None,
             },
         ];
         assert_eq!(
@@ -895,10 +900,12 @@ mod tests {
             ActionObservation {
                 action_id: "a".to_owned(),
                 effect: ActionEffect::ConfirmedApplied,
+            evidence: None,
             },
             ActionObservation {
                 action_id: "b".to_owned(),
                 effect: ActionEffect::ConfirmedNotApplied,
+            evidence: None,
             },
         ];
         assert_eq!(
@@ -912,6 +919,7 @@ mod tests {
         let observed_prefix = vec![ActionObservation {
             action_id: "a".to_owned(),
             effect: ActionEffect::ConfirmedApplied,
+        evidence: None,
         }];
         assert_eq!(
             reconcile_actions(
@@ -927,6 +935,7 @@ mod tests {
         let unexpected = vec![ActionObservation {
             action_id: "not-in-plan".to_owned(),
             effect: ActionEffect::ConfirmedApplied,
+        evidence: None,
         }];
         assert_eq!(
             reconcile_actions(&["expected".to_owned()], &unexpected),
@@ -948,10 +957,12 @@ mod tests {
             ActionObservation {
                 action_id: "same".to_owned(),
                 effect: ActionEffect::ConfirmedApplied,
+            evidence: None,
             },
             ActionObservation {
                 action_id: "same".to_owned(),
                 effect: ActionEffect::Unknown,
+            evidence: None,
             },
         ];
         assert_eq!(
