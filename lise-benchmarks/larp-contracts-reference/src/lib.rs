@@ -376,6 +376,10 @@ pub fn evaluate(facts: &EvaluationFacts, now_unix: i64) -> Decision {
             require!(facts.authority.local_ratification, "LOCAL_RATIFICATION_UNKNOWN", "LOCAL_RATIFICATION_ABSENT");
             require!(facts.authority.predecessor_digest_matches, "PREDECESSOR_DIGEST_UNKNOWN", "PREDECESSOR_DIGEST_MISMATCH");
             require!(facts.authority.constitution_current, "CONSTITUTIONAL_EPOCH_UNKNOWN", "CONSTITUTIONAL_EPOCH_STALE");
+            require!(facts.rights.rights_satisfied, "RIGHTS_STATUS_UNKNOWN", "RIGHTS_FLOOR_NOT_SATISFIED");
+            if facts.rights.high_impact == Some(true) {
+                require!(facts.rights.remedy_path_defined, "REMEDY_PATH_UNKNOWN", "REMEDY_PATH_MISSING");
+            }
             Decision::permit("SUCCESSOR_CONTRACT_RATIFIED_UNDER_CURRENT_LOCAL_CONSTITUTION")
         }
         EvaluationMode::EvidenceAdmission => {
@@ -384,6 +388,8 @@ pub fn evaluate(facts: &EvaluationFacts, now_unix: i64) -> Decision {
             if !local && !partner {
                 return Decision::indeterminate("NO_QUALIFIED_LOCAL_OR_ISSUER_EVIDENCE_BASIS");
             }
+            require!(facts.scope.purpose_allowed, "EVIDENCE_PURPOSE_UNKNOWN", "EVIDENCE_PURPOSE_PROHIBITED");
+            require!(facts.rights.rights_satisfied, "DISCLOSURE_RIGHTS_UNKNOWN", "DISCLOSURE_RIGHTS_NOT_SATISFIED");
             require!(facts.evidence.sufficient, "EVIDENCE_SUFFICIENCY_UNKNOWN", "EVIDENCE_INSUFFICIENT");
             Decision::permit("EVIDENCE_ACCEPTED_FOR_LOCAL_EVALUATION_NOT_AUTHORITY")
         }
@@ -402,6 +408,10 @@ pub fn evaluate(facts: &EvaluationFacts, now_unix: i64) -> Decision {
         EvaluationMode::StagedReward => {
             require!(facts.authority.local_authorized, "LOCAL_AUTHORITY_UNKNOWN", "LOCAL_AUTHORITY_DENIED");
             require!(facts.authority.constitution_current, "CONSTITUTIONAL_EPOCH_UNKNOWN", "CONSTITUTIONAL_EPOCH_STALE");
+            require!(facts.rights.rights_satisfied, "RIGHTS_STATUS_UNKNOWN", "RIGHTS_FLOOR_NOT_SATISFIED");
+            if facts.rights.high_impact == Some(true) {
+                require!(facts.rights.remedy_path_defined, "REMEDY_PATH_UNKNOWN", "REMEDY_PATH_MISSING");
+            }
             require!(facts.evidence.outcome_independently_observed, "OUTCOME_OBSERVATION_UNKNOWN", "OUTCOME_NOT_INDEPENDENTLY_OBSERVED");
             require!(facts.scope.payout_bounded, "PAYOUT_BOUND_UNKNOWN", "PAYOUT_UNBOUNDED");
             require!(facts.authority.treasury_separately_authorized, "TREASURY_AUTHORITY_UNKNOWN", "TREASURY_AUTHORITY_DENIED");
