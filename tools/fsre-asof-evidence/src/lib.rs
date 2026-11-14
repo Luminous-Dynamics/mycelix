@@ -83,6 +83,7 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
     let mut evidence = Vec::new();
     let mut record_ids = BTreeSet::new();
     let mut evidence_refs = BTreeSet::new();
+    let mut row_scenarios = Vec::new();
     let mut header_seen = false;
 
     for (index, raw) in source.lines().enumerate() {
@@ -120,6 +121,7 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
         let row_scenario = fields[3];
         let clock_basis = fields[11];
         let owner = fields[12];
+        row_scenarios.push(row_scenario.to_owned());
         let source_ref = fields[13];
 
         require_id(record_id, "record_id", line_number)?;
@@ -250,6 +252,9 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
             .ok_or_else(|| InputError(format!("missing metadata key {key}")))
     };
     let scenario_id = take("scenario_id")?;
+    if row_scenarios.iter().any(|row_scenario| row_scenario != &scenario_id) {
+        return Err(InputError("record scenario_id does not match the frozen scenario".to_owned()));
+    }
     let decision_at = parse_u64(&take("decision_at")?, "decision_at", 0)?;
     let max_age = parse_u64(&take("max_observation_age_seconds")?, "max_observation_age_seconds", 0)?;
     let clock_basis_id = take("clock_basis_id")?;
@@ -608,6 +613,36 @@ mod tests {
             validate_and_report(FIXTURE).expect("original"),
             validate_and_report(&reordered).expect("reordered")
         );
+    }
+
+    #[test]
+    fn scenario_mismatch_is_rejected_instead_of_crossing_evidence_boundaries() {
+        let source = FIXTURE.replace(
+            "EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock",
+            "EVIDENCE|e-pump-1|pump_capacity|different-scenario",
+        );
+        assert_ne!(source, FIXTURE);
+        assert!(validate_and_report(&source)
+            .unwrap_err()
+            .0
+            .contains("does not match the frozen scenario"));
+    }
+
+    #[test]
+    fn validity_start_is_inclusive_and_future_start_is_not_yet_valid() {
+        let source = FIXTURE.replace(
+            "EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|6000|6100|5900|9000",
+            "EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|7200|7200|7200|9000",
+        );
+        let report = validate_and_report(&source).expect("valid_from boundary");
+        assert!(report.contains("e-pump-1|pump_capacity|ADMISSIBLE|admissible=YES"));
+
+        let future = FIXTURE.replace(
+            "EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|6000|6100|5900|9000",
+            "EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|7000|7100|7300|9000",
+        );
+        let report = validate_and_report(&future).expect("future validity start");
+        assert!(report.contains("e-pump-1|pump_capacity|NOT_YET_VALID|admissible=NO"));
     }
 
     #[test]
