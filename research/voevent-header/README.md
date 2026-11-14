@@ -55,3 +55,8 @@ The original packet bytes and digest remain authoritative. Parsed fields are a d
 The library tests cover explicit and implicit packet roles, prediction/utility/test separation, unknown role, wrong/missing version, missing/invalid root, author and citation IVOIDs, optional/partial/duplicate Who curation fields, citation cardinality, missing/unknown cite relation, multiple citations, descriptions, XML character references, duplicate attributes, nested citation markup, DOCTYPE, multiple roots, malformed/incomplete XML, text outside the document root, oversized/non-UTF-8 input and retention of uninterpreted attributes.
 
 Synthetic unit cases are not real astronomical events and are not an IVOA conformance certification.
+
+
+## Downstream parser identity
+
+The library exports `PARSER_VERSION`, compiled from this package's `CARGO_PKG_VERSION`. Parser-bound consumers record this identity with each derived packet projection. A parser upgrade is therefore visible in replay receipts and must be evaluated as a separate parser configuration.
