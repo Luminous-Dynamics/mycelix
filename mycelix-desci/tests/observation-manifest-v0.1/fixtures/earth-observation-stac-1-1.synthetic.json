@@ -1,0 +1,49 @@
+{
+  "profile": "mycelix-observation-manifest/0.1",
+  "schema_version": "0.1.0",
+  "observation_id": "urn:mycelix:fixture:eo:0001",
+  "received_at": {"value": "2026-11-14T10:00:00Z", "encoding": "iso8601", "time_scale": "UTC"},
+  "source": {
+    "system_id": "copernicus-stac-fixture",
+    "record_id": "fixture-collection/fixture-item-0001",
+    "schema_id": "https://stacspec.org/",
+    "schema_version": "1.1.0",
+    "issuer": "did:example:synthetic-stac-publisher",
+    "published_at": {"value": "2026-11-14T09:59:00Z", "encoding": "iso8601", "time_scale": "UTC"},
+    "authentication": {"status": "not_assessed"}
+  },
+  "phenomenon": {
+    "property_id": "urn:example:earth-observation:surface-change-candidate",
+    "event_time": {"value": "2026-07-01T09:30:00Z", "encoding": "iso8601", "time_scale": "UTC"}
+  },
+  "instrument": {
+    "platform_id": "fixture-satellite",
+    "instrument_id": "fixture-optical-instrument",
+    "configuration_ref": "urn:fixture:eo-processing-baseline:1",
+    "calibration": {"state": "unknown"}
+  },
+  "artifact": {
+    "locator": "urn:sha256:2a5b593d0a3589f71c97ccb505ca4bbcb62f79ab80d9408b3f24f4cb06d00e3a",
+    "media_type": "text/plain; charset=utf-8",
+    "byte_length": 48,
+    "digest": {"algorithm": "sha256", "value": "2a5b593d0a3589f71c97ccb505ca4bbcb62f79ab80d9408b3f24f4cb06d00e3a"}
+  },
+  "domain_profile": {
+    "profile_id": "urn:mycelix:domain:earth-observation:stac-1.1",
+    "profile_version": "0.1",
+    "native_semantics_ref": "urn:mycelix:profile:earth-observation:stac-1.1:0.1"
+  },
+  "quality": {
+    "disposition": "unknown",
+    "missingness": "not_assessed",
+    "flags": ["synthetic_fixture_only", "cloud_mask_not_evaluated"]
+  },
+  "rights": {
+    "owner": "synthetic-fixture-author",
+    "license": "fixture-only",
+    "access_disposition": "controlled",
+    "permitted_purposes": ["contract_validation"],
+    "restrictions": ["synthetic_fixture_only", "not_a_real_satellite_scene"]
+  },
+  "lineage": {"derived_from": [], "corrects": [], "supersedes": []}
+}
