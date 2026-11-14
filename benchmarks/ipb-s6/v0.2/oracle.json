@@ -1,0 +1,140 @@
+{
+  "oracle_version": "0.2",
+  "synthetic": true,
+  "status": "development_oracle_not_independently_adjudicated",
+  "claim_ceiling": "Synthetic expected outcomes only. This oracle is not legal adjudication, credential certification, proof of source truth, or evidence of production safety.",
+  "cases": [
+    {
+      "scenario_id": "S6R-001",
+      "action_outcome": "BLOCK",
+      "authorization_disposition": "issuer_untrusted",
+      "claim_disposition": "not_evaluated",
+      "execution_state": "NOT_STARTED",
+      "mutation_count": 0,
+      "retry_count": 0,
+      "source_independence": "not_applicable",
+      "required_reason_codes": [
+        "authority.issuer.untrusted"
+      ],
+      "prohibited_inferences": [
+        "A valid cryptographic proof does not make an untrusted issuer institutionally authoritative."
+      ]
+    },
+    {
+      "scenario_id": "S6R-002",
+      "action_outcome": "BLOCK",
+      "authorization_disposition": "revoked",
+      "claim_disposition": "not_evaluated",
+      "execution_state": "NOT_STARTED",
+      "mutation_count": 0,
+      "retry_count": 0,
+      "source_independence": "not_applicable",
+      "required_reason_codes": [
+        "authority.revoked_before_execution"
+      ],
+      "prohibited_inferences": [
+        "Approval at request time does not preserve authority after a revocation effective and observed before execution."
+      ]
+    },
+    {
+      "scenario_id": "S6R-003",
+      "action_outcome": "HOLD_FOR_RECONCILIATION",
+      "authorization_disposition": "status_unknown",
+      "claim_disposition": "not_evaluated",
+      "execution_state": "NOT_STARTED",
+      "mutation_count": 0,
+      "retry_count": 0,
+      "source_independence": "not_applicable",
+      "required_reason_codes": [
+        "authority.status.unknown"
+      ],
+      "prohibited_inferences": [
+        "Unknown credential status is neither verified active nor proof of revocation."
+      ]
+    },
+    {
+      "scenario_id": "S6R-004",
+      "action_outcome": "HOLD_FOR_RECONCILIATION",
+      "authorization_disposition": "verified",
+      "claim_disposition": "not_evaluated",
+      "execution_state": "UNKNOWN",
+      "mutation_count": 1,
+      "retry_count": 0,
+      "source_independence": "not_applicable",
+      "required_reason_codes": [
+        "operation.outcome.unknown",
+        "operation.retry.blocked"
+      ],
+      "prohibited_inferences": [
+        "Timeout after possible submission is not proof of failure or success.",
+        "Do not issue a second mutation before reconciling OP-004."
+      ]
+    },
+    {
+      "scenario_id": "S6R-005",
+      "action_outcome": "BLOCK",
+      "authorization_disposition": "verified",
+      "claim_disposition": "not_evaluated",
+      "execution_state": "RECONCILED_SUCCESS",
+      "mutation_count": 1,
+      "retry_count": 0,
+      "source_independence": "not_applicable",
+      "required_reason_codes": [
+        "operation.already.completed",
+        "operation.duplicate.prevented"
+      ],
+      "prohibited_inferences": [
+        "A delayed receipt belongs to the original idempotency key and operation.",
+        "Do not issue a second handover after the original operation is reconciled successful."
+      ]
+    },
+    {
+      "scenario_id": "S6R-006",
+      "action_outcome": "BLOCK",
+      "authorization_disposition": "verified",
+      "claim_disposition": "contested",
+      "execution_state": "NOT_STARTED",
+      "mutation_count": 0,
+      "retry_count": 0,
+      "source_independence": "single_common_upstream",
+      "required_reason_codes": [
+        "evidence.common_cause.dependency"
+      ],
+      "prohibited_inferences": [
+        "Two record families from the same upstream provider are not independent corroboration."
+      ]
+    },
+    {
+      "scenario_id": "S6R-007",
+      "action_outcome": "BLOCK",
+      "authorization_disposition": "verified",
+      "claim_disposition": "unsupported",
+      "execution_state": "NOT_STARTED",
+      "mutation_count": 0,
+      "retry_count": 0,
+      "source_independence": "not_applicable",
+      "required_reason_codes": [
+        "evidence.source.competence_mismatch"
+      ],
+      "prohibited_inferences": [
+        "A custody-only source cannot establish legal title merely because it is authentic and current."
+      ]
+    },
+    {
+      "scenario_id": "S6R-008",
+      "action_outcome": "HOLD_FOR_RECONCILIATION",
+      "authorization_disposition": "verified",
+      "claim_disposition": "stale",
+      "execution_state": "NOT_STARTED",
+      "mutation_count": 0,
+      "retry_count": 0,
+      "source_independence": "not_applicable",
+      "required_reason_codes": [
+        "evidence.digest.mismatch"
+      ],
+      "prohibited_inferences": [
+        "A declared source digest mismatch is not a valid current evidence receipt."
+      ]
+    }
+  ]
+}
