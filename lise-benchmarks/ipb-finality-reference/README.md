@@ -34,6 +34,10 @@ cargo test --locked --all-targets --manifest-path Cargo.toml
 cargo clippy --locked --all-targets --manifest-path Cargo.toml -- -D warnings
 ```
 
+## Authorization assurance extensions
+
+The crate includes 46 authored unit tests (not executed in the authoring environment). New test families cover transitive delegation attenuation, trajectory-wide privilege unions, complete mediation across reachable routes, and stale/revoked session epochs with bitemporal revocation timestamps.
+
 ## Relationship to owner contracts
 
 - #60, #1161, #1174 — constitutional epoch/currentness;
