@@ -1,0 +1,1350 @@
+{
+  "schema_version": "0.1.0",
+  "map_id": "mycelix:source-declared-maturity-projection:2026-11-14",
+  "repository": {
+    "canonical_name": "Luminous-Dynamics/mycelix",
+    "visibility": "public",
+    "default_branch": "main"
+  },
+  "snapshot": {
+    "revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+    "tree_digest": "79283620f83cdfa155fc86a2362335390628913d",
+    "tree_digest_algorithm": "git_tree_oid_sha1",
+    "observed_at": "2026-11-14T07:01:41.552Z",
+    "parent_snapshot": null,
+    "source_event_high_watermark": null,
+    "configuration_world": {
+      "map_kind": "source_declared_readme_projection",
+      "scope": "README.md only",
+      "source_file": "README.md"
+    }
+  },
+  "extractor": {
+    "name": "manual-readonly-readme-projection",
+    "version": "0.1.0",
+    "build_digest": null
+  },
+  "nodes": [
+    {
+      "id": "mycelix:project",
+      "type": "project",
+      "label": "Mycelix",
+      "claim_state": "observed",
+      "attributes": {
+        "description": "Fractal CivOS — decentralized civic infrastructure on Holochain",
+        "project_maturity": "Pre-alpha research project",
+        "source_scope": "root README description only"
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L1-L3",
+            "path": "README.md",
+            "line_start": 1,
+            "line_end": 3,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "README declares project maturity; this is not an independent project audit."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:cluster:commons",
+      "type": "domain_cluster",
+      "label": "Commons",
+      "claim_state": "observed",
+      "attributes": {
+        "domains": "property, housing, care, mutualaid, water, food, transport",
+        "zomes": 35,
+        "architecture_test_count_reported": "5,276",
+        "architecture_test_count_scope": "combined unit+integration figures as previously reported; not split by test type",
+        "maturity": {
+          "build": "Yes",
+          "unit_tests": "Yes (5,276 combined)",
+          "multi_agent_test": "Not verified this pass",
+          "ui": "Scaffold/reserved, no real UI deployed",
+          "deployment_status": "Pre-alpha"
+        },
+        "maturity_source": "README Maturity Matrix",
+        "maturity_axes_are_independent": true
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L41-L41",
+            "path": "README.md",
+            "line_start": 41,
+            "line_end": 41,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:cluster:civic",
+      "type": "domain_cluster",
+      "label": "Civic",
+      "claim_state": "observed",
+      "attributes": {
+        "domains": "justice, emergency, media",
+        "zomes": 16,
+        "architecture_test_count_reported": "2,273",
+        "architecture_test_count_scope": "combined unit+integration figures as previously reported; not split by test type",
+        "maturity": {
+          "build": "Yes",
+          "unit_tests": "Yes (2,273 combined)",
+          "multi_agent_test": "Not verified this pass",
+          "ui": "Scaffold only — its apps/leptos renders a component showcase, not real justice/emergency/media pages",
+          "deployment_status": "Pre-alpha"
+        },
+        "maturity_source": "README Maturity Matrix",
+        "maturity_axes_are_independent": true
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L42-L42",
+            "path": "README.md",
+            "line_start": 42,
+            "line_end": 42,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:cluster:hearth",
+      "type": "domain_cluster",
+      "label": "Hearth",
+      "claim_state": "observed",
+      "attributes": {
+        "domains": "kinship, gratitude, care, autonomy, decisions, stories, milestones, rhythms",
+        "zomes": 12,
+        "architecture_test_count_reported": "1,023",
+        "architecture_test_count_scope": "combined unit+integration figures as previously reported; not split by test type",
+        "maturity": {
+          "build": "Yes",
+          "unit_tests": "Yes (1,023 combined)",
+          "multi_agent_test": "Not verified this pass",
+          "ui": "Built",
+          "deployment_status": "Experimental"
+        },
+        "maturity_source": "README Maturity Matrix",
+        "maturity_axes_are_independent": true
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L43-L43",
+            "path": "README.md",
+            "line_start": 43,
+            "line_end": 43,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:cluster:finance",
+      "type": "domain_cluster",
+      "label": "Finance",
+      "claim_state": "observed",
+      "attributes": {
+        "domains": "payments (SAP), time exchange (TEND), recognition (MYCEL), treasury, staking",
+        "zomes": 14,
+        "architecture_test_count_reported": "140+",
+        "architecture_test_count_scope": "combined unit+integration figures as previously reported; not split by test type",
+        "maturity": {
+          "build": "Yes",
+          "unit_tests": "Yes",
+          "multi_agent_test": "Partial",
+          "ui": "None dedicated (shares governance.luminousdynamics.io UI)",
+          "deployment_status": "Not production-ready"
+        },
+        "maturity_source": "README Maturity Matrix",
+        "maturity_axes_are_independent": true
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L45-L45",
+            "path": "README.md",
+            "line_start": 45,
+            "line_end": 45,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:cluster:governance",
+      "type": "domain_cluster",
+      "label": "Governance",
+      "claim_state": "observed",
+      "attributes": {
+        "domains": "proposals, voting, threshold-signing (DKG), councils, constitution",
+        "zomes": 7,
+        "architecture_test_count_reported": "300+",
+        "architecture_test_count_scope": "combined unit+integration figures as previously reported; not split by test type",
+        "maturity": {
+          "build": "Yes",
+          "unit_tests": "Yes (44+)",
+          "multi_agent_test": "Partial (156+ sweettest)",
+          "ui": "Built (paired with Finance UI at governance.luminousdynamics.io)",
+          "deployment_status": "Experimental"
+        },
+        "maturity_source": "README Maturity Matrix",
+        "maturity_axes_are_independent": true
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L39-L39",
+            "path": "README.md",
+            "line_start": 39,
+            "line_end": 39,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:cluster:identity",
+      "type": "domain_cluster",
+      "label": "Identity",
+      "claim_state": "observed",
+      "attributes": {
+        "domains": "DID registry, MFA, trust credentials, verifiable credentials, recovery",
+        "zomes": 9,
+        "architecture_test_count_reported": "100+",
+        "architecture_test_count_scope": "combined unit+integration figures as previously reported; not split by test type",
+        "maturity": {
+          "build": "Yes",
+          "unit_tests": "Yes (23+)",
+          "multi_agent_test": "Yes (100+ sweettest)",
+          "ui": "None",
+          "deployment_status": "Pre-alpha, underlies other clusters' auth"
+        },
+        "maturity_source": "README Maturity Matrix",
+        "maturity_axes_are_independent": true
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L44-L44",
+            "path": "README.md",
+            "line_start": 44,
+            "line_end": 44,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:cluster:personal",
+      "type": "domain_cluster",
+      "label": "Personal",
+      "claim_state": "observed",
+      "attributes": {
+        "domains": "identity vault, health vault, credential wallet",
+        "zomes": 4,
+        "architecture_test_count_reported": "20",
+        "architecture_test_count_scope": "combined unit+integration figures as previously reported; not split by test type"
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L23-L23",
+            "path": "README.md",
+            "line_start": 23,
+            "line_end": 23,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Counts are transcribed from README and are not independently re-run."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:cluster:attribution",
+      "type": "domain_cluster",
+      "label": "Attribution",
+      "claim_state": "observed",
+      "attributes": {
+        "domains": "dependency registry, usage receipts, reciprocity",
+        "zomes": 3,
+        "architecture_test_count_reported": "17",
+        "architecture_test_count_scope": "combined unit+integration figures as previously reported; not split by test type"
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L24-L24",
+            "path": "README.md",
+            "line_start": 24,
+            "line_end": 24,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Counts are transcribed from README and are not independently re-run."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:cluster:health",
+      "type": "domain_cluster",
+      "label": "Health",
+      "claim_state": "observed",
+      "attributes": {
+        "domains": "clinical, consent, diagnostics, imaging, monitoring, pharmacy, records",
+        "zomes": 7,
+        "architecture_test_count_reported": "submodule",
+        "architecture_test_count_scope": "combined unit+integration figures as previously reported; not split by test type",
+        "maturity": {
+          "build": "Yes",
+          "unit_tests": "Yes",
+          "multi_agent_test": "Not verified this pass",
+          "ui": "Built",
+          "deployment_status": "Data-model research — includes real differential-privacy work, but this is not a clinical deployment"
+        },
+        "maturity_source": "README Maturity Matrix",
+        "maturity_axes_are_independent": true
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L40-L40",
+            "path": "README.md",
+            "line_start": 40,
+            "line_end": 40,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:application:pulse",
+      "type": "application",
+      "label": "Pulse",
+      "claim_state": "observed",
+      "attributes": {
+        "maturity": {
+          "build": "Yes",
+          "unit_tests": "Yes",
+          "multi_agent_test": "Yes (Sweettest, real ML-DSA sigs, restart-recovery included)",
+          "ui": "Live — mail.mycelix.net",
+          "deployment_status": "Research alpha, real users possible"
+        },
+        "maturity_source": "README Maturity Matrix",
+        "maturity_axes_are_independent": true
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L35-L35",
+            "path": "README.md",
+            "line_start": 35,
+            "line_end": 35,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "All maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:application:praxis",
+      "type": "application",
+      "label": "Praxis",
+      "claim_state": "observed",
+      "attributes": {
+        "maturity": {
+          "build": "Yes",
+          "unit_tests": "Yes",
+          "multi_agent_test": "Partial",
+          "ui": "Live — praxis.mycelix.net, Leptos CSR",
+          "deployment_status": "Live, but flagship source does not currently compile at HEAD — the live site is served from a pinned IPFS snapshot restored around a broken build, not the latest commit"
+        },
+        "maturity_source": "README Maturity Matrix",
+        "maturity_axes_are_independent": true
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L36-L36",
+            "path": "README.md",
+            "line_start": 36,
+            "line_end": 36,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "All maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:application:craft",
+      "type": "application",
+      "label": "Craft",
+      "claim_state": "observed",
+      "attributes": {
+        "maturity": {
+          "build": "Yes",
+          "unit_tests": "Yes (42)",
+          "multi_agent_test": "Not verified this pass",
+          "ui": "Built (Leptos CSR), not deployed",
+          "deployment_status": "Built, not live"
+        },
+        "maturity_source": "README Maturity Matrix",
+        "maturity_axes_are_independent": true
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L37-L37",
+            "path": "README.md",
+            "line_start": 37,
+            "line_end": 37,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "All maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:application:music",
+      "type": "application",
+      "label": "Music",
+      "claim_state": "observed",
+      "attributes": {
+        "maturity": {
+          "build": "Yes",
+          "unit_tests": "Yes",
+          "multi_agent_test": "Not verified this pass",
+          "ui": "Built, WASM verified",
+          "deployment_status": "Built, hApp packed, not confirmed live"
+        },
+        "maturity_source": "README Maturity Matrix",
+        "maturity_axes_are_independent": true
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L38-L38",
+            "path": "README.md",
+            "line_start": 38,
+            "line_end": 38,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "All maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:cluster-group:other-research",
+      "type": "domain_cluster",
+      "label": "Other pre-alpha research clusters",
+      "claim_state": "observed",
+      "attributes": {
+        "cluster_names": [
+          "Personal",
+          "Attribution",
+          "Knowledge",
+          "DeSci",
+          "Marketplace",
+          "Supplychain",
+          "Space",
+          "Energy",
+          "Climate",
+          "Manufacturing",
+          "Position",
+          "Core (0TML)"
+        ],
+        "maturity": {
+          "build": "Yes",
+          "unit_tests": "Yes (counts vary, see table above / cluster READMEs)",
+          "multi_agent_test": "Not verified this pass",
+          "ui": "None deployed",
+          "deployment_status": "Pre-alpha research; treat as schema/backend-only until a cluster README says otherwise"
+        },
+        "maturity_source": "README Maturity Matrix",
+        "grouped_row": true
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L46-L46",
+            "path": "README.md",
+            "line_start": 46,
+            "line_end": 46,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "This is a grouped README row, not independently resolved per-cluster maturity. Do not project the grouped statement as separately verified facts for each named cluster."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:note:test-count-caveat",
+      "type": "evidence",
+      "label": "Architecture test-count caveat",
+      "claim_state": "observed",
+      "attributes": {
+        "statement": "Test counts above are combined unit+integration figures as previously reported; they are not split into unit vs. real multi-agent.",
+        "semantic_effect": "Do not infer multi-agent test coverage from the architecture table test totals."
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L27-L27",
+            "path": "README.md",
+            "line_start": 27,
+            "line_end": 27,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": []
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:note:maturity-caveat",
+      "type": "evidence",
+      "label": "Maturity matrix qualification caveat",
+      "claim_state": "observed",
+      "attributes": {
+        "statement": "Maturity Matrix is internally tracked, not independently re-run for this table; verify against cluster CI/tests before relying on a cell.",
+        "semantic_effect": "All matrix values remain source-declared only."
+      },
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L31-L31",
+            "path": "README.md",
+            "line_start": 31,
+            "line_end": 31,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": []
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "mycelix:edge:001",
+      "from": "mycelix:project",
+      "relation": "contains",
+      "to": "mycelix:cluster:commons",
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L41-L41",
+            "path": "README.md",
+            "line_start": 41,
+            "line_end": 41,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:edge:002",
+      "from": "mycelix:project",
+      "relation": "contains",
+      "to": "mycelix:cluster:civic",
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L42-L42",
+            "path": "README.md",
+            "line_start": 42,
+            "line_end": 42,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:edge:003",
+      "from": "mycelix:project",
+      "relation": "contains",
+      "to": "mycelix:cluster:hearth",
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L43-L43",
+            "path": "README.md",
+            "line_start": 43,
+            "line_end": 43,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:edge:004",
+      "from": "mycelix:project",
+      "relation": "contains",
+      "to": "mycelix:cluster:finance",
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L45-L45",
+            "path": "README.md",
+            "line_start": 45,
+            "line_end": 45,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:edge:005",
+      "from": "mycelix:project",
+      "relation": "contains",
+      "to": "mycelix:cluster:governance",
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L39-L39",
+            "path": "README.md",
+            "line_start": 39,
+            "line_end": 39,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:edge:006",
+      "from": "mycelix:project",
+      "relation": "contains",
+      "to": "mycelix:cluster:identity",
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L44-L44",
+            "path": "README.md",
+            "line_start": 44,
+            "line_end": 44,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:edge:007",
+      "from": "mycelix:project",
+      "relation": "contains",
+      "to": "mycelix:cluster:personal",
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L23-L23",
+            "path": "README.md",
+            "line_start": 23,
+            "line_end": 23,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Counts are transcribed from README and are not independently re-run."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:edge:008",
+      "from": "mycelix:project",
+      "relation": "contains",
+      "to": "mycelix:cluster:attribution",
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L24-L24",
+            "path": "README.md",
+            "line_start": 24,
+            "line_end": 24,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Counts are transcribed from README and are not independently re-run."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:edge:009",
+      "from": "mycelix:project",
+      "relation": "contains",
+      "to": "mycelix:cluster:health",
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L40-L40",
+            "path": "README.md",
+            "line_start": 40,
+            "line_end": 40,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "Maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:edge:010",
+      "from": "mycelix:project",
+      "relation": "contains",
+      "to": "mycelix:application:pulse",
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L35-L35",
+            "path": "README.md",
+            "line_start": 35,
+            "line_end": 35,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "All maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:edge:011",
+      "from": "mycelix:project",
+      "relation": "contains",
+      "to": "mycelix:application:praxis",
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L36-L36",
+            "path": "README.md",
+            "line_start": 36,
+            "line_end": 36,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "All maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:edge:012",
+      "from": "mycelix:project",
+      "relation": "contains",
+      "to": "mycelix:application:craft",
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L37-L37",
+            "path": "README.md",
+            "line_start": 37,
+            "line_end": 37,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "All maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:edge:013",
+      "from": "mycelix:project",
+      "relation": "contains",
+      "to": "mycelix:application:music",
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L38-L38",
+            "path": "README.md",
+            "line_start": 38,
+            "line_end": 38,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "All maturity values are source-declared and not independently re-run by this snapshot."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    },
+    {
+      "id": "mycelix:edge:014",
+      "from": "mycelix:project",
+      "relation": "contains",
+      "to": "mycelix:cluster-group:other-research",
+      "provenance": {
+        "authority": "source_declared",
+        "sources": [
+          {
+            "kind": "repository_file",
+            "uri": "https://github.com/Luminous-Dynamics/mycelix/blob/6089a68430a501c51934c2c4107061c2a2cb5565/README.md#L46-L46",
+            "path": "README.md",
+            "line_start": 46,
+            "line_end": 46,
+            "digest": "cc372cae1cd1e429459ecf4d77461e3724cf55a9"
+          }
+        ],
+        "extracted_by": {
+          "name": "manual-readonly-readme-projection",
+          "version": "0.1.0",
+          "build_digest": null
+        },
+        "observed_at": "2026-11-14T07:01:41.552Z",
+        "valid_for_revision": "6089a68430a501c51934c2c4107061c2a2cb5565",
+        "valid_for_world": "root-README-only",
+        "limitations": [
+          "This is a grouped README row, not independently resolved per-cluster maturity. Do not project the grouped statement as separately verified facts for each named cluster."
+        ]
+      },
+      "lifecycle": {
+        "state": "current",
+        "supersedes": null,
+        "invalidated_by": null,
+        "reason": "Current only for the exact README/revision pinned by this snapshot."
+      }
+    }
+  ],
+  "limitations": [
+    "This is a bounded source-declared projection of README.md, not a complete repository map.",
+    "No source code, manifests, CI workflows, tests, deployed services or Holochain conductors were executed or independently inspected by this projection.",
+    "README maturity cells are not independently re-run; keep their source_declared authority.",
+    "The architecture table's counts combine unit and integration tests and cannot establish multi-agent coverage.",
+    "Praxis is explicitly described as having a live pinned IPFS site while the flagship source does not compile at HEAD; do not merge live-site status with current-source build status.",
+    "The grouped row for Personal, Attribution, Knowledge, DeSci, Marketplace, Supplychain, Space, Energy, Climate, Manufacturing, Position and Core (0TML) must not be split into independent claims without cluster-specific source anchors."
+  ]
+}
