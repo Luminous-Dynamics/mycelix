@@ -519,6 +519,7 @@ fn parse_manifest(source: &str) -> Result<CohortManifest, InputError> {
 
 fn qualify_manifest(
     manifest: &CohortManifest,
+    requested_purpose: &str,
     lane_sources: &[String],
     report: &str,
 ) -> Result<String, InputError> {
@@ -601,6 +602,8 @@ fn qualify_manifest(
         format!("study_horizon_end_seconds={}", manifest.study_horizon_end_seconds),
         format!("manifest_expected_cohort_count={}", manifest.cohorts.len()),
         format!("data_use_status={}", manifest.data_use_status),
+        format!("requested_purpose={requested_purpose}"),
+        format!("requested_purpose={requested_purpose}"),
         format!("data_use_owner={}", manifest.data_use_owner),
         format!("data_use_ref={}", manifest.data_use_ref),
         format!("data_use_purpose={}", manifest.data_use_purpose),
@@ -951,7 +954,11 @@ pub fn validate_and_report(lane_sources: &[String]) -> Result<String, InputError
 
 /// Validate the submitted cohort lanes against an owner-declared, frozen cohort manifest.
 /// A complete result is only complete relative to the manifest; the manifest itself is not authenticated.
-fn source_use_blocked_report(manifest: &CohortManifest, disposition: &str) -> String {
+fn source_use_blocked_report(
+    manifest: &CohortManifest,
+    requested_purpose: &str,
+    disposition: &str,
+) -> String {
     [
         "report_schema=fsre-cohort-outcome-envelope-report.v0.1".to_owned(),
         format!("service_id={}", manifest.service_id),
@@ -986,19 +993,34 @@ fn source_use_blocked_report(manifest: &CohortManifest, disposition: &str) -> St
 
 pub fn validate_and_report_with_manifest(
     manifest_source: &str,
+    requested_purpose: &str,
     lane_sources: &[String],
 ) -> Result<String, InputError> {
+    if !valid_id(requested_purpose) {
+        return Err(InputError("requested_purpose must be a non-empty valid identifier".to_owned()));
+    }
     let manifest = parse_manifest(manifest_source)?;
     if manifest.data_use_status != "AUTHORIZED_FOR_DECLARED_PURPOSE" {
-        return Ok(source_use_blocked_report(&manifest, &manifest.data_use_status));
+        return Ok(source_use_blocked_report(
+            &manifest,
+            requested_purpose,
+            &manifest.data_use_status,
+        ));
+    }
+    if manifest.data_use_purpose != requested_purpose {
+        return Ok(source_use_blocked_report(&manifest, requested_purpose, "PURPOSE_MISMATCH"));
     }
     if manifest.data_use_valid_from_seconds > manifest.study_horizon_start_seconds
         || manifest.data_use_valid_until_seconds < manifest.study_horizon_end_seconds
     {
-        return Ok(source_use_blocked_report(&manifest, "AUTHORIZATION_NOT_CURRENT_FOR_STUDY_HORIZON"));
+        return Ok(source_use_blocked_report(
+            &manifest,
+            requested_purpose,
+            "AUTHORIZATION_NOT_CURRENT_FOR_STUDY_HORIZON",
+        ));
     }
     let report = compose(lane_sources)?;
-    qualify_manifest(&manifest, lane_sources, &report)
+    qualify_manifest(&manifest, requested_purpose, lane_sources, &report)
 }
 
 #[cfg(test)]
@@ -1015,6 +1037,13 @@ mod tests {
     fn run(sources: &[&str]) -> String {
         let owned: Vec<String> = sources.iter().map(|source| (*source).to_owned()).collect();
         validate_and_report(&owned).expect("envelope")
+    }
+
+    fn run_with_manifest(
+        manifest: &str,
+        lane_sources: &[String],
+    ) -> Result<String, InputError> {
+        validate_and_report_with_manifest(manifest, "synthetic-test", lane_sources)
     }
 
     #[test]
@@ -1104,7 +1133,7 @@ mod tests {
     #[test]
     fn manifest_complete_cohort_set_matches_golden_report() {
         let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
-        assert_eq!(validate_and_report_with_manifest(MANIFEST, &lanes).unwrap(), MANIFEST_EXPECTED);
+        assert_eq!(run_with_manifest(MANIFEST, &lanes).unwrap(), MANIFEST_EXPECTED);
     }
 
     #[test]
@@ -1113,7 +1142,7 @@ mod tests {
             "# data_use_status=AUTHORIZED_FOR_DECLARED_PURPOSE",
             "# data_use_status=REVIEW_REQUIRED",
         );
-        let report = validate_and_report_with_manifest(&changed, &[]).unwrap();
+        let report = run_with_manifest(&changed, &[]).unwrap();
         assert!(report.contains("data_use_disposition=REVIEW_REQUIRED"));
         assert!(report.contains("source_use_gate=BLOCKED"));
         assert!(report.contains("service_metrics=NOT_COMPUTED"));
@@ -1126,7 +1155,7 @@ mod tests {
             "# data_use_status=AUTHORIZED_FOR_DECLARED_PURPOSE",
             "# data_use_status=NOT_AUTHORIZED",
         );
-        let report = validate_and_report_with_manifest(&changed, &[]).unwrap();
+        let report = run_with_manifest(&changed, &[]).unwrap();
         assert!(report.contains("data_use_disposition=NOT_AUTHORIZED"));
         assert!(report.contains("source_use_gate=BLOCKED"));
         assert!(report.contains("service_metrics=NOT_COMPUTED"));
@@ -1139,7 +1168,7 @@ mod tests {
             "# data_use_valid_until_seconds=1000",
             "# data_use_valid_until_seconds=99",
         );
-        let report = validate_and_report_with_manifest(&changed, &[]).unwrap();
+        let report = run_with_manifest(&changed, &[]).unwrap();
         assert!(report.contains("data_use_disposition=AUTHORIZATION_NOT_CURRENT_FOR_STUDY_HORIZON"));
         assert!(report.contains("source_use_gate=BLOCKED"));
         assert!(report.contains("service_metrics=NOT_COMPUTED"));
@@ -1152,9 +1181,19 @@ mod tests {
             "# data_use_valid_from_seconds=0",
             "# data_use_valid_from_seconds=1",
         );
-        let report = validate_and_report_with_manifest(&changed, &[]).unwrap();
+        let report = run_with_manifest(&changed, &[]).unwrap();
         assert!(report.contains("data_use_disposition=AUTHORIZATION_NOT_CURRENT_FOR_STUDY_HORIZON"));
         assert!(report.contains("source_use_gate=BLOCKED"));
+    }
+
+    #[test]
+    fn permission_for_a_different_processing_purpose_is_blocked() {
+        let report = validate_and_report_with_manifest(MANIFEST, "production-research", &[]).unwrap();
+        assert!(report.contains("data_use_disposition=PURPOSE_MISMATCH"));
+        assert!(report.contains("requested_purpose=production-research"));
+        assert!(report.contains("source_use_gate=BLOCKED"));
+        assert!(report.contains("service_metrics=NOT_COMPUTED"));
+        assert!(!report.contains("cohort=hospital|"));
     }
 
     #[test]
@@ -1163,14 +1202,14 @@ mod tests {
             "# data_use_status=AUTHORIZED_FOR_DECLARED_PURPOSE",
             "# data_use_status=OPEN",
         );
-        let error = validate_and_report_with_manifest(&changed, &[]).unwrap_err();
+        let error = run_with_manifest(&changed, &[]).unwrap_err();
         assert!(error.0.contains("unsupported data_use_status OPEN"));
     }
 
     #[test]
     fn manifest_missing_lane_prevents_completeness_claim() {
         let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned()];
-        let report = validate_and_report_with_manifest(MANIFEST, &lanes).unwrap();
+        let report = run_with_manifest(MANIFEST, &lanes).unwrap();
         assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
         assert!(report.contains("cohort_set_completeness=INCOMPLETE_OR_MISMATCHED_TO_DECLARED_MANIFEST"));
         assert!(report.contains("manifest_missing_cohort_ids=remote-community"));
@@ -1180,7 +1219,7 @@ mod tests {
     fn complete_manifest_does_not_override_unknown_service_observations() {
         let changed = HOUSEHOLDS.replace("40,0.6,true", "90,0.6,true");
         let lanes = vec![HOSPITAL.to_owned(), changed, REMOTE.to_owned()];
-        let report = validate_and_report_with_manifest(MANIFEST, &lanes).unwrap();
+        let report = run_with_manifest(MANIFEST, &lanes).unwrap();
         assert!(report.contains("cohort_set_completeness=COMPLETE_FOR_DECLARED_MANIFEST"));
         assert!(report.contains("manifest_disposition=COMPLETE_FOR_DECLARED_MANIFEST"));
         assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
@@ -1190,7 +1229,7 @@ mod tests {
     fn unexpected_lane_prevents_completeness_claim() {
         let extra = REMOTE.replace("# cohort_id=remote-community", "# cohort_id=other-community");
         let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), extra];
-        let report = validate_and_report_with_manifest(MANIFEST, &lanes).unwrap();
+        let report = run_with_manifest(MANIFEST, &lanes).unwrap();
         assert!(report.contains("manifest_unexpected_cohort_ids=other-community"));
         assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
     }
@@ -1202,7 +1241,7 @@ mod tests {
             "COHORT|households|1000|persons|cohort-register|synthetic:cohort:other-households",
         );
         let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
-        let report = validate_and_report_with_manifest(&changed, &lanes).unwrap();
+        let report = run_with_manifest(&changed, &lanes).unwrap();
         assert!(report.contains("manifest_mismatched_cohort_ids=households"));
         assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
     }
@@ -1214,7 +1253,7 @@ mod tests {
             "# service_family_id=other-service",
         );
         let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
-        let report = validate_and_report_with_manifest(&changed, &lanes).unwrap();
+        let report = run_with_manifest(&changed, &lanes).unwrap();
         assert!(report.contains("manifest_scope_match=false"));
         assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
     }
@@ -1223,7 +1262,7 @@ mod tests {
     fn manifest_denominator_mismatch_is_not_accepted() {
         let changed = MANIFEST.replace("COHORT|households|1000|", "COHORT|households|999|");
         let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
-        let report = validate_and_report_with_manifest(&changed, &lanes).unwrap();
+        let report = run_with_manifest(&changed, &lanes).unwrap();
         assert!(report.contains("manifest_mismatched_cohort_ids=households"));
         assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
     }
@@ -1232,7 +1271,7 @@ mod tests {
     fn manifest_membership_must_cover_the_complete_horizon() {
         let changed = MANIFEST.replace("|0|1000", "|0|99");
         let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
-        let report = validate_and_report_with_manifest(&changed, &lanes).unwrap();
+        let report = run_with_manifest(&changed, &lanes).unwrap();
         assert!(report.contains("manifest_mismatched_cohort_ids=hospital,households,remote-community"));
     }
 
@@ -1243,7 +1282,7 @@ mod tests {
             "COHORT|households|250|persons|",
         );
         let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
-        let error = validate_and_report_with_manifest(&changed, &lanes).unwrap_err();
+        let error = run_with_manifest(&changed, &lanes).unwrap_err();
         assert!(error.0.contains("duplicate cohort_id households"));
     }
 
@@ -1257,8 +1296,8 @@ mod tests {
         let reordered = format!("{}\n{}\n{}\n", metadata.join("\n"), MANIFEST_HEADER, rows.join("\n"));
         let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
         assert_eq!(
-            validate_and_report_with_manifest(MANIFEST, &lanes).unwrap(),
-            validate_and_report_with_manifest(&reordered, &lanes).unwrap()
+            run_with_manifest(MANIFEST, &lanes).unwrap(),
+            run_with_manifest(&reordered, &lanes).unwrap()
         );
     }
 
