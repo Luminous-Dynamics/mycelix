@@ -530,6 +530,37 @@ fn check_operation_finality(packet: &Value, submission: &Value) -> Result<bool, 
         || binding["expected_retry_permitted"].as_bool()!=Some(false) {
         return Err(invalid("fixture operation-finality state is internally inconsistent"));
     }
+    let historical_query=required_array(packet,"queries","fixture")?.iter()
+        .find(|query|query.get("query_ref").and_then(Value::as_str)==Some("Q-HISTORICAL"))
+        .ok_or_else(||invalid("historical pre-dispatch query missing"))?;
+    let reattempt_query=required_array(packet,"queries","fixture")?.iter()
+        .find(|query|query.get("query_ref").and_then(Value::as_str)==Some("Q-CURRENT-REPLAY"))
+        .ok_or_else(||invalid("current reattempt query missing"))?;
+    if required_str(binding,"action_at_before_dispatch","operation finality")?
+        != required_str(historical_query,"action_at","historical query")?
+        || required_str(binding,"known_at_before_dispatch","operation finality")?
+        != required_str(historical_query,"known_at","historical query")?
+        || required_str(binding,"reattempt_action_at","operation finality")?
+        != required_str(reattempt_query,"action_at","reattempt query")?
+        || required_str(binding,"reattempt_known_at","operation finality")?
+        != required_str(reattempt_query,"known_at","reattempt query")? {
+        return Err(invalid("operation finality time cutoffs do not match the decision queries"));
+    }
+    let initial_authority=authority_state_at(packet,historical_query);
+    let reattempt_authority=authority_state_at(packet,reattempt_query);
+    let revoked_event=required_array(&packet["authority"],"status_events","authority")?.iter()
+        .find(|event|event.get("status").and_then(Value::as_str)==Some("revoked"))
+        .ok_or_else(||invalid("revocation event missing"))?;
+    let authority_cutoffs_match=initial_authority=="active"
+        && reattempt_authority=="revoked"
+        && required_str(binding,"authority_observed_at_after_timeout","operation finality")?
+            == required_str(revoked_event,"observed_at","revocation event")?;
+    if !authority_cutoffs_match
+        || required_str(binding,"authority_state_before_dispatch","operation finality")?!="current"
+        || required_str(binding,"authority_state_after_timeout","operation finality")?!="revoked"
+        || required_str(binding,"expected_reattempt_disposition","operation finality")?!="DENY" {
+        return Err(invalid("pre-dispatch authority and post-timeout reattempt authority are not consistent with the bitemporal authority history"));
+    }
     let reported=&submission["operation_finality_result"];
     let constitution=&binding["constitution"];
     let expected_fields=[
@@ -550,6 +581,9 @@ fn check_operation_finality(packet: &Value, submission: &Value) -> Result<bool, 
     }
     exact &= reported["constitution_epoch"].as_u64()==constitution["epoch"].as_u64();
     exact &= reported["authority_state"].as_str()==Some("current");
+    exact &= reported["current_authority_state"].as_str()==Some("revoked");
+    exact &= reported["reattempt_disposition"].as_str()==Some("DENY");
+    exact &= reported["reattempt_reason_code"].as_str()==Some("authority.revoked_before_action");
     exact &= reported["resource_state"].as_str()==Some("matches");
     exact &= reported["prior_effect_state"].as_str()==Some("outcome_unknown_after_dispatch");
     exact &= reported["retry_safety"].as_str()==Some("unknown");
@@ -766,9 +800,14 @@ fn run() -> Result<(), Box<dyn Error>> {
             "approved_operation_equals_pending_operation":operation_binding_matches(&fixture["operation_finality"]["approved_operation"],&fixture["operation_finality"]["pending_operation"]),
             "operation_finality_matches_submission":operation_finality_ok,
             "distinct_human_operation_approval":fixture["operation_finality"]["approval_ref"]!=fixture["intent_baseline"]["approval"]["approval_ref"],
+            "authority_at_original_attempt":initial_authority,
+            "authority_at_reattempt":reattempt_authority,
             "constitution_epoch_bound":fixture["operation_finality"]["constitution"]["epoch"],
+            "original_outcome":"UNKNOWN",
+            "original_outcome_disposition":"HOLD_FOR_RECONCILIATION",
+            "reattempt_disposition":"DENY",
             "retry_safety":"unknown",
-            "required_disposition":"HOLD_FOR_RECONCILIATION"
+            "retry_count":0
         },
         "execution_control":{
             "unknown_event_in_history":unknown_history,
