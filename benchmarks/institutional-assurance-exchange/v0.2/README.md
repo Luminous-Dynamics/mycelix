@@ -38,3 +38,11 @@ The digest fields are explicitly synthetic placeholders and are not cryptographi
 
 
 See [Research baseline](./RESEARCH_BASELINE_2026-11-14.md) for current SABench, TEMPO, requirements-quality and NIST critical-infrastructure references. The vertical-slice evaluator now audits normalized possible-write traces against explicit action/purpose/actor/asset/field authorization boundaries.
+
+
+## Exact-operation finality boundary
+
+The fixture contains a separate synthetic human approval for the exact lease operation, distinct from the human acceptance of the intent baseline. The operation projection binds logical operation ID, canonical/action digests (explicit synthetic placeholders), action, principal, target, purpose, destination/audience, resource revision and idempotency identity.
+
+See [LISE mapping](./LISE_MAPPING.md). IAE owns the intent/claim/evidence packet; LISE owns exact-operation finality and retry/reconciliation semantics. This branch validates the mapping structurally but does not yet call the separate LISE Rust crate because that crate remains on its own draft PR.
+
