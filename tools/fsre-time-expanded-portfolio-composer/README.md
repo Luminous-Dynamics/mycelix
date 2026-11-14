@@ -42,7 +42,7 @@ Run:
 - NOT_RECONCILED: the plan and stock-flow records disagree on scenario, time, capacity or consumption.
 - NOT_ESTIMABLE: a required input is unknown or cohort floor coverage is incomplete. This takes precedence over other aggregate dispositions; known interval results remain visible.
 
-The output retains per-interval portfolio and as-of dispositions, owner/reference evidence match counts, every cohort floor result, owner/evidence references, stock-flow rows and resource reconciliation rows. It states that service quality, independent as-of replay and source authenticity are not established by this composer.
+The output retains per-interval portfolio and as-of dispositions, owner/reference evidence match counts, every cohort floor result, owner/evidence references, stock-flow rows and resource reconciliation rows. It states that service quality, independent reproduction of the as-of evidence replay and source authenticity are not established by this composer.
 
 ## Claim boundary and limitations
 
