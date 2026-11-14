@@ -1,0 +1,54 @@
+name: FSRE as-of evidence to portfolio composition
+on:
+  pull_request:
+    paths:
+      - "tools/fsre-asof-portfolio-composer/**"
+      - "tools/fsre-asof-evidence/**"
+      - "tools/fsre-portfolio-reference/**"
+      - ".github/workflows/fsre-asof-portfolio-composer.yml"
+  push:
+    branches:
+      - main
+      - research/fsre-federated-resilience-v0.1
+    paths:
+      - "tools/fsre-asof-portfolio-composer/**"
+      - "tools/fsre-asof-evidence/**"
+      - "tools/fsre-portfolio-reference/**"
+      - ".github/workflows/fsre-asof-portfolio-composer.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  composition:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path tools/fsre-asof-evidence/Cargo.toml --all -- --check
+          cargo fmt --manifest-path tools/fsre-portfolio-reference/Cargo.toml --all -- --check
+          cargo fmt --manifest-path tools/fsre-asof-portfolio-composer/Cargo.toml --all -- --check
+      - name: Run component and composition tests
+        run: |
+          cargo test --locked --offline --manifest-path tools/fsre-asof-evidence/Cargo.toml
+          cargo test --locked --offline --manifest-path tools/fsre-portfolio-reference/Cargo.toml
+          cargo test --locked --offline --manifest-path tools/fsre-asof-portfolio-composer/Cargo.toml
+      - name: Verify composed golden report
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$(mktemp)"
+          trap 'rm -f "$output"' EXIT
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-asof-portfolio-composer/Cargo.toml -- tools/fsre-asof-portfolio-composer/fixtures/synthetic-asof.psv tools/fsre-asof-portfolio-composer/fixtures/synthetic-portfolio.psv > "$output"
+          diff -u tools/fsre-asof-portfolio-composer/fixtures/synthetic-composed.expected.txt "$output"
+      - name: Run Clippy
+        run: |
+          cargo clippy --locked --offline --manifest-path tools/fsre-asof-evidence/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --locked --offline --manifest-path tools/fsre-portfolio-reference/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --locked --offline --manifest-path tools/fsre-asof-portfolio-composer/Cargo.toml --all-targets -- -D warnings
