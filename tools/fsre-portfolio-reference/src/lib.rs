@@ -94,6 +94,16 @@ fn require_no_measure(record: &Record, line: usize) -> Result<(), InputError> {
     Ok(())
 }
 
+fn require_no_quantity(record: &Record, line: usize) -> Result<(), InputError> {
+    if record.quantity.is_some() {
+        return Err(InputError(format!(
+            "line {line}: UNKNOWN {} cannot carry a numeric quantity",
+            record.kind
+        )));
+    }
+    Ok(())
+}
+
 fn parse_record(line: &str, line_number: usize) -> Result<Record, InputError> {
     let fields: Vec<&str> = line.split('|').map(str::trim).collect();
     if fields.len() != 13 {
@@ -160,7 +170,7 @@ fn validate_shape(record: &Record, line: usize) -> Result<(), InputError> {
             }
             match record.status.as_str() {
                 "QUALIFIED" => require_measure(record, line)?,
-                "UNKNOWN" => require_no_measure(record, line)?,
+                "UNKNOWN" => require_no_quantity(record, line)?,
                 _ => {
                     return Err(InputError(format!(
                         "line {line}: invalid option-capacity status"
@@ -226,7 +236,7 @@ fn validate_shape(record: &Record, line: usize) -> Result<(), InputError> {
             required_id(&record.subject, "resource_id", line)?;
             match record.status.as_str() {
                 "QUALIFIED" => require_measure(record, line)?,
-                "UNKNOWN" => require_no_measure(record, line)?,
+                "UNKNOWN" => require_no_quantity(record, line)?,
                 _ => {
                     return Err(InputError(format!(
                         "line {line}: invalid resource-use status"
@@ -244,7 +254,7 @@ fn validate_shape(record: &Record, line: usize) -> Result<(), InputError> {
             required_id(&record.subject, "resource_id", line)?;
             match record.status.as_str() {
                 "QUALIFIED" => require_measure(record, line)?,
-                "UNKNOWN" => require_no_measure(record, line)?,
+                "UNKNOWN" => require_no_quantity(record, line)?,
                 _ => {
                     return Err(InputError(format!(
                         "line {line}: invalid resource-capacity status"
@@ -540,6 +550,10 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
                 eval.reasons.insert("MISSING_OPTION_CAPACITY".to_owned());
             }
             Some(record) if record.status != "QUALIFIED" => {
+                if record.unit.as_deref().is_some_and(|provided| Some(provided) != unit.as_deref()) {
+                    eval.blocked = true;
+                    eval.reasons.insert("OPTION_CAPACITY_UNIT_MISMATCH".to_owned());
+                }
                 eval.unknown = true;
                 eval.reasons.insert("OPTION_CAPACITY_UNKNOWN".to_owned());
             }
@@ -704,17 +718,21 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
             not_estimable = true;
         }
         let result = resource_eval.entry(usage.subject.clone()).or_default();
-        if result
-            .unit
-            .as_ref()
-            .is_some_and(|unit| Some(unit) != usage.unit.as_ref())
-        {
-            return Err(InputError(format!(
-                "resource unit mismatch for {}",
-                usage.subject
-            )));
+        if let Some(provided_unit) = &usage.unit {
+            if result
+                .unit
+                .as_ref()
+                .is_some_and(|known_unit| known_unit != provided_unit)
+            {
+                return Err(InputError(format!(
+                    "resource unit mismatch for {}",
+                    usage.subject
+                )));
+            }
+            if result.unit.is_none() {
+                result.unit = Some(provided_unit.clone());
+            }
         }
-        result.unit = usage.unit.clone();
         if usage.status == "UNKNOWN" {
             result.unknown = true;
             not_estimable = true;
@@ -734,6 +752,20 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
                 not_estimable = true;
             }
             Some(capacity) if capacity.status != "QUALIFIED" => {
+                if let Some(provided_unit) = &capacity.unit {
+                    if result
+                        .unit
+                        .as_ref()
+                        .is_some_and(|known_unit| known_unit != provided_unit)
+                    {
+                        return Err(InputError(format!(
+                            "resource capacity unit mismatch for {resource_id}"
+                        )));
+                    }
+                    if result.unit.is_none() {
+                        result.unit = Some(provided_unit.clone());
+                    }
+                }
                 result.unknown = true;
                 not_estimable = true;
             }
@@ -1107,7 +1139,7 @@ mod tests {
         assert!(validate_and_report(&changed)
             .unwrap_err()
             .0
-            .contains("must not contain a quantity or unit"));
+            .contains("cannot carry a numeric quantity"));
     }
 
     #[test]
@@ -1120,7 +1152,7 @@ mod tests {
         assert!(validate_and_report(&changed)
             .unwrap_err()
             .0
-            .contains("must not contain a quantity or unit"));
+            .contains("cannot carry a numeric quantity"));
     }
 
     #[test]
@@ -1133,14 +1165,14 @@ mod tests {
         assert!(validate_and_report(&changed)
             .unwrap_err()
             .0
-            .contains("must not contain a quantity or unit"));
+            .contains("cannot carry a numeric quantity"));
     }
 
     #[test]
     fn unknown_resource_capacity_without_numeric_bounds_abstains() {
         let changed = FIXTURE.replace(
             "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|60|L|QUALIFIED|operator|synthetic:stock:diesel",
-            "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|||UNKNOWN|operator|synthetic:stock:diesel",
+            "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel||L|UNKNOWN|operator|synthetic:stock:diesel",
         );
         assert_ne!(changed, FIXTURE);
         let report = validate_and_report(&changed).expect("unknown resource capacity is explicit");
@@ -1152,12 +1184,42 @@ mod tests {
     fn unknown_resource_use_without_numeric_demand_abstains() {
         let changed = FIXTURE.replace(
             "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours|6|h|QUALIFIED|operator|synthetic:resource:pump-crew",
-            "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours|||UNKNOWN|operator|synthetic:resource:pump-crew",
+            "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours||h|UNKNOWN|operator|synthetic:resource:pump-crew",
         );
         assert_ne!(changed, FIXTURE);
         let report = validate_and_report(&changed).expect("unknown resource demand is explicit");
         assert!(report.contains("portfolio_disposition=NOT_ESTIMABLE"));
         assert!(report.contains("resource=qualified_crew_hours|4|12|h|NOT_ESTIMABLE"));
+    }
+
+    #[test]
+    fn unknown_resource_use_with_known_unit_is_row_order_invariant() {
+        let changed = FIXTURE.replace(
+            "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours|6|h|QUALIFIED|operator|synthetic:resource:pump-crew",
+            "RESOURCE_USE|resource-use-pump|backup_pump|water||synthetic-water-shock|hour-01|qualified_crew_hours||h|UNKNOWN|operator|synthetic:resource:pump-crew",
+        );
+        assert_ne!(changed, FIXTURE);
+        let mut metadata = Vec::new();
+        let mut rows = Vec::new();
+        for line in changed.lines() {
+            if line.starts_with('#') {
+                metadata.push(line);
+            } else if !line.is_empty() {
+                rows.push(line);
+            }
+        }
+        let header = rows.remove(0);
+        rows.reverse();
+        let reordered = format!(
+            "{}\n{}\n{}\n",
+            metadata.join("\n"),
+            header,
+            rows.join("\n")
+        );
+        assert_eq!(
+            validate_and_report(&changed).expect("original unknown resource row"),
+            validate_and_report(&reordered).expect("reordered unknown resource row")
+        );
     }
 
     #[test]
