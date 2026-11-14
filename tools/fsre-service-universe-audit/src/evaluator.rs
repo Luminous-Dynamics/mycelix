@@ -83,6 +83,9 @@ pub fn audit(source: &str) -> Result<AuditReport, AuditError> {
         }
     }
 
+    let has_unanchored_unresolved = links.iter().any(|link| {
+        link.decision == Decision::Unresolved && link.reference_id.is_none()
+    });
     let mut matched_reference_units = 0usize;
     let mut omitted_reference_units = 0usize;
     let mut duplicate_reference_units = 0usize;
@@ -90,7 +93,8 @@ pub fn audit(source: &str) -> Result<AuditReport, AuditError> {
 
     for reference_id in references.keys() {
         let matched = matched_by_reference.get(reference_id).copied().unwrap_or(0);
-        let unresolved = unresolved_by_reference.get(reference_id).copied().unwrap_or(0);
+        let unresolved = unresolved_by_reference.get(reference_id).copied().unwrap_or(0)
+            + if has_unanchored_unresolved { 1 } else { 0 };
         if matched > 1 {
             duplicate_reference_units += 1;
         }
