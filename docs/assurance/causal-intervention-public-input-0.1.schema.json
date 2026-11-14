@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:emsr:causal-intervention-public-input:0.1",
+  "title": "EMSR controlled-intervention public input 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "scenario_id",
+    "decision_scope",
+    "expected_source_ids",
+    "negative_control_source_ids",
+    "intervention",
+    "trials",
+    "observations"
+  ],
+  "properties": {
+    "contract": {
+      "const": "emsr.causal-intervention-public-input/0.1"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "decision_scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expected_source_ids": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "intervention": {
+      "$ref": "#/$defs/intervention"
+    },
+    "trials": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/trial"
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/observation"
+      }
+    },
+    "negative_control_source_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "intervention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "intervention_id",
+        "target_id",
+        "domain",
+        "intervention_kind",
+        "minimum_latency_ns",
+        "maximum_latency_ns",
+        "minimum_active_trials",
+        "minimum_sham_trials",
+        "response_threshold_milli",
+        "maximum_sham_response_rate_milli"
+      ],
+      "properties": {
+        "intervention_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "intervention_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minimum_latency_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximum_latency_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minimum_active_trials": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minimum_sham_trials": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "response_threshold_milli": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "maximum_sham_response_rate_milli": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        }
+      }
+    },
+    "trial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trial_id",
+        "arm",
+        "randomized_order",
+        "injection_time_tai_ns",
+        "observation_start_tai_ns",
+        "observation_end_tai_ns",
+        "randomization_receipt_sha256"
+      ],
+      "properties": {
+        "trial_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "arm": {
+          "enum": [
+            "active",
+            "sham"
+          ]
+        },
+        "randomized_order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "injection_time_tai_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observation_start_tai_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observation_end_tai_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "randomization_receipt_sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trial_id",
+        "source_id",
+        "event_time_tai_ns",
+        "received_time_tai_ns",
+        "sequence",
+        "time_mapping",
+        "state"
+      ],
+      "properties": {
+        "trial_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_time_tai_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "received_time_tai_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "time_mapping": {
+          "enum": [
+            "qualified",
+            "unknown",
+            "invalid"
+          ]
+        },
+        "state": {
+          "enum": [
+            "degraded",
+            "nominal",
+            "unobserved"
+          ]
+        }
+      }
+    }
+  }
+}

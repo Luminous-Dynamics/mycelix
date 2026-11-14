@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:emsr:causal-intervention-evaluation-score:0.1",
+  "title": "EMSR controlled-intervention evaluation score 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "score_contract",
+    "scenario_id",
+    "public_input_sha256",
+    "candidate_report_sha256",
+    "truth_commitment_sha256",
+    "ground_truth_common_cause",
+    "candidate_disposition",
+    "true_positive",
+    "false_positive",
+    "true_negative",
+    "false_negative",
+    "abstained",
+    "false_independence_claim",
+    "common_cause_source_ids",
+    "limitations"
+  ],
+  "properties": {
+    "score_contract": {
+      "const": "emsr.causal-intervention-evaluation-score/0.1"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "public_input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidate_report_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "truth_commitment_sha256": {
+      "type": "string"
+    },
+    "ground_truth_common_cause": {
+      "type": "boolean"
+    },
+    "candidate_disposition": {
+      "enum": [
+        "COMMON_CAUSE_SUPPORTED_WITHIN_INTERVENTION_SCOPE",
+        "NO_COMMON_CAUSE_DETECTED_WITHIN_TESTED_ENVELOPE",
+        "INDETERMINATE_INTERVENTION_COVERAGE",
+        "OBSERVATION_OR_CLOCK_MAPPING_INVALID"
+      ]
+    },
+    "true_positive": {
+      "type": "boolean"
+    },
+    "false_positive": {
+      "type": "boolean"
+    },
+    "true_negative": {
+      "type": "boolean"
+    },
+    "false_negative": {
+      "type": "boolean"
+    },
+    "abstained": {
+      "type": "boolean"
+    },
+    "false_independence_claim": {
+      "type": "boolean"
+    },
+    "common_cause_source_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
