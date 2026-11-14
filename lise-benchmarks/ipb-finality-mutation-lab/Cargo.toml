@@ -1,0 +1,10 @@
+[package]
+name = "ipb-finality-mutation-lab"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Deterministic typed mutation lab for the LISE exact-operation reference."
+
+[dependencies]
+ipb-finality-reference = { path = "../ipb-finality-reference" }
