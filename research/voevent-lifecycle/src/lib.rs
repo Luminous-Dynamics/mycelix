@@ -9,9 +9,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt;
 
-use sha2::{Digest, Sha256};
-
 use serde::{Deserialize, Serialize};
+use mycelix_voevent_header::{parse_packet, CitationRelation as ParsedCitationRelation, PacketRole as ParsedPacketRole};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceTime {
@@ -66,6 +65,8 @@ pub struct Citation {
     /// Identifier of the previously published packet being cited.
     pub target_id: String,
     pub relation: CitationRelation,
+    /// All source EventIVORN attributes, including attributes this replay does not interpret.
+    pub attributes: Vec<mycelix_voevent_header::RootAttribute>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -76,9 +77,14 @@ pub struct Packet {
     pub role: PacketRole,
     /// True only when observation was supplied through the VOEvent 2.1 implicit default.
     pub role_was_implicit: bool,
-    /// SHA-256 supplied by the upstream byte-preserving parser, when available.
-    /// This crate carries the value; it does not recompute or authenticate it.
+    /// SHA-256 computed by the versioned VOEvent parser over the exact XML bytes.
     pub packet_sha256: Option<String>,
+    /// Exact parser implementation version that derived this packet projection.
+    pub parser_version: String,
+    /// Uninterpreted VOEvent root attributes retained for loss accounting.
+    pub source_attributes: Vec<mycelix_voevent_header::RootAttribute>,
+    /// Source text from Citations/Description, kept as decoded text.
+    pub citations_description: Option<String>,
     /// Publisher identifier asserted by the packet source; this is not authentication.
     pub publisher: Option<String>,
     /// Fabric receipt time in Unix milliseconds.
@@ -90,67 +96,34 @@ pub struct Packet {
     pub citations: Vec<Citation>,
 }
 
-// JSON projection DTOs intentionally mirror the bounded fields emitted by
-// research/voevent-header's parse_packet CLI. Unknown parser fields are ignored
-// for forward compatibility; required evidence-bearing fields remain required.
+/// Exact source bytes plus a separately supplied, ingress-owned receipt timestamp.
+/// The parsed metadata is never accepted from the manifest; this crate derives it
+/// by invoking the pinned parser directly over these bytes.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
-pub struct ParsedHeaderProjection {
-    pub ivoid: String,
-    pub version: String,
-    pub raw_role: Option<String>,
-    pub effective_role: PacketRole,
-    pub role_was_implicit: bool,
-    pub packet_byte_length: usize,
-    pub packet_sha256: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
-pub struct ParsedWhoProjection {
-    pub present: bool,
-    pub author_ivoid: Option<String>,
-    pub source_created_at: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
-pub struct ParsedCitationProjection {
-    pub target_ivoid: String,
-    pub relation: CitationRelation,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
-pub struct ParsedVoEventProjection {
-    pub header: ParsedHeaderProjection,
-    pub who: ParsedWhoProjection,
-    pub citations_present: bool,
-    pub citations: Vec<ParsedCitationProjection>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
-pub struct ReceivedParsedPacket {
-    /// Supplied by the ingest receipt layer, not copied from Who/Date.
+pub struct ReceivedRawPacket {
+    /// Supplied by the receipt layer; never inferred from XML Who/Date.
     pub received_at_unix_ms: u64,
-    /// Exact UTF-8 packet text whose digest is supplied in the parsed header.
+    /// Exact UTF-8 XML source packet. Its metadata projection is parser-derived.
     pub raw_packet_xml: String,
-    pub packet: ParsedVoEventProjection,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct ReplayManifest {
     pub cutoff_unix_ms: u64,
-    pub packets: Vec<ReceivedParsedPacket>,
+    pub packets: Vec<ReceivedRawPacket>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ManifestError {
-    InvalidProjection { packet_index: usize, reason: String },
+    InvalidPacket { packet_index: usize, reason: String },
     Replay(ReplayError),
 }
 
 impl fmt::Display for ManifestError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidProjection { packet_index, reason } => {
-                write!(f, "packet projection {packet_index} rejected: {reason}")
+            Self::InvalidPacket { packet_index, reason } => {
+                write!(f, "raw VOEvent packet {packet_index} rejected: {reason}")
             }
             Self::Replay(error) => write!(f, "lifecycle replay rejected: {error}"),
         }
@@ -159,162 +132,91 @@ impl fmt::Display for ManifestError {
 
 impl Error for ManifestError {}
 
-fn is_ivoid_lexeme(value: &str) -> bool {
-    value.starts_with("ivo://")
-        && value.len() > "ivo://".len()
-        && !value
-            .chars()
-            .any(|character| character.is_control() || character.is_whitespace())
-}
-
-fn is_sha256_hex(value: &str) -> bool {
-    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
-}
-
 const MAX_VOEVENT_PACKET_BYTES: usize = 2 * 1024 * 1024;
 
-fn packet_from_projection(
-    received: ReceivedParsedPacket,
+fn map_packet_role(role: ParsedPacketRole) -> PacketRole {
+    match role {
+        ParsedPacketRole::Observation => PacketRole::Observation,
+        ParsedPacketRole::Prediction => PacketRole::Prediction,
+        ParsedPacketRole::Utility => PacketRole::Utility,
+        ParsedPacketRole::Test => PacketRole::Test,
+    }
+}
+
+fn map_citation_relation(relation: ParsedCitationRelation) -> CitationRelation {
+    match relation {
+        ParsedCitationRelation::Followup => CitationRelation::Followup,
+        ParsedCitationRelation::Supersedes => CitationRelation::Supersedes,
+        ParsedCitationRelation::Retraction => CitationRelation::Retraction,
+    }
+}
+
+fn packet_from_raw(
+    received: ReceivedRawPacket,
     packet_index: usize,
 ) -> Result<Packet, ManifestError> {
     let raw_packet_bytes = received.raw_packet_xml.as_bytes();
     if raw_packet_bytes.is_empty() || raw_packet_bytes.len() > MAX_VOEVENT_PACKET_BYTES {
-        return Err(ManifestError::InvalidProjection {
+        return Err(ManifestError::InvalidPacket {
             packet_index,
             reason: "raw VOEvent packet is empty or exceeds the 2 MiB limit".to_owned(),
         });
     }
 
-    let projection = received.packet;
-    let header = projection.header;
-    if header.version != "2.1" {
-        return Err(ManifestError::InvalidProjection {
+    let parsed = parse_packet(raw_packet_bytes).map_err(|error| ManifestError::InvalidPacket {
+        packet_index,
+        reason: error.to_string(),
+    })?;
+
+    // The parser computes both fields over the exact same byte slice supplied above.
+    // Keep a defensive equality check at this adapter boundary.
+    if parsed.header.packet_byte_length != raw_packet_bytes.len()
+        || parsed.header.packet_sha256.len() != 64
+    {
+        return Err(ManifestError::InvalidPacket {
             packet_index,
-            reason: format!("unsupported VOEvent version {:?}", header.version),
-        });
-    }
-    if header.packet_byte_length != raw_packet_bytes.len() {
-        return Err(ManifestError::InvalidProjection {
-            packet_index,
-            reason: "packet_byte_length does not match the supplied source bytes".to_owned(),
+            reason: "parser byte-length or SHA-256 receipt does not bind the supplied source bytes".to_owned(),
         });
     }
 
-    let packet_sha256 = header.packet_sha256;
-    if !is_sha256_hex(&packet_sha256) {
-        return Err(ManifestError::InvalidProjection {
-            packet_index,
-            reason: "packet SHA-256 must be exactly 64 hexadecimal characters".to_owned(),
-        });
-    }
-    let recomputed_sha256 = hex::encode(Sha256::digest(raw_packet_bytes));
-    if recomputed_sha256 != packet_sha256 {
-        return Err(ManifestError::InvalidProjection {
-            packet_index,
-            reason: "packet SHA-256 does not match the supplied exact source bytes".to_owned(),
-        });
-    }
-
-    let id = header.ivoid;
-    let role = header.effective_role;
-    let role_was_implicit = header.role_was_implicit;
-    let role_metadata_matches = if role_was_implicit {
-        header.raw_role.is_none() && role == PacketRole::Observation
-    } else {
-        header.raw_role.as_deref() == Some(role.as_str())
-    };
-    if !role_metadata_matches {
-        return Err(ManifestError::InvalidProjection {
-            packet_index,
-            reason: "raw_role, effective_role and role_was_implicit are inconsistent".to_owned(),
-        });
-    }
-    if !is_ivoid_lexeme(&id) {
-        return Err(ManifestError::InvalidProjection {
-            packet_index,
-            reason: "root IVOID is empty, malformed, or contains whitespace".to_owned(),
-        });
-    }
-
-    let who_present = projection.who.present;
-    let publisher = projection.who.author_ivoid;
-    let published_at = projection.who.source_created_at;
-    if !who_present && (publisher.is_some() || published_at.is_some()) {
-        return Err(ManifestError::InvalidProjection {
-            packet_index,
-            reason: "Who fields are populated while who.present=false".to_owned(),
-        });
-    }
-    if let Some(author_ivoid) = &publisher {
-        if !is_ivoid_lexeme(author_ivoid) {
-            return Err(ManifestError::InvalidProjection {
-                packet_index,
-                reason: "Who/AuthorIVORN is malformed or contains whitespace".to_owned(),
-            });
-        }
-    }
-
-    if published_at.as_ref().is_some_and(|value| value.is_empty()) {
-        return Err(ManifestError::InvalidProjection {
-            packet_index,
-            reason: "Who/Date must not be an empty string".to_owned(),
-        });
-    }
-
-    if !projection.citations_present && !projection.citations.is_empty() {
-        return Err(ManifestError::InvalidProjection {
-            packet_index,
-            reason: "citations_present=false conflicts with a non-empty citation set".to_owned(),
-        });
-    }
-    if projection.citations_present && projection.citations.is_empty() {
-        return Err(ManifestError::InvalidProjection {
-            packet_index,
-            reason: "citations_present=true requires at least one parsed citation".to_owned(),
-        });
-    }
-
-    let mut citations = Vec::with_capacity(projection.citations.len());
-    for citation in projection.citations {
-        if !is_ivoid_lexeme(&citation.target_ivoid) {
-            return Err(ManifestError::InvalidProjection {
-                packet_index,
-                reason: format!(
-                    "citation target {:?} is not a valid IVOID lexeme",
-                    citation.target_ivoid
-                ),
-            });
-        }
-        citations.push(Citation {
+    let citations = parsed
+        .citations
+        .into_iter()
+        .map(|citation| Citation {
             target_id: citation.target_ivoid,
-            relation: citation.relation,
-        });
-    }
+            relation: map_citation_relation(citation.relation),
+            attributes: citation.attributes,
+        })
+        .collect();
 
     Ok(Packet {
-        id,
-        role,
-        role_was_implicit,
-        packet_sha256: Some(packet_sha256),
-        publisher,
+        id: parsed.header.ivoid,
+        role: map_packet_role(parsed.header.effective_role),
+        role_was_implicit: parsed.header.role_was_implicit,
+        packet_sha256: Some(parsed.header.packet_sha256),
+        parser_version: mycelix_voevent_header::PARSER_VERSION.to_owned(),
+        source_attributes: parsed.header.root_attributes,
+        citations_description: parsed.citations_description,
+        publisher: parsed.who.author_ivoid,
         received_at_unix_ms: received.received_at_unix_ms,
-        published_at,
+        published_at: parsed.who.source_created_at,
         event_time: None,
         citations,
     })
 }
 
-/// Convert the parser's JSON projections plus separately supplied ingress
-/// receipts into a receipt-time-bounded lifecycle replay.
+/// Parse exact source XML bytes with the pinned parser, then replay only
+/// packets that had arrived by the requested as-known-at cutoff.
 pub fn replay_manifest(manifest: ReplayManifest) -> Result<Replay, ManifestError> {
     let mut packets = Vec::with_capacity(manifest.packets.len());
     for (index, received) in manifest.packets.into_iter().enumerate() {
-        // Historical views must not be poisoned by malformed evidence that had
-        // not yet arrived at the requested cutoff.
+        // Apply the receipt-time cutoff before parsing. Malformed future packets
+        // cannot poison a historical view; once included in a later view they
+        // must pass the actual parser.
         if received.received_at_unix_ms > manifest.cutoff_unix_ms {
             continue;
         }
-        packets.push(packet_from_projection(received, index)?);
+        packets.push(packet_from_raw(received, index)?);
     }
     replay_as_of(&packets, manifest.cutoff_unix_ms).map_err(ManifestError::Replay)
 }
@@ -326,6 +228,9 @@ pub struct VisiblePacket {
     pub role: PacketRole,
     pub role_was_implicit: bool,
     pub packet_sha256: Option<String>,
+    pub parser_version: String,
+    pub source_attributes: Vec<mycelix_voevent_header::RootAttribute>,
+    pub citations_description: Option<String>,
     pub publisher: Option<String>,
     pub received_at_unix_ms: u64,
     pub published_at: Option<String>,
@@ -343,6 +248,8 @@ pub struct LifecycleEdge {
     pub cited_packet_id: String,
     pub cited_packet_sha256: Option<String>,
     pub relation: CitationRelation,
+    /// Original EventIVORN attributes preserved by the parser.
+    pub citation_attributes: Vec<mycelix_voevent_header::RootAttribute>,
     /// Publisher attribution copied from the asserting packet, not verified identity.
     pub asserting_publisher: Option<String>,
     /// Receipt time of the asserting packet; not event time or publication time.
@@ -357,6 +264,8 @@ pub struct UnresolvedCitation {
     pub asserting_packet_sha256: Option<String>,
     pub cited_packet_id: String,
     pub relation: CitationRelation,
+    /// Original EventIVORN attributes preserved by the parser.
+    pub citation_attributes: Vec<mycelix_voevent_header::RootAttribute>,
     pub asserting_publisher: Option<String>,
     pub asserted_packet_received_at_unix_ms: u64,
 }
@@ -480,6 +389,9 @@ pub fn replay_as_of(
             role: packet.role,
             role_was_implicit: packet.role_was_implicit,
             packet_sha256: packet.packet_sha256.clone(),
+            parser_version: packet.parser_version.clone(),
+            source_attributes: packet.source_attributes.clone(),
+            citations_description: packet.citations_description.clone(),
             publisher: packet.publisher.clone(),
             received_at_unix_ms: packet.received_at_unix_ms,
             published_at: packet.published_at.clone(),
@@ -526,6 +438,7 @@ pub fn replay_as_of(
                     .cloned()
                     .flatten(),
                 relation: citation.relation,
+                citation_attributes: citation.attributes.clone(),
                 asserting_publisher: packet.publisher.clone(),
                 asserted_packet_received_at_unix_ms: packet.received_at_unix_ms,
             };
@@ -554,6 +467,7 @@ pub fn replay_as_of(
                     asserting_packet_sha256: packet.packet_sha256.clone(),
                     cited_packet_id: citation.target_id.clone(),
                     relation: citation.relation,
+                    citation_attributes: citation.attributes.clone(),
                     asserting_publisher: packet.publisher.clone(),
                     asserted_packet_received_at_unix_ms: packet.received_at_unix_ms,
                 });
