@@ -17,7 +17,7 @@ The two implementations must agree exactly on each option disposition and reason
 - 10 stale/clock-uncertainty cases.
 - 5 mobilisation-horizon cases.
 - 5 compound negative controls.
-- 340 predicate evidence rows (the 10 missing-predicate cases omit one row each).
+- 339 predicate evidence rows (10 single-missing cases plus one compound case omit one row each).
 - Seven predicate families with their existing owner/schema namespaces.
 
 Files:
