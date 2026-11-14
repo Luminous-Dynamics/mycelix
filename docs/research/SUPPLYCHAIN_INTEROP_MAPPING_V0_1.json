@@ -348,7 +348,9 @@
     "late-recorded corrections cannot rewrite an earlier decision-time/as-of projection",
     "repository recordTime is not substituted for downstream ingestion, index visibility or actual run-context inclusion",
     "overlapping timestamp uncertainty intervals do not create unsupported event ordering",
-    "historical conformance runs retain the exact normative validator/schema/context/SHACL artifact set rather than silently substituting a newer indexed edition"
+    "historical conformance runs retain the exact normative validator/schema/context/SHACL artifact set rather than silently substituting a newer indexed edition",
+    "multi-source event histories preserve partial order; no cross-source total order is inferred from timestamps or local sequence counters alone",
+    "an incomplete source set or missing causal join is reported as unknown/incomplete, not as a complete event history"
   ],
   "non_claims": [
     "No standards conformance has been tested by this mapping.",
@@ -402,6 +404,22 @@
       "desci_receipt_time_read_projection_only": "Mycelix #5860",
       "exact_gs1_normative_artifact_intake": "Mycelix #5395"
     },
-    "claim_limit": "EPCIS eventTime and recordTime do not establish the downstream adapter/index/model's actual availability or context. Missing receipts mean that stronger claim is not established; no generic availability ledger is created."
+    "claim_limit": "EPCIS eventTime and recordTime do not establish the downstream adapter/index/model's actual availability or context. Missing receipts mean that stronger claim is not established; no generic availability ledger is created.",
+    "causal_ordering": {
+      "status": "owner_composition_only_no_new_clock_or_causal_history_service",
+      "principle": "A wall-clock cutoff and repository recordTime do not by themselves establish a complete distributed information frontier or cross-source happens-before relation.",
+      "owners": {
+        "temporal_assertions_and_evidence_frontier": "Mycelix #2631",
+        "multiconductor_partial_order_reference": "Mycelix #5843",
+        "time_qualified_dependency_completeness": "Mycelix #5923"
+      },
+      "required_controls": [
+        "retain_source_or_stream_identity_and_local_order_only_within_that_source",
+        "cross_source_order_requires_explicit_evidence_backed_causal_join",
+        "wall_clock_sort_never_mints_causal_edge",
+        "timestamp_cutoff_alone_does_not_claim_complete_source_universe",
+        "missing_or_incomplete_join_remains_unknown_or_incomplete"
+      ]
+    }
   }
 }
