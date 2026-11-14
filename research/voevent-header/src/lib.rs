@@ -93,11 +93,22 @@ pub struct VoEventCitation {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct VoEventPacket {
     pub header: VoEventHeader,
+    /// Curation fields are source assertions, not authenticated publisher identity.
+    pub who: WhoMetadata,
     /// Absence is meaningful: a packet without Citations announces a new event.
     pub citations_present: bool,
     pub citations: Vec<VoEventCitation>,
     /// Optional source text from Citations/Description.
     pub citations_description: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct WhoMetadata {
+    pub present: bool,
+    /// Source-asserted publisher/custodian IVOID from Who/AuthorIVORN.
+    pub author_ivoid: Option<String>,
+    /// Source-native lexical value from Who/Date; no timestamp normalization is performed.
+    pub source_created_at: Option<String>,
 }
 
 
@@ -147,6 +158,18 @@ pub enum ParseError {
     NestedCitationElement(String),
     #[error("unsupported or invalid XML character reference in citation text: {0}")]
     InvalidCitationCharacterReference(String),
+    #[error("a VOEvent packet contains more than one Who element")]
+    DuplicateWho,
+    #[error("Who contains more than one AuthorIVORN element")]
+    DuplicateWhoAuthorIvoid,
+    #[error("Who contains more than one Date element")]
+    DuplicateWhoDate,
+    #[error("Who/AuthorIVORN contains an invalid IVOID: {0}")]
+    InvalidWhoAuthorIvoid(String),
+    #[error("Who/Date is empty")]
+    EmptyWhoDate,
+    #[error("Who/AuthorIVORN and Who/Date must contain simple text only; found nested element {0}")]
+    NestedWhoElement(String),
 }
 
 fn validate_ivoid(value: &str) -> Result<(), String> {
@@ -629,15 +652,218 @@ fn parse_citations(
     Ok((citations_seen, citations, description))
 }
 
+
+#[derive(Debug)]
+struct WhoTextBuilder {
+    depth: usize,
+    text: String,
+}
+
+/// Extract the curation identity and creation-time lexemes from Who.
+/// Only direct Who/AuthorIVORN and Who/Date children are interpreted.
+fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
+    let mut reader = Reader::from_reader(Cursor::new(packet));
+    let mut buffer = Vec::new();
+    let mut element_stack: Vec<Vec<u8>> = Vec::new();
+    let mut who_seen = false;
+    let mut who_depth: Option<usize> = None;
+    let mut author_seen = false;
+    let mut date_seen = false;
+    let mut author_ivoid = None;
+    let mut source_created_at = None;
+    let mut current_author: Option<WhoTextBuilder> = None;
+    let mut current_date: Option<WhoTextBuilder> = None;
+
+    loop {
+        let event = reader
+            .read_event_into(&mut buffer)
+            .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+
+        match event {
+            Event::Start(element) => {
+                let name = element.name().as_ref().to_vec();
+                let depth = element_stack.len() + 1;
+
+                if element_stack.len() == 1 && name.as_slice() == b"Who" {
+                    if who_seen {
+                        return Err(ParseError::DuplicateWho);
+                    }
+                    who_seen = true;
+                    who_depth = Some(depth);
+                } else if who_depth == Some(element_stack.len())
+                    && name.as_slice() == b"AuthorIVORN"
+                {
+                    if author_seen {
+                        return Err(ParseError::DuplicateWhoAuthorIvoid);
+                    }
+                    author_seen = true;
+                    current_author = Some(WhoTextBuilder {
+                        depth,
+                        text: String::new(),
+                    });
+                } else if who_depth == Some(element_stack.len()) && name.as_slice() == b"Date" {
+                    if date_seen {
+                        return Err(ParseError::DuplicateWhoDate);
+                    }
+                    date_seen = true;
+                    current_date = Some(WhoTextBuilder {
+                        depth,
+                        text: String::new(),
+                    });
+                } else if current_author
+                    .as_ref()
+                    .is_some_and(|builder| element_stack.len() >= builder.depth)
+                    || current_date
+                        .as_ref()
+                        .is_some_and(|builder| element_stack.len() >= builder.depth)
+                {
+                    return Err(ParseError::NestedWhoElement(
+                        String::from_utf8_lossy(&name).into_owned(),
+                    ));
+                }
+
+                element_stack.push(name);
+            }
+            Event::Empty(element) => {
+                let name = element.name().as_ref().to_vec();
+
+                if current_author
+                    .as_ref()
+                    .is_some_and(|builder| element_stack.len() >= builder.depth)
+                    || current_date
+                        .as_ref()
+                        .is_some_and(|builder| element_stack.len() >= builder.depth)
+                {
+                    return Err(ParseError::NestedWhoElement(
+                        String::from_utf8_lossy(&name).into_owned(),
+                    ));
+                }
+
+                if element_stack.len() == 1 && name.as_slice() == b"Who" {
+                    if who_seen {
+                        return Err(ParseError::DuplicateWho);
+                    }
+                    who_seen = true;
+                } else if who_depth == Some(element_stack.len())
+                    && name.as_slice() == b"AuthorIVORN"
+                {
+                    if author_seen {
+                        return Err(ParseError::DuplicateWhoAuthorIvoid);
+                    }
+                    author_seen = true;
+                    return Err(ParseError::InvalidWhoAuthorIvoid(String::new()));
+                } else if who_depth == Some(element_stack.len()) && name.as_slice() == b"Date" {
+                    if date_seen {
+                        return Err(ParseError::DuplicateWhoDate);
+                    }
+                    date_seen = true;
+                    return Err(ParseError::EmptyWhoDate);
+                }
+            }
+            Event::Text(text) => {
+                let decoded = text
+                    .decode()
+                    .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+                if let Some(builder) = current_author.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        builder.text.push_str(&decoded);
+                    }
+                } else if let Some(builder) = current_date.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        builder.text.push_str(&decoded);
+                    }
+                }
+            }
+            Event::CData(text) => {
+                let decoded = text
+                    .decode()
+                    .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+                if let Some(builder) = current_author.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        builder.text.push_str(&decoded);
+                    }
+                } else if let Some(builder) = current_date.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        builder.text.push_str(&decoded);
+                    }
+                }
+            }
+            Event::GeneralRef(reference) => {
+                let target = if let Some(builder) = current_author.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        Some(&mut builder.text)
+                    } else {
+                        None
+                    }
+                } else if let Some(builder) = current_date.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        Some(&mut builder.text)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                if let Some(target) = target {
+                    target.push(decode_citation_reference(reference.as_ref())?);
+                }
+            }
+            Event::End(element) => {
+                let depth = element_stack.len();
+                let name = element.name().as_ref();
+
+                if let Some(builder) = current_author.as_ref() {
+                    if builder.depth == depth && name == b"AuthorIVORN" {
+                        let builder = current_author.take().expect("Who author builder exists");
+                        validate_ivoid(&builder.text)
+                            .map_err(ParseError::InvalidWhoAuthorIvoid)?;
+                        author_ivoid = Some(builder.text);
+                    }
+                }
+
+                if let Some(builder) = current_date.as_ref() {
+                    if builder.depth == depth && name == b"Date" {
+                        let builder = current_date.take().expect("Who date builder exists");
+                        if builder.text.is_empty() {
+                            return Err(ParseError::EmptyWhoDate);
+                        }
+                        source_created_at = Some(builder.text);
+                    }
+                }
+
+                if who_depth == Some(depth) && name == b"Who" {
+                    who_depth = None;
+                }
+
+                element_stack.pop();
+            }
+            Event::DocType(_) => return Err(ParseError::DoctypeNotAllowed),
+            Event::Eof => break,
+            _ => {}
+        }
+
+        buffer.clear();
+    }
+
+    Ok(WhoMetadata {
+        present: who_seen,
+        author_ivoid,
+        source_created_at,
+    })
+}
+
 /// Parse the root header and the typed lifecycle citations from one exact packet.
 ///
 /// This remains a bounded extraction profile, not full VOEvent XSD validation.
 /// The byte length and digest bind all extracted values to the same packet.
 pub fn parse_packet(packet: &[u8]) -> Result<VoEventPacket, ParseError> {
     let header = parse_header(packet)?;
+    let who = parse_who(packet)?;
     let (citations_present, citations, citations_description) = parse_citations(packet)?;
     Ok(VoEventPacket {
         header,
+        who,
         citations_present,
         citations,
         citations_description,
