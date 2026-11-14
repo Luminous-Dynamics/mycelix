@@ -1,0 +1,250 @@
+{
+  "schemaVersion": "0.1.0",
+  "artwork": {
+    "artworkId": "urn:uuid:11111111-2222-4333-8444-555555555555",
+    "objectType": "sculpture",
+    "titles": [
+      {
+        "value": "Study in Wind",
+        "language": "en"
+      }
+    ],
+    "dateOrPeriod": {
+      "displayValue": "2024 (synthetic example)"
+    },
+    "materials": [
+      "cast bronze"
+    ],
+    "techniques": [
+      "lost-wax casting"
+    ],
+    "makers": [
+      {
+        "agentRef": "did:example:artist-001",
+        "role": "artist",
+        "claimRef": "claim-creator-001"
+      }
+    ],
+    "dimensions": {
+      "height": 42,
+      "width": 18,
+      "depth": 16,
+      "unit": "cm",
+      "measurementMethod": "calibrated ruler (synthetic)",
+      "claimRef": "claim-dimensions-001"
+    },
+    "edition": {
+      "editionNumber": 1,
+      "editionSize": 1,
+      "isUnique": true,
+      "claimRef": "claim-edition-001"
+    },
+    "components": []
+  },
+  "assertions": [
+    {
+      "assertionId": "claim-creator-001",
+      "subjectRef": "urn:uuid:11111111-2222-4333-8444-555555555555",
+      "predicate": "createdBy",
+      "objectValue": "did:example:artist-001",
+      "assertedBy": {
+        "agentRef": "did:example:artist-001",
+        "role": "artist"
+      },
+      "assertedAt": "2026-11-09T10:00:00Z",
+      "status": "asserted",
+      "method": "self-declaration",
+      "evidenceRefs": [
+        "evidence-photo-001"
+      ]
+    },
+    {
+      "assertionId": "claim-custody-001",
+      "subjectRef": "urn:uuid:11111111-2222-4333-8444-555555555555",
+      "predicate": "inCustodyOf",
+      "objectValue": "did:example:gallery-001",
+      "assertedBy": {
+        "agentRef": "did:example:gallery-001",
+        "role": "custodian"
+      },
+      "assertedAt": "2026-11-09T10:15:00Z",
+      "status": "asserted",
+      "method": "signed custody receipt",
+      "evidenceRefs": [
+        "evidence-custody-001"
+      ]
+    },
+    {
+      "assertionId": "claim-dimensions-001",
+      "subjectRef": "urn:uuid:11111111-2222-4333-8444-555555555555",
+      "predicate": "other",
+      "objectValue": "Synthetic measured dimensions: 42 cm high × 18 cm wide × 16 cm deep.",
+      "assertedBy": {
+        "agentRef": "did:example:gallery-001",
+        "role": "measurer"
+      },
+      "assertedAt": "2026-11-09T10:20:00Z",
+      "status": "asserted",
+      "method": "calibrated ruler (synthetic fixture)",
+      "evidenceRefs": [
+        "evidence-photo-001"
+      ]
+    },
+    {
+      "assertionId": "claim-edition-001",
+      "subjectRef": "urn:uuid:11111111-2222-4333-8444-555555555555",
+      "predicate": "other",
+      "objectValue": "Synthetic edition claim: unique object, edition 1 of 1.",
+      "assertedBy": {
+        "agentRef": "did:example:artist-001",
+        "role": "artist"
+      },
+      "assertedAt": "2026-11-09T10:21:00Z",
+      "status": "asserted",
+      "method": "artist self-declaration (synthetic fixture)",
+      "evidenceRefs": [
+        "evidence-photo-001"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "evidenceId": "evidence-photo-001",
+      "kind": "photograph",
+      "mediaType": "image/jpeg",
+      "digest": {
+        "algorithm": "sha-256",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "createdAt": "2026-11-09T09:45:00Z",
+      "capturedAt": "2026-11-09T09:40:00Z",
+      "creatorRef": "did:example:gallery-001",
+      "access": "public",
+      "limitations": [
+        "Synthetic fixture; not evidence of a real artwork"
+      ]
+    },
+    {
+      "evidenceId": "evidence-custody-001",
+      "kind": "ownership-document",
+      "mediaType": "application/pdf",
+      "digest": {
+        "algorithm": "sha-256",
+        "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "createdAt": "2026-11-09T10:10:00Z",
+      "creatorRef": "did:example:gallery-001",
+      "access": "restricted",
+      "limitations": [
+        "Synthetic fixture; custody assertion is not a legal ownership determination"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "eventId": "event-creation-001",
+      "eventType": "created",
+      "occurredAt": "2024-06-01T12:00:00Z",
+      "participants": [
+        {
+          "agentRef": "did:example:artist-001",
+          "role": "artist"
+        }
+      ],
+      "evidenceRefs": [
+        "evidence-photo-001"
+      ]
+    },
+    {
+      "eventId": "event-custody-001",
+      "eventType": "custody-transfer",
+      "occurredAt": "2026-11-09T10:00:00Z",
+      "participants": [
+        {
+          "agentRef": "did:example:artist-001",
+          "role": "former-custodian"
+        },
+        {
+          "agentRef": "did:example:gallery-001",
+          "role": "new-custodian"
+        }
+      ],
+      "assertionRefs": [
+        "claim-custody-001"
+      ],
+      "evidenceRefs": [
+        "evidence-custody-001"
+      ]
+    }
+  ],
+  "rights": [
+    {
+      "rightId": "right-ai-training-001",
+      "rightType": "ai-training",
+      "status": "denied",
+      "holderRef": "did:example:artist-001",
+      "jurisdiction": "ZA",
+      "purpose": "No model training permission is granted by this record.",
+      "sourceAssertionRef": "claim-creator-001",
+      "restrictions": [
+        "Do not infer permission from public display or access to the photograph."
+      ]
+    }
+  ],
+  "conditionObservations": [
+    {
+      "observationId": "condition-001",
+      "observedAt": "2026-11-09T10:30:00Z",
+      "assessorRef": "did:example:conservator-001",
+      "method": "visual inspection; synthetic fixture",
+      "scale": "illustrative-only",
+      "rating": "No observed issue in this synthetic example.",
+      "environment": {
+        "temperatureC": 21,
+        "relativeHumidityPercent": 48,
+        "illuminanceLux": 100
+      },
+      "evidenceRefs": [
+        "evidence-photo-001"
+      ],
+      "limitations": [
+        "Synthetic example; not a professional condition report."
+      ]
+    }
+  ],
+  "spatialAssets": [
+    {
+      "spatialAssetId": "spatial-mesh-001",
+      "kind": "mesh",
+      "mediaType": "model/gltf-binary",
+      "uri": "https://example.invalid/synthetic/study-in-wind.glb",
+      "digest": {
+        "algorithm": "sha-256",
+        "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "access": "controlled",
+      "coordinateFrame": "artwork-local-right-handed",
+      "units": "cm",
+      "captureMethod": "synthetic reference mesh",
+      "capturedAt": "2026-11-09T10:20:00Z",
+      "unobservedRegions": [
+        "underside not represented"
+      ],
+      "rightsRefs": [
+        "right-ai-training-001"
+      ]
+    }
+  ],
+  "access": {
+    "classification": "controlled",
+    "publicLocationAllowed": false,
+    "policyRef": "https://example.invalid/policies/synthetic-artwork-001",
+    "reason": "Synthetic fixture; exact storage location intentionally omitted."
+  },
+  "lineage": {
+    "currentRecordDigest": {
+      "algorithm": "sha-256",
+      "value": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  }
+}
