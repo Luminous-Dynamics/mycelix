@@ -447,4 +447,39 @@ mod tests {
             validate_and_report(&reordered).expect("reordered")
         );
     }
+
+    #[test]
+    fn independently_generated_stock_flow_arithmetic_sweep() {
+        let mut checked = 0_u64;
+        for opening in 0..=8_u64 {
+            for receipt in 0..=8_u64 {
+                for used in 0..=8_u64 {
+                    for removed in 0..=8_u64 {
+                        let available = opening + receipt;
+                        let outgoing = used + removed;
+                        if outgoing > available {
+                            continue;
+                        }
+                        let closing = available - outgoing;
+                        let input = format!(
+                            "# scenario_id=oracle-sweep\n# resource_id=oracle-resource\n# resource_unit=unit\n# time_basis_id=oracle-clock\n{HEADER}\nrow-0|0|interval-0|0|60|{opening}|{receipt}|{used}|{removed}|{closing}|operator|synthetic:oracle-sweep|KNOWN\n"
+                        );
+                        let output = validate_and_report(&input).expect("balanced oracle case");
+                        assert!(output.contains("stock_flow_disposition=BALANCED_FOR_DECLARED_HORIZON"));
+                        let wrong = closing + 1;
+                        let corrupt = input.replace(
+                            &format!("|{removed}|{closing}|operator|synthetic:oracle-sweep|KNOWN"),
+                            &format!("|{removed}|{wrong}|operator|synthetic:oracle-sweep|KNOWN"),
+                        );
+                        let rejected = validate_and_report(&corrupt).expect("oracle mismatch report");
+                        assert!(rejected.contains("stock_flow_disposition=NOT_BALANCED"));
+                        checked += 1;
+                    }
+                }
+            }
+        }
+        assert!(checked >= 3_000, "expected broad oracle sweep, got {checked}");
+    }
+
+
 }
