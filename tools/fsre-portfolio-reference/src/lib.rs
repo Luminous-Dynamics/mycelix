@@ -49,14 +49,16 @@ struct Input {
 fn valid_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 160
-        && value.bytes().all(|b| {
-            b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b':' | b'/')
-        })
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b':' | b'/'))
 }
 
 fn required_id(value: &str, label: &str, line: usize) -> Result<(), InputError> {
     if !valid_id(value) {
-        return Err(InputError(format!("line {line}: missing or invalid {label}")));
+        return Err(InputError(format!(
+            "line {line}: missing or invalid {label}"
+        )));
     }
     Ok(())
 }
@@ -66,7 +68,9 @@ fn parse_quantity(value: &str, line: usize) -> Result<Option<u64>, InputError> {
         return Ok(None);
     }
     value.parse::<u64>().map(Some).map_err(|error| {
-        InputError(format!("line {line}: invalid non-negative integer quantity: {error}"))
+        InputError(format!(
+            "line {line}: invalid non-negative integer quantity: {error}"
+        ))
     })
 }
 
@@ -119,7 +123,9 @@ fn parse_record(line: &str, line_number: usize) -> Result<Record, InputError> {
     required_id(&record.interval, "interval_id", line_number)?;
     required_id(&record.owner, "source_owner", line_number)?;
     if record.evidence_ref.is_empty() || record.evidence_ref.len() > 512 {
-        return Err(InputError(format!("line {line_number}: invalid evidence_ref")));
+        return Err(InputError(format!(
+            "line {line_number}: invalid evidence_ref"
+        )));
     }
     Ok(record)
 }
@@ -130,25 +136,33 @@ fn validate_shape(record: &Record, line: usize) -> Result<(), InputError> {
             required_id(&record.option, "option_id", line)?;
             required_id(&record.service, "service_id", line)?;
             if !record.cohort.is_empty() || !record.subject.is_empty() {
-                return Err(InputError(format!("line {line}: invalid option-qualification scope")));
+                return Err(InputError(format!(
+                    "line {line}: invalid option-qualification scope"
+                )));
             }
             require_no_measure(record, line)?;
             if !matches!(
                 record.status.as_str(),
                 "QUALIFIED" | "UNKNOWN" | "NOT_QUALIFIED" | "REVOKED" | "EXPIRED" | "OUT_OF_DOMAIN"
             ) {
-                return Err(InputError(format!("line {line}: invalid qualification status")));
+                return Err(InputError(format!(
+                    "line {line}: invalid qualification status"
+                )));
             }
         }
         "OPTION_CAPACITY" => {
             required_id(&record.option, "option_id", line)?;
             required_id(&record.service, "service_id", line)?;
             if !record.cohort.is_empty() || !record.subject.is_empty() {
-                return Err(InputError(format!("line {line}: invalid option-capacity scope")));
+                return Err(InputError(format!(
+                    "line {line}: invalid option-capacity scope"
+                )));
             }
             require_measure(record, line)?;
             if !matches!(record.status.as_str(), "QUALIFIED" | "UNKNOWN") {
-                return Err(InputError(format!("line {line}: invalid option-capacity status")));
+                return Err(InputError(format!(
+                    "line {line}: invalid option-capacity status"
+                )));
             }
         }
         "ALLOCATION" => {
@@ -156,25 +170,35 @@ fn validate_shape(record: &Record, line: usize) -> Result<(), InputError> {
             required_id(&record.service, "service_id", line)?;
             required_id(&record.cohort, "cohort_id", line)?;
             if !record.subject.is_empty() {
-                return Err(InputError(format!("line {line}: invalid allocation subject")));
+                return Err(InputError(format!(
+                    "line {line}: invalid allocation subject"
+                )));
             }
             require_measure(record, line)?;
             if record.status != "PROPOSED" {
-                return Err(InputError(format!("line {line}: allocation status must be PROPOSED")));
+                return Err(InputError(format!(
+                    "line {line}: allocation status must be PROPOSED"
+                )));
             }
         }
         "SERVICE_FLOOR" => {
             if !record.option.is_empty() {
-                return Err(InputError(format!("line {line}: service floor cannot name an option")));
+                return Err(InputError(format!(
+                    "line {line}: service floor cannot name an option"
+                )));
             }
             required_id(&record.service, "service_id", line)?;
             required_id(&record.cohort, "cohort_id", line)?;
             if !record.subject.is_empty() {
-                return Err(InputError(format!("line {line}: invalid service-floor subject")));
+                return Err(InputError(format!(
+                    "line {line}: invalid service-floor subject"
+                )));
             }
             require_measure(record, line)?;
             if record.status != "REQUIRED" {
-                return Err(InputError(format!("line {line}: service-floor status must be REQUIRED")));
+                return Err(InputError(format!(
+                    "line {line}: service-floor status must be REQUIRED"
+                )));
             }
         }
         "RESOURCE_PROFILE" | "DOMAIN_PROFILE" => {
@@ -192,39 +216,55 @@ fn validate_shape(record: &Record, line: usize) -> Result<(), InputError> {
             required_id(&record.option, "option_id", line)?;
             required_id(&record.service, "service_id", line)?;
             if !record.cohort.is_empty() {
-                return Err(InputError(format!("line {line}: invalid resource-use cohort")));
+                return Err(InputError(format!(
+                    "line {line}: invalid resource-use cohort"
+                )));
             }
             required_id(&record.subject, "resource_id", line)?;
             require_measure(record, line)?;
             if !matches!(record.status.as_str(), "QUALIFIED" | "UNKNOWN") {
-                return Err(InputError(format!("line {line}: invalid resource-use status")));
+                return Err(InputError(format!(
+                    "line {line}: invalid resource-use status"
+                )));
             }
         }
         "RESOURCE_CAPACITY" => {
-            if !record.option.is_empty() || !record.service.is_empty() || !record.cohort.is_empty() {
-                return Err(InputError(format!("line {line}: invalid resource-capacity scope")));
+            if !record.option.is_empty() || !record.service.is_empty() || !record.cohort.is_empty()
+            {
+                return Err(InputError(format!(
+                    "line {line}: invalid resource-capacity scope"
+                )));
             }
             required_id(&record.subject, "resource_id", line)?;
             require_measure(record, line)?;
             if !matches!(record.status.as_str(), "QUALIFIED" | "UNKNOWN") {
-                return Err(InputError(format!("line {line}: invalid resource-capacity status")));
+                return Err(InputError(format!(
+                    "line {line}: invalid resource-capacity status"
+                )));
             }
         }
         "OPTION_DOMAIN" => {
             required_id(&record.option, "option_id", line)?;
             required_id(&record.service, "service_id", line)?;
             if !record.cohort.is_empty() {
-                return Err(InputError(format!("line {line}: invalid option-domain cohort")));
+                return Err(InputError(format!(
+                    "line {line}: invalid option-domain cohort"
+                )));
             }
             required_id(&record.subject, "failure_domain_id", line)?;
             require_no_measure(record, line)?;
             if record.status != "MEMBER" {
-                return Err(InputError(format!("line {line}: option-domain status must be MEMBER")));
+                return Err(InputError(format!(
+                    "line {line}: option-domain status must be MEMBER"
+                )));
             }
         }
         "DOMAIN_STATE" => {
-            if !record.option.is_empty() || !record.service.is_empty() || !record.cohort.is_empty() {
-                return Err(InputError(format!("line {line}: invalid domain-state scope")));
+            if !record.option.is_empty() || !record.service.is_empty() || !record.cohort.is_empty()
+            {
+                return Err(InputError(format!(
+                    "line {line}: invalid domain-state scope"
+                )));
             }
             required_id(&record.subject, "failure_domain_id", line)?;
             require_no_measure(record, line)?;
@@ -232,7 +272,12 @@ fn validate_shape(record: &Record, line: usize) -> Result<(), InputError> {
                 return Err(InputError(format!("line {line}: invalid domain state")));
             }
         }
-        _ => return Err(InputError(format!("line {line}: unsupported record type {}", record.kind))),
+        _ => {
+            return Err(InputError(format!(
+                "line {line}: unsupported record type {}",
+                record.kind
+            )))
+        }
     }
     Ok(())
 }
@@ -252,15 +297,22 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
         }
         if let Some(comment) = line.strip_prefix('#') {
             if let Some((key, value)) = comment.trim().split_once('=') {
-                if metadata.insert(key.trim().to_owned(), value.trim().to_owned()).is_some() {
-                    return Err(InputError(format!("line {line_number}: duplicate metadata key")));
+                if metadata
+                    .insert(key.trim().to_owned(), value.trim().to_owned())
+                    .is_some()
+                {
+                    return Err(InputError(format!(
+                        "line {line_number}: duplicate metadata key"
+                    )));
                 }
             }
             continue;
         }
         if !header_seen {
             if line != HEADER {
-                return Err(InputError(format!("line {line_number}: unexpected input header")));
+                return Err(InputError(format!(
+                    "line {line_number}: unexpected input header"
+                )));
             }
             header_seen = true;
             continue;
@@ -268,7 +320,10 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
         let record = parse_record(line, line_number)?;
         validate_shape(&record, line_number)?;
         if !ids.insert(record.id.clone()) {
-            return Err(InputError(format!("line {line_number}: duplicate record_id {}", record.id)));
+            return Err(InputError(format!(
+                "line {line_number}: duplicate record_id {}",
+                record.id
+            )));
         }
         records.push(record);
     }
@@ -362,7 +417,9 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
     let mut option_services = BTreeMap::<String, String>::new();
     for record in &input.records {
         if !record.option.is_empty() {
-            if let Some(previous_service) = option_services.insert(record.option.clone(), record.service.clone()) {
+            if let Some(previous_service) =
+                option_services.insert(record.option.clone(), record.service.clone())
+            {
                 if previous_service != record.service {
                     return Err(InputError(format!(
                         "option {} is assigned to multiple service lanes; v0.1 requires one service per option ID",
@@ -372,27 +429,74 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
             }
         }
         match record.kind.as_str() {
-            "OPTION_QUALIFICATION" => unique_insert(&mut qualifications, record.option_key(), record, "option qualification")?,
-            "OPTION_CAPACITY" => unique_insert(&mut capacities, record.option_key(), record, "option capacity")?,
+            "OPTION_QUALIFICATION" => unique_insert(
+                &mut qualifications,
+                record.option_key(),
+                record,
+                "option qualification",
+            )?,
+            "OPTION_CAPACITY" => unique_insert(
+                &mut capacities,
+                record.option_key(),
+                record,
+                "option capacity",
+            )?,
             "ALLOCATION" => allocations.push(record),
-            "SERVICE_FLOOR" => unique_insert(&mut floors, (record.service.clone(), record.cohort.clone()), record, "service floor")?,
-            "RESOURCE_PROFILE" => unique_insert(&mut resource_profiles, record.option_key(), record, "resource profile")?,
+            "SERVICE_FLOOR" => unique_insert(
+                &mut floors,
+                (record.service.clone(), record.cohort.clone()),
+                record,
+                "service floor",
+            )?,
+            "RESOURCE_PROFILE" => unique_insert(
+                &mut resource_profiles,
+                record.option_key(),
+                record,
+                "resource profile",
+            )?,
             "RESOURCE_USE" => resource_uses.push(record),
-            "RESOURCE_CAPACITY" => unique_insert(&mut resource_capacities, record.subject.clone(), record, "resource capacity")?,
-            "DOMAIN_PROFILE" => unique_insert(&mut domain_profiles, record.option_key(), record, "domain profile")?,
-            "OPTION_DOMAIN" => option_domains.entry(record.option_key()).or_default().push(record),
-            "DOMAIN_STATE" => unique_insert(&mut domain_states, record.subject.clone(), record, "failure-domain state")?,
+            "RESOURCE_CAPACITY" => unique_insert(
+                &mut resource_capacities,
+                record.subject.clone(),
+                record,
+                "resource capacity",
+            )?,
+            "DOMAIN_PROFILE" => unique_insert(
+                &mut domain_profiles,
+                record.option_key(),
+                record,
+                "domain profile",
+            )?,
+            "OPTION_DOMAIN" => option_domains
+                .entry(record.option_key())
+                .or_default()
+                .push(record),
+            "DOMAIN_STATE" => unique_insert(
+                &mut domain_states,
+                record.subject.clone(),
+                record,
+                "failure-domain state",
+            )?,
             _ => unreachable!(),
         }
     }
 
     let mut allocation_totals = BTreeMap::<OptionKey, (u64, Option<String>)>::new();
     for allocation in &allocations {
-        let entry = allocation_totals.entry(allocation.option_key()).or_insert((0, allocation.unit.clone()));
+        let entry = allocation_totals
+            .entry(allocation.option_key())
+            .or_insert((0, allocation.unit.clone()));
         if entry.1 != allocation.unit {
-            return Err(InputError(format!("allocation unit mismatch for option {}", allocation.option)));
+            return Err(InputError(format!(
+                "allocation unit mismatch for option {}",
+                allocation.option
+            )));
         }
-        add_checked(&mut entry.0, allocation.quantity.expect("validated allocation quantity"), "option allocation")?;
+        add_checked(
+            &mut entry.0,
+            allocation.quantity.expect("validated allocation quantity"),
+            "option allocation",
+        )?;
     }
 
     let mut option_eval = BTreeMap::<OptionKey, OptionEval>::new();
@@ -405,17 +509,37 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
         eval.unit = unit.clone();
 
         match qualifications.get(key) {
-            None => { eval.unknown = true; eval.reasons.insert("MISSING_OPTION_QUALIFICATION".to_owned()); }
+            None => {
+                eval.unknown = true;
+                eval.reasons
+                    .insert("MISSING_OPTION_QUALIFICATION".to_owned());
+            }
             Some(record) if record.status == "QUALIFIED" => eval.qualified = true,
-            Some(record) if record.status == "UNKNOWN" => { eval.unknown = true; eval.reasons.insert("OPTION_QUALIFICATION_UNKNOWN".to_owned()); }
-            Some(record) => { eval.blocked = true; eval.reasons.insert(format!("OPTION_{}", record.status)); }
+            Some(record) if record.status == "UNKNOWN" => {
+                eval.unknown = true;
+                eval.reasons
+                    .insert("OPTION_QUALIFICATION_UNKNOWN".to_owned());
+            }
+            Some(record) => {
+                eval.blocked = true;
+                eval.reasons.insert(format!("OPTION_{}", record.status));
+            }
         }
         match capacities.get(key) {
-            None => { eval.unknown = true; eval.reasons.insert("MISSING_OPTION_CAPACITY".to_owned()); }
-            Some(record) if record.status != "QUALIFIED" => { eval.unknown = true; eval.reasons.insert("OPTION_CAPACITY_UNKNOWN".to_owned()); }
+            None => {
+                eval.unknown = true;
+                eval.reasons.insert("MISSING_OPTION_CAPACITY".to_owned());
+            }
+            Some(record) if record.status != "QUALIFIED" => {
+                eval.unknown = true;
+                eval.reasons.insert("OPTION_CAPACITY_UNKNOWN".to_owned());
+            }
             Some(record) => {
                 if record.unit.as_deref() != unit.as_deref() {
-                    return Err(InputError(format!("option capacity unit mismatch for {}", key.0)));
+                    return Err(InputError(format!(
+                        "option capacity unit mismatch for {}",
+                        key.0
+                    )));
                 }
                 if *allocated > record.quantity.expect("validated option capacity") {
                     eval.blocked = true;
@@ -424,41 +548,82 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
             }
         }
         match resource_profiles.get(key) {
-            None => { eval.unknown = true; eval.reasons.insert("MISSING_RESOURCE_PROFILE".to_owned()); }
-            Some(record) if record.status != "COMPLETE" => { eval.unknown = true; eval.reasons.insert("RESOURCE_PROFILE_INCOMPLETE".to_owned()); }
+            None => {
+                eval.unknown = true;
+                eval.reasons.insert("MISSING_RESOURCE_PROFILE".to_owned());
+            }
+            Some(record) if record.status != "COMPLETE" => {
+                eval.unknown = true;
+                eval.reasons
+                    .insert("RESOURCE_PROFILE_INCOMPLETE".to_owned());
+            }
             Some(_) => {}
         }
         match domain_profiles.get(key) {
-            None => { eval.unknown = true; eval.reasons.insert("MISSING_DOMAIN_PROFILE".to_owned()); }
-            Some(record) if record.status != "COMPLETE" => { eval.unknown = true; eval.reasons.insert("DOMAIN_PROFILE_UNKNOWN".to_owned()); }
+            None => {
+                eval.unknown = true;
+                eval.reasons.insert("MISSING_DOMAIN_PROFILE".to_owned());
+            }
+            Some(record) if record.status != "COMPLETE" => {
+                eval.unknown = true;
+                eval.reasons.insert("DOMAIN_PROFILE_UNKNOWN".to_owned());
+            }
             Some(_) => {}
         }
-        if domain_profiles.get(key).is_some_and(|profile| profile.status == "COMPLETE") {
+        if domain_profiles
+            .get(key)
+            .is_some_and(|profile| profile.status == "COMPLETE")
+        {
             if let Some(domains) = option_domains.get(key) {
                 for domain in domains {
                     match domain_states.get(&domain.subject) {
-                        None => { eval.unknown = true; eval.reasons.insert(format!("MISSING_DOMAIN_STATE:{}", domain.subject)); }
-                        Some(state) if state.status == "UNKNOWN" => { eval.unknown = true; eval.reasons.insert(format!("DOMAIN_STATE_UNKNOWN:{}", domain.subject)); }
-                        Some(state) if state.status == "FAILED" => { eval.blocked = true; eval.reasons.insert(format!("COMMON_CAUSE_FAILED:{}", domain.subject)); }
+                        None => {
+                            eval.unknown = true;
+                            eval.reasons
+                                .insert(format!("MISSING_DOMAIN_STATE:{}", domain.subject));
+                        }
+                        Some(state) if state.status == "UNKNOWN" => {
+                            eval.unknown = true;
+                            eval.reasons
+                                .insert(format!("DOMAIN_STATE_UNKNOWN:{}", domain.subject));
+                        }
+                        Some(state) if state.status == "FAILED" => {
+                            eval.blocked = true;
+                            eval.reasons
+                                .insert(format!("COMMON_CAUSE_FAILED:{}", domain.subject));
+                        }
                         Some(_) => {}
                     }
                 }
             }
         }
-        if eval.unknown { not_estimable = true; }
-        if eval.blocked { infeasible = true; }
+        if eval.unknown {
+            not_estimable = true;
+        }
+        if eval.blocked {
+            infeasible = true;
+        }
     }
 
     let mut service_eval = BTreeMap::<CohortKey, ServiceEval>::new();
     let mut blocked_allocations = 0_u64;
     for allocation in &allocations {
         let key = allocation.option_key();
-        let option = option_eval.get(&key).expect("allocation created option result");
+        let option = option_eval
+            .get(&key)
+            .expect("allocation created option result");
         let eligible = option.qualified && !option.blocked && !option.unknown;
         let service_key = (allocation.service.clone(), allocation.cohort.clone());
         let result = service_eval.entry(service_key).or_default();
-        if result.unit.as_ref().is_some_and(|unit| Some(unit) != allocation.unit.as_ref()) {
-            return Err(InputError(format!("service unit mismatch for {}", allocation.service)));
+        if result
+            .unit
+            .as_ref()
+            .is_some_and(|unit| Some(unit) != allocation.unit.as_ref())
+        {
+            return Err(InputError(format!(
+                "service unit mismatch for {}",
+                allocation.service
+            )));
         }
         result.unit = allocation.unit.clone();
         if eligible {
@@ -469,19 +634,28 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
             )?;
         } else {
             blocked_allocations = blocked_allocations.saturating_add(1);
-            if option.unknown { result.unknown = true; }
+            if option.unknown {
+                result.unknown = true;
+            }
         }
     }
 
     for ((service, cohort), result) in &mut service_eval {
         match floors.get(&(service.clone(), cohort.clone())) {
-            None => { result.unknown = true; not_estimable = true; }
+            None => {
+                result.unknown = true;
+                not_estimable = true;
+            }
             Some(floor) => {
                 if floor.unit != result.unit {
-                    return Err(InputError(format!("service floor unit mismatch for {service}/{cohort}")));
+                    return Err(InputError(format!(
+                        "service floor unit mismatch for {service}/{cohort}"
+                    )));
                 }
                 result.floor = floor.quantity;
-                if result.allocated < floor.quantity.expect("validated service floor") && !result.unknown {
+                if result.allocated < floor.quantity.expect("validated service floor")
+                    && !result.unknown
+                {
                     infeasible = true;
                 }
             }
@@ -499,7 +673,9 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
                     unknown: false,
                 },
             );
-            if floor_quantity > 0 { infeasible = true; }
+            if floor_quantity > 0 {
+                infeasible = true;
+            }
         }
     }
 
@@ -508,31 +684,56 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
     for usage in &resource_uses {
         let key = usage.option_key();
         if !allocated_options.contains(&key) {
-            return Err(InputError(format!("resource use {} has no proposed allocation", usage.id)));
+            return Err(InputError(format!(
+                "resource use {} has no proposed allocation",
+                usage.id
+            )));
         }
-        if !resource_profiles.get(&key).is_some_and(|profile| profile.status == "COMPLETE") {
+        if !resource_profiles
+            .get(&key)
+            .is_some_and(|profile| profile.status == "COMPLETE")
+        {
             not_estimable = true;
         }
         let result = resource_eval.entry(usage.subject.clone()).or_default();
-        if result.unit.as_ref().is_some_and(|unit| Some(unit) != usage.unit.as_ref()) {
-            return Err(InputError(format!("resource unit mismatch for {}", usage.subject)));
+        if result
+            .unit
+            .as_ref()
+            .is_some_and(|unit| Some(unit) != usage.unit.as_ref())
+        {
+            return Err(InputError(format!(
+                "resource unit mismatch for {}",
+                usage.subject
+            )));
         }
         result.unit = usage.unit.clone();
         if usage.status == "UNKNOWN" {
             result.unknown = true;
             not_estimable = true;
         } else {
-            add_checked(&mut result.demand, usage.quantity.expect("validated resource use"), "shared resource demand")?;
+            add_checked(
+                &mut result.demand,
+                usage.quantity.expect("validated resource use"),
+                "shared resource demand",
+            )?;
         }
     }
 
     for (resource_id, result) in &mut resource_eval {
         match resource_capacities.get(resource_id) {
-            None => { result.unknown = true; not_estimable = true; }
-            Some(capacity) if capacity.status != "QUALIFIED" => { result.unknown = true; not_estimable = true; }
+            None => {
+                result.unknown = true;
+                not_estimable = true;
+            }
+            Some(capacity) if capacity.status != "QUALIFIED" => {
+                result.unknown = true;
+                not_estimable = true;
+            }
             Some(capacity) => {
                 if capacity.unit != result.unit {
-                    return Err(InputError(format!("resource capacity unit mismatch for {resource_id}")));
+                    return Err(InputError(format!(
+                        "resource capacity unit mismatch for {resource_id}"
+                    )));
                 }
                 result.capacity = capacity.quantity;
                 if result.demand > capacity.quantity.expect("validated resource capacity") {
@@ -549,7 +750,10 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
             // An incomplete profile still forces NOT_ESTIMABLE above.
             if let Some(domains) = option_domains.get(key) {
                 for domain in domains {
-                    domain_members.entry(domain.subject.clone()).or_default().insert(key.0.clone());
+                    domain_members
+                        .entry(domain.subject.clone())
+                        .or_default()
+                        .insert(key.0.clone());
                 }
             }
         }
@@ -601,7 +805,10 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
     lines.push(format!("service_cohorts={}", service_eval.len()));
     for ((service, cohort), result) in &service_eval {
         let unit = result.unit.as_deref().unwrap_or("UNKNOWN");
-        let floor = result.floor.map(|value| value.to_string()).unwrap_or_else(|| "UNKNOWN".to_owned());
+        let floor = result
+            .floor
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "UNKNOWN".to_owned());
         let outcome = if result.unknown {
             "NOT_ESTIMABLE"
         } else if result.allocated >= result.floor.unwrap_or(0) {
@@ -616,7 +823,10 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
     }
     lines.push(format!("resource_classes={}", resource_eval.len()));
     for (resource, result) in &resource_eval {
-        let capacity = result.capacity.map(|value| value.to_string()).unwrap_or_else(|| "UNKNOWN".to_owned());
+        let capacity = result
+            .capacity
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "UNKNOWN".to_owned());
         let outcome = if result.unknown {
             "NOT_ESTIMABLE"
         } else if result.demand <= result.capacity.unwrap_or(0) {
@@ -632,7 +842,11 @@ fn evaluate(input: &Input) -> Result<String, InputError> {
     }
     lines.push(format!("shared_failure_domains={}", shared_domains.len()));
     for (domain, members) in &shared_domains {
-        lines.push(format!("shared_domain={domain}|{}|{}", members.len(), members.join(",")));
+        lines.push(format!(
+            "shared_domain={domain}|{}|{}",
+            members.len(),
+            members.join(",")
+        ));
     }
     lines.push(format!("blocked_allocations={blocked_allocations}"));
     lines.push(format!("evidence_records={}", input.records.len()));
@@ -731,7 +945,8 @@ mod tests {
             "allocation-households|ALLOCATION|backup_pump|water|households|synthetic-water-shock|hour-01||40|m3|PROPOSED|operator|synthetic:plan:pump",
         );
         assert_ne!(changed, FIXTURE);
-        let report = validate_and_report(&changed).expect("cohort under-delivery is a valid proposal");
+        let report =
+            validate_and_report(&changed).expect("cohort under-delivery is a valid proposal");
         assert!(report.contains("portfolio_disposition=NOT_FEASIBLE"));
         assert!(report.contains("service_floor=water|households|60|70|m3|MISSED"));
     }
@@ -768,7 +983,10 @@ mod tests {
             "allocation-households|ALLOCATION|backup_pump|water|households|synthetic-water-shock|hour-01||18446744073709551615|m3|PROPOSED|operator|synthetic:plan:pump",
         );
         assert_ne!(changed, FIXTURE);
-        assert!(validate_and_report(&changed).unwrap_err().0.contains("integer overflow"));
+        assert!(validate_and_report(&changed)
+            .unwrap_err()
+            .0
+            .contains("integer overflow"));
     }
 
     #[test]
@@ -778,7 +996,10 @@ mod tests {
             "allocation-households|ALLOCATION|backup_pump|water|households|other-scenario|hour-01",
         );
         assert_ne!(changed, FIXTURE);
-        assert!(validate_and_report(&changed).unwrap_err().0.contains("frozen scenario or interval"));
+        assert!(validate_and_report(&changed)
+            .unwrap_err()
+            .0
+            .contains("frozen scenario or interval"));
     }
 
     #[test]
@@ -798,8 +1019,12 @@ mod tests {
     fn report_preserves_owner_and_evidence_references() {
         let report = validate_and_report(FIXTURE).expect("fixture should validate");
         assert!(report.contains("evidence_records=28"));
-        assert!(report.contains("evidence=qual-pump|OPTION_QUALIFICATION|operator|synthetic:qualification:pump"));
-        assert!(report.contains("evidence=resource-cap-diesel|RESOURCE_CAPACITY|operator|synthetic:stock:diesel"));
+        assert!(report.contains(
+            "evidence=qual-pump|OPTION_QUALIFICATION|operator|synthetic:qualification:pump"
+        ));
+        assert!(report.contains(
+            "evidence=resource-cap-diesel|RESOURCE_CAPACITY|operator|synthetic:stock:diesel"
+        ));
     }
 
     #[test]
