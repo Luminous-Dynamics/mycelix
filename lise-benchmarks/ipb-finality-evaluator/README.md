@@ -58,4 +58,4 @@ This initial draft does not yet include a committed `Cargo.lock`. The CI workflo
 
 ## Evaluation report contract
 
-The evaluator emits a JSON report described by [IPB_FINALITY_EVALUATION_REPORT.schema.json](../../../docs/research/IPB_FINALITY_EVALUATION_REPORT.schema.json). It preserves system/build/configuration, model/prompt/tool-schema, harness, raw trace reference, resource telemetry and reproducibility receipts. Runtime, memory, provider calls, tokens, cost and expert-review time are nullable so that an unmeasured value is not confused with zero. Prefer values collected by the independent harness over candidate self-reports.
+The evaluator emits a JSON report described by [IPB_FINALITY_EVALUATION_REPORT.schema.json](../../docs/research/IPB_FINALITY_EVALUATION_REPORT.schema.json). It preserves system/build/configuration, model/prompt/tool-schema, harness, raw trace reference, resource telemetry and reproducibility receipts. Runtime, memory, provider calls, tokens, cost and expert-review time are nullable so that an unmeasured value is not confused with zero. Prefer values collected by the independent harness over candidate self-reports.
