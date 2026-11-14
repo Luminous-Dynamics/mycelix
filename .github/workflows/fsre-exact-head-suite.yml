@@ -1,0 +1,52 @@
+name: FSRE exact-head qualification suite
+
+on:
+  pull_request:
+    paths:
+      - "tools/fsre-*/**"
+      - "research/fsre/**"
+      - ".github/workflows/fsre-exact-head-suite.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/fsre-*/**"
+      - "research/fsre/**"
+      - ".github/workflows/fsre-exact-head-suite.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  crate:
+    name: ${{ matrix.crate }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - fsre-decision-value
+          - fsre-flow-balance
+          - fsre-green-drop-replay
+          - fsre-identity-crosswalk
+          - fsre-portfolio-oracle
+          - fsre-portfolio-reference
+          - fsre-recovery-qualification
+          - fsre-recovery-reference
+          - fsre-resource-stock-flow
+          - fsre-resource-stock-flow-oracle
+          - fsre-service-trajectory
+          - fsre-source-register
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/${{ matrix.crate }}/Cargo.toml --all -- --check
+      - name: Run locked offline tests
+        run: cargo test --locked --offline --manifest-path tools/${{ matrix.crate }}/Cargo.toml
+      - name: Run Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/${{ matrix.crate }}/Cargo.toml --all-targets -- -D warnings
