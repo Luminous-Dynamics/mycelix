@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-creator-asset-passport-core"
+version = "0.1.0"
+edition = "2024"
+authors = ["Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Experimental rights-aware creator asset identity and permission-policy core"
+
+[workspace]
+
+[lib]
+name = "creator_asset_passport_core"
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "=1.8.7"
