@@ -1138,19 +1138,34 @@ pub fn evaluate_restoration_contract(facts: &RestorationFacts) -> Decision {
     {
         return Decision::indeterminate("EVIDENCE_OR_DEPENDENCY_INVENTORY_INCOMPLETE");
     }
+    if facts.dependency_inventory_complete.is_none() || facts.evidence_complete.is_none() {
+        return Decision::indeterminate("EVIDENCE_OR_DEPENDENCY_COMPLETENESS_UNKNOWN");
+    }
     if facts.known_shared_dependency == Some(true)
         || facts.evidence_independent == Some(false)
     {
         return Decision::indeterminate("KNOWN_COMMON_EVIDENCE_DEPENDENCY");
     }
+    if facts.known_shared_dependency.is_none() || facts.evidence_independent.is_none() {
+        return Decision::indeterminate("EVIDENCE_INDEPENDENCE_OR_DEPENDENCY_UNKNOWN");
+    }
     if facts.evidence_current == Some(false) {
         return Decision::hold("OBSERVATION_STALE_FOR_CURRENT_TRANCHE");
+    }
+    if facts.evidence_current.is_none() {
+        return Decision::indeterminate("EVIDENCE_CURRENTNESS_UNKNOWN");
     }
     if facts.method_bridged == Some(false) {
         return Decision::hold("MEASUREMENT_METHOD_NOT_BRIDGED");
     }
+    if facts.method_bridged.is_none() {
+        return Decision::indeterminate("MEASUREMENT_METHOD_BRIDGE_UNKNOWN");
+    }
     if facts.baseline_pinned == Some(false) || facts.method_current == Some(false) {
         return Decision::hold("BASELINE_OR_MEASUREMENT_METHOD_NOT_CURRENT");
+    }
+    if facts.baseline_pinned.is_none() || facts.method_current.is_none() {
+        return Decision::indeterminate("BASELINE_OR_MEASUREMENT_CURRENTNESS_UNKNOWN");
     }
     if facts.native_biodiversity_floor_met == Some(false) {
         return Decision::deny("NATIVE_BIODIVERSITY_FLOOR_BREACHED");
@@ -1174,11 +1189,17 @@ pub fn evaluate_restoration_contract(facts: &RestorationFacts) -> Decision {
         facts.structure_floor_met,
         facts.downstream_externality_within_limit,
     ].into_iter().any(|value| value.is_none()) {
-        return Decision::hold("ECOLOGICAL_OUTCOME_DIMENSION_UNKNOWN");
+        return Decision::indeterminate("ECOLOGICAL_OUTCOME_DIMENSION_UNKNOWN");
+    }
+    match facts.outcome_state.as_deref() {
+        Some("complete") => {}
+        Some("partial") => return Decision::hold("OUTCOME_PARTIAL_OR_UNCERTAIN"),
+        Some("incomplete") => return Decision::indeterminate("OUTCOME_EVIDENCE_INCOMPLETE"),
+        None => return Decision::indeterminate("OUTCOME_STATE_UNKNOWN"),
+        Some(_) => return Decision::indeterminate("OUTCOME_STATE_UNSUPPORTED"),
     }
     if facts.uncertainty_acceptable == Some(false)
         || facts.independent_outcome_observed == Some(false)
-        || facts.outcome_state.as_deref() != Some("complete")
     {
         return Decision::hold("OUTCOME_PARTIAL_OR_UNCERTAIN");
     }
