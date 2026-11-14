@@ -66,7 +66,41 @@ Keep this gate separate from the service outcome disposition. If the source-use 
 
 The current manifest adds `study_horizon_start_seconds`, `study_horizon_end_seconds`, `data_use_status`, `data_use_owner`, `data_use_ref`, `data_use_purpose`, `data_use_valid_from_seconds` and `data_use_valid_until_seconds`. It rejects unknown status values, and blocks `REVIEW_REQUIRED`, `NOT_AUTHORIZED` and out-of-window assertions without calculating cohort metrics. The manifest owner/reference and authorization fields are retained in the report. They are not signed or independently verified. The next qualification increment must bind the exact legal instrument and source payload by digest, verify an owner-authorized signature against an independently trusted policy, and preserve purpose restrictions, jurisdiction, derived-output permissions, expiry and revocation history. Until that exists, all external source-use approvals remain human-reviewed and outside the automated proof claim.
 
-## 4. South African Green Drop: a live source-governance test case
+## 4. Content-bound, owner-attested source-use receipt (next implementation)
+
+Do not create a second FSRE-specific signing format. Reuse the repository's existing Pulse signed-evidence design as the candidate envelope profile:
+- DSSE v1 carrying an in-toto Statement v1;
+- Ed25519 signature over the exact DSSE PAE bytes;
+- an exact subject digest for the dataset snapshot and, separately, the manifest/derived-input bytes;
+- a typed predicate binding the source-use authorization, declared purpose, allowed transformations/outputs, territory, effective interval, rights-holder identity and legal-instrument reference;
+- signing-key role and predicate-type authorization from an external trust policy;
+- strict parsing with unknown fields rejected, duplicate identifiers rejected, and exact input bytes preserved.
+
+The proposed authorization predicate should bind:
+- source product, version, snapshot and SHA-256 digest;
+- manifest ID, manifest snapshot and digest;
+- rights-holder/publishing authority and source-owner role;
+- legal instrument and immutable source reference;
+- permitted purposes, transformations, derived outputs and redistribution;
+- territory, effective start/end, retention and deletion obligations;
+- issuer key ID, signature verification result and policy version;
+- revocation status, revocation-effective time and revocation-known time.
+
+A DSSE signature proves that a key signed the exact statement bytes. It does **not** prove the signing party actually owns the rights, that the licence interpretation is legally correct, or that the underlying data is true or complete. The trusted policy must map the signer to an independently reviewed rights-holder/authority role and predicate type.
+
+The Pulse signed-evidence audit README documents a DSSE/in-toto/Ed25519 profile and exact source digest binding, but also documents its limitations: it does not authenticate the external trust policy itself, and SCITT/COSE signature and receipt verification are not yet implemented in that profile. Reuse of the profile is therefore a design starting point, not automatic qualification.
+
+Before a production source-use receipt can pass, the trust policy itself must be authenticated and versioned (for example through a reviewed TUF root/metadata chain or an explicitly pinned institutional root), with key rotation, suspension/revocation, validity periods and historical verification. A policy digest proves byte identity, not who approved the policy. If the root/policy chain is missing, unsupported or revoked, the receipt must be `INCOMPLETE` or `NOT_AUTHORIZED`, never PASS.
+
+The legal and cryptographic decisions remain separate:
+1. A qualified rights reviewer determines whether the cited instrument covers the purpose and outputs.
+2. The source owner/rightsholder or a policy-authorized representative signs the exact scoped authorization statement.
+3. The verifier checks the DSSE signature, exact dataset/manifest digests, role, predicate type, policy digest, validity and revocation history.
+4. A second independent verifier and mutation corpus reproduce the result.
+
+The current source-use preflight in PR #6176 is only a status/purpose/time assertion gate. It intentionally reports `ASSERTED_NOT_AUTHENTICATED_BY_THIS_TOOL`; it is not a source-use signature verifier and must not be treated as production authorization.
+
+## 5. South African Green Drop: a live source-governance test case
 
 The South African Government's 1 April 2026 release says the 2025 Green Drop report audited 848 municipal wastewater treatment systems for the 2023/24 financial year. It reports 396 systems (47%) in a critical state, compared with 334 (39%) in 2022, and 66 systems (8%) in good or excellent condition. These are national aggregate findings, not a fixed longitudinal cohort of system-level outcomes.
 
@@ -92,7 +126,7 @@ The apparent difference between 848 and 998 is therefore first an ownership/scop
 6. Keep unknown identity links as UNKNOWN. Do not auto-merge by fuzzy name, geography or similar capacity without independent adjudication.
 7. Do not convert a municipality-level Green Drop score into safe service delivered to a population. Identify the service boundary, denominator, receiving environment, effluent-quality measures and observation coverage separately.
 
-## 5. Benchmark: manifest and identity qualification
+## 6. Benchmark: manifest and identity qualification
 
 The independent manifest challenge should include:
 
@@ -116,7 +150,7 @@ The independent manifest challenge should include:
 
 A reviewer who did not implement the parser should author a disjoint corpus and adjudicate expected answers. Report precision, recall, coverage, unknown rate, false-merge rate, false-split rate and manual-review workload. Do not report only accepted-link precision: a system that abstains on most identities can appear artificially precise.
 
-## 6. v0.1 implementation boundary
+## 7. v0.1 implementation boundary
 
 The current manifest-backed Rust reference:
 - requires exact set equality between manifest cohort IDs and supplied lanes;
