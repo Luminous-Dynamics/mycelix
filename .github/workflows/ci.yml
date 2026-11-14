@@ -150,6 +150,20 @@ jobs:
           workspaces: mycelix-commons
       - name: Test commons
         run: cd mycelix-commons && cargo test --workspace
+      - name: Check Battery Passport projection formatting
+        run: cargo fmt --manifest-path mycelix-commons/tools/ev-battery-passport-audit/Cargo.toml -- --check
+      - name: Test Battery Passport projection and lifecycle audit
+        run: cargo test --manifest-path mycelix-commons/tools/ev-battery-passport-audit/Cargo.toml
+      - name: Audit frozen Battery Passport projection corpus
+        run: |
+          cargo run --manifest-path mycelix-commons/tools/ev-battery-passport-audit/Cargo.toml -- --schema mycelix-commons/schemas/ev_battery_passport_projection_v0_1.schema.json --corpus mycelix-commons/fixtures/ev_battery/passport_projection_scenarios_v0_1.json > "$RUNNER_TEMP/ev-battery-passport-report.json"
+          jq -e '
+            .case_count == 22 and
+            .accepted_count == 7 and
+            .rejected_count == 15 and
+            (.report_sha256 | test("^[a-f0-9]{64}$")) and
+            all(.cases[]; .claim_ceiling == "projection_readiness_only_not_legal_or_safety_qualification")
+          ' "$RUNNER_TEMP/ev-battery-passport-report.json"
 
   test-civic:
     needs: changes
