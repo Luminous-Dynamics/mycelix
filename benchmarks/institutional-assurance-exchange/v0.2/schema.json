@@ -868,7 +868,9 @@
             "currency",
             "purpose",
             "resource_revision",
-            "idempotency_ref"
+            "idempotency_ref",
+            "action",
+            "principal_ref"
           ],
           "properties": {
             "logical_operation_id": {
@@ -917,6 +919,14 @@
               ]
             },
             "idempotency_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "minLength": 1
+            },
+            "principal_ref": {
               "type": "string",
               "minLength": 1
             }
@@ -935,7 +945,9 @@
             "currency",
             "purpose",
             "resource_revision",
-            "idempotency_ref"
+            "idempotency_ref",
+            "action",
+            "principal_ref"
           ],
           "properties": {
             "logical_operation_id": {
@@ -984,6 +996,14 @@
               ]
             },
             "idempotency_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "minLength": 1
+            },
+            "principal_ref": {
               "type": "string",
               "minLength": 1
             }
