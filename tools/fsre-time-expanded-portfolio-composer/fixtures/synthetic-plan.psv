@@ -2,7 +2,7 @@
 # scenario_id=shock
 # snapshot_id=synthetic-snapshot-01
 # decision_at=0
-# clock_basis_id=synthetic-utc-v1
+# clock_basis_id=UTC_UNIX_SECONDS_V1
 # stock_resource_ids=diesel
 # interval=hour-00|0|3600
 # interval=hour-01|3600|7200
