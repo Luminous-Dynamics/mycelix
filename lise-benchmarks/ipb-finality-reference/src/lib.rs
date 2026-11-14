@@ -644,9 +644,13 @@ pub enum MediationCoverage {
 /// claim unless the owner says the route inventory is complete.
 pub fn assess_mediation_coverage(
     protected_effect_ref: &str,
+    expected_enforcement_point_ref: &str,
     route_inventory_complete: bool,
     routes: &[ProtectedRoute],
 ) -> MediationCoverage {
+    if expected_enforcement_point_ref.trim().is_empty() {
+        return MediationCoverage::ReachableBypass;
+    }
     let reachable: Vec<&ProtectedRoute> = routes
         .iter()
         .filter(|route| {
@@ -655,7 +659,7 @@ pub fn assess_mediation_coverage(
         .collect();
     if reachable
         .iter()
-        .any(|route| route.enforcement_point_ref.as_deref().is_none_or(str::is_empty))
+        .any(|route| route.enforcement_point_ref.as_deref() != Some(expected_enforcement_point_ref))
     {
         return MediationCoverage::ReachableBypass;
     }
@@ -910,7 +914,21 @@ mod tests {
             ProtectedRoute { route_ref: "bulk-import".to_owned(), protected_effect_ref: "effect:transfer".to_owned(), reachable_from_agent: true, enforcement_point_ref: None },
         ];
         assert_eq!(
-            assess_mediation_coverage("effect:transfer", true, &routes),
+            assess_mediation_coverage("effect:transfer", "pep:gateway", true, &routes),
+            MediationCoverage::ReachableBypass
+        );
+    }
+
+    #[test]
+    fn alternate_policy_enforcement_point_does_not_satisfy_declared_mediation_boundary() {
+        let routes = vec![ProtectedRoute {
+            route_ref: "alternate-api".to_owned(),
+            protected_effect_ref: "effect:transfer".to_owned(),
+            reachable_from_agent: true,
+            enforcement_point_ref: Some("pep:legacy".to_owned()),
+        }];
+        assert_eq!(
+            assess_mediation_coverage("effect:transfer", "pep:current", true, &routes),
             MediationCoverage::ReachableBypass
         );
     }
@@ -924,7 +942,7 @@ mod tests {
             enforcement_point_ref: Some("pep:gateway".to_owned()),
         }];
         assert_eq!(
-            assess_mediation_coverage("effect:transfer", false, &routes),
+            assess_mediation_coverage("effect:transfer", "pep:gateway", false, &routes),
             MediationCoverage::RouteInventoryIncomplete
         );
         assert_eq!(
