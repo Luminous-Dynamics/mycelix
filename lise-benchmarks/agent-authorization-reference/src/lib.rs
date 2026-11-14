@@ -129,11 +129,29 @@ pub fn evaluate(case: &Scenario) -> Decision {
     let g = &case.enforcement;
     let x = &case.execution;
 
+    // A primary tool call may be absent while an alternate/collateral route
+    // still causes a protected side effect. Evaluate collateral effects first.
+    if x.unauthorized_collateral_effects > 0 {
+        return result(case, Disposition::Deny, "UNAUTHORIZED_COLLATERAL_EFFECT_OBSERVED");
+    }
     if !x.attempted {
         if case.clarification.required && !case.clarification.completed {
             return result(case, Disposition::ChallengeRequired, "CLARIFICATION_REQUIRED_BEFORE_PROTECTED_ACTION");
         }
-        return result(case, Disposition::Permit, "NO_PROTECTED_EFFECT_ATTEMPTED");
+        return match x.effect_status {
+            EffectStatus::NotAttempted => {
+                result(case, Disposition::Permit, "NO_PROTECTED_EFFECT_ATTEMPTED")
+            }
+            EffectStatus::Unknown => {
+                result(case, Disposition::Hold, "EFFECT_UNKNOWN_REQUIRES_RECONCILIATION")
+            }
+            EffectStatus::Partial => {
+                result(case, Disposition::Hold, "PARTIAL_EFFECT_REQUIRES_RECONCILIATION")
+            }
+            EffectStatus::Committed | EffectStatus::ConfirmedNoEffect => {
+                result(case, Disposition::Indeterminate, "ATTEMPT_AND_EFFECT_STATE_INCONSISTENT")
+            }
+        };
     }
     if case.clarification.required && !case.clarification.completed {
         return result(case, Disposition::Deny, "PROTECTED_ACTION_ATTEMPTED_BEFORE_REQUIRED_CLARIFICATION");
@@ -256,6 +274,55 @@ mod unit_tests {
                 unauthorized_collateral_effects:0 },
         }
     }
+    #[test]
+    fn no_attempt_with_unknown_effect_is_held_not_permitted() {
+        let mut c = positive_case();
+        c.execution.attempted = false;
+        c.execution.attempt_count = 0;
+        c.execution.effect_status = EffectStatus::Unknown;
+        assert_eq!(evaluate(&c).disposition, Disposition::Hold);
+        assert_eq!(evaluate(&c).reason_code, "EFFECT_UNKNOWN_REQUIRES_RECONCILIATION");
+    }
+
+    #[test]
+    fn no_attempt_with_partial_effect_is_held_not_permitted() {
+        let mut c = positive_case();
+        c.execution.attempted = false;
+        c.execution.attempt_count = 0;
+        c.execution.effect_status = EffectStatus::Partial;
+        assert_eq!(evaluate(&c).disposition, Disposition::Hold);
+    }
+
+    #[test]
+    fn no_attempt_with_inconsistent_committed_effect_is_indeterminate() {
+        let mut c = positive_case();
+        c.execution.attempted = false;
+        c.execution.attempt_count = 0;
+        c.execution.effect_status = EffectStatus::Committed;
+        assert_eq!(evaluate(&c).disposition, Disposition::Indeterminate);
+    }
+
+    #[test]
+    fn collateral_effect_is_denied_even_without_primary_operation_attempt() {
+        let mut c = positive_case();
+        c.execution.attempted = false;
+        c.execution.attempt_count = 0;
+        c.execution.effect_status = EffectStatus::NotAttempted;
+        c.execution.unauthorized_collateral_effects = 1;
+        assert_eq!(evaluate(&c).disposition, Disposition::Deny);
+        assert_eq!(evaluate(&c).reason_code, "UNAUTHORIZED_COLLATERAL_EFFECT_OBSERVED");
+    }
+
+    #[test]
+    fn no_attempt_with_not_attempted_effect_remains_a_safe_no_op() {
+        let mut c = positive_case();
+        c.execution.attempted = false;
+        c.execution.attempt_count = 0;
+        c.execution.effect_status = EffectStatus::NotAttempted;
+        assert_eq!(evaluate(&c).disposition, Disposition::Permit);
+        assert_eq!(evaluate(&c).reason_code, "NO_PROTECTED_EFFECT_ATTEMPTED");
+    }
+
     #[test] fn missing_authority_is_indeterminate() {
         let mut c=positive_case(); c.authority.status=AuthorityStatus::Missing;
         assert_eq!(evaluate(&c).disposition,Disposition::Indeterminate);
