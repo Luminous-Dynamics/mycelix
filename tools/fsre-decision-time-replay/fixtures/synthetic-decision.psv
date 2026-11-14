@@ -1,0 +1,10 @@
+# scenario_id=synthetic-water-shock
+# decision_id=decision-incident-01
+# decision_time=1000
+# snapshot_id=synthetic-decision-snapshot-01
+# time_basis_id=unix-utc-seconds-v1
+record_id|evidence_id|revision|claim_id|subject_id|predicate|valid_from|valid_until|observed_at|recorded_at|revoked_at|state|source_owner|evidence_ref
+stock-r1|stock_receipt|1|claim-diesel-stock|diesel-tank-01|available_stock|800|1100|820|830||ASSERTED|operator|synthetic:stock:r1
+stock-r2|stock_receipt|2|claim-diesel-stock|diesel-tank-01|available_stock|800|1200|1200|1210||ASSERTED|operator|synthetic:stock:r2
+crew-r1|crew_qualification|1|claim-qualified-crew|crew-team-7|qualified_hours|500|1500|550|560||ASSERTED|operator|synthetic:crew:r1
+route-r1|route_access|1|claim-road-access|road-east|passable|950|1050|960|970||ASSERTED|operator|transport-owner|synthetic:route:r1
