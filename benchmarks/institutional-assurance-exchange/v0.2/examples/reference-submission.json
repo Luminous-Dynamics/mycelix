@@ -293,6 +293,7 @@
     "principal_ref": "ACTOR-ASSET-MANAGER-01",
     "target_ref": "PROPERTY-001",
     "purpose": "new_tenant_commercial_lease",
-    "idempotency_ref": "IDEM-LEASE-001"
+    "idempotency_ref": "IDEM-LEASE-001",
+    "action_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
   }
 }
