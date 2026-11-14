@@ -334,7 +334,11 @@ fn cutoff_qualification(
     cutoff: &AsOfCutoffV1,
     policy: &QualificationPolicyV1,
 ) -> CutoffQualification {
-    if !nonblank(&cutoff.cutoff_id)
+    if !nonblank(&policy.policy_id)
+        || !nonblank(&policy.required_time_profile_id)
+        || !nonblank(&policy.required_mapping_profile_id)
+        || !nonblank(&policy.required_history_profile_id)
+        || !nonblank(&cutoff.cutoff_id)
         || !sha256_hex(&cutoff.cutoff_statement_sha256)
         || !nonblank(&cutoff.timebase_id)
         || !nonblank(&cutoff.clock_epoch_id)
@@ -617,9 +621,15 @@ pub fn qualify_receipts(
         .collect();
 
     for (receipt_id, group) in by_id {
-        let first = group[0];
+        // Select a canonical representative so conflicting duplicate receipt IDs
+        // cannot make the output depend on input array order.
+        let first = group
+            .iter()
+            .min_by_key(|record| serde_json::to_string(*record).unwrap_or_default())
+            .copied()
+            .expect("receipt ID group is non-empty");
         let mut assessment = assess_one(first, cutoff, policy, cutoff_status);
-        if group.iter().skip(1).any(|other| *other != first) {
+        if group.iter().any(|other| *other != first) {
             assessment.disposition = ReceiptDisposition::ReceiptIdentityConflict;
             assessment.reason_codes.push("same_receipt_id_has_conflicting_content".to_owned());
         } else if group.len() > 1 {
