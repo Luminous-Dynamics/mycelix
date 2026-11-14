@@ -27,7 +27,7 @@ fn sha256_current_executable() -> Result<String, Box<dyn Error>> {
 }
 fn git_blob_sha1(path: &str) -> Result<String, Box<dyn Error>> {
     let bytes = fs::read(path)?;
-    let header = format!("blob {}\\0", bytes.len());
+    let header = format!("blob {}\0", bytes.len());
     let mut hasher = Sha1::new();
     hasher.update(header.as_bytes());
     hasher.update(&bytes);
