@@ -38,7 +38,7 @@ jobs:
           set -euo pipefail
           output="$(mktemp)"
           trap 'rm -f "$output"' EXIT
-          cargo run --quiet --locked --offline --manifest-path tools/fsre-time-expanded-portfolio-composer/Cargo.toml -- tools/fsre-time-expanded-portfolio-composer/fixtures/synthetic-plan.psv tools/fsre-time-expanded-portfolio-composer/fixtures/synthetic-diesel.psv > "$output"
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-time-expanded-portfolio-composer/Cargo.toml -- tools/fsre-time-expanded-portfolio-composer/fixtures/synthetic-plan.psv tools/fsre-time-expanded-portfolio-composer/fixtures/synthetic-asof-evidence.psv tools/fsre-time-expanded-portfolio-composer/fixtures/synthetic-diesel.psv > "$output"
           diff -u tools/fsre-time-expanded-portfolio-composer/fixtures/synthetic-composition.expected.txt "$output"
       - name: Run Clippy
         run: cargo clippy --locked --offline --manifest-path tools/fsre-time-expanded-portfolio-composer/Cargo.toml --all-targets -- -D warnings
