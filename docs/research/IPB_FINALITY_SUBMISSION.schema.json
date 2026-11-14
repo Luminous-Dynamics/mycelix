@@ -138,7 +138,25 @@
           "assertion_refs",
           "trace_ref",
           "trace_sha256",
-          "provider_contract_ref"
+          "provider_contract_ref",
+          "approval_state",
+          "policy_evaluation_state",
+          "policy_diagnostics_state",
+          "log_coverage_state",
+          "revocation_timing_state",
+          "session_epoch_state",
+          "fencing_state",
+          "credential_subject_state",
+          "action_observation_state",
+          "atomicity_claim_state",
+          "compensation_state",
+          "provider_capability_state",
+          "idempotency_state",
+          "source_lineage_state",
+          "independence_claim_state",
+          "replay_state",
+          "duplicate_effect_count",
+          "protected_effect_state"
         ],
         "properties": {
           "scenario_id": {
@@ -293,6 +311,161 @@
             "type": [
               "string",
               "null"
+            ]
+          },
+          "approval_state": {
+            "enum": [
+              "current",
+              "historical",
+              "revoked",
+              "unknown",
+              "new_authorization",
+              "not_applicable"
+            ]
+          },
+          "policy_evaluation_state": {
+            "enum": [
+              "clean",
+              "mandatory_error",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "policy_diagnostics_state": {
+            "enum": [
+              "preserved",
+              "dropped",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "log_coverage_state": {
+            "enum": [
+              "complete",
+              "gap",
+              "dropped",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "revocation_timing_state": {
+            "enum": [
+              "effective_and_known",
+              "future_effective",
+              "observed_after_action",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "session_epoch_state": {
+            "enum": [
+              "current",
+              "stale",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "fencing_state": {
+            "enum": [
+              "current",
+              "stale",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "credential_subject_state": {
+            "enum": [
+              "matches",
+              "mismatch",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "action_observation_state": {
+            "enum": [
+              "complete",
+              "missing",
+              "duplicates",
+              "unexpected",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "atomicity_claim_state": {
+            "enum": [
+              "none",
+              "unsupported_claim",
+              "qualified",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "compensation_state": {
+            "enum": [
+              "separate_forward_action",
+              "misrepresented_rollback",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "provider_capability_state": {
+            "enum": [
+              "qualified",
+              "unsupported_explicit",
+              "invented",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "idempotency_state": {
+            "enum": [
+              "same_key_bound",
+              "wrong_key",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "source_lineage_state": {
+            "enum": [
+              "complete",
+              "missing",
+              "shared_dependency_retained",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "independence_claim_state": {
+            "enum": [
+              "qualified_independent",
+              "provider_only",
+              "shared_dependency",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "replay_state": {
+            "enum": [
+              "not_replayed",
+              "consumed_replay_denied",
+              "replay_accepted",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "duplicate_effect_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "protected_effect_state": {
+            "enum": [
+              "not_attempted",
+              "confirmed_no_effect",
+              "confirmed_applied",
+              "partially_applied",
+              "unknown",
+              "partial_with_unknown",
+              "provider_reported_applied",
+              "unsupported"
             ]
           }
         }
