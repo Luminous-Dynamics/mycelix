@@ -10,7 +10,7 @@ This isolated Rust package is the first executable astronomy adapter slice under
 - Applies the VOEvent 2.1 role default (observation) when role is absent while preserving that omission as raw_role = null and role_was_implicit = true.
 - Preserves observation, prediction, utility and test as distinct role values.
 - Preserves all root attributes for later loss accounting.
-- Rejects duplicate root attributes, invalid XML, multiple roots, DOCTYPE declarations, unsupported role values, wrong versions and non-IVOID root identifiers.
+- Rejects duplicate root attributes, mismatched element names, invalid XML, multiple roots, DOCTYPE declarations, unsupported role values, wrong versions and non-IVOID root identifiers.
 - Binds the parsed header to the SHA-256 digest and byte length of the exact packet bytes.
 
 ## Run
@@ -36,6 +36,6 @@ The original packet bytes and digest remain authoritative. Parsed fields are a d
 
 ## Frozen unit tests
 
-The library tests cover explicit and implicit observation roles, prediction/utility/test separation, unknown role, wrong/missing version, missing/invalid IVOID, duplicate attributes, DOCTYPE, multiple roots, malformed/incomplete XML, text outside the document root, oversized/non-UTF-8 inputs and retention of uninterpreted root attributes.
+The library tests cover explicit and implicit observation roles, prediction/utility/test separation, unknown role, wrong/missing version, missing/invalid IVOID, duplicate attributes, mismatched nested tags, DOCTYPE, multiple roots, malformed/incomplete XML, text outside the document root, oversized/non-UTF-8 inputs and retention of uninterpreted root attributes.
 
 Synthetic unit fixtures are not real astronomical events and are not an IVOA conformance certification.
