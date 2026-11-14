@@ -1,0 +1,476 @@
+{
+  "profile": "https://luminousdynamics.io/profiles/cscp-derived-asset-rights/0.1.0",
+  "schemaVersion": "0.1.0",
+  "decisionSemantics": {
+    "default": "deny",
+    "indeterminateTreatment": "deny-for-protected-operations",
+    "derivationRule": "intersection-of-all-source-ancestor-restrictions",
+    "modelAuthority": false
+  },
+  "cases": [
+    {
+      "id": "DR-001",
+      "description": "Publicly viewable photograph with an explicit AI-training prohibition.",
+      "source": [
+        {
+          "resource": "urn:example:photo:001",
+          "access": "public",
+          "permissions": [
+            "display",
+            "retrieve"
+          ],
+          "prohibitions": [
+            "train"
+          ]
+        }
+      ],
+      "operation": "train",
+      "actor": "urn:example:researcher:001",
+      "expected": {
+        "decision": "deny",
+        "reasonCode": "EXPLICIT_PROHIBITION"
+      }
+    },
+    {
+      "id": "DR-002",
+      "description": "Display is permitted but embedding and indexing have not been granted.",
+      "source": [
+        {
+          "resource": "urn:example:photo:002",
+          "access": "public",
+          "permissions": [
+            "display"
+          ],
+          "prohibitions": []
+        }
+      ],
+      "operation": "embed",
+      "actor": "urn:example:service:indexer",
+      "expected": {
+        "decision": "deny",
+        "reasonCode": "NO_EXPLICIT_OPERATION_GRANT"
+      }
+    },
+    {
+      "id": "DR-003",
+      "description": "Creating a thumbnail from a restricted source is not allowed.",
+      "source": [
+        {
+          "resource": "urn:example:scan:003",
+          "access": "restricted",
+          "permissions": [
+            "preserve"
+          ],
+          "prohibitions": [
+            "transform",
+            "display"
+          ]
+        }
+      ],
+      "operation": "thumbnail",
+      "actor": "urn:example:service:thumbnailer",
+      "expected": {
+        "decision": "deny",
+        "reasonCode": "EXPLICIT_PROHIBITION"
+      }
+    },
+    {
+      "id": "DR-004",
+      "description": "A merged derivative has two sources; one source prohibits publication.",
+      "source": [
+        {
+          "resource": "urn:example:photo:004a",
+          "access": "public",
+          "permissions": [
+            "transform",
+            "publish"
+          ],
+          "prohibitions": []
+        },
+        {
+          "resource": "urn:example:photo:004b",
+          "access": "controlled",
+          "permissions": [
+            "transform"
+          ],
+          "prohibitions": [
+            "publish"
+          ]
+        }
+      ],
+      "derivation": {
+        "output": "urn:example:composite:004",
+        "parents": [
+          "urn:example:photo:004a",
+          "urn:example:photo:004b"
+        ]
+      },
+      "operation": "publish",
+      "actor": "urn:example:publisher:001",
+      "expected": {
+        "decision": "deny",
+        "reasonCode": "ANCESTOR_PROHIBITION"
+      }
+    },
+    {
+      "id": "DR-005",
+      "description": "A derivative policy attempts to permit an action prohibited by its source ancestor.",
+      "source": [
+        {
+          "resource": "urn:example:photo:005",
+          "access": "restricted",
+          "permissions": [
+            "transform"
+          ],
+          "prohibitions": [
+            "publish"
+          ]
+        }
+      ],
+      "derivation": {
+        "output": "urn:example:crop:005",
+        "parents": [
+          "urn:example:photo:005"
+        ],
+        "outputPermissions": [
+          "publish"
+        ]
+      },
+      "operation": "publish",
+      "actor": "urn:example:publisher:002",
+      "expected": {
+        "decision": "deny",
+        "reasonCode": "ANCESTOR_RESTRICTION_CANNOT_BE_WIDENED"
+      }
+    },
+    {
+      "id": "DR-006",
+      "description": "A policy service outage prevents current authorization from being established.",
+      "source": [
+        {
+          "resource": "urn:example:record:006",
+          "access": "restricted",
+          "permissions": [
+            "retrieve"
+          ],
+          "policyStatus": "unavailable"
+        }
+      ],
+      "operation": "retrieve",
+      "actor": "urn:example:researcher:006",
+      "expected": {
+        "decision": "indeterminate",
+        "reasonCode": "POLICY_UNAVAILABLE",
+        "enforcementDisposition": "deny"
+      }
+    },
+    {
+      "id": "DR-007",
+      "description": "An otherwise valid permission has expired.",
+      "source": [
+        {
+          "resource": "urn:example:photo:007",
+          "access": "public",
+          "permissions": [
+            "display"
+          ],
+          "grantStatus": "expired"
+        }
+      ],
+      "operation": "display",
+      "actor": "urn:example:viewer:007",
+      "expected": {
+        "decision": "deny",
+        "reasonCode": "GRANT_EXPIRED"
+      }
+    },
+    {
+      "id": "DR-008",
+      "description": "A stale cache retains a prior permit after the source grant is revoked.",
+      "source": [
+        {
+          "resource": "urn:example:photo:008",
+          "access": "controlled",
+          "permissions": [
+            "display"
+          ],
+          "grantStatus": "revoked",
+          "policyEpoch": 9
+        }
+      ],
+      "cache": {
+        "cachedPolicyEpoch": 8,
+        "sourcePolicyEpoch": 9
+      },
+      "operation": "display",
+      "actor": "urn:example:viewer:008",
+      "expected": {
+        "decision": "deny",
+        "reasonCode": "STALE_POLICY_EPOCH"
+      }
+    },
+    {
+      "id": "DR-009",
+      "description": "A cross-tenant vector query must not reveal a restricted source or its presence.",
+      "source": [
+        {
+          "resource": "urn:example:embedding:009",
+          "access": "restricted",
+          "tenant": "A",
+          "permissions": [
+            "embed"
+          ],
+          "prohibitions": [
+            "retrieve"
+          ]
+        }
+      ],
+      "query": {
+        "tenant": "B",
+        "operation": "nearest-neighbour-search"
+      },
+      "operation": "retrieve",
+      "actor": "urn:example:tenant:B",
+      "expected": {
+        "decision": "deny",
+        "reasonCode": "TENANT_SCOPE_MISMATCH",
+        "nonDisclosure": true
+      }
+    },
+    {
+      "id": "DR-010",
+      "description": "A valid signature is present, but the grantor's authority for this resource is unknown.",
+      "source": [
+        {
+          "resource": "urn:example:record:010",
+          "permissions": [
+            "publish"
+          ],
+          "credentialStatus": "valid",
+          "grantorCapacity": "unknown"
+        }
+      ],
+      "operation": "publish",
+      "actor": "urn:example:publisher:010",
+      "expected": {
+        "decision": "indeterminate",
+        "reasonCode": "GRANTOR_AUTHORITY_UNRESOLVED",
+        "enforcementDisposition": "deny"
+      }
+    },
+    {
+      "id": "DR-011",
+      "description": "A public image does not authorize disclosure of its sealed exact storage location.",
+      "source": [
+        {
+          "resource": "urn:example:photo:011",
+          "access": "public",
+          "permissions": [
+            "display"
+          ],
+          "prohibitions": []
+        }
+      ],
+      "protectedFields": [
+        {
+          "field": "exactLocation",
+          "access": "sealed"
+        }
+      ],
+      "operation": "disclose-location",
+      "actor": "urn:example:viewer:011",
+      "expected": {
+        "decision": "deny",
+        "reasonCode": "FIELD_ACCESS_RESTRICTED",
+        "nonDisclosure": true
+      }
+    },
+    {
+      "id": "DR-012",
+      "description": "A valid, versioned CSCP policy issued by an authority competent over the exact source restriction supersedes that earlier prohibition for one identified output and action.",
+      "source": [
+        {
+          "resource": "urn:example:photo:012",
+          "access": "restricted",
+          "permissions": [],
+          "prohibitions": [
+            "publish"
+          ]
+        }
+      ],
+      "derivation": {
+        "output": "urn:example:public-derivative:012",
+        "parents": [
+          "urn:example:photo:012"
+        ]
+      },
+      "operation": "publish",
+      "actor": "urn:example:publisher:012",
+      "expected": {
+        "decision": "permit",
+        "reasonCode": "AUTHORIZED_POLICY_SUPERSESSION",
+        "scopeBound": true
+      },
+      "policySupersession": {
+        "sourceResource": "urn:example:photo:012",
+        "priorPolicyVersion": "1",
+        "currentPolicyVersion": "2",
+        "supersededRuleId": "deny-publish-photo-012",
+        "outputResource": "urn:example:public-derivative:012",
+        "operation": "publish",
+        "authority": "verified-for-exact-scope",
+        "evidence": "urn:example:credential:012",
+        "approvalEvent": "urn:example:event:policy-supersession-012",
+        "grantee": "urn:example:publisher:012",
+        "purpose": "institution-approved-exhibition-publication",
+        "jurisdiction": "ZA",
+        "channel": "institutional-publication",
+        "validFrom": "2026-11-09T00:00:00Z",
+        "validUntil": "2026-12-09T00:00:00Z",
+        "authorityReference": "urn:example:rightsholder-authority:012",
+        "authorityRole": "copyright-holder-for-the-source-representation",
+        "decisionReference": "urn:example:approval:policy-supersession-012"
+      },
+      "at": "2026-11-15T12:00:00Z",
+      "purpose": "institution-approved-exhibition-publication",
+      "jurisdiction": "ZA",
+      "channel": "institutional-publication"
+    },
+    {
+      "id": "DR-013",
+      "description": "A source ancestor is missing from the derivation manifest.",
+      "source": [
+        {
+          "resource": "urn:example:composite:013",
+          "access": "controlled",
+          "permissions": [
+            "publish"
+          ],
+          "lineageStatus": "incomplete"
+        }
+      ],
+      "operation": "publish",
+      "actor": "urn:example:publisher:013",
+      "expected": {
+        "decision": "indeterminate",
+        "reasonCode": "INCOMPLETE_DERIVATION_LINEAGE",
+        "enforcementDisposition": "deny"
+      }
+    },
+    {
+      "id": "DR-014",
+      "description": "An artist grants model evaluation but not training.",
+      "source": [
+        {
+          "resource": "urn:example:photo:014",
+          "access": "controlled",
+          "permissions": [
+            "evaluate"
+          ],
+          "prohibitions": [
+            "train"
+          ]
+        }
+      ],
+      "operation": "train",
+      "actor": "urn:example:ml-pipeline:014",
+      "expected": {
+        "decision": "deny",
+        "reasonCode": "EXPLICIT_PROHIBITION"
+      }
+    },
+    {
+      "id": "DR-015",
+      "description": "A composed ODRL policy contains a permission and prohibition that conflict under the CSCP invalid conflict strategy.",
+      "source": [
+        {
+          "resource": "urn:example:record:015",
+          "access": "controlled",
+          "permissions": [
+            "publish"
+          ],
+          "prohibitions": [
+            "publish"
+          ],
+          "policyConflictStrategy": "invalid",
+          "policyComposition": "conflicting"
+        }
+      ],
+      "operation": "publish",
+      "actor": "urn:example:publisher:015",
+      "expected": {
+        "decision": "indeterminate",
+        "reasonCode": "POLICY_COMPOSITION_INVALID",
+        "enforcementDisposition": "deny"
+      }
+    },
+    {
+      "id": "DR-016",
+      "description": "A community Traditional Knowledge or Biocultural Label signals a protocol, but there is no operation-specific community authorization for AI embedding.",
+      "source": [
+        {
+          "resource": "urn:example:cultural-object:016",
+          "access": "controlled",
+          "communityGovernance": {
+            "framework": "CARE",
+            "labelSystem": "Local-Contexts",
+            "labelReference": "urn:example:local-contexts-label:016",
+            "labelStatus": "community-issued",
+            "protocolNotice": "community-governed-use"
+          },
+          "permissions": [
+            "preserve"
+          ],
+          "prohibitions": []
+        }
+      ],
+      "operation": "embed",
+      "actor": "urn:example:service:016",
+      "expected": {
+        "decision": "deny",
+        "reasonCode": "NO_EXPLICIT_OPERATION_GRANT",
+        "note": "The label is preserved as a governance signal; it is not treated as an executable grant."
+      }
+    },
+    {
+      "id": "DR-017",
+      "description": "A community-designated authority grants one exact, time-bounded research retrieval use under its own documented governance process.",
+      "source": [
+        {
+          "resource": "urn:example:cultural-object:017",
+          "access": "restricted",
+          "communityGovernance": {
+            "framework": "CARE",
+            "authorityReference": "urn:example:community-authority:017",
+            "processReference": "urn:example:community-process:017",
+            "decisionReference": "urn:example:community-decision:017",
+            "capacityStatus": "verified-for-this-scope"
+          },
+          "permissions": [
+            {
+              "actor": "urn:example:researcher:017",
+              "operation": "retrieve",
+              "purpose": "community-approved-catalogue-research",
+              "validFrom": "2026-11-09T00:00:00Z",
+              "validUntil": "2026-12-09T00:00:00Z"
+            }
+          ],
+          "prohibitions": [
+            "train",
+            "commercialize",
+            "disclose-sensitive-context"
+          ]
+        }
+      ],
+      "operation": "retrieve",
+      "actor": "urn:example:researcher:017",
+      "purpose": "community-approved-catalogue-research",
+      "at": "2026-11-15T12:00:00Z",
+      "expected": {
+        "decision": "permit",
+        "reasonCode": "COMMUNITY_AUTHORITY_SCOPED_GRANT",
+        "scopeBound": true
+      }
+    }
+  ]
+}

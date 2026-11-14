@@ -1,0 +1,12 @@
+[package]
+name = "cscp-derived-rights-conformance"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Rust reference oracle for synthetic CSCP derived-asset rights conformance vectors"
+
+[workspace]
+
+[dependencies]
+serde_json = "1.0"
