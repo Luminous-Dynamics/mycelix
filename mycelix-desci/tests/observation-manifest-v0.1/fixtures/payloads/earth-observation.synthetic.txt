@@ -1,0 +1,1 @@
+synthetic Earth-observation fixture payload v0.1
