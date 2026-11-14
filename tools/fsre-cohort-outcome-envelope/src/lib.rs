@@ -290,6 +290,14 @@ struct CohortManifest {
     cohort_set_id: String,
     outcome_snapshot_id: String,
     population_unit: String,
+    study_horizon_start_seconds: u64,
+    study_horizon_end_seconds: u64,
+    data_use_status: String,
+    data_use_owner: String,
+    data_use_ref: String,
+    data_use_purpose: String,
+    data_use_valid_from_seconds: u64,
+    data_use_valid_until_seconds: u64,
     cohorts: BTreeMap<String, ManifestCohort>,
 }
 
@@ -403,6 +411,38 @@ fn parse_manifest(source: &str) -> Result<CohortManifest, InputError> {
     let cohort_set_id = required(&metadata, "cohort_set_id")?.to_owned();
     let outcome_snapshot_id = required(&metadata, "outcome_snapshot_id")?.to_owned();
     let population_unit = required(&metadata, "population_unit")?.to_owned();
+    let study_horizon_start_seconds = parse_u64(
+        required(&metadata, "study_horizon_start_seconds")?,
+        "study_horizon_start_seconds",
+    )?;
+    let study_horizon_end_seconds = parse_u64(
+        required(&metadata, "study_horizon_end_seconds")?,
+        "study_horizon_end_seconds",
+    )?;
+    let data_use_status = required(&metadata, "data_use_status")?.to_owned();
+    let data_use_owner = required(&metadata, "data_use_owner")?.to_owned();
+    let data_use_ref = required(&metadata, "data_use_ref")?.to_owned();
+    let data_use_purpose = required(&metadata, "data_use_purpose")?.to_owned();
+    let data_use_valid_from_seconds = parse_u64(
+        required(&metadata, "data_use_valid_from_seconds")?,
+        "data_use_valid_from_seconds",
+    )?;
+    let data_use_valid_until_seconds = parse_u64(
+        required(&metadata, "data_use_valid_until_seconds")?,
+        "data_use_valid_until_seconds",
+    )?;
+    if study_horizon_start_seconds >= study_horizon_end_seconds {
+        return Err(InputError("manifest study horizon must be non-empty".to_owned()));
+    }
+    if data_use_valid_from_seconds >= data_use_valid_until_seconds {
+        return Err(InputError("data-use authorization validity interval must be non-empty".to_owned()));
+    }
+    if !matches!(
+        data_use_status.as_str(),
+        "AUTHORIZED_FOR_DECLARED_PURPOSE" | "REVIEW_REQUIRED" | "NOT_AUTHORIZED"
+    ) {
+        return Err(InputError(format!("unsupported data_use_status {data_use_status}")));
+    }
 
     for (key, value) in [
         ("manifest_id", manifest_id.as_str()),
@@ -414,6 +454,9 @@ fn parse_manifest(source: &str) -> Result<CohortManifest, InputError> {
         ("cohort_set_id", cohort_set_id.as_str()),
         ("outcome_snapshot_id", outcome_snapshot_id.as_str()),
         ("population_unit", population_unit.as_str()),
+        ("data_use_owner", data_use_owner.as_str()),
+        ("data_use_ref", data_use_ref.as_str()),
+        ("data_use_purpose", data_use_purpose.as_str()),
     ] {
         if !valid_id(value) {
             return Err(InputError(format!("invalid manifest metadata {key}")));
@@ -439,6 +482,14 @@ fn parse_manifest(source: &str) -> Result<CohortManifest, InputError> {
                 | "cohort_set_id"
                 | "outcome_snapshot_id"
                 | "population_unit"
+                | "study_horizon_start_seconds"
+                | "study_horizon_end_seconds"
+                | "data_use_status"
+                | "data_use_owner"
+                | "data_use_ref"
+                | "data_use_purpose"
+                | "data_use_valid_from_seconds"
+                | "data_use_valid_until_seconds"
         )
     }) {
         return Err(InputError(format!("unknown cohort manifest metadata key {key}")));
@@ -454,16 +505,23 @@ fn parse_manifest(source: &str) -> Result<CohortManifest, InputError> {
         cohort_set_id,
         outcome_snapshot_id,
         population_unit,
+        study_horizon_start_seconds,
+        study_horizon_end_seconds,
+        data_use_status,
+        data_use_owner,
+        data_use_ref,
+        data_use_purpose,
+        data_use_valid_from_seconds,
+        data_use_valid_until_seconds,
         cohorts,
     })
 }
 
 fn qualify_manifest(
-    manifest_source: &str,
+    manifest: &CohortManifest,
     lane_sources: &[String],
     report: &str,
 ) -> Result<String, InputError> {
-    let manifest = parse_manifest(manifest_source)?;
     let lanes: Vec<CohortLane> = lane_sources
         .iter()
         .map(|source| parse_lane(source))
@@ -482,7 +540,9 @@ fn qualify_manifest(
         && manifest.service_family_id == first.service_family_id
         && manifest.cohort_set_id == first.cohort_set_id
         && manifest.outcome_snapshot_id == first.outcome_snapshot_id
-        && manifest.population_unit == first.population_unit;
+        && manifest.population_unit == first.population_unit
+        && manifest.study_horizon_start_seconds == first.contract.horizon_start_seconds
+        && manifest.study_horizon_end_seconds == first.contract.horizon_end_seconds;
 
     let expected_ids: BTreeSet<String> = manifest.cohorts.keys().cloned().collect();
     let received_ids: BTreeSet<String> = received.keys().cloned().collect();
@@ -538,6 +598,14 @@ fn qualify_manifest(
         format!("manifest_owner={}", manifest.manifest_owner),
         format!("manifest_ref={}", manifest.manifest_ref),
         format!("manifest_expected_cohort_count={}", manifest.cohorts.len()),
+        format!("data_use_status={}", manifest.data_use_status),
+        format!("data_use_owner={}", manifest.data_use_owner),
+        format!("data_use_ref={}", manifest.data_use_ref),
+        format!("data_use_purpose={}", manifest.data_use_purpose),
+        format!("data_use_valid_from_seconds={}", manifest.data_use_valid_from_seconds),
+        format!("data_use_valid_until_seconds={}", manifest.data_use_valid_until_seconds),
+        "data_use_authorization=ASSERTED_NOT_AUTHENTICATED_BY_THIS_TOOL".to_owned(),
+        "source_use_gate=ASSERTED_AUTHORIZATION_SCOPE_ACCEPTED".to_owned(),
         format!("manifest_received_cohort_count={}", lanes.len()),
         format!("manifest_scope_match={scope_match}"),
         format!("manifest_disposition={}", if complete {
@@ -881,12 +949,54 @@ pub fn validate_and_report(lane_sources: &[String]) -> Result<String, InputError
 
 /// Validate the submitted cohort lanes against an owner-declared, frozen cohort manifest.
 /// A complete result is only complete relative to the manifest; the manifest itself is not authenticated.
+fn source_use_blocked_report(manifest: &CohortManifest, disposition: &str) -> String {
+    [
+        "report_schema=fsre-cohort-outcome-envelope-report.v0.1".to_owned(),
+        format!("service_id={}", manifest.service_id),
+        format!("service_family_id={}", manifest.service_family_id),
+        format!("cohort_set_id={}", manifest.cohort_set_id),
+        format!("outcome_snapshot_id={}", manifest.outcome_snapshot_id),
+        format!("study_horizon_start_seconds={}", manifest.study_horizon_start_seconds),
+        format!("study_horizon_end_seconds={}", manifest.study_horizon_end_seconds),
+        format!("cohort_outcome_disposition=NOT_ESTIMABLE"),
+        format!("cohort_set_completeness=NOT_EVALUATED_DUE_TO_SOURCE_USE_BLOCK"),
+        format!("manifest_id={}", manifest.manifest_id),
+        format!("manifest_snapshot_id={}", manifest.manifest_snapshot_id),
+        format!("manifest_owner={}", manifest.manifest_owner),
+        format!("manifest_ref={}", manifest.manifest_ref),
+        format!("data_use_status={}", manifest.data_use_status),
+        format!("data_use_owner={}", manifest.data_use_owner),
+        format!("data_use_ref={}", manifest.data_use_ref),
+        format!("data_use_purpose={}", manifest.data_use_purpose),
+        format!("data_use_valid_from_seconds={}", manifest.data_use_valid_from_seconds),
+        format!("data_use_valid_until_seconds={}", manifest.data_use_valid_until_seconds),
+        format!("data_use_disposition={disposition}"),
+        "data_use_authorization=ASSERTION_NOT_AUTHENTICATED_BY_THIS_TOOL".to_owned(),
+        "service_metrics=NOT_COMPUTED".to_owned(),
+        "source_use_gate=BLOCKED".to_owned(),
+        "population_coverage=NOT_ESTABLISHED".to_owned(),
+        "operational_authority=NONE".to_owned(),
+        "operational_actuation=NOT_AUTHORISED".to_owned(),
+        String::new(),
+    ]
+    .join("\n")
+}
+
 pub fn validate_and_report_with_manifest(
     manifest_source: &str,
     lane_sources: &[String],
 ) -> Result<String, InputError> {
+    let manifest = parse_manifest(manifest_source)?;
+    if manifest.data_use_status != "AUTHORIZED_FOR_DECLARED_PURPOSE" {
+        return Ok(source_use_blocked_report(&manifest, &manifest.data_use_status));
+    }
+    if manifest.data_use_valid_from_seconds > manifest.study_horizon_start_seconds
+        || manifest.data_use_valid_until_seconds < manifest.study_horizon_end_seconds
+    {
+        return Ok(source_use_blocked_report(&manifest, "AUTHORIZATION_NOT_CURRENT_FOR_STUDY_HORIZON"));
+    }
     let report = compose(lane_sources)?;
-    qualify_manifest(manifest_source, lane_sources, &report)
+    qualify_manifest(&manifest, lane_sources, &report)
 }
 
 #[cfg(test)]
