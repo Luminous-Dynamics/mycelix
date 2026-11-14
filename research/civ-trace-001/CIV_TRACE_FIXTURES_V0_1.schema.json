@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/civ-trace-001/CIV_TRACE_FIXTURES_V0_1.schema.json",
+  "title": "CIV-TRACE-001 fixtures v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "status",
+    "fixture_count",
+    "family_count",
+    "families",
+    "fixtures",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "civ-trace-fixtures-v0.1"
+    },
+    "benchmark_id": {
+      "const": "CIV-TRACE-001"
+    },
+    "status": {
+      "const": "synthetic_known_answer_design_unexecuted"
+    },
+    "fixture_count": {
+      "const": 36
+    },
+    "family_count": {
+      "const": 6
+    },
+    "families": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "hindsight_isolation",
+          "authority_at_event_time",
+          "correction_supersession",
+          "outcome_observation",
+          "contestability",
+          "privacy_projection"
+        ]
+      }
+    },
+    "fixtures": {
+      "type": "array",
+      "minItems": 36,
+      "maxItems": 36,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fixture_id",
+          "family",
+          "cutoff_unix",
+          "action_time_unix",
+          "target_ref",
+          "principal_ref",
+          "decision_ref",
+          "attempt_ref",
+          "events",
+          "expected"
+        ],
+        "properties": {
+          "fixture_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "family": {
+            "enum": [
+              "hindsight_isolation",
+              "authority_at_event_time",
+              "correction_supersession",
+              "outcome_observation",
+              "contestability",
+              "privacy_projection"
+            ]
+          },
+          "cutoff_unix": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "action_time_unix": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "target_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "principal_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "decision_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attempt_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "events": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "event_id",
+                "kind",
+                "transaction_time",
+                "valid_from",
+                "valid_until",
+                "subject_ref",
+                "principal_ref",
+                "target_ref",
+                "parent_refs",
+                "status",
+                "visibility",
+                "payload_sha256",
+                "projection_includes_payload",
+                "supersedes_ref",
+                "issuer_ref",
+                "observer_ref"
+              ],
+              "properties": {
+                "event_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "kind": {
+                  "enum": [
+                    "Evidence",
+                    "Decision",
+                    "AuthorityGrant",
+                    "AuthorityRevoke",
+                    "Attempt",
+                    "EffectObservation",
+                    "Challenge",
+                    "Correction"
+                  ]
+                },
+                "transaction_time": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "valid_from": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "valid_until": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1
+                },
+                "subject_ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "principal_ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "target_ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "parent_refs": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "status": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "visibility": {
+                  "enum": [
+                    "Public",
+                    "Protected"
+                  ]
+                },
+                "payload_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "projection_includes_payload": {
+                  "type": "boolean"
+                },
+                "supersedes_ref": {
+                  "type": "string"
+                },
+                "issuer_ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "observer_ref": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "expected": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "known_event_ids",
+              "authority_as_known_at_action",
+              "authority_current_assessment",
+              "outcome_state",
+              "challenge_state",
+              "current_decision_ref",
+              "privacy_violation",
+              "challenge_event_ids",
+              "decision_lineage_refs"
+            ],
+            "properties": {
+              "known_event_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "authority_as_known_at_action": {
+                "enum": [
+                  "AUTHORIZED",
+                  "UNAUTHORIZED",
+                  "INDETERMINATE"
+                ]
+              },
+              "authority_current_assessment": {
+                "enum": [
+                  "AUTHORIZED",
+                  "UNAUTHORIZED",
+                  "INDETERMINATE"
+                ]
+              },
+              "outcome_state": {
+                "enum": [
+                  "CONFIRMED",
+                  "PARTIAL",
+                  "CONTRADICTED",
+                  "CONTESTED",
+                  "UNOBSERVED",
+                  "INDEPENDENCE_UNESTABLISHED"
+                ]
+              },
+              "challenge_state": {
+                "enum": [
+                  "NONE",
+                  "OPEN_UNRESOLVED",
+                  "RESOLVED_PRESERVED"
+                ]
+              },
+              "current_decision_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "privacy_violation": {
+                "type": "boolean"
+              },
+              "challenge_event_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "decision_lineage_refs": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
