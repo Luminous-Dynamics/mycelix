@@ -686,7 +686,7 @@ mod tests {
     #[test]
     fn evidence_rows_cannot_override_claim_freshness_policy() {
         let source = FIXTURE.replace(
-            "EVIDENCE|e-fuel|fuel_stock|synthetic-water-shock|3500|3600|3400|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:evidence:fuel|",
+            "EVIDENCE|e-fuel|fuel_stock|synthetic-water-shock|3500|3600|3400|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:evidence:fuel||",
             "EVIDENCE|e-fuel|fuel_stock|synthetic-water-shock|3500|3600|3400|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:evidence:fuel||4000",
         );
         assert_ne!(source, FIXTURE);
