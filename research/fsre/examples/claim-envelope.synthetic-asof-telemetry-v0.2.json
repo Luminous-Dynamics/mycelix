@@ -1,0 +1,105 @@
+{
+  "schema_id": "luminous.fsre.claim-qualification-envelope",
+  "schema_version": "0.2.0",
+  "claim_id": "fsre-asof-telemetry-claim-2026-11-14-001",
+  "claim_type": "software_conformance",
+  "claim_statement": "For the declared synthetic water-shock scenario at the 7200-second decision cutoff, the telemetry record was observed and available before the cutoff, valid under its owner-declared interval, and not yet known to be revoked. A later-discovered revocation is disclosed separately and does not rewrite the as-known-at-cutoff replay.",
+  "claim_status": "SUPPORTED_WITHIN_DECLARED_SCOPE",
+  "subject": {
+    "service_id": "synthetic-water-monitoring-service",
+    "cohort_id": null,
+    "operator_ref": null,
+    "geography_ref": null
+  },
+  "scope": {
+    "scope_kind": "synthetic",
+    "scenario_id": "synthetic-water-shock",
+    "scenario_digest": null,
+    "observation_start": "1970-01-01T01:53:20Z",
+    "observation_end": "1970-01-01T02:00:00Z",
+    "time_basis_id": "UTC_UNIX_SECONDS_V1",
+    "clock_uncertainty_seconds": 0,
+    "geographic_grain": "synthetic service boundary; no real geography",
+    "population_boundary": "Synthetic fixture only",
+    "service_boundary": "One telemetry evidence record evaluated against one frozen decision cutoff"
+  },
+  "measurement": {
+    "unit": "admissible_evidence_record_count",
+    "denominator": "1 synthetic telemetry evidence record",
+    "method_id": "fsre-asof-evidence-v0.1",
+    "value": 1,
+    "uncertainty": null,
+    "unknown_duration_seconds": null,
+    "distributional_breakdown": []
+  },
+  "provenance": {
+    "source_frontier": [
+      {
+        "source_owner": "telemetry_owner",
+        "source_record_ref": "synthetic:evidence:telemetry",
+        "source_schema_version": "synthetic-asof-evidence.v0.1",
+        "source_digest": null,
+        "observed_at": "1970-01-01T01:53:20Z",
+        "available_at": "1970-01-01T01:55:00Z",
+        "valid_from": "1970-01-01T01:40:00Z",
+        "valid_until": "1970-01-01T02:38:20Z",
+        "revoked_effective_at": "1970-01-01T01:48:20Z",
+        "revocation_known_at": "1970-01-01T02:06:40Z",
+        "time_basis_id": "UTC_UNIX_SECONDS_V1",
+        "clock_uncertainty_seconds": 0,
+        "admissibility": "SYNTHETIC",
+        "as_of_admissibility": "ADMISSIBLE_WITH_HINDSIGHT_REVOCATION"
+      }
+    ],
+    "source_authenticity": "SYNTHETIC_ONLY",
+    "as_of_qualification": {
+      "decision_cutoff": "1970-01-01T02:00:00Z",
+      "time_basis_id": "UTC_UNIX_SECONDS_V1",
+      "freshness_policy": {
+        "basis": "STUDY_DEFAULT",
+        "max_observation_age_seconds": 3600,
+        "policy_ref": "tools/fsre-asof-evidence/fixtures/synthetic-asof.psv#max_observation_age_seconds"
+      },
+      "disposition": "SUPPORTED_AS_KNOWN_AT_CUTOFF",
+      "replay_evaluator_id": "fsre-asof-evidence",
+      "replay_evaluator_revision": "0.1.0",
+      "replay_report_ref": "tools/fsre-asof-evidence/fixtures/synthetic-asof.expected.txt#e-telemetry",
+      "hindsight_revocation_count": 1,
+      "future_information_used": false
+    }
+  },
+  "method": {
+    "scenario_manifest_ref": "tools/fsre-asof-evidence/fixtures/synthetic-asof.psv",
+    "evaluator_id": "fsre-asof-evidence",
+    "evaluator_version": "0.1.0",
+    "evaluator_revision": "0.1.0",
+    "model_receipts": [],
+    "analysis_plan_ref": null
+  },
+  "assessment": {
+    "evidence_adequacy": "ADEQUATE_FOR_CLAIM",
+    "reproducibility": "DETERMINISTIC_GOLDEN_MATCH",
+    "independence": "NOT_ASSESSED",
+    "limitations": [
+      "All timestamps and source references are synthetic; they do not represent an actual utility or operator.",
+      "The evaluator classifies admissibility at the declared cutoff; it does not authenticate the underlying source assertion.",
+      "The hindsight revocation means the record's represented validity is later disputed/withdrawn, despite being unavailable to the decision process at the cutoff.",
+      "The example does not establish physical telemetry correctness or any operational service outcome."
+    ],
+    "unresolved_unknowns": [
+      "No live owner-native telemetry source was connected.",
+      "No independent source authentication or field review was performed."
+    ],
+    "verifier_ref": "tools/fsre-asof-evidence/fixtures/synthetic-asof.expected.txt#e-telemetry"
+  },
+  "authority": {
+    "decision_right_owner": null,
+    "execution_authority": "NONE",
+    "operational_actuation": "NOT_AUTHORISED"
+  },
+  "claim_ceiling": [
+    "The synthetic evidence record is admissible under the declared point-in-time rules at the 7200-second cutoff.",
+    "The later-known revocation is preserved as hindsight and does not alter the historical knowledge state.",
+    "No real telemetry truth, operational authority, physical service condition, causal effect or resilience improvement is established."
+  ]
+}
