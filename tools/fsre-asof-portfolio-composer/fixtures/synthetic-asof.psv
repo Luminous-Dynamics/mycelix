@@ -1,0 +1,62 @@
+# scenario_id=synthetic-water-shock
+# evidence_snapshot_id=synthetic-decision-snapshot-01
+# decision_at=7200
+# max_observation_age_seconds=3600
+# clock_basis_id=UTC_UNIX_SECONDS_V1
+record_type|record_id|claim_id|scenario_id|observed_at|available_at|valid_from|valid_until|revoked_effective_at|revocation_known_at|status|clock_basis_id|source_owner|source_ref|required_evidence_count|max_observation_age_seconds
+CLAIM|requirement-qual-pump|claim-qual-pump|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:qual-pump|1|
+EVIDENCE|observation-qual-pump|claim-qual-pump|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:qualification:pump||
+CLAIM|requirement-qual-tanker|claim-qual-tanker|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:qual-tanker|1|
+EVIDENCE|observation-qual-tanker|claim-qual-tanker|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:qualification:tanker||
+CLAIM|requirement-qual-mobile|claim-qual-mobile|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:qual-mobile|1|
+EVIDENCE|observation-qual-mobile|claim-qual-mobile|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:qualification:mobile||
+CLAIM|requirement-cap-pump|claim-cap-pump|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|symtropy|synthetic:requirement:cap-pump|1|
+EVIDENCE|observation-cap-pump|claim-cap-pump|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|symtropy|synthetic:capacity:pump||
+CLAIM|requirement-cap-tanker|claim-cap-tanker|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|symtropy|synthetic:requirement:cap-tanker|1|
+EVIDENCE|observation-cap-tanker|claim-cap-tanker|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|symtropy|synthetic:capacity:tanker||
+CLAIM|requirement-cap-mobile|claim-cap-mobile|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|symtropy|synthetic:requirement:cap-mobile|1|
+EVIDENCE|observation-cap-mobile|claim-cap-mobile|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|symtropy|synthetic:capacity:mobile||
+CLAIM|requirement-allocation-households|claim-allocation-households|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:allocation-households|1|
+EVIDENCE|observation-allocation-households|claim-allocation-households|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:plan:pump||
+CLAIM|requirement-allocation-tanker|claim-allocation-tanker|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:allocation-tanker|1|
+EVIDENCE|observation-allocation-tanker|claim-allocation-tanker|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:plan:tanker||
+CLAIM|requirement-allocation-hospital|claim-allocation-hospital|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:allocation-hospital|1|
+EVIDENCE|observation-allocation-hospital|claim-allocation-hospital|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:plan:mobile||
+CLAIM|requirement-floor-households|claim-floor-households|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|service-owner|synthetic:requirement:floor-households|1|
+EVIDENCE|observation-floor-households|claim-floor-households|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|service-owner|synthetic:floor:households||
+CLAIM|requirement-floor-hospital|claim-floor-hospital|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|service-owner|synthetic:requirement:floor-hospital|1|
+EVIDENCE|observation-floor-hospital|claim-floor-hospital|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|service-owner|synthetic:floor:hospital||
+CLAIM|requirement-resource-profile-pump|claim-resource-profile-pump|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:resource-profile-pump|1|
+EVIDENCE|observation-resource-profile-pump|claim-resource-profile-pump|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:resource-profile:backup_pump||
+CLAIM|requirement-resource-profile-tanker|claim-resource-profile-tanker|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:resource-profile-tanker|1|
+EVIDENCE|observation-resource-profile-tanker|claim-resource-profile-tanker|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:resource-profile:tanker_delivery||
+CLAIM|requirement-resource-profile-mobile|claim-resource-profile-mobile|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:resource-profile-mobile|1|
+EVIDENCE|observation-resource-profile-mobile|claim-resource-profile-mobile|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:resource-profile:mobile_treatment||
+CLAIM|requirement-resource-use-pump|claim-resource-use-pump|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:resource-use-pump|1|
+EVIDENCE|observation-resource-use-pump|claim-resource-use-pump|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:resource:pump-crew||
+CLAIM|requirement-resource-use-tanker|claim-resource-use-tanker|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:resource-use-tanker|1|
+EVIDENCE|observation-resource-use-tanker|claim-resource-use-tanker|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:resource:tanker-diesel||
+CLAIM|requirement-resource-use-mobile-crew|claim-resource-use-mobile-crew|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:resource-use-mobile-crew|1|
+EVIDENCE|observation-resource-use-mobile-crew|claim-resource-use-mobile-crew|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:resource:mobile-crew||
+CLAIM|requirement-resource-use-mobile-diesel|claim-resource-use-mobile-diesel|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:resource-use-mobile-diesel|1|
+EVIDENCE|observation-resource-use-mobile-diesel|claim-resource-use-mobile-diesel|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:resource:mobile-diesel||
+CLAIM|requirement-resource-cap-diesel|claim-resource-cap-diesel|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:resource-cap-diesel|1|
+EVIDENCE|observation-resource-cap-diesel|claim-resource-cap-diesel|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:stock:diesel||
+CLAIM|requirement-resource-cap-crew|claim-resource-cap-crew|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:requirement:resource-cap-crew|1|
+EVIDENCE|observation-resource-cap-crew|claim-resource-cap-crew|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:stock:crew||
+CLAIM|requirement-domain-profile-pump|claim-domain-profile-pump|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:requirement:domain-profile-pump|1|
+EVIDENCE|observation-domain-profile-pump|claim-domain-profile-pump|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:domain-profile:backup_pump||
+CLAIM|requirement-domain-profile-tanker|claim-domain-profile-tanker|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:requirement:domain-profile-tanker|1|
+EVIDENCE|observation-domain-profile-tanker|claim-domain-profile-tanker|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:domain-profile:tanker_delivery||
+CLAIM|requirement-domain-profile-mobile|claim-domain-profile-mobile|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:requirement:domain-profile-mobile|1|
+EVIDENCE|observation-domain-profile-mobile|claim-domain-profile-mobile|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:domain-profile:mobile_treatment||
+CLAIM|requirement-domain-pump-power|claim-domain-pump-power|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:requirement:domain-pump-power|1|
+EVIDENCE|observation-domain-pump-power|claim-domain-pump-power|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:domain:pump-power||
+CLAIM|requirement-domain-mobile-power|claim-domain-mobile-power|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:requirement:domain-mobile-power|1|
+EVIDENCE|observation-domain-mobile-power|claim-domain-mobile-power|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:domain:mobile-power||
+CLAIM|requirement-domain-mobile-road|claim-domain-mobile-road|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:requirement:domain-mobile-road|1|
+EVIDENCE|observation-domain-mobile-road|claim-domain-mobile-road|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:domain:mobile-road||
+CLAIM|requirement-domain-state-power|claim-domain-state-power|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:requirement:domain-state-power|1|
+EVIDENCE|observation-domain-state-power|claim-domain-state-power|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:domain:power||
+CLAIM|requirement-domain-state-road|claim-domain-state-road|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:requirement:domain-state-road|1|
+EVIDENCE|observation-domain-state-road|claim-domain-state-road|synthetic-water-shock|6800|6900|6700|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|mycelix|synthetic:domain:road||
