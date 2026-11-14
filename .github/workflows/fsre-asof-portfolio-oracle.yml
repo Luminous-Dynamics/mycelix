@@ -1,0 +1,64 @@
+name: FSRE independent as-of portfolio composition oracle
+on:
+  pull_request:
+    paths:
+      - "tools/fsre-asof-portfolio-oracle/**"
+      - "tools/fsre-asof-portfolio-composer/**"
+      - "tools/fsre-asof-evidence-oracle/**"
+      - "tools/fsre-portfolio-oracle/**"
+      - ".github/workflows/fsre-asof-portfolio-oracle.yml"
+  push:
+    branches:
+      - main
+      - research/fsre-federated-resilience-v0.1
+    paths:
+      - "tools/fsre-asof-portfolio-oracle/**"
+      - "tools/fsre-asof-portfolio-composer/**"
+      - "tools/fsre-asof-evidence-oracle/**"
+      - "tools/fsre-portfolio-oracle/**"
+      - ".github/workflows/fsre-asof-portfolio-oracle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  differential:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path tools/fsre-asof-evidence-oracle/Cargo.toml --all -- --check
+          cargo fmt --manifest-path tools/fsre-portfolio-oracle/Cargo.toml --all -- --check
+          cargo fmt --manifest-path tools/fsre-asof-portfolio-composer/Cargo.toml --all -- --check
+          cargo fmt --manifest-path tools/fsre-asof-portfolio-oracle/Cargo.toml --all -- --check
+      - name: Run references
+        run: |
+          cargo test --locked --offline --manifest-path tools/fsre-asof-evidence-oracle/Cargo.toml
+          cargo test --locked --offline --manifest-path tools/fsre-portfolio-oracle/Cargo.toml
+          cargo test --locked --offline --manifest-path tools/fsre-asof-portfolio-composer/Cargo.toml
+          cargo test --locked --offline --manifest-path tools/fsre-asof-portfolio-oracle/Cargo.toml
+      - name: Compare production composition to independent oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          asof="tools/fsre-asof-portfolio-composer/fixtures/synthetic-asof.psv"
+          portfolio="tools/fsre-asof-portfolio-composer/fixtures/synthetic-portfolio.psv"
+          production="$(mktemp)"
+          oracle="$(mktemp)"
+          trap 'rm -f "$production" "$oracle"' EXIT
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-asof-portfolio-composer/Cargo.toml -- "$asof" "$portfolio" > "$production"
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-asof-portfolio-oracle/Cargo.toml -- "$asof" "$portfolio" > "$oracle"
+          diff -u tools/fsre-asof-portfolio-composer/fixtures/synthetic-composed.expected.txt "$production"
+          diff -u "$production" "$oracle"
+      - name: Run Clippy
+        run: |
+          cargo clippy --locked --offline --manifest-path tools/fsre-asof-evidence-oracle/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --locked --offline --manifest-path tools/fsre-portfolio-oracle/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --locked --offline --manifest-path tools/fsre-asof-portfolio-composer/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --locked --offline --manifest-path tools/fsre-asof-portfolio-oracle/Cargo.toml --all-targets -- -D warnings
