@@ -356,7 +356,10 @@ pub fn reconcile_actions(
         if !expected.contains(action.action_id.as_str()) {
             return Err(ReconciliationError::UnexpectedObservedActionId);
         }
-        if observed.insert(action.action_id.as_str(), action.effect).is_some() {
+        if observed
+            .insert(action.action_id.as_str(), action.effect)
+            .is_some()
+        {
             return Err(ReconciliationError::DuplicateObservedActionId);
         }
     }
@@ -473,17 +476,16 @@ pub fn qualify_independent_effect_observation(
             | EffectEvidenceKind::ProviderStatusQuery => {
                 has_provider_only = true;
             }
-            EffectEvidenceKind::IndependentObservation | EffectEvidenceKind::OwnerReconciliation => {
-                match evidence.independence {
-                    EvidenceIndependence::QualifiedIndependent => {}
-                    EvidenceIndependence::KnownSharedDependency => {
-                        has_known_shared_dependency = true;
-                    }
-                    EvidenceIndependence::Unknown | EvidenceIndependence::NotAssessed => {
-                        has_indeterminate = true;
-                    }
+            EffectEvidenceKind::IndependentObservation
+            | EffectEvidenceKind::OwnerReconciliation => match evidence.independence {
+                EvidenceIndependence::QualifiedIndependent => {}
+                EvidenceIndependence::KnownSharedDependency => {
+                    has_known_shared_dependency = true;
                 }
-            }
+                EvidenceIndependence::Unknown | EvidenceIndependence::NotAssessed => {
+                    has_indeterminate = true;
+                }
+            },
         }
     }
 
@@ -501,7 +503,6 @@ pub fn qualify_independent_effect_observation(
         Ok(ObservationQualification::NoAppliedEffects)
     }
 }
-
 
 /// A bounded delegation scope supplied by the authority owner.
 ///
@@ -583,17 +584,23 @@ pub fn union_effective_privilege(grants: &[CapabilityGrant]) -> EffectivePrivile
     for grant in grants.iter().filter(|grant| grant.active_during_trajectory) {
         result.grant_refs.insert(grant.grant_ref.clone());
         result.actions.extend(grant.scope.actions.iter().cloned());
-        result.resources.extend(grant.scope.resources.iter().cloned());
+        result
+            .resources
+            .extend(grant.scope.resources.iter().cloned());
         result.purposes.extend(grant.scope.purposes.iter().cloned());
         result.fields.extend(grant.scope.fields.iter().cloned());
-        result.aggregate_amount_limit_minor = match (result.aggregate_amount_limit_minor, grant.scope.max_amount_minor) {
+        result.aggregate_amount_limit_minor = match (
+            result.aggregate_amount_limit_minor,
+            grant.scope.max_amount_minor,
+        ) {
             (Some(total), Some(limit)) => Some(total.saturating_add(limit)),
             _ => None,
         };
-        result.aggregate_operation_limit = match (result.aggregate_operation_limit, grant.scope.max_operations) {
-            (Some(total), Some(limit)) => Some(total.saturating_add(limit)),
-            _ => None,
-        };
+        result.aggregate_operation_limit =
+            match (result.aggregate_operation_limit, grant.scope.max_operations) {
+                (Some(total), Some(limit)) => Some(total.saturating_add(limit)),
+                _ => None,
+            };
     }
     result
 }
@@ -616,7 +623,10 @@ pub fn effective_privilege_within_task(
         && effective.resources.is_subset(&task.resources)
         && effective.purposes.is_subset(&task.purposes)
         && effective.fields.is_subset(&task.fields)
-        && limit_within_task(effective.aggregate_amount_limit_minor, task.max_amount_minor)
+        && limit_within_task(
+            effective.aggregate_amount_limit_minor,
+            task.max_amount_minor,
+        )
         && limit_within_task(effective.aggregate_operation_limit, task.max_operations)
 }
 
@@ -698,9 +708,7 @@ pub enum SessionAuthorizationDecision {
 ///
 /// A central revocation record alone does not prove all active sessions have
 /// enforced it. A stale session epoch is held until refreshed or invalidated.
-pub fn evaluate_session_revocation(
-    state: SessionRevocationState,
-) -> SessionAuthorizationDecision {
+pub fn evaluate_session_revocation(state: SessionRevocationState) -> SessionAuthorizationDecision {
     if state.authority_state == AuthorityState::Unknown {
         return SessionAuthorizationDecision::HoldUnknown;
     }
@@ -799,12 +807,24 @@ mod tests {
     #[test]
     fn child_delegation_may_attenuate_every_scope_dimension() {
         let parent = scope(
-            &["read", "update"], &["asset-a", "asset-b"], &["maintenance"],
-            &["status", "condition"], 10, Some(100), Some(5000), Some(4)
+            &["read", "update"],
+            &["asset-a", "asset-b"],
+            &["maintenance"],
+            &["status", "condition"],
+            10,
+            Some(100),
+            Some(5000),
+            Some(4),
         );
         let child = scope(
-            &["read"], &["asset-a"], &["maintenance"], &["status"],
-            12, Some(80), Some(1000), Some(1)
+            &["read"],
+            &["asset-a"],
+            &["maintenance"],
+            &["status"],
+            12,
+            Some(80),
+            Some(1000),
+            Some(1),
         );
         assert!(delegation_is_attenuated(&parent, &child));
     }
@@ -812,14 +832,56 @@ mod tests {
     #[test]
     fn child_delegation_cannot_amplify_action_resource_purpose_or_field() {
         let parent = scope(
-            &["read"], &["asset-a"], &["inspection"], &["status"],
-            10, Some(100), Some(5000), Some(2)
+            &["read"],
+            &["asset-a"],
+            &["inspection"],
+            &["status"],
+            10,
+            Some(100),
+            Some(5000),
+            Some(2),
         );
         for child in [
-            scope(&["read", "delete"], &["asset-a"], &["inspection"], &["status"], 10, Some(90), Some(1000), Some(1)),
-            scope(&["read"], &["asset-a", "asset-b"], &["inspection"], &["status"], 10, Some(90), Some(1000), Some(1)),
-            scope(&["read"], &["asset-a"], &["inspection", "marketing"], &["status"], 10, Some(90), Some(1000), Some(1)),
-            scope(&["read"], &["asset-a"], &["inspection"], &["status", "bank-account"], 10, Some(90), Some(1000), Some(1)),
+            scope(
+                &["read", "delete"],
+                &["asset-a"],
+                &["inspection"],
+                &["status"],
+                10,
+                Some(90),
+                Some(1000),
+                Some(1),
+            ),
+            scope(
+                &["read"],
+                &["asset-a", "asset-b"],
+                &["inspection"],
+                &["status"],
+                10,
+                Some(90),
+                Some(1000),
+                Some(1),
+            ),
+            scope(
+                &["read"],
+                &["asset-a"],
+                &["inspection", "marketing"],
+                &["status"],
+                10,
+                Some(90),
+                Some(1000),
+                Some(1),
+            ),
+            scope(
+                &["read"],
+                &["asset-a"],
+                &["inspection"],
+                &["status", "bank-account"],
+                10,
+                Some(90),
+                Some(1000),
+                Some(1),
+            ),
         ] {
             assert!(!delegation_is_attenuated(&parent, &child));
         }
@@ -827,11 +889,56 @@ mod tests {
 
     #[test]
     fn child_delegation_cannot_extend_expiry_or_remove_parent_limits() {
-        let parent = scope(&["read"], &["asset-a"], &["inspection"], &["status"], 10, Some(100), Some(500), Some(2));
-        let expiry_amplification = scope(&["read"], &["asset-a"], &["inspection"], &["status"], 10, Some(101), Some(100), Some(1));
-        let unbounded_expiry = scope(&["read"], &["asset-a"], &["inspection"], &["status"], 10, None, Some(100), Some(1));
-        let unbounded_amount = scope(&["read"], &["asset-a"], &["inspection"], &["status"], 10, Some(90), None, Some(1));
-        let unbounded_operations = scope(&["read"], &["asset-a"], &["inspection"], &["status"], 10, Some(90), Some(100), None);
+        let parent = scope(
+            &["read"],
+            &["asset-a"],
+            &["inspection"],
+            &["status"],
+            10,
+            Some(100),
+            Some(500),
+            Some(2),
+        );
+        let expiry_amplification = scope(
+            &["read"],
+            &["asset-a"],
+            &["inspection"],
+            &["status"],
+            10,
+            Some(101),
+            Some(100),
+            Some(1),
+        );
+        let unbounded_expiry = scope(
+            &["read"],
+            &["asset-a"],
+            &["inspection"],
+            &["status"],
+            10,
+            None,
+            Some(100),
+            Some(1),
+        );
+        let unbounded_amount = scope(
+            &["read"],
+            &["asset-a"],
+            &["inspection"],
+            &["status"],
+            10,
+            Some(90),
+            None,
+            Some(1),
+        );
+        let unbounded_operations = scope(
+            &["read"],
+            &["asset-a"],
+            &["inspection"],
+            &["status"],
+            10,
+            Some(90),
+            Some(100),
+            None,
+        );
         assert!(!delegation_is_attenuated(&parent, &expiry_amplification));
         assert!(!delegation_is_attenuated(&parent, &unbounded_expiry));
         assert!(!delegation_is_attenuated(&parent, &unbounded_amount));
@@ -840,16 +947,52 @@ mod tests {
 
     #[test]
     fn grandchild_must_attenuate_the_immediate_parent_not_only_the_root() {
-        let root = scope(&["read", "update"], &["asset-a"], &["maintenance"], &["status", "condition"], 1, Some(100), None, None);
-        let child = scope(&["read"], &["asset-a"], &["maintenance"], &["status"], 2, Some(80), None, None);
-        let grandchild_amplifies = scope(&["read", "update"], &["asset-a"], &["maintenance"], &["status"], 3, Some(70), None, None);
+        let root = scope(
+            &["read", "update"],
+            &["asset-a"],
+            &["maintenance"],
+            &["status", "condition"],
+            1,
+            Some(100),
+            None,
+            None,
+        );
+        let child = scope(
+            &["read"],
+            &["asset-a"],
+            &["maintenance"],
+            &["status"],
+            2,
+            Some(80),
+            None,
+            None,
+        );
+        let grandchild_amplifies = scope(
+            &["read", "update"],
+            &["asset-a"],
+            &["maintenance"],
+            &["status"],
+            3,
+            Some(70),
+            None,
+            None,
+        );
         assert!(delegation_is_attenuated(&root, &child));
         assert!(!delegation_is_attenuated(&child, &grandchild_amplifies));
     }
 
     #[test]
     fn effective_privilege_unions_active_tool_and_ambient_grants() {
-        let requested = scope(&["read"], &["record-1"], &["case-review"], &["summary"], 1, Some(50), Some(0), Some(1));
+        let requested = scope(
+            &["read"],
+            &["record-1"],
+            &["case-review"],
+            &["summary"],
+            1,
+            Some(50),
+            Some(0),
+            Some(1),
+        );
         let task_grant = CapabilityGrant {
             grant_ref: "task-token".to_owned(),
             active_during_trajectory: true,
@@ -858,7 +1001,16 @@ mod tests {
         let ambient_grant = CapabilityGrant {
             grant_ref: "shared-service-token".to_owned(),
             active_during_trajectory: true,
-            scope: scope(&["read", "delete"], &["record-1", "record-2"], &["case-review", "admin"], &["summary", "private-notes"], 1, Some(50), None, None),
+            scope: scope(
+                &["read", "delete"],
+                &["record-1", "record-2"],
+                &["case-review", "admin"],
+                &["summary", "private-notes"],
+                1,
+                Some(50),
+                None,
+                None,
+            ),
         };
         let expired_grant = CapabilityGrant {
             grant_ref: "inactive".to_owned(),
@@ -878,16 +1030,43 @@ mod tests {
 
     #[test]
     fn aggregate_bounded_grants_cannot_exceed_task_amount_or_operation_ceiling() {
-        let task = scope(&["transfer"], &["account-a"], &["settlement"], &["amount"], 1, Some(100), Some(1000), Some(2));
+        let task = scope(
+            &["transfer"],
+            &["account-a"],
+            &["settlement"],
+            &["amount"],
+            1,
+            Some(100),
+            Some(1000),
+            Some(2),
+        );
         let first = CapabilityGrant {
             grant_ref: "token-a".to_owned(),
             active_during_trajectory: true,
-            scope: scope(&["transfer"], &["account-a"], &["settlement"], &["amount"], 1, Some(90), Some(600), Some(1)),
+            scope: scope(
+                &["transfer"],
+                &["account-a"],
+                &["settlement"],
+                &["amount"],
+                1,
+                Some(90),
+                Some(600),
+                Some(1),
+            ),
         };
         let second = CapabilityGrant {
             grant_ref: "token-b".to_owned(),
             active_during_trajectory: true,
-            scope: scope(&["transfer"], &["account-a"], &["settlement"], &["amount"], 1, Some(90), Some(600), Some(1)),
+            scope: scope(
+                &["transfer"],
+                &["account-a"],
+                &["settlement"],
+                &["amount"],
+                1,
+                Some(90),
+                Some(600),
+                Some(1),
+            ),
         };
         let effective = union_effective_privilege(&[first, second]);
         assert_eq!(effective.aggregate_amount_limit_minor, Some(1200));
@@ -897,11 +1076,29 @@ mod tests {
 
     #[test]
     fn least_privilege_passes_when_every_active_grant_is_within_task_scope() {
-        let task = scope(&["read", "inspect"], &["asset-a"], &["maintenance"], &["status", "condition"], 1, Some(50), Some(10), Some(2));
+        let task = scope(
+            &["read", "inspect"],
+            &["asset-a"],
+            &["maintenance"],
+            &["status", "condition"],
+            1,
+            Some(50),
+            Some(10),
+            Some(2),
+        );
         let grant = CapabilityGrant {
             grant_ref: "bounded-session".to_owned(),
             active_during_trajectory: true,
-            scope: scope(&["read"], &["asset-a"], &["maintenance"], &["status"], 2, Some(40), Some(5), Some(1)),
+            scope: scope(
+                &["read"],
+                &["asset-a"],
+                &["maintenance"],
+                &["status"],
+                2,
+                Some(40),
+                Some(5),
+                Some(1),
+            ),
         };
         let effective = union_effective_privilege(&[grant]);
         assert!(effective_privilege_within_task(&effective, &task));
@@ -910,8 +1107,18 @@ mod tests {
     #[test]
     fn one_reachable_alternate_route_without_a_policy_enforcer_breaks_complete_mediation() {
         let routes = vec![
-            ProtectedRoute { route_ref: "normal-api".to_owned(), protected_effect_ref: "effect:transfer".to_owned(), reachable_from_agent: true, enforcement_point_ref: Some("pep:gateway".to_owned()) },
-            ProtectedRoute { route_ref: "bulk-import".to_owned(), protected_effect_ref: "effect:transfer".to_owned(), reachable_from_agent: true, enforcement_point_ref: None },
+            ProtectedRoute {
+                route_ref: "normal-api".to_owned(),
+                protected_effect_ref: "effect:transfer".to_owned(),
+                reachable_from_agent: true,
+                enforcement_point_ref: Some("pep:gateway".to_owned()),
+            },
+            ProtectedRoute {
+                route_ref: "bulk-import".to_owned(),
+                protected_effect_ref: "effect:transfer".to_owned(),
+                reachable_from_agent: true,
+                enforcement_point_ref: None,
+            },
         ];
         assert_eq!(
             assess_mediation_coverage("effect:transfer", "pep:gateway", true, &routes),
@@ -954,8 +1161,18 @@ mod tests {
     #[test]
     fn unreachable_alternate_route_does_not_break_mediation_coverage() {
         let routes = vec![
-            ProtectedRoute { route_ref: "normal-api".to_owned(), protected_effect_ref: "effect:transfer".to_owned(), reachable_from_agent: true, enforcement_point_ref: Some("pep:gateway".to_owned()) },
-            ProtectedRoute { route_ref: "disabled-admin-api".to_owned(), protected_effect_ref: "effect:transfer".to_owned(), reachable_from_agent: false, enforcement_point_ref: None },
+            ProtectedRoute {
+                route_ref: "normal-api".to_owned(),
+                protected_effect_ref: "effect:transfer".to_owned(),
+                reachable_from_agent: true,
+                enforcement_point_ref: Some("pep:gateway".to_owned()),
+            },
+            ProtectedRoute {
+                route_ref: "disabled-admin-api".to_owned(),
+                protected_effect_ref: "effect:transfer".to_owned(),
+                reachable_from_agent: false,
+                enforcement_point_ref: None,
+            },
         ];
         assert_eq!(
             assess_mediation_coverage("effect:transfer", "pep:gateway", true, &routes),
@@ -1047,7 +1264,6 @@ mod tests {
             SessionAuthorizationDecision::Permit
         );
     }
-
 
     #[test]
     fn exact_current_operation_is_permitted() {
@@ -1190,7 +1406,10 @@ mod tests {
     #[test]
     fn incomplete_operation_binding_is_held() {
         let mut candidate = input();
-        candidate.actual_operation.canonical_operation_digest.clear();
+        candidate
+            .actual_operation
+            .canonical_operation_digest
+            .clear();
         assert_eq!(
             evaluate_finality(&candidate),
             FinalityDecision::Hold(HoldCode::MissingRequiredBinding)
@@ -1220,8 +1439,7 @@ mod tests {
             FinalityDecision::Hold(HoldCode::RetrySafetyUnproven)
         );
 
-        candidate.retry_safety =
-            RetrySafety::SameOperationSameIdempotencyKeyQualified;
+        candidate.retry_safety = RetrySafety::SameOperationSameIdempotencyKeyQualified;
         candidate.actual_operation.idempotency_ref = None;
         candidate.approval.operation.idempotency_ref = None;
         assert_eq!(
@@ -1386,10 +1604,7 @@ mod tests {
             &observations,
         );
         assert_eq!(forward, reverse);
-        assert_eq!(
-            forward,
-            Ok(ObservationQualification::ProviderReportedOnly)
-        );
+        assert_eq!(forward, Ok(ObservationQualification::ProviderReportedOnly));
     }
 
     #[test]
@@ -1431,24 +1646,21 @@ mod tests {
             ActionObservation {
                 action_id: "a".to_owned(),
                 effect: ActionEffect::ConfirmedApplied,
-            evidence: None,
+                evidence: None,
             },
             ActionObservation {
                 action_id: "b".to_owned(),
                 effect: ActionEffect::ConfirmedApplied,
-            evidence: None,
+                evidence: None,
             },
             ActionObservation {
                 action_id: "c".to_owned(),
                 effect: ActionEffect::Unknown,
-            evidence: None,
+                evidence: None,
             },
         ];
         assert_eq!(
-            reconcile_actions(
-                &["a".to_owned(), "b".to_owned(), "c".to_owned()],
-                &actions
-            ),
+            reconcile_actions(&["a".to_owned(), "b".to_owned(), "c".to_owned()], &actions),
             Ok(ReconciledOutcome::PartialWithUnknown)
         );
     }
@@ -1459,12 +1671,12 @@ mod tests {
             ActionObservation {
                 action_id: "a".to_owned(),
                 effect: ActionEffect::ConfirmedApplied,
-            evidence: None,
+                evidence: None,
             },
             ActionObservation {
                 action_id: "b".to_owned(),
                 effect: ActionEffect::ConfirmedApplied,
-            evidence: None,
+                evidence: None,
             },
         ];
         assert_eq!(
@@ -1476,12 +1688,12 @@ mod tests {
             ActionObservation {
                 action_id: "a".to_owned(),
                 effect: ActionEffect::ConfirmedApplied,
-            evidence: None,
+                evidence: None,
             },
             ActionObservation {
                 action_id: "b".to_owned(),
                 effect: ActionEffect::ConfirmedNotApplied,
-            evidence: None,
+                evidence: None,
             },
         ];
         assert_eq!(
@@ -1495,13 +1707,10 @@ mod tests {
         let observed_prefix = vec![ActionObservation {
             action_id: "a".to_owned(),
             effect: ActionEffect::ConfirmedApplied,
-        evidence: None,
+            evidence: None,
         }];
         assert_eq!(
-            reconcile_actions(
-                &["a".to_owned(), "b".to_owned()],
-                &observed_prefix
-            ),
+            reconcile_actions(&["a".to_owned(), "b".to_owned()], &observed_prefix),
             Ok(ReconciledOutcome::PartialWithUnknown)
         );
     }
@@ -1511,7 +1720,7 @@ mod tests {
         let unexpected = vec![ActionObservation {
             action_id: "not-in-plan".to_owned(),
             effect: ActionEffect::ConfirmedApplied,
-        evidence: None,
+            evidence: None,
         }];
         assert_eq!(
             reconcile_actions(&["expected".to_owned()], &unexpected),
@@ -1533,12 +1742,12 @@ mod tests {
             ActionObservation {
                 action_id: "same".to_owned(),
                 effect: ActionEffect::ConfirmedApplied,
-            evidence: None,
+                evidence: None,
             },
             ActionObservation {
                 action_id: "same".to_owned(),
                 effect: ActionEffect::Unknown,
-            evidence: None,
+                evidence: None,
             },
         ];
         assert_eq!(
