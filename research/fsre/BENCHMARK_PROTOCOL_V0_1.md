@@ -145,6 +145,14 @@ Prior art includes Coleman et al.'s 2024 review of 99 equity/infrastructure-resi
 
 The cohort-floor reference challenge includes an aggregate-compensation control: total delivery can equal the sum of all cohort floors while one cohort misses its own floor and another receives a surplus. Expected disposition remains NOT_FEASIBLE. Missing cohort denominators or identity transitions must remain NOT_ESTIMABLE until reconciled.
 
+## 2.7 Decision-time evidence reconstruction
+
+Generic temporal data management is established. SQL Server system-versioned temporal tables retain database row history and support point-in-time queries; PostgreSQL 19 documents application-time temporal keys/foreign keys but not native system time. Neither fact alone establishes when an external source observed a fact, when a receiving system recorded it, whether the claim was valid in the represented world, and whether revocation was known at the decision cut-off. FSRE must not claim to invent bitemporal storage or beat generic temporal queries. Its narrower hypothesis is a cross-system evidence envelope for the decision's knowledge frontier. References: https://learn.microsoft.com/en-us/sql/relational-databases/tables/temporal-tables?view=sql-server-ver17, https://www.postgresql.org/docs/19/ddl-temporal-tables.html, https://wiki.postgresql.org/wiki/SQL2011Temporal.
+
+The new [decision-time evidence replay benchmark](DECISION_TIME_EVIDENCE_REPLAY_BENCHMARK_V0_1.md) distinguishes valid time, source observation time, transaction/record time, revocation time and decision time. A version is eligible only when observed and recorded by the decision cut-off; its latest eligible revision must then be checked against the valid-time and revocation state. The benchmark includes late ingestion, future observation, retrospective correction, expiry, revocation, claim-identity drift and unknown-evidence controls. The Rust reference is read-only and does not authenticate sources or establish completeness of the required claim set.
+
+Compare current-state queries, valid-time-only, transaction-time-only, bitemporal systems, operator audit/event history and the FSRE evidence envelope under the same frozen evidence stream. Qualification targets include zero future-version leakage, exact revision reconstruction, zero acceptance of revoked/expired evidence, and explicit abstention on missing as-of evidence. Runtime and storage must be measured against declared histories and matched database baselines; do not set arbitrary throughput targets before measurement.
+
 ## 3. Baselines and ablations
 
 Every evaluation should compare the same frozen inputs and scenario set against at least:
