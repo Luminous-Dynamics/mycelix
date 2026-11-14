@@ -38,7 +38,7 @@
     {
       "case_id": "RST06",
       "expected_disposition": "hold",
-      "reason_code": "OBSERVATION_STALE_FOR_CURRENT_TRANCH",
+      "reason_code": "OBSERVATION_STALE_FOR_CURRENT_TRANCHE",
       "notes": "Require current monitoring; preserve the historical observation."
     },
     {
