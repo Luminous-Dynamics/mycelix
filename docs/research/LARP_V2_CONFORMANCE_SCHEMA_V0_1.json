@@ -215,7 +215,12 @@
         "rights",
         "evidence",
         "institution",
-        "execution"
+        "execution",
+        "recipient_eligible",
+        "amount_units",
+        "amount_ceiling_units",
+        "currency",
+        "funding_source_valid"
       ],
       "properties": {
         "mode": {
