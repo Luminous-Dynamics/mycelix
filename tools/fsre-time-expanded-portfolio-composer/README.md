@@ -1,0 +1,54 @@
+# FSRE time-expanded portfolio composition reference v0.1
+
+**Status:** Read-only deterministic reference composer. Synthetic fixtures only. It is not a multi-period optimiser, scheduler, inventory ledger, physical simulator, evidence authenticator or operational controller.
+
+## Gap addressed
+
+The existing portfolio reference qualifies a proposed allocation for one scenario/interval. The existing resource stock-flow reference checks conservation for one resource across a contiguous horizon. This crate composes those two owner-bounded references over a common time axis.
+
+It checks that:
+- every interval has a portfolio evaluation and an explicit service floor for every cohort in the study boundary;
+- each stock resource has a source-owned stock-flow series with the same scenario, clock basis, interval IDs and exact time boundaries;
+- the portfolio's resource-use quantity equals the stock-flow's recorded consumption in every interval;
+- the proposed per-interval resource capacity does not exceed opening inventory (a conservative rule: replenishment within an interval is not assumed available until the next interval);
+- individual cohort floors are preserved in every interval, so surplus in one cohort or period cannot hide a deficit in another;
+- unknown or incomplete evidence remains NOT_ESTIMABLE, and reconciliation errors cannot be promoted to a feasible horizon claim.
+
+## Input format
+
+The plan uses the same 13-column PSV rows as the existing fsre-portfolio-reference crate:
+
+    record_type|record_id|option_id|service_id|cohort_id|scenario_id|interval_id|subject_id|quantity|unit|status|source_owner|evidence_ref
+
+Metadata is:
+- portfolio_id, scenario_id, snapshot_id;
+- decision_at (integer seconds) and clock_basis_id;
+- stock_resource_ids (comma-separated resource IDs);
+- one repeated interval row per horizon interval, in the form ID|START_SECONDS|END_SECONDS.
+
+Each stock file uses the existing fsre-resource-stock-flow format. Supply exactly one file for each declared stock resource. All time and quantity checks reuse the existing crate validators; this crate does not reimplement their arithmetic.
+
+Run:
+
+    cargo test --locked --offline --manifest-path tools/fsre-time-expanded-portfolio-composer/Cargo.toml
+    cargo run --quiet --locked --offline --manifest-path tools/fsre-time-expanded-portfolio-composer/Cargo.toml -- tools/fsre-time-expanded-portfolio-composer/fixtures/synthetic-plan.psv tools/fsre-time-expanded-portfolio-composer/fixtures/synthetic-diesel.psv
+
+## Dispositions
+
+- PORTFOLIO_FEASIBLE_FOR_DECLARED_HORIZON: each interval is feasible and every stock-flow/resource join reconciles.
+- NOT_FEASIBLE: at least one known option/resource/service-floor constraint fails.
+- NOT_RECONCILED: the plan and stock-flow records disagree on scenario, time, capacity or consumption.
+- NOT_ESTIMABLE: a required input is unknown or cohort floor coverage is incomplete. This takes precedence over other aggregate dispositions; known interval results remain visible.
+
+The output retains per-interval portfolio dispositions, every cohort floor result, owner/evidence references, stock-flow rows and resource reconciliation rows. It states that service quality, independent as-of replay and source authenticity are not established by this composer.
+
+## Claim boundary and limitations
+
+- Quantities use exact non-negative integers and exact unit-string equality; no implicit conversions are performed.
+- Inventory capacity is limited to opening stock. Replenishment is conserved in the stock-flow reference but is not credited to same-interval usable capacity because its arrival timing is not represented in that input contract.
+- Crew-hours and other renewable per-interval constraints remain in the portfolio reference; only the declared stock resources are joined to stock-flow series.
+- The composer does not establish that receipts are authentic, current, owner-authorised or independent; it only preserves their references and composes the current validators' declared results.
+- It does not independently replay the as-known-at-cutoff evidence, evaluate water quality, measure achieved service, infer causal effects, calculate probabilities, optimise allocations, schedule crews, issue orders or authorise dispatch.
+- A future version should add independently authored temporal challenge sets and separately evaluated outcome trajectories before any operational comparison.
+
+This is a deterministic composition prototype, not field validation or a claim of superiority over restoration optimisation methods.
