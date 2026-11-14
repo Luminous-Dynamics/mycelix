@@ -176,3 +176,42 @@ Use at least 30 repeated runs per case for stochastic systems. Treat the scenari
 - At least two independent adjudicators and three version-pinned comparator arms before any superiority claim.
 
 The point of generation is not to inflate scenario count. It is to demonstrate that the assurance properties remain true under controlled perturbations and compound state races.
+
+
+## 8. Executable reference-model properties now authored
+
+The standalone LISE reference in draft PR #6163 now contains deterministic metamorphic regression tests for seven of the properties above:
+
+| Property | Executable test |
+|---|---|
+| Exact-operation mutation rejection | `every_approval_bound_operation_field_mutation_is_denied` |
+| Authority narrowing cannot preserve a permit | `authority_narrowing_never_preserves_a_permit` |
+| Adding a reachable bypass cannot improve mediation | `adding_a_reachable_route_cannot_improve_mediation_coverage` |
+| Adding an active grant cannot reduce privilege | `adding_an_active_grant_never_reduces_effective_privilege` |
+| Transitive attenuation is edge-local | `delegation_attenuation_is_transitive_when_every_edge_is_valid` |
+| Bitemporal revocation changes later knowledge without rewriting earlier view | `bitemporal_revocation_moves_from_unknown_to_denied_without_rewriting_old_view` |
+| Removing retry-safety evidence cannot preserve a retry permit | `losing_retry_safety_evidence_cannot_preserve_retry_permit` |
+
+The reference also now treats monetary ceilings as typed quantities:
+- amount ceilings aggregate independently per currency;
+- an unbounded grant remains scoped to its declared currency, or to all currencies when explicitly unscoped;
+- a bounded amount without a valid currency is rejected;
+- a child delegation cannot change the currency dimension bound by its parent;
+- no implicit foreign-exchange conversion occurs.
+
+Six additional unit tests cover currency aggregation, extra-currency capability, missing currency, cross-currency delegation, and currency-scoped versus all-currency unbounded grants.
+
+**Validation status:** the tests are authored on #6163; exact-head Rust formatting, compilation, tests and Clippy are pending. These deterministic tests are not a generated 200-case holdout, a bounded proof, or an independent external evaluation.
+
+## 9. Next executable increment: generator, not more fixtures by hand
+
+The next research implementation should be a deterministic mutation runner with:
+1. typed mutation operators and preconditions;
+2. one-field mutations plus a declared covering-array strategy for pairs;
+3. stable seed and generator-version digests;
+4. minimized counterexample output;
+5. a separate oracle-generation process;
+6. a candidate-input export that contains no expected terminal state or disposition;
+7. a report with mutation denominators, kill/survival counts, false permits and benign invariance.
+
+Do not use hidden oracle labels, expected states, or generation seeds in candidate-visible inputs. The current 34-case public corpus remains the regression seed; the confirmatory set must be frozen separately.
