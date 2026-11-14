@@ -1,0 +1,1231 @@
+{
+  "schema": "lise.ipb.finality-scenarios.v0",
+  "suite": {
+    "id": "IPB-FINALITY-v0",
+    "issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6136",
+    "status": "development_seed",
+    "evidence_class": "synthetic_conformance",
+    "claim_ceiling": [
+      "A passing synthetic scenario does not prove legal validity, real-world safety, transaction atomicity, exactly-once effectuation, or institutional legitimacy.",
+      "No provider guarantee may be inferred unless the adapter binds an exact provider contract/version and capability evidence.",
+      "No local policy decision, permit, Ready state, transport acknowledgement, or provider self-report is by itself proof of an externally observed effect.",
+      "This benchmark does not create an authorization engine, finality sink, event store, execution coordinator, idempotency service, or provider integration.",
+      "Unknown, unsupported, partial, and unobserved outcomes must remain distinct."
+    ],
+    "owner_contracts": {
+      "constitutional_epoch": [
+        "mycelix#60",
+        "mycelix#1161",
+        "mycelix#1174"
+      ],
+      "decision_authority_execution_lineage": [
+        "mycelix#2953",
+        "mycelix#3117"
+      ],
+      "partial_unknown_reconciliation": [
+        "mycelix#1607"
+      ],
+      "bitemporal_history": [
+        "mycelix#6069"
+      ],
+      "uncertainty": [
+        "mycelix#3126"
+      ],
+      "independent_evaluation": [
+        "mycelix#4835"
+      ]
+    },
+    "required_stage_order": [
+      "candidate",
+      "approval",
+      "ready",
+      "execution_preflight",
+      "effectuation_attempt",
+      "independent_observation",
+      "outcome_reconciliation"
+    ],
+    "terminal_states": [
+      "PASS",
+      "FAIL",
+      "INDETERMINATE",
+      "INVALID",
+      "UNSUPPORTED",
+      "TIMEOUT",
+      "NOT_RUN"
+    ],
+    "dispositions": [
+      "ALLOW",
+      "DENY",
+      "HOLD_FOR_RECONCILIATION",
+      "INDETERMINATE"
+    ],
+    "operation_projection": {
+      "required_when_supported": [
+        "institution_or_project_ref",
+        "constitution_epoch_ref",
+        "constitution_digest_ref",
+        "policy_revision_ref",
+        "principal_or_capability_ref",
+        "action_type",
+        "target_resource_ref",
+        "canonical_operation_digest_ref",
+        "logical_operation_ref",
+        "effectuation_route_ref",
+        "effective_time_ref",
+        "knowledge_time_ref"
+      ],
+      "conditional_when_domain_relevant": [
+        "amount",
+        "currency",
+        "quantity",
+        "beneficiary_or_recipient_ref",
+        "destination_ref",
+        "purpose",
+        "disclosure_audience",
+        "resource_revision_or_precondition_ref",
+        "delegation_parent_ref",
+        "idempotency_ref",
+        "provider_contract_ref",
+        "attempt_ref",
+        "provider_observation_ref",
+        "independent_observation_ref",
+        "reconciliation_ref"
+      ],
+      "fixture_rule": "Fixture identifiers are synthetic labels, not source-native identifiers or cryptographic digests. The adapter must map them to exact owner-native references or mark the case UNSUPPORTED/INDETERMINATE."
+    }
+  },
+  "cases": [
+    {
+      "id": "F01",
+      "name": "exact-operation-current-constitution",
+      "class": "positive_control",
+      "purpose": "The exact approved operation is attempted while the exact approved constitution epoch, authority, policy and resource preconditions remain current.",
+      "operation": {
+        "institution": "inst-a",
+        "epoch": 7,
+        "constitution": "fixture:constitution:digest-7",
+        "action": "transfer",
+        "target": "asset:treasury-a",
+        "amount": 100,
+        "currency": "USD",
+        "recipient": "party-b",
+        "purpose": "approved-grant",
+        "operation": "op-001",
+        "payload": "fixture:payload:001"
+      },
+      "events": [
+        {
+          "stage": "approval",
+          "time": 10,
+          "authority": "grant-a",
+          "epoch": 7,
+          "operation": "op-001",
+          "payload": "fixture:payload:001"
+        },
+        {
+          "stage": "ready",
+          "time": 11,
+          "constitution": "fixture:constitution:digest-7",
+          "policy": "policy-r4"
+        },
+        {
+          "stage": "execution_preflight",
+          "time": 12,
+          "authority_state": "current",
+          "resource_state": "unchanged",
+          "operation": "op-001",
+          "payload": "fixture:payload:001"
+        },
+        {
+          "stage": "effectuation_attempt",
+          "time": 13,
+          "operation": "op-001",
+          "provider_result": "applied"
+        },
+        {
+          "stage": "independent_observation",
+          "time": 14,
+          "result": "effect-observed"
+        }
+      ],
+      "provider_contract": {
+        "idempotency": "not-needed-single-attempt",
+        "atomicity": "not-claimed",
+        "observation": "independent-reference-available"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "ALLOW",
+        "outcome_class": "CONFIRMED_APPLIED",
+        "required": [
+          "exact_operation_match",
+          "constitution_digest_current",
+          "authority_current_at_effectuation",
+          "effect_observed"
+        ]
+      },
+      "owner_refs": [
+        "60",
+        "1161",
+        "1174",
+        "2953",
+        "4835"
+      ]
+    },
+    {
+      "id": "F02",
+      "name": "fresh-reauthorization-after-constitution-epoch-change",
+      "class": "positive_control",
+      "purpose": "An old approval becomes historical after an epoch transition; a separately authorized new operation under the new epoch may proceed.",
+      "operation": {
+        "institution": "inst-a",
+        "epoch": 8,
+        "constitution": "fixture:constitution:digest-8",
+        "action": "maintenance",
+        "target": "asset:water-pump-3",
+        "purpose": "approved-maintenance",
+        "operation": "op-002",
+        "payload": "fixture:payload:002"
+      },
+      "events": [
+        {
+          "stage": "approval",
+          "time": 10,
+          "authority": "grant-old",
+          "epoch": 7,
+          "operation": "op-002",
+          "payload": "fixture:payload:002"
+        },
+        {
+          "stage": "constitution_transition",
+          "time": 11,
+          "from_epoch": 7,
+          "to_epoch": 8,
+          "new_digest": "fixture:constitution:digest-8"
+        },
+        {
+          "stage": "currentness_check",
+          "time": 12,
+          "old_approval": "HISTORICAL"
+        },
+        {
+          "stage": "approval",
+          "time": 13,
+          "authority": "grant-new",
+          "epoch": 8,
+          "operation": "op-002",
+          "payload": "fixture:payload:002"
+        },
+        {
+          "stage": "execution_preflight",
+          "time": 14,
+          "authority_state": "current",
+          "constitution": "fixture:constitution:digest-8"
+        }
+      ],
+      "provider_contract": {
+        "precondition": "supported",
+        "idempotency": "not-needed-single-attempt"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "ALLOW",
+        "outcome_class": "AUTHORIZED_FOR_CURRENT_EPOCH",
+        "required": [
+          "old_approval_not_carried_forward",
+          "new_authorization_binds_epoch_8",
+          "new_authorization_binds_exact_operation"
+        ]
+      },
+      "owner_refs": [
+        "60",
+        "1161",
+        "1174",
+        "2953"
+      ]
+    },
+    {
+      "id": "F03",
+      "name": "unchanged-resource-precondition",
+      "class": "positive_control",
+      "purpose": "The resource revision/precondition bound at approval remains current at effectuation.",
+      "operation": {
+        "institution": "inst-a",
+        "epoch": 4,
+        "constitution": "fixture:constitution:4",
+        "action": "update-service-config",
+        "target": "service:water-ops",
+        "resource_revision": "rev-12",
+        "operation": "op-003",
+        "payload": "fixture:payload:003"
+      },
+      "events": [
+        {
+          "stage": "approval",
+          "time": 10,
+          "resource_revision": "rev-12",
+          "operation": "op-003"
+        },
+        {
+          "stage": "execution_preflight",
+          "time": 12,
+          "resource_revision": "rev-12",
+          "precondition": "matched"
+        },
+        {
+          "stage": "effectuation_attempt",
+          "time": 13,
+          "operation": "op-003"
+        },
+        {
+          "stage": "independent_observation",
+          "time": 14,
+          "result": "new-revision-rev-13-observed"
+        }
+      ],
+      "provider_contract": {
+        "conditional_update": "supported",
+        "atomicity": "not-claimed"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "ALLOW",
+        "outcome_class": "CONFIRMED_APPLIED",
+        "required": [
+          "resource_precondition_matched",
+          "exact_target_match",
+          "independent_effect_observation"
+        ]
+      },
+      "owner_refs": [
+        "2953",
+        "1607",
+        "4835"
+      ]
+    },
+    {
+      "id": "F04",
+      "name": "bounded-delegation-exact-purpose",
+      "class": "positive_control",
+      "purpose": "A delegate exercises only the exact scope, purpose, resource and expiry bounded by its parent authority and local policy.",
+      "operation": {
+        "institution": "inst-b",
+        "epoch": 3,
+        "constitution": "fixture:constitution:b3",
+        "action": "read-record",
+        "target": "record:service-77",
+        "purpose": "case-review",
+        "audience": "review-team",
+        "operation": "op-004",
+        "payload": "fixture:payload:004"
+      },
+      "events": [
+        {
+          "stage": "delegation",
+          "time": 10,
+          "parent_authority": "grant-parent",
+          "child_authority": "grant-child",
+          "scope": "read-record",
+          "resource": "record:service-77",
+          "purpose": "case-review",
+          "expires": 30
+        },
+        {
+          "stage": "approval",
+          "time": 12,
+          "authority": "grant-child",
+          "operation": "op-004"
+        },
+        {
+          "stage": "execution_preflight",
+          "time": 13,
+          "authority_state": "current",
+          "scope": "read-record",
+          "purpose": "case-review",
+          "time_now": 13
+        }
+      ],
+      "provider_contract": {
+        "effect": "read-only"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "ALLOW",
+        "outcome_class": "AUTHORIZED_READ",
+        "required": [
+          "child_scope_subset",
+          "purpose_match",
+          "expiry_not_exceeded",
+          "local_authority_current"
+        ]
+      },
+      "owner_refs": [
+        "2953",
+        "3117",
+        "3126"
+      ]
+    },
+    {
+      "id": "F05",
+      "name": "retry-after-confirmed-no-effect",
+      "class": "positive_control",
+      "purpose": "A provider contract supports retry/idempotency, the prior attempt is independently established as not applied, the exact logical operation remains current, and retry reuses the same operation identity.",
+      "operation": {
+        "institution": "inst-a",
+        "epoch": 5,
+        "constitution": "fixture:constitution:a5",
+        "action": "submit-payment",
+        "target": "provider:payments",
+        "amount": 25,
+        "currency": "USD",
+        "recipient": "party-c",
+        "operation": "op-005",
+        "idempotency": "idem-005",
+        "payload": "fixture:payload:005"
+      },
+      "events": [
+        {
+          "stage": "effectuation_attempt",
+          "time": 10,
+          "operation": "op-005",
+          "idempotency": "idem-005",
+          "attempt": 1
+        },
+        {
+          "stage": "independent_observation",
+          "time": 12,
+          "result": "confirmed-not-applied"
+        },
+        {
+          "stage": "reconciliation",
+          "time": 13,
+          "result": "safe-to-retry"
+        },
+        {
+          "stage": "execution_preflight",
+          "time": 14,
+          "authority_state": "current",
+          "operation": "op-005",
+          "idempotency": "idem-005"
+        },
+        {
+          "stage": "effectuation_attempt",
+          "time": 15,
+          "operation": "op-005",
+          "idempotency": "idem-005",
+          "attempt": 2
+        },
+        {
+          "stage": "independent_observation",
+          "time": 16,
+          "result": "effect-observed"
+        }
+      ],
+      "provider_contract": {
+        "idempotency": "same-key-same-logical-operation",
+        "status_query": "supported",
+        "retry_after_confirmed_no_effect": "supported"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "ALLOW",
+        "outcome_class": "CONFIRMED_APPLIED_AFTER_RECONCILED_RETRY",
+        "required": [
+          "confirmed_no_effect_before_retry",
+          "same_operation_identity",
+          "same_idempotency_key",
+          "authority_rechecked",
+          "no_duplicate_effect"
+        ]
+      },
+      "owner_refs": [
+        "1607",
+        "2953",
+        "4835"
+      ]
+    },
+    {
+      "id": "F06",
+      "name": "fully-observed-multi-action-sequence",
+      "class": "positive_control",
+      "purpose": "A multi-action operation with distinct durable action identities has each action independently confirmed; report full completion without claiming provider batch atomicity.",
+      "operation": {
+        "institution": "inst-a",
+        "epoch": 2,
+        "constitution": "fixture:constitution:a2",
+        "action": "service-maintenance-batch",
+        "target": "service:water-network",
+        "operation": "op-006",
+        "actions": [
+          "action-006-a",
+          "action-006-b",
+          "action-006-c"
+        ]
+      },
+      "events": [
+        {
+          "stage": "action_attempt",
+          "time": 10,
+          "action": "action-006-a"
+        },
+        {
+          "stage": "observation",
+          "time": 11,
+          "action": "action-006-a",
+          "result": "applied"
+        },
+        {
+          "stage": "action_attempt",
+          "time": 12,
+          "action": "action-006-b"
+        },
+        {
+          "stage": "observation",
+          "time": 13,
+          "action": "action-006-b",
+          "result": "applied"
+        },
+        {
+          "stage": "action_attempt",
+          "time": 14,
+          "action": "action-006-c"
+        },
+        {
+          "stage": "observation",
+          "time": 15,
+          "action": "action-006-c",
+          "result": "applied"
+        },
+        {
+          "stage": "reconciliation",
+          "time": 16,
+          "result": "all-three-confirmed"
+        }
+      ],
+      "provider_contract": {
+        "per_action_receipts": "supported",
+        "batch_atomicity": "not-claimed"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "ALLOW",
+        "outcome_class": "ALL_ACTIONS_CONFIRMED_APPLIED",
+        "required": [
+          "stable_action_identities",
+          "all_action_observations_present",
+          "no_atomicity_overclaim"
+        ]
+      },
+      "owner_refs": [
+        "1607",
+        "2953",
+        "4835"
+      ]
+    },
+    {
+      "id": "A07",
+      "name": "constitution-changes-after-ready-before-effect",
+      "class": "high_severity_attack",
+      "purpose": "A proposal reaches Ready under one constitution epoch; the constitution changes before effectuation. Ready must not grandfather stale authority.",
+      "operation": {
+        "institution": "inst-a",
+        "epoch": 7,
+        "constitution": "fixture:constitution:digest-7",
+        "action": "transfer",
+        "target": "asset:treasury-a",
+        "amount": 100,
+        "recipient": "party-b",
+        "operation": "op-007",
+        "payload": "fixture:payload:007"
+      },
+      "events": [
+        {
+          "stage": "approval",
+          "time": 10,
+          "epoch": 7,
+          "constitution": "fixture:constitution:digest-7",
+          "operation": "op-007"
+        },
+        {
+          "stage": "ready",
+          "time": 11,
+          "epoch": 7
+        },
+        {
+          "stage": "constitution_transition",
+          "time": 12,
+          "from_epoch": 7,
+          "to_epoch": 8,
+          "new_digest": "fixture:constitution:digest-8"
+        },
+        {
+          "stage": "execution_preflight",
+          "time": 13,
+          "observed_epoch": 8,
+          "observed_digest": "fixture:constitution:digest-8"
+        }
+      ],
+      "provider_contract": {
+        "effect_not_dispatched_before_preflight": "required"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "DENY",
+        "outcome_class": "NO_EFFECT",
+        "required": [
+          "ready_is_not_execution_lease",
+          "constitution_digest_mismatch_denies",
+          "no_provider_dispatch"
+        ]
+      },
+      "owner_refs": [
+        "60",
+        "1161",
+        "1174",
+        "2953"
+      ]
+    },
+    {
+      "id": "A08",
+      "name": "same-institution-and-epoch-number-different-constitution-digest",
+      "class": "high_severity_attack",
+      "purpose": "Institution ID and numeric epoch match, but the protected constitution digest differs. Superficial identifier equality cannot establish currentness.",
+      "operation": {
+        "institution": "inst-a",
+        "epoch": 9,
+        "approved_constitution": "fixture:constitution:old-digest",
+        "current_constitution": "fixture:constitution:new-digest",
+        "action": "change-operator",
+        "target": "service:water",
+        "operation": "op-008",
+        "payload": "fixture:payload:008"
+      },
+      "events": [
+        {
+          "stage": "approval",
+          "time": 10,
+          "institution": "inst-a",
+          "epoch": 9,
+          "constitution": "fixture:constitution:old-digest"
+        },
+        {
+          "stage": "execution_preflight",
+          "time": 11,
+          "institution": "inst-a",
+          "epoch": 9,
+          "constitution": "fixture:constitution:new-digest"
+        }
+      ],
+      "provider_contract": {
+        "effect_not_dispatched_before_preflight": "required"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "DENY",
+        "outcome_class": "NO_EFFECT",
+        "required": [
+          "exact_digest_comparison",
+          "friendly_id_and_epoch_number_insufficient",
+          "no_provider_dispatch"
+        ]
+      },
+      "owner_refs": [
+        "60",
+        "1161",
+        "1174"
+      ]
+    },
+    {
+      "id": "A09",
+      "name": "recipient-substitution-after-approval",
+      "class": "high_severity_attack",
+      "purpose": "The recipient changes while the friendly request and logical operation IDs remain the same.",
+      "operation": {
+        "approved": {
+          "action": "transfer",
+          "target": "asset:treasury-a",
+          "amount": 100,
+          "currency": "USD",
+          "recipient": "party-b",
+          "purpose": "grant",
+          "operation": "op-009"
+        },
+        "actual": {
+          "action": "transfer",
+          "target": "asset:treasury-a",
+          "amount": 100,
+          "currency": "USD",
+          "recipient": "party-evil",
+          "purpose": "grant",
+          "operation": "op-009"
+        }
+      },
+      "events": [
+        {
+          "stage": "approval",
+          "time": 10,
+          "operation": "op-009",
+          "payload": "fixture:approved-payload-009"
+        },
+        {
+          "stage": "execution_preflight",
+          "time": 11,
+          "operation": "op-009",
+          "payload": "fixture:mutated-payload-009",
+          "changed_field": "recipient"
+        }
+      ],
+      "provider_contract": {
+        "effect_not_dispatched_before_exact_match": "required"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "DENY",
+        "outcome_class": "NO_EFFECT",
+        "required": [
+          "recipient_substitution_detected",
+          "payload_digest_mismatch_denies",
+          "no_provider_dispatch"
+        ]
+      },
+      "owner_refs": [
+        "2953",
+        "60",
+        "4835"
+      ]
+    },
+    {
+      "id": "A10",
+      "name": "amount-substitution-after-approval",
+      "class": "high_severity_attack",
+      "purpose": "Amount changes after approval while operation and request identifiers remain unchanged.",
+      "operation": {
+        "approved": {
+          "action": "transfer",
+          "amount": 100,
+          "currency": "USD",
+          "recipient": "party-b",
+          "operation": "op-010"
+        },
+        "actual": {
+          "action": "transfer",
+          "amount": 1000,
+          "currency": "USD",
+          "recipient": "party-b",
+          "operation": "op-010"
+        }
+      },
+      "events": [
+        {
+          "stage": "approval",
+          "time": 10,
+          "operation": "op-010",
+          "payload": "fixture:approved-payload-010"
+        },
+        {
+          "stage": "execution_preflight",
+          "time": 11,
+          "operation": "op-010",
+          "payload": "fixture:mutated-payload-010",
+          "changed_field": "amount"
+        }
+      ],
+      "provider_contract": {
+        "effect_not_dispatched_before_exact_match": "required"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "DENY",
+        "outcome_class": "NO_EFFECT",
+        "required": [
+          "amount_substitution_detected",
+          "payload_digest_mismatch_denies",
+          "no_provider_dispatch"
+        ]
+      },
+      "owner_refs": [
+        "2953",
+        "60",
+        "4835"
+      ]
+    },
+    {
+      "id": "A11",
+      "name": "authority-revoked-after-ready-before-effect",
+      "class": "high_severity_attack",
+      "purpose": "The authorizing capability is revoked after Ready and before execution. Execution-time authority must be re-resolved.",
+      "operation": {
+        "institution": "inst-a",
+        "epoch": 4,
+        "constitution": "fixture:constitution:a4",
+        "action": "modify-budget",
+        "target": "budget:2027",
+        "authority": "grant-11",
+        "operation": "op-011"
+      },
+      "events": [
+        {
+          "stage": "approval",
+          "time": 10,
+          "authority": "grant-11",
+          "state": "current"
+        },
+        {
+          "stage": "ready",
+          "time": 11,
+          "authority": "grant-11"
+        },
+        {
+          "stage": "revocation",
+          "time": 12,
+          "authority": "grant-11",
+          "effective_time": 12
+        },
+        {
+          "stage": "execution_preflight",
+          "time": 13,
+          "authority": "grant-11",
+          "state": "revoked"
+        }
+      ],
+      "provider_contract": {
+        "effect_not_dispatched_before_authority_check": "required"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "DENY",
+        "outcome_class": "NO_EFFECT",
+        "required": [
+          "revoked_authority_denies",
+          "ready_does_not_preserve_old_grant",
+          "no_provider_dispatch"
+        ]
+      },
+      "owner_refs": [
+        "60",
+        "2953",
+        "3117"
+      ]
+    },
+    {
+      "id": "A12",
+      "name": "resource-state-precondition-changed",
+      "class": "high_severity_attack",
+      "purpose": "The target resource revision, owner or required precondition changes after approval.",
+      "operation": {
+        "approved": {
+          "target": "asset:treasury-a",
+          "resource_revision": "rev-7",
+          "owner": "institution-a",
+          "operation": "op-012"
+        },
+        "actual": {
+          "target": "asset:treasury-a",
+          "resource_revision": "rev-8",
+          "owner": "institution-b",
+          "operation": "op-012"
+        }
+      },
+      "events": [
+        {
+          "stage": "approval",
+          "time": 10,
+          "resource_revision": "rev-7",
+          "owner": "institution-a"
+        },
+        {
+          "stage": "resource_change",
+          "time": 11,
+          "resource_revision": "rev-8",
+          "owner": "institution-b"
+        },
+        {
+          "stage": "execution_preflight",
+          "time": 12,
+          "resource_revision": "rev-8",
+          "owner": "institution-b"
+        }
+      ],
+      "provider_contract": {
+        "conditional_write": "required-for-this-case"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "DENY",
+        "outcome_class": "NO_EFFECT",
+        "required": [
+          "resource_precondition_mismatch_denies",
+          "target_ownership_rechecked",
+          "no_provider_dispatch"
+        ]
+      },
+      "owner_refs": [
+        "2953",
+        "1607",
+        "4835"
+      ]
+    },
+    {
+      "id": "A13",
+      "name": "delegation-amplifies-scope-or-expiry",
+      "class": "high_severity_attack",
+      "purpose": "A child delegate receives a broader action, resource, amount or expiry than its parent grant or local policy.",
+      "operation": {
+        "parent": {
+          "scope": "maintenance",
+          "asset": "pump-3",
+          "max_amount": 50,
+          "expires": 30
+        },
+        "child": {
+          "scope": "treasury-transfer",
+          "asset": "treasury-a",
+          "max_amount": 500,
+          "expires": 40
+        },
+        "operation": "op-013"
+      },
+      "events": [
+        {
+          "stage": "delegation",
+          "time": 10,
+          "parent_authority": "grant-parent-13",
+          "child_authority": "grant-child-13"
+        },
+        {
+          "stage": "execution_preflight",
+          "time": 11,
+          "authority": "grant-child-13",
+          "requested_scope": "treasury-transfer",
+          "amount": 500
+        }
+      ],
+      "provider_contract": {
+        "effect_not_dispatched_before_scope_check": "required"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "DENY",
+        "outcome_class": "NO_EFFECT",
+        "required": [
+          "delegation_non_amplification",
+          "local_scope_check",
+          "no_provider_dispatch"
+        ]
+      },
+      "owner_refs": [
+        "2953",
+        "3117",
+        "3126"
+      ]
+    },
+    {
+      "id": "A14",
+      "name": "replay-of-consumed-operation-authority",
+      "class": "high_severity_attack",
+      "purpose": "A previously consumed operation or one-use authority is replayed or concurrently reused.",
+      "operation": {
+        "operation": "op-014",
+        "authority": "grant-once-14",
+        "idempotency": "idem-014",
+        "consumption": "already-consumed"
+      },
+      "events": [
+        {
+          "stage": "effectuation_attempt",
+          "time": 10,
+          "operation": "op-014",
+          "attempt": 1
+        },
+        {
+          "stage": "independent_observation",
+          "time": 11,
+          "result": "applied"
+        },
+        {
+          "stage": "replay_attempt",
+          "time": 12,
+          "operation": "op-014",
+          "attempt": 2
+        }
+      ],
+      "provider_contract": {
+        "replay_protection": "declared-by-owner-contract",
+        "one_use_consumption": "declared-by-authority-profile"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "DENY",
+        "outcome_class": "NO_SECOND_EFFECT",
+        "required": [
+          "consumed_authority_not_reused",
+          "no_duplicate_effect",
+          "replay_attempt_recorded"
+        ]
+      },
+      "owner_refs": [
+        "1607",
+        "2953",
+        "4835"
+      ]
+    },
+    {
+      "id": "R15",
+      "name": "crash-after-dispatch-before-provider-ack",
+      "class": "recovery_and_unknown_outcome",
+      "purpose": "A crash occurs after dispatch; the provider may have applied the operation but the acknowledgement is lost.",
+      "operation": {
+        "operation": "op-015",
+        "idempotency": "idem-015",
+        "authority": "grant-15"
+      },
+      "events": [
+        {
+          "stage": "effectuation_attempt",
+          "time": 10,
+          "operation": "op-015",
+          "idempotency": "idem-015"
+        },
+        {
+          "stage": "crash",
+          "time": 11,
+          "point": "after-dispatch-before-ack"
+        },
+        {
+          "stage": "restart",
+          "time": 20
+        },
+        {
+          "stage": "reconciliation",
+          "time": 21,
+          "provider_state": "unknown"
+        }
+      ],
+      "provider_contract": {
+        "idempotency": "unknown",
+        "status_query": "not-available",
+        "reconciliation": "not-proven"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "HOLD_FOR_RECONCILIATION",
+        "outcome_class": "UNKNOWN",
+        "required": [
+          "no_blind_retry",
+          "preserve_operation_identity",
+          "do_not_claim_no_effect",
+          "retain_unknown_state"
+        ]
+      },
+      "owner_refs": [
+        "1607",
+        "2953",
+        "3126"
+      ]
+    },
+    {
+      "id": "R16",
+      "name": "partial-multi-action-completion",
+      "class": "recovery_and_partial_effect",
+      "purpose": "A multi-action operation has a confirmed successful prefix and a later failed or unknown action.",
+      "operation": {
+        "operation": "op-016",
+        "actions": [
+          "action-016-a",
+          "action-016-b",
+          "action-016-c"
+        ]
+      },
+      "events": [
+        {
+          "stage": "action_attempt",
+          "time": 10,
+          "action": "action-016-a"
+        },
+        {
+          "stage": "observation",
+          "time": 11,
+          "action": "action-016-a",
+          "result": "applied"
+        },
+        {
+          "stage": "action_attempt",
+          "time": 12,
+          "action": "action-016-b"
+        },
+        {
+          "stage": "observation",
+          "time": 13,
+          "action": "action-016-b",
+          "result": "applied"
+        },
+        {
+          "stage": "action_attempt",
+          "time": 14,
+          "action": "action-016-c"
+        },
+        {
+          "stage": "provider_response",
+          "time": 15,
+          "action": "action-016-c",
+          "result": "unknown"
+        },
+        {
+          "stage": "reconciliation",
+          "time": 16,
+          "result": "partial"
+        }
+      ],
+      "provider_contract": {
+        "per_action_receipts": "supported",
+        "batch_atomicity": "not-proven"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "HOLD_FOR_RECONCILIATION",
+        "outcome_class": "PARTIALLY_APPLIED",
+        "required": [
+          "successful_prefix_preserved",
+          "unknown_suffix_preserved",
+          "no_failure_no_effect_claim",
+          "no_batch_atomicity_claim",
+          "new_compensation_is_separate_forward_action"
+        ]
+      },
+      "owner_refs": [
+        "1607",
+        "2953",
+        "3117"
+      ]
+    },
+    {
+      "id": "R17",
+      "name": "stale-primary-resumes-after-failover",
+      "class": "recovery_and_fencing_attack",
+      "purpose": "An old coordinator resumes after failover and attempts to dispatch under an obsolete fencing epoch.",
+      "operation": {
+        "operation": "op-017",
+        "primary_epoch": 4,
+        "current_epoch": 5,
+        "resource": "provider:payments"
+      },
+      "events": [
+        {
+          "stage": "primary_active",
+          "time": 10,
+          "coordinator": "primary-a",
+          "fencing_epoch": 4
+        },
+        {
+          "stage": "failover",
+          "time": 11,
+          "new_coordinator": "primary-b",
+          "fencing_epoch": 5
+        },
+        {
+          "stage": "stale_primary_resume",
+          "time": 12,
+          "coordinator": "primary-a",
+          "fencing_epoch": 4
+        },
+        {
+          "stage": "effectuation_attempt",
+          "time": 13,
+          "coordinator": "primary-a",
+          "fencing_epoch": 4
+        }
+      ],
+      "provider_contract": {
+        "resource_side_fencing": "required-for-this-case"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "DENY",
+        "outcome_class": "NO_EFFECT",
+        "required": [
+          "resource_rejects_stale_fence",
+          "no_duplicate_effect",
+          "failover_epoch_currentness_verified"
+        ]
+      },
+      "owner_refs": [
+        "1607",
+        "2953",
+        "5762"
+      ]
+    },
+    {
+      "id": "R18",
+      "name": "provider-does-not-guarantee-idempotency-or-reconciliation",
+      "class": "unsupported_provider_semantics",
+      "purpose": "A provider has no qualified idempotency, operation-status query, cancellation or reconciliation contract; an ambiguous prior attempt exists.",
+      "operation": {
+        "operation": "op-018",
+        "authority": "grant-18",
+        "provider": "provider-18"
+      },
+      "events": [
+        {
+          "stage": "effectuation_attempt",
+          "time": 10,
+          "operation": "op-018"
+        },
+        {
+          "stage": "provider_timeout",
+          "time": 11,
+          "result": "unknown"
+        },
+        {
+          "stage": "retry_request",
+          "time": 12,
+          "operation": "op-018"
+        }
+      ],
+      "provider_contract": {
+        "idempotency": "unsupported",
+        "status_query": "unsupported",
+        "cancellation": "unsupported",
+        "reconciliation": "unsupported"
+      },
+      "oracle": {
+        "terminal_state": "PASS",
+        "disposition": "INDETERMINATE",
+        "outcome_class": "UNKNOWN",
+        "required": [
+          "no_guarantee_invention",
+          "no_blind_retry",
+          "explicit_unsupported_provider_semantics"
+        ]
+      },
+      "owner_refs": [
+        "1607",
+        "2953",
+        "3126"
+      ]
+    }
+  ],
+  "metric_dictionary": {
+    "false_pass_high_severity": "High-severity mutated operations incorrectly classified as permitted or safely effected.",
+    "operation_substitution_detection": "Fraction of one-field operation changes detected before any provider dispatch.",
+    "stale_epoch_detection": "Fraction of constitution digest/epoch changes detected at each required boundary.",
+    "stale_authority_detection": "Fraction of revoked, expired or suspended grants rejected at effectuation.",
+    "duplicate_effect_count": "Observed duplicate external effects under replay, concurrency and crash scenarios.",
+    "false_deny_benign": "Valid positive-control operations denied without an oracle-supported reason.",
+    "outcome_classification_accuracy": "Exact agreement on confirmed applied, confirmed not applied, partially applied and unknown.",
+    "blind_retry_rate": "Retries dispatched after unknown outcome without owner-supported reconciliation.",
+    "current_state_precondition_detection": "Changed resource/policy state detected before effectuation.",
+    "observation_independence": "Report source relationships and unsupported independence claims; no scalar independence score.",
+    "reconciliation_latency": "Time from unknown/partial outcome to independently supported terminal classification.",
+    "resource_cost": "Runtime, memory, provider calls, latency and operator effort."
+  },
+  "proposed_targets": {
+    "status": "research_targets_not_results",
+    "high_severity_false_pass": 0,
+    "altered_operation_accepted": 0,
+    "stale_constitution_accepted": 0,
+    "stale_or_revoked_authority_accepted": 0,
+    "blind_retry_after_unknown": 0,
+    "partial_unknown_misclassified_as_no_effect": 0,
+    "external_comparator_arms_minimum": 3
+  }
+}
