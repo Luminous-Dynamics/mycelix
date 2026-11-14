@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-const HEADER: &str = "record_type|record_id|claim_id|scenario_id|observed_at|available_at|valid_from|valid_until|revoked_effective_at|revocation_known_at|status|clock_basis_id|source_owner|source_ref|required_evidence_count";
+const HEADER: &str = "record_type|record_id|claim_id|scenario_id|observed_at|available_at|valid_from|valid_until|revoked_effective_at|revocation_known_at|status|clock_basis_id|source_owner|source_ref|required_evidence_count|max_observation_age_seconds";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InputError(pub String);
@@ -20,6 +20,7 @@ struct Claim {
     owner: String,
     source_ref: String,
     required_count: u64,
+    max_age_override: Option<u64>,
 }
 
 #[derive(Clone, Debug)]
@@ -109,9 +110,9 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
         }
 
         let fields: Vec<&str> = line.split('|').map(str::trim).collect();
-        if fields.len() != 15 {
+        if fields.len() != 16 {
             return Err(InputError(format!(
-                "line {line_number}: expected 15 columns, received {}",
+                "line {line_number}: expected 16 columns, received {}",
                 fields.len()
             )));
         }
@@ -163,16 +164,18 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
                 if required_count == 0 {
                     return Err(InputError(format!("line {line_number}: required evidence count must be positive")));
                 }
+                let max_age_override = optional_u64(fields[15], "max_observation_age_seconds", line_number)?;
                 claims.push(Claim {
                     id: claim_id.to_owned(),
                     owner: owner.to_owned(),
                     source_ref: source_ref.to_owned(),
                     required_count,
+                    max_age_override,
                 });
             }
             "EVIDENCE" => {
-                if !fields[14].is_empty() {
-                    return Err(InputError(format!("line {line_number}: EVIDENCE row must not set required_evidence_count")));
+                if !fields[14].is_empty() || !fields[15].is_empty() {
+                    return Err(InputError(format!("line {line_number}: EVIDENCE row must not set claim policy fields")));
                 }
                 if clock_basis != "UTC_UNIX_SECONDS_V1" {
                     return Err(InputError(format!("line {line_number}: incompatible evidence clock basis")));
@@ -324,7 +327,7 @@ impl Assessment {
     }
 }
 
-fn assess(evidence: &Evidence, input: &Input) -> Assessment {
+fn assess(evidence: &Evidence, input: &Input, max_age: u64) -> Assessment {
     if evidence.status == "UNKNOWN" {
         return Assessment::Unknown;
     }
@@ -347,7 +350,7 @@ fn assess(evidence: &Evidence, input: &Input) -> Assessment {
     {
         return Assessment::Expired;
     }
-    if input.decision_at - observed > input.max_age {
+    if input.decision_at - observed > max_age {
         return Assessment::Stale;
     }
 
@@ -406,10 +409,15 @@ fn evaluate(input: &Input) -> String {
     let mut evidence = input.evidence.clone();
     evidence.sort_by(|left, right| left.id.cmp(&right.id));
 
+    let max_age_by_claim: BTreeMap<String, u64> = claims
+        .iter()
+        .map(|claim| (claim.id.clone(), claim.max_age_override.unwrap_or(input.max_age)))
+        .collect();
     let mut assessments = BTreeMap::<String, Assessment>::new();
     let mut counts_by_claim = BTreeMap::<String, Counts>::new();
     for row in &evidence {
-        let assessment = assess(row, input);
+        let max_age = max_age_by_claim[&row.claim_id];
+        let assessment = assess(row, input, max_age);
         assessments.insert(row.id.clone(), assessment);
         add_assessment(counts_by_claim.entry(row.claim_id.clone()).or_default(), assessment);
     }
@@ -437,12 +445,13 @@ fn evaluate(input: &Input) -> String {
         let hindsight = counts.map(|c| c.hindsight_revocation).unwrap_or(0);
         total_hindsight += hindsight;
         out.push(format!(
-            "claim={}|{}|admissible={}|required={}|missing={}|hindsight_revocations={}|owner={}|ref={}",
+            "claim={}|{}|admissible={}|required={}|missing={}|max_age_seconds={}|hindsight_revocations={}|owner={}|ref={}",
             claim.id,
             disposition,
             admissible,
             claim.required_count,
             missing,
+            claim.max_age_override.unwrap_or(input.max_age),
             hindsight,
             claim.owner,
             claim.source_ref
@@ -650,6 +659,41 @@ mod tests {
         );
         let report = validate_and_report(&source).expect("future-effective evidence is valid input");
         assert!(report.contains("e-pump-1|pump_capacity|NOT_YET_VALID|admissible=NO"));
+    }
+
+    #[test]
+    fn claim_specific_freshness_override_can_be_stricter_than_run_default() {
+        let source = FIXTURE.replace(
+            "CLAIM|claim-fuel|fuel_stock|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:fuel|1|",
+            "CLAIM|claim-fuel|fuel_stock|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:fuel|1|3000",
+        );
+        let report = validate_and_report(&source).expect("claim-specific freshness policy");
+        assert!(report.contains("claim=fuel_stock|NOT_ESTIMABLE|admissible=0|required=1|missing=1|max_age_seconds=3000"));
+        assert!(report.contains("e-fuel|fuel_stock|STALE|admissible=NO"));
+    }
+
+    #[test]
+    fn claim_specific_freshness_override_can_be_more_permissive_than_run_default() {
+        let source = FIXTURE.replace(
+            "CLAIM|claim-fuel|fuel_stock|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:fuel|1|",
+            "CLAIM|claim-fuel|fuel_stock|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:fuel|1|4000",
+        );
+        let report = validate_and_report(&source).expect("claim-specific freshness policy");
+        assert!(report.contains("claim=fuel_stock|SUPPORTED_AS_KNOWN_AT_CUTOFF|admissible=1|required=1|missing=0|max_age_seconds=4000"));
+        assert!(report.contains("e-fuel|fuel_stock|ADMISSIBLE|admissible=YES"));
+    }
+
+    #[test]
+    fn evidence_rows_cannot_override_claim_freshness_policy() {
+        let source = FIXTURE.replace(
+            "EVIDENCE|e-fuel|fuel_stock|synthetic-water-shock|3500|3600|3400|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:evidence:fuel|",
+            "EVIDENCE|e-fuel|fuel_stock|synthetic-water-shock|3500|3600|3400|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:evidence:fuel||4000",
+        );
+        assert_ne!(source, FIXTURE);
+        assert!(validate_and_report(&source)
+            .unwrap_err()
+            .0
+            .contains("EVIDENCE row must not set claim policy fields"));
     }
 
     #[test]
