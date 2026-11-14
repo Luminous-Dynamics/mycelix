@@ -6,6 +6,7 @@ on:
       - 'tools/fsre-finite-world-bounds/**'
       - 'research/fsre/FINITE_WORLD_PARTIAL_IDENTIFICATION_BENCHMARK_V0_1.md'
       - 'research/fsre/FSRE_INDUSTRY_COMPARISON_AND_BENCHMARK_PROTOCOL_V0_2.md'
+      - 'research/fsre/FSRE_INDUSTRY_COMPARISON_AND_BENCHMARK_PROTOCOL_V0_2.md'
       - '.github/workflows/fsre-finite-world-bounds.yml'
   push:
     branches: [main]
