@@ -45,7 +45,7 @@ Both records are synthetic and explicitly unauthenticated in this fixture.
 
 The fixture intentionally separates the original operation's unresolved outcome from the authorization of any new attempt.
 
-**Original operation:** at 2026-01-25 10:01Z, the human-approved operation, policy, resource precondition and authority were current. The provider submission may have happened, then timed out. The original outcome remains UNKNOWN and requires reconciliation.
+**Original preflight and operation:** the decision-time query has effective/action/knowledge cutoffs at 2026-01-25 10:00Z. The human-approved operation, policy, resource precondition and authority were current at that preflight. The provider submission was attempted at 10:01Z and timed out at 10:01:05Z. The original outcome remains UNKNOWN and requires reconciliation.
 
 **Potential reattempt:** at 2026-02-06 10:00Z, the authority history says the actor's grant is revoked (effective 2026-02-01, observed 2026-02-02). A new attempt is denied. The system must not turn the original unknown outcome into failure-no-effect, and must not retry.
 
@@ -56,7 +56,7 @@ The LISE pre-effect reference is used in two conceptual steps:
 
 This distinction avoids a misleading single terminal label. "Cannot retry" and "the original effect is known not to have happened" are different claims.
 
-The IAE harness structurally checks both: original operation history is UNKNOWN/HOLD with retry=0, while the current reattempt authority projection is REVOKED/DENY.
+The IAE harness structurally checks both: original operation history is UNKNOWN/HOLD with retry=0, while the current reattempt authority projection is REVOKED/DENY. Historical query knowledge cutoffs precede the 10:01Z dispatch and timeout; later current knowledge includes the 2026-02-02 revocation observation.
 
 ## Executable integration status
 
