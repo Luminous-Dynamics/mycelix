@@ -749,6 +749,229 @@ mod tests {
         }
     }
 
+    fn scope(
+        actions: &[&str],
+        resources: &[&str],
+        purposes: &[&str],
+        fields: &[&str],
+        valid_from: u64,
+        expires_at: Option<u64>,
+        max_amount_minor: Option<u64>,
+        max_operations: Option<u64>,
+    ) -> CapabilityScope {
+        CapabilityScope {
+            actions: actions.iter().map(|x| (*x).to_owned()).collect(),
+            resources: resources.iter().map(|x| (*x).to_owned()).collect(),
+            purposes: purposes.iter().map(|x| (*x).to_owned()).collect(),
+            fields: fields.iter().map(|x| (*x).to_owned()).collect(),
+            valid_from,
+            expires_at,
+            max_amount_minor,
+            max_operations,
+        }
+    }
+
+    #[test]
+    fn child_delegation_may_attenuate_every_scope_dimension() {
+        let parent = scope(
+            &["read", "update"], &["asset-a", "asset-b"], &["maintenance"],
+            &["status", "condition"], 10, Some(100), Some(5000), Some(4)
+        );
+        let child = scope(
+            &["read"], &["asset-a"], &["maintenance"], &["status"],
+            12, Some(80), Some(1000), Some(1)
+        );
+        assert!(delegation_is_attenuated(&parent, &child));
+    }
+
+    #[test]
+    fn child_delegation_cannot_amplify_action_resource_purpose_or_field() {
+        let parent = scope(
+            &["read"], &["asset-a"], &["inspection"], &["status"],
+            10, Some(100), Some(5000), Some(2)
+        );
+        for child in [
+            scope(&["read", "delete"], &["asset-a"], &["inspection"], &["status"], 10, Some(90), Some(1000), Some(1)),
+            scope(&["read"], &["asset-a", "asset-b"], &["inspection"], &["status"], 10, Some(90), Some(1000), Some(1)),
+            scope(&["read"], &["asset-a"], &["inspection", "marketing"], &["status"], 10, Some(90), Some(1000), Some(1)),
+            scope(&["read"], &["asset-a"], &["inspection"], &["status", "bank-account"], 10, Some(90), Some(1000), Some(1)),
+        ] {
+            assert!(!delegation_is_attenuated(&parent, &child));
+        }
+    }
+
+    #[test]
+    fn child_delegation_cannot_extend_expiry_or_remove_parent_limits() {
+        let parent = scope(&["read"], &["asset-a"], &["inspection"], &["status"], 10, Some(100), Some(500), Some(2));
+        let expiry_amplification = scope(&["read"], &["asset-a"], &["inspection"], &["status"], 10, Some(101), Some(100), Some(1));
+        let unbounded_expiry = scope(&["read"], &["asset-a"], &["inspection"], &["status"], 10, None, Some(100), Some(1));
+        let unbounded_amount = scope(&["read"], &["asset-a"], &["inspection"], &["status"], 10, Some(90), None, Some(1));
+        let unbounded_operations = scope(&["read"], &["asset-a"], &["inspection"], &["status"], 10, Some(90), Some(100), None);
+        assert!(!delegation_is_attenuated(&parent, &expiry_amplification));
+        assert!(!delegation_is_attenuated(&parent, &unbounded_expiry));
+        assert!(!delegation_is_attenuated(&parent, &unbounded_amount));
+        assert!(!delegation_is_attenuated(&parent, &unbounded_operations));
+    }
+
+    #[test]
+    fn grandchild_must_attenuate_the_immediate_parent_not_only_the_root() {
+        let root = scope(&["read", "update"], &["asset-a"], &["maintenance"], &["status", "condition"], 1, Some(100), None, None);
+        let child = scope(&["read"], &["asset-a"], &["maintenance"], &["status"], 2, Some(80), None, None);
+        let grandchild_amplifies = scope(&["read", "update"], &["asset-a"], &["maintenance"], &["status"], 3, Some(70), None, None);
+        assert!(delegation_is_attenuated(&root, &child));
+        assert!(!delegation_is_attenuated(&child, &grandchild_amplifies));
+    }
+
+    #[test]
+    fn effective_privilege_unions_active_tool_and_ambient_grants() {
+        let requested = scope(&["read"], &["record-1"], &["case-review"], &["summary"], 1, Some(50), Some(0), Some(1));
+        let task_grant = CapabilityGrant {
+            grant_ref: "task-token".to_owned(),
+            active_during_trajectory: true,
+            scope: requested.clone(),
+        };
+        let ambient_grant = CapabilityGrant {
+            grant_ref: "shared-service-token".to_owned(),
+            active_during_trajectory: true,
+            scope: scope(&["read", "delete"], &["record-1", "record-2"], &["case-review", "admin"], &["summary", "private-notes"], 1, Some(50), None, None),
+        };
+        let expired_grant = CapabilityGrant {
+            grant_ref: "inactive".to_owned(),
+            active_during_trajectory: false,
+            scope: scope(&["root"], &["*"], &["*"], &["*"], 1, None, None, None),
+        };
+        let effective = union_effective_privilege(&[task_grant, ambient_grant, expired_grant]);
+        assert!(effective.actions.contains("delete"));
+        assert!(effective.resources.contains("record-2"));
+        assert!(effective.fields.contains("private-notes"));
+        assert!(effective.grant_refs.contains("shared-service-token"));
+        assert!(!effective.grant_refs.contains("inactive"));
+        assert!(!effective_privilege_within_task(&effective, &requested));
+    }
+
+    #[test]
+    fn least_privilege_passes_when_every_active_grant_is_within_task_scope() {
+        let task = scope(&["read", "inspect"], &["asset-a"], &["maintenance"], &["status", "condition"], 1, Some(50), Some(10), Some(2));
+        let grant = CapabilityGrant {
+            grant_ref: "bounded-session".to_owned(),
+            active_during_trajectory: true,
+            scope: scope(&["read"], &["asset-a"], &["maintenance"], &["status"], 2, Some(40), Some(5), Some(1)),
+        };
+        let effective = union_effective_privilege(&[grant]);
+        assert!(effective_privilege_within_task(&effective, &task));
+    }
+
+    #[test]
+    fn one_reachable_alternate_route_without_a_policy_enforcer_breaks_complete_mediation() {
+        let routes = vec![
+            ProtectedRoute { route_ref: "normal-api".to_owned(), protected_effect_ref: "effect:transfer".to_owned(), reachable_from_agent: true, enforcement_point_ref: Some("pep:gateway".to_owned()) },
+            ProtectedRoute { route_ref: "bulk-import".to_owned(), protected_effect_ref: "effect:transfer".to_owned(), reachable_from_agent: true, enforcement_point_ref: None },
+        ];
+        assert_eq!(
+            assess_mediation_coverage("effect:transfer", true, &routes),
+            MediationCoverage::ReachableBypass
+        );
+    }
+
+    #[test]
+    fn complete_mediation_requires_a_complete_route_inventory() {
+        let routes = vec![ProtectedRoute {
+            route_ref: "normal-api".to_owned(),
+            protected_effect_ref: "effect:transfer".to_owned(),
+            reachable_from_agent: true,
+            enforcement_point_ref: Some("pep:gateway".to_owned()),
+        }];
+        assert_eq!(
+            assess_mediation_coverage("effect:transfer", false, &routes),
+            MediationCoverage::RouteInventoryIncomplete
+        );
+        assert_eq!(
+            assess_mediation_coverage("effect:transfer", true, &routes),
+            MediationCoverage::AllReachablePathsMediated
+        );
+    }
+
+    #[test]
+    fn unreachable_alternate_route_does_not_break_mediation_coverage() {
+        let routes = vec![
+            ProtectedRoute { route_ref: "normal-api".to_owned(), protected_effect_ref: "effect:transfer".to_owned(), reachable_from_agent: true, enforcement_point_ref: Some("pep:gateway".to_owned()) },
+            ProtectedRoute { route_ref: "disabled-admin-api".to_owned(), protected_effect_ref: "effect:transfer".to_owned(), reachable_from_agent: false, enforcement_point_ref: None },
+        ];
+        assert_eq!(
+            assess_mediation_coverage("effect:transfer", true, &routes),
+            MediationCoverage::AllReachablePathsMediated
+        );
+    }
+
+    #[test]
+    fn stale_active_session_is_held_after_authority_epoch_advances() {
+        let state = SessionRevocationState {
+            authority_state: AuthorityState::Current,
+            authoritative_epoch: 12,
+            session_observed_epoch: 11,
+            action_at: 100,
+            known_at: 100,
+            revocation_effective_at: None,
+            revocation_observed_at: None,
+        };
+        assert_eq!(
+            evaluate_session_revocation(state),
+            SessionAuthorizationDecision::HoldStaleSession
+        );
+    }
+
+    #[test]
+    fn revoked_credential_is_denied_after_effective_and_observed_revocation() {
+        let state = SessionRevocationState {
+            authority_state: AuthorityState::Revoked,
+            authoritative_epoch: 12,
+            session_observed_epoch: 12,
+            action_at: 100,
+            known_at: 100,
+            revocation_effective_at: Some(90),
+            revocation_observed_at: Some(95),
+        };
+        assert_eq!(
+            evaluate_session_revocation(state),
+            SessionAuthorizationDecision::DenyRevoked
+        );
+    }
+
+    #[test]
+    fn unknown_revocation_observation_is_held_not_assumed_active() {
+        let state = SessionRevocationState {
+            authority_state: AuthorityState::Revoked,
+            authoritative_epoch: 12,
+            session_observed_epoch: 12,
+            action_at: 100,
+            known_at: 100,
+            revocation_effective_at: Some(90),
+            revocation_observed_at: None,
+        };
+        assert_eq!(
+            evaluate_session_revocation(state),
+            SessionAuthorizationDecision::HoldUnknown
+        );
+    }
+
+    #[test]
+    fn future_effective_revocation_does_not_rewrite_prior_action_authority() {
+        let state = SessionRevocationState {
+            authority_state: AuthorityState::Revoked,
+            authoritative_epoch: 12,
+            session_observed_epoch: 12,
+            action_at: 80,
+            known_at: 100,
+            revocation_effective_at: Some(90),
+            revocation_observed_at: Some(95),
+        };
+        assert_eq!(
+            evaluate_session_revocation(state),
+            SessionAuthorizationDecision::Permit
+        );
+    }
+
+
     #[test]
     fn exact_current_operation_is_permitted() {
         assert_eq!(evaluate_finality(&input()), FinalityDecision::Permit);
