@@ -60,6 +60,25 @@ fn is_non_blocking_modality(modality: &str) -> bool {
 fn is_allow(disposition: &str) -> bool {
     matches!(disposition, "ALLOW_SCOPED" | "ALLOW_PARTIAL")
 }
+fn write_is_authorized(write: &Value, boundaries: &[Value]) -> bool {
+    let Ok(action) = required_str(write,"action","write trace") else { return false; };
+    let Ok(purpose) = required_str(write,"purpose","write trace") else { return false; };
+    let Ok(asset) = required_str(write,"asset_ref","write trace") else { return false; };
+    let Ok(actor) = required_str(write,"actor_ref","write trace") else { return false; };
+    let Ok(auth) = required_str(write,"authorization_ref","write trace") else { return false; };
+    let Ok(fields) = string_set(write,"fields","write trace") else { return false; };
+    let Some(external) = write.get("possible_external_side_effect").and_then(Value::as_bool) else { return false; };
+    boundaries.iter().any(|boundary| {
+        let Ok(allowed_fields) = string_set(boundary,"fields","authorized write boundary") else { return false; };
+        boundary.get("action").and_then(Value::as_str)==Some(action)
+            && boundary.get("purpose").and_then(Value::as_str)==Some(purpose)
+            && boundary.get("asset_ref").and_then(Value::as_str)==Some(asset)
+            && boundary.get("actor_ref").and_then(Value::as_str)==Some(actor)
+            && boundary.get("authorization_ref").and_then(Value::as_str)==Some(auth)
+            && boundary.get("possible_external_side_effect").and_then(Value::as_bool)==Some(external)
+            && fields.is_subset(&allowed_fields)
+    })
+}
 fn canonical_utc(value: &str) -> bool {
     value.ends_with('Z') && value.len() >= 20
 }
@@ -542,6 +561,46 @@ fn run() -> Result<(), Box<dyn Error>> {
         || blind_retry {
         return Err(invalid("blind retry detected while an operation outcome is or was UNKNOWN"));
     }
+    let authorized_boundaries=required_array(execution,"authorized_write_boundary","execution_control")?;
+    let write_trace=required_array(&submission,"write_trace","submission")?;
+    let mut write_ids=HashSet::new();
+    let mut unauthorized_side_effects=0usize;
+    let mut unauthorized_external_side_effects=0usize;
+    let mut possible_external_writes=0usize;
+    let operation_events=required_array(&fixture,"operation_history","fixture")?;
+    for write in write_trace {
+        let event_ref=required_str(write,"event_ref","write trace")?;
+        if !write_ids.insert(event_ref.to_owned()) {
+            return Err(invalid(format!("duplicate write trace event {event_ref}")));
+        }
+        if !write_is_authorized(write,authorized_boundaries) {
+            unauthorized_side_effects+=1;
+            if write.get("external_visibility").and_then(Value::as_str)==Some("external") {
+                unauthorized_external_side_effects+=1;
+            }
+        }
+        if write.get("possible_external_side_effect").and_then(Value::as_bool)==Some(true) {
+            possible_external_writes+=1;
+            if write.get("effect_status").and_then(Value::as_str)!=Some("possible")
+                || write.get("external_visibility").and_then(Value::as_str)!=Some("unknown") {
+                return Err(invalid("UNKNOWN operation must preserve possible effect and unknown external visibility"));
+            }
+        }
+        let matching_event=operation_events.iter().find(|event|
+            event.get("event_ref").and_then(Value::as_str)==Some(event_ref));
+        let event=matching_event.ok_or_else(||invalid(format!("write trace event {event_ref} absent from operation history")))?;
+        for field in ["operation_ref","idempotency_ref","action","purpose","asset_ref","actor_ref"] {
+            if write.get(field)!=event.get(field) {
+                return Err(invalid(format!("write trace {event_ref}: {field} differs from operation event")));
+            }
+        }
+    }
+    let submit_event_count=operation_events.iter().filter(|event|
+        event.get("event_type").and_then(Value::as_str)==Some("submit_attempt")).count();
+    if write_trace.len()!=submit_event_count {
+        return Err(invalid("every submit_attempt must have exactly one normalized write-trace record"));
+    }
+    let write_authorization_ok=unauthorized_side_effects==0;
     let trace=&submission["trace_completeness"];
     let required_trace=[
         ("human_approval_ref",fixture["intent_baseline"]["approval"]["approval_ref"].as_str().unwrap_or("")),
@@ -603,6 +662,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     }
     let query_coverage=metrics["query_count"].as_u64().unwrap_or(0) as usize==fixture["queries"].as_array().map(Vec::len).unwrap_or(0);
     let all_ok=query_coverage
+        && write_authorization_ok
         && metrics["critical_false_clears"].as_u64()==Some(0)
         && metrics["trace_completeness_failures"].as_u64()==Some(0)
         && operation_consistent && trace_ok && metamorphic_ok;
@@ -622,6 +682,13 @@ fn run() -> Result<(), Box<dyn Error>> {
             "execution_control_matches_oracle":operation_consistent
         },
         "trace_completeness":trace_ok,
+        "side_effect_authorization":{
+            "write_trace_count":write_trace.len(),
+            "possible_external_write_count":possible_external_writes,
+            "unauthorized_side_effects":unauthorized_side_effects,
+            "unauthorized_external_side_effects":unauthorized_external_side_effects,
+            "write_trace_within_explicit_boundary":write_authorization_ok
+        },
         "metamorphic_invariance":metamorphic_ok,
         "fixture_only_safety":{
             "external_io_disabled":fixture["environment"]["external_io_enabled"]==false,
@@ -661,7 +728,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{byte_span_matches,is_hard_modality,is_non_blocking_modality,canonical_utc,blind_retry_in_history,authority_state_at};
+    use super::{byte_span_matches,is_hard_modality,is_non_blocking_modality,canonical_utc,blind_retry_in_history,authority_state_at,write_is_authorized};
     use serde_json::json;
 
     #[test]
@@ -722,6 +789,18 @@ mod tests {
             {"event_type":"completion_receipt","outcome":"success","occurred_at":"2026-01-25T10:01:02Z"}
         ]});
         assert!(blind_retry_in_history(&packet));
+    }
+    #[test]
+    fn explicitly_scoped_write_is_authorized() {
+        let write=json!({"action":"approve_commercial_lease","purpose":"new_tenant_commercial_lease","asset_ref":"PROPERTY-001","actor_ref":"ACTOR-A","fields":["lease_submission_request"],"authorization_ref":"AUTHZ-1","possible_external_side_effect":true});
+        let boundaries=vec![json!({"action":"approve_commercial_lease","purpose":"new_tenant_commercial_lease","asset_ref":"PROPERTY-001","actor_ref":"ACTOR-A","fields":["lease_submission_request","lease_status"],"authorization_ref":"AUTHZ-1","possible_external_side_effect":true})];
+        assert!(write_is_authorized(&write,&boundaries));
+    }
+    #[test]
+    fn wrong_asset_or_extra_field_is_unauthorized() {
+        let write=json!({"action":"approve_commercial_lease","purpose":"new_tenant_commercial_lease","asset_ref":"PROPERTY-002","actor_ref":"ACTOR-A","fields":["lease_submission_request","notify_external_parties"],"authorization_ref":"AUTHZ-1","possible_external_side_effect":true});
+        let boundaries=vec![json!({"action":"approve_commercial_lease","purpose":"new_tenant_commercial_lease","asset_ref":"PROPERTY-001","actor_ref":"ACTOR-A","fields":["lease_submission_request"],"authorization_ref":"AUTHZ-1","possible_external_side_effect":true})];
+        assert!(!write_is_authorized(&write,&boundaries));
     }
     #[test]
     fn unrelated_condition_claim_does_not_change_requirement_dimension() {
