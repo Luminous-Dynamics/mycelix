@@ -714,7 +714,7 @@ pub fn evaluate_session_revocation(
             _ => return SessionAuthorizationDecision::HoldUnknown,
         }
     }
-    if state.session_observed_epoch < state.authoritative_epoch {
+    if state.session_observed_epoch != state.authoritative_epoch {
         return SessionAuthorizationDecision::HoldStaleSession;
     }
     match state.authority_state {
@@ -969,6 +969,23 @@ mod tests {
             authority_state: AuthorityState::Current,
             authoritative_epoch: 12,
             session_observed_epoch: 11,
+            action_at: 100,
+            known_at: 100,
+            revocation_effective_at: None,
+            revocation_observed_at: None,
+        };
+        assert_eq!(
+            evaluate_session_revocation(state),
+            SessionAuthorizationDecision::HoldStaleSession
+        );
+    }
+
+    #[test]
+    fn session_claiming_future_authority_epoch_is_held() {
+        let state = SessionRevocationState {
+            authority_state: AuthorityState::Current,
+            authoritative_epoch: 12,
+            session_observed_epoch: 13,
             action_at: 100,
             known_at: 100,
             revocation_effective_at: None,
