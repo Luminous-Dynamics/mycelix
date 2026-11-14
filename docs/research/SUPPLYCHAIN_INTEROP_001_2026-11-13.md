@@ -173,3 +173,16 @@ These are proposed test thresholds, not achieved results:
 7. Revisit security claims around issuer key custody, identity proof, revocation and selective disclosure before production-facing claims.
 
 No code, standards conformance, CI result, external endpoint comparison or real supply-chain event was executed in this tranche. The separate baseline register adds source-inspected candidate server revisions only; no server was deployed or benchmarked.
+
+
+
+## 6C. Event-time admissibility and temporal coverage — 2026-11-14
+
+The scenario bank now adds SC-TIME-007 and SC-TIME-008, bringing the synthetic development catalogue to 27 scenarios.
+
+- **SC-TIME-007** separates an EPCIS event occurrence assertion from the time the repository recorded the event and from the time a consuming process actually acquired and included it. It tests both directions: eventTime before T but repository/consumer availability after K, and repository receipt before K while the event-time assertion falls outside the target validity window. An event's eventTime is not a publication/receipt timestamp; recordTime is not proof of physical truth or downstream model visibility.
+- **SC-TIME-008** requires pre-transition, transition-window and post-transition evidence, plus a frozen set of supplier/carrier/repository/inspection source roles. Returning relevant records from one period or omitting a required source role cannot be reported as complete coverage. The denominator is frozen by the evaluator before the candidate runs.
+
+The cross-system benchmark now distinguishes Temporal Coverage@k (required temporal bins represented by admissible, claim-relevant records), Temporal Precision@k (retrieved records that are admissible for the requested target time and decision frontier), future-knowledge leakage, source-inventory coverage, causal-order false-edge rate and historical replay fidelity. This is aligned with the diagnostic metric family in TEMPO (EMNLP 2026), but supply-chain event correctness, EPCIS conformance and engineering outcomes remain separately scored. The external benchmark is not an apples-to-apples EPCIS score.
+
+All 27 scenarios remain synthetic development blueprints, unadjudicated and unscored. No official GS1 validator, raw-byte artifact intake, external EPCIS server, vendor product, production evidence or physical supply-chain action was run. Mycelix continues to own and supply EvidenceFrontierV1, multi-conductor causal-history verification and dependency/source completeness; this scenario catalogue defines no competing clock or evidence service.
