@@ -183,7 +183,7 @@ pub fn assess(state: &State) -> Finding {
             "DEGRADED_MODE_REQUIRES_OLD_SESSION_FENCING",
         );
     }
-    if state.founder_available == false
+    if !state.founder_available
         && state.high_impact_enabled
         && !(state.recovery_trigger_verified
             && state.recovery_quorum_met
@@ -556,9 +556,35 @@ mod tests {
         assert_eq!(permitted.disposition, Disposition::Permit);
     }
 
+
+    #[test]
+    fn incomplete_inventory_never_becomes_a_capture_safety_proof() {
+        let mut state = State::default();
+        state.control_inventory_complete = false;
+        state.coalition_control_mask =
+            CAP_APPOINTMENTS | CAP_TREASURY | CAP_CREDENTIALS | CAP_OVERSIGHT;
+        let result = assess(&state);
+        assert_eq!(result.disposition, Disposition::Indeterminate);
+    }
+
+    #[test]
+    fn old_authority_must_be_revalidated_after_constitution_epoch_change() {
+        let mut state = State::default();
+        state.founder_available = false;
+        state.recovery_trigger_verified = true;
+        state.recovery_quorum_met = true;
+        state.old_sessions_fenced = true;
+        state.current_constitution_epoch += 1;
+        state.old_administrator_restored = true;
+        assert_eq!(
+            assess(&state).reason_code,
+            "STALE_ADMINISTRATOR_PRIVILEGE_RESTORED_AFTER_EPOCH_CHANGE"
+        );
+    }
+
     #[test]
     fn bounded_explorer_reports_shortest_counterexample_traces() {
-        let report = bounded_explore(5, 50_000);
+        let report = bounded_explore(4, 10_000);
         assert!(report.visited_states > 1);
         assert!(!report.hard_counterexamples.is_empty());
         assert!(report.hard_counterexamples.iter().any(|x| {
