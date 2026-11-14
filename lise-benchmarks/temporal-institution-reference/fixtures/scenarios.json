@@ -89,7 +89,7 @@
     },
     {
       "id": "T10",
-      "title": "Independent oversight is restored after a control overlap",
+      "title": "Attempt to restore independent oversight without supplying authority evidence",
       "actions": [
         "capture_treasury",
         "capture_oversight",

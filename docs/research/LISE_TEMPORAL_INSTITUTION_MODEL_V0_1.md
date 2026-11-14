@@ -27,7 +27,8 @@ The current finite model represents:
 - whether high-impact capability is enabled;
 - current constitution epoch and credential epoch;
 - whether old administrator privileges have been restored;
-- emergency authority activation, expiry and model time.
+- emergency authority activation, expiry and model time;
+- attempted oversight restoration plus typed owner-authority, independence, quorum and authority-epoch evidence.
 
 This is intentionally a small abstraction. It does not yet represent arbitrary organization graphs, multiple overlapping coalitions, delegation chains, provider dependencies, rights-holder populations, jurisdiction-specific rules or bitemporal evidence.
 
@@ -65,7 +66,15 @@ After a constitutional epoch change, restoration of an administrator credential 
 
 An emergency capability with an expiry time cannot remain active at or beyond that time. A later action must not silently inherit the expired grant.
 
-### P6 — Open-world control inventory
+### P6 — Oversight restoration requires evidence
+
+An attempt to restore independent oversight changes the control state only when owner-authority, independence and quorum evidence are all valid and bind the current constitutional epoch. Missing evidence is Indeterminate; invalid evidence or an epoch mismatch is Deny. A valid synthetic input is not a cryptographic signature or real-world authority verification.
+
+### P7 — Emergency authority expiry
+
+An active emergency grant with no declared expiry is Indeterminate. An expired grant that remains active is Deny.
+
+### P8 — Open-world control inventory
 
 An incomplete control inventory yields `Indeterminate` when no harder known violation is already present. Missing control edges are not proof of independence.
 
@@ -118,10 +127,10 @@ The initial trace suite contains 12 synthetic cases with a separate oracle. It i
 - recovery with and without quorum / credential revalidation;
 - emergency expiry;
 - coalition overlap across appointment, treasury, credentials and oversight;
-- independent oversight restoration;
+- attempted independent-oversight restoration without authority evidence (Indeterminate);
 - incomplete control inventory.
 
-The Rust integration test checks exact disposition and reason code. The oracle is a development reference pending independent review.
+The Rust integration test checks exact disposition and reason code. Unit tests separately check qualified restoration, invalid/stale evidence and emergency grants with missing expiry. The oracle is a development reference pending independent review.
 
 ## 7. Relationship to LISE and LARP
 

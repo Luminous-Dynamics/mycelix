@@ -51,8 +51,8 @@
     },
     {
       "case_id": "T10",
-      "expected_disposition": "permit",
-      "reason_code": "DECLARED_TEMPORAL_PROPERTIES_HOLD"
+      "expected_disposition": "indeterminate",
+      "reason_code": "OVERSIGHT_RESTORATION_EVIDENCE_INCOMPLETE"
     },
     {
       "case_id": "T11",

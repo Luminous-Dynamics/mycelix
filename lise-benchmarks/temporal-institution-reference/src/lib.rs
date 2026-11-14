@@ -51,6 +51,15 @@ pub enum ServiceMode {
     Offline,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceStatus {
+    #[default]
+    NotProvided,
+    Valid,
+    Invalid,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
@@ -121,6 +130,18 @@ pub struct State {
     pub emergency_authority_active: bool,
     pub emergency_authority_expires_at: Option<u32>,
     pub now: u32,
+    /// An attempted oversight restoration must be supported by externally
+    /// supplied authority, independence and quorum evidence at the current epoch.
+    #[serde(default)]
+    pub oversight_restoration_attempted: bool,
+    #[serde(default)]
+    pub oversight_restoration_authority: EvidenceStatus,
+    #[serde(default)]
+    pub oversight_restoration_independence: EvidenceStatus,
+    #[serde(default)]
+    pub oversight_restoration_quorum: EvidenceStatus,
+    #[serde(default)]
+    pub oversight_restoration_authority_epoch: Option<u32>,
 }
 
 impl Default for State {
@@ -140,6 +161,11 @@ impl Default for State {
             emergency_authority_active: false,
             emergency_authority_expires_at: None,
             now: 0,
+            oversight_restoration_attempted: false,
+            oversight_restoration_authority: EvidenceStatus::NotProvided,
+            oversight_restoration_independence: EvidenceStatus::NotProvided,
+            oversight_restoration_quorum: EvidenceStatus::NotProvided,
+            oversight_restoration_authority_epoch: None,
         }
     }
 }
@@ -203,15 +229,57 @@ pub fn assess(state: &State) -> Finding {
             "STALE_ADMINISTRATOR_PRIVILEGE_RESTORED_AFTER_EPOCH_CHANGE",
         );
     }
-    if state.emergency_authority_active
-        && state
-            .emergency_authority_expires_at
-            .is_some_and(|expiry| state.now >= expiry)
-    {
-        return finding(
-            Disposition::Deny,
-            "EXPIRED_EMERGENCY_AUTHORITY_REMAINS_ACTIVE",
-        );
+    if state.emergency_authority_active {
+        match state.emergency_authority_expires_at {
+            Some(expiry) if state.now >= expiry => {
+                return finding(
+                    Disposition::Deny,
+                    "EXPIRED_EMERGENCY_AUTHORITY_REMAINS_ACTIVE",
+                );
+            }
+            None => {
+                return finding(
+                    Disposition::Indeterminate,
+                    "EMERGENCY_AUTHORITY_EXPIRY_UNSPECIFIED",
+                );
+            }
+            Some(_) => {}
+        }
+    }
+
+    if state.oversight_restoration_attempted {
+        let evidence = [
+            state.oversight_restoration_authority,
+            state.oversight_restoration_independence,
+            state.oversight_restoration_quorum,
+        ];
+        if evidence.contains(&EvidenceStatus::Invalid) {
+            return finding(
+                Disposition::Deny,
+                "OVERSIGHT_RESTORATION_EVIDENCE_INVALID",
+            );
+        }
+        match state.oversight_restoration_authority_epoch {
+            Some(epoch) if epoch != state.current_constitution_epoch => {
+                return finding(
+                    Disposition::Deny,
+                    "OVERSIGHT_RESTORATION_AUTHORITY_EPOCH_MISMATCH",
+                );
+            }
+            None => {
+                return finding(
+                    Disposition::Indeterminate,
+                    "OVERSIGHT_RESTORATION_EVIDENCE_INCOMPLETE",
+                );
+            }
+            Some(_) => {}
+        }
+        if evidence.contains(&EvidenceStatus::NotProvided) {
+            return finding(
+                Disposition::Indeterminate,
+                "OVERSIGHT_RESTORATION_EVIDENCE_INCOMPLETE",
+            );
+        }
     }
 
     if !state.control_inventory_complete {
@@ -249,7 +317,20 @@ pub fn apply(state: &State, action: &Action) -> State {
         Action::CaptureOversight => next.capture(CAP_OVERSIGHT),
         Action::MarkInventoryIncomplete => next.control_inventory_complete = false,
         Action::RestoreIndependentOversight => {
-            next.coalition_control_mask &= !CAP_OVERSIGHT;
+            next.oversight_restoration_attempted = true;
+            let evidence_complete_and_valid = [
+                next.oversight_restoration_authority,
+                next.oversight_restoration_independence,
+                next.oversight_restoration_quorum,
+            ]
+            .iter()
+            .all(|status| *status == EvidenceStatus::Valid);
+            if evidence_complete_and_valid
+                && next.oversight_restoration_authority_epoch
+                    == Some(next.current_constitution_epoch)
+            {
+                next.coalition_control_mask &= !CAP_OVERSIGHT;
+            }
         }
         Action::FounderUnavailable => next.founder_available = false,
         Action::VerifyRecoveryTrigger => {
@@ -522,14 +603,73 @@ mod tests {
     }
 
     #[test]
-    fn independent_oversight_restores_a_challenge_witness() {
+    fn oversight_restoration_without_authority_evidence_is_indeterminate() {
         let actions = [
             Action::CaptureTreasury,
             Action::CaptureOversight,
             Action::RestoreIndependentOversight,
         ];
         let (_, result) = replay_trace(&actions);
+        assert_eq!(result.disposition, Disposition::Indeterminate);
+        assert_eq!(
+            result.reason_code,
+            "OVERSIGHT_RESTORATION_EVIDENCE_INCOMPLETE"
+        );
+    }
+
+    #[test]
+    fn oversight_restoration_requires_valid_independent_authority_and_quorum() {
+        let mut state = State::default();
+        state.capture(CAP_TREASURY);
+        state.capture(CAP_OVERSIGHT);
+        state.oversight_restoration_authority = EvidenceStatus::Valid;
+        state.oversight_restoration_independence = EvidenceStatus::Valid;
+        state.oversight_restoration_quorum = EvidenceStatus::Valid;
+        state.oversight_restoration_authority_epoch =
+            Some(state.current_constitution_epoch);
+
+        let next = apply(&state, &Action::RestoreIndependentOversight);
+        let result = assess(&next);
         assert_eq!(result.disposition, Disposition::Permit);
+        assert_eq!(result.reason_code, "DECLARED_TEMPORAL_PROPERTIES_HOLD");
+        assert_eq!(next.coalition_control_mask & CAP_OVERSIGHT, 0);
+    }
+
+    #[test]
+    fn invalid_or_stale_oversight_restoration_evidence_is_denied() {
+        let mut invalid = State::default();
+        invalid.capture(CAP_TREASURY);
+        invalid.capture(CAP_OVERSIGHT);
+        invalid.oversight_restoration_attempted = true;
+        invalid.oversight_restoration_authority = EvidenceStatus::Invalid;
+        invalid.oversight_restoration_independence = EvidenceStatus::Valid;
+        invalid.oversight_restoration_quorum = EvidenceStatus::Valid;
+        invalid.oversight_restoration_authority_epoch = Some(1);
+        assert_eq!(
+            assess(&invalid).reason_code,
+            "OVERSIGHT_RESTORATION_EVIDENCE_INVALID"
+        );
+
+        let mut stale = invalid;
+        stale.oversight_restoration_authority = EvidenceStatus::Valid;
+        stale.oversight_restoration_authority_epoch = Some(0);
+        assert_eq!(
+            assess(&stale).reason_code,
+            "OVERSIGHT_RESTORATION_AUTHORITY_EPOCH_MISMATCH"
+        );
+    }
+
+    #[test]
+    fn active_emergency_authority_without_expiry_is_indeterminate() {
+        let mut state = State::default();
+        state.emergency_authority_active = true;
+        state.emergency_authority_expires_at = None;
+        let result = assess(&state);
+        assert_eq!(result.disposition, Disposition::Indeterminate);
+        assert_eq!(
+            result.reason_code,
+            "EMERGENCY_AUTHORITY_EXPIRY_UNSPECIFIED"
+        );
     }
 
     #[test]
