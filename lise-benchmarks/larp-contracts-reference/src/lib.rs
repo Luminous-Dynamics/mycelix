@@ -1092,7 +1092,7 @@ pub fn evaluate_restoration_contract(facts: &RestorationFacts) -> Decision {
         facts.soil_floor_met,
         facts.structure_floor_met,
         facts.downstream_externality_within_limit,
-    ].into_iter().any(Option::is_none) {
+    ].into_iter().any(|value| value.is_none()) {
         return Decision::hold("ECOLOGICAL_OUTCOME_DIMENSION_UNKNOWN");
     }
     if facts.uncertainty_acceptable == Some(false)
