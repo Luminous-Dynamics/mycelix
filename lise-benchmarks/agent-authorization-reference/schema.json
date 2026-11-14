@@ -446,12 +446,12 @@
         },
         "case_count": {
           "type": "integer",
-          "const": 22
+          "const": 26
         },
         "cases": {
           "type": "array",
-          "minItems": 22,
-          "maxItems": 22,
+          "minItems": 26,
+          "maxItems": 26,
           "items": {
             "$ref": "#/$defs/scenario"
           }
@@ -480,12 +480,12 @@
         },
         "case_count": {
           "type": "integer",
-          "const": 22
+          "const": 26
         },
         "rows": {
           "type": "array",
-          "minItems": 22,
-          "maxItems": 22,
+          "minItems": 26,
+          "maxItems": 26,
           "items": {
             "$ref": "#/$defs/oracleRow"
           }
