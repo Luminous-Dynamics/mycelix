@@ -276,7 +276,7 @@ fn replay(input: &Replay) -> Result<String, ReferenceError> {
         match current {
             None => {
                 missing_as_of = true;
-                let row = &versions[0];
+                let row = versions.iter().min_by_key(|version| version.version).expect("evidence has at least one version");
                 reports.push((
                     evidence_id.clone(),
                     None,
@@ -425,6 +425,28 @@ mod tests {
             .unwrap_err()
             .0
             .contains("recorded before it is observed"));
+    }
+
+    #[test]
+    fn all_future_versions_keep_a_stable_no_as_of_representative() {
+        let changed = FIXTURE.replace(
+            "stock-r1|stock_receipt|1|claim-diesel-stock|diesel-tank-01|available_stock|800|1100|820|830||ASSERTED",
+            "stock-r1|stock_receipt|1|claim-diesel-stock|diesel-tank-01|available_stock|800|1100|1200|1205||ASSERTED",
+        );
+        assert_ne!(changed, FIXTURE);
+        let mut meta = Vec::new();
+        let mut rows = Vec::new();
+        for line in changed.lines() {
+            if line.starts_with('#') { meta.push(line); }
+            else if !line.is_empty() { rows.push(line); }
+        }
+        let header = rows.remove(0);
+        rows.reverse();
+        let permuted = format!("{}\n{}\n{}\n", meta.join("\n"), header, rows.join("\n"));
+        let first = validate_and_report(&changed).expect("original");
+        let second = validate_and_report(&permuted).expect("permuted");
+        assert_eq!(first, second);
+        assert!(first.contains("stock_receipt|NONE|claim-diesel-stock|diesel-tank-01|available_stock|NO_AS_OF_VERSION|operator|synthetic:stock:r1"));
     }
 
     #[test]
