@@ -365,3 +365,33 @@ fn high_impact_contract_with_unknown_remedy_path_is_indeterminate() {
     let decision = evaluate(&facts, facts.evaluated_at_unix);
     assert_eq!(decision.disposition, Disposition::Indeterminate);
 }
+
+#[test]
+fn scientific_reward_holds_when_conflict_or_dependency_inventory_is_unknown() {
+    let suite: DomainScenarioSuite<EpistemicBountyFacts> =
+        serde_json::from_str(EPISTEMIC_SCENARIOS).unwrap();
+    let eligible = suite.cases.iter().find(|case| case.id == "EB01").unwrap();
+
+    let mut conflict_unknown = eligible.facts.clone();
+    conflict_unknown.reviewer_conflict = None;
+    assert_eq!(evaluate_epistemic_bounty(&conflict_unknown).disposition, Disposition::Indeterminate);
+
+    let mut dependency_unknown = eligible.facts.clone();
+    dependency_unknown.shared_dependency = None;
+    assert_eq!(evaluate_epistemic_bounty(&dependency_unknown).disposition, Disposition::Indeterminate);
+}
+
+#[test]
+fn restoration_holds_when_baseline_or_observation_currentness_is_unknown() {
+    let suite: DomainScenarioSuite<RestorationFacts> =
+        serde_json::from_str(RESTORATION_SCENARIOS).unwrap();
+    let tranche = suite.cases.iter().find(|case| case.id == "RST01").unwrap();
+
+    let mut baseline_unknown = tranche.facts.clone();
+    baseline_unknown.baseline_pinned = None;
+    assert_eq!(evaluate_restoration_contract(&baseline_unknown).disposition, Disposition::Indeterminate);
+
+    let mut freshness_unknown = tranche.facts.clone();
+    freshness_unknown.evidence_current = None;
+    assert_eq!(evaluate_restoration_contract(&freshness_unknown).disposition, Disposition::Indeterminate);
+}
