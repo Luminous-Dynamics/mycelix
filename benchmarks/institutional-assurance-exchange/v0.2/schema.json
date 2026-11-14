@@ -607,7 +607,9 @@
           "asset_ref",
           "actor_ref",
           "fields",
-          "possible_external_side_effect"
+          "possible_external_side_effect",
+          "canonical_operation_digest",
+          "action_digest"
         ],
         "properties": {
           "event_ref": {
@@ -682,6 +684,14 @@
           },
           "possible_external_side_effect": {
             "type": "boolean"
+          },
+          "canonical_operation_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "action_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           }
         }
       }
