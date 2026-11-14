@@ -892,8 +892,8 @@ mod tests {
     #[test]
     fn failed_common_cause_removes_affected_capacity() {
         let changed = FIXTURE.replace(
-            "domain-state-power|DOMAIN_STATE||||synthetic-water-shock|hour-01|power_feed_east|||CLEAR|mycelix|synthetic:domain:power",
-            "domain-state-power|DOMAIN_STATE||||synthetic-water-shock|hour-01|power_feed_east|||FAILED|mycelix|synthetic:domain:power",
+            "DOMAIN_STATE|domain-state-power||||synthetic-water-shock|hour-01|power_feed_east|||CLEAR|mycelix|synthetic:domain:power",
+            "DOMAIN_STATE|domain-state-power||||synthetic-water-shock|hour-01|power_feed_east|||FAILED|mycelix|synthetic:domain:power",
         );
         assert_ne!(changed, FIXTURE);
         let report = validate_and_report(&changed).expect("failed domain is a valid observation");
@@ -905,8 +905,8 @@ mod tests {
     #[test]
     fn shared_resource_overcommit_is_rejected() {
         let changed = FIXTURE.replace(
-            "resource-cap-diesel|RESOURCE_CAPACITY||||synthetic-water-shock|hour-01|diesel|60|L|QUALIFIED|operator|synthetic:stock:diesel",
-            "resource-cap-diesel|RESOURCE_CAPACITY||||synthetic-water-shock|hour-01|diesel|40|L|QUALIFIED|operator|synthetic:stock:diesel",
+            "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|60|L|QUALIFIED|operator|synthetic:stock:diesel",
+            "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|40|L|QUALIFIED|operator|synthetic:stock:diesel",
         );
         assert_ne!(changed, FIXTURE);
         let report = validate_and_report(&changed).expect("overcommit is a valid plan to reject");
@@ -917,7 +917,7 @@ mod tests {
     #[test]
     fn missing_resource_capacity_abstains_instead_of_assuming_unlimited_supply() {
         let changed = FIXTURE.replace(
-            "resource-cap-diesel|RESOURCE_CAPACITY||||synthetic-water-shock|hour-01|diesel|60|L|QUALIFIED|operator|synthetic:stock:diesel\n",
+            "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|60|L|QUALIFIED|operator|synthetic:stock:diesel\n",
             "",
         );
         assert_ne!(changed, FIXTURE);
@@ -929,8 +929,8 @@ mod tests {
     #[test]
     fn unknown_domain_state_abstains() {
         let changed = FIXTURE.replace(
-            "domain-state-power|DOMAIN_STATE||||synthetic-water-shock|hour-01|power_feed_east|||CLEAR|mycelix|synthetic:domain:power",
-            "domain-state-power|DOMAIN_STATE||||synthetic-water-shock|hour-01|power_feed_east|||UNKNOWN|mycelix|synthetic:domain:power",
+            "DOMAIN_STATE|domain-state-power||||synthetic-water-shock|hour-01|power_feed_east|||CLEAR|mycelix|synthetic:domain:power",
+            "DOMAIN_STATE|domain-state-power||||synthetic-water-shock|hour-01|power_feed_east|||UNKNOWN|mycelix|synthetic:domain:power",
         );
         assert_ne!(changed, FIXTURE);
         let report = validate_and_report(&changed).expect("unknown domain is explicit");
@@ -941,8 +941,8 @@ mod tests {
     #[test]
     fn service_floor_is_enforced_per_cohort() {
         let changed = FIXTURE.replace(
-            "allocation-households|ALLOCATION|backup_pump|water|households|synthetic-water-shock|hour-01||80|m3|PROPOSED|operator|synthetic:plan:pump",
-            "allocation-households|ALLOCATION|backup_pump|water|households|synthetic-water-shock|hour-01||40|m3|PROPOSED|operator|synthetic:plan:pump",
+            "ALLOCATION|allocation-households|backup_pump|water|households|synthetic-water-shock|hour-01||80|m3|PROPOSED|operator|synthetic:plan:pump",
+            "ALLOCATION|allocation-households|backup_pump|water|households|synthetic-water-shock|hour-01||40|m3|PROPOSED|operator|synthetic:plan:pump",
         );
         assert_ne!(changed, FIXTURE);
         let report =
@@ -954,7 +954,7 @@ mod tests {
     #[test]
     fn missing_resource_profile_is_not_assumed_zero() {
         let changed = FIXTURE.replace(
-            "resource-profile-mobile|RESOURCE_PROFILE|mobile_treatment|water||synthetic-water-shock|hour-01||||COMPLETE|operator|synthetic:resource-profile:mobile\n",
+            "RESOURCE_PROFILE|resource-profile-mobile|mobile_treatment|water||synthetic-water-shock|hour-01||||COMPLETE|operator|synthetic:resource-profile:mobile\n",
             "",
         );
         assert_ne!(changed, FIXTURE);
@@ -966,8 +966,8 @@ mod tests {
     #[test]
     fn unit_mismatch_is_rejected_not_converted_implicitly() {
         let changed = FIXTURE.replace(
-            "resource-cap-diesel|RESOURCE_CAPACITY||||synthetic-water-shock|hour-01|diesel|60|L|QUALIFIED|operator|synthetic:stock:diesel",
-            "resource-cap-diesel|RESOURCE_CAPACITY||||synthetic-water-shock|hour-01|diesel|60|m3|QUALIFIED|operator|synthetic:stock:diesel",
+            "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|60|L|QUALIFIED|operator|synthetic:stock:diesel",
+            "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|60|m3|QUALIFIED|operator|synthetic:stock:diesel",
         );
         assert_ne!(changed, FIXTURE);
         assert!(validate_and_report(&changed)
@@ -979,8 +979,8 @@ mod tests {
     #[test]
     fn integer_overflow_is_rejected() {
         let changed = FIXTURE.replace(
-            "allocation-households|ALLOCATION|backup_pump|water|households|synthetic-water-shock|hour-01||80|m3|PROPOSED|operator|synthetic:plan:pump",
-            "allocation-households|ALLOCATION|backup_pump|water|households|synthetic-water-shock|hour-01||18446744073709551615|m3|PROPOSED|operator|synthetic:plan:pump",
+            "ALLOCATION|allocation-households|backup_pump|water|households|synthetic-water-shock|hour-01||80|m3|PROPOSED|operator|synthetic:plan:pump",
+            "ALLOCATION|allocation-households|backup_pump|water|households|synthetic-water-shock|hour-01||18446744073709551615|m3|PROPOSED|operator|synthetic:plan:pump",
         );
         assert_ne!(changed, FIXTURE);
         assert!(validate_and_report(&changed)
@@ -992,8 +992,8 @@ mod tests {
     #[test]
     fn scenario_and_interval_mismatch_is_rejected() {
         let changed = FIXTURE.replace(
-            "allocation-households|ALLOCATION|backup_pump|water|households|synthetic-water-shock|hour-01",
-            "allocation-households|ALLOCATION|backup_pump|water|households|other-scenario|hour-01",
+            "ALLOCATION|allocation-households|backup_pump|water|households|synthetic-water-shock|hour-01",
+            "ALLOCATION|allocation-households|backup_pump|water|households|other-scenario|hour-01",
         );
         assert_ne!(changed, FIXTURE);
         assert!(validate_and_report(&changed)
@@ -1023,7 +1023,7 @@ mod tests {
             "evidence=qual-pump|OPTION_QUALIFICATION|operator|synthetic:qualification:pump"
         ));
         assert!(report.contains(
-            "evidence=resource-cap-diesel|RESOURCE_CAPACITY|operator|synthetic:stock:diesel"
+            "evidence=RESOURCE_CAPACITY|resource-cap-diesel|operator|synthetic:stock:diesel"
         ));
     }
 
