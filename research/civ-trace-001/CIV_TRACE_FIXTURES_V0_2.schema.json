@@ -25,7 +25,7 @@
       "const": "synthetic_remedy_lifecycle_extension_design_unexecuted"
     },
     "fixture_count": {
-      "const": 43
+      "const": 44
     },
     "family_count": {
       "const": 7
@@ -49,8 +49,8 @@
     },
     "fixtures": {
       "type": "array",
-      "minItems": 43,
-      "maxItems": 43,
+      "minItems": 44,
+      "maxItems": 44,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -333,7 +333,8 @@
                   "OPEN",
                   "VERIFIED",
                   "INEFFECTIVE",
-                  "INDETERMINATE"
+                  "INDETERMINATE",
+                  "INDEPENDENCE_UNESTABLISHED"
                 ]
               }
             }
