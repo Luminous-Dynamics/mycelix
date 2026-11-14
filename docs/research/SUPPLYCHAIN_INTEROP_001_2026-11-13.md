@@ -138,6 +138,19 @@ The GS1 audit's 2.0.0/2.0.1 distinction also becomes a negative control: retain 
 
 This is a semantic and evaluation overlay only. It composes with Mycelix #3022/#3046/#4778/#5451 and #1112, Symthaea #10600, and the domain-specific #5395/#6105 owners. Mycelix #5860 is referenced only for its DeSci receipt-time projection pattern and its explicit limitation that record receipt does not prove index/model availability. No generic temporal ledger, new event vocabulary, receipt schema or validator is added.
 
+
+
+## 6B. Distributed source frontiers and partial-order history
+
+Scenario SC-TIME-006 now tests the case where EPCIS events and evidence arrive from multiple independent source streams. Per-source local sequence values are meaningful only within their source; neither timestamp sorting nor a scalar global sequence/height can prove a cross-source happens-before relation or complete evidence frontier.
+
+The profile consumes:
+- Mycelix [EPI-008 #2631](https://github.com/Luminous-Dynamics/mycelix/issues/2631) for typed temporal assertions and EvidenceFrontierV1;
+- Mycelix [PULSE-MULTICONDUCTOR-EVIDENCE-001 #5843](https://github.com/Luminous-Dynamics/mycelix/issues/5843) as an existing partial-order causal-history verifier reference;
+- Mycelix [EMSR-PROV-003 #5923](https://github.com/Luminous-Dynamics/mycelix/issues/5923) for time-qualified dependency/source completeness.
+
+This is a semantic challenge and owner composition only. It adds no new causal log, vector clock service or evidence-frontier implementation to the supply-chain profile. Missing source coverage or causal join remains incomplete/unknown.
+
 ## 7. Prospective gates
 
 These are proposed test thresholds, not achieved results:
