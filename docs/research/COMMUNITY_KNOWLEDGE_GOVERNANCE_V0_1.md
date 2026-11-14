@@ -145,7 +145,7 @@ The kernel checks:
 - grant validity window;
 - per-operation allowed and denied lists, including conflicting rules.
 
-It contains 15 focused unit tests for scoped citation/display, denied training/retrieval, revocation, unknown revocation, authentication mismatch, pending status, disputed authority, missing authority reference, record/grantee/purpose mismatch, expiry, conflicting rules and missing grants.
+It contains 18 focused unit tests for scoped citation/display, denied training/retrieval, reference-only citation semantics, revocation, unknown revocation, authentication mismatch, pending status, disputed authority, missing authority reference, record/grantee/purpose mismatch, expiry, conflicting rules and missing grants.
 
 **Important boundary:** this kernel is a deterministic policy function, not a complete authorization system. It does not verify signatures, fetch current DHT authority/revocation state, resolve authority disputes, persist grants, invalidate retrieval/index caches or enforce a read path. The existing `get_claim` and `latest_claim_records_from_links` paths are not yet wired to HMP rights. The public claims model is currently designed around broadly retrievable claims; community-controlled knowledge must not be placed into that path until authorization is enforced end-to-end.
 
