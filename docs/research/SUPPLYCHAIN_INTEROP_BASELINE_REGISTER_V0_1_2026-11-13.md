@@ -130,3 +130,8 @@ A server that supports only a subset can participate in a clearly labelled compa
 This register was produced by public-source and source-code inspection only. No server was deployed, no API request was sent to either candidate, no license compatibility review was performed beyond identifying declared Apache-2.0 files, no normative JSON-LD/SHACL validation was executed and no throughput or semantic-fidelity measurement was taken.
 
 It does not claim GS1 endorsement, server conformance, Mycelix interoperability, external partnership, physical-event truth, product authenticity, regulatory compliance, NIST conformity or SOTA performance.
+
+
+### 2026-11-14 exact-source recheck
+
+The official EPCIS 2.0.0 artifact page and exact Draft-07 JSON Schema are browser-renderable, but raw bytes, response headers/final URL and SHA-256 remain uncaptured. Context and SHACL still fail only at browser media-type handling. A `gs1/EPCIS` mirror context at commit `6f714682` is explicitly labelled a v2.1 public review draft; it is not substituted for the normative 2.0.0 URL. Keep #5395 raw-byte intake and all three official validator lanes open.
