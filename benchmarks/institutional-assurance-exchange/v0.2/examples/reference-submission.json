@@ -294,6 +294,9 @@
     "target_ref": "PROPERTY-001",
     "purpose": "new_tenant_commercial_lease",
     "idempotency_ref": "IDEM-LEASE-001",
-    "action_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    "action_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "current_authority_state": "revoked",
+    "reattempt_disposition": "DENY",
+    "reattempt_reason_code": "authority.revoked_before_action"
   }
 }
