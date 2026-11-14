@@ -1,0 +1,183 @@
+{
+  "schema_id": "luminous.fsre.claim-qualification-envelope",
+  "schema_version": "0.2.0",
+  "claim_id": "fsre-synthetic-recovery-conformance-2026-11-13-001",
+  "claim_type": "software_conformance",
+  "claim_statement": "On the named evaluator revision, one of seven synthetic recovery-option candidates was accepted for the declared synthetic scenario; six were rejected with explicit non-qualification reasons, and an independently authored reference evaluator reproduced all seven dispositions from the same frozen inputs.",
+  "claim_status": "SUPPORTED_WITHIN_DECLARED_SCOPE",
+  "subject": {
+    "service_id": "synthetic-water-service",
+    "cohort_id": "synthetic-household-service-area-alpha",
+    "operator_ref": null,
+    "geography_ref": null
+  },
+  "scope": {
+    "scope_kind": "synthetic",
+    "scenario_id": "synthetic-water-compound-disruption",
+    "scenario_digest": "sha256:80005cf843ae7f0c283658cb0d5fbac01e4530bf2ed32b79d55bc9c745e216af",
+    "observation_start": null,
+    "observation_end": null,
+    "time_basis_id": "synthetic-clock-v1",
+    "clock_uncertainty_seconds": 0,
+    "geographic_grain": "synthetic service lane; no real geography",
+    "population_boundary": "Synthetic fixture only",
+    "service_boundary": "Seven synthetic fallback candidates under one frozen compound-disruption scenario"
+  },
+  "measurement": {
+    "unit": "synthetic_recovery_option_count",
+    "denominator": "7 synthetic candidates",
+    "method_id": "seven-predicate-conjunction-v0.1",
+    "value": 1,
+    "uncertainty": null,
+    "unknown_duration_seconds": null,
+    "distributional_breakdown": [
+      {
+        "cohort_id": "synthetic-household-service-area-alpha",
+        "unit": "synthetic_recovery_option_count",
+        "value": 1,
+        "unknown_duration_seconds": null
+      },
+      {
+        "cohort_id": "synthetic-hospital-service-area-alpha",
+        "unit": "synthetic_recovery_option_count",
+        "value": 0,
+        "unknown_duration_seconds": null
+      }
+    ]
+  },
+  "provenance": {
+    "source_frontier": [
+      {
+        "source_owner": "symtropy",
+        "source_record_ref": "synthetic:receipt:backup_independent:physical_feasibility",
+        "source_schema_version": "symtropy.physical-feasibility.v0.1",
+        "source_digest": null,
+        "observed_at": null,
+        "valid_until": null,
+        "time_basis_id": "synthetic-clock-v1",
+        "clock_uncertainty_seconds": 0,
+        "admissibility": "SYNTHETIC",
+        "available_at": null,
+        "valid_from": null,
+        "revoked_effective_at": null,
+        "revocation_known_at": null,
+        "as_of_admissibility": "SYNTHETIC_NOT_ASSESSED"
+      },
+      {
+        "source_owner": "sol-atlas",
+        "source_record_ref": "synthetic:receipt:backup_independent:spatial_access",
+        "source_schema_version": "sol-atlas.spatial-access.v0.1",
+        "source_digest": null,
+        "observed_at": null,
+        "valid_until": null,
+        "time_basis_id": "synthetic-clock-v1",
+        "clock_uncertainty_seconds": 0,
+        "admissibility": "SYNTHETIC",
+        "available_at": null,
+        "valid_from": null,
+        "revoked_effective_at": null,
+        "revocation_known_at": null,
+        "as_of_admissibility": "SYNTHETIC_NOT_ASSESSED"
+      },
+      {
+        "source_owner": "mycelix",
+        "source_record_ref": "synthetic:receipt:backup_independent:dependency_independence",
+        "source_schema_version": "mycelix.dependency-independence.v0.1",
+        "source_digest": null,
+        "observed_at": null,
+        "valid_until": null,
+        "time_basis_id": "synthetic-clock-v1",
+        "clock_uncertainty_seconds": 0,
+        "admissibility": "SYNTHETIC",
+        "available_at": null,
+        "valid_from": null,
+        "revoked_effective_at": null,
+        "revocation_known_at": null,
+        "as_of_admissibility": "SYNTHETIC_NOT_ASSESSED"
+      },
+      {
+        "source_owner": "operator",
+        "source_record_ref": "synthetic:receipt:backup_independent:staffing-resources-safety",
+        "source_schema_version": "operator.recovery-capability.v0.1",
+        "source_digest": null,
+        "observed_at": null,
+        "valid_until": null,
+        "time_basis_id": "synthetic-clock-v1",
+        "clock_uncertainty_seconds": 0,
+        "admissibility": "SYNTHETIC",
+        "available_at": null,
+        "valid_from": null,
+        "revoked_effective_at": null,
+        "revocation_known_at": null,
+        "as_of_admissibility": "SYNTHETIC_NOT_ASSESSED"
+      },
+      {
+        "source_owner": "mycelix",
+        "source_record_ref": "synthetic:receipt:backup_independent:authority",
+        "source_schema_version": "mycelix.authority.v0.1",
+        "source_digest": null,
+        "observed_at": null,
+        "valid_until": null,
+        "time_basis_id": "synthetic-clock-v1",
+        "clock_uncertainty_seconds": 0,
+        "admissibility": "SYNTHETIC",
+        "available_at": null,
+        "valid_from": null,
+        "revoked_effective_at": null,
+        "revocation_known_at": null,
+        "as_of_admissibility": "SYNTHETIC_NOT_ASSESSED"
+      }
+    ],
+    "source_authenticity": "SYNTHETIC_ONLY",
+    "as_of_qualification": {
+      "decision_cutoff": null,
+      "time_basis_id": "synthetic-clock-v1",
+      "freshness_policy": {
+        "basis": "SYNTHETIC_NOT_ASSESSED",
+        "max_observation_age_seconds": null,
+        "policy_ref": null
+      },
+      "disposition": "SYNTHETIC_ONLY",
+      "replay_evaluator_id": null,
+      "replay_evaluator_revision": null,
+      "replay_report_ref": null,
+      "hindsight_revocation_count": 0,
+      "future_information_used": false
+    }
+  },
+  "method": {
+    "scenario_manifest_ref": "research/fsre/scenarios/ZA_RESILIENCE_DEBT_SYNTHETIC_V0_1.json#canonical_scenario_manifest",
+    "evaluator_id": "fsre-recovery-qualification",
+    "evaluator_version": "0.1.0",
+    "evaluator_revision": "7d79684d7f7adbdfc0b618901a09b8c2e702632f",
+    "model_receipts": [],
+    "analysis_plan_ref": null
+  },
+  "assessment": {
+    "evidence_adequacy": "ADEQUATE_FOR_CLAIM",
+    "reproducibility": "DIFFERENTIAL_AGREEMENT_ON_SHARED_INPUTS",
+    "independence": "SEPARATE_IMPLEMENTATION_SHARED_SPEC_AND_FIXTURE",
+    "limitations": [
+      "All inputs are synthetic and do not represent a real operator, utility, asset, route or authority grant.",
+      "The independent reference shares the same written specification and fixture; it does not rule out common specification or fixture errors.",
+      "The evaluators validate disposition logic and do not authenticate upstream owner records.",
+      "The evaluator's qualified disposition is scenario-scoped only and is not an operational approval."
+    ],
+    "unresolved_unknowns": [
+      "No live owner-native evidence has been integrated.",
+      "No physical feasibility or spatial accessibility has been validated against real infrastructure.",
+      "No operator partnership or field outcome has been evaluated."
+    ],
+    "verifier_ref": "tools/fsre-recovery-reference/fixtures/expected-options.txt"
+  },
+  "authority": {
+    "decision_right_owner": null,
+    "execution_authority": "NONE",
+    "operational_actuation": "NOT_AUTHORISED"
+  },
+  "claim_ceiling": [
+    "The named evaluator and independent reference agreed on seven candidate dispositions for one synthetic scenario and frozen fixture.",
+    "No physical recovery option is qualified in the real world.",
+    "No intervention effect, causal claim, deployment readiness, regulatory compliance or SOTA superiority is established."
+  ]
+}
