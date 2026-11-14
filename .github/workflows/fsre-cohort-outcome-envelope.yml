@@ -4,6 +4,7 @@ on:
     paths:
       - "tools/fsre-cohort-outcome-envelope/**"
       - "tools/fsre-service-trajectory/**"
+      - "tools/fsre-service-trajectory/**"
       - ".github/workflows/fsre-cohort-outcome-envelope.yml"
   push:
     branches:
