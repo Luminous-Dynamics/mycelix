@@ -555,9 +555,11 @@ pub struct EffectivePrivilege {
     /// Active grant amount ceilings summed independently by currency.
     /// Minor units from different currencies are never added together.
     pub aggregate_amount_limits_minor: BTreeMap<String, u64>,
-    /// At least one active grant has no numeric amount ceiling.
-    pub amount_limit_unbounded: bool,
-    /// False if an active grant declares a bounded amount without a currency.
+    /// Active grants with no numeric ceiling but an explicit currency bound.
+    pub unbounded_amount_currencies: BTreeSet<String>,
+    /// At least one active grant has no currency or numeric amount ceiling.
+    pub unbounded_all_currencies: bool,
+    /// False if an active grant declares a bounded amount or currency without a valid binding.
     pub amount_currency_binding_complete: bool,
     /// Conservative sum of active grant operation-count ceilings; None means
     /// at least one active grant is unbounded.
@@ -611,7 +613,8 @@ pub fn delegation_is_attenuated(parent: &CapabilityScope, child: &CapabilityScop
 pub fn union_effective_privilege(grants: &[CapabilityGrant]) -> EffectivePrivilege {
     let mut result = EffectivePrivilege {
         aggregate_amount_limits_minor: BTreeMap::new(),
-        amount_limit_unbounded: false,
+        unbounded_amount_currencies: BTreeSet::new(),
+        unbounded_all_currencies: false,
         amount_currency_binding_complete: true,
         aggregate_operation_limit: Some(0),
         ..EffectivePrivilege::default()
@@ -630,7 +633,11 @@ pub fn union_effective_privilege(grants: &[CapabilityGrant]) -> EffectivePrivile
                 *total = total.saturating_add(limit);
             }
             (Some(_), _) => result.amount_currency_binding_complete = false,
-            (None, _) => result.amount_limit_unbounded = true,
+            (None, Some(currency)) if !currency.trim().is_empty() => {
+                result.unbounded_amount_currencies.insert(currency.to_owned());
+            }
+            (None, Some(_)) => result.amount_currency_binding_complete = false,
+            (None, None) => result.unbounded_all_currencies = true,
         }
         result.aggregate_operation_limit =
             match (result.aggregate_operation_limit, grant.scope.max_operations) {
@@ -661,13 +668,18 @@ fn amount_privilege_within_task(effective: &EffectivePrivilege, task: &Capabilit
             let currency_matches = effective
                 .aggregate_amount_limits_minor
                 .keys()
-                .all(|currency| currency == task_currency);
+                .all(|currency| currency == task_currency)
+                && effective
+                    .unbounded_amount_currencies
+                    .iter()
+                    .all(|currency| currency == task_currency)
+                && !effective.unbounded_all_currencies;
             if !currency_matches {
                 return false;
             }
             match task.max_amount_minor {
                 Some(approved_limit) => {
-                    !effective.amount_limit_unbounded
+                    effective.unbounded_amount_currencies.is_empty()
                         && effective.aggregate_amount_limits_minor
                             .get(task_currency)
                             .copied()
@@ -1083,7 +1095,8 @@ mod tests {
         assert!(effective.actions.contains("delete"));
         assert!(effective.resources.contains("record-2"));
         assert!(effective.fields.contains("private-notes"));
-        assert!(effective.amount_limit_unbounded);
+        assert!(effective.unbounded_all_currencies);
+        assert!(effective.unbounded_amount_currencies.is_empty());
         assert!(effective.amount_currency_binding_complete);
         assert_eq!(effective.aggregate_operation_limit, None);
         assert!(effective.grant_refs.contains("shared-service-token"));
@@ -1255,6 +1268,72 @@ mod tests {
         let effective = union_effective_privilege(&[grant]);
         assert!(!effective.amount_currency_binding_complete);
         assert!(!effective_privilege_within_task(&effective, &task));
+    }
+
+    #[test]
+    fn unbounded_currency_scoped_grant_cannot_escape_into_another_task_currency() {
+        let task = scope(
+            &["transfer"],
+            &["account-a"],
+            &["settlement"],
+            &["amount"],
+            1,
+            Some(100),
+            None,
+            Some(2),
+        );
+        let mut eur_scope = scope(
+            &["transfer"],
+            &["account-a"],
+            &["settlement"],
+            &["amount"],
+            1,
+            Some(90),
+            None,
+            Some(1),
+        );
+        eur_scope.amount_currency = Some("EUR".to_owned());
+        let grant = CapabilityGrant {
+            grant_ref: "unbounded-eur".to_owned(),
+            active_during_trajectory: true,
+            scope: eur_scope,
+        };
+        let effective = union_effective_privilege(&[grant]);
+        assert!(effective.unbounded_amount_currencies.contains("EUR"));
+        assert!(!effective.unbounded_all_currencies);
+        assert!(!effective_privilege_within_task(&effective, &task));
+    }
+
+    #[test]
+    fn unbounded_grant_is_compatible_with_same_unbounded_task_currency() {
+        let task = scope(
+            &["transfer"],
+            &["account-a"],
+            &["settlement"],
+            &["amount"],
+            1,
+            Some(100),
+            None,
+            Some(2),
+        );
+        let mut usd_scope = scope(
+            &["transfer"],
+            &["account-a"],
+            &["settlement"],
+            &["amount"],
+            1,
+            Some(90),
+            None,
+            Some(1),
+        );
+        usd_scope.amount_currency = Some("USD".to_owned());
+        let grant = CapabilityGrant {
+            grant_ref: "unbounded-usd".to_owned(),
+            active_during_trajectory: true,
+            scope: usd_scope,
+        };
+        let effective = union_effective_privilege(&[grant]);
+        assert!(effective_privilege_within_task(&effective, &task));
     }
 
     #[test]
