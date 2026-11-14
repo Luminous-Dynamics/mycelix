@@ -87,6 +87,7 @@ At minimum, freeze known-answer cases for:
 - late-arriving evidence with earlier source publication time;
 - source event time that is not UTC or is not directly comparable;
 - duplicate, missing, malformed and reused identifiers;
+- unusual or uninterpreted root/citation attributes and exact description whitespace, including unresolved citation targets;
 - follow-up, supersession and retraction by different publishers;
 - unresolved references that become resolvable later;
 - contradictory and cyclic citation graphs;
@@ -119,6 +120,7 @@ These are goals for future evaluations, not results achieved by v0.1.
 
 - Zero temporal look-ahead across all known-answer and adversarial cases.
 - Zero source-projection mismatch: packet identity, role, publisher assertion, creation time, citations and digest must originate from one parser invocation over the same exact source bytes.
+- Zero loss of source root attributes, EventIVORN attributes or Citations/Description text in the replay graph, including unresolved edges.
 - Zero silently lost source packets or lifecycle citations.
 - 100% expected edge/effect fidelity on the frozen synthetic corpus.
 - 100% deterministic replay for identical inputs and cutoff.
