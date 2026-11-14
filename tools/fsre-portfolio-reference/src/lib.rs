@@ -982,6 +982,9 @@ mod tests {
             "ALLOCATION|allocation-households|backup_pump|water|households|synthetic-water-shock|hour-01||80|m3|PROPOSED|operator|synthetic:plan:pump",
             "ALLOCATION|allocation-households|backup_pump|water|households|synthetic-water-shock|hour-01||18446744073709551615|m3|PROPOSED|operator|synthetic:plan:pump",
         );
+        let changed = format!(
+            "{changed}ALLOCATION|allocation-overflow|backup_pump|water|households|synthetic-water-shock|hour-01||1|m3|PROPOSED|operator|synthetic:plan:overflow\n"
+        );
         assert_ne!(changed, FIXTURE);
         assert!(validate_and_report(&changed)
             .unwrap_err()
@@ -1023,8 +1026,60 @@ mod tests {
             "evidence=qual-pump|OPTION_QUALIFICATION|operator|synthetic:qualification:pump"
         ));
         assert!(report.contains(
-            "evidence=RESOURCE_CAPACITY|resource-cap-diesel|operator|synthetic:stock:diesel"
+            "evidence=resource-cap-diesel|RESOURCE_CAPACITY|operator|synthetic:stock:diesel"
         ));
+    }
+
+    #[test]
+    fn generated_capacity_floor_and_allocation_sweeps_check_exact_boundaries() {
+        let resource_old = "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|60|L|QUALIFIED|operator|synthetic:stock:diesel";
+        let option_old = "OPTION_CAPACITY|cap-pump|backup_pump|water||synthetic-water-shock|hour-01||80|m3|QUALIFIED|symtropy|synthetic:capacity:pump";
+        let floor_old = "SERVICE_FLOOR|floor-households||water|households|synthetic-water-shock|hour-01||70|m3|REQUIRED|service-owner|synthetic:floor:households";
+
+        for capacity in 0..=70_u64 {
+            let replacement = format!(
+                "RESOURCE_CAPACITY|resource-cap-diesel||||synthetic-water-shock|hour-01|diesel|{capacity}|L|QUALIFIED|operator|synthetic:stock:diesel"
+            );
+            let changed = FIXTURE.replace(resource_old, &replacement);
+            assert_ne!(changed, FIXTURE);
+            let report = validate_and_report(&changed).expect("resource capacity sweep input");
+            let expected = if capacity < 50 {
+                "portfolio_disposition=NOT_FEASIBLE"
+            } else {
+                "portfolio_disposition=PORTFOLIO_FEASIBLE_FOR_DECLARED_SCENARIO"
+            };
+            assert!(report.contains(expected), "resource capacity boundary {capacity}");
+        }
+
+        for capacity in 0..=100_u64 {
+            let replacement = format!(
+                "OPTION_CAPACITY|cap-pump|backup_pump|water||synthetic-water-shock|hour-01||{capacity}|m3|QUALIFIED|symtropy|synthetic:capacity:pump"
+            );
+            let changed = FIXTURE.replace(option_old, &replacement);
+            assert_ne!(changed, FIXTURE);
+            let report = validate_and_report(&changed).expect("option capacity sweep input");
+            let expected = if capacity < 80 {
+                "portfolio_disposition=NOT_FEASIBLE"
+            } else {
+                "portfolio_disposition=PORTFOLIO_FEASIBLE_FOR_DECLARED_SCENARIO"
+            };
+            assert!(report.contains(expected), "option capacity boundary {capacity}");
+        }
+
+        for floor in 0..=110_u64 {
+            let replacement = format!(
+                "SERVICE_FLOOR|floor-households||water|households|synthetic-water-shock|hour-01||{floor}|m3|REQUIRED|service-owner|synthetic:floor:households"
+            );
+            let changed = FIXTURE.replace(floor_old, &replacement);
+            assert_ne!(changed, FIXTURE);
+            let report = validate_and_report(&changed).expect("cohort floor sweep input");
+            let expected = if floor > 100 {
+                "portfolio_disposition=NOT_FEASIBLE"
+            } else {
+                "portfolio_disposition=PORTFOLIO_FEASIBLE_FOR_DECLARED_SCENARIO"
+            };
+            assert!(report.contains(expected), "service floor boundary {floor}");
+        }
     }
 
     #[test]
