@@ -33,6 +33,8 @@ If known infeasibility and unknown evidence coexist, the claim is conservatively
 
 ## Verification
 
+The initial deterministic test suite includes a generated 283-configuration boundary sweep across resource capacity, option capacity and per-cohort service floors, in addition to targeted common-cause, unknown-evidence, unit-mismatch, lineage and overflow controls.
+
 `cargo test --locked --offline --manifest-path tools/fsre-portfolio-reference/Cargo.toml`
 
 `cargo run --locked --offline --manifest-path tools/fsre-portfolio-reference/Cargo.toml -- tools/fsre-portfolio-reference/fixtures/synthetic-feasible.psv`
