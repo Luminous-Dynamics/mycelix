@@ -2,7 +2,7 @@
   "schema_version": "larp.epistemic-bounty-scenarios.v0.1",
   "suite_id": "LARP-EPISTEMIC-001",
   "status": "synthetic-development-seed",
-  "case_count": 12,
+  "case_count": 13,
   "cases": [
     {
       "id": "EB01",
@@ -406,6 +406,39 @@
         "rights_satisfied": true,
         "remedy_path_defined": true,
         "amount_units": 100,
+        "amount_ceiling_units": 1000,
+        "currency": "SAP",
+        "funding_source_valid": true
+      }
+    },
+    {
+      "id": "EB13",
+      "kind": "attack",
+      "title": "reward amount exceeds approved funding ceiling",
+      "facts": {
+        "mode": "payout_request",
+        "evidence_reproduced": true,
+        "reviewer_conflict": false,
+        "conflict_disclosed": true,
+        "reviewers_independent": true,
+        "shared_dependency": false,
+        "similarity_high": false,
+        "coordination_corroborated": false,
+        "local_threshold_met": true,
+        "appeal_open": false,
+        "retraction": false,
+        "historical_record_preserved": true,
+        "treasury_authorized": true,
+        "exact_operation_match": true,
+        "payout_state": "not_started",
+        "request_sanction": false,
+        "local_authority_valid": true,
+        "constitution_current": true,
+        "recipient_eligible": true,
+        "payout_bounded": true,
+        "rights_satisfied": true,
+        "remedy_path_defined": true,
+        "amount_units": 1001,
         "amount_ceiling_units": 1000,
         "currency": "SAP",
         "funding_source_valid": true
