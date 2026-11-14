@@ -179,3 +179,27 @@ Prospective research targets (not results):
 9. Freeze holdout mutations and run matched comparator arms.
 
 This specification and JSON manifest are authored development artifacts only. JSON syntax and scenario-ID/oracle disposition consistency were checked during authoring; no external schema validator, Rust runtime, provider integration, independent review, CI pass, legal opinion or field-effectiveness result is claimed.
+
+
+## 11. Authorization assurance profile extension
+
+The scenario set has been extended from 24 to 32 synthetic cases. New cases exercise refreshed/stale active sessions, revocation propagation, transitive delegation, alternate route bypass, trajectory-wide ambient privilege, credential subject forwarding, incomplete route inventories and unavailable revocation status.
+
+See [Institutional Authorization Assurance Profile](./INSTITUTIONAL_AUTHORIZATION_ASSURANCE_PROFILE.md) for claim–obligation–enforcement–evidence–effect semantics and the five properties being tested. The profile is research guidance, not a standard or certification.
+
+The Rust reference adds:
+- transitive delegation-scope attenuation across action, resource, purpose, field, validity, amount and operation-count dimensions;
+- a union of all active task, ambient and session grants for trajectory-wide privilege review;
+- complete-mediation assessment over reachable routes with an explicit route-inventory completeness state;
+- session revocation checks binding authoritative and observed revocation epochs and bitemporal action/knowledge times.
+
+These functions consume owner-resolved inputs. They do not discover credentials, routes or revocation events in a real deployment.
+
+## 12. New research references
+
+- Elmasry, *Authorization assurance for tool-using LLM agents*, published 10 November 2026: https://link.springer.com/article/10.1007/s10207-026-01343-w
+- AuthorizationBench, 20 October 2026: https://arxiv.org/abs/2610.27548
+- SABench, 25 October 2026: https://arxiv.org/abs/2610.34167
+- OPA decision-log completeness and configurable drop/rate-limit semantics: https://www.openpolicyagent.org/docs/management-decision-logs
+
+These references motivate test dimensions; their results are not evidence that Luminous has achieved the corresponding targets.
