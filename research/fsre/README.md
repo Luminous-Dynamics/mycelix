@@ -3,6 +3,7 @@
 - [Resource stock-flow reference](../../tools/fsre-resource-stock-flow/README.md) — exact multi-interval opening/replenishment/consumption/loss/closing balance checks, with unknown propagation and no stock ledger.
 - [Time-expanded recovery portfolio benchmark](TIME_EXPANDED_RECOVERY_PORTFOLIO_BENCHMARK_V0_1.md) — multi-interval stock-flow, crew capacity, option expiry, service floors and as-known-at-the-time replay.
 - [Equity-aware service-floor benchmark](EQUITY_AND_DISTRIBUTIONAL_RESILIENCE_BENCHMARK_V0_1.md) — cohort-specific minimum service, distributional/restorative equity, procedural evidence and transgenerational liabilities.
+- [As-of evidence admissibility reference and independent oracle](../../tools/fsre-asof-evidence/README.md) — decision-cutoff replay of observed/available/valid/revocation times, claim-level freshness and hindsight corrections.
 - [Portfolio feasibility reference and independent oracle](../../tools/fsre-portfolio-reference/README.md) — read-only Rust constraint evaluator plus a separately authored differential implementation.
 - [Independent portfolio oracle](../../tools/fsre-portfolio-oracle/README.md) — separately authored parser/evaluator checked against the production portfolio reference.
 - [Independent resource stock-flow oracle](../../tools/fsre-resource-stock-flow-oracle/README.md) — separately authored multi-interval arithmetic reference and differential workflow.
