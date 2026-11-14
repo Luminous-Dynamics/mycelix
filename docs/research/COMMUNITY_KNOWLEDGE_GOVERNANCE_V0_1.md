@@ -98,6 +98,39 @@ Never collapse these into one trust score.
 5. Add multi-agent integration tests proving that each node enforces the same signed policy state and that partitions/stale state do not silently authorize use.
 6. Conduct a threat model and community review before storing any real community-controlled or sensitive knowledge.
 
+
+## 9. Existing Mycelix substrate mapping — do not duplicate it
+
+A repository read of the current public main branch found relevant work that HMP should integrate with rather than replace. This is a source-level mapping, not a runtime integration test.
+
+| Existing surface | What is present in source/docs | HMP implication |
+|---|---|---|
+| mycelix-knowledge/zomes/claims/integrity/src/lib.rs | Legacy Claim and ClassifiedClaim include content, author, source references, claim type, domain and classification. The E/N/M/H model distinguishes empirical, normative, materiality and harmonic dimensions. | Extend/map this record carefully; HMP needs attributed voice, scope, time/place/language, interpretation status and operation-specific rights. |
+| Claims epistemics | NormativeLevel includes contested, emerging and endorsed levels; ClassificationConsensus stores aggregated classification; EpistemicClassification::overall_strength() combines empirical, normative and materiality dimensions. | Do not treat normative consensus or one composite epistemic score as truth. Keep empirical support, normative endorsement, metaphysical commitment, community scope and source provenance separate. |
+| mycelix-knowledge/README.md | Describes a five-factor “Truth Engine” whose factors include attestation count, reputation, source quality, time decay and consistency; its wording says “social consensus defeats misinformation.” | This is a design/README claim, not independent proof of misinformation detection. HMP must explicitly guard against popularity/reputation becoming truth, especially for religious, philosophical and identity claims. |
+| mycelix-core/docs/civilizational-os/happs/MYCELIX_CHRONICLE_DESIGN.md | A design document describes archive provenance and an AccessPolicy abstraction. The document itself is marked design phase. | Reuse its vocabulary only after checking current implementation and maturity. Do not assume Chronicle's proposed access-control flow is deployed or enforceable. |
+| mycelix-personal/zomes/health-vault | A health-specific ConsentGrant binds grantee, record types, expiry and active status; integrity validation requires record types. | Useful precedent, but not a general cultural-knowledge permission system. Do not repurpose health consent semantics without a domain-neutral threat model and explicit rights scopes. |
+
+### 9.1 Required epistemic separation
+
+HMP's data model must not encode a single scalar “truth” or “trust” value for a knowledge record. At minimum retain separately:
+
+- **Empirical support:** observations, experiments, historical documents and replication status.
+- **Interpretive provenance:** whose reading or translation is represented, and its scope.
+- **Normative stance:** what an individual or group endorses, rejects or contests.
+- **Metaphysical status:** whether a proposition is theological, philosophical, experiential or empirically testable.
+- **Community authority:** who may authorize uses of community-controlled knowledge.
+- **Permission state:** which operations are allowed for which actor and purpose.
+- **Review status:** draft, source checked, expert reviewed, community reviewed, contested or retracted.
+
+A vote can establish that a group recorded an endorsement under a specified rule. It cannot establish that a deity exists, that a ritual has one universal meaning, that a minority interpretation is false, or that a historical event occurred.
+
+### 9.2 Integration decision
+
+The first implementation target should be a domain-neutral, pure authorization evaluator that can be called by the claims/knowledge coordinator and any future Chronicle adapter. It must not live only in the health vault. The evaluator should consume signed, versioned grants and explicit revocation state; any stale, missing, contradictory or unverifiable state returns INDETERMINATE and denies protected operations.
+
+Before implementation, inspect the actual claims coordinator read/write paths and Chronicle maturity. The current HMP RFC does not yet prove that knowledge retrieval is permission-gated end-to-end. In particular, entry integrity validation alone cannot prevent an unauthorized coordinator from returning an otherwise valid record.
+
 ## 8. Claim boundary
 
 This document is a governance contract only. It does not establish that the current Mycelix implementation enforces these rules, that any community has authorized the project, that existing DHT/storage behavior satisfies the requirements, or that legal compliance has been assessed.
