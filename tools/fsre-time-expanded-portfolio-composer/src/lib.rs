@@ -686,6 +686,22 @@ mod tests {
     }
 
     #[test]
+    fn pre_use_loss_reduces_the_conservative_inventory_capacity() {
+        let changed = STOCK
+            .replace(
+                "stock-01|1|hour-01|3600|7200|80|10|20|0|70|operator|stock:diesel:01|KNOWN",
+                "stock-01|1|hour-01|3600|7200|80|10|20|10|60|operator|stock:diesel:01|KNOWN",
+            )
+            .replace(
+                "stock-02|2|hour-02|7200|10800|70|0|20|0|50|operator|stock:diesel:02|KNOWN",
+                "stock-02|2|hour-02|7200|10800|60|0|20|0|40|operator|stock:diesel:02|KNOWN",
+            );
+        let report = run(PLAN, &changed);
+        assert!(report.contains("time_expanded_disposition=NOT_RECONCILED"));
+        assert!(report.contains("resource_reconciliation=hour-01|diesel|20|20|80|80|NOT_CONFIRMED"));
+    }
+
+    #[test]
     fn unknown_stock_at_the_end_of_the_horizon_abstains() {
         let changed = STOCK.replace(
             "stock-02|2|hour-02|7200|10800|70|0|20|0|50|operator|stock:diesel:02|KNOWN",
