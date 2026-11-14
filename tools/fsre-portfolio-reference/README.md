@@ -18,11 +18,13 @@ Required record families:
 - `RESOURCE_PROFILE`, `RESOURCE_USE`, `RESOURCE_CAPACITY` — owner assertion that resource use is complete plus each proposed shared-resource load and its available capacity.
 - `DOMAIN_PROFILE`, `OPTION_DOMAIN`, `DOMAIN_STATE` — owner assertion that common-cause coverage is complete, option membership in shared failure domains, and domain state under the frozen scenario.
 
-A missing or UNKNOWN required profile/capacity/state is not zero and yields `NOT_ESTIMABLE`. FAILED domains block affected options. Resource demand is summed once per option/service across the submitted proposal. Service floors are enforced separately for each cohort. Shared failure domains are reported even when currently CLEAR; the evaluator does not certify independence.
+A missing or UNKNOWN required profile/capacity/state is not zero and yields `NOT_ESTIMABLE`. FAILED domains block affected options. Resource demand is summed once per option/service across the submitted proposal. Service floors are enforced separately for each cohort. Each option ID is restricted to one service lane in v0.1 to prevent capacity double-counting across services. Shared failure domains are reported even when currently CLEAR; the evaluator does not certify independence.
 
 ## Output
 
-The report contains each option disposition, cohort floor result, shared-resource capacity result, common-cause concentration and a non-authorisation statement. Dispositions:
+The report echoes all input evidence IDs, source owners and opaque evidence references in stable order. This preserves a replay trail; it does not authenticate the referenced records or prove the source owners' assertions.
+
+The report contains each option disposition, cohort floor result, shared-resource capacity result, common-cause concentration, every input record's source owner/evidence reference and a non-authorisation statement. Dispositions:
 - `PORTFOLIO_FEASIBLE_FOR_DECLARED_SCENARIO` — known inputs support the declared proposed allocation in this one scenario/interval.
 - `NOT_FEASIBLE` — known option, resource, failure-domain or service-floor constraints are violated.
 - `NOT_ESTIMABLE` — required evidence is missing, unknown or incomplete.
