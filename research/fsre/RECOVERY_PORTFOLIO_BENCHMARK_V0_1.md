@@ -134,17 +134,20 @@ Hard gates for the declared test pack:
 - 100% claim lineage for qualified outputs, including each source owner and scope boundary.
 - Any unknown required capacity, service floor, authority, or common-cause receipt produces an explicit abstention rather than optimistic completion.
 
-After operator data access and a powered holdout exist, proposed comparative targets are:
+After operator data access and a powered holdout exist, pre-register one primary outcome and proposed comparative targets such as:
 
-- at least 10% lower decision regret or lifecycle cost per independently verified safe service unit than the strongest matched baseline, without reducing any protected cohort's service floor;
-- at least 10% improvement in worst-case service deficit or safe service-hours preserved under the same resource budget;
+- at least 10% lower decision regret than the strongest matched baseline, without reducing any protected cohort's service floor;
+- or at least 10% lower lifecycle cost per independently verified safe service unit, without reducing any protected cohort's service floor;
+- at least 10% improvement in worst-case service deficit under the same resource budget;
 - calibrated nominal 90% service intervals with 85–95% coverage on held-out operational periods, reported separately by service cohort and hazard family.
 
-These are hypotheses, not SOTA claims. They should be revised after variance, sample size, practical effect thresholds and operator constraints are preregistered.
+These are hypotheses, not SOTA claims. Select the primary target before data access; revise effect margins only through a documented preregistration amendment based on variance, sample size, power and operator constraints.
 
 ## 9. Why this could be a meaningful field contribution
 
-Resilience curves and service-performance measures are established research concepts; FSRE must not claim to invent them. The distinctive, testable contribution is to connect owner-qualified recovery options, explicit common-cause and resource competition evidence, service- and cohort-specific floors, authority-preserving portfolio comparison, and independent outcome reproduction.
+Resilience curves and service-performance measures are established research concepts; FSRE must not claim to invent them. Poulin and Kane's review of 273 resilience-curve publications provides a taxonomy of performance measures and summary metrics and warns against collapsing ensembles of trajectories into a single expected trajectory without checking the assumptions. FSRE should preserve the full time series, threshold crossings, recovery milestones and subgroup distributions, not report only one resilience number. Reference: https://doi.org/10.1016/j.ress.2021.107926.
+
+The 2026 NIST SP 800-160 Vol. 2 Rev. 1 publication already treats cyber-resiliency engineering as a specialty systems-engineering discipline used alongside systems security and resilience engineering, including the capability to anticipate, withstand, recover and adapt. FSRE must build on established resilience engineering rather than claim to invent it. Its testable contribution is to connect owner-qualified recovery options, explicit common-cause and resource competition evidence, service- and cohort-specific floors, authority-preserving portfolio comparison, and independent outcome reproduction. Reference: https://csrc.nist.gov/pubs/sp/800/160/v2/r1/final.
 
 This turns “we have three backup routes” into the falsifiable question “under which declared shocks, for which populations, with which shared resources and permissions, can this portfolio actually preserve the service floor?”
 
