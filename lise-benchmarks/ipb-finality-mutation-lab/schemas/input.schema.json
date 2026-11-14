@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/lise-benchmarks/ipb-finality-mutation-lab/schemas/input.schema.json",
+  "title": "LISE typed mutation candidate input v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suite_id",
+    "generator_version",
+    "input_only",
+    "case_count",
+    "cases"
+  ],
+  "properties": {
+    "suite_id": {
+      "const": "LISE-TYPED-MUTATIONS-v0.1"
+    },
+    "generator_version": {
+      "const": "lise-mutation-lab-v0.1"
+    },
+    "input_only": {
+      "const": true
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "input"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^CASE-[0-9]{4}$"
+          },
+          "input": {
+            "$ref": "#/$defs/finalityInput"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "logical_operation_id",
+        "canonical_operation_digest",
+        "action_digest",
+        "target_ref",
+        "destination_or_audience",
+        "amount_minor",
+        "currency",
+        "purpose",
+        "resource_revision",
+        "idempotency_ref"
+      ],
+      "properties": {
+        "logical_operation_id": {
+          "type": "string"
+        },
+        "canonical_operation_digest": {
+          "type": "string"
+        },
+        "action_digest": {
+          "type": "string"
+        },
+        "target_ref": {
+          "type": "string"
+        },
+        "destination_or_audience": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "amount_minor": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "purpose": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "resource_revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "idempotency_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "constitution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "institution_ref",
+        "epoch",
+        "constitution_digest"
+      ],
+      "properties": {
+        "institution_ref": {
+          "type": "string"
+        },
+        "epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "constitution_digest": {
+          "type": "string"
+        }
+      }
+    },
+    "finalityInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approval",
+        "actual_operation",
+        "current",
+        "authority",
+        "resource",
+        "prior_effect",
+        "retry_safety"
+      ],
+      "properties": {
+        "approval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "constitution",
+            "policy_revision",
+            "state"
+          ],
+          "properties": {
+            "operation": {
+              "$ref": "#/$defs/operation"
+            },
+            "constitution": {
+              "$ref": "#/$defs/constitution"
+            },
+            "policy_revision": {
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "authorized",
+                "denied",
+                "revoked",
+                "historical",
+                "pending",
+                "unknown"
+              ]
+            }
+          }
+        },
+        "actual_operation": {
+          "$ref": "#/$defs/operation"
+        },
+        "current": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "constitution",
+            "policy_revision"
+          ],
+          "properties": {
+            "constitution": {
+              "$ref": "#/$defs/constitution"
+            },
+            "policy_revision": {
+              "type": "string"
+            }
+          }
+        },
+        "authority": {
+          "enum": [
+            "current",
+            "revoked",
+            "expired",
+            "not_yet_valid",
+            "unknown"
+          ]
+        },
+        "resource": {
+          "enum": [
+            "matches",
+            "mismatch",
+            "unknown",
+            "not_required"
+          ]
+        },
+        "prior_effect": {
+          "enum": [
+            "never_attempted",
+            "outcome_unknown_after_dispatch",
+            "confirmed_not_applied",
+            "confirmed_applied",
+            "partially_applied"
+          ]
+        },
+        "retry_safety": {
+          "enum": [
+            "same_operation_same_idempotency_key_qualified",
+            "unsupported",
+            "unknown"
+          ]
+        }
+      }
+    }
+  }
+}
