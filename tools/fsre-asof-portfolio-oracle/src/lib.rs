@@ -193,6 +193,9 @@ pub fn reproduce(asof_source: &str, portfolio_source: &str) -> Result<String, Re
         }
     }
 
+    missing.sort();
+    rejected.sort();
+
     let disposition = if !scope_match {
         "SCOPE_MISMATCH"
     } else if !missing.is_empty() || !rejected.is_empty() {
@@ -285,7 +288,7 @@ mod tests {
         );
         let report = reproduce(&changed, PORTFOLIO).expect("stale record is reportable");
         assert!(report.contains("portfolio_evidence_nonvalid=1"));
-        assert!(report.contains("nonvalid_record_ids=cap-pump,qual-pump"));
+        assert!(report.contains("nonvalid_record_ids=qual-pump"));
     }
 
     #[test]
@@ -297,6 +300,39 @@ mod tests {
         let report = reproduce(ASOF, &changed).expect("infeasible portfolio is reportable");
         assert!(report.contains("portfolio_disposition=NOT_FEASIBLE"));
         assert!(report.contains("assurance_disposition=PORTFOLIO_NOT_FEASIBLE"));
+    }
+
+    #[test]
+    fn unresolved_record_order_is_canonical() {
+        fn reverse_rows(source: &str) -> String {
+            let mut metadata = Vec::new();
+            let mut rows = Vec::new();
+            for line in source.lines() {
+                if line.starts_with('#') {
+                    metadata.push(line);
+                } else if !line.is_empty() {
+                    rows.push(line);
+                }
+            }
+            let header = rows.remove(0);
+            rows.reverse();
+            format!(
+                "{}\\n{}\\n{}\\n",
+                metadata.join("\\n"),
+                header,
+                rows.join("\\n")
+            )
+        }
+        let changed = ASOF.replace(
+            "synthetic:qualification:pump",
+            "synthetic:missing:qualification:pump",
+        );
+        let original = reproduce(&changed, PORTFOLIO).expect("original missing-source report");
+        let reversed =
+            reproduce(&reverse_rows(&changed), &reverse_rows(PORTFOLIO))
+                .expect("reordered missing-source report");
+        assert_eq!(original, reversed);
+        assert!(original.contains("unmatched_record_ids=qual-pump"));
     }
 
     #[test]
