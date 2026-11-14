@@ -1,0 +1,14 @@
+# fsre-cohort-manifest.v0.1
+# manifest_id=synthetic-water-cohort-register
+# manifest_snapshot_id=synthetic-cohort-register-snapshot-01
+# manifest_owner=service-register
+# manifest_ref=synthetic:cohort-register:snapshot-01
+# service_id=potable-water-service
+# service_family_id=potable-water
+# cohort_set_id=synthetic-water-service-area
+# outcome_snapshot_id=synthetic-outcome-snapshot-01
+# population_unit=persons
+record_type|cohort_id|population_denominator|population_unit|identity_source_owner|identity_source_ref|denominator_source_owner|denominator_source_ref|valid_from_seconds|valid_until_seconds
+COHORT|hospital|500|persons|cohort-register|synthetic:cohort:hospital|service-register|synthetic:population:hospital|0|1000
+COHORT|households|1000|persons|cohort-register|synthetic:cohort:households|service-register|synthetic:population:households|0|1000
+COHORT|remote-community|250|persons|cohort-register|synthetic:cohort:remote-community|service-register|synthetic:population:remote-community|0|1000
