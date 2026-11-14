@@ -39,11 +39,11 @@ The crate now also includes pure, owner-input evaluators for two historical LARP
 - **Epistemic Bounty v2:** contestable scientific reward eligibility, reviewer conflict/dependency assessment, honest retraction, appeal/remedy, exact payout binding and separate treasury authorization.
 - **Restoration v2:** local mandate and consent, multi-dimensional ecological floors, downstream externalities, source independence, measurement freshness/method bridge, partial outcomes, steward exit and separate treasury authorization.
 
-Each domain has its own 12-case input suite and separate oracle:
+Each domain has its own 13-case input suite and separate oracle:
 - `fixtures/epistemic_scenarios.json` / `fixtures/epistemic_oracle.json`
 - `fixtures/restoration_scenarios.json` / `fixtures/restoration_oracle.json`
 
-The three conformance suites therefore contain 53 synthetic cases in total (29 general contract, 12 Epistemic Bounty, 12 Restoration). The domain evaluators do not execute payouts, sanction reviewers, establish scientific truth, certify restoration or replace local ecological methods.
+The three conformance suites therefore contain 55 synthetic cases in total (29 general contract, 13 Epistemic Bounty, 13 Restoration). The domain evaluators do not execute payouts, sanction reviewers, establish scientific truth, certify restoration or replace local ecological methods.
 
 The schemas and documentation copies are kept beside the benchmark inputs. Cross-file scenario/oracle parity is checked in Rust tests; a full standards-compliant JSON Schema validator remains a separate validation requirement.
 
