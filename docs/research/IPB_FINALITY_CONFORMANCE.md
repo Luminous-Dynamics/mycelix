@@ -223,3 +223,18 @@ The 34-case input manifest `IPB_FINALITY_SCENARIOS.json` is now input-only. It c
 Expected known answers are stored separately in `IPB_FINALITY_ORACLE.json`, with a separate schema. The oracle is for the independent evaluator/reviewers and must not be supplied to systems under test. A submission must cover all 34 case IDs; unsupported dimensions are reported explicitly rather than omitted.
 
 This corrects an earlier authoring weakness where expected answers were nested inside the scenario objects. The corpus is still a public development seed, so this split improves protocol hygiene but does not make its known answers a hidden holdout. A confirmatory holdout must be generated separately, access-controlled and frozen before comparator evaluation.
+
+
+## 16. Matched comparator protocol and verified research anchors
+
+See [IPB-FINALITY Comparator Protocol](./IPB_FINALITY_COMPARATOR_PROTOCOL.md) for system boundaries, comparator arms, matched test conditions, repeated-run expectations, metric definitions and prospective targets.
+
+The current external benchmark context includes:
+- AuthorizationBench (20 October 2026): 286 tasks, ten domains and 6,864 trajectories; 19.2% out-of-authorization behavior overall, with the paper reporting 14.0% versus 21.6% in its principal-consultation comparison. https://arxiv.org/abs/2610.27548
+- SABench (25 October 2026): 201 tasks and 2,211 model-task runs; 15.2% collateral damage overall, 38.8% on ambiguity traps, 8.4% on non-ambiguous traps, and 12.8% unauthorized writes among goal-satisfied runs. https://arxiv.org/abs/2610.34167
+- Zanzibar (USENIX ATC 2019): production-scale, consistency-aware ACL authorization with reported p95 latency below 10 ms and availability above 99.999% over three years. It is an authorization-service performance comparator, not an external-effect finality benchmark. https://www.usenix.org/conference/atc19/presentation/pang
+- Cedar: PARC authorization evaluation, diagnostics, and a documented skip-on-error policy semantic. Mandatory guardrail failure handling is an application integration question, not a Cedar defect. https://docs.cedarpolicy.com/auth/authorization.html
+- OPA: decision-log drop rules and rate limiting can omit log events; absence of a log is not absence of a decision/effect. https://www.openpolicyagent.org/docs/management-decision-logs
+- NIST AI RMF critical-infrastructure profile remains ongoing profile development, not a completed standard or certification. https://www.nist.gov/programs-projects/concept-note-ai-rmf-profile-trustworthy-ai-critical-infrastructure
+
+All numeric values above are findings from the referenced systems and papers, not measurements of Luminous or LISE.
