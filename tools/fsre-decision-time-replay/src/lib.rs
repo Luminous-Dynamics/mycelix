@@ -311,7 +311,7 @@ fn evaluate(input: &ReplayInput) -> Result<String, InputError> {
         match selected {
             None => {
                 no_as_of_version = true;
-                let example = versions[0];
+                let example = versions.iter().min_by_key(|version| version.revision).expect("evidence has at least one version");
                 results.push(EvidenceResult {
                     evidence_id,
                     revision: None,
@@ -521,6 +521,38 @@ mod tests {
             .unwrap_err()
             .0
             .contains("changes claim identity"));
+    }
+
+    #[test]
+    fn all_future_revisions_have_row_order_invariant_no_as_of_output() {
+        let changed = FIXTURE.replace(
+            "stock-r1|stock_receipt|1|claim-diesel-stock|diesel-tank-01|available_stock|800|1100|820|830||ASSERTED",
+            "stock-r1|stock_receipt|1|claim-diesel-stock|diesel-tank-01|available_stock|800|1100|1200|1205||ASSERTED",
+        );
+        assert_ne!(changed, FIXTURE);
+        let mut metadata = Vec::new();
+        let mut rows = Vec::new();
+        for line in changed.lines() {
+            if line.starts_with('#') {
+                metadata.push(line);
+            } else if !line.is_empty() {
+                rows.push(line);
+            }
+        }
+        let header = rows.remove(0);
+        rows.reverse();
+        let reordered = format!(
+            "{}\n{}\n{}\n",
+            metadata.join("\n"),
+            header,
+            rows.join("\n")
+        );
+        let original_report = validate_and_report(&changed).expect("all-future revisions");
+        let reordered_report = validate_and_report(&reordered).expect("permuted all-future revisions");
+        assert_eq!(original_report, reordered_report);
+        assert!(original_report.contains(
+            "evidence=stock_receipt|NONE|claim-diesel-stock|diesel-tank-01|available_stock|NO_AS_OF_VERSION|operator|synthetic:stock:r1|future_revisions_excluded=2"
+        ));
     }
 
     #[test]
