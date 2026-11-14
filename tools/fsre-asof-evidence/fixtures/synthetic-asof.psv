@@ -2,23 +2,23 @@
 # decision_at=7200
 # max_observation_age_seconds=3600
 # clock_basis_id=UTC_UNIX_SECONDS_V1
-record_type|record_id|claim_id|scenario_id|observed_at|available_at|valid_from|valid_until|revoked_effective_at|revocation_known_at|status|clock_basis_id|source_owner|source_ref|required_evidence_count
-CLAIM|claim-crew|crew_authority|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|authority_owner|synthetic:claim:crew|1
-CLAIM|claim-future|future_sensor|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|telemetry_owner|synthetic:claim:future|1
-CLAIM|claim-fuel|fuel_stock|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:fuel|1
-CLAIM|claim-missing|no_source|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:missing|1
-CLAIM|claim-pending|pending_permit|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|authority_owner|synthetic:claim:pending|1
-CLAIM|claim-pump|pump_capacity|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:pump|2
-CLAIM|claim-road|road_access|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|spatial_owner|synthetic:claim:road|1
-CLAIM|claim-telemetry|telemetry|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|telemetry_owner|synthetic:claim:telemetry|1
-CLAIM|claim-water|water_quality|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|laboratory|synthetic:claim:water|1
-EVIDENCE|e-crew|crew_authority|synthetic-water-shock|6800|6900|6700|10000|6800|7100|ASSERTED|UTC_UNIX_SECONDS_V1|authority_owner|synthetic:evidence:crew|
-EVIDENCE|e-future|future_sensor|synthetic-water-shock|7300|7350|7300|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|telemetry_owner|synthetic:evidence:future|
-EVIDENCE|e-fuel|fuel_stock|synthetic-water-shock|3500|3600|3400|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:evidence:fuel|
-EVIDENCE|e-pending|pending_permit|synthetic-water-shock|6800|6900|6700|10000|7600|7000|ASSERTED|UTC_UNIX_SECONDS_V1|authority_owner|synthetic:evidence:pending|
-EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|6000|6100|5900|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:evidence:pump:1|
-EVIDENCE|e-pump-2|pump_capacity|synthetic-water-shock|3600|3700|3500|8500|||ASSERTED|UTC_UNIX_SECONDS_V1|symtropy|synthetic:evidence:pump:2|
-EVIDENCE|e-pump-3|pump_capacity|synthetic-water-shock|7100|7300|7000|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:evidence:pump:3|
-EVIDENCE|e-road|road_access|synthetic-water-shock|7100|7150|7000|7200|||ASSERTED|UTC_UNIX_SECONDS_V1|spatial_owner|synthetic:evidence:road|
-EVIDENCE|e-telemetry|telemetry|synthetic-water-shock|6800|6900|6000|9500|6500|7600|ASSERTED|UTC_UNIX_SECONDS_V1|telemetry_owner|synthetic:evidence:telemetry|
-EVIDENCE|e-water|water_quality|synthetic-water-shock|||||||UNKNOWN|UTC_UNIX_SECONDS_V1|laboratory|synthetic:evidence:water|
+record_type|record_id|claim_id|scenario_id|observed_at|available_at|valid_from|valid_until|revoked_effective_at|revocation_known_at|status|clock_basis_id|source_owner|source_ref|required_evidence_count|max_observation_age_seconds
+CLAIM|claim-crew|crew_authority|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|authority_owner|synthetic:claim:crew|1|
+CLAIM|claim-future|future_sensor|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|telemetry_owner|synthetic:claim:future|1|
+CLAIM|claim-fuel|fuel_stock|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:fuel|1|
+CLAIM|claim-missing|no_source|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:missing|1|
+CLAIM|claim-pending|pending_permit|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|authority_owner|synthetic:claim:pending|1|
+CLAIM|claim-pump|pump_capacity|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|operator|synthetic:claim:pump|2|
+CLAIM|claim-road|road_access|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|spatial_owner|synthetic:claim:road|1|
+CLAIM|claim-telemetry|telemetry|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|telemetry_owner|synthetic:claim:telemetry|1|
+CLAIM|claim-water|water_quality|synthetic-water-shock|||||||REQUIRED|UTC_UNIX_SECONDS_V1|laboratory|synthetic:claim:water|1|
+EVIDENCE|e-crew|crew_authority|synthetic-water-shock|6800|6900|6700|10000|6800|7100|ASSERTED|UTC_UNIX_SECONDS_V1|authority_owner|synthetic:evidence:crew||
+EVIDENCE|e-future|future_sensor|synthetic-water-shock|7300|7350|7300|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|telemetry_owner|synthetic:evidence:future||
+EVIDENCE|e-fuel|fuel_stock|synthetic-water-shock|3500|3600|3400|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:evidence:fuel||
+EVIDENCE|e-pending|pending_permit|synthetic-water-shock|6800|6900|6700|10000|7600|7000|ASSERTED|UTC_UNIX_SECONDS_V1|authority_owner|synthetic:evidence:pending||
+EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|6000|6100|5900|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:evidence:pump:1||
+EVIDENCE|e-pump-2|pump_capacity|synthetic-water-shock|3600|3700|3500|8500|||ASSERTED|UTC_UNIX_SECONDS_V1|symtropy|synthetic:evidence:pump:2||
+EVIDENCE|e-pump-3|pump_capacity|synthetic-water-shock|7100|7300|7000|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:evidence:pump:3||
+EVIDENCE|e-road|road_access|synthetic-water-shock|7100|7150|7000|7200|||ASSERTED|UTC_UNIX_SECONDS_V1|spatial_owner|synthetic:evidence:road||
+EVIDENCE|e-telemetry|telemetry|synthetic-water-shock|6800|6900|6000|9500|6500|7600|ASSERTED|UTC_UNIX_SECONDS_V1|telemetry_owner|synthetic:evidence:telemetry||
+EVIDENCE|e-water|water_quality|synthetic-water-shock|||||||UNKNOWN|UTC_UNIX_SECONDS_V1|laboratory|synthetic:evidence:water||
