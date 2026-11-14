@@ -42,6 +42,8 @@ struct CohortLane {
 struct EvaluatedLane {
     cohort_id: String,
     outcome_snapshot_id: String,
+    identity_source_owner: String,
+    identity_source_ref: String,
     delivery_source_owner: String,
     delivery_source_ref: String,
     quality_source_owner: String,
@@ -646,6 +648,8 @@ fn evaluate_lanes(sources: &[String]) -> Result<Vec<EvaluatedLane>, InputError> 
         evaluated.push(EvaluatedLane {
             cohort_id: lane.cohort_id,
             outcome_snapshot_id: lane.outcome_snapshot_id,
+            identity_source_owner: lane.identity_source_owner,
+            identity_source_ref: lane.identity_source_ref,
             delivery_source_owner: lane.delivery_source_owner,
             delivery_source_ref: lane.delivery_source_ref,
             quality_source_owner: lane.quality_source_owner,
@@ -841,8 +845,10 @@ fn compose(sources: &[String]) -> Result<String, InputError> {
             }
         ));
         lines.push(format!(
-            "cohort_evidence={}|{}|{}|{}|{}|{}|{}",
+            "cohort_evidence={}|{}|{}|{}|{}|{}|{}|{}|{}",
             lane.cohort_id,
+            lane.identity_source_owner,
+            lane.identity_source_ref,
             lane.delivery_source_owner,
             lane.delivery_source_ref,
             lane.quality_source_owner,
@@ -1004,6 +1010,30 @@ mod tests {
         let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), extra];
         let report = validate_and_report_with_manifest(MANIFEST, &lanes).unwrap();
         assert!(report.contains("manifest_unexpected_cohort_ids=other-community"));
+        assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
+    }
+
+    #[test]
+    fn manifest_identity_reference_mismatch_is_not_accepted() {
+        let changed = MANIFEST.replace(
+            "COHORT|households|1000|persons|cohort-register|synthetic:cohort:households",
+            "COHORT|households|1000|persons|cohort-register|synthetic:cohort:other-households",
+        );
+        let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
+        let report = validate_and_report_with_manifest(&changed, &lanes).unwrap();
+        assert!(report.contains("manifest_mismatched_cohort_ids=households"));
+        assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
+    }
+
+    #[test]
+    fn manifest_scope_mismatch_is_not_accepted() {
+        let changed = MANIFEST.replace(
+            "# service_family_id=potable-water",
+            "# service_family_id=other-service",
+        );
+        let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned(), REMOTE.to_owned()];
+        let report = validate_and_report_with_manifest(&changed, &lanes).unwrap();
+        assert!(report.contains("manifest_scope_match=false"));
         assert!(report.contains("cohort_outcome_disposition=NOT_ESTIMABLE"));
     }
 
