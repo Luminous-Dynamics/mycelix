@@ -194,12 +194,9 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
                         if observed_value > available_value {
                             return Err(InputError(format!("line {line_number}: observed_at must not be after available_at")));
                         }
-                        if valid_from_value > observed_value {
-                            return Err(InputError(format!("line {line_number}: valid_from must not be after observed_at")));
-                        }
-                        if valid_until.is_some_and(|end| end <= observed_value) {
-                            return Err(InputError(format!("line {line_number}: valid_until must be after observed_at")));
-                        }
+                        // A document may be available before its future validity begins,
+                        // or may describe a historical validity interval. The as-of
+                        // evaluator classifies those cases; the parser must preserve them.
                         if valid_until.is_some_and(|end| end <= valid_from_value) {
                             return Err(InputError(format!("line {line_number}: validity interval must be non-empty")));
                         }
@@ -569,7 +566,7 @@ mod tests {
     }
 
     #[test]
-    fn future_observation_is_not_used_even_when_available_time_is_malformed() {
+    fn future_observation_is_not_used_at_the_cutoff() {
         let source = FIXTURE.replace(
             "EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|6000|6100|5900|9000|||ASSERTED",
             "EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|7300|7400|7000|9000|||ASSERTED",
@@ -642,6 +639,16 @@ mod tests {
             "EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|7000|7100|7300|9000",
         );
         let report = validate_and_report(&future).expect("future validity start");
+        assert!(report.contains("e-pump-1|pump_capacity|NOT_YET_VALID|admissible=NO"));
+    }
+
+    #[test]
+    fn evidence_for_a_future_validity_window_is_not_yet_valid() {
+        let source = FIXTURE.replace(
+            "EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|6000|6100|5900|9000",
+            "EVIDENCE|e-pump-1|pump_capacity|synthetic-water-shock|6000|6100|7300|9000",
+        );
+        let report = validate_and_report(&source).expect("future-effective evidence is valid input");
         assert!(report.contains("e-pump-1|pump_capacity|NOT_YET_VALID|admissible=NO"));
     }
 
