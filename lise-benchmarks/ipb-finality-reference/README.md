@@ -43,3 +43,16 @@ cargo clippy --locked --all-targets --manifest-path Cargo.toml -- -D warnings
 - #4835 — independent evaluator separation.
 
 The crate is a benchmark reference slice, not an implementation of those owners.
+
+
+## Authorization assurance extensions
+
+The reference model also includes bounded synthetic checks for:
+- child/descendant delegation attenuation across action, resource, purpose, field, validity, amount and operation-count dimensions;
+- trajectory-wide union of all active grants, including ambient and tool/session grants;
+- complete mediation across every reachable route to a protected effect, with incomplete route inventory represented separately;
+- revocation propagation to active sessions using the authority epoch, session-observed epoch, effective time and knowledge time.
+
+These are comparison helpers over owner-resolved fixture inputs. They do not fetch tokens, discover live routes, revoke credentials or intercept real protected-resource effects.
+
+Additional tests are authored for each property. They have not been compiled or executed in this authoring environment.
