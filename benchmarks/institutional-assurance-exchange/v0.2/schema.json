@@ -22,7 +22,8 @@
     "execution_control",
     "environment",
     "policy_ref",
-    "evaluator_ref"
+    "evaluator_ref",
+    "operation_finality"
   ],
   "properties": {
     "exchange_version": {
@@ -807,6 +808,263 @@
     },
     "evaluator_ref": {
       "type": "string"
+    },
+    "operation_finality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approval_ref",
+        "approval_state",
+        "approved_by_ref",
+        "approved_at",
+        "approval_kind",
+        "approved_operation",
+        "pending_operation",
+        "constitution",
+        "policy_revision",
+        "authority_state_before_dispatch",
+        "resource_state_before_dispatch",
+        "prior_effect_after_timeout",
+        "retry_safety_after_timeout",
+        "expected_post_timeout_disposition",
+        "expected_retry_permitted"
+      ],
+      "properties": {
+        "approval_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approval_state": {
+          "enum": [
+            "authorized",
+            "denied",
+            "revoked",
+            "historical",
+            "pending",
+            "unknown"
+          ]
+        },
+        "approved_by_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "approval_kind": {
+          "const": "human_record_not_cryptographically_verified"
+        },
+        "approved_operation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "logical_operation_id",
+            "canonical_operation_digest",
+            "action_digest",
+            "target_ref",
+            "destination_or_audience",
+            "amount_minor",
+            "currency",
+            "purpose",
+            "resource_revision",
+            "idempotency_ref"
+          ],
+          "properties": {
+            "logical_operation_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "canonical_operation_digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "action_digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "target_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "destination_or_audience": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "amount_minor": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "currency": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "purpose": {
+              "type": "string",
+              "minLength": 1
+            },
+            "resource_revision": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "idempotency_ref": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "pending_operation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "logical_operation_id",
+            "canonical_operation_digest",
+            "action_digest",
+            "target_ref",
+            "destination_or_audience",
+            "amount_minor",
+            "currency",
+            "purpose",
+            "resource_revision",
+            "idempotency_ref"
+          ],
+          "properties": {
+            "logical_operation_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "canonical_operation_digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "action_digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "target_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "destination_or_audience": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "amount_minor": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "currency": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "purpose": {
+              "type": "string",
+              "minLength": 1
+            },
+            "resource_revision": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "idempotency_ref": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "constitution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "institution_ref",
+            "epoch",
+            "constitution_digest",
+            "digest_verification"
+          ],
+          "properties": {
+            "institution_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "constitution_digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "digest_verification": {
+              "const": "synthetic_placeholder_not_cryptographically_verified"
+            }
+          }
+        },
+        "policy_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_state_before_dispatch": {
+          "enum": [
+            "current",
+            "revoked",
+            "expired",
+            "not_yet_valid",
+            "unknown"
+          ]
+        },
+        "resource_state_before_dispatch": {
+          "enum": [
+            "matches",
+            "mismatch",
+            "unknown",
+            "not_required"
+          ]
+        },
+        "prior_effect_after_timeout": {
+          "enum": [
+            "never_attempted",
+            "outcome_unknown_after_dispatch",
+            "confirmed_not_applied",
+            "confirmed_applied",
+            "partially_applied"
+          ]
+        },
+        "retry_safety_after_timeout": {
+          "enum": [
+            "same_operation_same_idempotency_key_qualified",
+            "unsupported",
+            "unknown"
+          ]
+        },
+        "expected_post_timeout_disposition": {
+          "enum": [
+            "ALLOW",
+            "DENY",
+            "HOLD_FOR_RECONCILIATION",
+            "INDETERMINATE"
+          ]
+        },
+        "expected_retry_permitted": {
+          "type": "boolean"
+        }
+      }
     }
   }
 }
