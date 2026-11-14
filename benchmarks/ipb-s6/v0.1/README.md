@@ -14,6 +14,7 @@ This is not an asset registry, title service, valuation engine, insurance system
 - schema.json — structural shape of scenario inputs.
 - cases.json — fourteen synthetic scenario inputs, without expected answers embedded.
 - oracle.json — separately stored reference outcomes and prohibited inferences.
+- oracle-schema.json — strict shape of the separate reference oracle.
 - PROTOCOL.md — comparator arms, scoring and freeze requirements.
 
 ## Scenarios
