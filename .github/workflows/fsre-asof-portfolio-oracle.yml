@@ -55,6 +55,7 @@ jobs:
           cargo run --quiet --locked --offline --manifest-path tools/fsre-asof-portfolio-composer/Cargo.toml -- "$asof" "$portfolio" > "$production"
           cargo run --quiet --locked --offline --manifest-path tools/fsre-asof-portfolio-oracle/Cargo.toml -- "$asof" "$portfolio" > "$oracle"
           diff -u tools/fsre-asof-portfolio-composer/fixtures/synthetic-composed.expected.txt "$production"
+          diff -u tools/fsre-asof-portfolio-oracle/fixtures/independent-composed.expected.txt "$oracle"
           diff -u "$production" "$oracle"
       - name: Run Clippy
         run: |
