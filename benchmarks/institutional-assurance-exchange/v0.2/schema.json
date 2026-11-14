@@ -837,7 +837,14 @@
         "prior_effect_after_timeout",
         "retry_safety_after_timeout",
         "expected_post_timeout_disposition",
-        "expected_retry_permitted"
+        "expected_retry_permitted",
+        "action_at_before_dispatch",
+        "known_at_before_dispatch",
+        "authority_state_after_timeout",
+        "authority_observed_at_after_timeout",
+        "reattempt_action_at",
+        "reattempt_known_at",
+        "expected_reattempt_disposition"
       ],
       "properties": {
         "approval_ref": {
@@ -1109,6 +1116,43 @@
         },
         "expected_retry_permitted": {
           "type": "boolean"
+        },
+        "action_at_before_dispatch": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "known_at_before_dispatch": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "authority_state_after_timeout": {
+          "enum": [
+            "current",
+            "revoked",
+            "expired",
+            "not_yet_valid",
+            "unknown"
+          ]
+        },
+        "authority_observed_at_after_timeout": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reattempt_action_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reattempt_known_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expected_reattempt_disposition": {
+          "enum": [
+            "ALLOW",
+            "DENY",
+            "HOLD_FOR_RECONCILIATION",
+            "INDETERMINATE"
+          ]
         }
       }
     }
