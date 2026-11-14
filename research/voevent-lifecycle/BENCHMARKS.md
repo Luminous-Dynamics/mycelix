@@ -158,6 +158,65 @@ For satellite adapter evaluations:
 
 Sources: [Copernicus Data Space catalogue API update, October 2026](https://dataspace.copernicus.eu/sites/default/files/media/files/2026-10/1630_new_stac_catalogue_1.pdf) and [STAC API documentation](https://documentation.dataspace.copernicus.eu/APIs/STAC.html). This is endpoint lifecycle information, not evidence that all collections or assets are equivalent across endpoints.
 
-## 11. Release rule
+## 11. Correlated-evidence and false-independence benchmark
+
+A broker consensus is not a physical corroboration result. The benchmark must deliberately generate multiple records for one underlying observation and ensure that apparent multiplicity does not inflate confidence.
+
+Compose the existing Mycelix dependency/corroboration owner ([#1243](https://github.com/Luminous-Dynamics/mycelix/issues/1243)) and verifier fault-domain/correlation owner ([#1371](https://github.com/Luminous-Dynamics/mycelix/issues/1371)). Do not create a second global dependency graph or an opaque scalar trust/independence score. The benchmark consumes a versioned, owner-defined dependency closure.
+
+### Dependency dimensions to preserve
+
+For each evidence item, preserve the dependency dimensions that matter to the claim and domain:
+
+- **observation/artifact root** — the original measurement, alert, document or immutable payload;
+- **upstream dataset/catalogue** — source records or databases from which the item was copied;
+- **sensor/instrument/acquisition lineage** — device, deployment, site, sampling, channel and acquisition method;
+- **gateway and transport** — broker, mirror, API, cache, relay or gateway;
+- **operator/control domain** — organization or administrative controller;
+- **trust/identity root** — signer, credential issuer, federation or key control;
+- **clock/timebase and calibration/reference** — shared timing, calibration, power, environmental reference or common standard;
+- **processing lineage** — shared feature extraction, reduction, classifier, mapping, translation or reconstruction implementation;
+- **verifier lineage** — implementation, runtime, CI provider, package mirror and operator where verifier agreement is used.
+
+The initial executable profile may be narrower, but omitted dimensions must be explicitly unknown—not implicitly distinct.
+
+### Bounded relation outcomes
+
+A consumer may classify the relation for a specified evidence purpose/profile as:
+
+- `Correlated`: at least one material shared dependency is known;
+- `Unknown`: no shared dependency is proven, but at least one required dimension is missing or unresolved;
+- `IndependentForProfile`: all dimensions required by that frozen profile are present and distinct.
+
+These labels do not prove mathematical or statistical independence. A profile-specific distinctness result is not physical truth, source authentication, authority or scientific correctness. The input dependency claims themselves require source qualification.
+
+### Frozen adversarial families
+
+1. Two astronomy brokers re-emit the same upstream VOEvent under different broker IDs, gateways and transport receipts.
+2. Two national or commercial mirrors expose the same catalogue record through different APIs.
+3. Two classifiers consume the same alert bytes but use different model names; shared observation root remains visible.
+4. Two independent-looking sensors share a data-acquisition gateway or operator.
+5. Two instruments share a clock, calibration reference, power source or site; profile-specific rules decide whether that is material.
+6. Two independent source observations use the same processing implementation; preserve processing correlation without erasing the distinct observation roots.
+7. AI summaries, embeddings or derived classifications of one observation never become new physical observations.
+8. A dependency field is absent or a lineage lookup is unresolved; result remains `Unknown`.
+9. A later-discovered common upstream source invalidates future independence claims without rewriting historical receipts.
+10. Truly distinct observations with fully qualified required lineage provide a positive control.
+11. Repeated delivery, rewrapping, re-signing and different file formats do not increment underlying observation-root count.
+12. Reordering dependency records or input evidence cannot change the resulting disposition.
+
+### Metrics and proposed hard gates
+
+- False independence acceptance by dependency family: target **zero** on frozen adversarial controls.
+- Unknown-lineage promotion rate: target **zero**.
+- Known shared-root detection: **100%** on the frozen known-answer corpus.
+- Correctly resolved unknown dependencies: report coverage and abstention; do not reward forced guesses.
+- Pairwise evidence conflict detection and order invariance: **100%** on known-answer cases.
+- Dependence-family recall, false independence rate, abstention/risk coverage, reviewer effort and additional lineage-resolution cost.
+- Report the dimension-wise dependency vector, not only a count of sources or a confidence multiplier.
+
+The critical SOTA comparison is not how many alerts or broker records are aggregated. It is whether the system detects when a high apparent corroboration count is actually a single shared source, while retaining genuinely distinct evidence and exposing unresolved common causes.
+
+## 12. Release rule
 
 A public benchmark release must include the versioned corpus manifest, per-case rights and provenance, frozen split and cutoff definitions, expected outputs, evaluator source, baseline configurations, raw run receipts and a limitations report. Keep the hidden evaluation set private until a run is submitted; then publish enough evidence to reproduce the result without leaking future test labels.
