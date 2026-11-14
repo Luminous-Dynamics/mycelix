@@ -238,3 +238,10 @@ The current external benchmark context includes:
 - NIST AI RMF critical-infrastructure profile remains ongoing profile development, not a completed standard or certification. https://www.nist.gov/programs-projects/concept-note-ai-rmf-profile-trustworthy-ai-critical-infrastructure
 
 All numeric values above are findings from the referenced systems and papers, not measurements of Luminous or LISE.
+
+
+## 17. Generated mutation and metamorphic protocol
+
+See [IPB-FINALITY Mutation Protocol](./IPB_FINALITY_MUTATION_PROTOCOL.md) for operation-field mutation grids, session/revocation races, provider/outcome combinations, alternate routes, evidence perturbations and 16 metamorphic properties. This is a proposed next benchmark increment, not an implemented generator or executed test suite.
+
+The target is to expand the 34-case development seed into a separately frozen 200+ case confirmatory panel using a documented pairwise/covering-array design, forced high-severity compositions and independent oracle construction.
