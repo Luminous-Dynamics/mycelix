@@ -131,6 +131,14 @@ Metrics include pairwise precision/recall by event type, false-continuity rate, 
 Prospective research gates: 100% cardinality conformance on sealed synthetic cases; zero synthetic/unresolved/disputed promotion; 100% of source rows carry an explicit population scope and assessment cycle; and at least 99% precision among accepted real identity links before making consequential longitudinal claims, with coverage published beside precision. The 99% figure is a proposed release target, not a measured result or confidence bound. Real-system matching remains blocked until lawful system-level records and independently reviewed labels exist.
 
 ## 2.5 Equity-aware service-floor evaluation
+## 2.8 Decision-grade monitoring and sequential acquisition
+
+Sensor-placement methods already provide serious structural, hydraulic, probabilistic and graph-based baselines. FSRE's hypothesis is not that it can replace those algorithms, but that it can evaluate whether their measurements become timely, admissible evidence that changes a safe service decision. The new [decision-grade monitoring benchmark](DECISION_GRADE_MONITORING_BENCHMARK_V0_1.md) requires matched sensor budgets, event sets, maintenance assumptions, data latency, service floors and operator authority.
+
+A candidate measurement must be evaluated at the time it becomes available, not when it is physically sampled. The benchmark combines the existing sequential one-measurement EVSI policy with the as-of evidence gate: measurement acquisition cost, turnaround/communications delay, freshness, correlated redundancy and the service deficit incurred while waiting all enter the decision-value comparison. The benchmark reports decision regret and verified service outcomes, not only observability or detection accuracy.
+
+Recent methods to include as baselines are structural-observability placement on real Brabant Water networks (van Gemert et al., 9 Nov 2026), continuous-score burst placement (Hu & Khu, 2 Nov 2026), probabilistic placement with Dynamic Residual Masking (Damonti & Bernasconi, Nov 2026), and cascading-aware graph-signal placement (Huang et al., 2026). Their results are task/network-specific and require matched reruns; no direct FSRE comparison has been performed.
+
 ## 2.7 As-known-at-the-time evidence qualification
 
 Recovery claims must be replayable against the evidence actually available to the decision process at the frozen cutoff. This is distinct from what later became known or what is present in today's source snapshot. The as-of evidence profile distinguishes observation time, decision-process availability, valid-time interval, revocation effective time and revocation knowledge time; it supports claim-specific freshness policy and preserves later-discovered corrections without rewriting the historical record.
