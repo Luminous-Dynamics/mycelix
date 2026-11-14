@@ -1106,6 +1106,66 @@ mod tests {
     }
 
     #[test]
+    fn review_required_source_use_blocks_metrics_before_lane_evaluation() {
+        let changed = MANIFEST.replace(
+            "# data_use_status=AUTHORIZED_FOR_DECLARED_PURPOSE",
+            "# data_use_status=REVIEW_REQUIRED",
+        );
+        let report = validate_and_report_with_manifest(&changed, &[]).unwrap();
+        assert!(report.contains("data_use_disposition=REVIEW_REQUIRED"));
+        assert!(report.contains("source_use_gate=BLOCKED"));
+        assert!(report.contains("service_metrics=NOT_COMPUTED"));
+        assert!(!report.contains("cohort=hospital|"));
+    }
+
+    #[test]
+    fn not_authorized_source_use_blocks_metrics_before_lane_evaluation() {
+        let changed = MANIFEST.replace(
+            "# data_use_status=AUTHORIZED_FOR_DECLARED_PURPOSE",
+            "# data_use_status=NOT_AUTHORIZED",
+        );
+        let report = validate_and_report_with_manifest(&changed, &[]).unwrap();
+        assert!(report.contains("data_use_disposition=NOT_AUTHORIZED"));
+        assert!(report.contains("source_use_gate=BLOCKED"));
+        assert!(report.contains("service_metrics=NOT_COMPUTED"));
+        assert!(!report.contains("cohort=hospital|"));
+    }
+
+    #[test]
+    fn source_use_authorization_must_cover_the_declared_horizon() {
+        let changed = MANIFEST.replace(
+            "# data_use_valid_until_seconds=1000",
+            "# data_use_valid_until_seconds=99",
+        );
+        let report = validate_and_report_with_manifest(&changed, &[]).unwrap();
+        assert!(report.contains("data_use_disposition=AUTHORIZATION_NOT_CURRENT_FOR_STUDY_HORIZON"));
+        assert!(report.contains("source_use_gate=BLOCKED"));
+        assert!(report.contains("service_metrics=NOT_COMPUTED"));
+        assert!(!report.contains("cohort=hospital|"));
+    }
+
+    #[test]
+    fn source_use_authorization_start_must_not_follow_study_start() {
+        let changed = MANIFEST.replace(
+            "# data_use_valid_from_seconds=0",
+            "# data_use_valid_from_seconds=1",
+        );
+        let report = validate_and_report_with_manifest(&changed, &[]).unwrap();
+        assert!(report.contains("data_use_disposition=AUTHORIZATION_NOT_CURRENT_FOR_STUDY_HORIZON"));
+        assert!(report.contains("source_use_gate=BLOCKED"));
+    }
+
+    #[test]
+    fn unknown_source_use_status_is_rejected() {
+        let changed = MANIFEST.replace(
+            "# data_use_status=AUTHORIZED_FOR_DECLARED_PURPOSE",
+            "# data_use_status=OPEN",
+        );
+        let error = validate_and_report_with_manifest(&changed, &[]).unwrap_err();
+        assert!(error.0.contains("unsupported data_use_status OPEN"));
+    }
+
+    #[test]
     fn manifest_missing_lane_prevents_completeness_claim() {
         let lanes = vec![HOSPITAL.to_owned(), HOUSEHOLDS.to_owned()];
         let report = validate_and_report_with_manifest(MANIFEST, &lanes).unwrap();
