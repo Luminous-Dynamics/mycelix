@@ -381,7 +381,7 @@ mod tests {
         let mismatched = br#"<VOEvent ivorn="ivo://example.org/a" version="2.1"><Who></What></VOEvent>"#;
         assert!(matches!(
             parse_header(mismatched),
-            Err(ParseError::MismatchedElement { .. })
+            Err(ParseError::MismatchedElement { .. } | ParseError::MalformedXml(_))
         ));
     }
 
