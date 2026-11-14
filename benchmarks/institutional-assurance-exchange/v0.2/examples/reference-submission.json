@@ -177,13 +177,9 @@
         "authority.scope.verified",
         "action.independent_of_title"
       ],
-      "supporting_claim_refs": [
-        "CLM-CONDITION-001"
-      ],
+      "supporting_claim_refs": [],
       "requirement_refs": [],
-      "source_receipt_refs": [
-        "RCPT-CONDITION-UNAVAILABLE"
-      ],
+      "source_receipt_refs": [],
       "authority_ref": "AUTHZ-LEASE-001",
       "policy_ref": "POLICY-CONDITION-INSPECTION-V1",
       "evaluator_ref": "IAE-VERTICAL-SLICE-EVALUATOR-V0.2"
