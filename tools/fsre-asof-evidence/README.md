@@ -32,7 +32,7 @@ A claim is `SUPPORTED_AS_KNOWN_AT_CUTOFF` only when its declared minimum number 
 
 ## Input contract
 
-Metadata declares scenario, decision cutoff, maximum observation age and clock basis. `CLAIM` rows specify claim owner/reference and required minimum evidence count. `EVIDENCE` rows contain temporal facts, source owner and opaque reference. An `UNKNOWN` evidence row cannot carry temporal assertions.
+Metadata declares scenario, decision cutoff, default maximum observation age and clock basis. `CLAIM` rows specify claim owner/reference, required minimum evidence count and an optional per-claim maximum observation age; when omitted, the run default applies. `EVIDENCE` rows contain temporal facts, source owner and opaque reference. An `UNKNOWN` evidence row cannot carry temporal assertions.
 
 The replay uses only `available_at <= decision_at`. Later-known revocations are reported as hindsight; they do not rewrite what was knowable at the historical cutoff. This is a replay semantics, not a statement that the evidence remained objectively correct.
 
