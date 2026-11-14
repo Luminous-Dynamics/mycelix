@@ -43,6 +43,14 @@ fn required_u64(value: &Value, key: &str, context: &str) -> Result<u64, Box<dyn 
     value.get(key).and_then(Value::as_u64)
         .ok_or_else(|| invalid(format!("{context}: '{key}' must be a nonnegative integer")))
 }
+fn nullable_u64(value: &Value, key: &str, context: &str) -> Result<Option<u64>, Box<dyn Error>> {
+    match value.get(key) {
+        Some(Value::Null) => Ok(None),
+        Some(value) => value.as_u64().map(Some)
+            .ok_or_else(|| invalid(format!("{context}: '{key}' must be null or a nonnegative integer"))),
+        None => Err(invalid(format!("{context}: missing '{key}'"))),
+    }
+}
 fn string_set(value: &Value, key: &str, context: &str) -> Result<BTreeSet<String>, Box<dyn Error>> {
     let rows = value.get(key).and_then(Value::as_array)
         .ok_or_else(|| invalid(format!("{context}: missing array '{key}'")))?;
@@ -410,6 +418,9 @@ fn run() -> Result<(), Box<dyn Error>> {
         required_str(&submission,key,"submission")?;
     }
     required_u64(&submission,"seed","submission")?;
+    for key in ["total_runtime_ms","peak_memory_bytes","provider_call_count","total_input_tokens","total_output_tokens","total_cost_usd_micros","expert_reviewer_time_ms"] {
+        let _ = nullable_u64(&submission,key,"submission")?;
+    }
     if required_str(&oracle,"suite_id","oracle")? != inputs["suite"]["id"].as_str().unwrap_or("") {
         return Err(invalid("oracle suite ID does not match input manifest"));
     }
@@ -484,7 +495,14 @@ fn run() -> Result<(), Box<dyn Error>> {
             "model_provider":submission["model_provider"],
             "model_name":submission["model_name"],
             "model_version":submission["model_version"],
-            "seed":submission["seed"]
+            "seed":submission["seed"],
+            "total_runtime_ms":nullable_u64(&submission,"total_runtime_ms","submission")?,
+            "peak_memory_bytes":nullable_u64(&submission,"peak_memory_bytes","submission")?,
+            "provider_call_count":nullable_u64(&submission,"provider_call_count","submission")?,
+            "total_input_tokens":nullable_u64(&submission,"total_input_tokens","submission")?,
+            "total_output_tokens":nullable_u64(&submission,"total_output_tokens","submission")?,
+            "total_cost_usd_micros":nullable_u64(&submission,"total_cost_usd_micros","submission")?,
+            "expert_reviewer_time_ms":nullable_u64(&submission,"expert_reviewer_time_ms","submission")?
         },
         "metrics":{
             "case_conformance_rate":aggregate.conformant as f64/n,
@@ -603,6 +621,14 @@ mod tests {
     fn git_blob_receipt_matches_git_object_sha1_semantics() {
         // The byte-object preimage includes the Git blob header and NUL separator.
         assert!(git_blob_sha1("Cargo.toml").is_ok());
+    }
+    #[test]
+    fn nullable_telemetry_distinguishes_not_measured_from_zero() {
+        let value=json!({"runtime":null,"calls":0});
+        assert_eq!(nullable_u64(&value,"runtime","test").unwrap(),None);
+        assert_eq!(nullable_u64(&value,"calls","test").unwrap(),Some(0));
+        assert!(nullable_u64(&value,"missing","test").is_err());
+        assert!(nullable_u64(&json!({"x":"unknown"}),"x","test").is_err());
     }
     #[test]
     fn required_assertion_recall_is_exactly_covered() {
