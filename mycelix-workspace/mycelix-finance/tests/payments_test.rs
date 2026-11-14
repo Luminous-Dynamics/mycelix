@@ -37,7 +37,9 @@ use std::time::Duration;
 
 use finance_wire_types::SapBalanceResponse;
 // Import zome types
-use mycelix_finance_types::compute_demurrage_deduction;
+use mycelix_finance_types::{
+    compute_demurrage_deduction, PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
+};
 use payments::*;
 use payments_integrity::*;
 
@@ -136,10 +138,185 @@ mod payment_creation {
         );
         assert!(payment.memo.is_some(), "Memo should be present");
 
-        println!("  - Payment fields verified");
+        // Read back the receipt. The coordinator's successful create_entry call
+        // proves the integrity callback accepted a real sender-key signature
+        // over the exact Payment action and its immutable economic fields.
+        let receipt_record: Option<Record> = conductor
+            .call(
+                &alice_cell.zome("payments"),
+                "get_receipt",
+                payment.id.clone(),
+            )
+            .await;
+        let receipt_record = receipt_record.expect("A receipt must exist for the payment");
+        let receipt: Receipt = receipt_record
+            .entry()
+            .to_app_option()
+            .expect("Receipt decode failed")
+            .expect("Receipt entry missing");
+        assert_eq!(receipt.payment_id, payment.id);
+        assert_eq!(receipt.from_did, payment.from_did);
+        assert_eq!(receipt.to_did, payment.to_did);
+        assert_eq!(receipt.amount, payment.amount);
+        assert_eq!(receipt.fee, payment.fee);
+        assert_eq!(receipt.currency, payment.currency);
+        assert_eq!(receipt.timestamp, payment.created);
+        assert_eq!(
+            receipt.payment_action_hash.as_ref(),
+            Some(payment_record.action_address()),
+            "Receipt must reference the exact Payment create action"
+        );
+        assert!(
+            receipt.signature.starts_with(PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX),
+            "Receipt must use the versioned v1 signature profile"
+        );
+
+        println!("  - Payment and signed receipt subject verified");
         println!("  - Payment ID: {}", payment.id);
         println!("  - Status: {:?}", payment.status);
         println!("Test 1.1 PASSED: Basic payment creation works");
+    }
+
+    /// A second agent can bypass the normal payment coordinator flow only in the
+    /// feature-gated test DNA. The DHT integrity callback must still reject a
+    /// correctly shaped but fabricated signature over an existing Payment.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "requires the receipt-test-harness Sweettest DNA"]
+    async fn test_raw_receipt_create_rejects_fabricated_signature() {
+        let dna_path = std::path::PathBuf::from("../dna/mycelix_finance.dna");
+        let dna = SweetDnaFile::from_bundle(&dna_path)
+            .await
+            .expect("Failed to load DNA");
+        let mut conductor = SweetConductor::from_standard_config().await;
+        let agents = SweetAgents::get(conductor.keystore(), 2).await;
+        let apps = conductor
+            .setup_app_for_agents("mycelix-finance", &agents, &[dna])
+            .await
+            .expect("Failed to install app");
+
+        let alice_did = format!("did:mycelix:{}", agents[0]);
+        let bob_did = format!("did:mycelix:{}", agents[1]);
+        let bob_cell = &apps[1].cells()[0];
+
+        // TEND avoids unrelated SAP balance/Treasury effects. The valid Payment
+        // gives the adversarial receipt an exact, independently valid subject.
+        let payment_input = SendPaymentInput {
+            from_did: bob_did.clone(),
+            to_did: alice_did.clone(),
+            amount: 1_000,
+            currency: "TEND".to_string(),
+            payment_type: PaymentType::Direct,
+            memo: Some("receipt-auth adversarial test".to_string()),
+        };
+        let payment_record: Record = conductor
+            .call(&bob_cell.zome("payments"), "send_payment", payment_input)
+            .await;
+        let payment: Payment = payment_record
+            .entry()
+            .to_app_option()
+            .expect("Payment decode failed")
+            .expect("Payment entry missing");
+
+        let forged_receipt = Receipt {
+            payment_id: payment.id.clone(),
+            from_did: payment.from_did.clone(),
+            to_did: payment.to_did.clone(),
+            amount: payment.amount,
+            fee: payment.fee,
+            currency: payment.currency.clone(),
+            timestamp: payment.created,
+            payment_action_hash: Some(payment_record.action_address().clone()),
+            signature: format!(
+                "{}{}",
+                PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
+                "0".repeat(128)
+            ),
+        };
+
+        let result: Result<ActionHash, _> = conductor
+            .call_fallible(
+                &bob_cell.zome("payments"),
+                "test_only_create_receipt_without_business_validation",
+                forged_receipt,
+            )
+            .await;
+        assert!(
+            result.is_err(),
+            "a fabricated receipt signature must be rejected by integrity validation"
+        );
+        let rejection = format!("{:?}", result.unwrap_err());
+        assert!(
+            rejection.contains("signature") || rejection.contains("Signature"),
+            "expected a signature-validation rejection, got: {rejection}"
+        );
+    }
+
+    /// A peer cannot replay another sender's correctly signed Receipt as its own.
+    /// This isolates the source-chain action-author binding from signature validity.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "requires the receipt-test-harness Sweettest DNA"]
+    async fn test_raw_receipt_create_rejects_cross_agent_replay() {
+        let dna_path = std::path::PathBuf::from("../dna/mycelix_finance.dna");
+        let dna = SweetDnaFile::from_bundle(&dna_path)
+            .await
+            .expect("Failed to load DNA");
+        let mut conductor = SweetConductor::from_standard_config().await;
+        let agents = SweetAgents::get(conductor.keystore(), 2).await;
+        let apps = conductor
+            .setup_app_for_agents("mycelix-finance", &agents, &[dna])
+            .await
+            .expect("Failed to install app");
+
+        let alice_did = format!("did:mycelix:{}", agents[0]);
+        let bob_cell = &apps[1].cells()[0];
+        let alice_cell = &apps[0].cells()[0];
+
+        let input = SendPaymentInput {
+            from_did: alice_did.clone(),
+            to_did: format!("did:mycelix:{}", agents[1]),
+            amount: 2_000,
+            currency: "TEND".to_string(),
+            payment_type: PaymentType::Direct,
+            memo: Some("receipt-auth cross-agent replay test".to_string()),
+        };
+        let payment_record: Record = conductor
+            .call(&alice_cell.zome("payments"), "send_payment", input)
+            .await;
+        let payment: Payment = payment_record
+            .entry()
+            .to_app_option()
+            .expect("Payment decode failed")
+            .expect("Payment entry missing");
+        let receipt_record: Option<Record> = conductor
+            .call(
+                &alice_cell.zome("payments"),
+                "get_receipt",
+                payment.id.clone(),
+            )
+            .await;
+        let receipt_record = receipt_record.expect("Valid receipt must exist");
+        let receipt: Receipt = receipt_record
+            .entry()
+            .to_app_option()
+            .expect("Receipt decode failed")
+            .expect("Receipt entry missing");
+
+        let result: Result<ActionHash, _> = conductor
+            .call_fallible(
+                &bob_cell.zome("payments"),
+                "test_only_create_receipt_without_business_validation",
+                receipt,
+            )
+            .await;
+        assert!(
+            result.is_err(),
+            "a peer must not be able to replay another agent's Receipt"
+        );
+        let rejection = format!("{:?}", result.unwrap_err());
+        assert!(
+            rejection.contains("committing agent") || rejection.contains("forgery"),
+            "expected an action-author rejection, got: {rejection}"
+        );
     }
 
     /// Test 1.2: Payment with different payment types
