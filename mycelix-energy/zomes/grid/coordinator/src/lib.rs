@@ -252,45 +252,63 @@ pub fn get_active_offers(_: ()) -> ExternResult<Vec<Record>> {
 /// -- see e.g. `mycelix-finance/apps/leptos/src/pages/profile.rs`).
 const SAP_MICRO_UNITS_PER_UNIT: f64 = 1_000_000.0;
 
-/// Whether `currency` has a real settlement rail in this system --
-/// `payments::send_payment` only accepts "SAP" or "TEND". Pure and
-/// unit-testable (no HDK host calls), unlike `settle_via_finance` itself.
-fn currency_has_real_settlement_rail(currency: &str) -> bool {
-    currency == "SAP" || currency == "TEND"
+/// Whether a currency is supported by Finance's SAP direct-payment endpoint.
+/// This is an internal SAP ledger capability, not evidence of a bank/rail route.
+fn currency_uses_finance_sap_direct_payment(currency: &str) -> bool {
+    currency == "SAP"
 }
 
-/// Convert a whole-unit SAP/TEND amount (as stored in `Trade::total_price`)
-/// to the micro-unit integer `payments::send_payment` expects. Pure and
-/// unit-testable.
-fn whole_units_to_micro(whole_units: f64) -> u64 {
-    (whole_units * SAP_MICRO_UNITS_PER_UNIT).round() as u64
-}
+/// Maximum integer exactly representable by f64 (2^53 - 1).
+const MAX_EXACT_F64_INTEGER: f64 = 9_007_199_254_740_991.0;
 
-/// Attempt real settlement via the finance cluster's payment rail.
+/// Convert SAP whole units to exact micro-SAP integer units.
 ///
-/// Only SAP and TEND can be settled this way -- they're the only
-/// currencies `payments::send_payment` accepts (`mycelix-finance/zomes/
-/// payments/coordinator/src/lib.rs`). P2P grid trades denominated in
-/// fiat-like currencies (USD, EUR, etc. -- used throughout this crate's
-/// existing tests and offer data) have no real settlement rail anywhere
-/// in this system; those fall back to the caller-supplied manual
-/// `payment_reference`, exactly as `settle_trade` behaved before this
-/// change.
-///
-/// Note: `send_payment` internally requires the CALLING agent's key to
-/// match `from_did` (`verify_caller_is_did`), so real settlement only
-/// succeeds when the buyer's own agent calls `settle_trade` -- this is
-/// the correct authorization boundary (a payer must authorize their own
-/// payment), not a bug to route around.
-///
-/// Returns `Some(payment_reference)` on a successful real payment, `None`
-/// if the currency isn't SAP/TEND or the finance cluster call fails --
-/// the caller falls back to the manual reference in either case.
-fn settle_via_finance(trade: &Trade) -> Option<String> {
-    if !currency_has_real_settlement_rail(&trade.currency) {
+/// This legacy model stores Trade::total_price as f64. Conversion therefore
+/// fails closed for negative/non-finite values, non-micro-aligned fractions,
+/// and values beyond exact f64 integer precision. No saturating float cast or
+/// silent rounding is allowed.
+fn whole_units_to_micro(whole_units: f64) -> Option<u64> {
+    if !whole_units.is_finite() || whole_units <= 0.0 {
         return None;
     }
-    let micro_amount = whole_units_to_micro(trade.total_price);
+
+    let scaled = whole_units * SAP_MICRO_UNITS_PER_UNIT;
+    if !scaled.is_finite() || scaled > MAX_EXACT_F64_INTEGER {
+        return None;
+    }
+
+    // No rounding: the scaled value itself must be an exact integer.
+    // Values above 2^53 - 1 were rejected above because f64 cannot resolve
+    // every adjacent micro-unit integer there.
+    if scaled.fract() != 0.0 {
+        return None;
+    }
+
+    Some(scaled as u64)
+}
+
+fn finance_payment_matches_trade(trade: &Trade, payment: &FinancePaymentSnapshot) -> bool {
+    let Some(expected_amount) = whole_units_to_micro(trade.total_price) else {
+        return false;
+    };
+    payment.from_did == trade.buyer_did
+        && payment.to_did == trade.seller_did
+        && payment.amount == expected_amount
+        && payment.currency == trade.currency
+        && matches!(&payment.status, FinancePaymentStatus::Completed)
+}
+
+/// Submit an internal SAP ledger payment through Finance.
+///
+/// A matching Completed Payment record proves only that Finance returned an
+/// internal SAP ledger Payment entry for this exact trade. It does not prove
+/// external bank-rail settlement, legal finality, external SAP backing, or
+/// physical energy delivery. TEND uses its separate exchange protocol.
+fn submit_finance_sap_payment(trade: &Trade) -> Option<String> {
+    if !currency_uses_finance_sap_direct_payment(&trade.currency) {
+        return None;
+    }
+    let micro_amount = whole_units_to_micro(trade.total_price)?;
 
     #[derive(Serialize, Debug)]
     struct SendPaymentPayload {
@@ -316,11 +334,41 @@ fn settle_via_finance(trade: &Trade) -> Option<String> {
             memo: Some(format!("grid trade settlement: {}", trade.id)),
         },
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => result
-            .decode::<Record>()
-            .ok()
-            .map(|record| format!("payments:{}", record.action_address())),
+        Ok(ZomeCallResponse::Ok(result)) => {
+            let record = result.decode::<Record>().ok()?;
+            let payment = record
+                .entry()
+                .to_app_option::<FinancePaymentSnapshot>()
+                .ok()
+                .flatten()?;
+            if !finance_payment_matches_trade(trade, &payment) {
+                return None;
+            }
+            Some(format!("payments:{}", record.action_address()))
+        }
         _ => None,
+    }
+}
+
+/// Caller-supplied/manual references are not settlement authority. They may be
+/// retained for a separate evidence-submission workflow, but cannot mark a
+/// trade settled through this entry point.
+fn require_matching_finance_sap_payment(
+    currency: &str,
+    finance_reference: Option<String>,
+) -> ExternResult<String> {
+    if !currency_uses_finance_sap_direct_payment(currency) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "No Finance SAP direct-payment capability for currency {currency}"
+        ))));
+    }
+
+    match finance_reference.filter(|reference| !reference.trim().is_empty()) {
+        Some(reference) => Ok(reference),
+        None => Err(wasm_error!(WasmErrorInner::Guest(
+            "Finance did not return a field-matched Completed SAP Payment record; trade remains unsettled"
+                .into()
+        ))),
     }
 }
 
@@ -334,8 +382,13 @@ pub fn settle_trade(input: SettleTradeInput) -> ExternResult<Record> {
     for record in query(filter)? {
         if let Some(trade) = record.entry().to_app_option::<Trade>().ok().flatten() {
             if trade.id == input.trade_id {
-                let payment_reference =
-                    settle_via_finance(&trade).unwrap_or(input.payment_reference);
+                let payment_reference = require_matching_finance_sap_payment(
+                    &trade.currency,
+                    submit_finance_sap_payment(&trade),
+                )?;
+                // This legacy boolean records completion of the local SAP
+                // Finance ledger leg only. It is not bank-rail finality or
+                // evidence that the energy delivery itself has been metered.
                 let settled_trade = Trade {
                     settled: true,
                     payment_reference: Some(payment_reference),
@@ -356,6 +409,10 @@ pub fn settle_trade(input: SettleTradeInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SettleTradeInput {
     pub trade_id: String,
+    /// Legacy manual reference field. This value is not accepted as settlement
+    /// authority; only a field-matched Completed Finance SAP ledger Payment
+    /// response can mark the local SAP financial leg complete. This is not
+    /// external bank-rail settlement or legal finality.
     pub payment_reference: String,
 }
 
@@ -413,7 +470,7 @@ pub fn get_offer_trades(offer_id: String) -> ExternResult<Vec<Record>> {
 
 /// Wire-compatible mirror of `mycelix-identity`'s `trust_credential::TrustTier`
 /// (a local copy, not a shared-crate import, matching the same
-/// cross-hApp-call convention used by `settle_via_finance` -- separately
+/// cross-hApp-call convention used by `submit_finance_sap_payment` -- separately
 /// deployable hApps don't share Rust types across a `call()` boundary,
 /// only the serde wire shape). Variant names and their absence of
 /// associated data must stay in sync with the real enum in
@@ -1357,40 +1414,109 @@ mod tests {
     }
 
     // =========================================================================
-    // Real-settlement gating tests (currency_has_real_settlement_rail,
+    // SAP direct-payment rail gating tests (currency_uses_finance_sap_direct_payment,
     // whole_units_to_micro) -- pure helpers, no HDK host calls needed.
     // =========================================================================
 
     #[test]
-    fn test_sap_and_tend_have_real_settlement_rail() {
-        assert!(currency_has_real_settlement_rail("SAP"));
-        assert!(currency_has_real_settlement_rail("TEND"));
+    #[test]
+    fn test_finance_payment_snapshot_must_match_exact_trade_subject() {
+        let trade = Trade {
+            id: "trade:1".into(),
+            offer_id: "offer:1".into(),
+            seller_did: "did:mycelix:seller".into(),
+            buyer_did: "did:mycelix:buyer".into(),
+            amount_kwh: 10.0,
+            price_per_kwh: 1.0,
+            total_price: 10.0,
+            currency: "SAP".into(),
+            executed: create_test_timestamp(),
+            settled: false,
+            payment_reference: None,
+        };
+        let payment = FinancePaymentSnapshot {
+            from_did: "did:mycelix:buyer".into(),
+            to_did: "did:mycelix:seller".into(),
+            amount: 10_000_000,
+            currency: "SAP".into(),
+            status: FinancePaymentStatus::Completed,
+        };
+        assert!(finance_payment_matches_trade(&trade, &payment));
+
+        let mut wrong_amount = FinancePaymentSnapshot {
+            from_did: payment.from_did.clone(),
+            to_did: payment.to_did.clone(),
+            amount: payment.amount + 1,
+            currency: payment.currency.clone(),
+            status: FinancePaymentStatus::Completed,
+        };
+        assert!(!finance_payment_matches_trade(&trade, &wrong_amount));
+        wrong_amount.amount = payment.amount;
+        wrong_amount.to_did = "did:mycelix:mallory".into();
+        assert!(!finance_payment_matches_trade(&trade, &wrong_amount));
+
+        let fractional_micro_trade = Trade {
+            total_price: 0.1234565,
+            ..trade.clone()
+        };
+        assert!(!finance_payment_matches_trade(
+            &fractional_micro_trade,
+            &payment
+        ));
+
+        let non_finite_trade = Trade {
+            total_price: f64::NAN,
+            ..trade
+        };
+        assert!(!finance_payment_matches_trade(&non_finite_trade, &payment));
     }
 
     #[test]
-    fn test_fiat_like_currencies_have_no_real_settlement_rail() {
-        for currency in ["USD", "EUR", "GBP", "SOLAR", ""] {
+    fn test_manual_reference_never_qualifies_trade_settlement() {
+        assert!(require_matching_finance_sap_payment("TEND", Some("manual:T-1".into())).is_err());
+        assert!(require_matching_finance_sap_payment("USD", Some("manual:WIRE-1".into())).is_err());
+        assert!(require_matching_finance_sap_payment("SAP", None).is_err());
+        assert_eq!(
+            require_matching_finance_sap_payment("SAP", Some("payments:action-hash".into()))
+                .unwrap(),
+            "payments:action-hash"
+        );
+    }
+
+    #[test]
+    fn test_only_sap_has_finance_direct_payment_rail() {
+        assert!(currency_uses_finance_sap_direct_payment("SAP"));
+        assert!(!currency_uses_finance_sap_direct_payment("TEND"));
+    }
+
+    #[test]
+    fn test_non_sap_currencies_are_not_supported_by_finance_sap_direct_payment() {
+        for currency in ["TEND", "USD", "EUR", "GBP", "SOLAR", ""] {
             assert!(
-                !currency_has_real_settlement_rail(currency),
-                "{currency} should not have a real settlement rail"
+                !currency_uses_finance_sap_direct_payment(currency),
+                "{currency} should not be accepted by Finance's SAP direct-payment endpoint"
             );
         }
     }
 
     #[test]
-    fn test_whole_units_to_micro_matches_finance_frontend_convention() {
-        // Inverse of the display conversion used throughout
-        // mycelix-finance's frontend (amount as f64 / 1_000_000.0).
-        assert_eq!(whole_units_to_micro(1.0), 1_000_000);
-        assert_eq!(whole_units_to_micro(0.5), 500_000);
-        assert_eq!(whole_units_to_micro(123.45), 123_450_000);
+    fn test_whole_units_to_micro_accepts_exact_micro_units() {
+        // Inverse of Finance's display conversion: whole SAP × 1,000,000.
+        assert_eq!(whole_units_to_micro(1.0), Some(1_000_000));
+        assert_eq!(whole_units_to_micro(0.5), Some(500_000));
+        assert_eq!(whole_units_to_micro(123.45), Some(123_450_000));
+        assert_eq!(whole_units_to_micro(0.123456), Some(123_456));
     }
 
     #[test]
-    fn test_whole_units_to_micro_rounds_rather_than_truncates() {
-        // 0.1234565 * 1_000_000 = 123456.5 -- must round to the nearest
-        // integer micro-unit, not silently truncate and lose a fraction.
-        assert_eq!(whole_units_to_micro(0.1234565), 123_457);
+    fn test_whole_units_to_micro_rejects_invalid_or_lossy_values() {
+        assert_eq!(whole_units_to_micro(0.1234565), None);
+        assert_eq!(whole_units_to_micro(0.0), None);
+        assert_eq!(whole_units_to_micro(-1.0), None);
+        assert_eq!(whole_units_to_micro(f64::NAN), None);
+        assert_eq!(whole_units_to_micro(f64::INFINITY), None);
+        assert_eq!(whole_units_to_micro(f64::NEG_INFINITY), None);
+        assert_eq!(whole_units_to_micro(f64::MAX), None);
     }
 
     #[test]
