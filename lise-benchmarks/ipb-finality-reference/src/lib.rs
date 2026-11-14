@@ -502,6 +502,206 @@ pub fn qualify_independent_effect_observation(
     }
 }
 
+
+/// A bounded delegation scope supplied by the authority owner.
+///
+/// Empty sets mean no authority for that dimension. `None` for an upper
+/// bound means unbounded; a child may not turn a bounded parent into an
+/// unbounded grant. This is a comparison model, not a credential parser.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CapabilityScope {
+    pub actions: BTreeSet<String>,
+    pub resources: BTreeSet<String>,
+    pub purposes: BTreeSet<String>,
+    pub fields: BTreeSet<String>,
+    pub valid_from: u64,
+    pub expires_at: Option<u64>,
+    pub max_amount_minor: Option<u64>,
+    pub max_operations: Option<u64>,
+}
+
+/// One owner-resolved grant that is available during the evaluated trajectory.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CapabilityGrant {
+    pub grant_ref: String,
+    pub active_during_trajectory: bool,
+    pub scope: CapabilityScope,
+}
+
+/// Union of privileges available through any active grant/session in a
+/// trajectory slice. This deliberately measures available privilege, not
+/// only the permission used by the final successful tool call.
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
+pub struct EffectivePrivilege {
+    pub grant_refs: BTreeSet<String>,
+    pub actions: BTreeSet<String>,
+    pub resources: BTreeSet<String>,
+    pub purposes: BTreeSet<String>,
+    pub fields: BTreeSet<String>,
+    pub has_unbounded_amount: bool,
+    pub has_unbounded_operation_count: bool,
+}
+
+fn bounded_child_attenuates(parent: Option<u64>, child: Option<u64>) -> bool {
+    match (parent, child) {
+        (None, _) => true,
+        (Some(_), None) => false,
+        (Some(parent_limit), Some(child_limit)) => child_limit <= parent_limit,
+    }
+}
+
+/// Returns true only when every child dimension is a subset of its parent
+/// and every child temporal/quantity limit is at least as restrictive.
+pub fn delegation_is_attenuated(parent: &CapabilityScope, child: &CapabilityScope) -> bool {
+    child.actions.is_subset(&parent.actions)
+        && child.resources.is_subset(&parent.resources)
+        && child.purposes.is_subset(&parent.purposes)
+        && child.fields.is_subset(&parent.fields)
+        && child.valid_from >= parent.valid_from
+        && match (parent.expires_at, child.expires_at) {
+            (None, _) => true,
+            (Some(_), None) => false,
+            (Some(parent_expiry), Some(child_expiry)) => child_expiry <= parent_expiry,
+        }
+        && bounded_child_attenuates(parent.max_amount_minor, child.max_amount_minor)
+        && bounded_child_attenuates(parent.max_operations, child.max_operations)
+}
+
+/// Computes the union of all owner-resolved grants available to an agent
+/// during the supplied trajectory. The caller must include tool/session
+/// grants, forwarded credentials and ambient credentials in the input set.
+pub fn union_effective_privilege(grants: &[CapabilityGrant]) -> EffectivePrivilege {
+    let mut result = EffectivePrivilege::default();
+    for grant in grants.iter().filter(|grant| grant.active_during_trajectory) {
+        result.grant_refs.insert(grant.grant_ref.clone());
+        result.actions.extend(grant.scope.actions.iter().cloned());
+        result.resources.extend(grant.scope.resources.iter().cloned());
+        result.purposes.extend(grant.scope.purposes.iter().cloned());
+        result.fields.extend(grant.scope.fields.iter().cloned());
+        result.has_unbounded_amount |= grant.scope.max_amount_minor.is_none();
+        result.has_unbounded_operation_count |= grant.scope.max_operations.is_none();
+    }
+    result
+}
+
+/// Checks whether the trajectory-wide privilege union exceeds the approved
+/// task scope. It is possible for a final call to be harmless while the
+/// available credential envelope is materially broader than the task.
+pub fn effective_privilege_within_task(
+    effective: &EffectivePrivilege,
+    task: &CapabilityScope,
+) -> bool {
+    effective.actions.is_subset(&task.actions)
+        && effective.resources.is_subset(&task.resources)
+        && effective.purposes.is_subset(&task.purposes)
+        && effective.fields.is_subset(&task.fields)
+        && (!effective.has_unbounded_amount || task.max_amount_minor.is_none())
+        && (!effective.has_unbounded_operation_count || task.max_operations.is_none())
+}
+
+/// One executable route to a protected resource/effect.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProtectedRoute {
+    pub route_ref: String,
+    pub protected_effect_ref: String,
+    pub reachable_from_agent: bool,
+    pub enforcement_point_ref: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MediationCoverage {
+    AllReachablePathsMediated,
+    ReachableBypass,
+    RouteInventoryIncomplete,
+    NoReachablePath,
+}
+
+/// Evaluates complete-mediation evidence for one protected effect.
+///
+/// A single known reachable bypass is decisive even when the route inventory
+/// is incomplete. A fully mediated known subset is not a complete-mediation
+/// claim unless the owner says the route inventory is complete.
+pub fn assess_mediation_coverage(
+    protected_effect_ref: &str,
+    route_inventory_complete: bool,
+    routes: &[ProtectedRoute],
+) -> MediationCoverage {
+    let reachable: Vec<&ProtectedRoute> = routes
+        .iter()
+        .filter(|route| {
+            route.protected_effect_ref == protected_effect_ref && route.reachable_from_agent
+        })
+        .collect();
+    if reachable
+        .iter()
+        .any(|route| route.enforcement_point_ref.as_deref().is_none_or(str::is_empty))
+    {
+        return MediationCoverage::ReachableBypass;
+    }
+    if !route_inventory_complete {
+        return MediationCoverage::RouteInventoryIncomplete;
+    }
+    if reachable.is_empty() {
+        return MediationCoverage::NoReachablePath;
+    }
+    MediationCoverage::AllReachablePathsMediated
+}
+
+/// Currentness of an active session against the authority owner's revocation
+/// epoch and bitemporal revocation record.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SessionRevocationState {
+    pub authority_state: AuthorityState,
+    pub authoritative_epoch: u64,
+    pub session_observed_epoch: u64,
+    pub action_at: u64,
+    pub known_at: u64,
+    pub revocation_effective_at: Option<u64>,
+    pub revocation_observed_at: Option<u64>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SessionAuthorizationDecision {
+    Permit,
+    DenyRevoked,
+    DenyInactive,
+    HoldUnknown,
+    HoldStaleSession,
+}
+
+/// Evaluates an already-issued session against current authority state.
+///
+/// A central revocation record alone does not prove all active sessions have
+/// enforced it. A stale session epoch is held until refreshed or invalidated.
+pub fn evaluate_session_revocation(
+    state: SessionRevocationState,
+) -> SessionAuthorizationDecision {
+    if state.authority_state == AuthorityState::Unknown {
+        return SessionAuthorizationDecision::HoldUnknown;
+    }
+    if state.authority_state == AuthorityState::Revoked {
+        match (state.revocation_effective_at, state.revocation_observed_at) {
+            (Some(effective), Some(observed)) if observed <= state.known_at => {
+                if effective <= state.action_at {
+                    return SessionAuthorizationDecision::DenyRevoked;
+                }
+            }
+            _ => return SessionAuthorizationDecision::HoldUnknown,
+        }
+    }
+    if state.session_observed_epoch < state.authoritative_epoch {
+        return SessionAuthorizationDecision::HoldStaleSession;
+    }
+    match state.authority_state {
+        AuthorityState::Current => SessionAuthorizationDecision::Permit,
+        AuthorityState::Revoked => SessionAuthorizationDecision::Permit,
+        AuthorityState::Expired | AuthorityState::NotYetValid => {
+            SessionAuthorizationDecision::DenyInactive
+        }
+        AuthorityState::Unknown => SessionAuthorizationDecision::HoldUnknown,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
