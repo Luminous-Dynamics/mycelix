@@ -64,6 +64,22 @@ FSRE should consume outputs from these systems rather than replace their domain 
 
 Primary sources: EPA EPANET https://www.epa.gov/water-research/epanet; EPA WNTR https://usepa.github.io/WNTR/; Bentley OpenFlows Water https://www.bentley.com/products/openflows-water/; Bentley WaterSight https://www.bentley.com/en/products/openflows-watersight/.
 
+## 2.4 Water-sector evidence-chain, maturity and restoration benchmarks (2026)
+
+A further important comparator is Silva's 2026 systematic review of 48 water-AI/digital-twin records. It proposes TRACE-Water (Traceable data, Robust validation, Actionable explanation, Controlled decision loop, Evaluated sustainability), reports five M3 operational decision-support contributions and no M4 audited closed-loop contribution in its reviewed corpus, and says TRACE-Water itself needs prospective empirical validation. M4 requires bounded authority, fail-safe/override, drift and security monitoring, an audit trail and prospective outcomes—not merely a live data link. FSRE should map to this work rather than claim to have originated the evidence-to-decision framing. See [the TRACE-Water crosswalk](TRACE_WATER_AND_RESTORATION_BENCHMARK_CROSSWALK_V0_1.md).
+
+Two direct domain comparators should shape the first water experiment:
+- Liu, Pianosi & Mijic (2026) benchmark DMDU water-resilience planning with historical-climate hindcasts against a theoretical cost-optimal reference. Their Luton proof of concept reports a refined real-options setup with 16.5% higher cost and 74.7% lower resilience deficit under simplified assumptions. This is a planning-method result, not an FSRE target.
+- Naeimi & Davidson (2025) use REWET to compare 15 restoration plans across Anytown and Los Angeles water networks and report customer-days-without-service reductions from restoration actions. This is the direct post-event water restoration baseline; FSRE should consume or compare its outputs, not recreate hydraulic or repair models.
+
+These results require different metrics and matched tasks. A benchmark should not compare service-outcome improvements with software conformance counts or mix the DMDU known-future experiment with a post-event restoration trial.
+
+Primary sources:
+- Silva (2026), https://doi.org/10.3390/w18192443
+- Qureshi et al. (2026), https://doi.org/10.1007/s43621-026-03825-2
+- Liu, Pianosi & Mijic (2026), https://doi.org/10.1016/j.jclepro.2026.147850
+- Naeimi & Davidson (2025), https://doi.org/10.1061/JWRMD5.WRENG-6452
+
 ## 2.3 Current water-monitoring research comparators (November 2026)
 
 The sensor-placement frontier is moving quickly. These methods should be treated as specialist baselines, not dismissed as competitors FSRE has already surpassed.
