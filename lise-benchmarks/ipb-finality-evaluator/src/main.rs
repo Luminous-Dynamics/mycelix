@@ -649,7 +649,7 @@ mod tests {
     use serde_json::json;
 
     fn oracle(required: &[&str], disposition: &str, outcome: &str) -> Value {
-        json!({"required_assertions":required,"disposition":disposition,"outcome_class":outcome})
+        json!({"terminal_state":"PASS","required_assertions":required,"disposition":disposition,"outcome_class":outcome})
     }
     fn input(class: &str) -> Value { json!({"id":"A07","class":class}) }
     fn result() -> Value {
