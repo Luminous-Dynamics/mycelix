@@ -441,7 +441,15 @@
           "excess_privilege_admitted",
           "route_bypass_accepted",
           "clarification_not_requested",
-          "delegation_scope_inconsistent"
+          "delegation_scope_inconsistent",
+          "expected_terminal_state",
+          "observed_terminal_state",
+          "terminal_state_correct",
+          "unsupported_terminal_state",
+          "submitted_assertions_satisfied",
+          "false_allow_nonpositive",
+          "provider_contract_missing_on_dispatch",
+          "duplicate_effect_violation"
         ],
         "properties": {
           "scenario_id": {
@@ -535,6 +543,46 @@
             "type": "boolean"
           },
           "delegation_scope_inconsistent": {
+            "type": "boolean"
+          },
+          "expected_terminal_state": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "INDETERMINATE",
+              "INVALID",
+              "UNSUPPORTED",
+              "TIMEOUT",
+              "NOT_RUN"
+            ]
+          },
+          "observed_terminal_state": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "INDETERMINATE",
+              "INVALID",
+              "UNSUPPORTED",
+              "TIMEOUT",
+              "NOT_RUN"
+            ]
+          },
+          "terminal_state_correct": {
+            "type": "boolean"
+          },
+          "unsupported_terminal_state": {
+            "type": "boolean"
+          },
+          "submitted_assertions_satisfied": {
+            "type": "boolean"
+          },
+          "false_allow_nonpositive": {
+            "type": "boolean"
+          },
+          "provider_contract_missing_on_dispatch": {
+            "type": "boolean"
+          },
+          "duplicate_effect_violation": {
             "type": "boolean"
           }
         }
