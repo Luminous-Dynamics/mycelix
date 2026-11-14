@@ -53,10 +53,11 @@ The qualifier reports these independently: as-of reconstruction, authority-at-ac
 
 ```bash
 cargo fmt --manifest-path research/civ-trace-001/qualifier/Cargo.toml --check
+cargo clippy --all-targets --manifest-path research/civ-trace-001/qualifier/Cargo.toml -- -D warnings
 cargo test --manifest-path research/civ-trace-001/qualifier/Cargo.toml
 cargo run --manifest-path research/civ-trace-001/qualifier/Cargo.toml -- \
-  research/civ-trace-001/CIV_TRACE_FIXTURES_V0_1.json \
-  research/civ-trace-001/CIV_TRACE_FIXTURES_V0_1.schema.json
+  research/civ-trace-001/CIV_TRACE_FIXTURES_V0_2.json \
+  research/civ-trace-001/CIV_TRACE_FIXTURES_V0_2.schema.json
 ```
 
 ## Non-claims
