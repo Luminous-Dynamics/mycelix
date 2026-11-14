@@ -199,7 +199,7 @@ pub fn authorize(request: AuthorizationRequest<'_>) -> AuthorizationDecision {
         return AuthorizationDecision::indeterminate(DecisionReason::PermissionBasisMissing);
     }
     if requires_community_authority(request.access_class)
-        && grant.authority_reference.as_deref().is_none_or(str::is_empty)
+        && grant.authority_reference.as_deref().map_or(true, str::is_empty)
     {
         return AuthorizationDecision::indeterminate(DecisionReason::AuthorityReferenceMissing);
     }
@@ -230,7 +230,7 @@ pub fn authorize(request: AuthorizationRequest<'_>) -> AuthorizationDecision {
 mod tests {
     use super::*;
 
-    fn grant() -> PermissionGrant {
+    fn valid_grant() -> PermissionGrant {
         PermissionGrant {
             record_id: "record-1".into(),
             grantee_id: "agent-1".into(),
@@ -274,21 +274,21 @@ mod tests {
 
     #[test]
     fn scoped_citation_and_display_are_allowed() {
-        let grant = grant();
+        let grant = valid_grant();
         assert_eq!(authorize(request(Some(&grant), Operation::Cite)).kind, DecisionKind::Allow);
         assert_eq!(authorize(request(Some(&grant), Operation::Display)).kind, DecisionKind::Allow);
     }
 
     #[test]
     fn citation_only_style_grant_does_not_allow_training_or_retrieval() {
-        let grant = grant();
+        let grant = valid_grant();
         assert_eq!(authorize(request(Some(&grant), Operation::Train)).kind, DecisionKind::Deny);
         assert_eq!(authorize(request(Some(&grant), Operation::Retrieve)).kind, DecisionKind::Deny);
     }
 
     #[test]
     fn explicit_denial_overrides_other_allowed_operations() {
-        let grant = grant();
+        let grant = valid_grant();
         let decision = authorize(request(Some(&grant), Operation::Translate));
         assert_eq!(decision.kind, DecisionKind::Deny);
         assert_eq!(decision.reason, DecisionReason::OperationExplicitlyDenied);
@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn revoked_permission_never_authorizes() {
-        let grant = grant();
+        let grant = valid_grant();
         let mut req = request(Some(&grant), Operation::Cite);
         req.revocation_status = RevocationStatus::Revoked;
         assert_eq!(authorize(req).kind, DecisionKind::Deny);
@@ -304,7 +304,7 @@ mod tests {
 
     #[test]
     fn unknown_revocation_state_is_indeterminate() {
-        let grant = grant();
+        let grant = valid_grant();
         let mut req = request(Some(&grant), Operation::Cite);
         req.revocation_status = RevocationStatus::Unknown;
         assert_eq!(authorize(req).kind, DecisionKind::Indeterminate);
@@ -312,7 +312,7 @@ mod tests {
 
     #[test]
     fn unauthenticated_actor_is_indeterminate() {
-        let grant = grant();
+        let grant = valid_grant();
         let mut req = request(Some(&grant), Operation::Cite);
         req.authenticated_actor_id = None;
         assert_eq!(authorize(req).kind, DecisionKind::Indeterminate);
@@ -320,7 +320,7 @@ mod tests {
 
     #[test]
     fn actor_mismatch_is_denied() {
-        let grant = grant();
+        let grant = valid_grant();
         let mut req = request(Some(&grant), Operation::Cite);
         req.authenticated_actor_id = Some("agent-2");
         assert_eq!(authorize(req).kind, DecisionKind::Deny);
@@ -328,7 +328,7 @@ mod tests {
 
     #[test]
     fn pending_permission_is_denied() {
-        let grant = grant();
+        let grant = valid_grant();
         let mut req = request(Some(&grant), Operation::Cite);
         req.permission_status = PermissionStatus::Pending;
         assert_eq!(authorize(req).kind, DecisionKind::Deny);
@@ -336,7 +336,7 @@ mod tests {
 
     #[test]
     fn disputed_community_authority_is_indeterminate() {
-        let grant = grant();
+        let grant = valid_grant();
         let mut req = request(Some(&grant), Operation::Cite);
         req.authority_status = AuthorityStatus::Disputed;
         assert_eq!(authorize(req).kind, DecisionKind::Indeterminate);
@@ -344,7 +344,7 @@ mod tests {
 
     #[test]
     fn community_authority_reference_is_required() {
-        let mut grant = grant();
+        let mut grant = valid_grant();
         grant.authority_reference = None;
         assert_eq!(
             authorize(request(Some(&grant), Operation::Cite)).kind,
@@ -354,18 +354,18 @@ mod tests {
 
     #[test]
     fn grant_for_different_record_or_actor_is_denied() {
-        let mut grant = grant();
+        let mut grant = valid_grant();
         grant.record_id = "record-2".into();
         assert_eq!(authorize(request(Some(&grant), Operation::Cite)).reason, DecisionReason::RecordMismatch);
 
-        let mut grant = grant();
+        let mut grant = valid_grant();
         grant.grantee_id = "agent-2".into();
         assert_eq!(authorize(request(Some(&grant), Operation::Cite)).reason, DecisionReason::GranteeMismatch);
     }
 
     #[test]
     fn purpose_mismatch_is_denied() {
-        let grant = grant();
+        let grant = valid_grant();
         let mut req = request(Some(&grant), Operation::Cite);
         req.purpose = "model-training";
         assert_eq!(authorize(req).reason, DecisionReason::PurposeMismatch);
@@ -373,7 +373,7 @@ mod tests {
 
     #[test]
     fn expired_and_not_yet_valid_grants_are_denied() {
-        let grant = grant();
+        let grant = valid_grant();
         let mut req = request(Some(&grant), Operation::Cite);
         req.now_micros = 100;
         assert_eq!(authorize(req).reason, DecisionReason::GrantExpired);
@@ -385,7 +385,7 @@ mod tests {
 
     #[test]
     fn conflicting_allowed_and_denied_rules_are_indeterminate() {
-        let mut grant = grant();
+        let mut grant = valid_grant();
         grant.denied_operations.push(Operation::Cite);
         assert_eq!(
             authorize(request(Some(&grant), Operation::Cite)).reason,
