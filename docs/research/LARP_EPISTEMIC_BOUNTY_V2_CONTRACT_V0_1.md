@@ -87,7 +87,7 @@ The reward request is bound to:
 - claim and assessment digests;
 - contract and constitutional digests;
 - recipient identity and locally verified entitlement;
-- exact amount, currency, ceiling and schedule;
+- exact amount, amount ceiling, currency and schedule;
 - purpose and funding source;
 - idempotency / logical-operation identity;
 - expiry and revocation state.
