@@ -163,7 +163,8 @@
           "description": "At least one sensitive byte/field remains hidden in the direction.",
           "tradeoff": "Full-reveal fast path does not apply; direction uses ZK path."
         }
-      ]
+      ],
+      "field_semantic_boundary": "TLSN authenticates selected transcript bytes and their direction/range. Application JSON field meaning is an external parser/schema relation and must be independently bound."
     },
     {
       "id": "DECO",
@@ -403,7 +404,10 @@
       "full_reveal_vs_selective_disclosure_proof_cost",
       "TEE_quote_and_TCB_verification",
       "measured_verifier_source_build_reproduction",
-      "attested_verifier_receipt_validation"
+      "attested_verifier_receipt_validation",
+      "application_field_semantic_binding",
+      "json_pointer_and_parser_profile_verification",
+      "response_ordinal_and_direction_binding"
     ],
     "measures": [
       "wall_clock",
@@ -434,7 +438,12 @@
       "decryption_key_material_entering_enclave",
       "attestation_quote_verification_latency",
       "TCB_revocation_requalification_latency",
-      "source_build_correspondence_status"
+      "source_build_correspondence_status",
+      "wrong_field_semantic_acceptance",
+      "parser_disagreement_acceptance",
+      "context_bytes_disclosed_for_hidden_leaf",
+      "json_duplicate_key_rejection",
+      "message_ordinal_or_direction_substitution_acceptance"
     ],
     "fairness_rules": [
       "Same exact request and response bytes wherever protocol allows.",
@@ -447,7 +456,8 @@
       "Do not compare full-response-reveal runtime with selective-disclosure runtime without reporting that the verifier receives the whole response in the former.",
       "Pin exact TLSNotary release/tag/full source commit, crate graph, feature flags, Rust toolchain and target; prerelease Beta.1 remains an integration candidate, not a certified verifier.",
       "Treat attested MPC-TLS verifier with prover-side plaintext and TEE plaintext processor as different privacy/trust profiles.",
-      "TEE-attested MPC-TLS verifier with no plaintext ingress and TEE plaintext processor are separate privacy classes; measure exactly which key/data each enclave role receives."
+      "TEE-attested MPC-TLS verifier with no plaintext ingress and TEE plaintext processor are separate privacy classes; measure exactly which key/data each enclave role receives.",
+      "A TLSNotary commitment opening proves bytes/range authenticity, not that the range denotes the intended JSON Pointer; compare parser-in-proof, verifier-checked structural context and attestor extraction separately."
     ],
     "prospective_targets": {
       "false_accepts_in_frozen_adversarial_corpus": 0,
@@ -457,7 +467,11 @@
       "profile_substitution_accepts": 0,
       "independent_reproduction_of_expected_outputs": "100%",
       "latency_superiority": "Only claim after matched end-to-end benchmark under equal security, privacy, authority and hardware budgets; proposed aim is >=20% lower p95 time-to-qualified-private-decision without increasing leakage or false accepts.",
-      "no_tls_plaintext_or_decryption_keys_in_attested_verifier": "0 bytes"
+      "no_tls_plaintext_or_decryption_keys_in_attested_verifier": "0 bytes",
+      "wrong_json_pointer_acceptance": 0,
+      "parser_disagreement_acceptance": 0,
+      "message_ordinal_or_direction_substitution_acceptance": 0,
+      "positive_field_semantic_controls": "100% of valid frozen JSON field/path fixtures accepted"
     },
     "status": "protocol_and_targets_only_not_executed",
     "privacy_profiles": [
@@ -475,6 +489,7 @@
     "Salted-commitment-derived spend tags do not guarantee uniqueness across fresh attestations for the same account.",
     "Application/account-scoped uniqueness does not prove uniqueness of a legal or natural person.",
     "TLSNotary full-reveal fast path is not selective disclosure: entire traffic direction is disclosed; only the key-derivation ZK proof remains while the ciphertext-to-plaintext proof for that direction is skipped.",
-    "A TEE verifier can strengthen delegated witness integrity without sacrificing prover-side plaintext confidentiality only if no TLS decryption material or application plaintext enters the enclave."
+    "A TEE verifier can strengthen delegated witness integrity without sacrificing prover-side plaintext confidentiality only if no TLS decryption material or application plaintext enters the enclave.",
+    "A valid TLS transcript range opening and valid ZK predicate do not by themselves prove the range maps to the intended JSON field."
   ]
 }
