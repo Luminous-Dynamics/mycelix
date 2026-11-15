@@ -627,26 +627,32 @@ fn parse_citations(
                 let depth = element_stack.len();
                 let name = element.name().as_ref().to_vec();
 
-                if let Some(builder) = current_citation.as_ref() {
-                    if builder.depth == depth && name.as_slice() == b"EventIVORN" {
-                        let builder = current_citation.take().expect("citation builder exists");
-                        let target_ivoid = builder.text;
-                        validate_ivoid(&target_ivoid).map_err(ParseError::InvalidCitationTarget)?;
-                        citations.push(VoEventCitation {
-                            target_ivoid,
-                            relation: builder.relation,
-                            attributes: builder.attributes,
-                        });
-                    }
+                if current_citation
+                    .as_ref()
+                    .is_some_and(|builder| {
+                        builder.depth == depth && name.as_slice() == b"EventIVORN"
+                    })
+                {
+                    let builder = current_citation.take().expect("citation builder exists");
+                    let target_ivoid = builder.text;
+                    validate_ivoid(&target_ivoid).map_err(ParseError::InvalidCitationTarget)?;
+                    citations.push(VoEventCitation {
+                        target_ivoid,
+                        relation: builder.relation,
+                        attributes: builder.attributes,
+                    });
                 }
 
-                if let Some(builder) = current_description.as_ref() {
-                    if builder.depth == depth && name.as_slice() == b"Description" {
-                        let builder = current_description
-                            .take()
-                            .expect("description builder exists");
-                        description = Some(builder.text);
-                    }
+                if current_description
+                    .as_ref()
+                    .is_some_and(|builder| {
+                        builder.depth == depth && name.as_slice() == b"Description"
+                    })
+                {
+                    let builder = current_description
+                        .take()
+                        .expect("description builder exists");
+                    description = Some(builder.text);
                 }
 
                 if citations_depth == Some(depth) && name == b"Citations" {
