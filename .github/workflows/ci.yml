@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      machine_identity: ${{ steps.filter.outputs.machine_identity }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -80,6 +81,11 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+            machine_identity:
+              - 'mycelix-core/docs/identity/**'
+              - 'mycelix-core/0TML/tests/identity/test_machine_binding_schema.py'
+              - 'mycelix-core/pyproject.toml'
+              - '.github/workflows/ci.yml'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -434,6 +440,22 @@ jobs:
       - name: Check prism-tauri (desktop shell, compile-only)
         run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-tauri
 
+  test-machine-binding-schema:
+    name: Machine–Workload Binding Schema
+    needs: changes
+    if: needs.changes.outputs.machine_identity == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install schema test dependencies
+        run: python -m pip install "jsonschema[format]>=4.23.0,<5.0.0" "pytest>=8.0,<9.0"
+      - name: Validate machine/workload binding schema and adversarial fixtures
+        run: cd mycelix-core && python -m pytest -q 0TML/tests/identity/test_machine_binding_schema.py
+
   # Summary gate
   ci-pass:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
@@ -452,6 +474,7 @@ jobs:
       - test-bridge
       - test-sdk
       - test-prism
+      - test-machine-binding-schema
     runs-on: ubuntu-latest
     steps:
       - name: Check results
@@ -472,9 +495,10 @@ jobs:
           echo "Bridge: ${{ needs.test-bridge.result }}"
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
+          echo "Machine/workload binding schema: ${{ needs.test-machine-binding-schema.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}" "${{ needs.test-machine-binding-schema.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"

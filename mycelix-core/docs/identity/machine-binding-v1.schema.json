@@ -1,0 +1,661 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/machine-binding-v1.schema.json",
+  "title": "Mycelix durable machine and workload binding v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "binding_id",
+    "subject",
+    "controller",
+    "key_epoch",
+    "instance",
+    "software",
+    "workload",
+    "hardware_attestation",
+    "freshness",
+    "evidence",
+    "binding_signature"
+  ],
+  "properties": {
+    "schema": {
+      "const": "org.mycelix.machine-binding"
+    },
+    "version": {
+      "const": 1
+    },
+    "binding_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "method",
+        "trust_domain",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "trust_domain": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "status": {
+          "enum": [
+            "active",
+            "decommissioned",
+            "re_enrollment_required",
+            "unknown"
+          ]
+        },
+        "lifecycle_receipt_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "decommissioned"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "lifecycle_receipt_ref"
+            ]
+          }
+        }
+      ]
+    },
+    "controller": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "relationship",
+        "scope",
+        "status",
+        "valid_from",
+        "authority_receipt_ref"
+      ],
+      "properties": {
+        "subject_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "relationship": {
+          "enum": [
+            "owns",
+            "operates",
+            "administers",
+            "stewards",
+            "delegated-controller"
+          ]
+        },
+        "scope": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "enroll-machine",
+              "rotate-machine-key",
+              "delegate-controller",
+              "revoke-controller",
+              "revoke-machine-key",
+              "re-enroll-instance",
+              "decommission-machine"
+            ]
+          }
+        },
+        "status": {
+          "enum": [
+            "active",
+            "suspended",
+            "revoked",
+            "expired"
+          ]
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "revocation_receipt_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "authority_receipt_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "lifecycle_receipt_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "suspended",
+                  "revoked"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "lifecycle_receipt_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "expired"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "valid_until"
+            ]
+          }
+        }
+      ]
+    },
+    "key_epoch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key_id",
+        "epoch",
+        "algorithm",
+        "public_key_sha256",
+        "state",
+        "valid_from"
+      ],
+      "properties": {
+        "key_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "epoch": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "algorithm": {
+          "enum": [
+            "Ed25519",
+            "ECDSA-P256-SHA256",
+            "ECDSA-P384-SHA384",
+            "RSA-PSS-SHA256",
+            "other"
+          ]
+        },
+        "public_key_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "active",
+            "retired",
+            "revoked",
+            "compromised"
+          ]
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lifecycle_receipt_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "retired",
+                  "revoked",
+                  "compromised"
+                ]
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "lifecycle_receipt_ref"
+            ]
+          }
+        }
+      ]
+    },
+    "instance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instance_id",
+        "kind",
+        "enrolled_at"
+      ],
+      "properties": {
+        "instance_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "kind": {
+          "enum": [
+            "physical",
+            "virtual-machine",
+            "container-host",
+            "edge-device",
+            "unknown"
+          ]
+        },
+        "enrolled_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "supersedes_instance_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "software": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "flake_lock_sha256",
+        "configuration_revision",
+        "system_closure_sha256",
+        "booted_generation_store_path",
+        "boot_id"
+      ],
+      "properties": {
+        "flake_lock_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "configuration_revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{7,64}$"
+        },
+        "system_closure_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "booted_generation_store_path": {
+          "type": "string",
+          "pattern": "^/nix/store/[a-z0-9]{32}-[^\\s]+$"
+        },
+        "boot_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9-]{36}$",
+          "format": "uuid"
+        },
+        "system": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "mechanism",
+        "audiences"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "not-enrolled",
+            "bound",
+            "expired",
+            "revoked",
+            "unavailable"
+          ]
+        },
+        "mechanism": {
+          "enum": [
+            "none",
+            "spiffe-x509-svid",
+            "spiffe-jwt-svid",
+            "other"
+          ]
+        },
+        "workload_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "trust_domain": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "credential_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "audiences": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "bound",
+                  "expired",
+                  "revoked"
+                ]
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "workload_id",
+              "trust_domain",
+              "credential_sha256",
+              "issued_at",
+              "expires_at",
+              "evidence_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "not-enrolled"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mechanism": {
+                "const": "none"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "hardware_attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "mechanism"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not-requested",
+            "unavailable",
+            "verified",
+            "failed"
+          ]
+        },
+        "mechanism": {
+          "enum": [
+            "none",
+            "tpm2-quote",
+            "uefi-secure-boot",
+            "measured-boot",
+            "remote-attestation",
+            "other"
+          ]
+        },
+        "verifier_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "measurement_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "verified",
+                  "failed"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "verifier_id",
+              "evidence_ref",
+              "measurement_sha256"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not-requested",
+                  "unavailable"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mechanism": {
+                "const": "none"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issued_at",
+        "expires_at",
+        "nonce",
+        "audience"
+      ],
+      "properties": {
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32,128}$"
+        },
+        "audience": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "references"
+      ],
+      "properties": {
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "uniqueItems": true,
+          "maxItems": 128,
+          "minItems": 1
+        }
+      }
+    },
+    "binding_signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context",
+        "encoding",
+        "signer_key_id",
+        "signer_role",
+        "algorithm",
+        "payload_sha256",
+        "signature_base64",
+        "signed_at"
+      ],
+      "properties": {
+        "context": {
+          "const": "org.mycelix.machine-binding.v1"
+        },
+        "encoding": {
+          "const": "RFC8785-JCS"
+        },
+        "signer_key_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "signer_role": {
+          "enum": [
+            "machine-key",
+            "enrollment-authority"
+          ]
+        },
+        "algorithm": {
+          "const": "Ed25519"
+        },
+        "payload_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "signature_base64": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9+/]{86}==$"
+        },
+        "signed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}
