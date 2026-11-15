@@ -900,7 +900,7 @@ fn parse_problem(
         }));
     }
 
-    mutations.sort_by(|left, right| left.id.cmp(&right.id));
+    mutations.sort_by_key(|mutation| mutation.id.clone());
     let worlds: Vec<String> = worlds.into_iter().collect();
     let actions: Vec<String> = actions.into_iter().collect();
     let baseline_deltas = BTreeMap::new();
@@ -1042,7 +1042,7 @@ pub fn analyze(source: &str) -> Result<Result<DefeaterReport, Qualification>, De
         }
     }
 
-    witnesses.sort_by(|left, right| left.mutation_ids.cmp(&right.mutation_ids));
+    witnesses.sort_by_key(|witness| witness.mutation_ids.clone());
     let complete = evaluated_subsets == total_subsets;
     let (status, minimality_status, robustness_margin) = if complete {
         match best_cost {
