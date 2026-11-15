@@ -48,6 +48,7 @@ No boolean or scalar score may collapse these distinctions. Unsupported, stale, 
 | Xenia | Human/operator/host authentication, consent/session integrity, human-readable consent presentation (#455), Symthaea receipt-attestation bridge (#359, #364, #369) and durable single-use issuance/replay (#435) | Institutional policy interpretation, legal consent validity or Mycelix domain authority |
 | LISE | Claim applicability, dependency impact, temporal/evidence frontier qualification, targeted invalidation and requalification | A duplicate identity or proof system, global currentness boolean, generic event store or domain authority |
 | Symtropy | Physical/computational model evidence and qualified outcome observations when the effect requires them | Institutional authorization or treating simulation as an independently observed real-world effect |
+| Web capture / EPI | Exact HTTP exchange, artifact selectors, derivation, acquisition security and source-origin evidence under WEB-CAPTURE owners #2640/#2641 and optional TLSNotary research #6245 | A parallel evidence ontology, provider truth, publisher identity or institutional authority |
 
 A signed consent receipt demonstrates that the specified key/operator produced or acknowledged the exact recorded decision under the described session and scope. It cannot cryptographically establish that the participant understood the consequences, had a meaningful alternative, possessed legal capacity, or was free from coercion. Consent presentation must therefore be intelligible, accessible, purpose-specific and contestable; human/process safeguards remain separate qualification evidence. Revocation can stop future access or effect authority, but it cannot make a prior disclosure disappear from a recipient who already received the data. Retention, onward-sharing, deletion and breach remedies require separate enforceable policy and evidence.
 
@@ -207,6 +208,21 @@ These observations are source-level inspection, not fresh build or test results.
 | Symthaea GIS proof examples | Pedagogical/simulated field arithmetic and simplified proof structures. | Not a production cryptographic proof backend. |
 | Symthaea CycleIntegrityProof | Hash-chain commitment code with empty proof_bytes in the generator. | Commitments can establish artifact consistency, not that the cognitive computation was ZK-proven. |
 
+### Optional TLSNotary source-provenance adapter
+
+Mycelix [WEB-CAPTURE-TLS-001 / #6245](https://github.com/Luminous-Dynamics/mycelix/issues/6245) evaluates TLSNotary as an optional source-session evidence adapter that composes WEB-CAPTURE #2640 and the provider-specific source owner #2821. It is not another proof backend or source ontology.
+
+The candidate path uses MPC-TLS to bind a transcript to a live TLS session, an optional notary-signed Session Header for offline presentation, selective disclosure of committed HTTP ranges, an exact application parser profile, and a separate ZK relation over the same committed field. TLSNotary documents a way to prove transcript hash commitments in ZK and then use a general-purpose ZK system for a property over the committed transcript, but no Mycelix/Symthaea join has yet been implemented or qualified.
+
+Keep deployment profiles separate:
+- MPC-TLS is the default candidate for stronger source-provenance assurance; the verifier participates in the TLS session and does not learn plaintext during the session.
+- An optional notary permits offline verification, but the relying verifier must qualify the notary signature/trust root and its scope.
+- Proxy mode is a separate performance profile with a verifier-to-server network-path assumption; it must not inherit MPC-TLS qualification.
+
+The exact server certificate/domain, request method/path/query, response commitment, selected range, parser/schema digest, claim units and predicate digest must be joined to the same private witness. A source-reference digest alone is not this theorem. TLS origin does not establish provider truth, account ownership, issuer legitimacy or legal authority; the oracle problem remains.
+
+Current TLSNotary documentation describes TLS 1.2 support, while its Beta 1 post dated 14 November 2026 identifies TLS 1.3 as a priority for the next release. Qualification must pin the exact released protocol/version and negotiate no unsupported downgrade.
+
 ## 9. Benchmark design
 
 Use the matched external-comparison and workload protocol in [PPAC_BENCHMARK_PROTOCOL_V1.md](PPAC_BENCHMARK_PROTOCOL_V1.md). It separates credential disclosure, private eligibility, general zkVM execution, HDC and multi-party computation; it records dated industry references and forbids cross-workload headline comparisons. It adds time-to-trustworthy-decision and requalification amplification as full-system metrics.
@@ -262,6 +278,7 @@ Performance comparison requires identical mathematical statements, witness distr
 | Mycelix #6219 | Add PPAC dependency/change mutations to the owner-specific invalidation evaluator |
 | Mycelix #4753 | Consume exact decision-to-effect freshness and commit-time authority checks |
 | Mycelix #6140 / #6069 | Independent observation evidence and historical reconstruction |
+| Mycelix #2640 / #2641 / #6245 / #2821 | Reuse HTTP capture fidelity, acquisition security, optional TLSNotary session provenance and the existing provider-specific source receipt; no duplicate source truth model |
 | Symthaea #5842 / #12269 / PR #12295 | Preserve the original guest; incrementally bind request context in a separate ImageID; follow with issuer signature verification and proof that the private value opens the source statement |
 | Symthaea #4860 | Plan only among PEC profiles with admitted evidence; support NoQualifiedPlan |
 | Symthaea PR #7403 / issue #12274 | Review HDC semantic corrections, freeze the exact Binius/Iron Spartan vendor source and qualify the witness-hiding boundary before any ZK privacy claim |
@@ -273,8 +290,9 @@ Performance comparison requires identical mathematical statements, witness distr
 2. Build a machine-readable matrix from each claim to its issuer, source, credential, circuit/program, verifier, policy, session, capability and effect-observation dependencies.
 3. Use the synthetic PPAC casebook at PPAC_CASEBOOK_V1.json (24 cases) as the initial mutation specification; its expected dispositions remain provisional, unadjudicated and not run until an independent oracle review.
 4. Map the existing Symthaea RISC Zero balance guest and Mycelix envelope/statement types; track request-binding candidate PR #12295 separately from the unimplemented issuer-signature/commitment-opening theorem.
-5. Record exact blockers and establish a matched benchmark environment before numerical comparisons.
-6. Keep all implementation and qualification claims at their current evidence tier until exact-head and independent checks exist.
+5. Evaluate WEB-CAPTURE-TLS-001 / #6245 against #2640 and #2821; prove the exact TLS transcript commitment, parser output and private witness are joined before admitting any private predicate.
+6. Record exact blockers and establish a matched benchmark environment before numerical comparisons.
+7. Keep all implementation and qualification claims at their current evidence tier until exact-head and independent checks exist.
 
 ## 12. Claim ceiling
 
