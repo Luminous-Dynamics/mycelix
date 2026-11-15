@@ -45,6 +45,16 @@ pub enum Admissibility {
     Unknown,
 }
 
+impl Admissibility {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Admissible => "ADMISSIBLE",
+            Self::Blocked => "BLOCKED",
+            Self::Unknown => "UNKNOWN",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExpansionCandidate {
     pub id: String,
@@ -68,7 +78,7 @@ pub enum CandidateDisposition {
 impl CandidateDisposition {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::EvidenceSupported => "EVIDENCE_SUPPORTED_ADMISSIBLE",
+            Self::EvidenceSupported => "DECLARED_SUPPORTED_LABEL_AND_ADMISSIBLE",
             Self::Hypothetical => "HYPOTHETICAL_ADMISSIBLE",
             Self::Unknown => "ADMISSIBILITY_OR_EVIDENCE_UNKNOWN",
             Self::Blocked => "BLOCKED",
@@ -575,7 +585,7 @@ fn search(
     SearchResult {
         status: "EXACT_SEARCH_DEFEATER_FOUND".to_owned(),
         disposition: if pool_is_evidence_supported {
-            "EVIDENCE_SUPPORTED_DEFEATER_WITHIN_DECLARED_POOL".to_owned()
+            "DECLARED_SUPPORTED_LABEL_DEFEATER_WITHIN_POOL".to_owned()
         } else {
             "HYPOTHETICAL_DEFEATER_STRESS_ONLY".to_owned()
         },
@@ -793,10 +803,31 @@ impl Analysis {
             "hypothetical.minimum_population_mass",
             &self.hypothetical.minimum_population_mass,
         );
-        for (id, disposition) in &self.candidate_dispositions {
+        for candidate in &self.problem.candidates {
+            let id = &candidate.id;
+            let disposition = candidate_disposition(candidate);
             writeln!(out, "candidate.{id}.disposition={}", disposition.as_str())
                 .expect("String write");
+            writeln!(
+                out,
+                "candidate.{id}.evidence_state_label={}",
+                candidate.evidence_state.as_str()
+            )
+            .expect("String write");
+            writeln!(
+                out,
+                "candidate.{id}.admissibility_label={}",
+                candidate.admissibility.as_str()
+            )
+            .expect("String write");
+            writeln!(
+                out,
+                "candidate.{id}.evidence_ref={}",
+                candidate.evidence_ref
+            )
+            .expect("String write");
         }
+        out.push_str("candidate_state_labels=CALLER_ASSERTED_NOT_AUTHENTICATED\n");
         out.push_str("negative_result_scope=DECLARED_FINITE_CANDIDATE_POOL_ONLY\n");
         out.push_str("declared_completeness_is_empirical_coverage=FALSE\n");
         out.push_str("physical_realizability=NOT_ESTABLISHED_BY_THIS_ORACLE\n");
@@ -897,7 +928,7 @@ mod tests {
         let report = analyze(&problem);
         assert_eq!(
             report.supported.disposition,
-            "EVIDENCE_SUPPORTED_DEFEATER_WITHIN_DECLARED_POOL"
+            "DECLARED_SUPPORTED_LABEL_DEFEATER_WITHIN_POOL"
         );
         assert!(report.render().contains("global_safety=NOT_ESTABLISHED"));
     }
