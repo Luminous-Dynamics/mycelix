@@ -11,11 +11,10 @@ use std::error::Error;
 use std::fmt;
 
 use mycelix_voevent_header::{
-    parse_packet as parse_voevent_packet, CitationRelation as SourceCitationRelation,
-    PacketRole as SourcePacketRole,
+    CitationRelation as SourceCitationRelation, PacketRole as SourcePacketRole,
+    parse_packet as parse_voevent_packet,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceTime {
@@ -94,8 +93,6 @@ pub struct Packet {
     pub publisher: Option<String>,
     /// Caller-supplied receipt-time assertion in Unix milliseconds; not authenticated here.
     pub received_at_unix_ms: u64,
-    /// Trusted-log order when present; unlike wall time this is not affected by clock rollback.
-    pub receipt_sequence: Option<u64>,
     /// Exact publication-time lexical value, if supplied. Not parsed or compared.
     pub published_at: Option<String>,
     /// Exact event-time fields, including source time scale/frame. Not normalized.
@@ -123,48 +120,15 @@ pub struct ReplayManifest {
     pub packets: Vec<ReceivedPacket>,
 }
 
-/// Receipt-chain v1 binds one exact packet digest and wall-clock assertion to
-/// an append sequence and the previous receipt digest.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReceiptJournalEntry {
-    pub sequence: u64,
-    /// Ingress clock metadata only; it is not used for inclusion or ordering.
-    pub received_at_unix_ms: u64,
-    pub packet_sha256: String,
-    pub previous_receipt_sha256: String,
-    pub receipt_sha256: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SequencedReceivedPacket {
-    pub receipt: ReceiptJournalEntry,
-    pub raw_packet_xml: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReceiptJournalManifest {
-    pub packets: Vec<SequencedReceivedPacket>,
-}
-
-/// This cursor must be provisioned independently from the journal being replayed
-/// (for example, pinned in a signed release or witnessed checkpoint store).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReceiptCheckpoint {
-    pub sequence: u64,
-    pub receipt_sha256: String,
-}
-
-/// Maximum receipt prefix accepted by the research CLI/library.
-pub const MAX_RECEIPT_SEQUENCE: u64 = 1_000_000;
-pub const MAX_VOEVENT_PACKET_BYTES: usize = 2 * 1024 * 1024;
-
-const RECEIPT_DOMAIN: &[u8] = b"MYCELIX:VOEVENT:INGRESS-RECEIPT:V1\0";
-const RECEIPT_GENESIS_DOMAIN: &[u8] = b"MYCELIX:VOEVENT:INGRESS-GENESIS:V1\0";
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ManifestError {
-    EmptyOrOversizedPacket { packet_index: usize },
-    PacketParse { packet_index: usize, message: String },
+    EmptyOrOversizedPacket {
+        packet_index: usize,
+    },
+    PacketParse {
+        packet_index: usize,
+        message: String,
+    },
     Replay(ReplayError),
 }
 
@@ -174,8 +138,14 @@ impl fmt::Display for ManifestError {
             Self::EmptyOrOversizedPacket { packet_index } => {
                 write!(f, "source packet {packet_index} is empty or exceeds 2 MiB")
             }
-            Self::PacketParse { packet_index, message } => {
-                write!(f, "source packet {packet_index} rejected by VOEvent parser: {message}")
+            Self::PacketParse {
+                packet_index,
+                message,
+            } => {
+                write!(
+                    f,
+                    "source packet {packet_index} rejected by VOEvent parser: {message}"
+                )
             }
             Self::Replay(error) => write!(f, "lifecycle replay rejected: {error}"),
         }
@@ -184,48 +154,7 @@ impl fmt::Display for ManifestError {
 
 impl Error for ManifestError {}
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ReceiptChainError {
-    InvalidCheckpointDigest,
-    InvalidSequenceZero,
-    SequenceLimitExceeded { sequence: u64 },
-    InvalidPacketDigest { sequence: u64 },
-    InvalidPreviousDigest { sequence: u64 },
-    MissingSequence { expected: u64 },
-    DuplicateSequence { sequence: u64 },
-    PreviousDigestMismatch { sequence: u64 },
-    PacketDigestMismatch { sequence: u64 },
-    ReceiptDigestMismatch { sequence: u64 },
-    CheckpointMismatch { sequence: u64 },
-    EmptyOrOversizedPacket { sequence: u64 },
-    PacketParse { sequence: u64, message: String },
-    Replay(ReplayError),
-}
-
-impl fmt::Display for ReceiptChainError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidCheckpointDigest => write!(f, "checkpoint digest is not 32-byte lowercase hex"),
-            Self::InvalidSequenceZero => write!(f, "receipt sequence numbers start at 1"),
-            Self::SequenceLimitExceeded { sequence } => write!(f, "receipt sequence {sequence} exceeds the configured limit"),
-            Self::InvalidPacketDigest { sequence } => write!(f, "packet digest at receipt sequence {sequence} is invalid"),
-            Self::InvalidPreviousDigest { sequence } => write!(f, "previous receipt digest at sequence {sequence} is invalid"),
-            Self::MissingSequence { expected } => write!(f, "receipt journal is missing sequence {expected}"),
-            Self::DuplicateSequence { sequence } => write!(f, "receipt journal has duplicate sequence {sequence}"),
-            Self::PreviousDigestMismatch { sequence } => write!(f, "receipt chain link mismatch at sequence {sequence}"),
-            Self::PacketDigestMismatch { sequence } => write!(f, "raw packet bytes do not match receipt digest at sequence {sequence}"),
-            Self::ReceiptDigestMismatch { sequence } => write!(f, "receipt digest mismatch at sequence {sequence}"),
-            Self::CheckpointMismatch { sequence } => write!(f, "journal prefix does not match externally supplied checkpoint at sequence {sequence}"),
-            Self::EmptyOrOversizedPacket { sequence } => write!(f, "packet at receipt sequence {sequence} is empty or exceeds 2 MiB"),
-            Self::PacketParse { sequence, message } => write!(f, "packet at receipt sequence {sequence} rejected by VOEvent parser: {message}"),
-            Self::Replay(error) => write!(f, "lifecycle replay rejected: {error}"),
-        }
-    }
-}
-
-impl Error for ReceiptChainError {}
-
-
+const MAX_VOEVENT_PACKET_BYTES: usize = 2 * 1024 * 1024;
 
 /// Parse the exact source bytes and derive every packet field from that parse.
 /// There is no caller-supplied metadata projection to become inconsistent with
@@ -239,12 +168,11 @@ fn packet_from_source(
         return Err(ManifestError::EmptyOrOversizedPacket { packet_index });
     }
 
-    let parsed = parse_voevent_packet(raw_packet_bytes).map_err(|error| {
-        ManifestError::PacketParse {
+    let parsed =
+        parse_voevent_packet(raw_packet_bytes).map_err(|error| ManifestError::PacketParse {
             packet_index,
             message: error.to_string(),
-        }
-    })?;
+        })?;
 
     let parsed_header = parsed.header;
     let parsed_who = parsed.who;
@@ -291,7 +219,6 @@ fn packet_from_source(
         packet_sha256: Some(parsed_header.packet_sha256),
         publisher: parsed_who.author_ivoid,
         received_at_unix_ms: received.received_at_unix_ms,
-        receipt_sequence: None,
         published_at: parsed_who.source_created_at,
         event_time: None,
         root_attributes,
@@ -325,7 +252,6 @@ pub struct VisiblePacket {
     pub packet_sha256: Option<String>,
     pub publisher: Option<String>,
     pub received_at_unix_ms: u64,
-    pub receipt_sequence: Option<u64>,
     pub published_at: Option<String>,
     pub event_time: Option<SourceTime>,
     pub root_attributes: Vec<PacketAttribute>,
@@ -349,7 +275,6 @@ pub struct LifecycleEdge {
     pub asserting_publisher: Option<String>,
     /// Receipt time of the asserting packet; not event time or publication time.
     pub asserted_packet_received_at_unix_ms: u64,
-    pub asserting_packet_receipt_sequence: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -363,7 +288,6 @@ pub struct UnresolvedCitation {
     pub citation_attributes: Vec<PacketAttribute>,
     pub asserting_publisher: Option<String>,
     pub asserted_packet_received_at_unix_ms: u64,
-    pub asserting_packet_receipt_sequence: Option<u64>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -396,15 +320,11 @@ pub enum ReplayDiagnostic {
 #[serde(rename_all = "snake_case")]
 pub enum ReceiptTimeBasis {
     UnattestedManifestAssertion,
-    HashChainedSequenceCheckpoint,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Replay {
-    /// Present only for wall-clock-cutoff replay. A sequence replay has no wall-clock cutoff.
-    pub cutoff_unix_ms: Option<u64>,
-    pub cutoff_sequence: Option<u64>,
-    pub cutoff_receipt_sha256: Option<String>,
+    pub cutoff_unix_ms: u64,
     pub receipt_time_basis: ReceiptTimeBasis,
     pub visible_packets: Vec<VisiblePacket>,
     pub edges: Vec<LifecycleEdge>,
@@ -425,14 +345,22 @@ pub enum ReplayError {
 impl fmt::Display for ReplayError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::EmptyPacketId { received_at_unix_ms } => {
-                write!(f, "packet at receipt time {received_at_unix_ms} has an empty identifier")
+            Self::EmptyPacketId {
+                received_at_unix_ms,
+            } => {
+                write!(
+                    f,
+                    "packet at receipt time {received_at_unix_ms} has an empty identifier"
+                )
             }
             Self::EmptyPublisher { packet_id } => {
                 write!(f, "packet {packet_id:?} has an empty publisher identifier")
             }
             Self::DuplicatePacketId { packet_id } => {
-                write!(f, "duplicate packet identifier in the as-of view: {packet_id:?}")
+                write!(
+                    f,
+                    "duplicate packet identifier in the as-of view: {packet_id:?}"
+                )
             }
             Self::EmptyCitationTarget { packet_id } => {
                 write!(f, "packet {packet_id:?} contains an empty citation target")
@@ -449,30 +377,12 @@ impl Error for ReplayError {}
 /// event time are copied verbatim and never used to make a packet visible earlier.
 /// Validation is cutoff-scoped, so malformed future packets cannot poison a past view.
 /// The output labels this time basis as unattested.
-pub fn replay_as_of(
-    packets: &[Packet],
-    cutoff_unix_ms: u64,
-) -> Result<Replay, ReplayError> {
-    let visible = packets
+pub fn replay_as_of(packets: &[Packet], cutoff_unix_ms: u64) -> Result<Replay, ReplayError> {
+    let mut visible: Vec<&Packet> = packets
         .iter()
         .filter(|packet| packet.received_at_unix_ms <= cutoff_unix_ms)
         .collect();
-    replay_visible(
-        visible,
-        Some(cutoff_unix_ms),
-        None,
-        None,
-        ReceiptTimeBasis::UnattestedManifestAssertion,
-    )
-}
 
-fn replay_visible(
-    mut visible: Vec<&Packet>,
-    cutoff_unix_ms: Option<u64>,
-    cutoff_sequence: Option<u64>,
-    cutoff_receipt_sha256: Option<String>,
-    receipt_time_basis: ReceiptTimeBasis,
-) -> Result<Replay, ReplayError> {
     let mut seen_ids = BTreeSet::new();
     for packet in &visible {
         if packet.id.trim().is_empty() {
@@ -501,13 +411,8 @@ fn replay_visible(
         }
     }
 
-    // A trusted receipt sequence defines journal order even when clocks regress.
-    // Wall-clock-only replay remains deterministic by timestamp and packet ID.
-    if cutoff_sequence.is_some() {
-        visible.sort_by_key(|packet| packet.receipt_sequence.unwrap_or(0));
-    } else {
-        visible.sort_by_key(|packet| (packet.received_at_unix_ms, packet.id.clone()));
-    }
+    // Explicit ordering makes replay output independent of caller input order.
+    visible.sort_by_key(|packet| (packet.received_at_unix_ms, packet.id.clone()));
 
     let visible_ids: BTreeSet<String> = visible.iter().map(|packet| packet.id.clone()).collect();
     let visible_digests: BTreeMap<String, Option<String>> = visible
@@ -523,7 +428,6 @@ fn replay_visible(
             packet_sha256: packet.packet_sha256.clone(),
             publisher: packet.publisher.clone(),
             received_at_unix_ms: packet.received_at_unix_ms,
-            receipt_sequence: packet.receipt_sequence,
             published_at: packet.published_at.clone(),
             event_time: packet.event_time.clone(),
             root_attributes: packet.root_attributes.clone(),
@@ -565,15 +469,11 @@ fn replay_visible(
                 asserting_role_was_implicit: packet.role_was_implicit,
                 asserting_packet_sha256: packet.packet_sha256.clone(),
                 cited_packet_id: citation.target_id.clone(),
-                cited_packet_sha256: visible_digests
-                    .get(&citation.target_id)
-                    .cloned()
-                    .flatten(),
+                cited_packet_sha256: visible_digests.get(&citation.target_id).cloned().flatten(),
                 relation: citation.relation,
                 citation_attributes: citation.attributes.clone(),
                 asserting_publisher: packet.publisher.clone(),
                 asserted_packet_received_at_unix_ms: packet.received_at_unix_ms,
-                asserting_packet_receipt_sequence: packet.receipt_sequence,
             };
 
             if visible_ids.contains(&citation.target_id) {
@@ -603,7 +503,6 @@ fn replay_visible(
                     citation_attributes: citation.attributes.clone(),
                     asserting_publisher: packet.publisher.clone(),
                     asserted_packet_received_at_unix_ms: packet.received_at_unix_ms,
-                    asserting_packet_receipt_sequence: packet.receipt_sequence,
                 });
             }
             // Keep every source assertion in the edge stream, including unresolved edges.
@@ -613,9 +512,7 @@ fn replay_visible(
 
     Ok(Replay {
         cutoff_unix_ms,
-        cutoff_sequence,
-        cutoff_receipt_sha256,
-        receipt_time_basis,
+        receipt_time_basis: ReceiptTimeBasis::UnattestedManifestAssertion,
         visible_packets,
         edges,
         unresolved_citations,
@@ -624,230 +521,7 @@ fn replay_visible(
     })
 }
 
-/// Return the genesis commitment for the receipt sequence journal.
-pub fn receipt_genesis_sha256() -> String {
-    hex::encode(Sha256::digest(RECEIPT_GENESIS_DOMAIN))
-}
-
-fn decode_sha256(value: &str) -> Option<[u8; 32]> {
-    if value.len() != 64 || value.bytes().any(|byte| !byte.is_ascii_hexdigit()) {
-        return None;
-    }
-    let decoded = hex::decode(value).ok()?;
-    let bytes: [u8; 32] = decoded.try_into().ok()?;
-    if hex::encode(bytes) != value {
-        return None;
-    }
-    Some(bytes)
-}
-
-fn receipt_hash(
-    sequence: u64,
-    received_at_unix_ms: u64,
-    packet_sha256: &str,
-    previous_receipt_sha256: &str,
-) -> Option<String> {
-    let packet_digest = decode_sha256(packet_sha256)?;
-    let previous_digest = decode_sha256(previous_receipt_sha256)?;
-    let mut hasher = Sha256::new();
-    hasher.update(RECEIPT_DOMAIN);
-    hasher.update(sequence.to_be_bytes());
-    hasher.update(received_at_unix_ms.to_be_bytes());
-    hasher.update(packet_digest);
-    hasher.update(previous_digest);
-    Some(hex::encode(hasher.finalize()))
-}
-
-/// Seal one receipt entry. The previous digest must come from the prior journal
-/// entry (or receipt_genesis_sha256 for sequence 1).
-pub fn seal_receipt_entry(
-    sequence: u64,
-    received_at_unix_ms: u64,
-    raw_packet_xml: &str,
-    previous_receipt_sha256: &str,
-) -> Result<ReceiptJournalEntry, ReceiptChainError> {
-    if sequence == 0 {
-        return Err(ReceiptChainError::InvalidSequenceZero);
-    }
-    if sequence > MAX_RECEIPT_SEQUENCE {
-        return Err(ReceiptChainError::SequenceLimitExceeded { sequence });
-    }
-    if raw_packet_xml.is_empty() || raw_packet_xml.len() > MAX_VOEVENT_PACKET_BYTES {
-        return Err(ReceiptChainError::EmptyOrOversizedPacket { sequence });
-    }
-    if decode_sha256(previous_receipt_sha256).is_none() {
-        return Err(ReceiptChainError::InvalidPreviousDigest { sequence });
-    }
-    let packet_sha256 = hex::encode(Sha256::digest(raw_packet_xml.as_bytes()));
-    let receipt_sha256 = receipt_hash(
-        sequence,
-        received_at_unix_ms,
-        &packet_sha256,
-        previous_receipt_sha256,
-    )
-    .ok_or(ReceiptChainError::InvalidPreviousDigest { sequence })?;
-
-    Ok(ReceiptJournalEntry {
-        sequence,
-        received_at_unix_ms,
-        packet_sha256,
-        previous_receipt_sha256: previous_receipt_sha256.to_owned(),
-        receipt_sha256,
-    })
-}
-
-/// Replay packets up to a separately provisioned receipt checkpoint.
-///
-/// Inclusion and causal ordering are determined by the monotonically increasing
-/// journal sequence, never by wall-clock time. Entries after the checkpoint are
-/// not parsed or validated, so future malformed packets cannot poison a past view.
-///
-/// The checkpoint's authenticity is an external trust requirement. This function
-/// validates the local hash chain and exact packet-byte bindings, but does not
-/// verify a signature, timestamp authority, external witness, or Merkle proof.
-pub fn replay_receipt_sequence(
-    manifest: ReceiptJournalManifest,
-    checkpoint: &ReceiptCheckpoint,
-) -> Result<Replay, ReceiptChainError> {
-    if decode_sha256(&checkpoint.receipt_sha256).is_none() {
-        return Err(ReceiptChainError::InvalidCheckpointDigest);
-    }
-    if checkpoint.sequence > MAX_RECEIPT_SEQUENCE {
-        return Err(ReceiptChainError::SequenceLimitExceeded {
-            sequence: checkpoint.sequence,
-        });
-    }
-
-    let mut included: Vec<SequencedReceivedPacket> = manifest
-        .packets
-        .into_iter()
-        .filter(|entry| entry.receipt.sequence <= checkpoint.sequence)
-        .collect();
-    if included.iter().any(|entry| entry.receipt.sequence == 0) {
-        return Err(ReceiptChainError::InvalidSequenceZero);
-    }
-    included.sort_by_key(|entry| entry.receipt.sequence);
-
-    if included.len() as u64 != checkpoint.sequence {
-        return Err(ReceiptChainError::MissingSequence {
-            expected: (included.len() as u64).saturating_add(1),
-        });
-    }
-
-    let mut previous_receipt_sha256 = receipt_genesis_sha256();
-    let mut parsed_packets = Vec::with_capacity(included.len());
-
-    for (index, item) in included.into_iter().enumerate() {
-        let receipt = item.receipt;
-        let expected_sequence = index as u64 + 1;
-        if receipt.sequence != expected_sequence {
-            if receipt.sequence < expected_sequence {
-                return Err(ReceiptChainError::DuplicateSequence {
-                    sequence: receipt.sequence,
-                });
-            }
-            return Err(ReceiptChainError::MissingSequence {
-                expected: expected_sequence,
-            });
-        }
-
-        if decode_sha256(&receipt.packet_sha256).is_none() {
-            return Err(ReceiptChainError::InvalidPacketDigest {
-                sequence: receipt.sequence,
-            });
-        }
-        if decode_sha256(&receipt.previous_receipt_sha256).is_none() {
-            return Err(ReceiptChainError::InvalidPreviousDigest {
-                sequence: receipt.sequence,
-            });
-        }
-        if receipt.previous_receipt_sha256 != previous_receipt_sha256 {
-            return Err(ReceiptChainError::PreviousDigestMismatch {
-                sequence: receipt.sequence,
-            });
-        }
-        if item.raw_packet_xml.is_empty()
-            || item.raw_packet_xml.len() > MAX_VOEVENT_PACKET_BYTES
-        {
-            return Err(ReceiptChainError::EmptyOrOversizedPacket {
-                sequence: receipt.sequence,
-            });
-        }
-
-        let exact_packet_digest = hex::encode(Sha256::digest(item.raw_packet_xml.as_bytes()));
-        if exact_packet_digest != receipt.packet_sha256 {
-            return Err(ReceiptChainError::PacketDigestMismatch {
-                sequence: receipt.sequence,
-            });
-        }
-
-        let expected_receipt_digest = receipt_hash(
-            receipt.sequence,
-            receipt.received_at_unix_ms,
-            &receipt.packet_sha256,
-            &receipt.previous_receipt_sha256,
-        )
-        .ok_or(ReceiptChainError::InvalidPreviousDigest {
-            sequence: receipt.sequence,
-        })?;
-        if expected_receipt_digest != receipt.receipt_sha256 {
-            return Err(ReceiptChainError::ReceiptDigestMismatch {
-                sequence: receipt.sequence,
-            });
-        }
-
-        let mut packet = packet_from_source(
-            ReceivedPacket {
-                received_at_unix_ms: receipt.received_at_unix_ms,
-                raw_packet_xml: item.raw_packet_xml,
-            },
-            index,
-        )
-        .map_err(|error| match error {
-            ManifestError::EmptyOrOversizedPacket { .. } => {
-                ReceiptChainError::EmptyOrOversizedPacket {
-                    sequence: receipt.sequence,
-                }
-            }
-            ManifestError::PacketParse { message, .. } => ReceiptChainError::PacketParse {
-                sequence: receipt.sequence,
-                message,
-            },
-            ManifestError::Replay(error) => ReceiptChainError::Replay(error),
-        })?;
-
-        if packet.packet_sha256.as_deref() != Some(receipt.packet_sha256.as_str()) {
-            return Err(ReceiptChainError::PacketDigestMismatch {
-                sequence: receipt.sequence,
-            });
-        }
-        packet.receipt_sequence = Some(receipt.sequence);
-        parsed_packets.push(packet);
-        previous_receipt_sha256 = receipt.receipt_sha256;
-    }
-
-    if previous_receipt_sha256 != checkpoint.receipt_sha256 {
-        return Err(ReceiptChainError::CheckpointMismatch {
-            sequence: checkpoint.sequence,
-        });
-    }
-
-    let visible = parsed_packets.iter().collect();
-    replay_visible(
-        visible,
-        None,
-        Some(checkpoint.sequence),
-        Some(checkpoint.receipt_sha256.clone()),
-        ReceiptTimeBasis::HashChainedSequenceCheckpoint,
-    )
-    .map_err(ReceiptChainError::Replay)
-}
-
-fn has_path(
-    graph: &BTreeMap<String, BTreeSet<String>>,
-    start: &str,
-    goal: &str,
-) -> bool {
+fn has_path(graph: &BTreeMap<String, BTreeSet<String>>, start: &str, goal: &str) -> bool {
     let mut pending = vec![start.to_owned()];
     let mut visited = BTreeSet::new();
 
@@ -876,7 +550,6 @@ mod tests {
             packet_sha256: None,
             publisher: Some(publisher.to_owned()),
             received_at_unix_ms,
-            receipt_sequence: None,
             published_at: None,
             event_time: None,
             root_attributes: Vec::new(),
@@ -891,18 +564,23 @@ mod tests {
         who: Option<(&str, &str)>,
         citations: &[(&str, &str)],
     ) -> String {
-        let role_attr = role.map(|value| format!(" role=\"{value}\"")).unwrap_or_default();
+        let role_attr = role
+            .map(|value| format!(" role=\"{value}\""))
+            .unwrap_or_default();
         let who_xml = who
-            .map(|(author, date)| format!(
-                "<Who><AuthorIVORN>{author}</AuthorIVORN><Date>{date}</Date></Who>"
-            ))
+            .map(|(author, date)| {
+                format!("<Who><AuthorIVORN>{author}</AuthorIVORN><Date>{date}</Date></Who>")
+            })
             .unwrap_or_default();
         let citation_xml = if citations.is_empty() {
             String::new()
         } else {
-            let edges = citations.iter().map(|(relation, target)| format!(
-                "<EventIVORN cite=\"{relation}\">{target}</EventIVORN>"
-            )).collect::<String>();
+            let edges = citations
+                .iter()
+                .map(|(relation, target)| {
+                    format!("<EventIVORN cite=\"{relation}\">{target}</EventIVORN>")
+                })
+                .collect::<String>();
             format!("<Citations>{edges}</Citations>")
         };
         format!(
@@ -967,10 +645,7 @@ mod tests {
 
         let manifest = ReplayManifest {
             cutoff_unix_ms: 200,
-            packets: vec![
-                received(100, original),
-                received(300, correction),
-            ],
+            packets: vec![received(100, original), received(300, correction)],
         };
         let before = replay_manifest(manifest.clone()).expect("historical replay");
         assert_eq!(before.visible_packets.len(), 1);
@@ -999,10 +674,9 @@ mod tests {
 
     #[test]
     fn checked_in_source_packet_fixture_replays_without_a_metadata_projection() {
-        let manifest: ReplayManifest = serde_json::from_str(include_str!(
-            "../tests/fixtures/source-packet-thread.json"
-        ))
-        .expect("raw source packet fixture");
+        let manifest: ReplayManifest =
+            serde_json::from_str(include_str!("../tests/fixtures/source-packet-thread.json"))
+                .expect("raw source packet fixture");
         let historical = replay_manifest(manifest.clone()).expect("historical fixture replay");
         assert_eq!(historical.visible_packets.len(), 1);
         assert!(historical.edges.is_empty());
@@ -1014,7 +688,10 @@ mod tests {
         assert_eq!(complete.edges.len(), 1);
         assert_eq!(complete.edges[0].relation, CitationRelation::Supersedes);
         assert!(complete.visible_packets.iter().all(|packet| {
-            packet.packet_sha256.as_ref().is_some_and(|digest| digest.len() == 64)
+            packet
+                .packet_sha256
+                .as_ref()
+                .is_some_and(|digest| digest.len() == 64)
         }));
     }
 
@@ -1040,10 +717,14 @@ mod tests {
             attribute.name == "publisher-note" && attribute.value == "retained"
         }));
         assert_eq!(replay.unresolved_citations.len(), 1);
-        assert!(replay.unresolved_citations[0]
-            .citation_attributes
-            .iter()
-            .any(|attribute| attribute.name == "publisher-note" && attribute.value == "retained"));
+        assert!(
+            replay.unresolved_citations[0]
+                .citation_attributes
+                .iter()
+                .any(
+                    |attribute| attribute.name == "publisher-note" && attribute.value == "retained"
+                )
+        );
     }
 
     #[test]
@@ -1129,287 +810,13 @@ mod tests {
     }
 
     #[test]
-    fn checked_in_receipt_journal_fixture_replays_against_separate_checkpoint() {
-        let manifest: ReceiptJournalManifest = serde_json::from_str(include_str!(
-            "../tests/fixtures/receipt-journal-clock-rollback.json"
-        ))
-        .expect("receipt journal fixture");
-        let checkpoint: ReceiptCheckpoint = serde_json::from_str(include_str!(
-            "../tests/fixtures/trusted-receipt-checkpoint.json"
-        ))
-        .expect("trusted checkpoint fixture");
-
-        let replay =
-            replay_receipt_sequence(manifest, &checkpoint).expect("sequence journal replay");
-        assert_eq!(replay.visible_packets.len(), 2);
-        assert_eq!(replay.visible_packets[0].receipt_sequence, Some(1));
-        assert_eq!(replay.visible_packets[1].receipt_sequence, Some(2));
-        assert!(replay.visible_packets[1].received_at_unix_ms
-            < replay.visible_packets[0].received_at_unix_ms);
-        assert_eq!(replay.cutoff_sequence, Some(2));
-        assert_eq!(
-            replay.cutoff_receipt_sha256.as_deref(),
-            Some("cae093e4fdd40acdf7ec987adf247abbf56deb35e35af30c7e9c24df992fcb7c")
-        );
-        assert_eq!(replay.edges.len(), 1);
-    }
-
-    #[test]
-    fn empty_receipt_checkpoint_uses_the_fixed_genesis_commitment() {
-        let replay = replay_receipt_sequence(
-            ReceiptJournalManifest {
-                packets: Vec::new(),
-            },
-            &ReceiptCheckpoint {
-                sequence: 0,
-                receipt_sha256: receipt_genesis_sha256(),
-            },
-        )
-        .expect("empty genesis checkpoint");
-        assert!(replay.visible_packets.is_empty());
-        assert_eq!(replay.cutoff_sequence, Some(0));
-
-        assert!(matches!(
-            replay_receipt_sequence(
-                ReceiptJournalManifest {
-                    packets: Vec::new(),
-                },
-                &ReceiptCheckpoint {
-                    sequence: 0,
-                    receipt_sha256: "00".repeat(32),
-                }
-            ),
-            Err(ReceiptChainError::CheckpointMismatch { sequence: 0 })
-        ));
-    }
-
-    #[test]
-    fn receipt_sequence_cutoff_defeats_backdated_wall_clock_arrivals() {
-        let xml_one = source_packet("ivo://survey.example/one", None, None, &[]);
-        let xml_two = source_packet(
-            "ivo://survey.example/two",
-            None,
-            None,
-            &[("followup", "ivo://survey.example/one")],
-        );
-        let first = seal_receipt_entry(1, 2_000, &xml_one, &receipt_genesis_sha256())
-            .expect("first receipt");
-        let second = seal_receipt_entry(2, 1_000, &xml_two, &first.receipt_sha256)
-            .expect("second receipt with a clock rollback");
-
-        let manifest = ReceiptJournalManifest {
-            packets: vec![
-                SequencedReceivedPacket {
-                    receipt: first.clone(),
-                    raw_packet_xml: xml_one,
-                },
-                SequencedReceivedPacket {
-                    receipt: second.clone(),
-                    raw_packet_xml: xml_two,
-                },
-            ],
-        };
-
-        let historical = replay_receipt_sequence(
-            manifest.clone(),
-            &ReceiptCheckpoint {
-                sequence: 1,
-                receipt_sha256: first.receipt_sha256.clone(),
-            },
-        )
-        .expect("sequence-one checkpoint");
-        assert_eq!(historical.visible_packets.len(), 1);
-        assert_eq!(historical.visible_packets[0].receipt_sequence, Some(1));
-        assert_eq!(historical.cutoff_unix_ms, None);
-        assert_eq!(historical.cutoff_sequence, Some(1));
-        assert_eq!(
-            historical.receipt_time_basis,
-            ReceiptTimeBasis::HashChainedSequenceCheckpoint
-        );
-
-        let complete = replay_receipt_sequence(
-            manifest,
-            &ReceiptCheckpoint {
-                sequence: 2,
-                receipt_sha256: second.receipt_sha256.clone(),
-            },
-        )
-        .expect("sequence-two checkpoint despite wall-clock rollback");
-        assert_eq!(complete.visible_packets.len(), 2);
-        assert_eq!(complete.visible_packets[0].receipt_sequence, Some(1));
-        assert_eq!(complete.visible_packets[1].receipt_sequence, Some(2));
-        assert_eq!(complete.visible_packets[1].received_at_unix_ms, 1_000);
-        assert_eq!(complete.edges.len(), 1);
-        assert_eq!(complete.edges[0].asserting_packet_receipt_sequence, Some(2));
-        assert_eq!(complete.cutoff_sequence, Some(2));
-    }
-
-    #[test]
-    fn receipt_chain_detects_raw_packet_tampering_and_timestamp_tampering() {
-        let xml = source_packet("ivo://survey.example/one", None, None, &[]);
-        let receipt = seal_receipt_entry(1, 100, &xml, &receipt_genesis_sha256())
-            .expect("receipt");
-        let checkpoint = ReceiptCheckpoint {
-            sequence: 1,
-            receipt_sha256: receipt.receipt_sha256.clone(),
-        };
-
-        let mut changed_packet = ReceiptJournalManifest {
-            packets: vec![SequencedReceivedPacket {
-                receipt: receipt.clone(),
-                raw_packet_xml: xml.replace("one", "other"),
-            }],
-        };
-        assert!(matches!(
-            replay_receipt_sequence(changed_packet.clone(), &checkpoint),
-            Err(ReceiptChainError::PacketDigestMismatch { sequence: 1 })
-        ));
-
-        changed_packet.packets[0].raw_packet_xml = xml.clone();
-        changed_packet.packets[0].receipt.received_at_unix_ms = 101;
-        assert!(matches!(
-            replay_receipt_sequence(changed_packet, &checkpoint),
-            Err(ReceiptChainError::ReceiptDigestMismatch { sequence: 1 })
-        ));
-    }
-
-    #[test]
-    fn receipt_chain_detects_missing_entries_and_wrong_external_checkpoint() {
-        let xml_one = source_packet("ivo://survey.example/one", None, None, &[]);
-        let xml_two = source_packet("ivo://survey.example/two", None, None, &[]);
-        let first = seal_receipt_entry(1, 1, &xml_one, &receipt_genesis_sha256())
-            .expect("first");
-        let second = seal_receipt_entry(2, 2, &xml_two, &first.receipt_sha256)
-            .expect("second");
-
-        let missing = ReceiptJournalManifest {
-            packets: vec![SequencedReceivedPacket {
-                receipt: second.clone(),
-                raw_packet_xml: xml_two.clone(),
-            }],
-        };
-        assert!(matches!(
-            replay_receipt_sequence(
-                missing,
-                &ReceiptCheckpoint {
-                    sequence: 2,
-                    receipt_sha256: second.receipt_sha256.clone(),
-                }
-            ),
-            Err(ReceiptChainError::MissingSequence { .. })
-        ));
-
-        let complete = ReceiptJournalManifest {
-            packets: vec![
-                SequencedReceivedPacket {
-                    receipt: first.clone(),
-                    raw_packet_xml: xml_one,
-                },
-                SequencedReceivedPacket {
-                    receipt: second.clone(),
-                    raw_packet_xml: xml_two,
-                },
-            ],
-        };
-        assert!(matches!(
-            replay_receipt_sequence(
-                complete,
-                &ReceiptCheckpoint {
-                    sequence: 2,
-                    receipt_sha256: first.receipt_sha256,
-                }
-            ),
-            Err(ReceiptChainError::CheckpointMismatch { sequence: 2 })
-        ));
-    }
-
-    #[test]
-    fn future_malformed_receipt_is_ignored_before_historical_parse() {
-        let xml_one = source_packet("ivo://survey.example/one", None, None, &[]);
-        let first = seal_receipt_entry(1, 10, &xml_one, &receipt_genesis_sha256())
-            .expect("first");
-        let bad_future_xml = "<VOEvent".to_owned();
-        let second = seal_receipt_entry(2, 5, &bad_future_xml, &first.receipt_sha256)
-            .expect("seal future malformed source bytes");
-
-        let manifest = ReceiptJournalManifest {
-            packets: vec![
-                SequencedReceivedPacket {
-                    receipt: first.clone(),
-                    raw_packet_xml: xml_one.clone(),
-                },
-                SequencedReceivedPacket {
-                    receipt: second.clone(),
-                    raw_packet_xml: bad_future_xml,
-                },
-            ],
-        };
-        let historical = replay_receipt_sequence(
-            manifest.clone(),
-            &ReceiptCheckpoint {
-                sequence: 1,
-                receipt_sha256: first.receipt_sha256,
-            },
-        )
-        .expect("future malformed XML must not poison sequence one");
-        assert_eq!(historical.visible_packets.len(), 1);
-
-        assert!(matches!(
-            replay_receipt_sequence(
-                manifest,
-                &ReceiptCheckpoint {
-                    sequence: 2,
-                    receipt_sha256: second.receipt_sha256,
-                }
-            ),
-            Err(ReceiptChainError::PacketParse { sequence: 2, .. })
-        ));
-    }
-
-    #[test]
-    fn receipt_sequence_rejects_chain_link_tampering() {
-        let xml_one = source_packet("ivo://survey.example/one", None, None, &[]);
-        let first = seal_receipt_entry(1, 1, &xml_one, &receipt_genesis_sha256())
-            .expect("first");
-        let xml_two = source_packet("ivo://survey.example/two", None, None, &[]);
-        let second = seal_receipt_entry(2, 2, &xml_two, &first.receipt_sha256)
-            .expect("second");
-
-        let mut bad_link = second.clone();
-        bad_link.previous_receipt_sha256 = receipt_genesis_sha256();
-        let bad_link_manifest = ReceiptJournalManifest {
-            packets: vec![
-                SequencedReceivedPacket {
-                    receipt: first.clone(),
-                    raw_packet_xml: xml_one,
-                },
-                SequencedReceivedPacket {
-                    receipt: bad_link,
-                    raw_packet_xml: xml_two,
-                },
-            ],
-        };
-        assert!(matches!(
-            replay_receipt_sequence(
-                bad_link_manifest,
-                &ReceiptCheckpoint {
-                    sequence: 2,
-                    receipt_sha256: second.receipt_sha256,
-                }
-            ),
-            Err(ReceiptChainError::PreviousDigestMismatch { sequence: 2 })
-        ));
-    }
-
-    #[test]
     fn late_arrival_never_leaks_into_an_earlier_cutoff() {
         let original = packet("ivo://survey/a#event-1", "ivo://survey/a", 10);
         let mut correction = packet("ivo://survey/b#event-2", "ivo://survey/b", 30);
         correction.published_at = Some("2026-11-14T09:00:00Z".to_owned());
-        correction.citations.push(citation(
-            &original.id,
-            CitationRelation::Supersedes,
-        ));
+        correction
+            .citations
+            .push(citation(&original.id, CitationRelation::Supersedes));
 
         let history = vec![original, correction];
         let earlier = replay_as_of(&history, 20).expect("earlier replay");
@@ -1462,9 +869,10 @@ mod tests {
     #[test]
     fn unresolved_reference_resolves_only_when_target_is_received() {
         let mut citing = packet("ivo://survey/b#followup", "ivo://survey/b", 20);
-        citing
-            .citations
-            .push(citation("ivo://survey/a#earlier", CitationRelation::Followup));
+        citing.citations.push(citation(
+            "ivo://survey/a#earlier",
+            CitationRelation::Followup,
+        ));
         let mut target = packet("ivo://survey/a#earlier", "ivo://survey/a", 50);
         target.published_at = Some("2026-11-14T08:00:00Z".to_owned());
 
@@ -1516,10 +924,12 @@ mod tests {
 
         let replay = replay_as_of(&[a, b], 20).expect("replay");
         assert_eq!(replay.edges.len(), 2);
-        assert!(replay.diagnostics.iter().any(|diagnostic| matches!(
-            diagnostic,
-            ReplayDiagnostic::SupersessionCycle { .. }
-        )));
+        assert!(
+            replay
+                .diagnostics
+                .iter()
+                .any(|diagnostic| matches!(diagnostic, ReplayDiagnostic::SupersessionCycle { .. }))
+        );
     }
 
     #[test]
@@ -1535,17 +945,19 @@ mod tests {
         let replay = replay_as_of(&[source], 10).expect("replay");
         let visible = &replay.visible_packets[0];
         assert_eq!(
-            visible.event_time.as_ref().expect("event time").scale.as_deref(),
+            visible
+                .event_time
+                .as_ref()
+                .expect("event time")
+                .scale
+                .as_deref(),
             Some("TT")
         );
         assert_eq!(
             visible.event_time.as_ref().expect("event time").value,
             "2026-11-14T12:00:00.000"
         );
-        assert_eq!(
-            visible.published_at.as_deref(),
-            Some("2026-11-14T11:58:00")
-        );
+        assert_eq!(visible.published_at.as_deref(), Some("2026-11-14T11:58:00"));
     }
 
     #[test]
@@ -1553,8 +965,10 @@ mod tests {
         let a = packet("ivo://survey/a#1", "ivo://survey/a", 10);
         let b = packet("ivo://survey/b#1", "ivo://survey/b", 10);
         let mut c = packet("ivo://survey/c#1", "ivo://survey/c", 20);
-        c.citations.push(citation(&a.id, CitationRelation::Followup));
-        c.citations.push(citation(&b.id, CitationRelation::Retraction));
+        c.citations
+            .push(citation(&a.id, CitationRelation::Followup));
+        c.citations
+            .push(citation(&b.id, CitationRelation::Retraction));
 
         let left = replay_as_of(&[a.clone(), b.clone(), c.clone()], 20).expect("left");
         let right = replay_as_of(&[c, b, a], 20).expect("right");
@@ -1586,7 +1000,6 @@ mod tests {
         assert_eq!(state.retracted_by, vec!["ivo://review/c#notice"]);
     }
 
-
     #[test]
     fn lifecycle_edges_carry_exact_packet_digest_bindings_when_available() {
         let mut original = packet("ivo://survey/a#event", "ivo://survey/a", 10);
@@ -1602,10 +1015,7 @@ mod tests {
             replay.edges[0].asserting_packet_sha256,
             Some("a".repeat(64))
         );
-        assert_eq!(
-            replay.edges[0].cited_packet_sha256,
-            Some("b".repeat(64))
-        );
+        assert_eq!(replay.edges[0].cited_packet_sha256, Some("b".repeat(64)));
     }
 
     #[test]
@@ -1617,9 +1027,11 @@ mod tests {
 
         let replay = replay_as_of(&[source], 10).expect("replay");
         assert_eq!(replay.edges.len(), 1);
-        assert!(replay.diagnostics.iter().any(|diagnostic| matches!(
-            diagnostic,
-            ReplayDiagnostic::SelfReference { .. }
-        )));
+        assert!(
+            replay
+                .diagnostics
+                .iter()
+                .any(|diagnostic| matches!(diagnostic, ReplayDiagnostic::SelfReference { .. }))
+        );
     }
 }
