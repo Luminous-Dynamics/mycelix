@@ -1208,6 +1208,7 @@ m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE
             assert!(replay.is_defeater);
             assert_eq!(replay.total_cost, witness.total_cost);
             assert_eq!(replay.replayed_signature, witness.mutated_signature);
+            assert_eq!(replay.selected_evidence_refs, witness.evidence_refs);
         }
     }
 
@@ -1375,8 +1376,8 @@ m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE
             .replace(
                 "m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE",
                 concat!(
-                    "m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE\\n",
-                    "m-c|SAFETY_VALUE_DELTA|w1|inspect|-30|4|evidence-c|ADMISSIBLE\\n",
+                    "m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE\n",
+                    "m-c|SAFETY_VALUE_DELTA|w1|inspect|-30|4|evidence-c|ADMISSIBLE\n",
                     "m-d|SAFETY_VALUE_DELTA|w2|inspect|-30|5|evidence-d|ADMISSIBLE"
                 ),
             );
