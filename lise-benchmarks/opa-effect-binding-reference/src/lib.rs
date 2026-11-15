@@ -64,6 +64,24 @@ fn is_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|c| c.is_ascii_hexdigit())
 }
 
+fn is_independent_effect_observation(effect: &Value) -> Result<bool, String> {
+    if string(effect, "kind", "effect observation")? != "independent_resource_observation"
+        || string(effect, "observation_independence", "effect observation")? != "independent"
+        || string(effect, "trust_state", "effect observation")? != "fixture_only"
+    {
+        return Ok(false);
+    }
+    let _observer = string(effect, "observer_identity", "effect observation")?;
+    let dependencies = array(effect, "source_dependencies", "effect observation")?;
+    Ok(!dependencies.iter().any(|dependency| {
+        dependency
+            .as_str()
+            .is_some_and(|value| {
+                value == "opa_decision_log" || value == "provider_acknowledgement"
+            })
+    }))
+}
+
 fn report(
     overall: &str,
     decision_state: &str,
@@ -214,20 +232,22 @@ fn evaluate_inner(fixture: &Value) -> Result<Value, String> {
             if decision_result {
                 "POLICY_ALLOW_ONLY"
             } else {
-                "POLICY_DENIED"
+                "POLICY_DENIED_UNRECONCILED"
             },
             decision_state,
             "NO_EFFECT_OBSERVATION",
             if decision_result {
                 "policy_allow_is_not_effect_proof"
             } else {
-                "policy_denied_no_effect_observed"
+                "policy_denial_is_not_proof_of_no_effect"
             },
-            if decision_result {
-                vec!["OPA records an allow decision, but no independent protected-resource observation was supplied.".to_owned()]
-            } else {
-                Vec::new()
-            },
+            vec![
+                if decision_result {
+                    "OPA records an allow decision, but no independent protected-resource observation was supplied.".to_owned()
+                } else {
+                    "OPA records a denial, but absence of an effect observation does not prove that no external effect occurred.".to_owned()
+                }
+            ],
         ));
     };
 
@@ -261,73 +281,75 @@ fn evaluate_inner(fixture: &Value) -> Result<Value, String> {
     }
     let kind = string(effect, "kind", "effect observation")?;
     let outcome = string(effect, "outcome", "effect observation")?;
+
+    if kind == "provider_acknowledgement" {
+        return Ok(report(
+            if decision_result {
+                "ACKNOWLEDGED_NOT_RECONCILED"
+            } else {
+                "DENIED_WITH_UNRECONCILED_ACK"
+            },
+            decision_state,
+            "PROVIDER_ACK_ONLY",
+            if decision_result {
+                "provider_acknowledgement_is_not_independent_effect_observation"
+            } else {
+                "denied_operation_has_provider_ack_but_no_independent_effect_observation"
+            },
+            vec![
+                "Provider acknowledgement is not independent evidence that the protected resource changed.".to_owned()
+            ],
+        ));
+    }
+
+    let independent = is_independent_effect_observation(effect)?;
+    if !independent {
+        return Ok(report(
+            if decision_result {
+                "ACKNOWLEDGED_NOT_RECONCILED"
+            } else {
+                "DENIED_WITH_UNRECONCILED_EVIDENCE"
+            },
+            decision_state,
+            "OBSERVATION_NOT_INDEPENDENT",
+            "effect_observation_independence_or_common_cause_not_excluded",
+            vec![
+                "Effect evidence is not independently sourced from the policy/provider decision path.".to_owned()
+            ],
+        ));
+    }
+
     if !decision_result {
-        if kind == "provider_acknowledgement" {
-            return Ok(report(
-                "DENIED_WITH_UNRECONCILED_ACK",
-                decision_state,
-                "PROVIDER_ACK_ONLY",
-                "denied_operation_has_provider_ack_but_no_independent_effect_observation",
-                vec!["A provider acknowledgement after policy denial is a serious reconciliation signal, but is not by itself independent proof of the protected-resource effect.".to_owned()],
-            ));
-        }
-        if kind == "independent_resource_observation"
-            && string(effect, "observation_independence", "effect observation")? == "independent"
-            && string(effect, "trust_state", "effect observation")? == "fixture_only"
-            && matches!(outcome, "applied" | "partially_applied")
-        {
-            return Ok(report(
+        return Ok(match outcome {
+            "applied" | "partially_applied" => report(
                 "UNAUTHORIZED_EFFECT",
                 decision_state,
                 "EFFECT_OBSERVED",
                 "effect_observed_after_policy_denial",
-                vec!["A protected-resource effect was independently observed even though the OPA decision denied the operation.".to_owned()],
-            ));
-        }
-        return Ok(report(
-            "POLICY_DENIED",
-            decision_state,
-            "NO_EFFECT_PROVEN",
-            "policy_denied_without_independent_effect_observation",
-            Vec::new(),
-        ));
+                vec![
+                    "A protected-resource effect was independently observed even though the OPA decision denied the operation.".to_owned()
+                ],
+            ),
+            "not_applied" => report(
+                "POLICY_DENIED_NO_EFFECT_CONFIRMED",
+                decision_state,
+                "EFFECT_CONFIRMED_NOT_APPLIED",
+                "independent_observation_confirms_no_effect_after_policy_denial",
+                Vec::new(),
+            ),
+            "unknown" => report(
+                "DENIED_EFFECT_UNKNOWN_REQUIRES_RECONCILIATION",
+                decision_state,
+                "OUTCOME_UNKNOWN",
+                "denied_operation_effect_outcome_unknown",
+                vec![
+                    "The operation was denied, but the independent observer cannot yet establish whether a protected effect occurred.".to_owned()
+                ],
+            ),
+            _ => indeterminate("effect_outcome_unrecognized"),
+        });
     }
-    if kind == "provider_acknowledgement" {
-        return Ok(report(
-            "ACKNOWLEDGED_NOT_RECONCILED",
-            decision_state,
-            "PROVIDER_ACK_ONLY",
-            "provider_acknowledgement_is_not_independent_effect_observation",
-            vec!["Provider acknowledgement is not independent evidence that the protected resource changed.".to_owned()],
-        ));
-    }
-    if kind != "independent_resource_observation"
-        || string(effect, "observation_independence", "effect observation")? != "independent"
-        || string(effect, "trust_state", "effect observation")? != "fixture_only"
-    {
-        return Ok(report(
-            "ACKNOWLEDGED_NOT_RECONCILED",
-            decision_state,
-            "OBSERVATION_NOT_INDEPENDENT",
-            "effect_observation_independence_not_established",
-            vec!["Effect evidence is not independently sourced from the policy/provider decision path.".to_owned()],
-        ));
-    }
-    let _observer = string(effect, "observer_identity", "effect observation")?;
-    let dependencies = array(effect, "source_dependencies", "effect observation")?;
-    if dependencies.iter().any(|dependency| {
-        dependency
-            .as_str()
-            .is_some_and(|value| value == "opa_decision_log" || value == "provider_acknowledgement")
-    }) {
-        return Ok(report(
-            "ACKNOWLEDGED_NOT_RECONCILED",
-            decision_state,
-            "COMMON_CAUSE_NOT_EXCLUDED",
-            "effect_observation_shares_policy_or_provider_source",
-            vec!["The claimed independent observation shares a dependency with the policy/provider decision evidence.".to_owned()],
-        ));
-    }
+
     match outcome {
         "applied" => Ok(report(
             "EFFECT_RECONCILED",
@@ -399,6 +421,37 @@ mod tests {
         let result = evaluate(&value);
         assert_eq!(result["overall"], "POLICY_ALLOW_ONLY");
         assert_eq!(result["effect_state"], "NO_EFFECT_OBSERVATION");
+    }
+
+    #[test]
+    fn denied_policy_without_effect_observation_does_not_prove_no_effect() {
+        let mut value = fixture();
+        value["opa_decision_log"]["result"] = json!(false);
+        value["effect_observation"] = Value::Null;
+        let result = evaluate(&value);
+        assert_eq!(result["overall"], "POLICY_DENIED_UNRECONCILED");
+        assert_eq!(result["effect_state"], "NO_EFFECT_OBSERVATION");
+    }
+
+    #[test]
+    fn denied_policy_with_independent_no_effect_observation_is_reconciled() {
+        let mut value = fixture();
+        value["opa_decision_log"]["result"] = json!(false);
+        value["effect_observation"]["outcome"] = json!("not_applied");
+        let result = evaluate(&value);
+        assert_eq!(result["overall"], "POLICY_DENIED_NO_EFFECT_CONFIRMED");
+        assert_eq!(result["effect_state"], "EFFECT_CONFIRMED_NOT_APPLIED");
+    }
+
+    #[test]
+    fn common_cause_observation_cannot_prove_no_effect_after_denial() {
+        let mut value = fixture();
+        value["opa_decision_log"]["result"] = json!(false);
+        value["effect_observation"]["source_dependencies"] =
+            json!(["provider_acknowledgement"]);
+        let result = evaluate(&value);
+        assert_eq!(result["overall"], "DENIED_WITH_UNRECONCILED_EVIDENCE");
+        assert_eq!(result["effect_state"], "OBSERVATION_NOT_INDEPENDENT");
     }
 
     #[test]
