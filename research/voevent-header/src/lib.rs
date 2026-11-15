@@ -111,7 +111,6 @@ pub struct WhoMetadata {
     pub source_created_at: Option<String>,
 }
 
-
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ParseError {
     #[error("packet is empty")]
@@ -154,7 +153,9 @@ pub enum ParseError {
     EmptyCitations,
     #[error("Citations contains more than one Description element")]
     DuplicateCitationsDescription,
-    #[error("EventIVORN and Citations/Description must contain simple text only; found nested element {0}")]
+    #[error(
+        "EventIVORN and Citations/Description must contain simple text only; found nested element {0}"
+    )]
     NestedCitationElement(String),
     #[error("unsupported or invalid XML character reference in citation text: {0}")]
     InvalidCitationCharacterReference(String),
@@ -346,7 +347,6 @@ pub fn parse_header(packet: &[u8]) -> Result<VoEventHeader, ParseError> {
     Ok(header)
 }
 
-
 #[derive(Debug)]
 struct CitationTextBuilder {
     depth: usize,
@@ -368,8 +368,7 @@ fn parse_citation_attributes(
     let mut cite: Option<String> = None;
 
     for attribute in element.attributes().with_checks(true) {
-        let attribute =
-            attribute.map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+        let attribute = attribute.map_err(|error| ParseError::MalformedXml(error.to_string()))?;
         let name = std::str::from_utf8(attribute.key.as_ref())
             .map_err(|_| ParseError::MalformedXml("non-UTF-8 citation attribute name".to_owned()))?
             .to_owned();
@@ -396,8 +395,9 @@ fn is_legal_xml_character(value: u32) -> bool {
 }
 
 fn decode_citation_reference(reference: &[u8]) -> Result<char, ParseError> {
-    let raw = std::str::from_utf8(reference)
-        .map_err(|_| ParseError::InvalidCitationCharacterReference("non-UTF-8 reference".to_owned()))?;
+    let raw = std::str::from_utf8(reference).map_err(|_| {
+        ParseError::InvalidCitationCharacterReference("non-UTF-8 reference".to_owned())
+    })?;
 
     let character = match raw {
         "amp" => '&',
@@ -406,20 +406,17 @@ fn decode_citation_reference(reference: &[u8]) -> Result<char, ParseError> {
         "apos" => '\'',
         "quot" => '"',
         _ if raw.starts_with("#x") || raw.starts_with("#X") => {
-            let value = u32::from_str_radix(&raw[2..], 16).map_err(|_| {
-                ParseError::InvalidCitationCharacterReference(raw.to_owned())
-            })?;
-            char::from_u32(value).ok_or_else(|| {
-                ParseError::InvalidCitationCharacterReference(raw.to_owned())
-            })?
+            let value = u32::from_str_radix(&raw[2..], 16)
+                .map_err(|_| ParseError::InvalidCitationCharacterReference(raw.to_owned()))?;
+            char::from_u32(value)
+                .ok_or_else(|| ParseError::InvalidCitationCharacterReference(raw.to_owned()))?
         }
         _ if raw.starts_with('#') => {
-            let value = raw[1..].parse::<u32>().map_err(|_| {
-                ParseError::InvalidCitationCharacterReference(raw.to_owned())
-            })?;
-            char::from_u32(value).ok_or_else(|| {
-                ParseError::InvalidCitationCharacterReference(raw.to_owned())
-            })?
+            let value = raw[1..]
+                .parse::<u32>()
+                .map_err(|_| ParseError::InvalidCitationCharacterReference(raw.to_owned()))?;
+            char::from_u32(value)
+                .ok_or_else(|| ParseError::InvalidCitationCharacterReference(raw.to_owned()))?
         }
         _ => {
             return Err(ParseError::InvalidCitationCharacterReference(
@@ -536,8 +533,7 @@ fn parse_citations(
                     return Err(ParseError::EmptyCitations);
                 }
 
-                if citations_depth == Some(element_stack.len())
-                    && name.as_slice() == b"EventIVORN"
+                if citations_depth == Some(element_stack.len()) && name.as_slice() == b"EventIVORN"
                 {
                     let (relation, attributes) = parse_citation_attributes(&element)?;
                     return Err(ParseError::InvalidCitationTarget(format!(
@@ -546,8 +542,7 @@ fn parse_citations(
                     )));
                 }
 
-                if citations_depth == Some(element_stack.len())
-                    && name.as_slice() == b"Description"
+                if citations_depth == Some(element_stack.len()) && name.as_slice() == b"Description"
                 {
                     if description_seen {
                         return Err(ParseError::DuplicateCitationsDescription);
@@ -613,8 +608,7 @@ fn parse_citations(
                     if builder.depth == depth && name == b"EventIVORN" {
                         let builder = current_citation.take().expect("citation builder exists");
                         let target_ivoid = builder.text;
-                        validate_ivoid(&target_ivoid)
-                            .map_err(ParseError::InvalidCitationTarget)?;
+                        validate_ivoid(&target_ivoid).map_err(ParseError::InvalidCitationTarget)?;
                         citations.push(VoEventCitation {
                             target_ivoid,
                             relation: builder.relation,
@@ -651,7 +645,6 @@ fn parse_citations(
 
     Ok((citations_seen, citations, description))
 }
-
 
 #[derive(Debug)]
 struct WhoTextBuilder {
@@ -816,8 +809,7 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
                 if let Some(builder) = current_author.as_ref() {
                     if builder.depth == depth && name == b"AuthorIVORN" {
                         let builder = current_author.take().expect("Who author builder exists");
-                        validate_ivoid(&builder.text)
-                            .map_err(ParseError::InvalidWhoAuthorIvoid)?;
+                        validate_ivoid(&builder.text).map_err(ParseError::InvalidWhoAuthorIvoid)?;
                         author_ivoid = Some(builder.text);
                     }
                 }
@@ -1049,8 +1041,7 @@ mod tests {
         assert_eq!(absent.who.author_ivoid, None);
         assert_eq!(absent.who.source_created_at, None);
 
-        let partial = parse_packet(&packet_with_body("<Who><Author/></Who>"))
-            .expect("partial Who");
+        let partial = parse_packet(&packet_with_body("<Who><Author/></Who>")).expect("partial Who");
         assert!(partial.who.present);
         assert_eq!(partial.who.author_ivoid, None);
         assert_eq!(partial.who.source_created_at, None);
@@ -1088,8 +1079,7 @@ mod tests {
 
     #[test]
     fn rejects_empty_or_nested_who_identity_and_date_content() {
-        let empty_author =
-            packet_with_body("<Who><AuthorIVORN/></Who>");
+        let empty_author = packet_with_body("<Who><AuthorIVORN/></Who>");
         assert_eq!(
             parse_packet(&empty_author),
             Err(ParseError::InvalidWhoAuthorIvoid(String::new()))
@@ -1106,8 +1096,7 @@ mod tests {
             Err(ParseError::NestedWhoElement(_))
         ));
 
-        let nested_empty_date =
-            packet_with_body("<Who><Date><Unit/></Date></Who>");
+        let nested_empty_date = packet_with_body("<Who><Date><Unit/></Date></Who>");
         assert!(matches!(
             parse_packet(&nested_empty_date),
             Err(ParseError::NestedWhoElement(_))
@@ -1212,9 +1201,7 @@ mod tests {
             Err(ParseError::InvalidCitationTarget(_))
         ));
 
-        let empty = packet_with_body(
-            r#"<Citations><EventIVORN cite="retraction"/></Citations>"#,
-        );
+        let empty = packet_with_body(r#"<Citations><EventIVORN cite="retraction"/></Citations>"#);
         assert!(matches!(
             parse_packet(&empty),
             Err(ParseError::InvalidCitationTarget(_))
@@ -1229,7 +1216,10 @@ mod tests {
         let duplicate = packet_with_body(
             r#"<Citations><EventIVORN cite="followup">ivo://survey.example/a</EventIVORN></Citations><Citations><EventIVORN cite="followup">ivo://survey.example/b</EventIVORN></Citations>"#,
         );
-        assert_eq!(parse_packet(&duplicate), Err(ParseError::DuplicateCitations));
+        assert_eq!(
+            parse_packet(&duplicate),
+            Err(ParseError::DuplicateCitations)
+        );
 
         let nested = packet_with_body(
             r#"<Citations><EventIVORN cite="followup"><Name>ivo://survey.example/a</Name></EventIVORN></Citations>"#,
