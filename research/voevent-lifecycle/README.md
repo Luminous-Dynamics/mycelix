@@ -39,7 +39,7 @@ From this directory:
 
 The isolated package uses a local path dependency on the adjacent VOEvent parser plus pinned JSON dependencies. Normal Cargo dependency resolution may require the configured crate cache or registry; parsing and replay make no network requests.
 
-## Tests in v0.1
+## Wall-clock replay tests in v0.1
 
 The synthetic unit corpus covers:
 
@@ -68,6 +68,8 @@ This package is a semantic oracle for a larger scientific-observability benchmar
 | Known-answer lifecycle edge/effect fidelity | 100% |
 | Contradictory relation coercions | 0 |
 | Rights, source-authentication, or instrument-authority bypasses | 0 |
+| Sequence-cutoff look-ahead or chain-prefix mismatch accepted | 0 |
+| Receipt-order violations under clock rollback | 0 |
 
 Do not report these as achieved benchmark scores until the complete frozen corpus and independent evaluator exist. The current unit tests exercise the cases listed above and use the same parser crate directly; they are not real astronomical observations.
 
@@ -92,6 +94,46 @@ Run the CLI:
 The JSON output contains visible packets, lifecycle edges, unresolved citations, effects, diagnostics and an explicit `receipt_time_basis: unattested_manifest_assertion` marker. Visible packets preserve root attributes and source description text; resolved and unresolved edges preserve their original EventIVORN attributes. Future receipts are excluded before XML parsing, so malformed future packets do not poison historical views; they are parsed and rejected when a later cutoff includes them.
 
 The parser computes the exact packet digest. The lifecycle layer does not accept an externally supplied digest or metadata projection, removing the projection-versus-byte mismatch surface. It does not authenticate the receipt-time assertion, publisher, source rights or astrophysical truth. Production as-known-at queries must consume the canonical signed DeSci authority receipt and receipt-chain verifier owned by [KNOW-ASOF-001 #5860](https://github.com/Luminous-Dynamics/mycelix/issues/5860); this CLI does not implement that verifier.
+
+## Receipt-sequenced replay v0.2
+
+The wall-clock manifest API above remains a synthetic/retrospective compatibility path. It marks its cutoff as `unattested_manifest_assertion`. For an as-known-at query, use the **receipt sequence** API instead.
+
+### Why sequence, not wall-clock time?
+
+An ingest clock can drift, be reset, be misconfigured or be manipulated. A packet received later can therefore carry an earlier timestamp. Sorting lifecycle assertions by wall clock can also reorder a thread after clock rollback.
+
+Receipt-sequenced replay uses a monotonically increasing journal sequence as the inclusion and causal-order boundary. Wall-clock receipt time remains preserved metadata, but it does not decide which packets were visible or how the journal is ordered.
+
+### Receipt chain v1
+
+Each `ReceiptJournalEntry` commits to:
+
+- a 1-based sequence number;
+- the source-reported receipt time in Unix milliseconds;
+- the SHA-256 of the exact raw packet XML bytes;
+- the previous receipt digest;
+- the current receipt digest.
+
+The receipt digest uses SHA-256 with the domain tag `MYCELIX:VOEVENT:INGRESS-RECEIPT:V1\0`, then fixed-width big-endian sequence/time fields and the two 32-byte digests. The chain begins at the fixed genesis commitment exposed by `receipt_genesis_sha256()`.
+
+`seal_receipt_entry()` creates a journal entry from raw XML and the prior receipt digest. `replay_receipt_sequence()` verifies the packet bytes, digest, complete sequence prefix, previous-hash links and final checkpoint before invoking the same VOEvent parser used by the packet CLI. Future sequence entries are filtered before packet parsing; a malformed future packet cannot poison an earlier checkpoint.
+
+### Separate checkpoint and CLI
+
+The replay takes an independently supplied `ReceiptCheckpoint` with a sequence and expected terminal receipt digest. The checked-in example deliberately has a wall-clock rollback: sequence 2 has an earlier `received_at_unix_ms` than sequence 1, but it remains later in the replay.
+
+    cargo run --manifest-path research/voevent-lifecycle/Cargo.toml --bin voevent-receipt-replay -- research/voevent-lifecycle/tests/fixtures/receipt-journal-clock-rollback.json research/voevent-lifecycle/tests/fixtures/trusted-receipt-checkpoint.json
+
+The journal and checkpoint are separate files. The replay output reports `receipt_time_basis = hash_chained_sequence_checkpoint`, `cutoff_sequence`, `cutoff_receipt_sha256`, each packet's `receipt_sequence`, and each lifecycle edge's asserting receipt sequence. Wall-clock cutoff is `null` for this mode.
+
+### Exact security boundary
+
+The chain detects mutation of packet bytes, receipt timestamps, sequence values, previous-hash links, missing prefix entries and a checkpoint that does not match the supplied prefix. It also prevents later sequence entries from appearing in an earlier replay even when their wall-clock timestamp is backdated.
+
+It does **not** prove that the timestamp was correct when first recorded. A hash chain does not authenticate the ingress host, the operator, or the checkpoint publisher. An operator able to rewrite the entire journal and replace the expected checkpoint can create a different internally consistent history. The checkpoint must therefore be pinned or signed/witnessed through a separate trust channel before production decisions rely on it. This v0.2 chain is **not** an RFC 9162 Certificate Transparency implementation: it has no Merkle inclusion/consistency proofs, no signed tree head, and no gossip/fork detection. Those are the next transparency-log increment, not capabilities claimed here.
+
+The research implementation caps the accepted prefix at 1,000,000 entries and each packet at 2 MiB. The CLI separately bounds the journal file to 64 MiB and the checkpoint file to 4 KiB. Production ingress needs durable append/fsync semantics, key rotation/revocation, independent witnesses, checkpoint retention, backup/restore and operational recovery procedures; this library only defines and verifies the deterministic receipt-chain format.
 
 ## Complexity
 
