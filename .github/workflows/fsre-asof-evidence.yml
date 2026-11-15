@@ -8,6 +8,7 @@ on:
     branches:
       - main
       - research/fsre-federated-resilience-v0.1
+      - research/fsre-asof-evidence-revision-v0.2
     paths:
       - "tools/fsre-asof-evidence/**"
       - ".github/workflows/fsre-asof-evidence.yml"
