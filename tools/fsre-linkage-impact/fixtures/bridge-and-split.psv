@@ -2,6 +2,7 @@
 #scope_sha256=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 #effective_cutoff=10
 #recorded_cutoff=100
+#service_capacity_limit=220
 #max_records=100
 record_id|namespace|truth_entity_id|predicted_cluster_id|truth_entity_weight|predicted_cluster_weight|effective_at|recorded_at
 r1|PERSON|entity-a|cluster-ab|100|100|1|10
