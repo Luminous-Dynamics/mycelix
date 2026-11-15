@@ -27,12 +27,18 @@ struct Scenario {
     expected: &'static str,
 }
 
-const SCENARIOS: [Scenario; 3] = [
+const SCENARIOS: [Scenario; 4] = [
     Scenario {
-        id: "PRE_DISPATCH",
-        action_at_key: "action_at_before_dispatch",
+        id: "PRE_DISPATCH_POSITIVE_CONTROL",
+        action_at_key: "known_at_before_dispatch",
         known_at_key: "known_at_before_dispatch",
         expected: "Permit",
+    },
+    Scenario {
+        id: "PRE_DISPATCH_TIME_AMBIGUOUS",
+        action_at_key: "action_at_before_dispatch",
+        known_at_key: "known_at_before_dispatch",
+        expected: "Hold(PriorOutcomeUnknown)",
     },
     Scenario {
         id: "POST_TIMEOUT",
@@ -291,9 +297,14 @@ fn resolve_prior_effect(
         matching_history = true;
         let occurred = timestamp(event, "occurred_at", "operation event")?;
         let observed = timestamp(event, "observed_at", "operation event")?;
-        // Events outside either cutoff cannot rewrite this historical view.
-        if occurred.as_str() > action_at || observed.as_str() > known_at {
+        // Events after the action cutoff cannot be prior effects. But an
+        // event that may have occurred by action time and was not yet observed
+        // at the knowledge cutoff makes prior-effect state unknown.
+        if occurred.as_str() > action_at {
             continue;
+        }
+        if observed.as_str() > known_at {
+            return Ok(PriorEffectState::OutcomeUnknownAfterDispatch);
         }
         let event_key = required_str(event, "idempotency_ref", "operation event")?;
         let event_digest = required_str(event, "canonical_operation_digest", "operation event")?;
@@ -776,7 +787,14 @@ mod tests {
     fn recomputes_pre_dispatch_timeout_and_revoked_reattempt() {
         let (fixture, submission) = inputs();
         let report = evaluate_vertical_slice(&fixture, &submission);
-        assert_eq!(case(&report, "PRE_DISPATCH")["observed"], "Permit");
+        assert_eq!(
+            case(&report, "PRE_DISPATCH_POSITIVE_CONTROL")["observed"],
+            "Permit"
+        );
+        assert_eq!(
+            case(&report, "PRE_DISPATCH_TIME_AMBIGUOUS")["observed"],
+            "Hold(PriorOutcomeUnknown)"
+        );
         assert_eq!(
             case(&report, "POST_TIMEOUT")["observed"],
             "Hold(PriorOutcomeUnknown)"
@@ -795,7 +813,7 @@ mod tests {
         fixture["operation_finality"]["approval_state"] = json!("accepted");
         let report = evaluate_vertical_slice(&fixture, &submission);
         assert_eq!(
-            case(&report, "PRE_DISPATCH")["observed"],
+            case(&report, "PRE_DISPATCH_POSITIVE_CONTROL")["observed"],
             "Hold(ApprovalUnknown)"
         );
         assert_eq!(report["conformant"], false);
@@ -808,7 +826,7 @@ mod tests {
             json!("IDEM-OTHER-OPERATION");
         let report = evaluate_vertical_slice(&fixture, &submission);
         assert_eq!(
-            case(&report, "PRE_DISPATCH")["observed"],
+            case(&report, "PRE_DISPATCH_POSITIVE_CONTROL")["observed"],
             "Deny(OperationMismatch)"
         );
         assert_eq!(report["conformant"], false);
@@ -821,7 +839,7 @@ mod tests {
             json!("transfer_title");
         let report = evaluate_vertical_slice(&fixture, &submission);
         assert_eq!(
-            case(&report, "PRE_DISPATCH")["observed"],
+            case(&report, "PRE_DISPATCH_POSITIVE_CONTROL")["observed"],
             "Hold(AuthorityUnknown)"
         );
         assert_eq!(report["conformant"], false);
@@ -831,7 +849,7 @@ mod tests {
             json!("ACTOR-OTHER");
         let report = evaluate_vertical_slice(&fixture, &submission);
         assert_eq!(
-            case(&report, "PRE_DISPATCH")["observed"],
+            case(&report, "PRE_DISPATCH_POSITIVE_CONTROL")["observed"],
             "Hold(AuthorityUnknown)"
         );
     }
@@ -868,7 +886,7 @@ mod tests {
         fixture["authority"]["verification_state"] = json!("unknown");
         let report = evaluate_vertical_slice(&fixture, &submission);
         assert_eq!(
-            case(&report, "PRE_DISPATCH")["observed"],
+            case(&report, "PRE_DISPATCH_POSITIVE_CONTROL")["observed"],
             "Hold(AuthorityUnknown)"
         );
     }
@@ -935,9 +953,24 @@ mod tests {
         fixture["authority"]["entity_ref"] = json!("ENTITY-OTHER");
         let report = evaluate_vertical_slice(&fixture, &submission);
         assert_eq!(
-            case(&report, "PRE_DISPATCH")["observed"],
+            case(&report, "PRE_DISPATCH_POSITIVE_CONTROL")["observed"],
             "Hold(AuthorityUnknown)"
         );
+    }
+
+    #[test]
+    fn an_unobserved_effect_before_action_time_remains_unknown() {
+        let (mut fixture, _) = inputs();
+        fixture["operation_history"][0]["occurred_at"] = json!("2026-01-25T10:00:59Z");
+        fixture["operation_history"][0]["observed_at"] = json!("2026-01-25T10:02:00Z");
+        let prior = resolve_prior_effect(
+            &fixture,
+            &fixture["operation_finality"]["approved_operation"],
+            "2026-01-25T10:01:00Z",
+            "2026-01-25T10:00:00Z",
+        )
+        .expect("historical effect resolution");
+        assert_eq!(prior, PriorEffectState::OutcomeUnknownAfterDispatch);
     }
 
     #[test]
@@ -957,7 +990,7 @@ mod tests {
         let prior = resolve_prior_effect(
             &fixture,
             &fixture["operation_finality"]["approved_operation"],
-            "2026-01-25T10:01:00Z",
+            "2026-01-25T10:00:00Z",
             "2026-01-25T10:00:00Z",
         )
         .expect("past view resolves");
@@ -977,7 +1010,7 @@ mod tests {
         fixture["authority"]["status_events"] = json!([]);
         let report = evaluate_vertical_slice(&fixture, &submission);
         assert_eq!(
-            case(&report, "PRE_DISPATCH")["observed"],
+            case(&report, "PRE_DISPATCH_POSITIVE_CONTROL")["observed"],
             "Hold(AuthorityUnknown)"
         );
 
