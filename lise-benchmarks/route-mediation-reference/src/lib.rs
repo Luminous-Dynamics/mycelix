@@ -95,6 +95,8 @@ struct Edge {
     to: String,
 }
 
+type ParsedGraph = (BTreeMap<String, String>, Vec<Edge>, Vec<String>, Vec<String>);
+
 #[derive(Clone, Debug)]
 struct Path {
     nodes: Vec<String>,
@@ -146,17 +148,7 @@ fn canonical_graph_digest(graph: &Value) -> Result<String, String> {
     Ok(sha256(&bytes))
 }
 
-fn parse_graph(
-    graph: &Value,
-) -> Result<
-    (
-        BTreeMap<String, String>,
-        Vec<Edge>,
-        Vec<String>,
-        Vec<String>,
-    ),
-    String,
-> {
+fn parse_graph(graph: &Value) -> Result<ParsedGraph, String> {
     let raw_nodes = array(graph, "nodes", "graph")?;
     let raw_edges = array(graph, "edges", "graph")?;
     if raw_nodes.is_empty() || raw_nodes.len() > MAX_NODES {
