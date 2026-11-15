@@ -413,6 +413,27 @@
         "human_process_review"
       ],
       "non_equivalence": "Authenticated consent receipt != proven informed or uncoerced consent."
+    },
+    {
+      "id": "DISCLOSURE_RETENTION_AFTER_REVOCATION",
+      "owner": "Mycelix_domain_retention_and_recipient_policy",
+      "proposition": "Consent revocation blocks future authority under its scope but does not imply deletion of data already disclosed to a recipient.",
+      "depends_on": [
+        "consent_revocation_event",
+        "prior_disclosure_receipts",
+        "recipient_identity",
+        "data_classes",
+        "retention_policy",
+        "deletion_request",
+        "recipient_deletion_evidence",
+        "onward_sharing_state"
+      ],
+      "consumers": [
+        "Xenia_revocation",
+        "domain_policy",
+        "LISE",
+        "contestability"
+      ]
     }
   ],
   "existing_blockers": [
