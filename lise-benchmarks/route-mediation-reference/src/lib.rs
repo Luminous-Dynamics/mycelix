@@ -95,7 +95,12 @@ struct Edge {
     to: String,
 }
 
-type ParsedGraph = (BTreeMap<String, String>, Vec<Edge>, Vec<String>, Vec<String>);
+type ParsedGraph = (
+    BTreeMap<String, String>,
+    Vec<Edge>,
+    Vec<String>,
+    Vec<String>,
+);
 
 #[derive(Clone, Debug)]
 struct Path {
