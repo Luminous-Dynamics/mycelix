@@ -125,7 +125,6 @@
       "pinned_candidate_release": {
         "version": "v0.1.0-beta.1",
         "released": "2026-11-14",
-        "release_commit_short": "40a069565a2eaecbb5e691dbc634be20e8498daf",
         "full_commit_sha": "40a069565a2eaecbb5e691dbc634be20e8498daf",
         "status": "prerelease_candidate_only",
         "relevant_regressions": {
@@ -145,7 +144,8 @@
           "tlsn crate consolidates former prover/verifier crates",
           "attestation functionality moved to separate attestation crate"
         ],
-        "source": "https://github.com/tlsnotary/tlsn/commit/40a069565a2eaecbb5e691dbc634be20e8498daf"
+        "source": "https://github.com/tlsnotary/tlsn/commit/40a069565a2eaecbb5e691dbc634be20e8498daf",
+        "release_commit": "40a069565a2eaecbb5e691dbc634be20e8498daf"
       },
       "privacy_profiles": [
         {
@@ -464,7 +464,6 @@
       "FULL_RESPONSE_REVEAL",
       "SELECTIVE_DISCLOSURE",
       "MIXED_SENSITIVE_DIRECTION",
-      "ATTESTED_WITNESS_PROVER_SIDE_PLAINTEXT",
       "ATTESTED_WITNESS_PROVER_SIDE_PLAINTEXT"
     ]
   },
