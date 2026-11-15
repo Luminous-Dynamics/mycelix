@@ -1,0 +1,611 @@
+{
+  "schema_version": 1,
+  "profile_id": "PPAC-INT-001",
+  "profile_version": 1,
+  "title": "PPAC integration synthetic casebook",
+  "status": "design_fixture_specification",
+  "created_at": "2026-11-15",
+  "synthetic_only": true,
+  "case_count": 24,
+  "oracle_status": "not_adjudicated",
+  "execution_status": "not_run",
+  "labels_are_provisional": true,
+  "source_of_truth": "PPAC_INTEGRATION_PROFILE_V1.md",
+  "evaluation_contract": {
+    "unit": "one scenario with exact declared mutations and expected owner gate",
+    "positive_control_requirement": "A positive case must demonstrate a reachable fully-bound proof/claim path; a suite that rejects all candidates cannot pass.",
+    "fail_closed": "Unsupported, stale, revoked, contradicted, expired, mismatched and indeterminate states cannot be promoted to a positive claim or action authorization.",
+    "independence": "Expected dispositions require independent review and must not be authored solely by the implementation under test.",
+    "no_aggregate_score": "Hard failures such as false acceptance or unauthorized disclosure cannot be offset by performance or average accuracy."
+  },
+  "disposition_vocabulary": [
+    "QUALIFIED_CLAIM_CANDIDATE",
+    "BLOCKED",
+    "UNSUPPORTED",
+    "PRIVACY_UNQUALIFIED",
+    "INDETERMINATE",
+    "HISTORICAL_ONLY",
+    "DELIVERY_UNKNOWN_NO_REISSUE",
+    "BLOCKED_BY_QUARANTINE",
+    "TYPED_REJECTION_NO_PANIC"
+  ],
+  "cases": [
+    {
+      "id": "PPAC-POS-001",
+      "family": "issuer-proof-request",
+      "kind": "positive",
+      "base_case": null,
+      "scenario": "All required claim-level bindings are present and mutually consistent.",
+      "facts": {
+        "issuer_signature": "valid",
+        "issuer_authority": "qualified",
+        "subject_binding": "pairwise_match",
+        "credential_status": "current",
+        "proof": "valid_for_exact_statement",
+        "program_identity": "expected",
+        "challenge": "fresh_verifier_issued",
+        "audience": "match",
+        "policy_applicability": "current",
+        "dependency_frontier": "complete"
+      },
+      "mutation": null,
+      "expected_gate": "all_claim_qualification_gates",
+      "provisional_disposition": "QUALIFIED_CLAIM_CANDIDATE",
+      "invariant": "A positive proof result is still not consent, institutional action authority or effect evidence.",
+      "owners": [
+        "Mycelix #5751",
+        "#5724",
+        "#6219",
+        "Symthaea #5842",
+        "#12269"
+      ]
+    },
+    {
+      "id": "PPAC-NEG-001",
+      "family": "issuer-proof-request",
+      "kind": "negative",
+      "base_case": "PPAC-POS-001",
+      "scenario": "A cryptographically valid signature comes from an issuer not authorized for this claim or jurisdiction.",
+      "facts": {
+        "issuer_signature": "valid",
+        "issuer_authority": "unauthorized"
+      },
+      "mutation": {
+        "field": "issuer_authority",
+        "from": "qualified",
+        "to": "unauthorized"
+      },
+      "expected_gate": "issuer_authority_qualification",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "Signature validity must not promote issuer legitimacy.",
+      "owners": [
+        "Mycelix credential/domain owner",
+        "LISE #6219"
+      ]
+    },
+    {
+      "id": "PPAC-NEG-002",
+      "family": "issuer-proof-request",
+      "kind": "negative",
+      "base_case": "PPAC-POS-001",
+      "scenario": "The subject binding in the source statement differs from the presentation subject.",
+      "facts": {
+        "subject_binding": "mismatch",
+        "issuer_signature": "valid",
+        "proof": "valid_for_other_subject"
+      },
+      "mutation": {
+        "field": "subject_binding",
+        "from": "pairwise_match",
+        "to": "mismatch"
+      },
+      "expected_gate": "subject_binding",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "A valid proof over another subject cannot qualify this subject.",
+      "owners": [
+        "Mycelix credential owner",
+        "#5724"
+      ]
+    },
+    {
+      "id": "PPAC-NEG-003",
+      "family": "proof-binding",
+      "kind": "negative",
+      "base_case": "PPAC-POS-001",
+      "scenario": "One public input, threshold, commitment or output is altered after proof generation.",
+      "facts": {
+        "proof": "valid_for_original_public_statement",
+        "public_inputs": "mutated"
+      },
+      "mutation": {
+        "field": "public_inputs_digest",
+        "from": "original",
+        "to": "mutated"
+      },
+      "expected_gate": "proof_statement_binding",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "Proof verification must use the exact canonical public statement.",
+      "owners": [
+        "Mycelix #2000",
+        "Symthaea #5842"
+      ]
+    },
+    {
+      "id": "PPAC-NEG-004",
+      "family": "proof-binding",
+      "kind": "negative",
+      "base_case": "PPAC-POS-001",
+      "scenario": "The verifier receives arbitrary non-empty bytes for a predicate with no admitted verifier.",
+      "facts": {
+        "backend": "unsupported_or_structural_only",
+        "proof_bytes": "non_empty",
+        "verifier": "absent"
+      },
+      "mutation": {
+        "field": "proof_verifier_capability",
+        "from": "qualified",
+        "to": "unsupported"
+      },
+      "expected_gate": "cryptographic_proof_verification",
+      "provisional_disposition": "UNSUPPORTED",
+      "invariant": "Non-empty proof bytes and a well-formed digest are not proof validity.",
+      "owners": [
+        "Mycelix #5751",
+        "Mycelix capability matrix"
+      ]
+    },
+    {
+      "id": "PPAC-NEG-005",
+      "family": "challenge",
+      "kind": "negative",
+      "base_case": "PPAC-POS-001",
+      "scenario": "A challenge is validly issued but is bound to a different audience or request.",
+      "facts": {
+        "challenge": "verifier_issued",
+        "audience": "mismatch",
+        "request_digest": "mismatch"
+      },
+      "mutation": {
+        "field": "audience_or_request_digest",
+        "from": "match",
+        "to": "mismatch"
+      },
+      "expected_gate": "challenge_request_audience_binding",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "A challenge is usable only for its exact request, verifier and audience.",
+      "owners": [
+        "Mycelix #5724"
+      ]
+    },
+    {
+      "id": "PPAC-NEG-006",
+      "family": "challenge",
+      "kind": "negative",
+      "base_case": "PPAC-POS-001",
+      "scenario": "A previously consumed challenge is submitted again, including concurrently.",
+      "facts": {
+        "challenge": "already_consumed",
+        "submission": "replay_or_concurrent_duplicate"
+      },
+      "mutation": {
+        "field": "challenge_consumption_state",
+        "from": "unused",
+        "to": "consumed"
+      },
+      "expected_gate": "single_use_challenge_state",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "No duplicate proof presentation can consume the same authorization challenge twice.",
+      "owners": [
+        "Mycelix #5724",
+        "challenge state owner"
+      ]
+    },
+    {
+      "id": "PPAC-NEG-007",
+      "family": "issuer-source-currentness",
+      "kind": "negative",
+      "base_case": "PPAC-POS-001",
+      "scenario": "Issuer key or credential status is revoked, expired or stale at the required decision frontier.",
+      "facts": {
+        "issuer_signature": "historically_valid",
+        "issuer_key_status": "revoked",
+        "credential_status": "revoked"
+      },
+      "mutation": {
+        "field": "issuer_or_credential_status",
+        "from": "current",
+        "to": "revoked"
+      },
+      "expected_gate": "issuer_credential_currentness",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "Historical signature validity remains preserved, but it cannot establish current eligibility.",
+      "owners": [
+        "Mycelix credential status owner",
+        "LISE #6219"
+      ]
+    },
+    {
+      "id": "PPAC-PRIV-001",
+      "family": "privacy-correlation",
+      "kind": "privacy",
+      "base_case": "PPAC-POS-001",
+      "scenario": "Two verifier contexts receive the same stable subject or deterministic credential/value digest.",
+      "facts": {
+        "proof": "valid",
+        "subject_handle": "stable_global_identifier",
+        "credential_digest": "stable_low_entropy_or_reusable"
+      },
+      "mutation": {
+        "field": "subject_handle_or_commitment",
+        "from": "pairwise_hiding",
+        "to": "stable_or_guessable"
+      },
+      "expected_gate": "privacy_and_linkability",
+      "provisional_disposition": "PRIVACY_UNQUALIFIED",
+      "invariant": "A valid predicate proof does not establish unlinkability or hiding of low-entropy inputs.",
+      "owners": [
+        "Mycelix #2109",
+        "#2110",
+        "Mycelix #1899",
+        "BBS profile"
+      ]
+    },
+    {
+      "id": "PPAC-NEG-008",
+      "family": "xenia-consent",
+      "kind": "negative",
+      "base_case": "PPAC-POS-001",
+      "scenario": "The Xenia operator session is authenticated, but the relevant consent was denied or revoked.",
+      "facts": {
+        "session": "authenticated",
+        "consent": "denied_or_revoked"
+      },
+      "mutation": {
+        "field": "consent_state",
+        "from": "approved",
+        "to": "denied_or_revoked"
+      },
+      "expected_gate": "exact_consent",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "Session authentication never substitutes for consent.",
+      "owners": [
+        "Xenia #449",
+        "#450"
+      ]
+    },
+    {
+      "id": "PPAC-NEG-009",
+      "family": "xenia-consent",
+      "kind": "negative",
+      "base_case": "PPAC-POS-001",
+      "scenario": "The action bytes, target, recipient, route or scope change after consent approval.",
+      "facts": {
+        "consent": "approved_for_action_A",
+        "presented_action": "action_B"
+      },
+      "mutation": {
+        "field": "action_digest",
+        "from": "approved_action_digest",
+        "to": "different_action_digest"
+      },
+      "expected_gate": "consent_action_binding",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "Consent authorizes the exact effect, not an indefinitely trusted session.",
+      "owners": [
+        "Xenia #449",
+        "Mycelix #4753"
+      ]
+    },
+    {
+      "id": "PPAC-NEG-010",
+      "family": "decision-to-effect",
+      "kind": "negative",
+      "base_case": "PPAC-POS-001",
+      "scenario": "Authority, policy or revocation epoch changes after the decision but before the effect commit.",
+      "facts": {
+        "decision": "previously_valid",
+        "commit_time_authority": "stale_or_revoked"
+      },
+      "mutation": {
+        "field": "authority_generation",
+        "from": "decision_generation",
+        "to": "new_generation"
+      },
+      "expected_gate": "commit_time_authority_revalidation",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "A prior positive decision is not timeless effect authority.",
+      "owners": [
+        "Mycelix #4753",
+        "effect owner"
+      ]
+    },
+    {
+      "id": "PPAC-AMB-001",
+      "family": "effect-observation",
+      "kind": "ambiguous",
+      "base_case": null,
+      "scenario": "A request was sent but the provider outcome is unknown or the observer's action coverage is incomplete.",
+      "facts": {
+        "attempt": "sent",
+        "provider_outcome": "unknown",
+        "observer_coverage": "partial"
+      },
+      "mutation": null,
+      "expected_gate": "effect_reconciliation_and_observation",
+      "provisional_disposition": "INDETERMINATE",
+      "invariant": "Unknown outcome is not success or failure; reconcile before retry.",
+      "owners": [
+        "Mycelix #6140",
+        "#1607",
+        "effect owner"
+      ]
+    },
+    {
+      "id": "PPAC-TIME-001",
+      "family": "temporal-currentness",
+      "kind": "temporal",
+      "base_case": "PPAC-POS-001",
+      "scenario": "A proof is valid for its historic cutoff, but the current issuer or policy dependency has changed.",
+      "facts": {
+        "historical_proof": "valid_at_original_cutoff",
+        "current_applicability": "stale"
+      },
+      "mutation": {
+        "field": "dependency_frontier",
+        "from": "F1",
+        "to": "F2_with_revocation_or_policy_change"
+      },
+      "expected_gate": "LISE_current_applicability",
+      "provisional_disposition": "HISTORICAL_ONLY",
+      "invariant": "Preserve historic validity without treating the claim as currently applicable.",
+      "owners": [
+        "Mycelix #6219",
+        "#6069",
+        "#2631"
+      ]
+    },
+    {
+      "id": "PPAC-XEN-001",
+      "family": "xenia-portable-authority",
+      "kind": "negative",
+      "base_case": null,
+      "scenario": "The portable Xenia authority receipt names the wrong Symthaea receipt UUID or canonical receipt digest.",
+      "facts": {
+        "xenia_signature": "valid",
+        "symthaea_receipt_binding": "mismatch"
+      },
+      "mutation": {
+        "field": "symthaea_receipt_id_or_digest",
+        "from": "exact",
+        "to": "substituted"
+      },
+      "expected_gate": "xenia_receipt_binding",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "A valid Xenia signature over another receipt is not authority over this receipt.",
+      "owners": [
+        "Xenia #359",
+        "#364",
+        "#369"
+      ]
+    },
+    {
+      "id": "PPAC-XEN-002",
+      "family": "xenia-portable-authority",
+      "kind": "negative",
+      "base_case": "PPAC-XEN-001",
+      "scenario": "The hybrid authority receipt combines valid signatures from a mixed or non-enrolled key pair.",
+      "facts": {
+        "ed25519_signature": "valid",
+        "ml_dsa_signature": "valid",
+        "joint_enrollment": "false"
+      },
+      "mutation": {
+        "field": "joint_enrollment_or_key_lineage",
+        "from": "current_joint_pair",
+        "to": "mixed_or_unenrolled"
+      },
+      "expected_gate": "xenia_hybrid_identity_and_enrollment",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "Two individually valid signatures do not establish one enrolled hybrid identity.",
+      "owners": [
+        "Xenia #359",
+        "#364"
+      ]
+    },
+    {
+      "id": "PPAC-XEN-003",
+      "family": "xenia-portable-authority",
+      "kind": "negative",
+      "base_case": "PPAC-XEN-001",
+      "scenario": "Portable authority receipt is expired, replays a consumed nonce, or changes receipt binding under the same nonce.",
+      "facts": {
+        "portable_receipt": "expired_or_replayed",
+        "nonce_binding": "used_or_mismatched"
+      },
+      "mutation": {
+        "field": "expiry_or_nonce_binding",
+        "from": "fresh_unused",
+        "to": "expired_or_reused"
+      },
+      "expected_gate": "xenia_portable_authority_freshness",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "Portable authority is short-lived and single-use; enrollment longevity does not make receipts perpetual.",
+      "owners": [
+        "Xenia #369",
+        "#435"
+      ]
+    },
+    {
+      "id": "PPAC-XEN-004",
+      "family": "xenia-portable-authority",
+      "kind": "ambiguous",
+      "base_case": "PPAC-XEN-001",
+      "scenario": "The daemon crashes after durable reservation but before durable receipt retention.",
+      "facts": {
+        "nonce_state": "reserved",
+        "receipt_state": "not_durably_retained",
+        "restart": "occurred"
+      },
+      "mutation": {
+        "field": "issuance_terminal_state",
+        "from": "issued_and_retained",
+        "to": "delivery_unknown"
+      },
+      "expected_gate": "durable_single_use_issuance",
+      "provisional_disposition": "DELIVERY_UNKNOWN_NO_REISSUE",
+      "invariant": "An unresolved issuance reservation cannot silently become reusable after restart.",
+      "owners": [
+        "Xenia #435"
+      ]
+    },
+    {
+      "id": "PPAC-BIN-001",
+      "family": "binius-witness-privacy",
+      "kind": "negative",
+      "base_case": null,
+      "scenario": "A private relation target is transmitted without the fresh one-time-pad key in the selected Iron Spartan wrapper.",
+      "facts": {
+        "backend": "vulnerable_iron_spartan_wrapper",
+        "relation_target": "plaintext_transcript"
+      },
+      "mutation": {
+        "field": "relation_target_transport",
+        "from": "ciphertext_plus_key_relation",
+        "to": "plaintext"
+      },
+      "expected_gate": "witness_privacy",
+      "provisional_disposition": "PRIVACY_UNQUALIFIED",
+      "invariant": "Proof acceptance does not cure witness disclosure.",
+      "owners": [
+        "Symthaea #12274",
+        "Binius64 #2505",
+        "#2526"
+      ]
+    },
+    {
+      "id": "PPAC-BIN-002",
+      "family": "binius-witness-privacy",
+      "kind": "negative",
+      "base_case": null,
+      "scenario": "A prover sends a masked relation target under a different key index than the verifier relation expects.",
+      "facts": {
+        "backend": "candidate_one_time_pad_wrapper",
+        "ciphertext_key_index": "mismatch"
+      },
+      "mutation": {
+        "field": "key_index",
+        "from": "expected_key_index",
+        "to": "different_index"
+      },
+      "expected_gate": "wrapper_relation_binding",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "The verifier must reject wrong-key or key-index substitution; absence of plaintext target alone is insufficient.",
+      "owners": [
+        "Symthaea #12274",
+        "Binius64 #2526"
+      ]
+    },
+    {
+      "id": "PPAC-BIN-003",
+      "family": "backend-capability",
+      "kind": "negative",
+      "base_case": null,
+      "scenario": "A Binius64 integrity-only proof is labelled or admitted as a zero-knowledge private-witness proof.",
+      "facts": {
+        "backend": "Binius64_base",
+        "proof_verification": "valid",
+        "privacy_capability": "claimed_zk"
+      },
+      "mutation": {
+        "field": "backend_privacy_capability",
+        "from": "integrity_only",
+        "to": "claimed_zk"
+      },
+      "expected_gate": "backend_capability_admission",
+      "provisional_disposition": "UNSUPPORTED",
+      "invariant": "The capability of one proof system cannot be inferred from another system in the same vendor tree.",
+      "owners": [
+        "Symthaea #12274",
+        "#7403",
+        "Mycelix #1899"
+      ]
+    },
+    {
+      "id": "PPAC-AIR-001",
+      "family": "air-soundness",
+      "kind": "negative",
+      "base_case": null,
+      "scenario": "A malicious trace satisfies the current HealthRangeAir bit-binary constraint but not the intended range or commitment relation.",
+      "facts": {
+        "circuit": "HealthRangeAir_current",
+        "bitness": "satisfied",
+        "accumulator_binding": "absent",
+        "public_bounds_binding": "absent",
+        "commitment_opening": "absent"
+      },
+      "mutation": {
+        "field": "witness_trace",
+        "from": "honest_builder_trace",
+        "to": "malicious_unconstrained_trace"
+      },
+      "expected_gate": "AIR_theorem_soundness",
+      "provisional_disposition": "BLOCKED_BY_QUARANTINE",
+      "invariant": "Honest trace construction is not a cryptographic verifier theorem.",
+      "owners": [
+        "Mycelix #227",
+        "#1873"
+      ]
+    },
+    {
+      "id": "PPAC-AIR-002",
+      "family": "air-security",
+      "kind": "negative",
+      "base_case": null,
+      "scenario": "A proof is generated with weak or unmeasured Winterfell options while a generic policy tier is presented as a measured security level.",
+      "facts": {
+        "proof_options": "unmeasured_candidate",
+        "security_label": "claimed_128_bit_or_high"
+      },
+      "mutation": {
+        "field": "security_profile_evidence",
+        "from": "measured_exact_profile",
+        "to": "policy_enum_only"
+      },
+      "expected_gate": "measured_stark_security_profile",
+      "provisional_disposition": "UNSUPPORTED",
+      "invariant": "Policy tier and exact proof-option identity are not measured cryptographic security.",
+      "owners": [
+        "Mycelix #1905",
+        "#1920"
+      ]
+    },
+    {
+      "id": "PPAC-AIR-003",
+      "family": "verifier-robustness",
+      "kind": "negative",
+      "base_case": null,
+      "scenario": "A malformed Winterfell proof trace has dimensions that cause application AIR construction to panic.",
+      "facts": {
+        "proof": "malformed_trace_dimensions",
+        "verifier": "invokes_AIR_new_before_safe_preflight"
+      },
+      "mutation": {
+        "field": "trace_dimensions",
+        "from": "admitted_exact_dimensions",
+        "to": "malformed"
+      },
+      "expected_gate": "untrusted_proof_context_preflight",
+      "provisional_disposition": "TYPED_REJECTION_NO_PANIC",
+      "invariant": "Invalid proof input must not become verifier-process denial of service.",
+      "owners": [
+        "Mycelix #1919"
+      ]
+    }
+  ],
+  "nonclaims": [
+    "No cryptographic key, signature, credential, proof artifact or private user information is included.",
+    "The casebook does not execute any proof system or verifier.",
+    "Provisional expected dispositions are not adjudicated oracle labels.",
+    "Passing these finite synthetic cases would not establish production security, universal unlinkability, issuer truth, institutional authority, legal compliance or external effect."
+  ]
+}
