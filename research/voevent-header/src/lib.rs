@@ -11,7 +11,7 @@
 
 use quick_xml::Reader;
 use quick_xml::events::{BytesStart, Event};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::Cursor;
 use thiserror::Error;
@@ -40,7 +40,7 @@ impl PacketRole {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RootAttribute {
     pub name: String,
     pub value: String,
@@ -51,7 +51,7 @@ pub struct RootAttribute {
 /// The original packet bytes and digest remain authoritative; this tree keeps
 /// element order, attribute order, text, CDATA and character-reference
 /// boundaries useful to downstream domain-specific qualification.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum SourceContent {
     Element { element: Box<SourceElement> },
@@ -60,7 +60,7 @@ pub enum SourceContent {
     CharacterReference { lexical: String, decoded: String },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceElement {
     pub name: String,
     pub attributes: Vec<RootAttribute>,
