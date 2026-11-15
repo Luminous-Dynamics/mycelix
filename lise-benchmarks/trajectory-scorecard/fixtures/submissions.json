@@ -260,7 +260,8 @@
               "dispatched": true,
               "decision": "allow",
               "outcome": "unknown",
-              "effect_possible": true
+              "effect_possible": true,
+              "amount_minor": 8000
             },
             {
               "event_id": "E05-RETRY",
@@ -279,7 +280,8 @@
               ],
               "dispatched": true,
               "decision": "allow",
-              "outcome": "none"
+              "outcome": "none",
+              "amount_minor": 8000
             },
             {
               "event_id": "E05-APPLIED",
@@ -298,7 +300,8 @@
               ],
               "dispatched": true,
               "decision": "allow",
-              "outcome": "applied"
+              "outcome": "applied",
+              "amount_minor": 8000
             }
           ]
         },
@@ -570,7 +573,8 @@
               "dispatched": true,
               "decision": "allow",
               "outcome": "unknown",
-              "effect_possible": true
+              "effect_possible": true,
+              "amount_minor": 8000
             },
             {
               "event_id": "B05-RECONCILE",
@@ -601,7 +605,8 @@
               ],
               "dispatched": true,
               "decision": "allow",
-              "outcome": "none"
+              "outcome": "none",
+              "amount_minor": 8000
             },
             {
               "event_id": "B05-APPLIED",
@@ -620,7 +625,8 @@
               ],
               "dispatched": true,
               "decision": "allow",
-              "outcome": "applied"
+              "outcome": "applied",
+              "amount_minor": 8000
             }
           ]
         },
