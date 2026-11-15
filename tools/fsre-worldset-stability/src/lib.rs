@@ -811,7 +811,6 @@ impl Analysis {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fmt::Write as _;
 
     const FIXTURE: &str = include_str!("../fixtures/omitted-worlds.psv");
 
