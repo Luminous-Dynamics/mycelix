@@ -18,6 +18,10 @@ const MAX_PERTURBATIONS: usize = 22;
 const DEFAULT_MAX_SUBSETS: u64 = 1 << MAX_PERTURBATIONS;
 const DEFAULT_MAX_WITNESSES: usize = 128;
 
+type CellKey = (String, String);
+type CellDelta = (i128, i128);
+type DeltaMap = BTreeMap<CellKey, CellDelta>;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DefeaterError(pub String);
 
@@ -529,7 +533,7 @@ fn compute_signature(
     worlds: &[String],
     actions: &[String],
     cells: &BTreeMap<(String, String), Cell>,
-    deltas: &BTreeMap<(String, String), (i128, i128)>,
+    deltas: &DeltaMap,
     safety_floor: i64,
 ) -> DecisionSignature {
     let robustly_safe_actions: Vec<String> = actions
@@ -644,12 +648,12 @@ fn apply_mask(
     mutations: &[Mutation],
     mask: u64,
 ) -> (
-    BTreeMap<(String, String), (i128, i128)>,
+    DeltaMap,
     u128,
     Vec<String>,
     Vec<String>,
 ) {
-    let mut deltas = BTreeMap::<(String, String), (i128, i128)>::new();
+    let mut deltas = DeltaMap::new();
     let mut total_cost = 0_u128;
     let mut mutation_ids = Vec::new();
     let mut evidence_refs = Vec::new();
@@ -903,7 +907,7 @@ fn parse_problem(
     mutations.sort_by_key(|mutation| mutation.id.clone());
     let worlds: Vec<String> = worlds.into_iter().collect();
     let actions: Vec<String> = actions.into_iter().collect();
-    let baseline_deltas = BTreeMap::new();
+    let baseline_deltas = DeltaMap::new();
     let baseline_signature = compute_signature(
         &worlds,
         &actions,
@@ -1124,9 +1128,6 @@ pub fn replay_witness(
         canonical_ids.push(mutation.id.clone());
         selected_evidence_refs.push(mutation.evidence_ref.clone());
     }
-    canonical_ids.sort();
-    selected_evidence_refs.sort();
-
     let replayed_signature = compute_signature(
         &problem.worlds,
         &problem.actions,
@@ -1209,6 +1210,7 @@ m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE
             assert_eq!(replay.total_cost, witness.total_cost);
             assert_eq!(replay.replayed_signature, witness.mutated_signature);
             assert_eq!(replay.selected_evidence_refs, witness.evidence_refs);
+            assert_eq!(witness.evidence_refs.len(), witness.mutation_ids.len());
         }
     }
 
