@@ -633,5 +633,26 @@
     "reattempt_action_at": "2026-02-06T10:00:00Z",
     "reattempt_known_at": "2026-02-06T10:00:00Z",
     "expected_reattempt_disposition": "DENY"
+  },
+  "operation_history_completeness": {
+    "receipt_ref": "HISTORY-COMPLETE-LEASE-001",
+    "operation_ref": "OP-LEASE-001",
+    "idempotency_ref": "IDEM-LEASE-001",
+    "canonical_operation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "action_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "resource_ref": "PROPERTY-001",
+    "provider_ref": "SYNTHETIC-LEASE-PROVIDER-1",
+    "source_ref": "synthetic://operation-history/OP-LEASE-001",
+    "source_kind": "synthetic_closed_world_fixture",
+    "completeness_state": "complete_for_scope",
+    "query_scope_exact": true,
+    "coverage_from": "2025-01-01T00:00:00Z",
+    "watermark_occurred_at": "2026-01-25T10:00:00Z",
+    "observed_at": "2026-01-25T10:00:00Z",
+    "pagination_complete": true,
+    "retention_complete": true,
+    "gap_detected": false,
+    "verification_state": "fixture_assertion_not_cryptographically_verified",
+    "issuer_trust": "untrusted_synthetic_fixture"
   }
 }
