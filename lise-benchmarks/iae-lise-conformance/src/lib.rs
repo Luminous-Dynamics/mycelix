@@ -272,6 +272,65 @@ fn resolve_authority(
     Ok(parse_authority_status(&latest.2))
 }
 
+fn history_receipt_covers_query(
+    fixture: &Value,
+    operation: &Value,
+    action_at: &str,
+    known_at: &str,
+) -> bool {
+    // This receipt closes only the synthetic fixture's explicitly enumerated
+    // event universe. Production must provide an owner-authenticated receipt.
+    if fixture.get("synthetic").and_then(Value::as_bool) != Some(true) {
+        return false;
+    }
+    let Some(receipt) = fixture.get("operation_history_completeness") else {
+        return false;
+    };
+    let fields_match = [
+        ("operation_ref", "logical_operation_id"),
+        ("idempotency_ref", "idempotency_ref"),
+        ("canonical_operation_digest", "canonical_operation_digest"),
+        ("action_digest", "action_digest"),
+        ("resource_ref", "target_ref"),
+    ]
+    .iter()
+    .all(|(receipt_key, operation_key)| {
+        receipt.get(*receipt_key) == operation.get(*operation_key)
+    });
+    if !fields_match
+        || receipt.get("source_kind").and_then(Value::as_str)
+            != Some("synthetic_closed_world_fixture")
+        || receipt.get("completeness_state").and_then(Value::as_str)
+            != Some("complete_for_scope")
+        || receipt.get("pagination_complete").and_then(Value::as_bool) != Some(true)
+        || receipt.get("retention_complete").and_then(Value::as_bool) != Some(true)
+        || receipt.get("gap_detected").and_then(Value::as_bool) != Some(false)
+        || receipt.get("query_scope_exact").and_then(Value::as_bool) != Some(true)
+    {
+        return false;
+    }
+    let Ok(coverage_from) = timestamp(receipt, "coverage_from", "history completeness receipt") else {
+        return false;
+    };
+    let Ok(watermark) = timestamp(
+        receipt,
+        "watermark_occurred_at",
+        "history completeness receipt",
+    ) else {
+        return false;
+    };
+    let Ok(observed_at) = timestamp(
+        receipt,
+        "observed_at",
+        "history completeness receipt",
+    ) else {
+        return false;
+    };
+    coverage_from.as_str() <= action_at
+        && watermark.as_str() >= action_at
+        && observed_at.as_str() <= known_at
+}
+
 fn resolve_prior_effect(
     fixture: &Value,
     operation: &Value,
@@ -287,9 +346,6 @@ fn resolve_prior_effect(
     )?;
     let action_digest = required_str(operation, "action_digest", "approved operation")?;
     let history = array(fixture, "operation_history", "fixture")?;
-    if history.is_empty() {
-        return Ok(PriorEffectState::OutcomeUnknownAfterDispatch);
-    }
 
     let mut matching_history = false;
     let mut visible: Vec<(String, String, Value)> = Vec::new();
@@ -320,14 +376,18 @@ fn resolve_prior_effect(
         }
         visible.push((occurred, observed, event.clone()));
     }
+
+    if visible.is_empty() {
+        let complete = history_receipt_covers_query(fixture, operation, action_at, known_at);
+        if complete {
+            return Ok(PriorEffectState::NeverAttempted);
+        }
+        return Ok(PriorEffectState::OutcomeUnknownAfterDispatch);
+    }
     if !matching_history {
         return Ok(PriorEffectState::OutcomeUnknownAfterDispatch);
     }
-    // The frozen synthetic fixture is closed-world for this operation history.
-    // Production adapters must obtain owner-backed history-completeness evidence.
-    if visible.is_empty() {
-        return Ok(PriorEffectState::NeverAttempted);
-    }
+
     visible.sort_by(|a, b| (&a.0, &a.1).cmp(&(&b.0, &b.1)));
     let latest = visible.last().expect("visible is nonempty");
     let same_rank_conflict = visible.iter().any(|row| {
@@ -1092,6 +1152,99 @@ mod tests {
         assert!(!is_fixed_utc_timestamp("2026-02-30T10:00:00Z"));
         assert!(!is_fixed_utc_timestamp("2026-13-01T10:00:00Z"));
         assert!(is_fixed_utc_timestamp("2024-02-29T23:59:59Z"));
+    }
+
+    #[test]
+    fn no_visible_event_requires_scoped_complete_history_receipt() {
+        let (mut fixture, _) = inputs();
+        let operation = &fixture["operation_finality"]["approved_operation"];
+        assert_eq!(
+            resolve_prior_effect(
+                &fixture,
+                operation,
+                "2026-01-25T10:00:00Z",
+                "2026-01-25T10:00:00Z",
+            )
+            .expect("complete fixture receipt"),
+            PriorEffectState::NeverAttempted
+        );
+
+        fixture.as_object_mut().expect("fixture object")
+            .remove("operation_history_completeness");
+        assert_eq!(
+            resolve_prior_effect(
+                &fixture,
+                &fixture["operation_finality"]["approved_operation"],
+                "2026-01-25T10:00:00Z",
+                "2026-01-25T10:00:00Z",
+            )
+            .expect("missing receipt remains a held state"),
+            PriorEffectState::OutcomeUnknownAfterDispatch
+        );
+    }
+
+    #[test]
+    fn stale_or_incomplete_history_receipt_never_proves_no_attempt() {
+        let (mut fixture, _) = inputs();
+        fixture["operation_history_completeness"]["watermark_occurred_at"] =
+            json!("2026-01-24T10:00:00Z");
+        let operation = fixture["operation_finality"]["approved_operation"].clone();
+        assert_eq!(
+            resolve_prior_effect(
+                &fixture,
+                &operation,
+                "2026-01-25T10:00:00Z",
+                "2026-01-25T10:00:00Z",
+            )
+            .expect("stale watermark is readable"),
+            PriorEffectState::OutcomeUnknownAfterDispatch
+        );
+
+        fixture["operation_history_completeness"]["watermark_occurred_at"] =
+            json!("2026-01-25T10:00:00Z");
+        fixture["operation_history_completeness"]["pagination_complete"] = json!(false);
+        assert_eq!(
+            resolve_prior_effect(
+                &fixture,
+                &operation,
+                "2026-01-25T10:00:00Z",
+                "2026-01-25T10:00:00Z",
+            )
+            .expect("incomplete pagination is readable"),
+            PriorEffectState::OutcomeUnknownAfterDispatch
+        );
+    }
+
+    #[test]
+    fn mismatched_or_late_completeness_receipt_is_rejected() {
+        let (mut fixture, _) = inputs();
+        let operation = fixture["operation_finality"]["approved_operation"].clone();
+        fixture["operation_history_completeness"]["idempotency_ref"] =
+            json!("IDEM-OTHER");
+        assert_eq!(
+            resolve_prior_effect(
+                &fixture,
+                &operation,
+                "2026-01-25T10:00:00Z",
+                "2026-01-25T10:00:00Z",
+            )
+            .expect("mismatched scope remains a held state"),
+            PriorEffectState::OutcomeUnknownAfterDispatch
+        );
+
+        fixture["operation_history_completeness"]["idempotency_ref"] = json!("IDEM-LEASE-001");
+        fixture["operation_history_completeness"]["observed_at"] =
+            json!("2026-01-25T10:01:00Z");
+        assert_eq!(
+            resolve_prior_effect(
+                &fixture,
+                &operation,
+                "2026-01-25T10:00:00Z",
+                "2026-01-25T10:00:00Z",
+            )
+            .expect("late receipt remains a held state"),
+            PriorEffectState::OutcomeUnknownAfterDispatch
+        );
     }
 
     #[test]
