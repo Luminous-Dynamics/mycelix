@@ -1317,6 +1317,7 @@ mod tests {
         let minimum = analyze_finite_world_extremum(
             "finite-world-negative-lower",
             "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "finite-world-set-v1",
             &values,
             ExtremumDirection::Minimum,
         )
