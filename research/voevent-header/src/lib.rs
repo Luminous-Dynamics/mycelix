@@ -627,10 +627,10 @@ fn parse_citations(
             }
             Event::End(element) => {
                 let depth = element_stack.len();
-                let name = element.name().as_ref();
+                let name = element.name().as_ref().to_vec();
 
                 if let Some(builder) = current_citation.as_ref() {
-                    if builder.depth == depth && name == b"EventIVORN" {
+                    if builder.depth == depth && name.as_slice() == b"EventIVORN" {
                         let builder = current_citation.take().expect("citation builder exists");
                         let target_ivoid = builder.text;
                         validate_ivoid(&target_ivoid).map_err(ParseError::InvalidCitationTarget)?;
@@ -643,7 +643,7 @@ fn parse_citations(
                 }
 
                 if let Some(builder) = current_description.as_ref() {
-                    if builder.depth == depth && name == b"Description" {
+                    if builder.depth == depth && name.as_slice() == b"Description" {
                         let builder = current_description
                             .take()
                             .expect("description builder exists");
@@ -794,7 +794,7 @@ fn parse_where_when(packet: &[u8]) -> Result<Option<SourceElement>, ParseError> 
                 }
             }
             Event::End(element) => {
-                let name = element.name().as_ref();
+                let name = element.name().as_ref().to_vec();
                 if where_when_active {
                     if source_stack.len() > 1 {
                         let child = source_stack.pop().ok_or_else(|| {
@@ -803,7 +803,7 @@ fn parse_where_when(packet: &[u8]) -> Result<Option<SourceElement>, ParseError> 
                         if let Some(parent) = source_stack.last_mut() {
                             append_source_element(parent, child);
                         }
-                    } else if xml_local_name(name) == b"WhereWhen" {
+                    } else if xml_local_name(&name) == b"WhereWhen" {
                         where_when = source_stack.pop();
                         where_when_active = false;
                     }
@@ -922,13 +922,11 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
                     if author_seen {
                         return Err(ParseError::DuplicateWhoAuthorIvoid);
                     }
-                    author_seen = true;
                     return Err(ParseError::InvalidWhoAuthorIvoid(String::new()));
                 } else if who_depth == Some(element_stack.len()) && name.as_slice() == b"Date" {
                     if date_seen {
                         return Err(ParseError::DuplicateWhoDate);
                     }
-                    date_seen = true;
                     return Err(ParseError::EmptyWhoDate);
                 }
             }
@@ -983,10 +981,10 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
             }
             Event::End(element) => {
                 let depth = element_stack.len();
-                let name = element.name().as_ref();
+                let name = element.name().as_ref().to_vec();
 
                 if let Some(builder) = current_author.as_ref() {
-                    if builder.depth == depth && name == b"AuthorIVORN" {
+                    if builder.depth == depth && name.as_slice() == b"AuthorIVORN" {
                         let builder = current_author.take().expect("Who author builder exists");
                         validate_ivoid(&builder.text).map_err(ParseError::InvalidWhoAuthorIvoid)?;
                         author_ivoid = Some(builder.text);
@@ -994,7 +992,7 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
                 }
 
                 if let Some(builder) = current_date.as_ref() {
-                    if builder.depth == depth && name == b"Date" {
+                    if builder.depth == depth && name.as_slice() == b"Date" {
                         let builder = current_date.take().expect("Who date builder exists");
                         if builder.text.is_empty() {
                             return Err(ParseError::EmptyWhoDate);
@@ -1003,7 +1001,7 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
                     }
                 }
 
-                if who_depth == Some(depth) && name == b"Who" {
+                if who_depth == Some(depth) && name.as_slice() == b"Who" {
                     who_depth = None;
                 }
 
