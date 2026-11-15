@@ -12,13 +12,16 @@ See [QUALIFICATION_PROTOCOL.md](./QUALIFICATION_PROTOCOL.md) for the current res
 
 It consumes an IAE fixture and submission, maps the approved and pending operation projections into the existing ipb-finality-reference FinalityInput, derives authority and prior-effect states from their effective-time **and** knowledge-time histories, and calls the LISE reference relation.
 
-It evaluates three views independently:
+It evaluates four views independently:
 
 | View | Effective/action time | Knowledge cutoff | Expected LISE relation |
 |---|---|---|---|
-| PRE_DISPATCH | original action time | pre-dispatch knowledge | Permit (reference relation only) |
+| PRE_DISPATCH_POSITIVE_CONTROL | 10:00 preflight instant, before the recorded submit attempt | 10:00 | Permit (reference relation only) |
+| PRE_DISPATCH_TIME_AMBIGUOUS | 10:01 action cutoff, equal to the submit event's second-resolution timestamp | 10:00 | Hold(PriorOutcomeUnknown) |
 | POST_TIMEOUT | timeout occurrence | timeout observation | Hold(PriorOutcomeUnknown) |
 | REATTEMPT_AFTER_REVOCATION | reattempt time | reattempt knowledge | Deny(AuthorityRevoked) |
+
+The upstream fixture's `action_at_before_dispatch` equals the submit-attempt `occurred_at` at one-second precision. Since it does not establish ordering, the adapter deliberately holds that view. The earlier positive control is separate; it must not be confused with the ambiguous source timestamp.
 
 The distinction matters: a later denial of a reattempt does not resolve whether the original external operation happened. The original timeout remains an UNKNOWN reconciliation obligation.
 
