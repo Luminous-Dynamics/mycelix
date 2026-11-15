@@ -335,7 +335,7 @@ struct Problem {
 
 enum Prepared {
     Qualified(Qualification),
-    Ready(Problem),
+    Ready(Box<Problem>),
 }
 
 fn valid_token(value: &str) -> bool {
@@ -970,7 +970,7 @@ fn prepare(source: &str) -> Result<Prepared, DefeaterError> {
         return Ok(Prepared::Qualified(blocked));
     }
     match parse_problem(source, &metadata, header_index)? {
-        Ok(problem) => Ok(Prepared::Ready(problem)),
+        Ok(problem) => Ok(Prepared::Ready(Box::new(problem))),
         Err(qualification) => Ok(Prepared::Qualified(qualification)),
     }
 }
@@ -980,7 +980,7 @@ fn prepare(source: &str) -> Result<Prepared, DefeaterError> {
 pub fn analyze(source: &str) -> Result<Result<DefeaterReport, Qualification>, DefeaterError> {
     let problem = match prepare(source)? {
         Prepared::Qualified(qualification) => return Ok(Err(qualification)),
-        Prepared::Ready(problem) => problem,
+        Prepared::Ready(problem) => *problem,
     };
 
     let total_subsets = 1_u64
