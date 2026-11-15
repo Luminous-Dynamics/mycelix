@@ -166,7 +166,11 @@ fn check_human_approval(case: &Value) -> Result<Option<Value>, String> {
                     Vec::new(),
                 )));
             }
-            visible_statuses.push((effective_at, observed_at, string(event, "status", "approval status event")?));
+            visible_statuses.push((
+                effective_at,
+                observed_at,
+                string(event, "status", "approval status event")?,
+            ));
         }
     }
     visible_statuses.sort_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)));
@@ -463,7 +467,10 @@ mod tests {
             .expect("case");
         let result = evaluate_case(case).expect("decision");
         assert_eq!(result["decision"], "ALLOW_SCOPED");
-        assert_eq!(result["reason_code"], "qualified_human_approval_bound_to_current_head");
+        assert_eq!(
+            result["reason_code"],
+            "qualified_human_approval_bound_to_current_head"
+        );
     }
 
     #[test]
