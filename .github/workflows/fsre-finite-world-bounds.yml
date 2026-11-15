@@ -10,9 +10,12 @@ on:
       - 'research/fsre/FSRE_INDUSTRY_COMPARISON_AND_BENCHMARK_PROTOCOL_V0_2.md'
       - '.github/workflows/fsre-finite-world-bounds.yml'
   push:
-    branches: [main]
+    branches:
+      - main
+      - research/fsre-partial-id-lp-certificate-v0.1
     paths:
       - 'tools/fsre-finite-world-bounds/**'
+      - 'tools/fsre-partial-id-lp-certificate/**'
       - 'research/fsre/FINITE_WORLD_PARTIAL_IDENTIFICATION_BENCHMARK_V0_1.md'
       - '.github/workflows/fsre-finite-world-bounds.yml'
 

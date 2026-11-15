@@ -1,0 +1,23 @@
+NAME          FSRE
+OBJSENSE
+ MAX
+ROWS
+ N  OBJ
+ L  total-cap
+ L  x-cap
+ L  y-cap
+COLUMNS
+    x1                       OBJ                      3
+    x1                       total-cap                1
+    x1                       x-cap                    1
+    x2                       OBJ                      3
+    x2                       total-cap                1
+    x2                       x-cap                    1
+    y                        OBJ                      2
+    y                        total-cap                1
+    y                        y-cap                    1
+RHS
+    RHS1                     total-cap                4
+    RHS1                     x-cap                    2
+    RHS1                     y-cap                    3
+ENDATA
