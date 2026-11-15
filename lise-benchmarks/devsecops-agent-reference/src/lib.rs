@@ -236,9 +236,24 @@ fn check_workload_identity(case: &Value) -> Result<Option<Value>, String> {
             return Ok(Some(deny("workload_identity.binding_mismatch")));
         }
     }
+    let action_at = timestamp(request, "action_at", "request")?;
     let known_at = timestamp(request, "known_at", "request")?;
     if timestamp(identity, "observed_at", "workload identity")? > known_at {
         return Ok(Some(hold("workload_identity.not_yet_observed", Vec::new())));
+    }
+    if timestamp(identity, "valid_from", "workload identity")? > action_at {
+        return Ok(Some(deny("workload_identity.not_yet_valid")));
+    }
+    if timestamp(identity, "valid_through", "workload identity")? < action_at {
+        return Ok(Some(deny("workload_identity.expired")));
+    }
+    if !contains_string(
+        case.get("policy").ok_or("case: missing policy")?,
+        "trusted_oidc_issuers",
+        string(identity, "issuer", "workload identity")?,
+        "policy",
+    )? {
+        return Ok(Some(deny("workload_identity.untrusted_issuer")));
     }
     if string(identity, "state", "workload identity")? != "verified" {
         return Ok(Some(deny("workload_identity.not_verified")));
