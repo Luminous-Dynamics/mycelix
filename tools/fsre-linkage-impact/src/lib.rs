@@ -472,11 +472,23 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
     let truth_capacity_exceeded = truth_population_weight > capacity_limit;
     let predicted_capacity_exceeded = predicted_population_weight > capacity_limit;
     let capacity_decision_mismatch_count =
-        u128::from(truth_capacity_exceeded != predicted_capacity_exceeded);
+        if truth_capacity_exceeded != predicted_capacity_exceeded {
+            1
+        } else {
+            0
+        };
     let false_safe_decision_count =
-        u128::from(truth_capacity_exceeded && !predicted_capacity_exceeded);
+        if truth_capacity_exceeded && !predicted_capacity_exceeded {
+            1
+        } else {
+            0
+        };
     let false_alarm_decision_count =
-        u128::from(!truth_capacity_exceeded && predicted_capacity_exceeded);
+        if !truth_capacity_exceeded && predicted_capacity_exceeded {
+            1
+        } else {
+            0
+        };
     let truth_capacity_excess = truth_population_weight.saturating_sub(capacity_limit);
     let predicted_capacity_excess = predicted_population_weight.saturating_sub(capacity_limit);
 
