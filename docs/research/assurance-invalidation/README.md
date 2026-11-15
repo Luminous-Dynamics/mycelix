@@ -26,3 +26,11 @@ Validate the scenario/oracle record arrays against the schemas; verify 50 stable
 
 ## Disclosure and claim ceiling
 Both scenarios and oracle are public. This is a development/calibration seed, not a blinded holdout, confirmatory benchmark or independent adjudication. A PASS on this finite corpus would establish only conformance to the named owner-scoped synthetic cases. It would not establish real-world event-feed completeness, continuous system security, or deployment currentness.
+
+## Industry reference points
+
+- **NIST RMF Monitor / SP 800-137:** ongoing situational awareness, continuous monitoring strategy, control-effectiveness assessments, analysis/response, and ongoing authorization. This is a risk-management and monitoring framework, not a typed claim-by-claim invalidation oracle. [NIST Monitor step](https://csrc.nist.gov/projects/risk-management/about-rmf/monitor-step) · [NIST SP 800-137](https://csrc.nist.gov/pubs/sp/800/137/final)
+- **The Update Framework (TUF) v1.0.37:** metadata versions, expiry, snapshot consistency, rollback/freeze checks and delegation revocation. This is a strong model for freshness and anti-rollback of distribution metadata, not domain-specific evidence applicability. [Specification v1.0.37](https://theupdateframework.github.io/specification/latest/)
+- **Sigstore Rekor:** inclusion proofs and monitoring of append-only transparency-log consistency. A transparency log helps detect mutation/forking under its assumptions; it does not prove that every relevant event was submitted or that the logged proposition is semantically true. [Rekor overview](https://docs.sigstore.dev/logging/overview/)
+
+LISE should compose with these mechanisms rather than replace them. This corpus asks the additional question: after a qualified change is observed—or change coverage becomes incomplete—which owner-defined claims must be requalified, which remain historical, and which unrelated dimensions remain valid?
