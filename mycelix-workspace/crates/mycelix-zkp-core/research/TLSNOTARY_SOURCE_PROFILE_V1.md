@@ -281,7 +281,48 @@ Primary metric: **time-to-qualified-private-decision**, measured from a valid re
 - External provider truth, account ownership, institutional authorization and effect execution remain separate claims.
 - Native proof execution, independent reproduction and runtime qualification are separately evidenced.
 
-## 12. Scribe as a peer-reviewed industry/research comparator
+## 12. Comparative zkTLS / web-data provenance landscape
+
+The market is not one homogeneous protocol family. Each design moves trust and computation among the prover, verifier, notary/attestor, proxy, TEEs and server. The comparison below is qualitative and based on published/official descriptions; it is not a security audit or matched benchmark.
+
+| System / research | Main mechanism | Where trust/computation sits | Important qualification boundary |
+|---|---|---|---|
+| DECO (2019/2020) | Three-party TLS handshake; selective opening and context integrity over TLS data | Prover + verifier jointly participate with server; verifier sees/validates server provenance | Original DECO construction targets TLS 1.2 and requires verifier in-session participation; context integrity and extraction semantics must be bound |
+| DIDO+ (2025) | Three-party TLS / MPC and selective disclosure for restricted TLS 1.3 websites | Prover/verifier MPC with TLS 1.3 session, under its specific paper construction | Separate research implementation; do not infer that DECO, TLSNotary or zkPass inherit its TLS 1.3 support |
+| TLSNotary | MPC-TLS, optional delegated notary, transcript commitment openings; separate proxy mode | Direct verifier witnesses live session; delegated notary signs portable Session Header; proxy mode adds network-path assumptions | Distinguish direct verifier, notary and proxy commitment/trust profiles; no generic TLSNotary proof abstraction |
+| zkPass | Three-party TLS + VOLE-based ZK; documented hybrid proxy/MPC modes | Proxy mode is presented as typical; MPC mode is a fallback when source restrictions prevent proxy use | Its own technical overview describes significant MPC-mode bandwidth overhead and a distinct proxy network assumption; independently qualify deployed version and nodes |
+| Reclaim | Split TEE services with MPC/TLS attestation and proof generation; public Trust Package describes hardware attestation | Hardware attestation and exact published image measurements are trust roots, with split service duties | Verify exact CPU/TEE vendor chain, cloud configuration, image measurement, side-channel assumptions, rollback and operator controls; source availability does not replace runtime attestation |
+| Scribe (2026) | TLS provenance -> attestor-signed salted value commitment -> transparent STARK -> app spend tag -> Merkle spent set / Falcon root | Attestation node is an explicit witness/trust root; aggregator owns off-chain spent state | Salt changes can create new tags for the same account; signed root does not prove append-only correctness; PQ root signing is not whole-stack PQ |
+
+Primary references:
+- DECO: https://arxiv.org/abs/1909.00938
+- DECO paper / context-integrity detail: https://www.cs.cornell.edu/~shmat/shmat_ccs20.pdf
+- DIDO+: https://doi.org/10.1109/TDSC.2025.3595711
+- zkPass technical overview: https://docs.zkpass.org/overview/technical-overview
+- zkPass FAQ: https://docs.zkpass.org/supports/faq
+- Reclaim Trust Package: https://trust.reclaimprotocol.org/section/security
+- Reclaim TEE implementation overview: https://github.com/reclaimprotocol/reclaim-tee
+- Scribe: https://doi.org/10.1007/s12083-026-02246-2
+
+### What Mycelix should benchmark
+
+Use the same deterministic HTTPS fixture, request/response bytes, parser, claim schema, predicate, privacy goal and adversary assumptions across systems. Record where a system needs a verifier, delegated notary, attestor committee, proxy, TEE, or online aggregator. Do not compare proof time when one system includes a witnessed TLS session and another excludes it.
+
+For each system, separate:
+1. source-session establishment / handshake;
+2. online MPC or proxy work;
+3. attestor/notary/TEE evidence;
+4. transcript or value commitment generation;
+5. selective disclosure and extraction;
+6. predicate proof generation;
+7. verification;
+8. uniqueness/spent-set update;
+9. LISE qualification/requalification;
+10. complete time-to-qualified-private-decision.
+
+Benchmark security modes separately. A faster proxy profile cannot beat an MPC-TLS profile by silently changing trust assumptions. A TEE profile must include hardware-attestation verification and image measurement in the end-to-end boundary.
+
+## 13. Scribe as a peer-reviewed industry/research comparator
 
 **Scribe: Private Web2-to-Web3 eligibility proofs for decentralized applications with transparent STARKs**, published 2 September 2026 in *Peer-to-Peer Networking and Applications* (volume 19, article 133), is a particularly relevant comparator:
 https://doi.org/10.1007/s12083-026-02246-2
