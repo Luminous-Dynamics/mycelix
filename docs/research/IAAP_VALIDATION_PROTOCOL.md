@@ -163,3 +163,18 @@ Deliver:
 - machine-readable claim appraisal with exact source locators and justified claim ceiling.
 
 A successful study supports only the repeatability, sensitivity and stated usability of the tested IAAP protocol for the disclosed records and reviewers. It does not establish source truth, system security, field-wide prevalence, deployment effectiveness, institutional legitimacy or legal compliance.
+
+
+## 11. Public calibration artifacts
+
+The first public calibration set is maintained under [`iaap-validation/`](./iaap-validation/README.md):
+
+- `claim-packets.v1.json`: 24 synthetic reviewer-facing records.
+- `oracle.v1.json`: separate, publicly disclosed expected appraisals and claim ceilings.
+- `claim-packet.schema.json`: strict packet schema.
+
+The corpus contains 12 minimal pairs. It is deliberately public so others can inspect and improve the category semantics. **It is not a blinded holdout.** Reviewer results on it are calibration/training evidence only and must not be reported as confirmatory inter-rater validation, hidden-test performance or independent system security evidence.
+
+A later held-out set requires a distinct freeze and access-control procedure after the codebook is stable. The existence of a separate file in a public repository is not secrecy.
+
+Reviewer outputs should conform to `review-appraisal.schema.json`, keep field-level codes and rationales, and avoid any system-wide score. Reviewers should record abstention and uncertainty rather than invent values for missing source facts.
