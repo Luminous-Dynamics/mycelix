@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/lise-benchmarks/devsecops-agent-reference/fixtures/cases.schema.json",
+  "title": "LISE DevSecOps agent candidate-visible case bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suite_id",
+    "synthetic",
+    "cases"
+  ],
+  "properties": {
+    "suite_id": {
+      "const": "LISE-DEVSECOPS-AGENT-v0.1"
+    },
+    "synthetic": {
+      "const": true
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 12,
+      "items": {
+        "type": "object",
+        "required": [
+          "case_id",
+          "principal",
+          "request",
+          "grant",
+          "policy"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string"
+          },
+          "principal": {
+            "type": "object"
+          },
+          "request": {
+            "type": "object"
+          },
+          "grant": {
+            "type": "object"
+          },
+          "policy": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}
