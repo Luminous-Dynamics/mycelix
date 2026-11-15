@@ -1255,6 +1255,120 @@ mod tests {
     }
 
     #[test]
+    fn preserves_position3d_axis_uncertainties_and_custom_time_space_frames() {
+        let bytes = packet_with_body(
+            r#"<WhereWhen>
+                <ObsDataLocation>
+                    <ObservatoryLocation>
+                        <AstroCoordSystem id="custom-observatory">
+                            <TimeFrame><TimeScale>GPS</TimeScale><ReferencePosition id="TOPO"/></TimeFrame>
+                            <SpaceFrame><CoordFlavor>SPHERICAL</CoordFlavor><ReferencePosition id="GEOCENTER"/></SpaceFrame>
+                        </AstroCoordSystem>
+                        <AstroCoords coord_system_id="custom-observatory">
+                            <Position3D>
+                                <Value3>
+                                    <C1 pos_unit="deg">248.4056</C1>
+                                    <C2 pos_unit="deg">31.9586</C2>
+                                    <C3 pos_unit="m">2158</C3>
+                                </Value3>
+                                <Error3>
+                                    <C1 pos_unit="arcsec">0.1</C1>
+                                    <C2 pos_unit="arcsec">0.2</C2>
+                                    <C3 pos_unit="m">3</C3>
+                                </Error3>
+                            </Position3D>
+                        </AstroCoords>
+                    </ObservatoryLocation>
+                    <ObservationLocation>
+                        <AstroCoordSystem id="TDB-ICRS-BARY"/>
+                        <AstroCoords coord_system_id="TDB-ICRS-BARY">
+                            <Position3D>
+                                <Value3>
+                                    <C1 pos_unit="au">1.0</C1>
+                                    <C2 pos_unit="au">2.0</C2>
+                                    <C3 pos_unit="au">3.0</C3>
+                                </Value3>
+                                <Error3>
+                                    <C1 pos_unit="au">0.01</C1>
+                                    <C2 pos_unit="au">0.02</C2>
+                                    <C3 pos_unit="au">0.03</C3>
+                                </Error3>
+                            </Position3D>
+                        </AstroCoords>
+                    </ObservationLocation>
+                </ObsDataLocation>
+            </WhereWhen>"#,
+        );
+        let parsed = parse_packet(&bytes).expect("Position3D packet");
+        let where_when = parsed.where_when.expect("WhereWhen tree");
+        let data = child_element(&where_when, "ObsDataLocation");
+
+        let observatory = child_element(data, "ObservatoryLocation");
+        let observatory_coords = child_element(observatory, "AstroCoords");
+        let observatory_position = child_element(observatory_coords, "Position3D");
+        let observatory_values = child_element(observatory_position, "Value3");
+        assert_eq!(direct_text(child_element(observatory_values, "C3")), "2158");
+        assert_eq!(
+            attribute(child_element(observatory_values, "C3"), "pos_unit"),
+            "m"
+        );
+        let observatory_errors = child_element(observatory_position, "Error3");
+        assert_eq!(direct_text(child_element(observatory_errors, "C2")), "0.2");
+
+        let observation = child_element(data, "ObservationLocation");
+        let observation_coords = child_element(observation, "AstroCoords");
+        let observation_position = child_element(observation_coords, "Position3D");
+        let observation_values = child_element(observation_position, "Value3");
+        assert_eq!(direct_text(child_element(observation_values, "C1")), "1.0");
+        assert_eq!(
+            attribute(child_element(observation_values, "C1"), "pos_unit"),
+            "au"
+        );
+
+        let observatory_system = child_element(observatory, "AstroCoordSystem");
+        let time_frame = child_element(observatory_system, "TimeFrame");
+        assert_eq!(direct_text(child_element(time_frame, "TimeScale")), "GPS");
+        let space_frame = child_element(observatory_system, "SpaceFrame");
+        assert_eq!(
+            direct_text(child_element(space_frame, "CoordFlavor")),
+            "SPHERICAL"
+        );
+        assert_eq!(
+            attribute(
+                child_element(space_frame, "ReferencePosition"),
+                "id"
+            ),
+            "GEOCENTER"
+        );
+    }
+
+    #[test]
+    fn missing_spatial_or_temporal_locator_is_not_filled_with_defaults() {
+        let bytes = packet_with_body(
+            r#"<WhereWhen><ObsDataLocation><ObservationLocation>
+                <AstroCoords><PositionName>unresolved-object</PositionName></AstroCoords>
+            </ObservationLocation></ObsDataLocation></WhereWhen>"#,
+        );
+        let parsed = parse_packet(&bytes).expect("partial WhereWhen");
+        let where_when = parsed.where_when.expect("WhereWhen");
+        let data = child_element(&where_when, "ObsDataLocation");
+        let observation = child_element(data, "ObservationLocation");
+        let coords = child_element(observation, "AstroCoords");
+
+        assert_eq!(
+            direct_text(child_element(coords, "PositionName")),
+            "unresolved-object"
+        );
+        assert!(
+            coords
+                .content
+                .iter()
+                .all(|content| !matches!(content, SourceContent::Element { element } if element.name == "Time"))
+        );
+        assert!(parsed.header.packet_sha256.len() == 64);
+    }
+
+    #[test]
     fn where_when_is_optional_and_duplicate_blocks_fail_closed() {
         let absent = parse_packet(&packet_with_body("<Who/>")).expect("without WhereWhen");
         assert_eq!(absent.where_when, None);
