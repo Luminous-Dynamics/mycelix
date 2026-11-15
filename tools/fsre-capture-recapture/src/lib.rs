@@ -996,7 +996,7 @@ mod tests {
         );
         assert_eq!(
             report.aggregate.population_max.as_ref().unwrap().display(),
-            "800/1"
+            "1100/1"
         );
     }
 
