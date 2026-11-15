@@ -2,7 +2,7 @@
   "schema_version": "mycelix-tlsnotary-ppac-casebook-v1",
   "profile_id": "mycelix:source-session:tlsnotary-ppac:v1",
   "status": "research_only",
-  "case_count": 40,
+  "case_count": 46,
   "oracle_status": "not_adjudicated",
   "execution_status": "not_run",
   "owner_issues": [
@@ -16,7 +16,8 @@
     "mycelix#6230",
     "symthaea#12301",
     "symthaea#12269",
-    "symthaea#12295"
+    "symthaea#12295",
+    "mycelix#6251"
   ],
   "modes": [
     {
@@ -80,7 +81,8 @@
     "Falcon-signed aggregator roots authenticate the root signer but do not by themselves prove append-only state transition correctness.",
     "A circuit-friendly attestation signature is not automatically a standard or post-quantum signature.",
     "TLS 1.3 support in one research protocol does not qualify TLS 1.3 support in another TLS-provenance implementation.",
-    "A valid TEE quote does not establish source authenticity unless exact measured code, TCB and dataflow roles are qualified."
+    "A valid TEE quote does not establish source authenticity unless exact measured code, TCB and dataflow roles are qualified.",
+    "A scoped nullifier does not establish person-level uniqueness unless a domain-authorized subject binding connects the relevant accounts/credentials."
   ],
   "cases": [
     {
@@ -402,6 +404,76 @@
       "scenario": "The split TEE architecture is reduced to a generic tee_attested=true flag, losing which service held TLS keys, which service saw request/response data, and which code measurement each quote binds.",
       "expected": "BLOCKED",
       "invariant": "TEE roles, data visibility, measurements and trust domains must remain separately represented and qualified."
+    },
+    {
+      "id": "SCRIBE-011",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "The same provider account and same entitlement are re-attested with a different random salt and fresh commitment; the second proof attempts to claim the same scoped benefit.",
+      "expected": "BLOCKED_BY_DOMAIN_SCOPED_SUBJECT_NULLIFIER",
+      "invariant": "The salt must not define uniqueness identity; a domain-qualified stable hidden subject binding is required for same-account/entitlement uniqueness.",
+      "owners": [
+        "Mycelix #6245",
+        "Mycelix #6251"
+      ]
+    },
+    {
+      "id": "SCRIBE-012",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "positive",
+      "scenario": "The same qualified issuer-bound subject obtains a fresh randomized presentation/credential for the same application entitlement scope; the scoped nullifier remains the same and the second consume is blocked.",
+      "expected": "SAME_SCOPED_NULLIFIER_SECOND_CONSUME_BLOCKED",
+      "invariant": "Presentation randomness and credential re-issuance must not reset same-scope uniqueness when subject continuity is established.",
+      "owners": [
+        "Mycelix #6251"
+      ]
+    },
+    {
+      "id": "SCRIBE-013",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "Two provider accounts are asserted to belong to the same natural/legal person, but no qualified common subject-binding credential or authority exists.",
+      "expected": "INDETERMINATE_PERSON_LEVEL_UNIQUENESS",
+      "invariant": "Account-level uniqueness is not person-level uniqueness; do not infer identity from names, email, device or graph correlation.",
+      "owners": [
+        "Mycelix #6251"
+      ]
+    },
+    {
+      "id": "SCRIBE-014",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "Issuer key rotation, account recovery, account merge or credential replacement changes the apparent subject secret without a qualified continuity/migration proof.",
+      "expected": "INDETERMINATE_NO_NULLIFIER_RESET",
+      "invariant": "Recovery and rotation cannot silently mint a new uniqueness identity; historical consumption remains append-only.",
+      "owners": [
+        "Mycelix #6251",
+        "LISE #6219"
+      ]
+    },
+    {
+      "id": "SCRIBE-015",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "A policy digest changes while the application entitlement is still the same, and the new proof derives a new nullifier as if the subject had never claimed.",
+      "expected": "BLOCKED_UNLESS_NEW_ENTITLEMENT_EPOCH_AUTHORIZED",
+      "invariant": "A policy version change does not automatically reset the uniqueness scope; the domain owner must explicitly define a new entitlement epoch.",
+      "owners": [
+        "Mycelix #6251"
+      ]
+    },
+    {
+      "id": "SCRIBE-016",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "The same subject's scoped nullifiers for two unrelated applications are publicly linkable through a stable global subject pseudonym.",
+      "expected": "PRIVACY_PROFILE_FAILURE",
+      "invariant": "Uniqueness is deliberately linkable only within the declared scope; no global stable subject handle is published.",
+      "owners": [
+        "Mycelix #6251",
+        "PEC #2109",
+        "#2110"
+      ]
     }
   ]
 }
