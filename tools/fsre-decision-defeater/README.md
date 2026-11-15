@@ -17,6 +17,7 @@ This crate is a small-instance correctness oracle for #6210 and the protocol in 
 - Explicit mutation cost, evidence reference and admissibility disposition.
 - Exhaustive enumeration of every subset up to 22 admissible perturbations.
 - Deterministic minimum-cost witness set, tie counting, truncation disclosure and a separate replay operation.
+- A test-only independent exhaustive reference for the frozen pump-station fixture; this is not a general independent verifier.
 
 Identity, service-boundary allocation, source-dependency, source-rights, temporal-lineage and physical-parameter mutations are not yet executable in v0.1. They must be added as typed mutations in later increments; this version returns an explicit unsupported/indeterminate disposition rather than treating them as searched.
 
