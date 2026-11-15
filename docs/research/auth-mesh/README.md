@@ -31,3 +31,13 @@ A valid signature does not create authority. A signed prompt can contain unautho
 ## Claim ceiling
 
 A future exact replay pass would qualify only the named synthetic boundary contract and finite fixtures. It would not establish system security, model robustness, product superiority, trust-root governance, legal validity or real-world effect observation.
+
+## OWASP Agent Control Standard comparator slice
+
+ACS-specific conformance cases are maintained separately so ACS protocol requirements are not silently treated as generic authenticated-workflow requirements:
+- `acs-scenarios.v1.json`: 18 ACS-specific synthetic packets in nine A/B pairs.
+- `acs-oracle.v1.json`: separate per-property results for hook coverage, disposition honoring, chain integrity/completeness, Guardian tamper-evidence profile, dynamic inventory, provenance monotonicity, effect observation and claim disposition.
+- `acs-scenario.schema.json` and `acs-oracle.schema.json`: strict input/output schemas.
+- `acs-README.md`: ACS-only semantics and limitations.
+
+The general Auth Mesh set has 48 scenarios; the ACS-specific slice adds 18 distinct scenarios. Both sets and their answer keys are public development material (66 scenarios, 33 minimal pairs total), not blind holdouts. Do not aggregate their scores into one security or conformance score.
