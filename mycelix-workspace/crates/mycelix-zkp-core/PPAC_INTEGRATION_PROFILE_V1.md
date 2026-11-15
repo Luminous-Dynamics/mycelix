@@ -179,6 +179,8 @@ Required controls:
 
 - Treat the predicate interface itself as a possible disclosure oracle. A verifier that asks whether income is above 50k, then 55k, then 52.5k can narrow a private value even when every individual proof is perfectly zero-knowledge. Domain policy must constrain the allowed predicate family, resolution, purpose, audience and repeated-query pattern; exact Xenia consent must bind the requested operation or a narrowly described request family.
 - Query accounting belongs to the existing domain/PEC policy owners, not a universal ZKP subsystem. Where duplicate or adaptive-query detection needs a subject handle, scope it to the verifier, purpose and policy epoch; avoid a global stable identifier. Keep query history private and expose only the minimum policy decision needed by the requester.
+- Revocation checking is itself an information-flow channel. A per-credential status URL or globally exposed status-list index can correlate a holder, verifier and interaction time. Reuse W3C Bitstring Status List semantics where applicable, and test list grouping, cache behavior, identifier exposure and status-fetch metadata; the v1.1 document is still a Working Draft as of this profile.
+- Cryptographic agility is layer-specific. Xenia's ML-KEM/ML-DSA hybrid transport/session properties do not make a classical issuer signature, BBS presentation, ZK proof, commitment, verifier root or stored receipt post-quantum. Each exact profile needs a versioned algorithm inventory and downgrade policy.
 - Unknown query history, incomplete request coverage or missing policy frontier must not be treated as a fresh allowance. The outcome is blocked or indeterminate under the owning policy; do not silently weaken the privacy requirement.
 
 
