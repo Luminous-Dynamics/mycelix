@@ -12,19 +12,22 @@ This reference composes three separately qualified objects:
 
 ## Result semantics
 
-- \`POLICY_DENIED\`: a false OPA decision with no effect observation.
+- \`POLICY_DENIED_UNRECONCILED\`: OPA denied, but no effect observation exists. Absence of observation is **not** proof of no external effect.
+- \`POLICY_DENIED_NO_EFFECT_CONFIRMED\`: an independent owner observation confirms that the denied operation was not applied.
 - \`POLICY_ALLOW_ONLY\`: OPA allowed the operation, but no external effect was independently observed.
 - \`ACKNOWLEDGED_NOT_RECONCILED\`: provider acknowledgement exists, but independent observation is absent or shares a common-cause dependency.
+- \`DENIED_WITH_UNRECONCILED_ACK\`: a provider acknowledgement followed a denial; this is a reconciliation signal, not proof of effect.
+- \`DENIED_WITH_UNRECONCILED_EVIDENCE\`: evidence exists after a denial but independence/common-cause exclusion is insufficient.
+- \`DENIED_EFFECT_UNKNOWN_REQUIRES_RECONCILIATION\`: independent observation is available but the external outcome remains unknown.
 - \`EFFECT_RECONCILED\`: exact decision/operation binding plus independent resource observation confirms application.
-- \`EFFECT_CONFIRMED_NOT_APPLIED\`: independent resource observation confirms no effect.
+- \`EFFECT_CONFIRMED_NOT_APPLIED\`: independent resource observation confirms no effect after an allow.
 - \`PARTIAL_EFFECT_REQUIRES_RECONCILIATION\`: a partial effect was independently observed.
-- \`UNAUTHORIZED_EFFECT\`: a protected effect was observed after the policy decision denied the operation.
+- \`UNAUTHORIZED_EFFECT\`: a protected effect was independently observed after the policy decision denied the operation.
 - \`INDETERMINATE\`: masked/erased inputs, invalid/stale collector receipt, unknown cutoff or missing policy bundle correspondence.
 - \`EFFECT_BINDING_MISMATCH\`: effect evidence refers to a different decision or exact operation.
 - \`DECISION_SCOPE_MISMATCH\`: OPA policy path or input differs from accepted intent.
 
 The report always sets \`dispatch_eligible=false\`.
-
 ## Run
 
     cargo fmt --manifest-path lise-benchmarks/opa-effect-binding-reference/Cargo.toml --check
