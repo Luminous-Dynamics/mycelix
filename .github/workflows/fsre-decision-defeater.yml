@@ -9,6 +9,7 @@ on:
       - 'tools/fsre-decision-defeater-verifier/**'
       - 'tools/fsre-experiment-potency/**'
       - 'tools/fsre-worldset-stability/**'
+      - 'tools/fsre-capture-recapture/**'
   push:
     branches:
       - main
@@ -18,6 +19,7 @@ on:
       - research/fsre-experiment-potency-v0.1-stack3
       - research/fsre-experiment-potency-v0.1-stack4
       - research/fsre-worldset-stability-v0.1
+      - research/fsre-capture-recapture-v0.1
     paths:
       - 'tools/fsre-decision-defeater/**'
       - 'research/fsre/DECISION_DEFEATER_ANALYSIS_BENCHMARK_V0_1.md'
@@ -121,3 +123,23 @@ jobs:
           cargo run --quiet --locked --offline --manifest-path tools/fsre-worldset-stability/Cargo.toml -- tools/fsre-worldset-stability/fixtures/omitted-worlds.psv > /tmp/worldset-b.txt
           cmp /tmp/worldset-a.txt /tmp/worldset-b.txt
           cmp /tmp/worldset-a.txt tools/fsre-worldset-stability/fixtures/omitted-worlds.expected.txt
+
+  capture-recapture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path tools/fsre-capture-recapture/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --locked --offline --manifest-path tools/fsre-capture-recapture/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/fsre-capture-recapture/Cargo.toml --all-targets -- -D warnings
+      - name: Deterministic E0 golden
+        run: |
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-capture-recapture/Cargo.toml -- tools/fsre-capture-recapture/fixtures/dependence-strata.psv > /tmp/capture-a.txt
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-capture-recapture/Cargo.toml -- tools/fsre-capture-recapture/fixtures/dependence-strata.psv > /tmp/capture-b.txt
+          cmp /tmp/capture-a.txt /tmp/capture-b.txt
+          cmp /tmp/capture-a.txt tools/fsre-capture-recapture/fixtures/dependence-strata.expected.txt
