@@ -243,7 +243,7 @@ Performance comparison requires identical mathematical statements, witness distr
 | Mycelix #6219 | Add PPAC dependency/change mutations to the owner-specific invalidation evaluator |
 | Mycelix #4753 | Consume exact decision-to-effect freshness and commit-time authority checks |
 | Mycelix #6140 / #6069 | Independent observation evidence and historical reconstruction |
-| Symthaea #5842 | Prove the exact RISC Zero guest relation and tag/journal binding |
+| Symthaea #5842 / #12269 | Refine the exact balance guest relation, then bind the private value to issuer evidence and a verifier-issued request without overstating issuer authority or privacy |
 | Symthaea #4860 | Plan only among PEC profiles with admitted evidence; support NoQualifiedPlan |
 | Symthaea PR #7403 | Review the semantic corrections and privacy boundary; do not infer passing CI |
 | Xenia #359 / #364 / #369 / #435 / #449 / #450 | Reuse receipt attestation, live trust binding, portable authority/replay, lane capabilities, consent and independently verifiable session evidence |
