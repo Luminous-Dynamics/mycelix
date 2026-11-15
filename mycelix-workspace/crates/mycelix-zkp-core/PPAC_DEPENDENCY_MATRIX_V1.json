@@ -1,0 +1,423 @@
+{
+  "schema_version": 1,
+  "profile": "PPAC-INT-001",
+  "profile_version": 1,
+  "status": "research_mapping_only",
+  "created_at": "2026-11-15",
+  "source_of_truth": "PPAC_INTEGRATION_PROFILE_V1.md",
+  "result_semantics": {
+    "rule": "No dimension promotes another dimension. Positive action admission requires every use-case-required dimension to be independently satisfied.",
+    "unsupported_or_unknown": "must_not_promote_to_positive",
+    "historical_evidence": "preserve_at_original_cutoff",
+    "currentness": "owner_qualified_and_dependency_scoped"
+  },
+  "claims": [
+    {
+      "id": "REQUEST_BINDING",
+      "owner": "Mycelix",
+      "proposition": "The proof request is canonical and bound to one audience, purpose, predicate, policy, target and intended effect.",
+      "depends_on": [
+        "request_digest",
+        "audience",
+        "purpose",
+        "predicate_digest",
+        "policy_digest",
+        "effect_intent_digest"
+      ],
+      "consumers": [
+        "proof_prover",
+        "proof_verifier",
+        "Xenia_consent",
+        "LISE"
+      ]
+    },
+    {
+      "id": "ENVELOPE_STRUCTURE",
+      "owner": "Mycelix",
+      "proposition": "The authenticated proof envelope has canonical structure and supported protocol/domain versions.",
+      "source": "mycelix-zkp-core::validation",
+      "depends_on": [
+        "envelope_version",
+        "domain_tag",
+        "backend_id",
+        "nonce",
+        "public_inputs_hash",
+        "proof_digest"
+      ],
+      "consumers": [
+        "proof_verifier",
+        "receipt_verifier"
+      ]
+    },
+    {
+      "id": "ENVELOPE_AUTHENTICATION",
+      "owner": "Mycelix",
+      "proposition": "The exact envelope transcript was signed by the expected envelope signer.",
+      "source": "mycelix-zkp-core::AuthenticatedProof",
+      "depends_on": [
+        "canonical_signed_transcript",
+        "signer_key",
+        "signature_algorithm",
+        "key_status"
+      ],
+      "consumers": [
+        "receipt_verifier",
+        "LISE"
+      ]
+    },
+    {
+      "id": "ISSUER_SOURCE_AUTHENTICITY",
+      "owner": "Mycelix_domain_credential_owner",
+      "proposition": "The private claim is tied to an authenticated source statement from an issuer authorized for this claim and scope.",
+      "depends_on": [
+        "issuer_identity",
+        "issuer_key",
+        "credential_or_source_digest",
+        "claim_schema",
+        "subject_binding",
+        "source_provenance",
+        "issuer_authority"
+      ],
+      "consumers": [
+        "proof_relation",
+        "LISE",
+        "institutional_policy"
+      ]
+    },
+    {
+      "id": "PRIVATE_PREDICATE",
+      "owner": "Symthaea_proof_adapter_or_qualified_backend",
+      "proposition": "The hidden witness satisfies the exact public predicate and produces the exact public output.",
+      "depends_on": [
+        "proof_system",
+        "statement_digest",
+        "public_inputs_digest",
+        "circuit_or_guest_digest",
+        "witness_relation",
+        "proof_bytes"
+      ],
+      "consumers": [
+        "Mycelix_verifier",
+        "LISE"
+      ]
+    },
+    {
+      "id": "PROGRAM_IDENTITY",
+      "owner": "Backend_and_trusted_program_registry",
+      "proposition": "The proof was verified against the independently expected program/AIR/image identity.",
+      "depends_on": [
+        "expected_program_digest",
+        "verifier_selected_profile",
+        "backend_version",
+        "security_parameters"
+      ],
+      "consumers": [
+        "proof_verifier",
+        "LISE"
+      ]
+    },
+    {
+      "id": "CHALLENGE_FRESHNESS",
+      "owner": "Verifier_state_owner",
+      "proposition": "The verifier issued a fresh challenge bound to this request and audience, and it was consumed at most once.",
+      "depends_on": [
+        "challenge_id",
+        "request_digest",
+        "audience",
+        "verifier_identity",
+        "expiry",
+        "atomic_consumption_state"
+      ],
+      "consumers": [
+        "proof_verifier",
+        "action_capability"
+      ]
+    },
+    {
+      "id": "CREDENTIAL_CURRENTNESS",
+      "owner": "Credential_status_owner_and_LISE",
+      "proposition": "Credential validity, revocation and applicable source frontier satisfy the domain profile at the relevant cutoff.",
+      "depends_on": [
+        "credential_status_source",
+        "revocation_state",
+        "valid_time",
+        "knowledge_frontier",
+        "issuer_dependency_closure"
+      ],
+      "consumers": [
+        "institutional_policy",
+        "LISE"
+      ]
+    },
+    {
+      "id": "POLICY_APPLICABILITY",
+      "owner": "Mycelix_domain_policy_owner_and_LISE",
+      "proposition": "The exact policy and authority generation are applicable to this subject, purpose, jurisdiction and request.",
+      "depends_on": [
+        "policy_digest",
+        "policy_generation",
+        "jurisdiction_profile",
+        "authority_generation",
+        "evidence_frontier"
+      ],
+      "consumers": [
+        "institutional_authorization",
+        "action_capability"
+      ]
+    },
+    {
+      "id": "XENIA_SESSION",
+      "owner": "Xenia",
+      "proposition": "The operator and host are authenticated and the session capability permits the requested interaction lane.",
+      "depends_on": [
+        "operator_identity",
+        "host_identity",
+        "session_fingerprint",
+        "session_capability",
+        "authorization_epoch",
+        "expiry",
+        "lane_scope"
+      ],
+      "consumers": [
+        "consent",
+        "action_capability"
+      ]
+    },
+    {
+      "id": "EXACT_CONSENT",
+      "owner": "Xenia_consent_owner",
+      "proposition": "The authorized participant approved this exact request, purpose, recipient and scope, and consent is not revoked.",
+      "depends_on": [
+        "consent_id",
+        "request_digest",
+        "purpose",
+        "recipient",
+        "scope",
+        "consent_state",
+        "revocation_generation",
+        "session_fingerprint"
+      ],
+      "consumers": [
+        "institutional_authorization",
+        "action_capability"
+      ]
+    },
+    {
+      "id": "INSTITUTIONAL_AUTHORITY",
+      "owner": "Mycelix_domain_governance_owner",
+      "proposition": "The domain-owned governance and policy mechanism authorizes this exact action for this subject and context.",
+      "depends_on": [
+        "qualified_claims",
+        "policy_applicability",
+        "authority_state",
+        "decision_id",
+        "request_digest",
+        "action_digest"
+      ],
+      "consumers": [
+        "effect_owner"
+      ]
+    },
+    {
+      "id": "ONE_TIME_ACTION_CAPABILITY",
+      "owner": "Effect_owner",
+      "proposition": "A single-use capability authorizes only the exact action and is current at effect commit.",
+      "depends_on": [
+        "action_digest",
+        "request_digest",
+        "target",
+        "recipient",
+        "route_or_lane",
+        "session_fingerprint",
+        "consent_id",
+        "qualification_receipt_digest",
+        "authority_generation",
+        "expiry",
+        "invocation_id",
+        "atomic_spend_state"
+      ],
+      "consumers": [
+        "effect_adapter"
+      ]
+    },
+    {
+      "id": "EFFECT_OUTCOME",
+      "owner": "Effect_owner_and_reconciler",
+      "proposition": "The attempt has one reconciled terminal outcome; unknown outcomes are not retried blindly.",
+      "depends_on": [
+        "invocation_id",
+        "action_digest",
+        "attempt_record",
+        "terminal_reconciliation",
+        "idempotency_identity"
+      ],
+      "consumers": [
+        "independent_observer",
+        "LISE",
+        "institutional_audit"
+      ]
+    },
+    {
+      "id": "INDEPENDENT_OBSERVATION",
+      "owner": "Independent_observer_or_Symtropy_domain_evidence_owner",
+      "proposition": "The stated effect is supported by evidence whose proposition, coverage, source relationship and time are explicit.",
+      "depends_on": [
+        "effect_id",
+        "observer_identity",
+        "observation_artifact_digest",
+        "coverage",
+        "source_dependency_closure",
+        "event_time",
+        "knowledge_time"
+      ],
+      "consumers": [
+        "LISE",
+        "institutional_audit"
+      ]
+    },
+    {
+      "id": "TARGETED_REQUALIFICATION",
+      "owner": "LISE",
+      "proposition": "Material dependency changes invalidate exactly the affected claims while preserving historical evidence and unrelated claims.",
+      "depends_on": [
+        "claim_dependency_frontier",
+        "change_event",
+        "applicability_rules",
+        "temporal_profile",
+        "evidence_lease_if_applicable",
+        "requalification_receipt"
+      ],
+      "consumers": [
+        "institutional_authorization",
+        "effect_owner"
+      ]
+    }
+  ],
+  "existing_blockers": [
+    {
+      "project": "Mycelix",
+      "reference": 5751,
+      "concern": "Selective-disclosure path must not equate non-empty proof bytes and commitment length with proof validity."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 5724,
+      "concern": "Cross-DID proof verification, verifier-issued challenge and replay semantics."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 2000,
+      "concern": "Authenticated qualification receipt semantics; receipt authentication is not application authority."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 6219,
+      "concern": "LISE claim-specific invalidation and targeted requalification oracle."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 4753,
+      "concern": "Stale decision must not become effect authority at commit."
+    },
+    {
+      "project": "Symthaea",
+      "reference": 5842,
+      "concern": "Formal refinement of the RISC Zero balance guest relation and public journal."
+    },
+    {
+      "project": "Symthaea",
+      "reference": 4860,
+      "concern": "PEC planner must consume qualified Mycelix semantics and return NoQualifiedPlan where necessary."
+    },
+    {
+      "project": "Symthaea",
+      "reference": 7403,
+      "concern": "HDC semantics and Binius integrity-versus-privacy claim correction; PR remains separate from this Mycelix profile."
+    },
+    {
+      "project": "Xenia",
+      "reference": 449,
+      "concern": "Session capability must mediate every privileged lane and revocation/reconnect race."
+    },
+    {
+      "project": "Xenia",
+      "reference": 450,
+      "concern": "Independently verifiable, privacy-redacted session evidence."
+    }
+  ],
+  "planned_scenarios": [
+    {
+      "id": "PPAC-POS-001",
+      "class": "positive",
+      "theme": "valid issuer, valid predicate, current policy, correct audience and fresh challenge"
+    },
+    {
+      "id": "PPAC-NEG-001",
+      "class": "negative",
+      "theme": "wrong or unauthorized issuer"
+    },
+    {
+      "id": "PPAC-NEG-002",
+      "class": "negative",
+      "theme": "wrong subject binding or credential substitution"
+    },
+    {
+      "id": "PPAC-NEG-003",
+      "class": "negative",
+      "theme": "altered public inputs, threshold, commitment or program digest"
+    },
+    {
+      "id": "PPAC-NEG-004",
+      "class": "negative",
+      "theme": "arbitrary non-empty proof bytes or unsupported proof-system/predicate pair"
+    },
+    {
+      "id": "PPAC-NEG-005",
+      "class": "negative",
+      "theme": "wrong audience, expired challenge, replay or concurrent duplicate"
+    },
+    {
+      "id": "PPAC-NEG-006",
+      "class": "negative",
+      "theme": "revoked issuer key, credential, trust root or stale status frontier"
+    },
+    {
+      "id": "PPAC-PRIV-001",
+      "class": "privacy",
+      "theme": "stable subject/credential hash and cross-verifier correlation canaries"
+    },
+    {
+      "id": "PPAC-NEG-007",
+      "class": "negative",
+      "theme": "valid session with denied/revoked consent or lane-scope mismatch"
+    },
+    {
+      "id": "PPAC-NEG-008",
+      "class": "negative",
+      "theme": "action substitution after consent or capability issue"
+    },
+    {
+      "id": "PPAC-NEG-009",
+      "class": "negative",
+      "theme": "authority/policy/revocation change between decision and effect commit"
+    },
+    {
+      "id": "PPAC-AMB-001",
+      "class": "ambiguous",
+      "theme": "unknown effect, incomplete observation or incomplete dependency/change feed"
+    },
+    {
+      "id": "PPAC-TIME-001",
+      "class": "temporal",
+      "theme": "historical proof remains valid for old cutoff while current applicability is stale or indeterminate"
+    }
+  ],
+  "fixture_adjudication": "not_adjudicated",
+  "execution_status": "not_run",
+  "nonclaims": [
+    "No proof backend or cryptographic relation is qualified by this matrix.",
+    "No scenario has been executed or independently adjudicated.",
+    "No privacy, unlinkability, issuer truth, institutional authority or external-effect claim is established.",
+    "This matrix is not a runtime schema or authorization input."
+  ]
+}
