@@ -595,5 +595,28 @@
       "LISE-historical-and-current-qualification",
       "independent-effect-observation"
     ]
+  },
+  "benchmark_protocol": {
+    "file": "PPAC_BENCHMARK_PROTOCOL_V1.md",
+    "version": 1,
+    "status": "research_protocol_no_results",
+    "snapshot_date": "2026-11-15",
+    "benchmark_families": [
+      "credential-disclosure",
+      "private-eligibility",
+      "general-zkvm-computation",
+      "HDC-computation",
+      "cross-institution-MPC-PSI"
+    ],
+    "full_system_metrics": [
+      "time-to-trustworthy-decision",
+      "requalification-amplification"
+    ],
+    "industry_reference_workloads": [
+      "eth-act-zkevm-benchmark-2026-09-21",
+      "zkm-fibonacci-n500-2026-10-28",
+      "w3c-vc-v2.0-data-integrity-1.0-bbs-crd"
+    ],
+    "claim_ceiling": "External figures are context only; no Mycelix/Symthaea proof performance, privacy, conformance or SOTA claim established."
   }
 }
