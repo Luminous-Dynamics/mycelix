@@ -17,6 +17,10 @@ path = "src/lib.rs"
 name = "voevent-lifecycle-replay"
 path = "src/bin/voevent-lifecycle-replay.rs"
 
+[[bin]]
+name = "voevent-receipt-replay"
+path = "src/bin/voevent-receipt-replay.rs"
+
 [dependencies]
 mycelix-voevent-header = { path = "../voevent-header" }
 serde = { version = "=1.0.228", features = ["derive"] }
