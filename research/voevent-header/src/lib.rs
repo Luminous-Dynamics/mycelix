@@ -1071,6 +1071,168 @@ mod tests {
         .into_bytes()
     }
 
+    fn child_element<'a>(parent: &'a SourceElement, name: &str) -> &'a SourceElement {
+        parent
+            .content
+            .iter()
+            .find_map(|content| match content {
+                SourceContent::Element { element } if element.name == name => Some(element.as_ref()),
+                _ => None,
+            })
+            .expect("expected source child")
+    }
+
+    fn attribute<'a>(element: &'a SourceElement, name: &str) -> &'a str {
+        element
+            .attributes
+            .iter()
+            .find(|attribute| attribute.name == name)
+            .map(|attribute| attribute.value.as_str())
+            .expect("expected source attribute")
+    }
+
+    fn direct_text<'a>(element: &'a SourceElement) -> &'a str {
+        element
+            .content
+            .iter()
+            .find_map(|content| match content {
+                SourceContent::Text { value } => Some(value.as_str()),
+                _ => None,
+            })
+            .expect("expected source text")
+    }
+
+    #[test]
+    fn preserves_where_when_frame_time_position_units_and_uncertainties() {
+        let bytes = packet_with_body(
+            r#"<WhereWhen>
+                <ObsDataLocation>
+                    <ObservatoryLocation id="GEOSURFACE"/>
+                    <ObservationLocation>
+                        <AstroCoordSystem id="UTC-ICRS-TOPO"/>
+                        <AstroCoords coord_system_id="UTC-ICRS-TOPO">
+                            <Time unit="s">
+                                <TimeInstant><ISOTime>2026-11-15T06:30:00</ISOTime></TimeInstant>
+                                <Error>2</Error>
+                            </Time>
+                            <Position2D unit="deg">
+                                <Value2>
+                                    <C1 pos_unit="deg" ucd="pos.eq.ra">148.88821</C1>
+                                    <C2 pos_unit="deg" ucd="pos.eq.dec">69.06529</C2>
+                                </Value2>
+                                <Error2Radius pos_unit="deg">0.03</Error2Radius>
+                            </Position2D>
+                        </AstroCoords>
+                    </ObservationLocation>
+                </ObsDataLocation>
+            </WhereWhen>"#,
+        );
+        let parsed = parse_packet(&bytes).expect("WhereWhen packet");
+        let where_when = parsed.where_when.expect("WhereWhen subtree");
+        let data_location = child_element(&where_when, "ObsDataLocation");
+        let observatory = child_element(data_location, "ObservatoryLocation");
+        assert_eq!(attribute(observatory, "id"), "GEOSURFACE");
+
+        let observation = child_element(data_location, "ObservationLocation");
+        assert_eq!(
+            attribute(child_element(observation, "AstroCoordSystem"), "id"),
+            "UTC-ICRS-TOPO"
+        );
+        let coords = child_element(observation, "AstroCoords");
+        assert_eq!(attribute(coords, "coord_system_id"), "UTC-ICRS-TOPO");
+
+        let time = child_element(coords, "Time");
+        assert_eq!(attribute(time, "unit"), "s");
+        let instant = child_element(child_element(time, "TimeInstant"), "ISOTime");
+        assert_eq!(direct_text(instant), "2026-11-15T06:30:00");
+        assert_eq!(direct_text(child_element(time, "Error")), "2");
+
+        let position = child_element(coords, "Position2D");
+        assert_eq!(attribute(position, "unit"), "deg");
+        let value = child_element(position, "Value2");
+        let c1 = child_element(value, "C1");
+        let c2 = child_element(value, "C2");
+        assert_eq!(attribute(c1, "pos_unit"), "deg");
+        assert_eq!(attribute(c1, "ucd"), "pos.eq.ra");
+        assert_eq!(direct_text(c1), "148.88821");
+        assert_eq!(direct_text(c2), "69.06529");
+
+        let error_radius = child_element(position, "Error2Radius");
+        assert_eq!(attribute(error_radius, "pos_unit"), "deg");
+        assert_eq!(direct_text(error_radius), "0.03");
+
+        assert_eq!(parsed.header.packet_sha256.len(), 64);
+    }
+
+    #[test]
+    fn preserves_named_targets_time_intervals_custom_frames_and_character_references() {
+        let bytes = packet_with_body(
+            r#"<WhereWhen>
+                <ObsDataLocation>
+                    <ObservationLocation>
+                        <AstroCoordSystem id="UTC-HGS-TOPO"/>
+                        <AstroCoords coord_system_id="UTC-HGS-TOPO">
+                            <PositionName>Jupiter &amp; Io</PositionName>
+                            <Time unit="d">
+                                <TimeInterval>
+                                    <ISOTimeStart>2026-11-15T00:00:00</ISOTimeStart>
+                                    <ISOTimeStop>2026-11-16T00:00:00</ISOTimeStop>
+                                </TimeInterval>
+                            </Time>
+                            <CustomSTC ext="keep">source-native</CustomSTC>
+                        </AstroCoords>
+                    </ObservationLocation>
+                </ObsDataLocation>
+            </WhereWhen>"#,
+        );
+        let parsed = parse_packet(&bytes).expect("named target interval packet");
+        let where_when = parsed.where_when.expect("WhereWhen");
+        let observation = child_element(child_element(&where_when, "ObsDataLocation"), "ObservationLocation");
+        let coords = child_element(observation, "AstroCoords");
+        let position_name = child_element(coords, "PositionName");
+        let reference = position_name
+            .content
+            .iter()
+            .find_map(|content| match content {
+                SourceContent::CharacterReference { lexical, decoded } => {
+                    Some((lexical.as_str(), decoded.as_str()))
+                }
+                _ => None,
+            })
+            .expect("character reference boundary retained");
+        assert_eq!(reference, ("amp", "&"));
+
+        let time = child_element(coords, "Time");
+        assert_eq!(attribute(time, "unit"), "d");
+        let interval = child_element(time, "TimeInterval");
+        assert_eq!(
+            direct_text(child_element(interval, "ISOTimeStart")),
+            "2026-11-15T00:00:00"
+        );
+        assert_eq!(
+            direct_text(child_element(interval, "ISOTimeStop")),
+            "2026-11-16T00:00:00"
+        );
+
+        let custom = child_element(coords, "CustomSTC");
+        assert_eq!(attribute(custom, "ext"), "keep");
+        assert_eq!(direct_text(custom), "source-native");
+    }
+
+    #[test]
+    fn where_when_is_optional_and_duplicate_blocks_fail_closed() {
+        let absent = parse_packet(&packet_with_body("<Who/>")).expect("without WhereWhen");
+        assert_eq!(absent.where_when, None);
+
+        let duplicate = packet_with_body(
+            "<WhereWhen/><WhereWhen/>",
+        );
+        assert_eq!(
+            parse_packet(&duplicate),
+            Err(ParseError::DuplicateWhereWhen)
+        );
+    }
+
     #[test]
     fn preserves_explicit_observation_role_and_source_identity() {
         let bytes = packet(
