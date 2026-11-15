@@ -154,6 +154,59 @@ impl Rational {
             format!("{}/{}", self.numerator, self.denominator)
         }
     }
+
+    pub fn finite_decimal(self) -> Result<String, LpError> {
+        if self.numerator == 0 {
+            return Ok("0".to_owned());
+        }
+        let mut denominator = self.denominator;
+        let mut twos = 0_u32;
+        let mut fives = 0_u32;
+        while denominator % 2 == 0 {
+            denominator /= 2;
+            twos += 1;
+        }
+        while denominator % 5 == 0 {
+            denominator /= 5;
+            fives += 1;
+        }
+        if denominator != 1 {
+            return Err(fail(format!(
+                "rational {} has no exact finite decimal representation",
+                self.display()
+            )));
+        }
+        let places = twos.max(fives);
+        if places > 18 {
+            return Err(fail("finite decimal requires more than 18 places"));
+        }
+        let scale = 10_i128
+            .checked_pow(places)
+            .ok_or_else(|| fail("finite decimal scale overflow"))?;
+        let scaled = self
+            .numerator
+            .checked_mul(scale)
+            .ok_or_else(|| fail("finite decimal numerator overflow"))?
+            / self.denominator;
+        let negative = scaled < 0;
+        let magnitude = scaled.unsigned_abs();
+        let scale_unsigned = scale as u128;
+        let integer = magnitude / scale_unsigned;
+        let fraction = magnitude % scale_unsigned;
+        if places == 0 || fraction == 0 {
+            return Ok(format!("{}{}", if negative { "-" } else { "" }, integer));
+        }
+        let mut fraction_text = format!("{:0width$}", fraction, width = places as usize);
+        while fraction_text.ends_with('0') {
+            fraction_text.pop();
+        }
+        Ok(format!(
+            "{}{}.{}",
+            if negative { "-" } else { "" },
+            integer,
+            fraction_text
+        ))
+    }
 }
 
 fn gcd(mut left: u128, mut right: u128) -> u128 {
@@ -1187,6 +1240,71 @@ pub fn analyze(model: &LpModel) -> Result<Analysis, LpError> {
     })
 }
 
+fn valid_mps_name(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 200
+        && value.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.')
+        })
+}
+
+/// Emits deterministic free-format MPS for the exact canonical LP.
+///
+/// MPS decimal fields cannot represent every rational exactly. This writer
+/// rejects non-terminating decimal coefficients and never rounds them.
+pub fn render_mps(model: &LpModel) -> Result<String, LpError> {
+    if model.rows.iter().any(|row| !valid_mps_name(&row.id))
+        || model.columns.iter().any(|column| !valid_mps_name(&column.id))
+    {
+        return Err(fail("MPS row/column names must use ASCII alphanumeric, underscore, dash or dot"));
+    }
+
+    let mut out = String::new();
+    writeln!(out, "NAME          FSRE").expect("String write");
+    out.push_str("OBJSENSE\n MAX\nROWS\n N  OBJ\n");
+    for row in &model.rows {
+        writeln!(out, " L  {}", row.id).expect("String write");
+    }
+    out.push_str("COLUMNS\n");
+    for column in &model.columns {
+        writeln!(
+            out,
+            "    {:<24} {:<24} {}",
+            column.id,
+            "OBJ",
+            column.objective.finite_decimal()?
+        )
+        .expect("String write");
+        for row in &model.rows {
+            let value = coefficient(model, &row.id, &column.id);
+            if value == Rational::zero() {
+                continue;
+            }
+            writeln!(
+                out,
+                "    {:<24} {:<24} {}",
+                column.id,
+                row.id,
+                value.finite_decimal()?
+            )
+            .expect("String write");
+        }
+    }
+    out.push_str("RHS\n");
+    for row in &model.rows {
+        writeln!(
+            out,
+            "    {:<24} {:<24} {}",
+            "RHS1",
+            row.id,
+            row.rhs.finite_decimal()?
+        )
+        .expect("String write");
+    }
+    out.push_str("ENDATA\n");
+    Ok(out)
+}
+
 fn optional_rational(value: Option<Rational>) -> String {
     value
         .map(Rational::display)
@@ -1416,6 +1534,30 @@ mod tests {
         assert_eq!(report.objective_lower_bound.unwrap().display(), "10");
         assert_eq!(report.objective_upper_bound, None);
         assert_eq!(report.optimality_status, "PRIMAL_FEASIBLE_LOWER_BOUND_ONLY");
+    }
+
+    #[test]
+    fn mps_export_is_deterministic_and_preserves_finite_decimals() {
+        let exported = render_mps(&fixture()).unwrap();
+        assert_eq!(exported, include_str!("../fixtures/reduced-columns-optimal.mps.expected.txt"));
+        assert!(exported.contains(" MAX\n"));
+        assert!(exported.contains("    x1                      OBJ                      3\n"));
+        assert!(exported.contains("    x1                      mass-upper              1\n"));
+    }
+
+    #[test]
+    fn mps_export_rejects_non_terminating_rationals_instead_of_rounding() {
+        let mut model = fixture();
+        model.columns[0].objective = Rational::new(1, 3).unwrap();
+        assert!(render_mps(&model).is_err());
+    }
+
+    #[test]
+    fn finite_decimal_formats_negative_and_fractional_values_exactly() {
+        assert_eq!(Rational::new(1, 2).unwrap().finite_decimal().unwrap(), "0.5");
+        assert_eq!(Rational::new(-7, 4).unwrap().finite_decimal().unwrap(), "-1.75");
+        assert_eq!(Rational::new(5, 2).unwrap().finite_decimal().unwrap(), "2.5");
+        assert!(Rational::new(1, 3).unwrap().finite_decimal().is_err());
     }
 
     #[test]
