@@ -46,6 +46,10 @@ pub struct Report {
     pub late_arrival_leakage_count: u128,
     pub candidate_assigned_record_count: u128,
     pub candidate_unassigned_record_count: u128,
+    pub overcoverage_candidate_record_count: u128,
+    pub overcoverage_mixed_cluster_count: usize,
+    pub overcoverage_only_cluster_count: usize,
+    pub overcoverage_only_cluster_weight: u128,
     pub namespace_count: usize,
     pub truth_entity_count: usize,
     pub predicted_cluster_count: usize,
@@ -230,7 +234,7 @@ pub fn parse_input(source: &str) -> Result<Problem, LinkageImpactError> {
         if fields.len() != 8
             || !valid_token(fields[0])
             || !valid_token(fields[1])
-            || !valid_token(fields[2])
+            || (fields[2] != "-" && !valid_token(fields[2]))
             || (fields[3] != "-" && !valid_token(fields[3]))
         {
             return Err(fail(format!("line {line_no}: invalid record row")));
@@ -240,6 +244,11 @@ pub fn parse_input(source: &str) -> Result<Problem, LinkageImpactError> {
         }
         let truth_entity_weight = parse_u64(fields[4], "truth_entity_weight")?;
         let predicted_cluster_weight = parse_u64(fields[5], "predicted_cluster_weight")?;
+        if fields[2] == "-" && truth_entity_weight != 0 {
+            return Err(fail(format!(
+                "line {line_no}: out-of-scope record must have truth_entity_weight=0"
+            )));
+        }
         if fields[3] == "-" && predicted_cluster_weight != 0 {
             return Err(fail(format!(
                 "line {line_no}: unassigned record must have predicted_cluster_weight=0"
@@ -282,6 +291,7 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
     let mut predicted_weights = BTreeMap::<ClusterKey, u128>::new();
     let mut cluster_truths = BTreeMap::<ClusterKey, BTreeSet<EntityKey>>::new();
     let mut truth_clusters = BTreeMap::<EntityKey, BTreeSet<ClusterKey>>::new();
+    let mut overcoverage_by_cluster = BTreeMap::<ClusterKey, u128>::new();
     let mut namespaces = BTreeSet::<String>::new();
 
     let mut effective_record_count = 0_u128;
@@ -302,26 +312,29 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
             .ok_or_else(|| fail("effective record counter overflow"))?;
 
         let entity_key = (record.namespace.clone(), record.truth_entity_id.clone());
+        let has_gold_membership = record.truth_entity_id != "-";
         namespaces.insert(record.namespace.clone());
 
-        match truth_weights.get(&entity_key) {
-            Some(existing) if *existing != u128::from(record.truth_entity_weight) => {
-                return Err(fail(format!(
-                    "inconsistent truth weight for {}/{}",
-                    entity_key.0, entity_key.1
-                )));
+        if has_gold_membership {
+            match truth_weights.get(&entity_key) {
+                Some(existing) if *existing != u128::from(record.truth_entity_weight) => {
+                    return Err(fail(format!(
+                        "inconsistent truth weight for {}/{}",
+                        entity_key.0, entity_key.1
+                    )));
+                }
+                None => {
+                    truth_weights.insert(entity_key.clone(), u128::from(record.truth_entity_weight));
+                }
+                _ => {}
             }
-            None => {
-                truth_weights.insert(entity_key.clone(), u128::from(record.truth_entity_weight));
-            }
-            _ => {}
+            let truth_count = record_counts_by_truth
+                .entry(entity_key.clone())
+                .or_default();
+            *truth_count = truth_count
+                .checked_add(1)
+                .ok_or_else(|| fail("truth record count overflow"))?;
         }
-        let truth_count = record_counts_by_truth
-            .entry(entity_key.clone())
-            .or_default();
-        *truth_count = truth_count
-            .checked_add(1)
-            .ok_or_else(|| fail("truth record count overflow"))?;
 
         // Late-recorded rows are visible to the retrospective gold population,
         // but not to a decision made at the recorded-time cutoff.
@@ -375,21 +388,28 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
             .checked_add(1)
             .ok_or_else(|| fail("predicted cluster record count overflow"))?;
 
-        let cell_count = contingency
-            .entry((entity_key.clone(), cluster_key.clone()))
-            .or_default();
-        *cell_count = cell_count
-            .checked_add(1)
-            .ok_or_else(|| fail("contingency count overflow"))?;
+        if has_gold_membership {
+            let cell_count = contingency
+                .entry((entity_key.clone(), cluster_key.clone()))
+                .or_default();
+            *cell_count = cell_count
+                .checked_add(1)
+                .ok_or_else(|| fail("contingency count overflow"))?;
 
-        cluster_truths
-            .entry(cluster_key.clone())
-            .or_default()
-            .insert(entity_key.clone());
-        truth_clusters
-            .entry(entity_key)
-            .or_default()
-            .insert(cluster_key);
+            cluster_truths
+                .entry(cluster_key.clone())
+                .or_default()
+                .insert(entity_key.clone());
+            truth_clusters
+                .entry(entity_key)
+                .or_default()
+                .insert(cluster_key);
+        } else {
+            let count = overcoverage_by_cluster.entry(cluster_key).or_default();
+            *count = count
+                .checked_add(1)
+                .ok_or_else(|| fail("overcoverage record count overflow"))?;
+        }
     }
 
     let true_pair_count = record_counts_by_truth
@@ -415,6 +435,26 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
     let false_negative_pair_count = true_pair_count
         .checked_sub(true_positive_pair_count)
         .ok_or_else(|| fail("true-positive count exceeds true pair count"))?;
+
+    let overcoverage_candidate_record_count = overcoverage_by_cluster
+        .values()
+        .try_fold(0_u128, |sum, count| {
+            sum.checked_add(*count)
+                .ok_or_else(|| fail("overcoverage record total overflow"))
+        })?;
+    let mut overcoverage_mixed_cluster_count = 0_usize;
+    let mut overcoverage_only_cluster_count = 0_usize;
+    let mut overcoverage_only_cluster_weight = 0_u128;
+    for cluster in overcoverage_by_cluster.keys() {
+        if cluster_truths.contains_key(cluster) {
+            overcoverage_mixed_cluster_count += 1;
+        } else {
+            overcoverage_only_cluster_count += 1;
+            overcoverage_only_cluster_weight = overcoverage_only_cluster_weight
+                .checked_add(predicted_weights[cluster])
+                .ok_or_else(|| fail("overcoverage-only cluster weight overflow"))?;
+        }
+    }
 
     let mut bridge_cluster_count = 0_usize;
     let mut bridge_entity_pair_count = 0_u128;
@@ -499,6 +539,10 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
         late_arrival_leakage_count,
         candidate_assigned_record_count,
         candidate_unassigned_record_count,
+        overcoverage_candidate_record_count,
+        overcoverage_mixed_cluster_count,
+        overcoverage_only_cluster_count,
+        overcoverage_only_cluster_weight,
         namespace_count: namespaces.len(),
         truth_entity_count,
         predicted_cluster_count,
@@ -571,6 +615,30 @@ impl Report {
             out,
             "candidate_unassigned_record_count={}",
             self.candidate_unassigned_record_count
+        )
+        .expect("String write");
+        writeln!(
+            out,
+            "overcoverage_candidate_record_count={}",
+            self.overcoverage_candidate_record_count
+        )
+        .expect("String write");
+        writeln!(
+            out,
+            "overcoverage_mixed_cluster_count={}",
+            self.overcoverage_mixed_cluster_count
+        )
+        .expect("String write");
+        writeln!(
+            out,
+            "overcoverage_only_cluster_count={}",
+            self.overcoverage_only_cluster_count
+        )
+        .expect("String write");
+        writeln!(
+            out,
+            "overcoverage_only_cluster_weight={}",
+            self.overcoverage_only_cluster_weight
         )
         .expect("String write");
         writeln!(out, "namespace_count={}", self.namespace_count).expect("String write");
@@ -739,9 +807,9 @@ mod tests {
         assert_eq!(report.false_negative_pair_count, 3);
         assert_eq!(report.pair_precision, "1/3");
         assert_eq!(report.pair_recall, "1/4");
-        assert_eq!(report.denominator_weight_bias, "-30");
+        assert_eq!(report.denominator_weight_bias, "-20");
         assert_eq!(report.truth_population_weight, 230);
-        assert_eq!(report.predicted_population_weight, 200);
+        assert_eq!(report.predicted_population_weight, 210);
         assert!(report.truth_capacity_exceeded);
         assert!(!report.predicted_capacity_exceeded);
         assert_eq!(report.capacity_decision_mismatch_count, 1);
@@ -756,9 +824,36 @@ mod tests {
         let report = analyze(&fixture()).unwrap();
         assert_eq!(report.late_arrival_leakage_count, 1);
         assert_eq!(report.candidate_unassigned_record_count, 1);
-        assert_eq!(report.candidate_assigned_record_count, 5);
+        assert_eq!(report.candidate_assigned_record_count, 6);
+        assert_eq!(report.overcoverage_candidate_record_count, 1);
+        assert_eq!(report.overcoverage_mixed_cluster_count, 1);
+        assert_eq!(report.overcoverage_only_cluster_count, 0);
+        assert_eq!(report.overcoverage_only_cluster_weight, 0);
         assert_eq!(report.future_effective_excluded_count, 1);
         assert_eq!(report.effective_record_count, 6);
+    }
+
+    #[test]
+    fn overcoverage_only_candidate_cluster_is_separately_counted() {
+        let extra = FIXTURE.replace(
+            "r7|PERSON|entity-e|cluster-e|10|10|11|90",
+            "r7|PERSON|entity-e|cluster-e|10|10|11|90\\nr9|PERSON|-|false-inclusion|0|25|5|16",
+        );
+        let report = analyze(&parse_input(&extra).unwrap()).unwrap();
+        assert_eq!(report.overcoverage_candidate_record_count, 1);
+        assert_eq!(report.overcoverage_only_cluster_count, 1);
+        assert_eq!(report.overcoverage_only_cluster_weight, 25);
+        assert_eq!(report.overcoverage_mixed_cluster_count, 0);
+        assert_eq!(report.truth_entity_count, 3);
+    }
+
+    #[test]
+    fn out_of_scope_record_with_nonzero_gold_weight_is_rejected() {
+        let invalid = FIXTURE.replace(
+            "r8|PERSON|-|cluster-ab|0|110|5|15",
+            "r8|PERSON|-|cluster-ab|5|110|5|15",
+        );
+        assert!(parse_input(&invalid).is_err());
     }
 
     #[test]
