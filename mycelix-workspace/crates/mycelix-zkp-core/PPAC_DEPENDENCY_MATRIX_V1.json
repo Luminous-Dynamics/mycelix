@@ -391,6 +391,28 @@
         "LISE",
         "institutional_policy"
       ]
+    },
+    {
+      "id": "CONSENT_PROCESS_QUALITY_BOUNDARY",
+      "owner": "Xenia_consent_record_and_Mycelix_human_process_policy",
+      "proposition": "Cryptographic authentication establishes the exact recorded consent attestation and scope, but does not imply comprehension, legal capacity, free choice or absence of coercion.",
+      "depends_on": [
+        "canonical_consent_digest",
+        "signer_key_and_identity",
+        "session_fingerprint",
+        "scope",
+        "purpose",
+        "explanation_version",
+        "accessibility_process_evidence",
+        "contestability_route",
+        "revocation_generation"
+      ],
+      "consumers": [
+        "institutional_authorization",
+        "LISE",
+        "human_process_review"
+      ],
+      "non_equivalence": "Authenticated consent receipt != proven informed or uncoerced consent."
     }
   ],
   "existing_blockers": [
@@ -590,6 +612,16 @@
       "id": "PPAC-PQ-002",
       "class": "negative",
       "theme": "classical-only downgrade or mixed non-enrolled hybrid key lineage under a PQ-required policy"
+    },
+    {
+      "id": "PPAC-CONSENT-001",
+      "class": "ambiguous",
+      "theme": "authenticated consent receipt does not prove comprehension, legal capacity, free choice or absence of coercion"
+    },
+    {
+      "id": "PPAC-CONSENT-002",
+      "class": "temporal",
+      "theme": "consent revocation blocks future use but does not prove previously disclosed data was erased"
     }
   ],
   "fixture_adjudication": "not_adjudicated",
@@ -670,7 +702,7 @@
   "casebook": {
     "file": "PPAC_CASEBOOK_V1.json",
     "version": 1,
-    "case_count": 29,
+    "case_count": 31,
     "status": "design_fixture_specification",
     "oracle_status": "not_adjudicated",
     "execution_status": "not_run",
@@ -690,7 +722,8 @@
       "independent-effect-observation",
       "adaptive-predicate-inference-and-query-history",
       "credential-status-lookup-correlation",
-      "end-to-end-cryptographic-agility-and-downgrade-resistance"
+      "end-to-end-cryptographic-agility-and-downgrade-resistance",
+      "consent-process-quality-and-revocation-retention-boundary"
     ]
   },
   "benchmark_protocol": {
