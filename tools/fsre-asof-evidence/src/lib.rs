@@ -163,8 +163,7 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
             require_id(fields[16], "supersedes_record_id", line_number)?;
             Some(fields[16].to_owned())
         };
-        let supersession_known_at =
-            optional_u64(fields[17], "supersession_known_at", line_number)?;
+        let supersession_known_at = optional_u64(fields[17], "supersession_known_at", line_number)?;
         let revision_kind = if fields[18].is_empty() {
             None
         } else {
@@ -669,13 +668,21 @@ fn evaluate(input: &Input) -> String {
             if assessment.admissible() { "YES" } else { "NO" },
             row.owner,
             row.source_ref,
-            superseded_by.get(&row.id).map(String::as_str).unwrap_or("NONE"),
+            superseded_by
+                .get(&row.id)
+                .map(String::as_str)
+                .unwrap_or("NONE"),
             row.revision_kind.as_deref().unwrap_or("ORIGINAL")
         ));
     }
     out.push(format!("hindsight_revocation_records={total_hindsight}"));
-    out.push(format!("revision_history_records={revision_history_records}"));
-    out.push(format!("superseded_as_known_records={}", superseded_by.len()));
+    out.push(format!(
+        "revision_history_records={revision_history_records}"
+    ));
+    out.push(format!(
+        "superseded_as_known_records={}",
+        superseded_by.len()
+    ));
     out.push("replay_semantics=AS_KNOWN_AT_DECISION_CUTOFF".to_owned());
     out.push("future_information_used=NO".to_owned());
     out.push("source_authenticity=NOT_AUTHENTICATED_BY_THIS_TOOL".to_owned());
@@ -1049,7 +1056,9 @@ mod tests {
         );
         let source = format!("{FIXTURE}{revision}\n");
         let report = validate_and_report(&source).expect("revision graph");
-        assert!(report.contains("claim=pump_capacity|SUPPORTED_AS_KNOWN_AT_CUTOFF|admissible=2|required=2|missing=0"));
+        assert!(report.contains(
+            "claim=pump_capacity|SUPPORTED_AS_KNOWN_AT_CUTOFF|admissible=2|required=2|missing=0"
+        ));
         assert!(report.contains("e-pump-1|pump_capacity|SUPERSEDED_AS_KNOWN|admissible=NO"));
         assert!(report.contains("e-pump-rev-1|pump_capacity|ADMISSIBLE|admissible=YES"));
         assert!(report.contains("superseded_by=e-pump-rev-1|revision_kind=ORIGINAL"));
@@ -1090,7 +1099,9 @@ mod tests {
         );
         let source = format!("{FIXTURE}{revision}\n");
         let report = validate_and_report(&source).expect("late replacement");
-        assert!(report.contains("claim=pump_capacity|NOT_ESTIMABLE|admissible=1|required=2|missing=1"));
+        assert!(
+            report.contains("claim=pump_capacity|NOT_ESTIMABLE|admissible=1|required=2|missing=1")
+        );
         assert!(report.contains("e-pump-1|pump_capacity|SUPERSEDED_AS_KNOWN|admissible=NO"));
         assert!(report.contains("e-pump-rev-late|pump_capacity|NOT_YET_AVAILABLE|admissible=NO"));
     }
@@ -1165,10 +1176,12 @@ mod tests {
             7101,
             "SOURCE_CORRECTION",
         );
-        assert!(validate_and_report(&format!("{FIXTURE}{first}\n{second}\n"))
-            .unwrap_err()
-            .0
-            .contains("multiple successors"));
+        assert!(
+            validate_and_report(&format!("{FIXTURE}{first}\n{second}\n"))
+                .unwrap_err()
+                .0
+                .contains("multiple successors")
+        );
     }
 
     #[test]
@@ -1191,10 +1204,12 @@ mod tests {
             7101,
             "SOURCE_CORRECTION",
         );
-        assert!(validate_and_report(&format!("{FIXTURE}{first}\n{second}\n"))
-            .unwrap_err()
-            .0
-            .contains("supersession cycle"));
+        assert!(
+            validate_and_report(&format!("{FIXTURE}{first}\n{second}\n"))
+                .unwrap_err()
+                .0
+                .contains("supersession cycle")
+        );
 
         let invalid_kind = revision_row(
             "e-pump-rev-invalid",
@@ -1222,11 +1237,9 @@ mod tests {
             7100,
             "METHODOLOGY_CHANGE",
         );
-        let report = validate_and_report(&format!("{FIXTURE}{revision}\n"))
-            .expect("methodology revision");
+        let report =
+            validate_and_report(&format!("{FIXTURE}{revision}\n")).expect("methodology revision");
         assert!(report.contains("revision_kind=METHODOLOGY_CHANGE"));
         assert!(report.contains("e-pump-1|pump_capacity|SUPERSEDED_AS_KNOWN|admissible=NO"));
     }
-
-
 }
