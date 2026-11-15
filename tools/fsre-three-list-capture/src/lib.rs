@@ -350,11 +350,11 @@ pub fn parse_input(source: &str) -> Result<Problem, ThreeListError> {
         let one = Rational::one();
         if theta_abc_min
             .checked_cmp(one)
-            .is_none_or(|ordering| ordering == Ordering::Greater)
+            .map_or(true, |ordering| ordering == Ordering::Greater)
             || theta_abc_max.is_some_and(|maximum| {
                 maximum
                     .checked_cmp(one)
-                    .is_none_or(|ordering| ordering == Ordering::Less)
+                    .map_or(true, |ordering| ordering == Ordering::Less)
             })
         {
             return Err(fail(
@@ -519,7 +519,7 @@ pub fn analyze(problem: &Problem) -> Analysis {
         && problem.theta_abc_min.checked_cmp(Rational::one()).is_some_and(|order| {
             order != Ordering::Greater
         })
-        && problem.theta_abc_max.is_none_or(|maximum| {
+        && problem.theta_abc_max.map_or(true, |maximum| {
             maximum
                 .checked_cmp(Rational::one())
                 .is_some_and(|order| order != Ordering::Less)
@@ -823,11 +823,17 @@ mod tests {
     #[test]
     fn deterministic_under_pattern_row_permutation() {
         let original = analyze(&fixture()).render();
-        let mut lines = FIXTURE.lines().collect::<Vec<_>>();
-        let header = lines.iter().position(|line| *line == HEADER).unwrap();
-        let mut rows = lines.split_off(header + 1);
+        let prefix = FIXTURE
+            .lines()
+            .take_while(|line| *line != HEADER)
+            .collect::<Vec<_>>();
+        let mut rows = FIXTURE
+            .lines()
+            .skip_while(|line| *line != HEADER)
+            .skip(1)
+            .collect::<Vec<_>>();
         rows.reverse();
-        let mut input = format!("{}\n{}\n", lines.join("\n"), HEADER);
+        let mut input = format!("{}\n{}\n", prefix.join("\n"), HEADER);
         for row in rows {
             writeln!(input, "{row}").unwrap();
         }
