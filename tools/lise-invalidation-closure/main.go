@@ -91,8 +91,8 @@ type DatasetSummary struct {
 }
 
 func main() {
-	scenarioPath := flag.String("scenarios", "docs/research/assurance-invalidation/closure/scenarios.v1.json", "scenario envelope path")
-	oraclePath := flag.String("oracle", "docs/research/assurance-invalidation/closure/oracle.v1.json", "oracle envelope path")
+	scenarioPath := flag.String("scenarios", "../../docs/research/assurance-invalidation/closure/scenarios.v1.json", "scenario envelope path")
+	oraclePath := flag.String("oracle", "../../docs/research/assurance-invalidation/closure/oracle.v1.json", "oracle envelope path")
 	jsonOutput := flag.Bool("json", false, "emit machine-readable JSON")
 	flag.Parse()
 
@@ -110,8 +110,7 @@ func main() {
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(map[string]any{"ok": true, "summary": summary})
 	} else {
-		fmt.Printf("PASS LISE dependency closure: scenarios=%d pairs=%d outcomes=%d changed_claims=%d unknown_claims=%d unaffected_claims=%d
-",
+		fmt.Printf("PASS LISE dependency closure: scenarios=%d pairs=%d outcomes=%d changed_claims=%d unknown_claims=%d unaffected_claims=%d\n",
 			summary.ScenarioCount, summary.PairCount, summary.OutcomeCount, summary.ChangedClaims, summary.UnknownClaims, summary.UnaffectedClaims)
 	}
 }
@@ -169,6 +168,12 @@ func audit(scenarioPath, oraclePath string) (DatasetSummary, error) {
 			return summary, fmt.Errorf("duplicate scenario ID %q", scenario.ScenarioID)
 		}
 		seenIDs[scenario.ScenarioID] = true
+		if scenario.PairID == "" || scenario.Family == "" {
+			return summary, fmt.Errorf("scenario %s must declare pair_id and family", scenario.ScenarioID)
+		}
+		if len(scenario.OwnerSemantics) == 0 {
+			return summary, fmt.Errorf("scenario %s must reference at least one owner semantic", scenario.ScenarioID)
+		}
 
 		pair := pairs[scenario.PairID]
 		if pair == nil {
@@ -267,7 +272,7 @@ func evaluateScenario(s Scenario) (Outcome, error) {
 		if edge.Relation != "SUPPORTS_OR_CONDITIONS" {
 			return Outcome{}, fmt.Errorf("unsupported edge relation %q", edge.Relation)
 		}
-		key := edge.FromNodeID + " " + edge.ToNodeID
+		key := edge.FromNodeID + "\x00" + edge.ToNodeID
 		if seenEdges[key] {
 			return Outcome{}, fmt.Errorf("duplicate dependency edge %q -> %q", edge.FromNodeID, edge.ToNodeID)
 		}
