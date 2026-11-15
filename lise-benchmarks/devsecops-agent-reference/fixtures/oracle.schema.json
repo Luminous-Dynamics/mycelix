@@ -18,7 +18,7 @@
     },
     "expected": {
       "type": "array",
-      "minItems": 12,
+      "minItems": 15,
       "items": {
         "type": "object",
         "additionalProperties": false,
