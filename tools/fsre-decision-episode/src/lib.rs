@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt::Write as _;
 
 const CLAIM_HEADER: &str =
-    "claim_id|claim_type|qualification_state|scope_id|artifact_id|artifact_sha256|issuer|source_ref";
+    "claim_id|claim_type|qualification_state|scope_id|scope_sha256|artifact_id|artifact_sha256|issuer|source_ref";
 const EDGE_HEADER: &str = "claim_id|depends_on_claim_id";
 const MAX_INPUT_BYTES: usize = 4 * 1024 * 1024;
 const MAX_CLAIMS: usize = 256;
@@ -54,6 +54,7 @@ impl QualificationState {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Scope {
     pub id: String,
+    pub scope_sha256: String,
     pub population_frame_id: String,
     pub population_frame_sha256: String,
     pub service_boundary_id: String,
@@ -71,6 +72,7 @@ pub struct Claim {
     pub claim_type: String,
     pub state: QualificationState,
     pub scope_id: String,
+    pub scope_sha256: String,
     pub artifact_id: String,
     pub artifact_sha256: String,
     pub issuer: String,
@@ -178,6 +180,7 @@ pub fn parse_input(source: &str) -> Result<Problem, EpisodeError> {
                     | "target_action"
                     | "service_floor"
                     | "scope_id"
+                    | "scope_sha256"
                     | "population_frame_id"
                     | "population_frame_sha256"
                     | "service_boundary_id"
@@ -215,6 +218,7 @@ pub fn parse_input(source: &str) -> Result<Problem, EpisodeError> {
     let target_action = required("target_action")?.to_owned();
     let service_floor = parse_i64(required("service_floor")?, "service_floor")?;
     let scope_id = required("scope_id")?.to_owned();
+    let scope_sha256 = required("scope_sha256")?.to_owned();
     let population_frame_id = required("population_frame_id")?.to_owned();
     let population_frame_sha256 = required("population_frame_sha256")?.to_owned();
     let service_boundary_id = required("service_boundary_id")?.to_owned();
@@ -241,7 +245,10 @@ pub fn parse_input(source: &str) -> Result<Problem, EpisodeError> {
             return Err(fail(format!("{name} must be a valid token")));
         }
     }
-    if !valid_sha256(&population_frame_sha256) || !valid_sha256(&source_snapshot_sha256) {
+    if !valid_sha256(&scope_sha256)
+        || !valid_sha256(&population_frame_sha256)
+        || !valid_sha256(&source_snapshot_sha256)
+    {
         return Err(fail("scope hashes must be 64 lowercase hexadecimal characters"));
     }
     if effective_time_cutoff > recorded_time_cutoff {
@@ -263,20 +270,22 @@ pub fn parse_input(source: &str) -> Result<Problem, EpisodeError> {
     let mut claims = Vec::<Claim>::new();
     let mut claim_ids = BTreeSet::<String>::new();
     let mut claim_types = BTreeSet::<String>::new();
+    let mut artifact_digests = BTreeMap::<String, String>::new();
     while cursor < lines.len() {
         let (line_no, line) = lines[cursor];
         if line == "DEPENDENCIES" {
             break;
         }
         let fields: Vec<&str> = line.split('|').map(str::trim).collect();
-        if fields.len() != 8
+        if fields.len() != 9
             || !valid_token(fields[0])
             || !valid_token(fields[1])
             || !valid_token(fields[3])
-            || !valid_token(fields[4])
-            || !valid_sha256(fields[5])
-            || !valid_token(fields[6])
+            || !valid_sha256(fields[4])
+            || !valid_token(fields[5])
+            || !valid_sha256(fields[6])
             || !valid_token(fields[7])
+            || !valid_token(fields[8])
         {
             return Err(fail(format!("line {line_no}: invalid claim row")));
         }
@@ -292,15 +301,27 @@ pub fn parse_input(source: &str) -> Result<Problem, EpisodeError> {
                 fields[1]
             )));
         }
+        let artifact_id = fields[5].to_owned();
+        let artifact_digest = fields[6].to_owned();
+        if let Some(existing) = artifact_digests.get(&artifact_id) {
+            if existing != &artifact_digest {
+                return Err(fail(format!(
+                    "line {line_no}: artifact id {artifact_id} is bound to conflicting digests"
+                )));
+            }
+        } else {
+            artifact_digests.insert(artifact_id.clone(), artifact_digest.clone());
+        }
         claims.push(Claim {
             id: fields[0].to_owned(),
             claim_type: fields[1].to_owned(),
             state: parse_state(fields[2])?,
             scope_id: fields[3].to_owned(),
-            artifact_id: fields[4].to_owned(),
-            artifact_sha256: fields[5].to_owned(),
-            issuer: fields[6].to_owned(),
-            source_ref: fields[7].to_owned(),
+            scope_sha256: fields[4].to_owned(),
+            artifact_id: fields[5].to_owned(),
+            artifact_sha256: fields[6].to_owned(),
+            issuer: fields[7].to_owned(),
+            source_ref: fields[8].to_owned(),
         });
         if claims.len() > MAX_CLAIMS {
             return Err(fail("claim count exceeds limit"));
@@ -358,6 +379,7 @@ pub fn parse_input(source: &str) -> Result<Problem, EpisodeError> {
         service_floor,
         scope: Scope {
             id: scope_id,
+            scope_sha256,
             population_frame_id,
             population_frame_sha256,
             service_boundary_id,
@@ -432,7 +454,9 @@ pub fn analyze(problem: &Problem) -> Analysis {
     let mut scope_mismatches = Vec::new();
 
     for claim in &problem.claims {
-        if claim.scope_id != problem.scope.id {
+        if claim.scope_id != problem.scope.id
+            || claim.scope_sha256 != problem.scope.scope_sha256
+        {
             scope_mismatches.push(claim.claim_type.clone());
         }
         if REQUIRED_CLAIMS.contains(&claim.claim_type.as_str()) {
@@ -497,6 +521,8 @@ impl Analysis {
         writeln!(out, "target_action={}", self.problem.target_action).expect("String write");
         writeln!(out, "service_floor={}", self.problem.service_floor).expect("String write");
         writeln!(out, "scope_id={}", self.problem.scope.id).expect("String write");
+        writeln!(out, "scope_sha256={}", self.problem.scope.scope_sha256)
+            .expect("String write");
         writeln!(
             out,
             "population_frame_id={}",
@@ -628,6 +654,8 @@ impl Analysis {
             writeln!(out, "{prefix}.type={}", claim.claim_type).expect("String write");
             writeln!(out, "{prefix}.state={}", claim.state.as_str()).expect("String write");
             writeln!(out, "{prefix}.scope_id={}", claim.scope_id).expect("String write");
+            writeln!(out, "{prefix}.scope_sha256={}", claim.scope_sha256)
+                .expect("String write");
             writeln!(out, "{prefix}.artifact_id={}", claim.artifact_id).expect("String write");
             writeln!(
                 out,
@@ -678,10 +706,11 @@ mod tests {
 
     #[test]
     fn missing_required_claim_fails_closed() {
-        let source = FIXTURE.replace(
-            "c-source|SOURCE_DEPENDENCY_AUDIT_QUALIFIED|QUALIFIED_WITHIN_SCOPE|decision-scope-v1|artifact-source",
-            "c-source-removed|SOURCE_DEPENDENCY_AUDIT_QUALIFIED|QUALIFIED_WITHIN_SCOPE|decision-scope-v1|artifact-source",
-        );
+        let source = FIXTURE
+            .lines()
+            .filter(|line| !line.starts_with("c-source|"))
+            .collect::<Vec<_>>()
+            .join("\n");
         let problem = parse_input(&source).unwrap();
         let report = analyze(&problem);
         assert_eq!(
@@ -724,8 +753,8 @@ mod tests {
     #[test]
     fn scope_mismatch_is_an_input_inconsistency() {
         let source = FIXTURE.replace(
-            "c-identity|TEMPORAL_IDENTITY_REPLAY_QUALIFIED|QUALIFIED_WITHIN_SCOPE|decision-scope-v1",
-            "c-identity|TEMPORAL_IDENTITY_REPLAY_QUALIFIED|QUALIFIED_WITHIN_SCOPE|stale-scope-v0",
+            "c-identity|TEMPORAL_IDENTITY_REPLAY_QUALIFIED|QUALIFIED_WITHIN_SCOPE|decision-scope-v1|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "c-identity|TEMPORAL_IDENTITY_REPLAY_QUALIFIED|QUALIFIED_WITHIN_SCOPE|stale-scope-v0|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         );
         let report = analyze(&parse_input(&source).unwrap());
         assert_eq!(
@@ -741,8 +770,8 @@ mod tests {
     #[test]
     fn missing_independent_receipt_is_verification_incomplete() {
         let source = FIXTURE.replace(
-            "c-verifier|INDEPENDENT_RECEIPT_VERIFIED|QUALIFIED_WITHIN_SCOPE|decision-scope-v1|artifact-verifier",
-            "c-verifier|INDEPENDENT_RECEIPT_VERIFIED|UNKNOWN|decision-scope-v1|artifact-verifier",
+            "c-verifier|INDEPENDENT_RECEIPT_VERIFIED|QUALIFIED_WITHIN_SCOPE|decision-scope-v1|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|artifact-verifier",
+            "c-verifier|INDEPENDENT_RECEIPT_VERIFIED|UNKNOWN|decision-scope-v1|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|artifact-verifier",
         );
         let report = analyze(&parse_input(&source).unwrap());
         assert_eq!(
