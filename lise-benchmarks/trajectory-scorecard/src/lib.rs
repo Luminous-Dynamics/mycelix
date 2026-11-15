@@ -169,10 +169,10 @@ fn scope_matches(scope: &Value, event: &Value) -> Result<bool, String> {
         return Ok(false);
     }
 
-    if let Some(recipient) = scope.get("recipient").and_then(Value::as_str) {
-        if event.get("recipient").and_then(Value::as_str) != Some(recipient) {
-            return Ok(false);
-        }
+    if let Some(recipient) = scope.get("recipient").and_then(Value::as_str)
+        && event.get("recipient").and_then(Value::as_str) != Some(recipient)
+    {
+        return Ok(false);
     }
     if let Some(maximum) = scope.get("max_amount_minor").and_then(Value::as_u64) {
         let Some(amount) = event.get("amount_minor").and_then(Value::as_u64) else {
