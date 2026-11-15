@@ -4,7 +4,7 @@ A dependency-free Rust benchmark evaluator that measures pairwise linkage qualit
 
 ## Why this exists
 
-Pairwise precision/recall can hide a catastrophic cluster bridge. One predicted cluster may merge distinct people, assets or service entities. A separate split may offset the raw count error, making a count-only metric look healthy even though both identity failures are serious.
+Pairwise precision/recall can hide a catastrophic cluster bridge. One predicted cluster may merge distinct people, assets or service entities. A separate split can exactly cancel the cluster-count error, making a count-only metric look perfect even though both identity failures are serious.
 
 ## Input and as-of semantics
 
@@ -30,7 +30,7 @@ All weights are nonnegative integer benchmark units. The evaluator does not auth
 - Cluster-count bias.
 - Late-arrival leakage and future-effective exclusions.
 
-Bridge and fragmentation impacts are not netted against each other. A zero aggregate denominator bias does not erase either failure.
+Bridge and fragmentation impacts are not netted against each other. The frozen fixture has three gold entities and three predicted clusters (+0 count bias), yet it includes one false bridge, one fragmented entity and a -30 weighted-denominator bias. A zero cluster-count bias does not erase either failure.
 
 ## Run
 
