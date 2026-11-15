@@ -379,6 +379,36 @@
       "project": "Symthaea",
       "reference": 12269,
       "concern": "Issuer-attested, source-bound and verifier-request-bound private balance claim; new issue extending #5842 without widening its relation-refinement theorem."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 227,
+      "concern": "HealthRangeAir is underconstrained; quarantined from eligibility and authorization until replacement AIR theorem and malicious-witness tests qualify."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 1873,
+      "concern": "Other Winterfell AIRs share possible verifier-theorem gaps; use umbrella census and per-circuit owners."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 1899,
+      "concern": "Winterfell AIR soundness does not imply witness privacy; do not label the current STARK profile zero-knowledge."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 1905,
+      "concern": "Candidate proof options are not a measured production security level; pin and measure exact proof security profile."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 1919,
+      "concern": "Malformed proof trace dimensions must be rejected without verifier process panic."
+    },
+    {
+      "project": "Symthaea",
+      "reference": 12274,
+      "concern": "Exact vendored Binius64/Iron Spartan source and witness-hiding repair must be independently qualified before HDC witness-privacy claims."
     }
   ],
   "planned_scenarios": [
@@ -478,6 +508,36 @@
   ],
   "existing_owner_references": [
     {
+      "project": "Mycelix",
+      "reference": 227,
+      "role": "Quarantines the specific underconstrained HealthRangeAir range circuit and owns its replacement theorem."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 1873,
+      "role": "Umbrella census/quarantine of underconstrained Winterfell AIRs across range, jurisdiction, review-integrity, recursive aggregation and XOR paths."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 1899,
+      "role": "Separates AIR theorem soundness from witness-privacy and ZK claims."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 1905,
+      "role": "Qualifies exact measured STARK security profiles separately from AIR soundness."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 1919,
+      "role": "Hardens malformed trace dimension handling so untrusted proofs do not reach verifier panic paths."
+    },
+    {
+      "project": "Symthaea",
+      "reference": 12269,
+      "role": "RISC Zero source-statement, commitment and verifier-request binding extension after the exact balance relation refinement."
+    },
+    {
       "project": "Xenia",
       "reference": 359,
       "role": "Verify exact hybrid Xenia authority over canonical Symthaea receipt attestation bytes."
@@ -506,11 +566,6 @@
       "project": "Xenia",
       "reference": 450,
       "role": "Independently verifiable redacted session evidence."
-    },
-    {
-      "project": "Symthaea",
-      "reference": 12269,
-      "role": "RISC Zero source-statement, commitment and verifier-request binding extension after the exact balance relation refinement."
     }
   ]
 }
