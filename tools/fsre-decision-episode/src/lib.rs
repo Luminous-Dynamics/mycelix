@@ -667,6 +667,7 @@ impl Analysis {
             writeln!(out, "{prefix}.source_ref={}", claim.source_ref).expect("String write");
         }
 
+        out.push_str("claim_qualification_states=CALLER_SUPPLIED_NOT_AUTHENTICATED\n");
         out.push_str("artifact_digest_check=FORMAT_AND_REFERENCE_CONSISTENCY_ONLY\n");
         out.push_str("artifact_content_rehash=NOT_PERFORMED\n");
         out.push_str("independent_verifier_claim=CALLER_SUPPLIED_NOT_REAUTHENTICATED_BY_COMPOSER\n");
@@ -702,6 +703,9 @@ mod tests {
         assert!(report.blocked_claim_types.is_empty());
         assert!(report.scope_mismatches.is_empty());
         assert!(report.render().contains("decision_authorization=NOT_GRANTED_BY_COMPOSER"));
+        assert!(report
+            .render()
+            .contains("claim_qualification_states=CALLER_SUPPLIED_NOT_AUTHENTICATED"));
     }
 
     #[test]
