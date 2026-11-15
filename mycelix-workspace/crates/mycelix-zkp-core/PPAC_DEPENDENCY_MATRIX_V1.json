@@ -538,6 +538,11 @@
       "role": "RISC Zero source-statement, commitment and verifier-request binding extension after the exact balance relation refinement."
     },
     {
+      "project": "Symthaea",
+      "reference": 12274,
+      "role": "Qualify exact vendored Binius64/Iron Spartan source identity, relation-target witness privacy and upstream PR #2526 adoption gate."
+    },
+    {
       "project": "Xenia",
       "reference": 359,
       "role": "Verify exact hybrid Xenia authority over canonical Symthaea receipt attestation bytes."
@@ -567,5 +572,28 @@
       "reference": 450,
       "role": "Independently verifiable redacted session evidence."
     }
-  ]
+  ],
+  "casebook": {
+    "file": "PPAC_CASEBOOK_V1.json",
+    "version": 1,
+    "case_count": 24,
+    "status": "design_fixture_specification",
+    "oracle_status": "not_adjudicated",
+    "execution_status": "not_run",
+    "expected_dispositions": "provisional_only",
+    "coverage": [
+      "issuer-source-binding",
+      "proof-program-and-public-input-binding",
+      "verifier-challenge-and-replay",
+      "privacy-correlation",
+      "Xenia-session-and-consent",
+      "one-time-authority-receipts",
+      "Binius-witness-privacy",
+      "Winterfell-AIR-soundness",
+      "STARK-security-profile",
+      "malformed-proof-verifier-robustness",
+      "LISE-historical-and-current-qualification",
+      "independent-effect-observation"
+    ]
+  }
 }
