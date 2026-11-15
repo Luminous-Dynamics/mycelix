@@ -459,6 +459,38 @@
       ],
       "implementation_status": "draft_PR_12295_source_authored_build_and_proof_not_run",
       "non_equivalence": "Source and issuer fields are references only. This claim does not establish issuer signature validity, issuer authority, balance commitment opening, challenge issuance/consumption or application authorization."
+    },
+    {
+      "id": "TLSNOTARY_TRANSCRIPT_SOURCE_PROVENANCE_CANDIDATE",
+      "owner": "Mycelix_WEB_CAPTURE_EPI_with_TLSNotary_adapter",
+      "proposition": "An exact selected field is contained in a transcript commitment authenticated under a named TLSNotary session/server-identity profile, and any private predicate over that field is bound to the same commitment opening.",
+      "depends_on": [
+        "tlsnotary_release_commit_and_protocol_mode",
+        "mpc_verifier_or_notary_identity_and_scope",
+        "session_header_signature_and_trust_root",
+        "tls_version_cipher_and_server_certificate_profile",
+        "server_name_and_exact_origin",
+        "request_method_path_query_profile",
+        "response_status_media_type_and_exact_transcript_commitment",
+        "commitment_strategy_and_range_or_merkle_opening",
+        "application_parser_profile_digest",
+        "json_duplicate_key_and_encoding_policy",
+        "selected_http_object_or_byte_range",
+        "claim_schema_and_unit_digest",
+        "predicate_digest",
+        "private_witness_opening_relation",
+        "symthaea_guest_image_id",
+        "verifier_challenge_and_audience",
+        "credential_currentness_and_domain_issuer_policy"
+      ],
+      "consumers": [
+        "Mycelix_PPAC_verifier",
+        "EPI_artifact_and_derivation_owners",
+        "LISE",
+        "Symthaea_PEC_planner"
+      ],
+      "implementation_status": "research_issue_6245_no_integrated_tlsn_commitment_join",
+      "non_equivalence": "TLS session origin != publisher truth, account ownership, issuer authority or claim currentness. A TLSNotary transcript commitment alone does not prove that the Symthaea private witness opens the selected field; the commitment-join relation must be qualified."
     }
   ],
   "existing_blockers": [
@@ -693,6 +725,36 @@
       "id": "PPAC-SYM-REQ-NEG-003",
       "class": "negative",
       "theme": "legacy or wrong-image receipt is rejected by request-bound guest ImageID verifier"
+    },
+    {
+      "id": "PPAC-TLS-001",
+      "class": "positive",
+      "theme": "TLSNotary authenticated transcript, exact parser profile and ZK opening prove that the hidden predicate witness is the same selected committed response field"
+    },
+    {
+      "id": "PPAC-TLS-NEG-001",
+      "class": "negative",
+      "theme": "wrong origin, server certificate, method/path/query or redirect is rejected despite a valid-looking response"
+    },
+    {
+      "id": "PPAC-TLS-NEG-002",
+      "class": "negative",
+      "theme": "transcript commitment is valid but parser/schema/selector differs or has JSON ambiguity"
+    },
+    {
+      "id": "PPAC-TLS-NEG-003",
+      "class": "negative",
+      "theme": "private predicate witness differs from the value in the authenticated transcript commitment"
+    },
+    {
+      "id": "PPAC-TLS-NEG-004",
+      "class": "negative",
+      "theme": "authentic server response is stale, semantically false or not proof of account ownership; no truth/ownership promotion"
+    },
+    {
+      "id": "PPAC-TLS-NEG-005",
+      "class": "negative",
+      "theme": "proxy-mode traffic accepted while verifier-to-server network-path assumption is unknown or violated"
     }
   ],
   "fixture_adjudication": "not_adjudicated",
@@ -728,6 +790,26 @@
       "project": "Mycelix",
       "reference": 1919,
       "role": "Hardens malformed trace dimension handling so untrusted proofs do not reach verifier panic paths."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 2640,
+      "role": "Exact HTTP exchange/content, selectors, TLS observation and transform lineage remain canonical capture owners."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 2641,
+      "role": "Acquisition SSRF/network/redirect/secret sandbox applies to the TLSNotary adapter and verifier service."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 2821,
+      "role": "Provider-specific authenticated origin, request/response commitment and protected credential boundary; TLSNotary is optional evidence adapter."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 6245,
+      "role": "TLSNotary source-session provenance and private predicate commitment-join research; composes WEB-CAPTURE #2640/#2641 and FIN-ALPACA-SOURCE #2821, does not create provider truth or account ownership."
     },
     {
       "project": "Symthaea",
@@ -783,7 +865,7 @@
   "casebook": {
     "file": "PPAC_CASEBOOK_V1.json",
     "version": 1,
-    "case_count": 35,
+    "case_count": 41,
     "status": "design_fixture_specification",
     "oracle_status": "not_adjudicated",
     "execution_status": "not_run",
@@ -804,7 +886,8 @@
       "adaptive-predicate-inference-and-query-history",
       "credential-status-lookup-correlation",
       "end-to-end-cryptographic-agility-and-downgrade-resistance",
-      "consent-process-quality-and-revocation-retention-boundary"
+      "consent-process-quality-and-revocation-retention-boundary",
+      "TLSNotary-origin-session-transcript-commitment-and-private-predicate-join"
     ]
   },
   "benchmark_protocol": {
@@ -828,6 +911,9 @@
       "zkm-fibonacci-n500-2026-10-28",
       "w3c-vc-v2.0-data-integrity-1.0-bbs-crd"
     ],
-    "claim_ceiling": "External figures are context only; no Mycelix/Symthaea proof performance, privacy, conformance or SOTA claim established."
+    "claim_ceiling": "External figures are context only; no Mycelix/Symthaea proof performance, privacy, conformance or SOTA claim established.",
+    "external_source_profiles": [
+      "TLSNotary-Beta1-MPC-TLS-and-Proxy-mode-2026-11-14"
+    ]
   }
 }
