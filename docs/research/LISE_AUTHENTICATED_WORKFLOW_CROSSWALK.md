@@ -294,3 +294,14 @@ Sources (normative, version-pinned to ACS v0.1.4 / schema namespace v0.1.0):
 - Conformance profiles: https://owaspacs.org/docs/spec/conformance/
 - Instrument specification and hook taxonomy: https://owaspacs.org/docs/spec/instrument/specification/
 - FAQ/version and roadmap: https://owaspacs.org/docs/topics/faq/
+### Machine-readable ACS profile contract
+
+A version-pinned, read-only mapping is now maintained at [`docs/research/acs/ACS_PROFILE_CONTRACT_V1.json`](./acs/ACS_PROFILE_CONTRACT_V1.json), with usage notes in [`docs/research/acs/README.md`](./acs/README.md). It records the ACS-Core mandatory minimum separately from observable SHOULD hooks; the six optional profiles and their profile-specific requirements; the difference between a handshake declaration and verified implementation; MODIFY fallback; and explicit multi-tenancy/A2A deferrals.
+
+Particularly important v0.1.4 details:
+- ACS-Core baseline signature is HMAC-SHA256 over the canonical envelope using a per-session key; the ACS-Crypto profile MUST support ML-DSA-65 and SHOULD support SLH-DSA-128s.
+- ACS-Audit MUST place a SHA-256 request hash of JCS-canonicalized request parameters on every ContextEntry; timestamp and provenance summary are SHOULD fields.
+- `tenant_id` is reserved as an optional envelope field, but v0.1 has no tenant isolation rules; these are deferred to v0.2.
+- `protocols/A2A/*` is reserved, but normative A2A wrapping is deferred to v0.2. MCP wrapping is specified in v0.1.
+
+The LISE adapter should report these limitations explicitly. It must not infer tenant isolation or A2A conformance from the existence of reserved fields/namespaces.
