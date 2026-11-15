@@ -31,6 +31,9 @@ on:
       - 'tools/fsre-decision-defeater-verifier/**'
       - 'tools/fsre-experiment-potency/**'
       - 'tools/fsre-worldset-stability/**'
+      - 'tools/fsre-capture-recapture/**'
+      - 'tools/fsre-decision-episode/**'
+      - 'tools/fsre-assurance-acquisition/**'
 
 permissions:
   contents: read
