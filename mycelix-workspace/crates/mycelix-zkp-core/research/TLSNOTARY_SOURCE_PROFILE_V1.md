@@ -576,6 +576,35 @@ Benchmark both over the same frozen response, extracted field, predicate, privac
 7. What is the privacy cost of online uniqueness checking, and can the system avoid revealing which application or account was queried?
 8. Does in-circuit verification of a standard PQ signature materially change proving cost relative to a circuit-friendly classical signature? Measure rather than assume.
 
+## 13a. Symthaea RISC Zero composition and Beta.1 API boundary
+
+Symthaea now has a concrete host-side research slice in [draft PR #12336](https://github.com/Luminous-Dynamics/symthaea/pull/12336): raw JSON Pointer selection, one hidden structural hole, a strict HTTP/1.1 body-to-received-stream offset mapper, and a sparse authenticated-range adapter. It returns an offset candidate only; it does not verify a TLSNotary presentation or opening.
+
+The next proof relation is assigned to:
+- [SYM-ZK-TLSN-001 / #12301](https://github.com/Luminous-Dynamics/symthaea/issues/12301): TLSNotary source opening and same-witness predicate;
+- [SYM-ZK-TLSN-FIELD-001 / #12328](https://github.com/Luminous-Dynamics/symthaea/issues/12328): exact application field/path semantics;
+- [SYM-ZK-TLSN-API-001 / #12373](https://github.com/Luminous-Dynamics/symthaea/issues/12373): expose verified transcript commitment metadata from TLSNotary's API.
+
+### Beta.1 API blocker
+
+At pinned commit `40a069565a2eaecbb5e691dbc634be20e8498daf`, TLSNotary's `Presentation::verify()` returns a verified `PresentationOutput` with the authenticated `PartialTranscript`, server name, connection info and attestation. But `Attestation::Body` keeps its transcript commitment fields private; `Body::transcript_commitments()` is `pub(crate)`. An external application can read the opened transcript but cannot enumerate the typed commitment records authenticated by the attestation body root.
+
+This is a source API access boundary, not a cryptographic flaw. The safe resolution is a typed, read-only verified-commitment export or a selected-field certificate with a Merkle inclusion proof, returned only after the notary signature/body-root verification succeeds.
+
+Do not mirror private BCS/bincode serialization, reconstruct field IDs, or reimplement TLSNotary's domain-separated body/Merkle hashing in Symthaea.
+
+### RISC Zero feasibility
+
+The preferred guest boundary is narrow: TLSNotary attestation/core verification only. The live `tlsn` prover/verifier and MPZ MPC/garbling/OT stack stay outside the zkVM; the guest consumes a bounded, self-contained evidence object.
+
+Two designs are under study:
+1. full Beta.1 `Presentation::verify()` inside a dedicated RISC Zero guest;
+2. a minimal selected-field certificate that carries the notary-signed header and typed Merkle inclusion proofs only for the transcript commitment and server/connection fields needed by the claim.
+
+The second is a performance optimization target, not an implemented API. RISC Zero guest `std` support is experimental, and Beta.1 `tlsn-core`/`tlsn-attestation` use `std` APIs. A dedicated guest build, no-getrandom verification experiment, trust-root minimization, guest ELF/memory/cycle measurements and receipt-size measurements are mandatory. Do not alter the legacy tag-0/tag-1 guest; use a separate guest package and ImageID.
+
+The benchmark matrix now measures full-Presentation vs minimal-field certificate verification as separate stages and proposes (not claims) at least 20% fewer guest cycles and 20% smaller receipt for the minimal certificate under identical source, privacy and trust assumptions.
+
 ## 14. Claim ceiling
 
 A pass establishes only the exact proposition qualified for the selected TLSNotary mode: a value in a specified authenticated transcript commitment was opened and interpreted under a frozen parser/schema/predicate profile, and the private predicate proof used that same value.
