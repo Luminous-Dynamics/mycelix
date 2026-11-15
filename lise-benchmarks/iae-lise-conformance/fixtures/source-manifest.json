@@ -1,0 +1,23 @@
+{
+  "suite_id": "IAE-LISE-TEMPORAL-CONFORMANCE-v0.1",
+  "adapter_version": "iae-lise-conformance-v0.1",
+  "fixture_source": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "pull_request": 6169,
+    "head_sha": "f559026bc25bb99ba632bd04f13e8782d0f21eea",
+    "path": "benchmarks/institutional-assurance-exchange/v0.2/fixture.json"
+  },
+  "submission_source": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "pull_request": 6169,
+    "head_sha": "f559026bc25bb99ba632bd04f13e8782d0f21eea",
+    "path": "benchmarks/institutional-assurance-exchange/v0.2/examples/reference-submission.json"
+  },
+  "reference_dependency": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "pull_request": 6163,
+    "head_sha": "3342ad472ada05175e622f873a6936d5e596d30b",
+    "path": "lise-benchmarks/ipb-finality-reference"
+  },
+  "claim_ceiling": "Synthetic adapter conformance only; no source authentication, legal authority, live dispatch, provider effect or production safety claim."
+}
