@@ -1020,4 +1020,212 @@ mod tests {
             assert!(report.contains(&format!("e-pump-1|pump_capacity|{expected}")));
         }
     }
+
+    fn revision_row(
+        id: &str,
+        observed_at: u64,
+        available_at: u64,
+        valid_from: u64,
+        predecessor: &str,
+        supersession_known_at: u64,
+        revision_kind: &str,
+    ) -> String {
+        format!(
+            "EVIDENCE|{id}|pump_capacity|synthetic-water-shock|{observed_at}|{available_at}|{valid_from}|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:evidence:{id}|||{predecessor}|{supersession_known_at}|{revision_kind}"
+        )
+    }
+
+    #[test]
+    fn known_correction_supersedes_old_version_without_rewriting_other_evidence() {
+        let revision = revision_row(
+            "e-pump-rev-1",
+            7000,
+            7100,
+            7000,
+            "e-pump-1",
+            7100,
+            "MEASUREMENT_CORRECTION",
+        );
+        let source = format!("{FIXTURE}{revision}\n");
+        let report = validate_and_report(&source).expect("revision graph");
+        assert!(report.contains("claim=pump_capacity|SUPPORTED_AS_KNOWN_AT_CUTOFF|admissible=2|required=2|missing=0"));
+        assert!(report.contains("e-pump-1|pump_capacity|SUPERSEDED_AS_KNOWN|admissible=NO"));
+        assert!(report.contains("e-pump-rev-1|pump_capacity|ADMISSIBLE|admissible=YES"));
+        assert!(report.contains("superseded_by=e-pump-rev-1|revision_kind=ORIGINAL"));
+        assert!(report.contains("revision_kind=MEASUREMENT_CORRECTION"));
+        assert!(report.contains("revision_history_records=1"));
+        assert!(report.contains("superseded_as_known_records=1"));
+    }
+
+    #[test]
+    fn later_known_supersession_does_not_change_historical_as_known_replay() {
+        let revision = revision_row(
+            "e-pump-rev-1",
+            7000,
+            7100,
+            7000,
+            "e-pump-1",
+            7201,
+            "SOURCE_CORRECTION",
+        );
+        let source = format!("{FIXTURE}{revision}\n");
+        let report = validate_and_report(&source).expect("historical revision replay");
+        assert!(report.contains("e-pump-1|pump_capacity|ADMISSIBLE|admissible=YES"));
+        assert!(report.contains("e-pump-rev-1|pump_capacity|ADMISSIBLE|admissible=YES"));
+        assert!(report.contains("superseded_by=NONE|revision_kind=ORIGINAL"));
+        assert!(report.contains("superseded_as_known_records=0"));
+    }
+
+    #[test]
+    fn known_supersession_does_not_resurrect_old_version_when_replacement_is_late() {
+        let revision = revision_row(
+            "e-pump-rev-late",
+            7000,
+            7500,
+            7000,
+            "e-pump-1",
+            7100,
+            "MEASUREMENT_CORRECTION",
+        );
+        let source = format!("{FIXTURE}{revision}\n");
+        let report = validate_and_report(&source).expect("late replacement");
+        assert!(report.contains("claim=pump_capacity|NOT_ESTIMABLE|admissible=1|required=2|missing=1"));
+        assert!(report.contains("e-pump-1|pump_capacity|SUPERSEDED_AS_KNOWN|admissible=NO"));
+        assert!(report.contains("e-pump-rev-late|pump_capacity|NOT_YET_AVAILABLE|admissible=NO"));
+    }
+
+    #[test]
+    fn revision_chain_selects_only_the_latest_known_version() {
+        let first = revision_row(
+            "e-pump-rev-1",
+            6900,
+            7000,
+            6900,
+            "e-pump-1",
+            7000,
+            "MEASUREMENT_CORRECTION",
+        );
+        let second = revision_row(
+            "e-pump-rev-2",
+            7100,
+            7150,
+            7100,
+            "e-pump-rev-1",
+            7150,
+            "SOURCE_CORRECTION",
+        );
+        let source = format!("{FIXTURE}{first}\n{second}\n");
+        let report = validate_and_report(&source).expect("revision chain");
+        assert!(report.contains("e-pump-1|pump_capacity|SUPERSEDED_AS_KNOWN|admissible=NO"));
+        assert!(report.contains("e-pump-rev-1|pump_capacity|SUPERSEDED_AS_KNOWN|admissible=NO"));
+        assert!(report.contains("e-pump-rev-2|pump_capacity|ADMISSIBLE|admissible=YES"));
+        assert!(report.contains("superseded_as_known_records=2"));
+    }
+
+    #[test]
+    fn dangling_cross_claim_and_forked_revision_links_are_rejected() {
+        let dangling = revision_row(
+            "e-pump-rev-dangling",
+            7000,
+            7100,
+            7000,
+            "missing-predecessor",
+            7100,
+            "MEASUREMENT_CORRECTION",
+        );
+        assert!(validate_and_report(&format!("{FIXTURE}{dangling}\n"))
+            .unwrap_err()
+            .0
+            .contains("supersedes unknown record"));
+
+        let cross_claim = dangling
+            .replace("missing-predecessor", "e-pump-1")
+            .replace("|pump_capacity|", "|fuel_stock|");
+        assert!(validate_and_report(&format!("{FIXTURE}{cross_claim}\n"))
+            .unwrap_err()
+            .0
+            .contains("from another claim"));
+
+        let first = revision_row(
+            "e-pump-rev-a",
+            7000,
+            7100,
+            7000,
+            "e-pump-1",
+            7100,
+            "MEASUREMENT_CORRECTION",
+        );
+        let second = revision_row(
+            "e-pump-rev-b",
+            7001,
+            7101,
+            7001,
+            "e-pump-1",
+            7101,
+            "SOURCE_CORRECTION",
+        );
+        assert!(validate_and_report(&format!("{FIXTURE}{first}\n{second}\n"))
+            .unwrap_err()
+            .0
+            .contains("multiple successors"));
+    }
+
+    #[test]
+    fn supersession_cycles_and_invalid_revision_kinds_are_rejected() {
+        let first = revision_row(
+            "e-pump-rev-a",
+            7000,
+            7100,
+            7000,
+            "e-pump-rev-b",
+            7100,
+            "MEASUREMENT_CORRECTION",
+        );
+        let second = revision_row(
+            "e-pump-rev-b",
+            7001,
+            7101,
+            7001,
+            "e-pump-rev-a",
+            7101,
+            "SOURCE_CORRECTION",
+        );
+        assert!(validate_and_report(&format!("{FIXTURE}{first}\n{second}\n"))
+            .unwrap_err()
+            .0
+            .contains("supersession cycle"));
+
+        let invalid_kind = revision_row(
+            "e-pump-rev-invalid",
+            7000,
+            7100,
+            7000,
+            "e-pump-1",
+            7100,
+            "SILENTLY_FIX_HISTORY",
+        );
+        assert!(validate_and_report(&format!("{FIXTURE}{invalid_kind}\n"))
+            .unwrap_err()
+            .0
+            .contains("revision_kind must be declared together"));
+    }
+
+    #[test]
+    fn methodology_change_is_retained_as_a_distinct_revision_kind() {
+        let revision = revision_row(
+            "e-pump-methodology-v2",
+            7000,
+            7100,
+            7000,
+            "e-pump-1",
+            7100,
+            "METHODOLOGY_CHANGE",
+        );
+        let report = validate_and_report(&format!("{FIXTURE}{revision}\n"))
+            .expect("methodology revision");
+        assert!(report.contains("revision_kind=METHODOLOGY_CHANGE"));
+        assert!(report.contains("e-pump-1|pump_capacity|SUPERSEDED_AS_KNOWN|admissible=NO"));
+    }
+
+
 }
