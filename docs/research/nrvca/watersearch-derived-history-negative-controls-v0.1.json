@@ -1,0 +1,114 @@
+{
+  "schema_version": "0.1.0",
+  "corpus_id": "watersearch-derived-history-negative-controls-v0.1",
+  "as_of_date": "2026-11-15",
+  "evidence_note": "All cases are synthetic semantic attacks. They are not actual Johannesburg Water service events or row-level observations.",
+  "cases": [
+    {
+      "case_id": "WTRSRCH-NC-001",
+      "scenario": "A daily supply row has no JW board for that day.",
+      "expected": "NO_REPORT_GAP",
+      "must_reject_or_abstain": [
+        "map_to_adequate",
+        "count_as_zero_outage",
+        "infer_normal_supply"
+      ]
+    },
+    {
+      "case_id": "WTRSRCH-NC-002",
+      "scenario": "Five consecutive no-board days lie between two qualifying no_water/critical reports.",
+      "expected": "SPLIT_OR_ABSTAIN_C41_GAP_OVER_LIMIT",
+      "must_reject_or_abstain": [
+        "bridge_five_days_under_c41",
+        "treat_gap_as_observed_outage"
+      ]
+    },
+    {
+      "case_id": "WTRSRCH-NC-003",
+      "scenario": "Four no-board days lie between qualifying reports and are bridged under C41.",
+      "expected": "DERIVED_SPAN_WITH_FOUR_UNOBSERVED_DAYS",
+      "must_preserve": [
+        "no_board_days=4",
+        "no_report_rows_remain_unobserved"
+      ]
+    },
+    {
+      "case_id": "WTRSRCH-NC-004",
+      "scenario": "No report of return-to-service exists before the record ends.",
+      "expected": "CENSORED_LOWER_BOUND",
+      "must_reject_or_abstain": [
+        "invent_end_at",
+        "claim_restoration_time"
+      ]
+    },
+    {
+      "case_id": "WTRSRCH-NC-005",
+      "scenario": "One linked supply is reported adequate, while another linked supply has no_report for the same suburb/day.",
+      "expected": "PRESERVE_EACH_SUPPLY_ROW",
+      "must_reject_or_abstain": [
+        "collapse_to_suburb_pass",
+        "infer_tap_availability"
+      ]
+    },
+    {
+      "case_id": "WTRSRCH-NC-006",
+      "scenario": "The suburb-history response contains rows for three linked supplies.",
+      "expected": "THREE_DISTINCT_SUPPLY_ROWS",
+      "must_reject_or_abstain": [
+        "collapse_to_single_supply_observation"
+      ]
+    },
+    {
+      "case_id": "WTRSRCH-NC-007",
+      "scenario": "A scheduled overnight reservoir closure appears in source notices.",
+      "expected": "SCHEDULED_RULE_SEPARATE",
+      "must_reject_or_abstain": [
+        "count_as_unplanned_outage"
+      ]
+    },
+    {
+      "case_id": "WTRSRCH-NC-008",
+      "scenario": "Two releases have the same as-at date but different release IDs and hashes.",
+      "expected": "ONE_EXACT_RELEASE_PER_RUN",
+      "must_reject_or_abstain": [
+        "mix_rows_across_releases",
+        "select_latest_per_endpoint"
+      ]
+    },
+    {
+      "case_id": "WTRSRCH-NC-009",
+      "scenario": "A new release changes a prior daily level or outage segmentation.",
+      "expected": "NEW_IMMUTABLE_RECEIPT",
+      "must_reject_or_abstain": [
+        "mutate_prior_receipt",
+        "reuse_old_release_digest"
+      ]
+    },
+    {
+      "case_id": "WTRSRCH-NC-010",
+      "scenario": "Watersearch compilation and underlying JW source notice are both present.",
+      "expected": "ONE_ORIGIN_LINEAGE_NOT_INDEPENDENT_CORROBORATION",
+      "must_reject_or_abstain": [
+        "count_as_two_independent_sources"
+      ]
+    },
+    {
+      "case_id": "WTRSRCH-NC-011",
+      "scenario": "A C41 outage span is derived from no_water/critical reports.",
+      "expected": "DERIVED_INTERVAL_ONLY",
+      "must_reject_or_abstain": [
+        "convert_to_measured_pressure_flow",
+        "call_sensor_observation"
+      ]
+    },
+    {
+      "case_id": "WTRSRCH-NC-012",
+      "scenario": "The API row references an original image whose bytes have not been acquired.",
+      "expected": "UNKNOWN_HASH_AND_RIGHTS",
+      "must_reject_or_abstain": [
+        "invent_sha256",
+        "mark_image_redistribution_cleared"
+      ]
+    }
+  ]
+}
