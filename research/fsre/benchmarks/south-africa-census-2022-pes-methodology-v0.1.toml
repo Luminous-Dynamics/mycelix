@@ -1,0 +1,18 @@
+schema = "fsre.population-coverage-methodology"
+version = "0.1.0"
+benchmark_id = "stats-sa-census-2022-pes"
+jurisdiction = "South Africa"
+publisher = "Statistics South Africa"
+press_release_url = "https://www.statssa.gov.za/?p=15645"
+methodology_pdf_url = "https://census.statssa.gov.za/assets/documents/2022/P030152022.pdf"
+survey_name = "Post-enumeration Survey 2022"
+fieldwork_start = "2022-06-08"
+fieldwork_end = "2022-07-26"
+enumeration_areas = 840
+estimated_dwelling_units_in_sampled_areas = 126000
+sample_fraction = "LESS_THAN_1_PERCENT_OF_EXPECTED_DWELLING_UNITS"
+methods = ["INDEPENDENT_POST_ENUMERATION_SURVEY", "DUAL_SYSTEM_ESTIMATION", "MATCHING", "OMISSION_ESTIMATION", "ERRONEOUS_INCLUSION_ESTIMATION", "MULTIPLE_COUNT_REVIEW"]
+source_independence = "DSE_ASSUMPTION_REQUIRES_QUALIFICATION"
+microdata_access = "NOT_INCLUDED_OR_ASSUMED"
+reproduction_status = "METHODOLOGY_COMPARATOR_ONLY"
+license_review_status = "NOT_APPLICABLE_TO_METHOD_DESCRIPTION_ONLY"
