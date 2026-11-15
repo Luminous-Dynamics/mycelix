@@ -2,7 +2,7 @@
 
 **Status:** Separately authored Rust parser and evaluator for differential qualification of historical evidence admissibility.
 
-The oracle does not import the production as-of evidence crate, its parser, its types or its evaluation functions. It consumes the same documented 16-column input contract and frozen synthetic fixture. This protects against implementation disagreement; it does not remove shared-specification errors, source-authenticity gaps or the need for an independently authored sealed challenge set.
+The oracle does not import the production as-of evidence crate, its parser, its types or its evaluation functions. It consumes the same documented 19-column input contract and frozen synthetic fixture. This protects against implementation disagreement; it does not remove shared-specification errors, source-authenticity gaps or the need for an independently authored sealed challenge set.
 
 ## What is independently reproduced
 
