@@ -161,29 +161,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::RideOffer(o) => {
-                    let binding = validate_declared_author("RideOffer.driver", &o.driver, &action.author);
-                    if matches!(binding, ValidateCallbackResult::Valid) {
-                        validate_ride_offer(o)
-                    } else {
-                        Ok(binding)
+                    match validate_declared_author("RideOffer.driver", &o.driver, &action.author) {
+                        ValidateCallbackResult::Valid => validate_ride_offer(o),
+                        other => Ok(other),
                     }
                 }
                 EntryTypes::RideRequest(r) => {
-                    let binding = validate_declared_author("RideRequest.requester", &r.requester, &action.author);
-                    if matches!(binding, ValidateCallbackResult::Valid) {
-                        validate_ride_request(r)
-                    } else {
-                        Ok(binding)
+                    match validate_declared_author("RideRequest.requester", &r.requester, &action.author) {
+                        ValidateCallbackResult::Valid => validate_ride_request(r),
+                        other => Ok(other),
                     }
                 }
                 EntryTypes::RideMatch(m) => validate_ride_match_proposal(m),
                 EntryTypes::CargoOffer(c) => validate_cargo_offer(c),
                 EntryTypes::RideReview(rev) => {
-                    let binding = validate_declared_author("RideReview.reviewer", &rev.reviewer, &action.author);
-                    if matches!(binding, ValidateCallbackResult::Valid) {
-                        validate_ride_review(rev)
-                    } else {
-                        Ok(binding)
+                    match validate_declared_author("RideReview.reviewer", &rev.reviewer, &action.author) {
+                        ValidateCallbackResult::Valid => validate_ride_review(rev),
+                        other => Ok(other),
                     }
                 }
             },
