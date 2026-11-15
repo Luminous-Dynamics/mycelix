@@ -458,12 +458,13 @@ mod tests {
     }
 
     #[test]
-    fn denied_policy_with_no_effect_is_a_clean_denial() {
+    fn denied_policy_with_no_effect_observation_remains_unreconciled() {
         let mut value = fixture();
         value["opa_decision_log"]["result"] = json!(false);
         value["effect_observation"] = Value::Null;
         let result = evaluate(&value);
-        assert_eq!(result["overall"], "POLICY_DENIED");
+        assert_eq!(result["overall"], "POLICY_DENIED_UNRECONCILED");
+        assert_eq!(result["effect_state"], "NO_EFFECT_OBSERVATION");
     }
 
     #[test]
