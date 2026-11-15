@@ -94,6 +94,54 @@ Before selecting a provider:
 
 No mode may infer TLS 1.3 support from a product roadmap or an upstream issue.
 
+## 4a. Frozen upstream baseline: TLSNotary v0.1.0-beta.1
+
+The latest public GitHub release checked for this research tranche is **v0.1.0-beta.1**, released 14 November 2026, at release commit `40a0695`:
+https://github.com/tlsnotary/tlsn/releases/tag/v0.1.0-beta.1
+
+Treat this exact tag/commit as the first reproducible candidate. It is a prerelease, not a production security certification.
+
+Relevant release changes that must become admission regression tests:
+
+- `tlsn` consolidates the former prover and verifier crates and re-exports core types; attestation-related functionality is moved into a separate `attestation` crate. Pin the exact API and crate graph rather than copying APIs from older alpha tutorials.
+- Core fix #1179 preserves transcript commitment order. Test exact order binding, duplicate/reordered commitments and compatibility behavior.
+- Fix #1196 bounds prover-supplied transcript commitment ranges. Test reversed, overlapping, duplicated, empty, out-of-range and overflow ranges against the exact release API.
+- Fix #1211 updates `mpz` to beta.1 and corrects GHASH byte order. Include known-answer tests and wrong-order negative controls.
+- Session teardown fixes #1207/#1202/#1172/#1167/#1175 make sessions complete or fail with a transport error rather than hang, busy-loop or silently drop output. Test peer close, EOF, partial writes, cancellation and abrupt disconnect.
+- Mux stream limit is configurable and must match on both peers; transcript use is bounded/logged against configured maxima; WASM config rejects unknown fields.
+
+Do not treat the short release note as a full cryptographic audit. The exact `tlsn`, `attestation`, `tlsn-core`, `mpz` and proof-transcript dependency graph and feature flags must be recorded in the reproducibility receipt.
+
+### Full-reveal fast path is a separate privacy profile
+
+TLSNotary documents a full-reveal optimization: if the prover reveals an entire traffic direction, the verifier can receive the corresponding write key and decrypt that direction locally. The ZK proof of TLS key derivation still runs, but the ciphertext-to-plaintext proof for that direction is skipped.
+
+This is a legitimate performance profile only when revealing the entire direction is acceptable. It is not selective disclosure.
+
+- Full response reveal may be appropriate for public or non-sensitive synthetic API fixtures.
+- It is generally inappropriate where the response contains unrelated balances, identifiers, transaction history, health information or account metadata.
+- The fast path is all-or-nothing per direction; one private byte returns that direction to the full ZK path.
+- The request direction commonly contains credentials, cookies or bearer tokens and should not be fully revealed by default.
+- A verifier receiving the full response must be counted as a disclosure recipient in the privacy model.
+
+Benchmark at least three privacy profiles separately:
+1. full response reveal (fast path);
+2. selective response disclosure with all unrelated fields redacted;
+3. mixed response with one sensitive byte/field, forcing the ZK path.
+
+Never compare the full-reveal timing against selective disclosure and claim a protocol speedup without reporting the disclosure difference. The full-reveal fast path has its own measured upstream study: https://tlsnotary.org/blog/2026/05/19/fast-reveal/
+
+### Version pin and source admission
+
+Before a runtime adapter is written:
+- pin release tag `v0.1.0-beta.1` and full source commit `40a0695` (resolve and record the full commit SHA from Git);
+- pin the Rust toolchain and every TLSNotary/mpz transitive source revision;
+- pin feature flags, target triples and commitment strategy;
+- verify Beta.1's actual selected protocol mode and negotiated TLS 1.2 profile;
+- retain upstream source, build metadata, SBOM and generated bindings as evidence artifacts;
+- do not track a floating branch or semver range as a cryptographic verifier identity;
+- treat every release/feature change as a new verifier profile requiring differential regression and LISE impact analysis.
+
 ## 5. Transcript commitments are mode-specific
 
 The upstream documentation states that the commitment construction used with a general-purpose notary differs from the direct Prover-to-Verifier case. In the notary path, the commitment is produced over the active plaintext encoding, and a Merkle-tree commitment hides the number of commitments.
