@@ -24,6 +24,7 @@ The API is deliberately an **as-known-at** view:
 4. References to packets not yet visible remain explicit unresolved edges. They can resolve in a later replay without rewriting the earlier result.
 5. Retractions and supersessions add effects; they never delete historical packets or citations.
 6. The exact source XML is parsed by the canonical parser library in the same call that computes its byte length and SHA-256; the replay layer does not accept a caller-supplied metadata projection.
+7. WhereWhen/STC is retained as an ordered source-element tree from that same parse and carried into the replay snapshot; it is not converted into a generic timestamp or position.
 
 The receipt timestamp is an input from the ingest layer; this crate does not attest that timestamp or provide an append-only receipt log. A production fabric must bind it to a trusted, independently auditable ingress receipt.
 
@@ -50,6 +51,7 @@ The synthetic unit corpus covers:
 - future duplicate/malformed packets do not poison historical cutoffs;
 - supersession cycles are diagnosed without rewriting the graph;
 - source-native time lexemes and scales are preserved;
+- WhereWhen/STC frame, location, instant/interval, unit, UCD, axis, uncertainty and extension trees survive parser-to-replay without normalization;
 - deterministic output independent of input packet order;
 - simultaneous supersession and retraction remain separately visible;
 - self-references are reported and retained.
@@ -89,7 +91,7 @@ Run the CLI:
 
     cargo run --manifest-path research/voevent-lifecycle/Cargo.toml --bin voevent-lifecycle-replay -- research/voevent-lifecycle/tests/fixtures/source-packet-thread.json
 
-The JSON output contains visible packets, lifecycle edges, unresolved citations, effects, diagnostics and an explicit `receipt_time_basis: unattested_manifest_assertion` marker. Visible packets preserve root attributes and source description text; resolved and unresolved edges preserve their original EventIVORN attributes. Future receipts are excluded before XML parsing, so malformed future packets do not poison historical views; they are parsed and rejected when a later cutoff includes them.
+The JSON output contains visible packets, their source-preserving `where_when` trees, lifecycle edges, unresolved citations, effects, diagnostics and an explicit `receipt_time_basis: unattested_manifest_assertion` marker. Visible packets preserve root attributes and source description text; resolved and unresolved edges preserve their original EventIVORN attributes. Future receipts are excluded before XML parsing, so malformed future packets do not poison historical views; they are parsed and rejected when a later cutoff includes them.
 
 The parser computes the exact packet digest. The lifecycle layer does not accept an externally supplied digest or metadata projection, removing the projection-versus-byte mismatch surface. It does not authenticate the receipt-time assertion, publisher, source rights or astrophysical truth. Production as-known-at queries must consume the canonical signed DeSci authority receipt and receipt-chain verifier owned by [KNOW-ASOF-001 #5860](https://github.com/Luminous-Dynamics/mycelix/issues/5860); this CLI does not implement that verifier.
 
