@@ -304,7 +304,23 @@ The following independent draft slices have reached exact-head workflow passes:
 |---|---|---|
 | #6212 | IAE → LISE temporal adapter | formatting, check, 17 tests, strict Clippy and frozen replay pass |
 | #6225 | finite route mediation/bypass evaluator | JSON, formatting, check, 11 tests, strict Clippy and frozen bypass replay pass |
-| #6233 | OPA decision/effect binding reference | JSON, formatting, check, 12 tests, strict Clippy and frozen effect-reconciliation replay pass |
-| #6227 | DevSecOps agent authority profile | the earlier 16-case head passed formatting, check, 15 tests, strict Clippy and replay; subsequent immutable-subject/reusable-workflow/run-attempt controls are a newer, not-yet-qualified 19-case revision |
+| #6227 | DevSecOps authority and deployment-effect profile | JSON, formatting, check, 20 tests, strict Clippy and 21/21 frozen scenarios pass |
+| #6233 | OPA decision/effect binding reference | JSON, formatting, check, 15 tests, strict Clippy and frozen reconciliation replay pass |
+| #6235 | candidate-blind trajectory scorecard | JSON, formatting, check, 11 tests, strict Clippy and frozen scorecard replay pass |
 
-All results are synthetic software-contract checks. None establishes source authenticity, legal authority, provider trust, real route inventory completeness, live OIDC verification, actual external effect, production safety, certification or superiority over industry systems. A newer head inherits no pass from an older one.
+The feature workflows are the validation authority:
+- #6212: https://github.com/Luminous-Dynamics/mycelix/actions/runs/43700266347
+- #6225: https://github.com/Luminous-Dynamics/mycelix/actions/runs/43699117649
+- #6227: https://github.com/Luminous-Dynamics/mycelix/actions/runs/43703099836
+- #6233: https://github.com/Luminous-Dynamics/mycelix/actions/runs/43702688428
+- #6235: https://github.com/Luminous-Dynamics/mycelix/actions/runs/43701817239
+
+Follow-on open research issues:
+- #6213 route mediation and alternate path bypass; #6225 implements the first finite reference.
+- #6214 operation-history completeness and independent effect reconciliation; #6212 implements the synthetic completeness receipt and #6233 adds an OPA/effect boundary.
+- #6215 matched AuthorizationBench/SABench interoperability; #6235 provides the candidate-blind scorecard, not a port of either benchmark.
+- #6226 NIST-aligned DevSecOps identity/authorization; #6227 provides the synthetic reference profile.
+- #6236 trajectory-wide revocation propagation and stale-capability exposure.
+- #6237 production DSSE/in-toto/SLSA provenance verification and signer–builder trust lifecycle.
+
+All results are synthetic software-contract checks. The DevSecOps profile consumes a simplified parsed provenance object; it does not cryptographically verify DSSE envelopes, certificates, transparency logs or production trust roots. The route inventory and operation-history receipts are synthetic and untrusted. No real provider has been integrated; no actual external effect, production non-bypassability, legal authority, NIST certification, or SOTA superiority is established. A newer head inherits no pass from an older one.
