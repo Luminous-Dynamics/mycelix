@@ -27,6 +27,7 @@ on:
       - 'tools/fsre-decision-defeater-verifier/**'
       - 'tools/fsre-experiment-potency/**'
       - 'tools/fsre-worldset-stability/**'
+      - 'tools/fsre-capture-recapture/**'
 
 permissions:
   contents: read
