@@ -27,7 +27,7 @@ If the upper \(\theta\) bound is unbounded, the population upper bound is also u
 
 Lincoln–Petersen and Chapman estimates are separate conditional baselines. They are emitted only when the input explicitly declares independence, perfect linkage and within-stratum homogeneity. Each remains labelled as conditional and unauthenticated. These labels are supplied assumptions, not authenticated facts.
 
-Two different source identifiers do not imply source independence. Shared declared ancestry emits a warning; distinct declared ancestry still does not establish independence. A perfect-linkage declaration is also only an input assertion. False-positive and false-negative linkage are not yet modelled in this E0 implementation.
+Two different source identifiers do not imply source independence. Shared declared ancestry blocks emission of the independence point-estimate baselines while leaving the dependence-sensitivity interval available. Distinct declared ancestry still does not establish independence; any emitted LP/Chapman result remains conditional on the caller-declared assumption. A perfect-linkage declaration is also only an input assertion. False-positive and false-negative linkage are not yet modelled in this E0 implementation.
 
 ## Stratification
 
