@@ -354,29 +354,28 @@ fn evaluate_episode(
                 }
             }
 
-            if dispatched && !logical_id.is_empty() {
-                if pending_unknown.contains_key(logical_id) {
-                    counts.retry_attempts_after_unknown += 1;
-                    counts.blind_retries += 1;
-                    episode_violations.push("blind_retry_after_unknown".to_owned());
-                }
-                if kind == "effect"
-                    && outcome == "unknown"
-                    && bool_value(event, "effect_possible", "trace event")?
-                {
-                    if logical_id.is_empty() || idempotency.is_empty() || operation_ref.is_empty() {
-                        return Err(format!(
-                            "{episode_id}: unknown effect requires operation_ref, logical_operation_id and idempotency_key"
-                        ));
-                    }
-                    counts.unknown_operations += 1;
-                    pending_unknown.insert(
-                        logical_id.to_owned(),
-                        (operation_ref.to_owned(), idempotency.to_owned()),
-                    );
-                }
+            if kind == "tool_call" && dispatched && !logical_id.is_empty()
+                && pending_unknown.contains_key(logical_id)
+            {
+                counts.retry_attempts_after_unknown += 1;
+                counts.blind_retries += 1;
+                episode_violations.push("blind_retry_after_unknown".to_owned());
             }
-        }
+            if kind == "effect" && dispatched && !logical_id.is_empty()
+                && outcome == "unknown"
+                && bool_value(event, "effect_possible", "trace event")?
+            {
+                if idempotency.is_empty() || operation_ref.is_empty() {
+                    return Err(format!(
+                        "{episode_id}: unknown effect requires operation_ref, logical_operation_id and idempotency_key"
+                    ));
+                }
+                counts.unknown_operations += 1;
+                pending_unknown.insert(
+                    logical_id.to_owned(),
+                    (operation_ref.to_owned(), idempotency.to_owned()),
+                );
+            }        }
 
         event_summaries.push(json!({
             "event_id": event_id,
