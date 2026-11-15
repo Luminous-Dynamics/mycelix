@@ -170,8 +170,7 @@ fn valid_token(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 200
         && value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric()
-                || matches!(byte, b'_' | b'-' | b'.' | b':' | b'/')
+            byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.' | b':' | b'/')
         })
 }
 
@@ -207,16 +206,15 @@ fn parse_ratio(
     let num = parse_u64(numerator, &format!("{name}_numerator"))?;
     let den = parse_u64(denominator, &format!("{name}_denominator"))?;
     if den == 0 || (!allow_zero && num == 0) {
-        return Err(fail(format!("{name} must have a positive denominator and valid numerator")));
+        return Err(fail(format!(
+            "{name} must have a positive denominator and valid numerator"
+        )));
     }
     Rational::new(u128::from(num), u128::from(den))
         .ok_or_else(|| fail(format!("invalid {name} rational")))
 }
 
-fn parse_upper_ratio(
-    numerator: &str,
-    denominator: &str,
-) -> Result<Option<Rational>, CaptureError> {
+fn parse_upper_ratio(numerator: &str, denominator: &str) -> Result<Option<Rational>, CaptureError> {
     if numerator == "UNBOUNDED" {
         if denominator != "1" {
             return Err(fail("UNBOUNDED theta maximum must use denominator 1"));
@@ -297,7 +295,9 @@ pub fn parse_input(source: &str) -> Result<Problem, CaptureError> {
         }
     }
     if source_a_id == source_b_id {
-        return Err(fail("source_a_id and source_b_id must identify distinct declared lists"));
+        return Err(fail(
+            "source_a_id and source_b_id must identify distinct declared lists",
+        ));
     }
 
     let population_frame_status = match required("population_frame_status")? {
@@ -333,7 +333,10 @@ pub fn parse_input(source: &str) -> Result<Problem, CaptureError> {
             return Err(fail(format!("line {line_no}: invalid stratum row")));
         }
         if !ids.insert(fields[0].to_owned()) {
-            return Err(fail(format!("line {line_no}: duplicate stratum id {}", fields[0])));
+            return Err(fail(format!(
+                "line {line_no}: duplicate stratum id {}",
+                fields[0]
+            )));
         }
         let a_only = parse_u64(fields[1], "a_only")?;
         let b_only = parse_u64(fields[2], "b_only")?;
@@ -354,9 +357,7 @@ pub fn parse_input(source: &str) -> Result<Problem, CaptureError> {
                 .ok_or_else(|| fail("theta comparison overflow"))?
                 == Ordering::Greater
             {
-                return Err(fail(format!(
-                    "line {line_no}: theta_min exceeds theta_max"
-                )));
+                return Err(fail(format!("line {line_no}: theta_min exceeds theta_max")));
             }
         }
         if independence_assumption == IndependenceAssumption::Declared {
@@ -414,17 +415,12 @@ fn observed_union(stratum: &Stratum) -> Option<u128> {
         .checked_add(u128::from(stratum.both))
 }
 
-fn hidden_cell(
-    stratum: &Stratum,
-    theta: &Rational,
-) -> Option<Rational> {
+fn hidden_cell(stratum: &Stratum, theta: &Rational) -> Option<Rational> {
     let numerator = theta
         .numerator
         .checked_mul(u128::from(stratum.a_only))?
         .checked_mul(u128::from(stratum.b_only))?;
-    let denominator = theta
-        .denominator
-        .checked_mul(u128::from(stratum.both))?;
+    let denominator = theta.denominator.checked_mul(u128::from(stratum.both))?;
     Rational::new(numerator, denominator)
 }
 
@@ -440,10 +436,7 @@ fn lincoln_petersen(stratum: &Stratum) -> Option<Rational> {
     }
     let a_total = u128::from(stratum.a_only).checked_add(u128::from(stratum.both))?;
     let b_total = u128::from(stratum.b_only).checked_add(u128::from(stratum.both))?;
-    Rational::new(
-        a_total.checked_mul(b_total)?,
-        u128::from(stratum.both),
-    )
+    Rational::new(a_total.checked_mul(b_total)?, u128::from(stratum.both))
 }
 
 fn chapman(stratum: &Stratum) -> Option<Rational> {
@@ -460,10 +453,7 @@ fn chapman(stratum: &Stratum) -> Option<Rational> {
     Rational::new(numerator, both_plus_one)
 }
 
-fn result_for(
-    stratum: &Stratum,
-    independence_enabled: bool,
-) -> StratumResult {
+fn result_for(stratum: &Stratum, independence_enabled: bool) -> StratumResult {
     let union = observed_union(stratum);
     if stratum.both == 0 {
         return StratumResult {
@@ -583,10 +573,7 @@ fn aggregate(problem: &Problem, results: &[StratumResult]) -> AggregateResult {
             pooled_chapman: None,
         };
     }
-    if results
-        .iter()
-        .any(|result| result.population_min.is_none())
-    {
+    if results.iter().any(|result| result.population_min.is_none()) {
         return AggregateResult {
             status: "AGGREGATE_NOT_ESTABLISHED_STRATUM_UNRESOLVED".to_owned(),
             hidden_min: None,
@@ -601,20 +588,25 @@ fn aggregate(problem: &Problem, results: &[StratumResult]) -> AggregateResult {
     }
 
     let hidden_min = sum_rationals(
-        results.iter().filter_map(|result| result.hidden_min.as_ref()),
+        results
+            .iter()
+            .filter_map(|result| result.hidden_min.as_ref()),
     );
     let hidden_max = if results.iter().any(|result| result.hidden_max.is_none()) {
         None
     } else {
-        sum_rationals(results.iter().filter_map(|result| result.hidden_max.as_ref()))
+        sum_rationals(
+            results
+                .iter()
+                .filter_map(|result| result.hidden_max.as_ref()),
+        )
     };
     let population_min = sum_rationals(
-        results.iter().filter_map(|result| result.population_min.as_ref()),
+        results
+            .iter()
+            .filter_map(|result| result.population_min.as_ref()),
     );
-    let population_max = if results
-        .iter()
-        .any(|result| result.population_max.is_none())
-    {
+    let population_max = if results.iter().any(|result| result.population_max.is_none()) {
         None
     } else {
         sum_rationals(
@@ -624,11 +616,12 @@ fn aggregate(problem: &Problem, results: &[StratumResult]) -> AggregateResult {
         )
     };
 
-    let all_independence_points = problem.independence_assumption == IndependenceAssumption::Declared
+    let all_independence_points = problem.independence_assumption
+        == IndependenceAssumption::Declared
         && problem.linkage_status == LinkageStatus::PerfectLinkageAssumed
-        && results.iter().all(|result| {
-            result.lincoln_petersen.is_some() && result.chapman.is_some()
-        });
+        && results
+            .iter()
+            .all(|result| result.lincoln_petersen.is_some() && result.chapman.is_some());
     let stratified_lp = if all_independence_points {
         sum_rationals(
             results
@@ -699,18 +692,19 @@ pub fn analyze(problem: &Problem) -> Analysis {
     let independence_enabled = problem.independence_assumption == IndependenceAssumption::Declared
         && problem.linkage_status == LinkageStatus::PerfectLinkageAssumed
         && problem.within_stratum_homogeneity == "DECLARED_WITHIN_STRATUM";
-    let independence_point_status = if problem.independence_assumption == IndependenceAssumption::NotDeclared {
-        "NOT_EMITTED_INDEPENDENCE_NOT_DECLARED"
-    } else if problem.linkage_status != LinkageStatus::PerfectLinkageAssumed {
-        "NOT_EMITTED_LINKAGE_NOT_ASSUMED_PERFECT"
-    } else if problem.within_stratum_homogeneity != "DECLARED_WITHIN_STRATUM" {
-        "NOT_EMITTED_WITHIN_STRATUM_HOMOGENEITY_NOT_DECLARED"
-    } else if problem.source_a_ancestry == problem.source_b_ancestry {
-        "CONDITIONAL_ESTIMATES_EMITTED_SHARED_UPSTREAM_ANCESTRY_REVIEW_REQUIRED"
-    } else {
-        "CONDITIONAL_ESTIMATES_EMITTED_INDEPENDENCE_ASSUMPTION_NOT_AUTHENTICATED"
-    }
-    .to_owned();
+    let independence_point_status =
+        if problem.independence_assumption == IndependenceAssumption::NotDeclared {
+            "NOT_EMITTED_INDEPENDENCE_NOT_DECLARED"
+        } else if problem.linkage_status != LinkageStatus::PerfectLinkageAssumed {
+            "NOT_EMITTED_LINKAGE_NOT_ASSUMED_PERFECT"
+        } else if problem.within_stratum_homogeneity != "DECLARED_WITHIN_STRATUM" {
+            "NOT_EMITTED_WITHIN_STRATUM_HOMOGENEITY_NOT_DECLARED"
+        } else if problem.source_a_ancestry == problem.source_b_ancestry {
+            "CONDITIONAL_ESTIMATES_EMITTED_SHARED_UPSTREAM_ANCESTRY_REVIEW_REQUIRED"
+        } else {
+            "CONDITIONAL_ESTIMATES_EMITTED_INDEPENDENCE_ASSUMPTION_NOT_AUTHENTICATED"
+        }
+        .to_owned();
 
     let results = problem
         .strata
@@ -898,7 +892,9 @@ impl Analysis {
         out.push_str("capture_heterogeneity=NOT_IDENTIFIED_BY_THIS_TWO_LIST_REFERENCE\n");
         out.push_str("sampling_uncertainty=NOT_ESTIMATED\n");
         out.push_str("confidence_interval=NOT_PROVIDED\n");
-        out.push_str("independence_point_estimates=CONDITIONAL_BASELINES_ONLY_NOT_CONFIDENCE_INTERVALS\n");
+        out.push_str(
+            "independence_point_estimates=CONDITIONAL_BASELINES_ONLY_NOT_CONFIDENCE_INTERVALS\n",
+        );
         out.push_str("source_independence=NOT_ESTABLISHED_BY_ANCESTRY_LABELS\n");
         out.push_str("frame_completeness=CALLER_DECLARED_NOT_AUTHENTICATED\n");
         out.push_str("strata_universe_completeness=CALLER_DECLARED_NOT_AUTHENTICATED\n");
@@ -952,15 +948,30 @@ mod tests {
     fn per_stratum_and_pooled_independence_baselines_are_not_interchangeable() {
         let report = analyze(&fixture());
         assert_eq!(
-            report.aggregate.stratified_lincoln_petersen.as_ref().unwrap().display(),
+            report
+                .aggregate
+                .stratified_lincoln_petersen
+                .as_ref()
+                .unwrap()
+                .display(),
             "1100/1"
         );
         assert_eq!(
-            report.aggregate.pooled_lincoln_petersen.as_ref().unwrap().display(),
+            report
+                .aggregate
+                .pooled_lincoln_petersen
+                .as_ref()
+                .unwrap()
+                .display(),
             "750/1"
         );
         assert_eq!(
-            report.aggregate.stratified_chapman.as_ref().unwrap().display(),
+            report
+                .aggregate
+                .stratified_chapman
+                .as_ref()
+                .unwrap()
+                .display(),
             "40450/51"
         );
         assert_eq!(
@@ -1003,7 +1014,12 @@ mod tests {
         let stratum_b_lp = (50_u128 + 50) * (50_u128 + 50) / 50;
         assert_eq!(stratum_a_lp + stratum_b_lp, 800);
         assert_eq!(
-            report.aggregate.stratified_lincoln_petersen.as_ref().unwrap().display(),
+            report
+                .aggregate
+                .stratified_lincoln_petersen
+                .as_ref()
+                .unwrap()
+                .display(),
             "800/1"
         );
     }
@@ -1042,15 +1058,18 @@ mod tests {
             "AGGREGATE_NOT_ESTABLISHED_STRATA_UNIVERSE_INCOMPLETE"
         );
         assert!(report.aggregate.population_min.is_none());
-        assert!(report.render().contains(
-            "population_estimand_scope=DECLARED_FRAME_AND_DECLARED_STRATA_ONLY"
-        ));
+        assert!(report
+            .render()
+            .contains("population_estimand_scope=DECLARED_FRAME_AND_DECLARED_STRATA_ONLY"));
     }
 
     #[test]
     fn unrestricted_dependence_has_no_finite_upper_bound() {
         let report = analyze(&unbounded_fixture());
-        assert_eq!(report.results[0].hidden_min.as_ref().unwrap().display(), "0/1");
+        assert_eq!(
+            report.results[0].hidden_min.as_ref().unwrap().display(),
+            "0/1"
+        );
         assert!(report.results[0].hidden_max.is_none());
         assert_eq!(
             report.results[0].population_min.as_ref().unwrap().display(),
@@ -1061,9 +1080,9 @@ mod tests {
             report.aggregate.status,
             "COMPUTED_UNBOUNDED_STRATIFIED_INTERVAL"
         );
-        assert!(report.render().contains(
-            "two_list_unrestricted_dependence=NO_FINITE_UPPER_POPULATION_BOUND"
-        ));
+        assert!(report
+            .render()
+            .contains("two_list_unrestricted_dependence=NO_FINITE_UPPER_POPULATION_BOUND"));
     }
 
     #[test]
@@ -1085,9 +1104,9 @@ mod tests {
             report.source_ancestry_relation,
             "DISTINCT_DECLARED_ANCESTRY_INDEPENDENCE_NOT_ESTABLISHED"
         );
-        assert!(report.render().contains(
-            "source_independence=NOT_ESTABLISHED_BY_ANCESTRY_LABELS"
-        ));
+        assert!(report
+            .render()
+            .contains("source_independence=NOT_ESTABLISHED_BY_ANCESTRY_LABELS"));
         let mut problem = fixture();
         problem.source_b_ancestry = problem.source_a_ancestry.clone();
         let shared = analyze(&problem);
@@ -1095,7 +1114,9 @@ mod tests {
             shared.source_ancestry_relation,
             "SHARED_DECLARED_UPSTREAM_ANCESTRY"
         );
-        assert!(shared.independence_point_status.contains("SHARED_UPSTREAM_ANCESTRY"));
+        assert!(shared
+            .independence_point_status
+            .contains("SHARED_UPSTREAM_ANCESTRY"));
     }
 
     #[test]
@@ -1103,7 +1124,10 @@ mod tests {
         let mut problem = fixture();
         problem.independence_assumption = IndependenceAssumption::NotDeclared;
         let report = analyze(&problem);
-        assert!(report.results.iter().all(|result| result.lincoln_petersen.is_none()));
+        assert!(report
+            .results
+            .iter()
+            .all(|result| result.lincoln_petersen.is_none()));
         problem.independence_assumption = IndependenceAssumption::Declared;
         problem.linkage_status = LinkageStatus::Unknown;
         let report = analyze(&problem);
@@ -1119,16 +1143,16 @@ mod tests {
             report.independence_point_status,
             "NOT_EMITTED_WITHIN_STRATUM_HOMOGENEITY_NOT_DECLARED"
         );
-        assert!(report.results.iter().all(|result| result.lincoln_petersen.is_none()));
+        assert!(report
+            .results
+            .iter()
+            .all(|result| result.lincoln_petersen.is_none()));
         assert!(report.results.iter().all(|result| result.chapman.is_none()));
     }
 
     #[test]
     fn exact_rational_arithmetic_reduces_fractions_and_checks_overflow() {
-        assert_eq!(
-            Rational::new(120_580, 121).unwrap().display(),
-            "120580/121"
-        );
+        assert_eq!(Rational::new(120_580, 121).unwrap().display(), "120580/121");
         assert!(u128::MAX.checked_mul(2).is_none());
         let left = Rational::new(1, 3).unwrap();
         let right = Rational::new(1, 6).unwrap();
@@ -1137,15 +1161,9 @@ mod tests {
 
     #[test]
     fn duplicate_strata_unknown_schema_and_duplicate_sources_are_rejected() {
-        let duplicate = FIXTURE.replace(
-            "stratum-b|50|50|50|1|1|1|1",
-            "stratum-a|50|50|50|1|1|1|1",
-        );
+        let duplicate = FIXTURE.replace("stratum-b|50|50|50|1|1|1|1", "stratum-a|50|50|50|1|1|1|1");
         assert!(parse_input(&duplicate).is_err());
-        let unknown = FIXTURE.replace(
-            "#max_strata=16",
-            "#max_strata=16\n#trust_me=INDEPENDENT",
-        );
+        let unknown = FIXTURE.replace("#max_strata=16", "#max_strata=16\n#trust_me=INDEPENDENT");
         assert!(parse_input(&unknown).is_err());
         let same_source = FIXTURE.replace(
             "#source_b_id=inspection-register-b",
