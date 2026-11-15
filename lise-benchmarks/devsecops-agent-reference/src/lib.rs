@@ -453,7 +453,22 @@ mod tests {
         let report = evaluate_bundle(&cases, &oracle);
         assert_eq!(report["conformant"], true);
         assert_eq!(report["case_count"], 16);
-        assert_eq!(report["conformant_case_count"], 12);
+        assert_eq!(report["conformant_case_count"], 16);
+    }
+
+    #[test]
+    fn expired_ci_workload_identity_cannot_authorize_deployment() {
+        let (cases, _) = bundle();
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-016")
+            .expect("case");
+        assert_eq!(
+            evaluate_case(case).expect("decision")["reason_code"],
+            "workload_identity.expired"
+        );
     }
 
     #[test]
