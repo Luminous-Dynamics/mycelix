@@ -1,0 +1,68 @@
+{
+  "suite_id": "LISE-OPA-EFFECT-BINDING-v0.1",
+  "synthetic": true,
+  "evaluation_known_at": "2026-03-10T11:01:00Z",
+  "intent": {
+    "principal_ref": "AGENT-OPA-01",
+    "action": "submit_lease_application",
+    "purpose": "submit_approved_lease",
+    "resource_ref": "LEASE-ENTITY-01",
+    "operation_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "policy_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "policy_path": "/lease/submit/allow",
+    "expected_bundle_name": "authz",
+    "expected_bundle_revision": "authz-bundle-r17"
+  },
+  "opa_decision_log": {
+    "decision_id": "opa-decision-001",
+    "trace_id": "7f1d3a8e6b9c4d2ea1f0b7c5d4e3a291",
+    "span_id": "1a2b3c4d5e6f7788",
+    "path": "/lease/submit/allow",
+    "query": "data.lease.submit.allow",
+    "input": {
+      "principal_ref": "AGENT-OPA-01",
+      "action": "submit_lease_application",
+      "purpose": "submit_approved_lease",
+      "resource_ref": "LEASE-ENTITY-01",
+      "operation_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "policy_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "result": true,
+    "timestamp": "2026-03-10T10:59:50Z",
+    "bundles": {
+      "authz": {
+        "revision": "authz-bundle-r17"
+      }
+    },
+    "erased": [],
+    "masked": []
+  },
+  "collection_receipt": {
+    "receipt_ref": "OPA-COLLECTOR-RECEIPT-001",
+    "source_kind": "opa_decision_log",
+    "decision_id": "opa-decision-001",
+    "trace_id": "7f1d3a8e6b9c4d2ea1f0b7c5d4e3a291",
+    "input_sha256": "ca2644e33649f216e4df141f74e7c3bc2aedfcd933e756a8dc2294fb559454d3",
+    "bundle_revision": "authz-bundle-r17",
+    "source_identity": "OPA-COLLECTOR-01",
+    "adapter_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "observed_at": "2026-03-10T10:59:52Z",
+    "completeness_state": "complete_for_decision",
+    "signature_state": "synthetic_unverified",
+    "trust_state": "untrusted_synthetic"
+  },
+  "effect_observation": {
+    "kind": "independent_resource_observation",
+    "decision_id": "opa-decision-001",
+    "operation_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "resource_ref": "LEASE-ENTITY-01",
+    "action": "submit_lease_application",
+    "purpose": "submit_approved_lease",
+    "outcome": "applied",
+    "observer_identity": "RESOURCE-OWNER-OBSERVER-01",
+    "observation_independence": "independent",
+    "source_dependencies": ["owner_resource_read"],
+    "trust_state": "fixture_only",
+    "observed_at": "2026-03-10T11:00:10Z"
+  }
+}
