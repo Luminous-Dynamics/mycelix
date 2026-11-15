@@ -673,13 +673,11 @@ mod tests {
     #[test]
     fn path_enumeration_limit_fails_closed() {
         let mut value = fixture();
-        let nodes = value["graph"]["nodes"].as_array_mut().expect("nodes");
-        nodes.retain(|node| {
-            node["node_id"] == "agent-entry" || node["node_id"] == "production-environment"
-        });
-        let edges = value["graph"]["edges"].as_array_mut().expect("edges");
-        edges.clear();
-
+        let mut nodes = vec![
+            json!({"node_id":"agent-entry","kind":"principal_entry"}),
+            json!({"node_id":"production-environment","kind":"protected_effect"})
+        ];
+        let mut edges = Vec::new();
         let mut previous = "agent-entry".to_owned();
         for layer in 0..12 {
             let left = format!("L{layer}");
@@ -725,6 +723,8 @@ mod tests {
             "enabled": true,
             "effect_capable": true
         }));
+        value["graph"]["nodes"] = json!(nodes);
+        value["graph"]["edges"] = json!(edges);
         refresh_receipt(&mut value);
         let report = evaluate(&value);
         assert_eq!(report["status"], "INDETERMINATE");
