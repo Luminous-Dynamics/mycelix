@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/lise-benchmarks/route-mediation-reference/fixtures/route-inventory.schema.json",
+  "title": "LISE finite route inventory fixture v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suite_id",
+    "synthetic",
+    "scope",
+    "graph",
+    "mediators",
+    "inventory_receipt"
+  ],
+  "properties": {
+    "suite_id": {
+      "const": "LISE-ROUTE-MEDIATION-v0.1"
+    },
+    "synthetic": {
+      "const": true
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "scope_ref",
+        "principal_ref",
+        "action",
+        "purpose",
+        "resource_ref",
+        "operation_digest",
+        "policy_digest",
+        "action_at",
+        "known_at"
+      ],
+      "additionalProperties": true
+    },
+    "graph": {
+      "type": "object",
+      "required": [
+        "entry_points",
+        "protected_effect_nodes",
+        "nodes",
+        "edges"
+      ],
+      "additionalProperties": false
+    },
+    "mediators": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "inventory_receipt": {
+      "type": "object",
+      "required": [
+        "receipt_ref",
+        "graph_sha256",
+        "completeness_state",
+        "query_scope_exact",
+        "coverage_from",
+        "coverage_through",
+        "observed_at"
+      ],
+      "additionalProperties": true
+    }
+  }
+}
