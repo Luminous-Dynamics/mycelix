@@ -597,10 +597,10 @@
   ],
   "upstream_release_baseline": {
     "release": "tlsn-v0.1.0-beta.1",
-    "release_commit_short": "40a0695",
+    "release_commit_short": "40a069565a2eaecbb5e691dbc634be20e8498daf",
     "released": "2026-11-14",
     "status": "prerelease_candidate_only",
-    "full_commit_sha": "must_be_resolved_from_git_before_runtime_dependency_lock",
+    "full_commit_sha": "40a069565a2eaecbb5e691dbc634be20e8498daf",
     "regressions": [
       "#1179",
       "#1196",
