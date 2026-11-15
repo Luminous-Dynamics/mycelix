@@ -58,3 +58,7 @@ jobs:
           cargo run --quiet --locked --offline --manifest-path tools/fsre-partial-id-lp-certificate/Cargo.toml -- tools/fsre-partial-id-lp-certificate/fixtures/reduced-columns-optimal.psv > /tmp/lp-b.txt
           cmp /tmp/lp-a.txt /tmp/lp-b.txt
           cmp /tmp/lp-a.txt tools/fsre-partial-id-lp-certificate/fixtures/reduced-columns-optimal.expected.txt
+      - name: Deterministic exact MPS export
+        run: |
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-partial-id-lp-certificate/Cargo.toml -- --export-mps tools/fsre-partial-id-lp-certificate/fixtures/reduced-columns-optimal.psv > /tmp/lp-model.mps
+          cmp /tmp/lp-model.mps tools/fsre-partial-id-lp-certificate/fixtures/reduced-columns-optimal.mps.expected.txt
