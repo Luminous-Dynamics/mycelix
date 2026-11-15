@@ -48,6 +48,18 @@ jobs:
           cargo run --quiet --locked --offline --manifest-path tools/fsre-asof-evidence-oracle/Cargo.toml -- "$input" > "$oracle"
           diff -u tools/fsre-asof-evidence/fixtures/synthetic-asof.expected.txt "$production"
           diff -u "$production" "$oracle"
+      - name: Differential revision-fixture replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          input="tools/fsre-asof-evidence/fixtures/revision-correction-asof.psv"
+          production="$(mktemp)"
+          oracle="$(mktemp)"
+          trap 'rm -f "$production" "$oracle"' EXIT
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-asof-evidence/Cargo.toml -- "$input" > "$production"
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-asof-evidence-oracle/Cargo.toml -- "$input" > "$oracle"
+          diff -u tools/fsre-asof-evidence/fixtures/revision-correction-asof.expected.txt "$production"
+          diff -u "$production" "$oracle"
       - name: Run Clippy on both implementations
         run: |
           cargo clippy --locked --offline --manifest-path tools/fsre-asof-evidence/Cargo.toml --all-targets -- -D warnings
