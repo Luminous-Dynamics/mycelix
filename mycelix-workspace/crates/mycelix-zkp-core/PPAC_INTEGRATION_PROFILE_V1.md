@@ -249,14 +249,14 @@ Performance comparison requires identical mathematical statements, witness distr
 | Mycelix #6140 / #6069 | Independent observation evidence and historical reconstruction |
 | Symthaea #5842 / #12269 | Refine the exact balance guest relation, then bind the private value to issuer evidence and a verifier-issued request without overstating issuer authority or privacy |
 | Symthaea #4860 | Plan only among PEC profiles with admitted evidence; support NoQualifiedPlan |
-| Symthaea PR #7403 | Review the semantic corrections and privacy boundary; do not infer passing CI |
+| Symthaea PR #7403 / issue #12274 | Review HDC semantic corrections, freeze the exact Binius/Iron Spartan vendor source and qualify the witness-hiding boundary before any ZK privacy claim |
 | Xenia #359 / #364 / #369 / #435 / #449 / #450 | Reuse receipt attestation, live trust binding, portable authority/replay, lane capabilities, consent and independently verifiable session evidence |
 
 ### Runner-independent tranche
 
 1. Freeze the owner map and this semantic contract.
 2. Build a machine-readable matrix from each claim to its issuer, source, credential, circuit/program, verifier, policy, session, capability and effect-observation dependencies.
-3. Author synthetic positive/negative/ambiguous fixtures and a separately maintained reference table; keep fixture gold labels unadjudicated until independent review.
+3. Use the synthetic PPAC casebook at PPAC_CASEBOOK_V1.json (24 cases) as the initial mutation specification; its expected dispositions remain provisional, unadjudicated and not run until an independent oracle review.
 4. Map the existing Symthaea RISC Zero balance guest and Mycelix envelope/statement types without changing their current semantics.
 5. Record exact blockers and establish a matched benchmark environment before numerical comparisons.
 6. Keep all implementation and qualification claims at their current evidence tier until exact-head and independent checks exist.
