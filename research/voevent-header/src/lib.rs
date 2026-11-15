@@ -62,6 +62,55 @@ pub struct VoEventHeader {
     pub packet_sha256: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CitationRelation {
+    Followup,
+    Supersedes,
+    Retraction,
+}
+
+impl CitationRelation {
+    fn parse(value: &str) -> Result<Self, ParseError> {
+        match value {
+            "followup" => Ok(Self::Followup),
+            "supersedes" => Ok(Self::Supersedes),
+            "retraction" => Ok(Self::Retraction),
+            other => Err(ParseError::InvalidCitationRelation(other.to_owned())),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct VoEventCitation {
+    /// Decoded IVOID text from the EventIVORN element, after XML entity resolution.
+    pub target_ivoid: String,
+    pub relation: CitationRelation,
+    /// All EventIVORN attributes in source order, including uninterpreted values.
+    pub attributes: Vec<RootAttribute>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct VoEventPacket {
+    pub header: VoEventHeader,
+    /// Curation fields are source assertions, not authenticated publisher identity.
+    pub who: WhoMetadata,
+    /// Absence is meaningful: a packet without Citations announces a new event.
+    pub citations_present: bool,
+    pub citations: Vec<VoEventCitation>,
+    /// Optional source text from Citations/Description.
+    pub citations_description: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct WhoMetadata {
+    pub present: bool,
+    /// Source-asserted publisher/custodian IVOID from Who/AuthorIVORN.
+    pub author_ivoid: Option<String>,
+    /// Source-native lexical value from Who/Date; no timestamp normalization is performed.
+    pub source_created_at: Option<String>,
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ParseError {
     #[error("packet is empty")]
@@ -92,6 +141,49 @@ pub enum ParseError {
     InvalidIvoid(String),
     #[error("unsupported VOEvent role: {0}")]
     InvalidRole(String),
+    #[error("EventIVORN is missing its required cite attribute")]
+    MissingCitationAttribute,
+    #[error("unsupported EventIVORN cite relation: {0}")]
+    InvalidCitationRelation(String),
+    #[error("invalid IVOID in EventIVORN text: {0}")]
+    InvalidCitationTarget(String),
+    #[error("a VOEvent packet contains more than one Citations element")]
+    DuplicateCitations,
+    #[error("Citations must contain at least one EventIVORN element")]
+    EmptyCitations,
+    #[error("Citations contains more than one Description element")]
+    DuplicateCitationsDescription,
+    #[error(
+        "EventIVORN and Citations/Description must contain simple text only; found nested element {0}"
+    )]
+    NestedCitationElement(String),
+    #[error("unsupported or invalid XML character reference in citation text: {0}")]
+    InvalidCitationCharacterReference(String),
+    #[error("a VOEvent packet contains more than one Who element")]
+    DuplicateWho,
+    #[error("Who contains more than one AuthorIVORN element")]
+    DuplicateWhoAuthorIvoid,
+    #[error("Who contains more than one Date element")]
+    DuplicateWhoDate,
+    #[error("Who/AuthorIVORN contains an invalid IVOID: {0}")]
+    InvalidWhoAuthorIvoid(String),
+    #[error("Who/Date is empty")]
+    EmptyWhoDate,
+    #[error("Who/AuthorIVORN and Who/Date must contain simple text only; found nested element {0}")]
+    NestedWhoElement(String),
+}
+
+fn validate_ivoid(value: &str) -> Result<(), String> {
+    // Conservative lexical check only; registry resolution is a separate qualification step.
+    if !value.starts_with("ivo://")
+        || value.len() <= "ivo://".len()
+        || value
+            .chars()
+            .any(|character| character.is_control() || character.is_whitespace())
+    {
+        return Err(value.to_owned());
+    }
+    Ok(())
 }
 
 fn parse_root_attributes(element: &BytesStart<'_>) -> Result<VoEventHeader, ParseError> {
@@ -127,15 +219,7 @@ fn parse_root_attributes(element: &BytesStart<'_>) -> Result<VoEventHeader, Pars
     let ivoid = ivoid.ok_or(ParseError::MissingAttribute("ivorn"))?;
     let version = version.ok_or(ParseError::MissingAttribute("version"))?;
 
-    // Conservative lexical check only; this does not resolve the IVOID in a registry.
-    if !ivoid.starts_with("ivo://")
-        || ivoid.len() <= "ivo://".len()
-        || ivoid
-            .chars()
-            .any(|character| character.is_control() || character.is_whitespace())
-    {
-        return Err(ParseError::InvalidIvoid(ivoid));
-    }
+    validate_ivoid(&ivoid).map_err(ParseError::InvalidIvoid)?;
 
     if version != VOEVENT_VERSION {
         return Err(ParseError::UnsupportedVersion(version));
@@ -263,6 +347,537 @@ pub fn parse_header(packet: &[u8]) -> Result<VoEventHeader, ParseError> {
     Ok(header)
 }
 
+#[derive(Debug)]
+struct CitationTextBuilder {
+    depth: usize,
+    text: String,
+}
+
+#[derive(Debug)]
+struct CitationBuilder {
+    depth: usize,
+    relation: CitationRelation,
+    attributes: Vec<RootAttribute>,
+    text: String,
+}
+
+fn parse_citation_attributes(
+    element: &BytesStart<'_>,
+) -> Result<(CitationRelation, Vec<RootAttribute>), ParseError> {
+    let mut attributes = Vec::new();
+    let mut cite: Option<String> = None;
+
+    for attribute in element.attributes().with_checks(true) {
+        let attribute = attribute.map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+        let name = std::str::from_utf8(attribute.key.as_ref())
+            .map_err(|_| ParseError::MalformedXml("non-UTF-8 citation attribute name".to_owned()))?
+            .to_owned();
+        let value = attribute
+            .unescape_value()
+            .map_err(|error| ParseError::MalformedXml(error.to_string()))?
+            .into_owned();
+
+        if name == "cite" {
+            cite = Some(value.clone());
+        }
+        attributes.push(RootAttribute { name, value });
+    }
+
+    let raw_cite = cite.ok_or(ParseError::MissingCitationAttribute)?;
+    Ok((CitationRelation::parse(&raw_cite)?, attributes))
+}
+
+fn is_legal_xml_character(value: u32) -> bool {
+    matches!(value, 0x9 | 0xA | 0xD)
+        || (0x20..=0xD7FF).contains(&value)
+        || (0xE000..=0xFFFD).contains(&value)
+        || (0x10000..=0x10FFFF).contains(&value)
+}
+
+fn decode_citation_reference(reference: &[u8]) -> Result<char, ParseError> {
+    let raw = std::str::from_utf8(reference).map_err(|_| {
+        ParseError::InvalidCitationCharacterReference("non-UTF-8 reference".to_owned())
+    })?;
+
+    let character = match raw {
+        "amp" => '&',
+        "lt" => '<',
+        "gt" => '>',
+        "apos" => '\'',
+        "quot" => '"',
+        _ if raw.starts_with("#x") || raw.starts_with("#X") => {
+            let value = u32::from_str_radix(&raw[2..], 16)
+                .map_err(|_| ParseError::InvalidCitationCharacterReference(raw.to_owned()))?;
+            char::from_u32(value)
+                .ok_or_else(|| ParseError::InvalidCitationCharacterReference(raw.to_owned()))?
+        }
+        _ if raw.starts_with('#') => {
+            let value = raw[1..]
+                .parse::<u32>()
+                .map_err(|_| ParseError::InvalidCitationCharacterReference(raw.to_owned()))?;
+            char::from_u32(value)
+                .ok_or_else(|| ParseError::InvalidCitationCharacterReference(raw.to_owned()))?
+        }
+        _ => {
+            return Err(ParseError::InvalidCitationCharacterReference(
+                raw.to_owned(),
+            ));
+        }
+    };
+
+    if !is_legal_xml_character(character as u32) {
+        return Err(ParseError::InvalidCitationCharacterReference(
+            raw.to_owned(),
+        ));
+    }
+    Ok(character)
+}
+
+/// Extract the typed Citations/EventIVORN relationship set from an already
+/// well-formed, bounded packet. Only direct children of the root Citations
+/// element are interpreted; the exact original bytes remain hash-bound by the
+/// accompanying header.
+fn parse_citations(
+    packet: &[u8],
+) -> Result<(bool, Vec<VoEventCitation>, Option<String>), ParseError> {
+    let mut reader = Reader::from_reader(Cursor::new(packet));
+    // Preserve text chunks here; citation targets are trimmed only after all
+    // plain-text, CDATA and predefined/numeric character-reference segments
+    // have been assembled.
+    let mut buffer = Vec::new();
+    let mut element_stack: Vec<Vec<u8>> = Vec::new();
+    let mut citations_seen = false;
+    let mut citations_depth: Option<usize> = None;
+    let mut citations = Vec::new();
+    let mut current_citation: Option<CitationBuilder> = None;
+    let mut current_description: Option<CitationTextBuilder> = None;
+    let mut description_seen = false;
+    let mut description: Option<String> = None;
+
+    loop {
+        let event = reader
+            .read_event_into(&mut buffer)
+            .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+
+        match event {
+            Event::Start(element) => {
+                let name = element.name().as_ref().to_vec();
+                let depth = element_stack.len() + 1;
+
+                if element_stack.len() == 1 && name.as_slice() == b"Citations" {
+                    if citations_seen {
+                        return Err(ParseError::DuplicateCitations);
+                    }
+                    citations_seen = true;
+                    citations_depth = Some(depth);
+                } else if citations_depth == Some(element_stack.len())
+                    && name.as_slice() == b"EventIVORN"
+                {
+                    let (relation, attributes) = parse_citation_attributes(&element)?;
+                    current_citation = Some(CitationBuilder {
+                        depth,
+                        relation,
+                        attributes,
+                        text: String::new(),
+                    });
+                } else if citations_depth == Some(element_stack.len())
+                    && name.as_slice() == b"Description"
+                {
+                    if description_seen {
+                        return Err(ParseError::DuplicateCitationsDescription);
+                    }
+                    description_seen = true;
+                    current_description = Some(CitationTextBuilder {
+                        depth,
+                        text: String::new(),
+                    });
+                } else if current_citation
+                    .as_ref()
+                    .is_some_and(|builder| element_stack.len() >= builder.depth)
+                    || current_description
+                        .as_ref()
+                        .is_some_and(|builder| element_stack.len() >= builder.depth)
+                {
+                    return Err(ParseError::NestedCitationElement(
+                        String::from_utf8_lossy(&name).into_owned(),
+                    ));
+                }
+
+                element_stack.push(name);
+            }
+            Event::Empty(element) => {
+                let name = element.name().as_ref().to_vec();
+
+                // Empty nested elements are markup too. Reject them inside
+                // EventIVORN/Description just as we reject non-empty children.
+                if current_citation
+                    .as_ref()
+                    .is_some_and(|builder| element_stack.len() >= builder.depth)
+                    || current_description
+                        .as_ref()
+                        .is_some_and(|builder| element_stack.len() >= builder.depth)
+                {
+                    return Err(ParseError::NestedCitationElement(
+                        String::from_utf8_lossy(&name).into_owned(),
+                    ));
+                }
+
+                if element_stack.len() == 1 && name.as_slice() == b"Citations" {
+                    if citations_seen {
+                        return Err(ParseError::DuplicateCitations);
+                    }
+                    return Err(ParseError::EmptyCitations);
+                }
+
+                if citations_depth == Some(element_stack.len()) && name.as_slice() == b"EventIVORN"
+                {
+                    let (relation, attributes) = parse_citation_attributes(&element)?;
+                    return Err(ParseError::InvalidCitationTarget(format!(
+                        "empty EventIVORN with relation {relation:?} and {} attributes",
+                        attributes.len()
+                    )));
+                }
+
+                if citations_depth == Some(element_stack.len()) && name.as_slice() == b"Description"
+                {
+                    if description_seen {
+                        return Err(ParseError::DuplicateCitationsDescription);
+                    }
+                    description_seen = true;
+                    description = Some(String::new());
+                }
+            }
+            Event::Text(text) => {
+                let decoded = text
+                    .decode()
+                    .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+                match current_citation.as_mut() {
+                    Some(builder) if element_stack.len() == builder.depth => {
+                        builder.text.push_str(&decoded);
+                    }
+                    Some(_) => {}
+                    None => {
+                        if let Some(builder) = current_description.as_mut()
+                            && element_stack.len() == builder.depth
+                        {
+                            builder.text.push_str(&decoded);
+                        }
+                    }
+                }
+            }
+            Event::CData(text) => {
+                let decoded = text
+                    .decode()
+                    .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+                match current_citation.as_mut() {
+                    Some(builder) if element_stack.len() == builder.depth => {
+                        builder.text.push_str(&decoded);
+                    }
+                    Some(_) => {}
+                    None => {
+                        if let Some(builder) = current_description.as_mut()
+                            && element_stack.len() == builder.depth
+                        {
+                            builder.text.push_str(&decoded);
+                        }
+                    }
+                }
+            }
+            Event::GeneralRef(reference) => {
+                let target = if let Some(builder) = current_citation.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        Some(&mut builder.text)
+                    } else {
+                        None
+                    }
+                } else if let Some(builder) = current_description.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        Some(&mut builder.text)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                if let Some(target) = target {
+                    target.push(decode_citation_reference(reference.as_ref())?);
+                }
+            }
+            Event::End(element) => {
+                let depth = element_stack.len();
+                let qualified_name = element.name();
+                let name = qualified_name.as_ref();
+
+                if current_citation
+                    .as_ref()
+                    .is_some_and(|builder| builder.depth == depth && name == b"EventIVORN")
+                {
+                    let builder = current_citation.take().expect("citation builder exists");
+                    let target_ivoid = builder.text;
+                    validate_ivoid(&target_ivoid).map_err(ParseError::InvalidCitationTarget)?;
+                    citations.push(VoEventCitation {
+                        target_ivoid,
+                        relation: builder.relation,
+                        attributes: builder.attributes,
+                    });
+                }
+
+                if current_description
+                    .as_ref()
+                    .is_some_and(|builder| builder.depth == depth && name == b"Description")
+                {
+                    let builder = current_description
+                        .take()
+                        .expect("description builder exists");
+                    description = Some(builder.text);
+                }
+
+                if citations_depth == Some(depth) && name == b"Citations" {
+                    if citations.is_empty() {
+                        return Err(ParseError::EmptyCitations);
+                    }
+                    citations_depth = None;
+                }
+
+                element_stack.pop();
+            }
+            Event::DocType(_) => return Err(ParseError::DoctypeNotAllowed),
+            Event::Eof => break,
+            _ => {}
+        }
+
+        buffer.clear();
+    }
+
+    Ok((citations_seen, citations, description))
+}
+
+#[derive(Debug)]
+struct WhoTextBuilder {
+    depth: usize,
+    text: String,
+}
+
+/// Extract the curation identity and creation-time lexemes from Who.
+/// Only direct Who/AuthorIVORN and Who/Date children are interpreted.
+fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
+    let mut reader = Reader::from_reader(Cursor::new(packet));
+    let mut buffer = Vec::new();
+    let mut element_stack: Vec<Vec<u8>> = Vec::new();
+    let mut who_seen = false;
+    let mut who_depth: Option<usize> = None;
+    let mut author_seen = false;
+    let mut date_seen = false;
+    let mut author_ivoid = None;
+    let mut source_created_at = None;
+    let mut current_author: Option<WhoTextBuilder> = None;
+    let mut current_date: Option<WhoTextBuilder> = None;
+
+    loop {
+        let event = reader
+            .read_event_into(&mut buffer)
+            .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+
+        match event {
+            Event::Start(element) => {
+                let name = element.name().as_ref().to_vec();
+                let depth = element_stack.len() + 1;
+
+                if element_stack.len() == 1 && name.as_slice() == b"Who" {
+                    if who_seen {
+                        return Err(ParseError::DuplicateWho);
+                    }
+                    who_seen = true;
+                    who_depth = Some(depth);
+                } else if who_depth == Some(element_stack.len())
+                    && name.as_slice() == b"AuthorIVORN"
+                {
+                    if author_seen {
+                        return Err(ParseError::DuplicateWhoAuthorIvoid);
+                    }
+                    author_seen = true;
+                    current_author = Some(WhoTextBuilder {
+                        depth,
+                        text: String::new(),
+                    });
+                } else if who_depth == Some(element_stack.len()) && name.as_slice() == b"Date" {
+                    if date_seen {
+                        return Err(ParseError::DuplicateWhoDate);
+                    }
+                    date_seen = true;
+                    current_date = Some(WhoTextBuilder {
+                        depth,
+                        text: String::new(),
+                    });
+                } else if current_author
+                    .as_ref()
+                    .is_some_and(|builder| element_stack.len() >= builder.depth)
+                    || current_date
+                        .as_ref()
+                        .is_some_and(|builder| element_stack.len() >= builder.depth)
+                {
+                    return Err(ParseError::NestedWhoElement(
+                        String::from_utf8_lossy(&name).into_owned(),
+                    ));
+                }
+
+                element_stack.push(name);
+            }
+            Event::Empty(element) => {
+                let name = element.name().as_ref().to_vec();
+
+                if current_author
+                    .as_ref()
+                    .is_some_and(|builder| element_stack.len() >= builder.depth)
+                    || current_date
+                        .as_ref()
+                        .is_some_and(|builder| element_stack.len() >= builder.depth)
+                {
+                    return Err(ParseError::NestedWhoElement(
+                        String::from_utf8_lossy(&name).into_owned(),
+                    ));
+                }
+
+                if element_stack.len() == 1 && name.as_slice() == b"Who" {
+                    if who_seen {
+                        return Err(ParseError::DuplicateWho);
+                    }
+                    who_seen = true;
+                } else if who_depth == Some(element_stack.len())
+                    && name.as_slice() == b"AuthorIVORN"
+                {
+                    if author_seen {
+                        return Err(ParseError::DuplicateWhoAuthorIvoid);
+                    }
+                    return Err(ParseError::InvalidWhoAuthorIvoid(String::new()));
+                } else if who_depth == Some(element_stack.len()) && name.as_slice() == b"Date" {
+                    if date_seen {
+                        return Err(ParseError::DuplicateWhoDate);
+                    }
+                    return Err(ParseError::EmptyWhoDate);
+                }
+            }
+            Event::Text(text) => {
+                let decoded = text
+                    .decode()
+                    .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+                match current_author.as_mut() {
+                    Some(builder) if element_stack.len() == builder.depth => {
+                        builder.text.push_str(&decoded);
+                    }
+                    Some(_) => {}
+                    None => {
+                        if let Some(builder) = current_date.as_mut()
+                            && element_stack.len() == builder.depth
+                        {
+                            builder.text.push_str(&decoded);
+                        }
+                    }
+                }
+            }
+            Event::CData(text) => {
+                let decoded = text
+                    .decode()
+                    .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+                match current_author.as_mut() {
+                    Some(builder) if element_stack.len() == builder.depth => {
+                        builder.text.push_str(&decoded);
+                    }
+                    Some(_) => {}
+                    None => {
+                        if let Some(builder) = current_date.as_mut()
+                            && element_stack.len() == builder.depth
+                        {
+                            builder.text.push_str(&decoded);
+                        }
+                    }
+                }
+            }
+            Event::GeneralRef(reference) => {
+                let target = if let Some(builder) = current_author.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        Some(&mut builder.text)
+                    } else {
+                        None
+                    }
+                } else if let Some(builder) = current_date.as_mut() {
+                    if element_stack.len() == builder.depth {
+                        Some(&mut builder.text)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                if let Some(target) = target {
+                    target.push(decode_citation_reference(reference.as_ref())?);
+                }
+            }
+            Event::End(element) => {
+                let depth = element_stack.len();
+                let qualified_name = element.name();
+                let name = qualified_name.as_ref();
+
+                if current_author
+                    .as_ref()
+                    .is_some_and(|builder| builder.depth == depth && name == b"AuthorIVORN")
+                {
+                    let builder = current_author.take().expect("Who author builder exists");
+                    validate_ivoid(&builder.text).map_err(ParseError::InvalidWhoAuthorIvoid)?;
+                    author_ivoid = Some(builder.text);
+                }
+
+                if current_date
+                    .as_ref()
+                    .is_some_and(|builder| builder.depth == depth && name == b"Date")
+                {
+                    let builder = current_date.take().expect("Who date builder exists");
+                    if builder.text.is_empty() {
+                        return Err(ParseError::EmptyWhoDate);
+                    }
+                    source_created_at = Some(builder.text);
+                }
+
+                if who_depth == Some(depth) && name == b"Who" {
+                    who_depth = None;
+                }
+
+                element_stack.pop();
+            }
+            Event::DocType(_) => return Err(ParseError::DoctypeNotAllowed),
+            Event::Eof => break,
+            _ => {}
+        }
+
+        buffer.clear();
+    }
+
+    Ok(WhoMetadata {
+        present: who_seen,
+        author_ivoid,
+        source_created_at,
+    })
+}
+
+/// Parse the root header and the typed lifecycle citations from one exact packet.
+///
+/// This remains a bounded extraction profile, not full VOEvent XSD validation.
+/// The byte length and digest bind all extracted values to the same packet.
+pub fn parse_packet(packet: &[u8]) -> Result<VoEventPacket, ParseError> {
+    let header = parse_header(packet)?;
+    let who = parse_who(packet)?;
+    let (citations_present, citations, citations_description) = parse_citations(packet)?;
+    Ok(VoEventPacket {
+        header,
+        who,
+        citations_present,
+        citations,
+        citations_description,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,6 +885,13 @@ mod tests {
     fn packet(root_attributes: &str) -> Vec<u8> {
         format!(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<VOEvent {root_attributes}><Who><AuthorIVORN>ivo://example.org/author</AuthorIVORN></Who><What/></VOEvent>"
+        )
+        .into_bytes()
+    }
+
+    fn packet_with_body(body: &str) -> Vec<u8> {
+        format!(
+            "<VOEvent ivorn=\"ivo://example.org/stream?packet-1\" version=\"2.1\">{body}</VOEvent>"
         )
         .into_bytes()
     }
@@ -409,6 +1031,246 @@ mod tests {
             parse_header(&[0xff, 0xfe, 0x00, 0x00]),
             Err(ParseError::UnsupportedEncoding)
         );
+    }
+
+    #[test]
+    fn extracts_who_author_ivoid_and_source_created_at_without_authenticating_them() {
+        let bytes = packet_with_body(
+            r#"<Who><AuthorIVORN>ivo://publisher.example/stream</AuthorIVORN><Date>2026-11-14T10:15:00Z</Date></Who><What/>"#,
+        );
+        let parsed = parse_packet(&bytes).expect("packet");
+        assert!(parsed.who.present);
+        assert_eq!(
+            parsed.who.author_ivoid.as_deref(),
+            Some("ivo://publisher.example/stream")
+        );
+        assert_eq!(
+            parsed.who.source_created_at.as_deref(),
+            Some("2026-11-14T10:15:00Z")
+        );
+    }
+
+    #[test]
+    fn who_metadata_absence_and_partial_fields_remain_explicit() {
+        let absent = parse_packet(&packet_with_body("<What/>")).expect("packet without Who");
+        assert!(!absent.who.present);
+        assert_eq!(absent.who.author_ivoid, None);
+        assert_eq!(absent.who.source_created_at, None);
+
+        let partial = parse_packet(&packet_with_body("<Who><Author/></Who>")).expect("partial Who");
+        assert!(partial.who.present);
+        assert_eq!(partial.who.author_ivoid, None);
+        assert_eq!(partial.who.source_created_at, None);
+    }
+
+    #[test]
+    fn rejects_duplicate_or_invalid_who_curation_fields() {
+        let duplicate_who = packet_with_body("<Who/><Who/>");
+        assert_eq!(parse_packet(&duplicate_who), Err(ParseError::DuplicateWho));
+
+        let duplicate_author = packet_with_body(
+            "<Who><AuthorIVORN>ivo://publisher.example/a</AuthorIVORN><AuthorIVORN>ivo://publisher.example/b</AuthorIVORN></Who>",
+        );
+        assert_eq!(
+            parse_packet(&duplicate_author),
+            Err(ParseError::DuplicateWhoAuthorIvoid)
+        );
+
+        let duplicate_date = packet_with_body(
+            "<Who><Date>2026-11-14T10:00:00Z</Date><Date>2026-11-14T11:00:00Z</Date></Who>",
+        );
+        assert_eq!(
+            parse_packet(&duplicate_date),
+            Err(ParseError::DuplicateWhoDate)
+        );
+
+        let invalid_author = packet_with_body(
+            "<Who><AuthorIVORN>https://publisher.example/stream</AuthorIVORN></Who>",
+        );
+        assert!(matches!(
+            parse_packet(&invalid_author),
+            Err(ParseError::InvalidWhoAuthorIvoid(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_empty_or_nested_who_identity_and_date_content() {
+        let empty_author = packet_with_body("<Who><AuthorIVORN/></Who>");
+        assert_eq!(
+            parse_packet(&empty_author),
+            Err(ParseError::InvalidWhoAuthorIvoid(String::new()))
+        );
+
+        let empty_date = packet_with_body("<Who><Date/></Who>");
+        assert_eq!(parse_packet(&empty_date), Err(ParseError::EmptyWhoDate));
+
+        let nested_author = packet_with_body(
+            "<Who><AuthorIVORN><Name>ivo://publisher.example/stream</Name></AuthorIVORN></Who>",
+        );
+        assert!(matches!(
+            parse_packet(&nested_author),
+            Err(ParseError::NestedWhoElement(_))
+        ));
+
+        let nested_empty_date = packet_with_body("<Who><Date><Unit/></Date></Who>");
+        assert!(matches!(
+            parse_packet(&nested_empty_date),
+            Err(ParseError::NestedWhoElement(_))
+        ));
+    }
+
+    #[test]
+    fn packet_without_citations_preserves_new_event_semantics() {
+        let bytes = packet_with_body("<Who/><What/>");
+        let parsed = parse_packet(&bytes).expect("packet");
+        assert!(!parsed.citations_present);
+        assert!(parsed.citations.is_empty());
+        assert_eq!(parsed.citations_description, None);
+        assert_eq!(parsed.header.packet_byte_length, bytes.len());
+    }
+
+    #[test]
+    fn extracts_multiple_typed_citations_and_preserves_attributes_and_description() {
+        let bytes = packet_with_body(
+            r#"<Citations>
+                <EventIVORN cite="followup">ivo://survey.example/event?first</EventIVORN>
+                <EventIVORN cite="supersedes" publisher-note="reprocessed">ivo://survey.example/event?second&amp;revised</EventIVORN>
+                <Description> Reprocessed &amp; corrected after independent review. </Description>
+            </Citations>"#,
+        );
+        let parsed = parse_packet(&bytes).expect("packet with citations");
+
+        assert!(parsed.citations_present);
+        assert_eq!(parsed.citations.len(), 2);
+        assert_eq!(parsed.citations[0].relation, CitationRelation::Followup);
+        assert_eq!(
+            parsed.citations[0].target_ivoid,
+            "ivo://survey.example/event?first"
+        );
+        assert_eq!(parsed.citations[1].relation, CitationRelation::Supersedes);
+        assert_eq!(
+            parsed.citations[1].target_ivoid,
+            "ivo://survey.example/event?second&revised"
+        );
+        assert!(parsed.citations[1].attributes.iter().any(|attribute| {
+            attribute.name == "publisher-note" && attribute.value == "reprocessed"
+        }));
+        assert_eq!(
+            parsed.citations_description.as_deref(),
+            Some(" Reprocessed & corrected after independent review. ")
+        );
+        assert_eq!(parsed.header.packet_sha256.len(), 64);
+    }
+
+    #[test]
+    fn decodes_numeric_references_in_event_ivoid_text() {
+        let bytes = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup">ivo://survey.example/event&#x2D;42</EventIVORN></Citations>"#,
+        );
+        let parsed = parse_packet(&bytes).expect("numeric character reference");
+        assert_eq!(
+            parsed.citations[0].target_ivoid,
+            "ivo://survey.example/event-42"
+        );
+    }
+
+    #[test]
+    fn citation_identifier_whitespace_is_not_silently_normalized() {
+        let bytes = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup"> ivo://survey.example/event-1 </EventIVORN></Citations>"#,
+        );
+        assert!(matches!(
+            parse_packet(&bytes),
+            Err(ParseError::InvalidCitationTarget(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_event_ivoid_without_required_cite_attribute() {
+        let bytes = packet_with_body(
+            r#"<Citations><EventIVORN>ivo://survey.example/event-1</EventIVORN></Citations>"#,
+        );
+        assert_eq!(
+            parse_packet(&bytes),
+            Err(ParseError::MissingCitationAttribute)
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_citation_relations() {
+        let bytes = packet_with_body(
+            r#"<Citations><EventIVORN cite="associated">ivo://survey.example/event-1</EventIVORN></Citations>"#,
+        );
+        assert!(matches!(
+            parse_packet(&bytes),
+            Err(ParseError::InvalidCitationRelation(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_non_ivoid_citation_targets_and_empty_event_ivoorn() {
+        let invalid = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup">https://example.org/event-1</EventIVORN></Citations>"#,
+        );
+        assert!(matches!(
+            parse_packet(&invalid),
+            Err(ParseError::InvalidCitationTarget(_))
+        ));
+
+        let empty = packet_with_body(r#"<Citations><EventIVORN cite="retraction"/></Citations>"#);
+        assert!(matches!(
+            parse_packet(&empty),
+            Err(ParseError::InvalidCitationTarget(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_empty_duplicate_and_nested_citation_structures() {
+        let empty = packet_with_body("<Citations/>");
+        assert_eq!(parse_packet(&empty), Err(ParseError::EmptyCitations));
+
+        let duplicate = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup">ivo://survey.example/a</EventIVORN></Citations><Citations><EventIVORN cite="followup">ivo://survey.example/b</EventIVORN></Citations>"#,
+        );
+        assert_eq!(
+            parse_packet(&duplicate),
+            Err(ParseError::DuplicateCitations)
+        );
+
+        let nested = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup"><Name>ivo://survey.example/a</Name></EventIVORN></Citations>"#,
+        );
+        assert!(matches!(
+            parse_packet(&nested),
+            Err(ParseError::NestedCitationElement(_))
+        ));
+
+        let nested_empty = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup"><Name/></EventIVORN></Citations>"#,
+        );
+        assert!(matches!(
+            parse_packet(&nested_empty),
+            Err(ParseError::NestedCitationElement(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_duplicate_citation_descriptions_and_external_entities() {
+        let duplicate = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup">ivo://survey.example/a</EventIVORN><Description>one</Description><Description>two</Description></Citations>"#,
+        );
+        assert_eq!(
+            parse_packet(&duplicate),
+            Err(ParseError::DuplicateCitationsDescription)
+        );
+
+        let unresolved = packet_with_body(
+            r#"<Citations><EventIVORN cite="followup">ivo://survey.example/a&custom;</EventIVORN></Citations>"#,
+        );
+        assert!(matches!(
+            parse_packet(&unresolved),
+            Err(ParseError::MalformedXml(_) | ParseError::InvalidCitationCharacterReference(_))
+        ));
     }
 
     #[test]
