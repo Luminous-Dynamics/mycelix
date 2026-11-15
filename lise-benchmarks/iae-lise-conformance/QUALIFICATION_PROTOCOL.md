@@ -237,3 +237,74 @@ Do not claim superiority from a higher synthetic pass percentage. A credible res
 ## 11. Claim boundary
 
 The present IAE/LISE artifacts are synthetic development work. Their fixtures use placeholder digests and owner-supplied authority values; the conformance report always disables dispatch. No real provider has been integrated, no independent domain adjudication has been completed, no agent SOTA comparison has been run, and no institutional/production safety certification is claimed.
+
+
+
+## 12. November 15 interoperability updates
+
+The external systems now point to a concrete interoperability strategy rather than a broad "agent security" claim.
+
+### NIST DevSecOps-first implementation
+
+On September 29, 2026, NIST NCCoE stated that its first implementation use case for software and agentic-AI identity/authorization would be the software development lifecycle, in collaboration with its Secure Software Development (DevSecOps) project. NIST reported receiving more than 600 comments on the concept paper. On September 24 it had published updated DevSecOps materials, including an SSDF mapping, CI/CD pipeline/container deployment example and functional SDLC scenarios.
+
+Implication: qualify a complete SDLC trajectory. A patch author is not automatically a PR approver, merger, release signer, CI workload, secret consumer or production deployer. The LISE DevSecOps profile in PR #6227 makes these authorities separate, exact and time-bounded.
+
+References:
+- https://www.nist.gov/news-events/news/2026/09/comments-software-and-agentic-ai-identity-concept-paper
+- https://www.nist.gov/news-events/news/2026/09/new-nist-nccoe-resources-devsecops-and-october-28-webinar-agentic-ai
+- https://www.nccoe.nist.gov/projects/secure-software-development-security-and-operations-devsecops-practices
+
+### GitHub OIDC identity is not a repository-name string
+
+GitHub's current OIDC reference documents issuer, audience and subject claims, as well as repository IDs, workflow references and other token claims. Repositories created after July 15, 2026 use an immutable default subject format containing owner and repository IDs; older repositories retain the legacy format unless opted in. Reusable workflows can add the job_workflow_ref claim, and environment-bound jobs use an environment form of the subject. Run IDs and attempts are separate execution identity context.
+
+Implication: do not hard-code one global subject syntax. Resolve the actual owner-configured subject policy and bind expected owner/repository IDs, audience, environment, workflow ref/SHA, reusable workflow identity, run ID and attempt. A token with the correct repository name but the wrong repository identity or reusable workflow is not the same workload.
+
+The DevSecOps profile now includes synthetic negative controls for immutable subject namespace substitution, reusable-workflow substitution and run-attempt mismatch. This is still a fixture-level reference, not validation of a live JWT.
+
+Reference: https://docs.github.com/en/actions/reference/security/oidc
+
+### SLSA provenance: builder is not workload subject
+
+The approved SLSA Build Provenance v1.2 spec uses the stable predicate URI https://slsa.dev/provenance/v1. Its builder.id identifies the transitive closure of the trusted build platform that ran the build and generated the provenance. That is distinct from the workload OIDC subject and from the attestation signer. Consumers should accept only specific signer/builder pairs and verify the artifact subject and resolved dependencies.
+
+Implication: the DevSecOps model now checks the trusted build-platform identifier separately from the CI workload subject, and binds the attested artifact digest, source commit, workflow and invocation/run identity. A self-declared builder_id or signer_trusted=true remains only synthetic fixture input until a production verifier validates the actual attestation and trust roots.
+
+Reference: https://slsa.dev/spec/v1.2/build-provenance
+
+### OPA decision receipt is not effect receipt
+
+OPA's official decision-log schema includes a decision ID, trace/span identifiers, bundle revision, policy path, query, input, result and timestamp. This supplies useful decision evidence and replay context; it does not prove a downstream write happened or that it matched the decision. OPA also allows input masking/erasure, which can prevent exact-operation reconstruction.
+
+Implication: PR #6233 adds a separate collection receipt binding the OPA event and exact input digest, then separately requires a protected-resource observation bound to the same decision and operation. Provider acknowledgement remains distinct from independent observation; common-cause dependence blocks reconciliation; an effect after a denial is a distinct unauthorized-effect result.
+
+Reference: https://www.openpolicyagent.org/docs/management-decision-logs
+
+### Benchmarks: what the current results justify
+
+AuthorizationBench reports 19.2% out-of-authorization trajectories across its own 6,864 runs. SABench reports collateral damage in 15.2% of its 2,211 model-task runs and unauthorized writes in 12.8% of goal-satisfied runs; its ambiguity tasks were particularly difficult. These are study-specific results and denominators, not general industry incident rates and not comparable to LISE's synthetic suite scores.
+
+The useful design implications are:
+- Retain benign-pressure and non-harmful overreach cases; do not benchmark only malicious prompt injection.
+- Include dependent, cross-tool and externally reachable state graphs, not only independent single-tool tasks.
+- Preserve separate task-success, authorization-compliance, unauthorized-write and collateral-damage outcomes.
+- Compare OPA/PDP logs, OAuth RAR grants, provider-native controls and LISE/IAE using identical tasks, tool surfaces and adjudication.
+- Publish paired domain results, confidence intervals, sample counts and false-permit/false-denial trade-offs; do not collapse them into one score.
+
+References:
+- https://arxiv.org/abs/2610.27548
+- https://arxiv.org/abs/2610.34167
+
+## 13. Integrated qualification status as of November 15, 2026
+
+The following independent draft slices have reached exact-head workflow passes:
+
+| PR | Executable increment | Exact-head result |
+|---|---|---|
+| #6212 | IAE → LISE temporal adapter | formatting, check, 17 tests, strict Clippy and frozen replay pass |
+| #6225 | finite route mediation/bypass evaluator | JSON, formatting, check, 11 tests, strict Clippy and frozen bypass replay pass |
+| #6233 | OPA decision/effect binding reference | JSON, formatting, check, 12 tests, strict Clippy and frozen effect-reconciliation replay pass |
+| #6227 | DevSecOps agent authority profile | the earlier 16-case head passed formatting, check, 15 tests, strict Clippy and replay; subsequent immutable-subject/reusable-workflow/run-attempt controls are a newer, not-yet-qualified 19-case revision |
+
+All results are synthetic software-contract checks. None establishes source authenticity, legal authority, provider trust, real route inventory completeness, live OIDC verification, actual external effect, production safety, certification or superiority over industry systems. A newer head inherits no pass from an older one.
