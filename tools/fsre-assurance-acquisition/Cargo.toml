@@ -1,0 +1,13 @@
+[package]
+name = "fsre-assurance-acquisition"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "fsre-assurance-acquisition"
+path = "src/main.rs"
