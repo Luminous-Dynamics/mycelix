@@ -177,6 +177,11 @@ Required controls:
 - Use privacy classes and encrypted evidence capsules where raw canonical evidence must be retained; redacted summaries must not be convertible into authority-bearing canonical inputs.
 - Do not claim coercion resistance or protection from repeated-query inference without a separate threat model and evidence.
 
+- Treat the predicate interface itself as a possible disclosure oracle. A verifier that asks whether income is above 50k, then 55k, then 52.5k can narrow a private value even when every individual proof is perfectly zero-knowledge. Domain policy must constrain the allowed predicate family, resolution, purpose, audience and repeated-query pattern; exact Xenia consent must bind the requested operation or a narrowly described request family.
+- Query accounting belongs to the existing domain/PEC policy owners, not a universal ZKP subsystem. Where duplicate or adaptive-query detection needs a subject handle, scope it to the verifier, purpose and policy epoch; avoid a global stable identifier. Keep query history private and expose only the minimum policy decision needed by the requester.
+- Unknown query history, incomplete request coverage or missing policy frontier must not be treated as a fresh allowance. The outcome is blocked or indeterminate under the owning policy; do not silently weaken the privacy requirement.
+
+
 ## 8. Backend and implementation status at profile creation
 
 These observations are source-level inspection, not fresh build or test results.
