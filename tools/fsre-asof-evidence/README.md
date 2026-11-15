@@ -43,3 +43,26 @@ The replay uses only `available_at <= decision_at`. Later-known revocations are 
 `cargo run --quiet --locked --offline --manifest-path tools/fsre-asof-evidence/Cargo.toml -- tools/fsre-asof-evidence/fixtures/synthetic-asof.psv`
 
 The tool preserves owner and source references but does not authenticate them. It does not replace the owner-native evidence stores, W3C PROV, OGC temporal records, a bitemporal database, or a canonical authority service.
+
+
+## Evidence revisions and immutable supersession (v0.2)
+
+Every evidence row now has three optional revision fields:
+- \`supersedes_record_id\`
+- \`supersession_known_at\`
+- \`revision_kind\`
+
+They are either all empty (an original record), or all declared with a valid revision kind. A revision kind is one of \`MEASUREMENT_CORRECTION\`, \`SOURCE_CORRECTION\`, \`METHODOLOGY_CHANGE\`, \`NEW_SOURCE\`, \`RECLASSIFICATION\`, or \`BOUNDARY_CHANGE\`.
+
+The revision graph is immutable and linear per predecessor in E0:
+- predecessor must exist and belong to the same claim;
+- only asserted evidence may supersede asserted evidence;
+- forks, dangling links and cycles are rejected;
+- a predecessor can have only one successor;
+- each record keeps its own observation, availability, validity and revocation times.
+
+At a replay cutoff, the predecessor is excluded only if its supersession was known by that cutoff. A correction discovered later cannot rewrite an earlier replay. If a supersession is already known but the replacement is not yet available, the predecessor is still excluded and the claim may become \`NOT_ESTIMABLE\`; the old version is never silently resurrected.
+
+Methodology changes are retained as a distinct revision kind, not conflated with measurement/source corrections. They still require explicit review of temporal comparability; this E0 tool does not determine whether the new methodology is superior.
+
+The report is \`fsre-asof-evidence-report.v0.2\`, and every evidence line records its revision kind and, where applicable, its known successor. It continues to preserve the earlier caveats: source authenticity, physical truth and operational authority are not established.
