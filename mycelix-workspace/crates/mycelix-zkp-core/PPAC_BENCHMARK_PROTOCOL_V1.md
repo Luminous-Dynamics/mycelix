@@ -31,6 +31,31 @@ Use standards conformance and workload-matched measurements as separate baseline
 | W3C Verifiable Credential Data Integrity 1.0 | Recommendation, 15 May 2025 | Stable baseline for securing credential data with cryptographic signatures/proofs. |
 | W3C Data Integrity BBS Cryptosuites 1.0 | Candidate Recommendation Draft, 10 September 2026 | Selective-disclosure/unlinkable-derived-proof candidate; evaluate against its exact conformance suite and metadata caveats, not as a completed Recommendation. The working group calls for two independent implementations per feature to exit CR. |
 | W3C VC Data Model 2.1 / Data Integrity 1.1 | Working Drafts, latest 30 September 2026 | Track as forward-compatibility work; don't silently describe V2.0 implementations as V2.1 conformant. |
+| W3C Bitstring Status List 1.0 | Recommendation, 15 May 2025 | Stable baseline for credential status publication; benchmark list fetch privacy, shared-list/group privacy and cache freshness. |
+| W3C Bitstring Status List 1.1 | Working Draft, 11 November 2026 | Track as a draft; specifically test URL/slot correlation, list size, group size, status freshness and holder/verifier linkability. |
+
+### Post-quantum status is a separate cryptographic profile
+
+| Standard | Status | What it covers | What it does not establish |
+|---|---|---|---|
+| NIST FIPS 203 / ML-KEM | Final, 13 August 2024 | Post-quantum key encapsulation / shared-secret establishment | Digital signatures, ZK proofs or credential privacy |
+| NIST FIPS 204 / ML-DSA | Final, 13 August 2024 | Post-quantum digital signatures | Privacy of a credential or proof witness |
+| NIST FIPS 205 / SLH-DSA | Final, 13 August 2024 | Stateless hash-based post-quantum signatures | ZK soundness or institutional authority |
+| W3C Quantum-Resistant Cryptosuites v1.0 | First Public Working Draft, 16 June 2026 | Draft PQ Data Integrity cryptosuite work for VCs | A final interoperable PQ credential profile |
+
+The BBS CRD uses BLS12-381 pairing-based key material. Treat BBS as a classical selective-disclosure/interoperability track, not a post-quantum credential suite. Xenia's ML-DSA/ML-KEM support does not make the Mycelix credential signature, BBS presentation, RISC Zero receipt, Winterfell proof, Binius/Iron Spartan proof, verifier software supply chain or stored evidence post-quantum by inheritance.
+
+Every proof/credential profile must publish its own crypto inventory: issuer signature, holder/presentation proof, commitment, hash, proof-system/FRI or polynomial-commitment layer, recursion/compression, verifier trust root, session KEM/signature and long-term evidence timestamping. Classify each component as PQ, classical, hybrid, unknown or not applicable, with exact algorithm/version and migration rule. A high-level label such as "PQC-enabled" is insufficient if one binding layer remains classical.
+
+For a policy requiring PQ security, reject downgrade to classical-only keys, mixed or unenrolled hybrid pairs, stale algorithm profiles and receipts signed under an unapproved suite. Preserve algorithm agility and historical verification separately: a new algorithm policy must not rewrite the historical fact that an older signature verified under the then-applicable profile.
+
+Primary references:
+- NIST FIPS 203: https://csrc.nist.gov/pubs/fips/203/final
+- NIST FIPS 204: https://csrc.nist.gov/pubs/fips/204/final
+- NIST FIPS 205: https://csrc.nist.gov/pubs/fips/205/final
+- W3C Quantum-Resistant Cryptosuites: https://www.w3.org/TR/vc-di-quantum-resistant/
+- W3C Bitstring Status List 1.1: https://www.w3.org/TR/vc-bitstring-status-list-1.1/
+- W3C BBS: https://www.w3.org/TR/2026/CRD-vc-di-bbs-20260910/
 
 Primary sources:
 - https://www.w3.org/TR/vc-data-model/
