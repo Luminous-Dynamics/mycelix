@@ -31,6 +31,57 @@ Hard gates:
 
 Do not score a parser as more capable merely because it converts more fields. A conversion with hidden assumptions is worse than an explicit unsupported state.
 
+## 1B. Receipt-sequence and append-only custody benchmark
+
+Wall-clock time is not a safe historical visibility boundary. Every replay benchmark must distinguish:
+- source event/phenomenon time;
+- source publication/creation time;
+- ingress wall-clock receipt time;
+- append-only ingress sequence;
+- externally pinned receipt checkpoint;
+- later verifier/appraisal time.
+
+The v0.2 research implementation adds a SHA-256 hash-chained receipt sequence. This is a first tamper-evident increment, not a full transparency log.
+
+### Required adversarial cases
+
+1. Clock rollback: sequence 2 has a lower wall-clock receipt timestamp than sequence 1; it must remain later in receipt order.
+2. Backdated future arrival: sequence 2 has a timestamp earlier than sequence 1 but must not appear in a sequence-1 replay.
+3. Clock jump forward, duplicate timestamps and timezone/UTC conversion attempts; sequence remains authoritative.
+4. Raw packet alteration while retaining the receipt digest.
+5. Receipt timestamp alteration while retaining the receipt digest.
+6. Sequence alteration, duplicate sequence, missing sequence, reordered entries and missing prefix records.
+7. Previous-receipt digest alteration, receipt digest alteration and wrong terminal checkpoint.
+8. Truncated journal with a longer independently pinned checkpoint.
+9. Future malformed XML after the checkpoint; it must not poison the earlier replay but must be rejected once included in a later checkpoint.
+10. Two distinct internally consistent journals/forks presented against different checkpoints; a relying party must detect this only when checkpoints are compared through external witnesses or gossip. Local chain verification alone cannot detect split views.
+
+### Proposed hard gates
+
+| Metric | Acceptance target |
+|---|---:|
+| Historical look-ahead under clock rollback/backdating | 0 |
+| Packet-byte / receipt-digest / chain-link tampering accepted | 0 |
+| Missing/reordered/duplicate prefix sequence accepted | 0 |
+| Wrong or truncated checkpoint accepted | 0 |
+| Receipt-order invariance under wall-clock perturbation | 100% |
+| Checkpoint/fork disagreement detected by independent witness layer | 100% of injected split-view cases |
+
+The last gate is **not implemented by the current hash-chain code**. It requires signed or witnessed checkpoints and cross-witness comparison. Do not report it as achieved until that layer exists.
+
+### Transparency-log progression
+
+Use [RFC 9162 Certificate Transparency v2](https://www.rfc-editor.org/rfc/rfc9162.html) as a design reference for the next stage: append-only Merkle trees, inclusion proofs, consistency proofs, signed tree heads and audit/witness roles. Do not claim RFC 9162 conformance or reuse its certificate-specific object model. Scientific receipt leaves need their own versioned, domain-separated schema and rights/privacy policy.
+
+For a production-grade custody claim, compare at least:
+- local hash chain with external checkpoint pinning (current research increment);
+- Merkle transparency log with inclusion and consistency proofs;
+- independently witnessed/signed checkpoints with key rotation and revocation;
+- gossip or cross-organizational monitors to detect split views;
+- trusted timestamp authority or attested ingress where a wall-clock assertion is actually required.
+
+The trust claim should remain layered: a hash proves integrity relative to a commitment; a checkpoint witness supports append-only history; a signature identifies a key/controller under a trust policy; a timestamp authority appraises time; none of these alone proves the sensor observed a real phenomenon.
+
 ## 2. Evaluation ladder
 
 Keep the same task API and evidence semantics while increasing physical realism.
