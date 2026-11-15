@@ -1129,6 +1129,61 @@ mod tests {
     }
 
     #[test]
+    fn checked_in_receipt_journal_fixture_replays_against_separate_checkpoint() {
+        let manifest: ReceiptJournalManifest = serde_json::from_str(include_str!(
+            "../tests/fixtures/receipt-journal-clock-rollback.json"
+        ))
+        .expect("receipt journal fixture");
+        let checkpoint: ReceiptCheckpoint = serde_json::from_str(include_str!(
+            "../tests/fixtures/trusted-receipt-checkpoint.json"
+        ))
+        .expect("trusted checkpoint fixture");
+
+        let replay =
+            replay_receipt_sequence(manifest, &checkpoint).expect("sequence journal replay");
+        assert_eq!(replay.visible_packets.len(), 2);
+        assert_eq!(replay.visible_packets[0].receipt_sequence, Some(1));
+        assert_eq!(replay.visible_packets[1].receipt_sequence, Some(2));
+        assert!(replay.visible_packets[1].received_at_unix_ms
+            < replay.visible_packets[0].received_at_unix_ms);
+        assert_eq!(replay.cutoff_sequence, Some(2));
+        assert_eq!(
+            replay.cutoff_receipt_sha256.as_deref(),
+            Some("cae093e4fdd40acdf7ec987adf247abbf56deb35e35af30c7e9c24df992fcb7c")
+        );
+        assert_eq!(replay.edges.len(), 1);
+    }
+
+    #[test]
+    fn empty_receipt_checkpoint_uses_the_fixed_genesis_commitment() {
+        let replay = replay_receipt_sequence(
+            ReceiptJournalManifest {
+                packets: Vec::new(),
+            },
+            &ReceiptCheckpoint {
+                sequence: 0,
+                receipt_sha256: receipt_genesis_sha256(),
+            },
+        )
+        .expect("empty genesis checkpoint");
+        assert!(replay.visible_packets.is_empty());
+        assert_eq!(replay.cutoff_sequence, Some(0));
+
+        assert!(matches!(
+            replay_receipt_sequence(
+                ReceiptJournalManifest {
+                    packets: Vec::new(),
+                },
+                &ReceiptCheckpoint {
+                    sequence: 0,
+                    receipt_sha256: "00".repeat(32),
+                }
+            ),
+            Err(ReceiptChainError::CheckpointMismatch { sequence: 0 })
+        ));
+    }
+
+    #[test]
     fn receipt_sequence_cutoff_defeats_backdated_wall_clock_arrivals() {
         let xml_one = source_packet("ivo://survey.example/one", None, None, &[]);
         let xml_two = source_packet(
