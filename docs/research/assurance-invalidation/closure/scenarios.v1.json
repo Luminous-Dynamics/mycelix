@@ -9,7 +9,7 @@
       "scenario_id": "CLOSE-001",
       "pair_id": "CLOSE-M01",
       "variant": "A",
-      "family": "key_lifecycle_unchanged",
+      "family": "key_lifecycle",
       "nodes": [
         {
           "node_id": "dep:current-key-state",
@@ -58,7 +58,7 @@
       "scenario_id": "CLOSE-002",
       "pair_id": "CLOSE-M01",
       "variant": "B",
-      "family": "key_lifecycle_rotation",
+      "family": "key_lifecycle",
       "nodes": [
         {
           "node_id": "dep:current-key-state",
@@ -114,7 +114,7 @@
       "scenario_id": "CLOSE-003",
       "pair_id": "CLOSE-M02",
       "variant": "A",
-      "family": "policy_dependency_unchanged",
+      "family": "policy_dependency",
       "nodes": [
         {
           "node_id": "dep:policy-alpha",
@@ -183,7 +183,7 @@
       "scenario_id": "CLOSE-004",
       "pair_id": "CLOSE-M02",
       "variant": "B",
-      "family": "transitive_policy_dependency_change",
+      "family": "policy_dependency",
       "nodes": [
         {
           "node_id": "dep:policy-alpha",
@@ -259,7 +259,7 @@
       "scenario_id": "CLOSE-005",
       "pair_id": "CLOSE-M03",
       "variant": "A",
-      "family": "no_model_or_policy_change",
+      "family": "model_policy_scope",
       "nodes": [
         {
           "node_id": "dep:agent-tokenizer",
@@ -308,7 +308,7 @@
       "scenario_id": "CLOSE-006",
       "pair_id": "CLOSE-M03",
       "variant": "B",
-      "family": "tokenizer_change_does_not_reach_policy_claim",
+      "family": "model_policy_scope",
       "nodes": [
         {
           "node_id": "dep:agent-tokenizer",
@@ -364,7 +364,7 @@
       "scenario_id": "CLOSE-007",
       "pair_id": "CLOSE-M04",
       "variant": "A",
-      "family": "closed_route_inventory_no_change",
+      "family": "route_inventory",
       "nodes": [
         {
           "node_id": "dep:route-inventory-r9",
@@ -428,7 +428,7 @@
       "scenario_id": "CLOSE-008",
       "pair_id": "CLOSE-M04",
       "variant": "B",
-      "family": "new_alternate_route_added",
+      "family": "route_inventory",
       "nodes": [
         {
           "node_id": "dep:route-inventory-r9",
@@ -499,7 +499,7 @@
       "scenario_id": "CLOSE-009",
       "pair_id": "CLOSE-M05",
       "variant": "A",
-      "family": "route_inventory_closed",
+      "family": "route_inventory",
       "nodes": [
         {
           "node_id": "dep:static-route-inventory",
@@ -558,7 +558,7 @@
       "scenario_id": "CLOSE-010",
       "pair_id": "CLOSE-M05",
       "variant": "B",
-      "family": "dynamic_route_space_unobserved",
+      "family": "route_inventory",
       "nodes": [
         {
           "node_id": "dep:static-route-inventory",
@@ -619,7 +619,7 @@
       "scenario_id": "CLOSE-011",
       "pair_id": "CLOSE-M06",
       "variant": "A",
-      "family": "independent_observer_paths",
+      "family": "observer_dependency",
       "nodes": [
         {
           "node_id": "dep:observer-a-signature",
@@ -688,7 +688,7 @@
       "scenario_id": "CLOSE-012",
       "pair_id": "CLOSE-M06",
       "variant": "B",
-      "family": "shared_upstream_discovered",
+      "family": "observer_dependency",
       "nodes": [
         {
           "node_id": "dep:observer-a-signature",
