@@ -219,10 +219,14 @@ Measure:
 - timing, proof-size, message-position and status-lookup metadata;
 - transcript/query/opening leakage;
 - verifier collusion and repeated-query inference.
+- adaptive chosen-predicate sequences (for example, repeated threshold queries that narrow a hidden income/balance value), including query-order changes, cross-session continuity and policy/consent changes between requests.
 
 Prospective target for a defined balanced unlinkability experiment: no unauthorized seeded-attribute disclosure, and distinguisher advantage upper confidence bound <= 0.01 for the declared test adversary. This is a finite experiment target, not a universal anonymity theorem.
 
 For every privacy result, state the information intentionally revealed by the public statement and metadata. A proof that reveals the threshold result necessarily reveals that result.
+
+A separate query-governance experiment must test that the domain's allowed predicate family, resolution, purpose, audience and repeated-query policy constrain adaptive disclosure. Do not call this differential privacy unless a formally defined DP mechanism and accounting model are actually used. Query accounting should reuse Mycelix PEC/domain policy owners and pairwise scoped subject references; it must not create a universal global privacy-budget service. Missing query history or incomplete policy coverage should block or return indeterminate, never imply a fresh allowance.
+
 
 ### LISE change-driven assurance
 
