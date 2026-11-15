@@ -835,24 +835,24 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
             return Err(invalid(format!("duplicate or empty report key at line {}", index + 1)));
         }
     }
-    if required(&metadata, "analysis_id")? != problem.analysis_id
-        || required(&metadata, "input_snapshot_id")? != problem.snapshot_id
-        || required(&metadata, "decision_property")? != problem.property
-        || required(&metadata, "target_action")? != problem.target_action
-        || required(&metadata, "cost_unit")? != problem.cost_unit
-        || required(&metadata, "search_status")? != "DEFEATER_FOUND"
-        || required(&metadata, "minimality_status")? != "PROVEN_MINIMAL"
+    if required(&fields, "analysis_id")? != problem.analysis_id
+        || required(&fields, "input_snapshot_id")? != problem.snapshot_id
+        || required(&fields, "decision_property")? != problem.property
+        || required(&fields, "target_action")? != problem.target_action
+        || required(&fields, "cost_unit")? != problem.cost_unit
+        || required(&fields, "search_status")? != "DEFEATER_FOUND"
+        || required(&fields, "minimality_status")? != "PROVEN_MINIMAL"
     {
         return Err(VerifyError::new(
             Disposition::MinimumCertificateInvalid,
             "report identity, property or complete-search claim does not match input",
         ));
     }
-    if required(&metadata, "source_use")? != "ASSERTED_NOT_AUTHENTICATED"
-        || required(&metadata, "authority")? != "ASSERTED_NOT_AUTHENTICATED"
-        || required(&metadata, "perturbation_admissibility")? != "ASSERTED_NOT_AUTHENTICATED"
-        || required(&metadata, "causal_truth")? != "NOT_ESTABLISHED"
-        || required(&metadata, "physical_realizability")? != "NOT_ESTABLISHED"
+    if required(&fields, "source_use")? != "ASSERTED_NOT_AUTHENTICATED"
+        || required(&fields, "authority")? != "ASSERTED_NOT_AUTHENTICATED"
+        || required(&fields, "perturbation_admissibility")? != "ASSERTED_NOT_AUTHENTICATED"
+        || required(&fields, "causal_truth")? != "NOT_ESTABLISHED"
+        || required(&fields, "physical_realizability")? != "NOT_ESTABLISHED"
     {
         return Err(VerifyError::new(
             Disposition::MinimumCertificateInvalid,
@@ -861,8 +861,8 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
     }
 
     let total_subsets = 1_u64 << problem.mutations.len();
-    let reported_total = parse_u64(required(&metadata, "total_subsets")?, "total_subsets")?;
-    let evaluated = parse_u64(required(&metadata, "evaluated_subsets")?, "evaluated_subsets")?;
+    let reported_total = parse_u64(required(&fields, "total_subsets")?, "total_subsets")?;
+    let evaluated = parse_u64(required(&fields, "evaluated_subsets")?, "evaluated_subsets")?;
     if reported_total != total_subsets || evaluated != total_subsets {
         return Err(VerifyError::new(
             Disposition::MinimumCertificateInvalid,
@@ -922,9 +922,9 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
             "report claims a defeater but independent enumeration found none",
         ));
     };
-    if required(&metadata, "robustness_margin")? != minimum_cost.to_string()
-        || required(&metadata, "best_witness_cost_upper_bound")? != minimum_cost.to_string()
-        || parse_u64(required(&metadata, "minimum_witness_count")?, "minimum_witness_count")?
+    if required(&fields, "robustness_margin")? != minimum_cost.to_string()
+        || required(&fields, "best_witness_cost_upper_bound")? != minimum_cost.to_string()
+        || parse_u64(required(&fields, "minimum_witness_count")?, "minimum_witness_count")?
             != expected_witnesses.len() as u64
     {
         return Err(VerifyError::new(
@@ -1031,7 +1031,7 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
     if truncated && reported_indices.len() == expected_witnesses.len() {
         return Err(invalid("witnesses_truncated=true but no witness is omitted"));
     }
-    if required(&metadata, "minimum_witness_count")? != expected_witnesses.len().to_string() {
+    if required(&fields, "minimum_witness_count")? != expected_witnesses.len().to_string() {
         return Err(VerifyError::new(
             Disposition::MinimumCertificateInvalid,
             "minimum witness count mismatch",
