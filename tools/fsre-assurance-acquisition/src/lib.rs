@@ -107,6 +107,8 @@ pub struct Analysis {
     pub blocked_count: usize,
     pub unknown_count: usize,
     pub scope_mismatch_count: usize,
+    pub unaddressed_obligations: Vec<String>,
+    pub plan_failure_reason: String,
     pub result: SearchResult,
 }
 
@@ -556,6 +558,30 @@ pub fn analyze(problem: &Problem) -> Analysis {
         .filter(|item| disposition(problem, item) == CandidateDisposition::Admissible)
         .collect::<Vec<_>>();
     let result = search(problem, &admissible);
+    let declared_coverage = admissible
+        .iter()
+        .flat_map(|item| item.covers.iter().cloned())
+        .collect::<BTreeSet<_>>();
+    let unaddressed_obligations = problem
+        .obligations
+        .iter()
+        .filter(|obligation| !declared_coverage.contains(*obligation))
+        .cloned()
+        .collect::<Vec<_>>();
+    let plan_failure_reason = if result.status == "EXACT_COMPLETE_COVER_FOUND"
+        || result.status == "NO_ACQUISITIONS_REQUIRED"
+    {
+        "NONE_COMPLETE_PLAN_FOUND_WITHIN_DECLARED_CANDIDATE_SET"
+    } else if result.status.starts_with("SEARCH_LIMIT_EXCEEDED") {
+        "SEARCH_LIMIT_EXCEEDED"
+    } else if admissible.is_empty() {
+        "NO_ADMISSIBLE_CANDIDATES"
+    } else if !unaddressed_obligations.is_empty() {
+        "OBLIGATION_NOT_COVERED_BY_ANY_ADMISSIBLE_CANDIDATE"
+    } else {
+        "BUDGET_PREREQUISITE_OR_RESOURCE_CONSTRAINTS"
+    }
+    .to_owned();
 
     Analysis {
         problem: problem.clone(),
@@ -563,6 +589,8 @@ pub fn analyze(problem: &Problem) -> Analysis {
         blocked_count,
         unknown_count,
         scope_mismatch_count,
+        unaddressed_obligations,
+        plan_failure_reason,
         result,
     }
 }
@@ -628,6 +656,10 @@ impl Analysis {
             self.scope_mismatch_count
         )
         .expect("String write");
+        writeln!(out, "unaddressed_by_any_admissible_candidate={}", self.unaddressed_obligations.join(","))
+            .expect("String write");
+        writeln!(out, "plan_failure_reason={}", self.plan_failure_reason)
+            .expect("String write");
         writeln!(out, "search_status={}", self.result.status).expect("String write");
         writeln!(
             out,
@@ -672,8 +704,34 @@ impl Analysis {
         } else {
             out.push_str("best_partial=NOT_ESTABLISHED\n");
         }
-        for (id, disposition) in &self.dispositions {
-            writeln!(out, "candidate.{id}.disposition={}", disposition.as_str())
+        for item in &self.problem.acquisitions {
+            let id = &item.id;
+            let candidate_disposition = disposition(&self.problem, item);
+            writeln!(out, "candidate.{id}.disposition={}", candidate_disposition.as_str())
+                .expect("String write");
+            writeln!(out, "candidate.{id}.scope_match={}", item.scope_sha256 == self.problem.scope_sha256)
+                .expect("String write");
+            writeln!(out, "candidate.{id}.authority_gate={}", item.authority.as_str())
+                .expect("String write");
+            writeln!(out, "candidate.{id}.rights_gate={}", item.rights.as_str())
+                .expect("String write");
+            writeln!(out, "candidate.{id}.safety_gate={}", item.safety.as_str())
+                .expect("String write");
+            writeln!(out, "candidate.{id}.physical_gate={}", item.physical.as_str())
+                .expect("String write");
+            writeln!(out, "candidate.{id}.schedule_gate={}", item.schedule.as_str())
+                .expect("String write");
+            writeln!(out, "candidate.{id}.data_access_gate={}", item.data_access.as_str())
+                .expect("String write");
+            writeln!(out, "candidate.{id}.covers={}", item.covers.join(","))
+                .expect("String write");
+            writeln!(out, "candidate.{id}.prerequisites={}", item.prerequisites.join(","))
+                .expect("String write");
+            writeln!(out, "candidate.{id}.resource_slot={}", item.resource_slot)
+                .expect("String write");
+            writeln!(out, "candidate.{id}.source_group={}", item.source_group)
+                .expect("String write");
+            writeln!(out, "candidate.{id}.source_ref={}", item.source_ref)
                 .expect("String write");
         }
         out.push_str("plan_coverage=DECLARED_CAPABILITY_ONLY\n");
@@ -765,6 +823,9 @@ mod tests {
         assert_eq!(report.unknown_count, 1);
         assert_eq!(report.scope_mismatch_count, 0);
         assert!(report.render().contains("field_authorization=NOT_GRANTED"));
+        assert!(report.render().contains("candidate.blocked-private-data.rights_gate=BLOCKED"));
+        assert!(report.render().contains("candidate.remote-sensor.physical_gate=UNKNOWN"));
+        assert!(report.render().contains("candidate.stale-snapshot.scope_match=false"));
     }
 
     #[test]
