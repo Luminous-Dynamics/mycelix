@@ -6,7 +6,7 @@
   "status": "design_fixture_specification",
   "created_at": "2026-11-15",
   "synthetic_only": true,
-  "case_count": 24,
+  "case_count": 26,
   "oracle_status": "not_adjudicated",
   "execution_status": "not_run",
   "labels_are_provisional": true,
@@ -16,7 +16,8 @@
     "positive_control_requirement": "A positive case must demonstrate a reachable fully-bound proof/claim path; a suite that rejects all candidates cannot pass.",
     "fail_closed": "Unsupported, stale, revoked, contradicted, expired, mismatched and indeterminate states cannot be promoted to a positive claim or action authorization.",
     "independence": "Expected dispositions require independent review and must not be authored solely by the implementation under test.",
-    "no_aggregate_score": "Hard failures such as false acceptance or unauthorized disclosure cannot be offset by performance or average accuracy."
+    "no_aggregate_score": "Hard failures such as false acceptance or unauthorized disclosure cannot be offset by performance or average accuracy.",
+    "adaptive_predicate_disclosure": "Model repeated and adaptively chosen predicates as an information-flow channel; query-family/sequence policy must be domain-owned, purpose/audience scoped and consent-bound. This casebook does not implement a differential-privacy budget."
   },
   "disposition_vocabulary": [
     "QUALIFIED_CLAIM_CANDIDATE",
@@ -600,12 +601,66 @@
       "owners": [
         "Mycelix #1919"
       ]
+    },
+    {
+      "id": "PPAC-PRIV-002",
+      "family": "adaptive-predicate-inference",
+      "kind": "privacy",
+      "base_case": "PPAC-POS-001",
+      "scenario": "A verifier submits an unapproved sequence of thresholds against the same hidden income/balance claim, narrowing the value by repeated yes/no answers.",
+      "facts": {
+        "each_proof": "cryptographically_valid",
+        "predicate_sequence": "adaptive_binary_search_like",
+        "request_policy": "query_family_or_count_limit_exceeded",
+        "consent": "not_covering_sequence"
+      },
+      "mutation": {
+        "field": "predicate_request_sequence",
+        "from": "single_allowed_predicate",
+        "to": "unapproved_adaptive_sequence"
+      },
+      "expected_gate": "predicate_sequence_policy_and_consent",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "Zero knowledge for each proof does not prevent leakage through the composition of repeated predicate outputs.",
+      "owners": [
+        "Mycelix #2109",
+        "#2110",
+        "Symthaea #4860",
+        "Xenia #449"
+      ]
+    },
+    {
+      "id": "PPAC-PRIV-003",
+      "family": "adaptive-predicate-inference",
+      "kind": "ambiguous",
+      "base_case": "PPAC-POS-001",
+      "scenario": "The domain cannot reconstruct the prior query history or current policy frontier for this subject/purpose, so it cannot know whether another threshold query is within the allowed request profile.",
+      "facts": {
+        "query_history": "incomplete_or_unavailable",
+        "policy_frontier": "unknown",
+        "proof": "valid"
+      },
+      "mutation": {
+        "field": "query_history_coverage",
+        "from": "complete",
+        "to": "incomplete"
+      },
+      "expected_gate": "predicate_sequence_policy_and_consent",
+      "provisional_disposition": "INDETERMINATE",
+      "invariant": "Missing query history must not be interpreted as a reset or fresh allowance.",
+      "owners": [
+        "Mycelix #2109",
+        "#2110",
+        "Symthaea #4860",
+        "LISE #6219"
+      ]
     }
   ],
   "nonclaims": [
     "No cryptographic key, signature, credential, proof artifact or private user information is included.",
     "The casebook does not execute any proof system or verifier.",
     "Provisional expected dispositions are not adjudicated oracle labels.",
-    "Passing these finite synthetic cases would not establish production security, universal unlinkability, issuer truth, institutional authority, legal compliance or external effect."
+    "Passing these finite synthetic cases would not establish production security, universal unlinkability, issuer truth, institutional authority, legal compliance or external effect.",
+    "The casebook does not define or implement a global privacy budget or differential-privacy mechanism."
   ]
 }
