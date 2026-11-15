@@ -234,6 +234,95 @@ AND as_of is inside the request's permitted freshness interval
 
 “1250.00” is not a complete financial statement without currency, decimal scale, sign, account scope, timestamp and parser semantics.
 
+## 7a. Field semantics: authenticated bytes are not automatically the intended claim
+
+A source review of TLSNotary v0.1.0-beta.1's own `examples-zk` age-verification example exposed an important application-semantic boundary. This is a source-level review of the example, not a cryptographic break and not a demonstrated exploit.
+
+Exact pinned source:
+- Prover selects `taxpayer.date_of_birth` locally using spansy, then commits the selected range: https://github.com/tlsnotary/tlsn/blob/40a069565a2eaecbb5e691dbc634be20e8498daf/crates/examples-zk/prover.rs#L229-L266
+- Verifier accepts the first received hash commitment and binds the Noir public hash to that commitment: https://github.com/tlsnotary/tlsn/blob/40a069565a2eaecbb5e691dbc634be20e8498daf/crates/examples-zk/verifier.rs#L120-L129 and https://github.com/tlsnotary/tlsn/blob/40a069565a2eaecbb5e691dbc634be20e8498daf/crates/examples-zk/verifier.rs#L206-L222
+- Noir proves the hidden DOB/blinder opens the committed hash and satisfies the age predicate: https://github.com/tlsnotary/tlsn/blob/40a069565a2eaecbb5e691dbc634be20e8498daf/crates/examples-zk/noir/src/main.nr#L3-L16
+- TLSNotary verifies that the opening matches an authenticated transcript commitment with the exact direction/range: https://github.com/tlsnotary/tlsn/blob/40a069565a2eaecbb5e691dbc634be20e8498daf/crates/core/src/transcript/proof.rs#L54-L135
+- TLSNotary documents that a transcript is raw application bytes and carries no HTTP/JSON semantics; parsers must recover those semantics: https://github.com/tlsnotary/tlsn/blob/40a069565a2eaecbb5e691dbc634be20e8498daf/crates/core/src/transcript.rs#L7-L12
+
+The example's cryptographic chain correctly binds:
+- selected bytes in the authenticated transcript;
+- the private value and blinder opening those bytes' commitment; and
+- the predicate evaluated over that same private value.
+
+However, the inspected verifier path does not independently establish that the selected range is the value at JSON Pointer `/taxpayer/date_of_birth`. Path selection occurs in the prover's parser code. The verifier validates the commitment opening and predicate but does not independently validate the parser's field/path claim, duplicate-key behavior, parser version or surrounding JSON structure.
+
+Thus:
+
+~~~text
+authenticated transcript bytes
++ valid commitment opening
++ valid predicate over opened value
+!= proof that the opened range is the intended JSON field
+~~~
+
+A malicious prover may select a different authenticated date-shaped field from the same response and produce a valid age predicate over that field. That is an application-semantic misbinding, not forgery of TLSN bytes.
+
+### Mandatory field-binding relation
+
+A complete private source claim must bind:
+
+~~~text
+TLSNotary-authenticated transcript
++ exact HTTP response ordinal and direction
++ exact JSON parser/schema profile
++ exact JSON Pointer and duplicate-key policy
++ selected byte-range opening
++ private witness over those exact bytes
++ claim schema and predicate
+-> proof of the intended field's predicate
+~~~
+
+The verifier-owned request must specify the expected parser profile and field path. A parser version or JSON Pointer supplied only by the prover cannot define the institutional claim.
+
+### Three routes to compare
+
+**A. Verifier-checked structural context — first practical candidate**
+
+Reveal sufficient authenticated response structure (keys, delimiters, container boundaries and relevant framing) for the verifier to establish the requested field path and the exact hidden leaf range. The leaf value remains private.
+
+This avoids proving an unrestricted JSON parser in a circuit, but requires a careful partial-JSON/token-boundary contract. It may disclose structural metadata, so context bytes and linkability must be measured.
+
+The selected range must be tied to the exact response ordinal, request-response pair, direction and JSON Pointer. Missing or ambiguous context returns unsupported/indeterminate rather than guessing.
+
+**B. Parser-in-proof — higher-assurance research path**
+
+Prove within a reviewed guest/circuit that the committed response bytes parse under the exact grammar, that the requested JSON Pointer selects the private value, and that the predicate uses that same value.
+
+Do not invent a general JSON parser circuit merely for a demo. Compare existing parser/zkVM options, response-size bounds, duplicate-key policy and proof cost first.
+
+**C. Attestor-extracted value — explicit trust baseline**
+
+An attestor parses the authenticated response, binds source, parser profile, field path and value into a signed commitment, then a proof verifies that commitment and the predicate. This may be faster, but extraction correctness depends on the attestor. It is not equivalent to route A or B.
+
+### Required semantic adversarial controls
+
+- Two date-shaped fields: prover selects an unrelated date and labels it as DOB.
+- Similar JSON keys (e.g. `date_of_birth` and `beneficiary_date_of_birth`).
+- Duplicate keys with first-wins/last-wins parser divergence.
+- Escaped or Unicode-equivalent key names.
+- Same leaf text in a different nesting path.
+- Same field in a second HTTP response/message in the transcript.
+- Request-direction bytes substituted for response-direction bytes.
+- Chunked framing, compression, charset and decoded/raw offset confusion.
+- Numeric string vs JSON number, exponent notation, decimal scale, currency and rounding mismatch.
+- Parser/schema version substitution after the verifier issued the request.
+- Over-limit depth, field count, string length, truncation and missing/null values.
+- Structural disclosure that exposes unrelated fields or array membership.
+
+Positive controls must show a valid requested field can be verified while its leaf value stays hidden. Reject-all behavior is not success.
+
+Tracking:
+- Symthaea [SYM-ZK-TLSN-FIELD-001 / #12328](https://github.com/Luminous-Dynamics/symthaea/issues/12328) owns this application-semantic binding theorem.
+- Symthaea #12301 continues to own TLS transcript commitment opening and the same-witness predicate relation.
+- Mycelix #6245 owns the source/HTTP trust profiles and benchmark corpus.
+- Mycelix #2640 / #2641 / #2813 own capture fidelity, hostile acquisition and exact bounded parser handoff.
+
 ## 8. Integration ownership
 
 | Concern | Existing owner |
