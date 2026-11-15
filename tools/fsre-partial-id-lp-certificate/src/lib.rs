@@ -889,7 +889,7 @@ mod tests {
 
     #[test]
     fn feasible_primal_and_dual_with_gap_are_bounds_not_an_optimum_claim() {
-        let source = FIXTURE.replace("total-cap|2", "total-cap|3");
+        let source = FIXTURE.replace("x-cap|1", "x-cap|2");
         let report = analyze(&parse_input(&source).unwrap()).unwrap();
         assert!(report.primal.feasible);
         assert!(report.dual.feasible);
