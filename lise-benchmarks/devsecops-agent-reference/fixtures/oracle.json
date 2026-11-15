@@ -75,6 +75,24 @@
       "expected_decision": "DENY",
       "expected_reason_code": "policy.digest_drift",
       "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-013",
+      "expected_decision": "ALLOW_SCOPED",
+      "expected_reason_code": "qualified_human_approval_bound_to_current_head",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-014",
+      "expected_decision": "DENY",
+      "expected_reason_code": "human_approval.expired",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-015",
+      "expected_decision": "DENY",
+      "expected_reason_code": "human_approval.revoked",
+      "expected_violations": []
     }
   ]
 }
