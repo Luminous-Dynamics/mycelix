@@ -580,10 +580,11 @@ fn parse_citations(
                     if element_stack.len() == builder.depth {
                         builder.text.push_str(&decoded);
                     }
-                } else if let Some(builder) = current_description.as_mut() {
-                    if element_stack.len() == builder.depth {
-                        builder.text.push_str(&decoded);
-                    }
+                } else if let Some(builder) = current_description
+                    .as_mut()
+                    .filter(|builder| element_stack.len() == builder.depth)
+                {
+                    builder.text.push_str(&decoded);
                 }
             }
             Event::CData(text) => {
@@ -594,10 +595,11 @@ fn parse_citations(
                     if element_stack.len() == builder.depth {
                         builder.text.push_str(&decoded);
                     }
-                } else if let Some(builder) = current_description.as_mut() {
-                    if element_stack.len() == builder.depth {
-                        builder.text.push_str(&decoded);
-                    }
+                } else if let Some(builder) = current_description
+                    .as_mut()
+                    .filter(|builder| element_stack.len() == builder.depth)
+                {
+                    builder.text.push_str(&decoded);
                 }
             }
             Event::GeneralRef(reference) => {
@@ -934,10 +936,11 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
                     if element_stack.len() == builder.depth {
                         builder.text.push_str(&decoded);
                     }
-                } else if let Some(builder) = current_date.as_mut() {
-                    if element_stack.len() == builder.depth {
-                        builder.text.push_str(&decoded);
-                    }
+                } else if let Some(builder) = current_date
+                    .as_mut()
+                    .filter(|builder| element_stack.len() == builder.depth)
+                {
+                    builder.text.push_str(&decoded);
                 }
             }
             Event::CData(text) => {
@@ -948,10 +951,11 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
                     if element_stack.len() == builder.depth {
                         builder.text.push_str(&decoded);
                     }
-                } else if let Some(builder) = current_date.as_mut() {
-                    if element_stack.len() == builder.depth {
-                        builder.text.push_str(&decoded);
-                    }
+                } else if let Some(builder) = current_date
+                    .as_mut()
+                    .filter(|builder| element_stack.len() == builder.depth)
+                {
+                    builder.text.push_str(&decoded);
                 }
             }
             Event::GeneralRef(reference) => {
