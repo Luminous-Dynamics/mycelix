@@ -676,11 +676,14 @@ pub fn analyze(problem: &Problem) -> Analysis {
     .to_owned();
 
     let independence_enabled = problem.independence_assumption == IndependenceAssumption::Declared
-        && problem.linkage_status == LinkageStatus::PerfectLinkageAssumed;
+        && problem.linkage_status == LinkageStatus::PerfectLinkageAssumed
+        && problem.within_stratum_homogeneity == "DECLARED_WITHIN_STRATUM";
     let independence_point_status = if problem.independence_assumption == IndependenceAssumption::NotDeclared {
         "NOT_EMITTED_INDEPENDENCE_NOT_DECLARED"
     } else if problem.linkage_status != LinkageStatus::PerfectLinkageAssumed {
         "NOT_EMITTED_LINKAGE_NOT_ASSUMED_PERFECT"
+    } else if problem.within_stratum_homogeneity != "DECLARED_WITHIN_STRATUM" {
+        "NOT_EMITTED_WITHIN_STRATUM_HOMOGENEITY_NOT_DECLARED"
     } else if problem.source_a_ancestry == problem.source_b_ancestry {
         "CONDITIONAL_ESTIMATES_EMITTED_SHARED_UPSTREAM_ANCESTRY_REVIEW_REQUIRED"
     } else {
@@ -1057,6 +1060,19 @@ mod tests {
         problem.independence_assumption = IndependenceAssumption::Declared;
         problem.linkage_status = LinkageStatus::Unknown;
         let report = analyze(&problem);
+        assert!(report.results.iter().all(|result| result.chapman.is_none()));
+    }
+
+    #[test]
+    fn independence_point_estimates_require_within_stratum_homogeneity_declaration() {
+        let mut problem = fixture();
+        problem.within_stratum_homogeneity = "NOT_ESTABLISHED".to_owned();
+        let report = analyze(&problem);
+        assert_eq!(
+            report.independence_point_status,
+            "NOT_EMITTED_WITHIN_STRATUM_HOMOGENEITY_NOT_DECLARED"
+        );
+        assert!(report.results.iter().all(|result| result.lincoln_petersen.is_none()));
         assert!(report.results.iter().all(|result| result.chapman.is_none()));
     }
 
