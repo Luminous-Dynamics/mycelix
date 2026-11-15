@@ -1,0 +1,148 @@
+{
+  "schema_version": "0.1.0",
+  "registry_id": "nrvca-johannesburg-water-derived-datasets-v0.1",
+  "as_of_date": "2026-11-15",
+  "datasets": [
+    {
+      "dataset_id": "WTRSRCH-JW-STATUS-2026-11-15",
+      "dataset_kind": "third_party_compilation_of_operator_published_status",
+      "title": "Watersearch derived daily Johannesburg Water supply-status and outage history",
+      "provider": {
+        "name": "Watersearch",
+        "product": "The open API",
+        "operated_by_johannesburg_water": false,
+        "operated_by_city_of_johannesburg": false,
+        "publisher_statement": "The API page states it is not run by Johannesburg Water or the City.",
+        "api_url": "https://watersearch.co.za/api",
+        "openapi_url": "https://watersearch.co.za/api/v1/openapi.json",
+        "releases_url": "https://watersearch.co.za/api/v1/releases",
+        "bulk_download_page": "https://watersearch.co.za/data"
+      },
+      "underlying_fact_source": {
+        "publisher": "Johannesburg Water SOC Ltd",
+        "source_types": [
+          "reservoir_and_tower_status_boards",
+          "planned_and_unplanned_work_notices"
+        ],
+        "source_coverage_start": "2025-03-03",
+        "publisher_role": "source_of_reported_facts_only"
+      },
+      "release": {
+        "release_id": "2026-11-15-b7c711ba",
+        "as_of_date": "2026-11-15",
+        "boards_from": "2025-03-03",
+        "boards_to": "2026-11-15",
+        "source_view": "api.releases",
+        "last_board_read_at": null,
+        "retrieval_date": "2026-11-15",
+        "note": "The API releases endpoint identified this release as the current response during review. The data page listed several distinct same-date releases and stated that bulk downloads were not yet built; pin one exact release for every future acquisition and do not mix same-date variants."
+      },
+      "licence": {
+        "publisher_declared": "CC BY 4.0 for this compilation and its readings; credit Johannesburg Water as the source of the facts.",
+        "spdx_id": "CC-BY-4.0",
+        "status": "publisher_declared_not_independently_reviewed",
+        "provisionality_note": "The API page says the licence is provisional until the site is public. The API/data pages were publicly accessible on 15 November 2026; recheck the licence and attribution terms at acquisition time.",
+        "underlying_notice_and_image_rights": "not_separately_assessed",
+        "attribution_required": "Watersearch for compilation/method; Johannesburg Water for reported board/notice facts."
+      },
+      "acquisition": {
+        "api_response_bytes": "not_acquired",
+        "bulk_release_bytes": "not_acquired",
+        "original_johannesburg_water_boards_and_images": "not_acquired",
+        "content_sha256": null,
+        "row_manifest_sha256": null,
+        "bulk_manifest_available_for_selected_release": false,
+        "rights_review": "pending"
+      },
+      "api_contract": {
+        "api_version": "OpenAPI 3.1",
+        "response_schema_status": "incomplete",
+        "response_schema_note": "The exposed OpenAPI document declares application/json response schemas as empty objects for the reviewed endpoints. Author and validate strict local schemas against pinned fixtures before use.",
+        "authentication": "none",
+        "access_mode": "read_only",
+        "documented_endpoints": [
+          "/api/v1/supplies",
+          "/api/v1/supplies/{asset_id}",
+          "/api/v1/supplies/{asset_id}/history",
+          "/api/v1/supplies/{asset_id}/reports",
+          "/api/v1/supplies/{asset_id}/outages",
+          "/api/v1/supplies/{asset_id}/notices",
+          "/api/v1/suburbs/{slug}/history",
+          "/api/v1/releases"
+        ]
+      },
+      "observation_semantics": {
+        "level_vocabulary": [
+          "adequate",
+          "fair",
+          "pressure",
+          "low",
+          "no_water",
+          "critical",
+          "no_report"
+        ],
+        "reported_entity": "named reservoir, tower, pump station or direct feed",
+        "geography": "suburb-to-supply links as reported by Johannesburg Water",
+        "cadence": "status boards usually appear twice daily; cadence is not guaranteed",
+        "no_report": {
+          "meaning": "no Johannesburg Water board was published for the named supply/day in the compiler's record",
+          "normal_supply": false,
+          "valid_as_observation": false
+        },
+        "suburb_history": {
+          "row_unit": "suburb × linked supply × SAST day",
+          "multiple_supply_rule": "a suburb may depend on multiple linked supplies; assess together and preserve every supply row",
+          "tap_level": false
+        },
+        "scheduled_closure_rule": "scheduled overnight closures are reported separately and must not be counted as unplanned outage events"
+      },
+      "derived_outage_method": {
+        "qualifying_reported_statuses": [
+          "no_water",
+          "critical"
+        ],
+        "segmentation_convention_id": "C41",
+        "c41_maximum_gap_days": 4,
+        "c41_gap_rule": "Up to four consecutive days with no board between qualifying reports do not terminate a segmented outage. Those days remain counted in no_board_days and are never represented as observed no-water/critical reports.",
+        "censored_rule": "censored=true means the compiler has no reported end. The reported end_at is the last qualifying report and duration is a lower bound, not an independently established restoration time.",
+        "method_source": "https://watersearch.co.za/api",
+        "algorithm_revision": "release_bound_method_revision_not_separately_frozen",
+        "sensitivity_required": true
+      },
+      "lineage": {
+        "evidence_class": "third_party_derived_operator_report",
+        "independent_of_johannesburg_water": false,
+        "independent_corroboration": false,
+        "graph_relationship": "derived_from",
+        "parent_source_register": "https://github.com/Luminous-Dynamics/mycelix/blob/research/johannesburg-water-source-register-v0-1/docs/research/nrvca/johannesburg-water-service-sources-v0.1.json",
+        "event_graph_consumer": "https://github.com/Luminous-Dynamics/mycelix/blob/research/johannesburg-water-event-graph-v0-1/docs/research/nrvca/johannesburg-water-event-graph-v0.1.json",
+        "duplicate_evidence_rule": "Do not count Watersearch output as an independent source or second corroboration of the same underlying JW board or notice."
+      },
+      "claim_ceiling": "Versioned third-party compilation of Johannesburg Water's reported supply-board and notice statuses, and the compiler's explicitly documented derived daily/outage classifications.",
+      "does_not_establish": [
+        "Water delivered at an individual household tap or customer connection.",
+        "Measured pressure, flow, reservoir volume, water quality or potable suitability.",
+        "Exact physical outage onset or restoration time.",
+        "Independent confirmation of a burst, repair, service restoration or affected customer.",
+        "An unplanned outage where only a scheduled closure is present.",
+        "A normal service state on a no_report day.",
+        "A verified service polygon from reported suburb-to-supply labels.",
+        "Leak ground truth, non-revenue water, saved water or operator intervention effectiveness.",
+        "A hydraulic boundary condition without a separate validated measurement source."
+      ]
+    }
+  ],
+  "interpretation_rules": [
+    "This record is a third-party compilation of operator reporting, not a first-party Johannesburg Water source and not an independent witness.",
+    "Every acquired data row must bind exactly one immutable release_id and source_view.",
+    "Preserve raw JW status, compiler-normalized status, no_report, bypass and derived outage state as separate fields.",
+    "A no_report row is missing source reporting, not adequate service, zero outage, or zero demand.",
+    "A C41-bridged day is an unobserved gap included in a derived interval, not an observed no-water/critical day.",
+    "A censored outage duration is a lower bound only.",
+    "Never infer customer/tap service, hydraulic state or quality from a supply-board status.",
+    "Keep scheduled operating rules separate from unplanned outage segmentation.",
+    "Do not count the derivative as independent corroboration of its own underlying JW sources.",
+    "No SHA-256 or rights status is promoted until exact bytes are acquired and independently reviewed."
+  ],
+  "claim_ceiling": "Metadata-only admission profile. The selected release payload, board/media bytes, exact data rights and any downstream service outcome remain unacquired/unqualified."
+}
