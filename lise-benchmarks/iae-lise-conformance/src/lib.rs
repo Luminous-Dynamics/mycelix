@@ -294,14 +294,11 @@ fn history_receipt_covers_query(
         ("resource_ref", "target_ref"),
     ]
     .iter()
-    .all(|(receipt_key, operation_key)| {
-        receipt.get(*receipt_key) == operation.get(*operation_key)
-    });
+    .all(|(receipt_key, operation_key)| receipt.get(*receipt_key) == operation.get(*operation_key));
     if !fields_match
         || receipt.get("source_kind").and_then(Value::as_str)
             != Some("synthetic_closed_world_fixture")
-        || receipt.get("completeness_state").and_then(Value::as_str)
-            != Some("complete_for_scope")
+        || receipt.get("completeness_state").and_then(Value::as_str) != Some("complete_for_scope")
         || receipt.get("pagination_complete").and_then(Value::as_bool) != Some(true)
         || receipt.get("retention_complete").and_then(Value::as_bool) != Some(true)
         || receipt.get("gap_detected").and_then(Value::as_bool) != Some(false)
@@ -316,7 +313,8 @@ fn history_receipt_covers_query(
     {
         return false;
     }
-    let Ok(coverage_from) = timestamp(receipt, "coverage_from", "history completeness receipt") else {
+    let Ok(coverage_from) = timestamp(receipt, "coverage_from", "history completeness receipt")
+    else {
         return false;
     };
     let Ok(watermark) = timestamp(
@@ -326,11 +324,7 @@ fn history_receipt_covers_query(
     ) else {
         return false;
     };
-    let Ok(observed_at) = timestamp(
-        receipt,
-        "observed_at",
-        "history completeness receipt",
-    ) else {
+    let Ok(observed_at) = timestamp(receipt, "observed_at", "history completeness receipt") else {
         return false;
     };
     coverage_from.as_str() <= action_at
@@ -1176,7 +1170,9 @@ mod tests {
             PriorEffectState::NeverAttempted
         );
 
-        fixture.as_object_mut().expect("fixture object")
+        fixture
+            .as_object_mut()
+            .expect("fixture object")
             .remove("operation_history_completeness");
         assert_eq!(
             resolve_prior_effect(
@@ -1226,8 +1222,7 @@ mod tests {
     fn mismatched_or_late_completeness_receipt_is_rejected() {
         let (mut fixture, _) = inputs();
         let operation = fixture["operation_finality"]["approved_operation"].clone();
-        fixture["operation_history_completeness"]["idempotency_ref"] =
-            json!("IDEM-OTHER");
+        fixture["operation_history_completeness"]["idempotency_ref"] = json!("IDEM-OTHER");
         assert_eq!(
             resolve_prior_effect(
                 &fixture,
@@ -1240,8 +1235,7 @@ mod tests {
         );
 
         fixture["operation_history_completeness"]["idempotency_ref"] = json!("IDEM-LEASE-001");
-        fixture["operation_history_completeness"]["observed_at"] =
-            json!("2026-01-25T10:01:00Z");
+        fixture["operation_history_completeness"]["observed_at"] = json!("2026-01-25T10:01:00Z");
         assert_eq!(
             resolve_prior_effect(
                 &fixture,
