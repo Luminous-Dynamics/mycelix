@@ -9,5 +9,5 @@ r2|PERSON|entity-a|cluster-ab|100|100|2|11
 r3|PERSON|entity-b|cluster-ab|80|100|2|12
 r4|PERSON|entity-c|cluster-c1|50|50|3|13
 r5|PERSON|entity-c|cluster-c2|50|50|3|14
-r6|PERSON|entity-d|cluster-d|40|40|4|150
+r6|PERSON|entity-a|cluster-ab|100|100|4|150
 r7|PERSON|entity-e|cluster-e|10|10|11|90
