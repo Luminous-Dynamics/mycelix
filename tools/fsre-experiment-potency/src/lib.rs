@@ -885,7 +885,7 @@ mod tests {
             .iter()
             .position(|line| *line == "OBSERVATIONS")
             .unwrap();
-        let mut metadata_lines = lines[..world_header].to_vec();
+        let metadata_lines = lines[..world_header].to_vec();
         let mut world_rows = lines[world_header + 1..marker].to_vec();
         world_rows.reverse();
         let mut exp_rows = lines[marker + 2..obs_marker].to_vec();
@@ -893,7 +893,7 @@ mod tests {
         let mut obs_rows = lines[obs_marker + 2..].to_vec();
         obs_rows.reverse();
         let mut rebuilt = String::new();
-        for line in metadata_lines.drain(..) {
+        for line in metadata_lines {
             rebuilt.push_str(line);
             rebuilt.push('\n');
         }
