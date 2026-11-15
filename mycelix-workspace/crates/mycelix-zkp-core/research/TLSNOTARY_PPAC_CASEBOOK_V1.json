@@ -1,0 +1,244 @@
+{
+  "schema_version": "mycelix-tlsnotary-ppac-casebook-v1",
+  "profile_id": "mycelix:source-session:tlsnotary-ppac:v1",
+  "status": "research_only",
+  "case_count": 24,
+  "oracle_status": "not_adjudicated",
+  "execution_status": "not_run",
+  "owner_issues": [
+    "mycelix#6245",
+    "mycelix#2821",
+    "mycelix#2640",
+    "mycelix#2641",
+    "mycelix#2813",
+    "mycelix#2109",
+    "mycelix#2110",
+    "mycelix#6230",
+    "symthaea#12301",
+    "symthaea#12269",
+    "symthaea#12295"
+  ],
+  "modes": [
+    {
+      "id": "TLSN-MPC-DIRECT-V1",
+      "witness": "relying verifier participates during TLS",
+      "portability": "designated verifier only",
+      "claim_ceiling": "live session evidence to that verifier"
+    },
+    {
+      "id": "TLSN-MPC-NOTARY-V1",
+      "witness": "delegated notary participates and signs Session Header",
+      "portability": "offline attestation",
+      "claim_ceiling": "portable only under explicit notary trust profile"
+    },
+    {
+      "id": "TLSN-PROXY-V1",
+      "witness": "verifier proxies encrypted traffic and verifies TLS proof",
+      "portability": "profile-specific",
+      "claim_ceiling": "includes verifier-to-server network-path assumption"
+    }
+  ],
+  "nonclaims": [
+    "TLSNotary does not establish provider business truth.",
+    "An authenticated response does not establish account ownership or legal entitlement.",
+    "A notary signature does not remove trust in the delegated in-session witness.",
+    "Proxy mode is not security-equivalent to MPC-TLS.",
+    "Selective disclosure does not establish anonymity.",
+    "A request-bound balance proof is not a TLS transcript commitment opening.",
+    "TLS 1.3 support must be established from the exact release, not roadmap language."
+  ],
+  "cases": [
+    {
+      "id": "TLSN-001",
+      "mode": "TLSN-MPC-DIRECT-V1",
+      "kind": "positive",
+      "scenario": "Relying verifier participates online in MPC-TLS and verifies the exact server identity, transcript opening and application predicate.",
+      "expected": "DIRECT_VERIFIER_EVIDENCE",
+      "invariant": "Only the participating verifier receives the designated-verifier claim."
+    },
+    {
+      "id": "TLSN-002",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "positive",
+      "scenario": "Delegated notary signs a Session Header; later verifier validates the notary signature, transcript opening, TLS-specific server data and server identity.",
+      "expected": "PORTABLE_ATTESTATION_UNDER_NOTARY_PROFILE",
+      "invariant": "Portability inherits the declared notary trust root."
+    },
+    {
+      "id": "TLSN-003",
+      "mode": "TLSN-PROXY-V1",
+      "kind": "positive",
+      "scenario": "Proxy verifier observes encrypted traffic and verifies the exact admitted TLS 1.2 session proof under an explicit proxy profile.",
+      "expected": "PROXY_PROFILE_EVIDENCE_ONLY",
+      "invariant": "Proxy evidence never upgrades to MPC-TLS profile."
+    },
+    {
+      "id": "TLSN-004",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "An offline relying party treats a notary-signed presentation as trustless proof with no notary dependency.",
+      "expected": "BLOCKED",
+      "invariant": "Attestation verifier inherits trust in the delegated in-session witness."
+    },
+    {
+      "id": "TLSN-005",
+      "mode": "TLSN-MPC-DIRECT-V1",
+      "kind": "negative",
+      "scenario": "A third party who did not participate treats a direct-verifier transcript as portable public proof.",
+      "expected": "UNSUPPORTED",
+      "invariant": "Direct verifier evidence is designated-verifier."
+    },
+    {
+      "id": "TLSN-006",
+      "mode": "TLSN-PROXY-V1",
+      "kind": "negative",
+      "scenario": "Proxy result is admitted where the policy requires MPC-TLS's server-identity privacy or direct prover-to-server network path.",
+      "expected": "BLOCKED",
+      "invariant": "Proxy mode has a distinct trust model and server-identity disclosure."
+    },
+    {
+      "id": "TLSN-007",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A Session Header is validly signed by a key outside the expected notary trust-root/key-epoch profile.",
+      "expected": "BLOCKED",
+      "invariant": "Signature validity under an unexpected key is not notary qualification."
+    },
+    {
+      "id": "TLSN-008",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "The notary signature verifies but the supplied plaintext opening does not match the committed root.",
+      "expected": "BLOCKED",
+      "invariant": "Notary signature and commitment opening are independently checked."
+    },
+    {
+      "id": "TLSN-009",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "The transcript commitment matches, but the prover substitutes a private balance unrelated to the selected committed field.",
+      "expected": "BLOCKED",
+      "invariant": "The proof must link one witness to the exact committed field and predicate."
+    },
+    {
+      "id": "TLSN-010",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A correct opening is checked with a different HTTP-object leaf index or range selector.",
+      "expected": "BLOCKED",
+      "invariant": "The exact selector and opening path are part of the statement."
+    },
+    {
+      "id": "TLSN-011",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "The exact response is parsed with a substituted parser version, duplicate-key policy or JSON Pointer.",
+      "expected": "BLOCKED",
+      "invariant": "Parser identity and selection semantics are committed into the proof."
+    },
+    {
+      "id": "TLSN-012",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "Currency, decimal scale, sign, rounding or inclusive/exclusive comparison changes while the numeric threshold remains the same.",
+      "expected": "BLOCKED",
+      "invariant": "Claim schema and exact predicate semantics are separately bound."
+    },
+    {
+      "id": "TLSN-013",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "Valid server session is presented for the wrong origin, SNI, method, path, query, deployment or API product.",
+      "expected": "BLOCKED",
+      "invariant": "Exact source request/profile is part of the claim."
+    },
+    {
+      "id": "TLSN-014",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "Wrong TLS version or cipher suite is accepted despite the frozen protocol profile.",
+      "expected": "BLOCKED",
+      "invariant": "TLS version and cipher profile are explicit."
+    },
+    {
+      "id": "TLSN-015",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A TLS 1.3-only provider is admitted while the pinned TLSNotary release only qualifies TLS 1.2.",
+      "expected": "UNSUPPORTED",
+      "invariant": "Roadmap intent is not release capability."
+    },
+    {
+      "id": "TLSN-016",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A valid authenticated response is semantically false or misleading.",
+      "expected": "SOURCE_AUTHENTIC_BUT_SEMANTIC_TRUTH_UNESTABLISHED",
+      "invariant": "Transport authenticity does not establish business truth."
+    },
+    {
+      "id": "TLSN-017",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A successful provider login is treated as proof that the prover legally owns every returned account.",
+      "expected": "UNSUPPORTED",
+      "invariant": "Authentication is not account ownership or beneficial entitlement."
+    },
+    {
+      "id": "TLSN-018",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "The same commitment root, server metadata or account identifier correlates separate presentations across audiences.",
+      "expected": "PRIVACY_PROFILE_FAILURE",
+      "invariant": "Selective disclosure is not anonymity; linkability is measured."
+    },
+    {
+      "id": "TLSN-019",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "Repeated threshold predicates allow an adaptive verifier to infer a low-entropy private balance.",
+      "expected": "BLOCKED_BY_PEC_QUERY_POLICY",
+      "invariant": "Predicate sequences are a privacy channel."
+    },
+    {
+      "id": "TLSN-020",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A presentation reveals cookies, authorization headers, bearer tokens, account IDs or unrelated response fields.",
+      "expected": "PRIVACY_PROFILE_FAILURE",
+      "invariant": "Only explicitly permitted fields may leave the prover."
+    },
+    {
+      "id": "TLSN-021",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A request challenge, audience, purpose or policy is replayed/substituted across sessions.",
+      "expected": "BLOCKED",
+      "invariant": "Exact request binding and consume-once challenge ownership are required."
+    },
+    {
+      "id": "TLSN-022",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A previously valid response remains cryptographically authentic but is outside the required freshness interval or has been superseded.",
+      "expected": "STALE_OR_SUPERSEDED",
+      "invariant": "Cryptographic provenance is not currentness; LISE requalifies dependencies."
+    },
+    {
+      "id": "TLSN-023",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A host supplies source_valid=true, a parser output or a request digest without the corresponding authenticated root/opening evidence.",
+      "expected": "BLOCKED",
+      "invariant": "Host booleans and reference digests are not source proof."
+    },
+    {
+      "id": "TLSN-024",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A receipt valid for a different Symthaea guest ImageID is offered to the request-bound predicate verifier.",
+      "expected": "BLOCKED",
+      "invariant": "The expected exact guest ImageID is verifier-owned."
+    }
+  ]
+}
