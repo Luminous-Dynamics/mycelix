@@ -14,7 +14,7 @@ R_s =
 n_{000,s}=\frac{R_s}{\theta_{ABC,s}}.
 \]
 
-With independent declared sensitivity intervals per stratum, the aggregate hidden-cell interval is the sum of the per-stratum endpoints, but only if all listed strata are estimable and the stratum universe is declared complete. Target population totals additionally require a declared-complete population frame.
+With separate declared sensitivity intervals per stratum and no cross-stratum restrictions (a Cartesian-product identified set), the aggregate hidden-cell interval is the sum of the per-stratum endpoints. This is sharp only when all listed strata are estimable and the stratum universe is declared complete. Target population totals additionally require a declared-complete population frame.
 
 ## Pooling is not stratification
 
@@ -22,7 +22,7 @@ The known-answer fixture has two strata:
 - Rural: \(R=90\), theta interval [1,3], hidden interval [30,90].
 - Urban: \(R=240\), theta interval [1/2,2], hidden interval [120,480].
 
-The exact stratified hidden interval is [150,570]. The pooled seven-cell table has ratio 315, while the sum of conditional no-three-way stratum baselines is 330. The pooled ratio is therefore reported only as a diagnostic and is never substituted into the stratified interval.
+The exact stratified hidden interval is [150,570]. The pooled seven-cell table has ratio 315, while the sum of conditional no-three-way stratum baselines is 330. The pooled ratio is therefore reported only as a diagnostic and is never substituted into the stratified interval. Separate stratum interaction intervals do not imply statistical independence of the source lists; shared/unknown ancestry still suppresses every conditional point baseline.
 
 This is a synthetic counterexample to treating pooled and stratified models as interchangeable.
 
