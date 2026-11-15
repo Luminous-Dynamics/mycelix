@@ -43,7 +43,7 @@ jobs:
       - name: Replay frozen scenarios
         run: |
           cargo run --manifest-path "$MANIFEST" --             lise-benchmarks/devsecops-agent-reference/fixtures/cases.json             lise-benchmarks/devsecops-agent-reference/fixtures/oracle.json             /tmp/devsecops-reference-report.json
-          jq -e '.conformant == true and .case_count == 19 and .dispatch_eligible == false' /tmp/devsecops-reference-report.json
+          jq -e '.conformant == true and .case_count == 21 and .dispatch_eligible == false' /tmp/devsecops-reference-report.json
       - name: Reassert exact subject and tracked source
         run: |
           test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
