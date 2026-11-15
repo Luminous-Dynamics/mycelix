@@ -7,7 +7,7 @@
 //! fixture evaluator is not a GitHub authorizer, CI PEP or production security
 //! certification.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -29,7 +29,12 @@ fn array<'a>(value: &'a Value, key: &str, context: &str) -> Result<&'a Vec<Value
         .ok_or_else(|| format!("{context}: '{key}' must be an array"))
 }
 
-fn contains_string(value: &Value, key: &str, expected: &str, context: &str) -> Result<bool, String> {
+fn contains_string(
+    value: &Value,
+    key: &str,
+    expected: &str,
+    context: &str,
+) -> Result<bool, String> {
     Ok(array(value, key, context)?
         .iter()
         .any(|item| item.as_str() == Some(expected)))
@@ -45,9 +50,10 @@ fn timestamp(value: &Value, key: &str, context: &str) -> Result<&str, String> {
         || b[13] != b':'
         || b[16] != b':'
         || b[19] != b'Z'
-        || !b.iter().enumerate().all(|(i, c)| {
-            matches!(i, 4 | 7 | 10 | 13 | 16 | 19) || c.is_ascii_digit()
-        })
+        || !b
+            .iter()
+            .enumerate()
+            .all(|(i, c)| matches!(i, 4 | 7 | 10 | 13 | 16 | 19) || c.is_ascii_digit())
     {
         return Err(format!("{context}: '{key}' must be YYYY-MM-DDTHH:MM:SSZ"));
     }
@@ -157,7 +163,10 @@ fn check_human_approval(case: &Value) -> Result<Option<Value>, String> {
     let approved_at = timestamp(approval, "approved_at", "human approval")?;
     let observed_at = timestamp(approval, "observed_at", "human approval")?;
     if approved_at > action_at || observed_at > known_at {
-        return Ok(Some(hold("human_approval.not_valid_at_decision_time", Vec::new())));
+        return Ok(Some(hold(
+            "human_approval.not_valid_at_decision_time",
+            Vec::new(),
+        )));
     }
     if string(approval, "approved_head_sha", "human approval")?
         != string(request, "current_head_sha", "request")?
@@ -172,12 +181,10 @@ fn check_human_approval(case: &Value) -> Result<Option<Value>, String> {
     }
     if string(approval, "repository", "human approval")?
         != string(request, "repository", "request")?
-        || string(approval, "branch", "human approval")?
-            != string(request, "branch", "request")?
+        || string(approval, "branch", "human approval")? != string(request, "branch", "request")?
         || string(approval, "environment", "human approval")?
             != string(request, "environment", "request")?
-        || string(approval, "action", "human approval")?
-            != string(request, "action", "request")?
+        || string(approval, "action", "human approval")? != string(request, "action", "request")?
     {
         return Ok(Some(deny("human_approval.operation_scope_mismatch")));
     }
@@ -191,7 +198,9 @@ fn check_workload_identity(case: &Value) -> Result<Option<Value>, String> {
         return Ok(Some(deny("workload_identity.missing")));
     };
     if string(principal, "kind", "principal")? != "ci_workload" {
-        return Ok(Some(deny("workload_identity.direct_agent_deploy_forbidden")));
+        return Ok(Some(deny(
+            "workload_identity.direct_agent_deploy_forbidden",
+        )));
     }
     let checks = [
         ("subject_ref", "principal_ref", principal),
@@ -242,11 +251,16 @@ fn check_artifact_attestation(case: &Value) -> Result<Option<Value>, String> {
         || string(attestation, "workflow_sha", "artifact attestation")?
             != string(request, "workflow_sha", "request")?
     {
-        return Ok(Some(deny("artifact_attestation.subject_or_builder_mismatch")));
+        return Ok(Some(deny(
+            "artifact_attestation.subject_or_builder_mismatch",
+        )));
     }
     let known_at = timestamp(request, "known_at", "request")?;
     if timestamp(attestation, "observed_at", "artifact attestation")? > known_at {
-        return Ok(Some(hold("artifact_attestation.not_yet_observed", Vec::new())));
+        return Ok(Some(hold(
+            "artifact_attestation.not_yet_observed",
+            Vec::new(),
+        )));
     }
     Ok(None)
 }
@@ -254,12 +268,18 @@ fn check_artifact_attestation(case: &Value) -> Result<Option<Value>, String> {
 fn evaluate_case(case: &Value) -> Result<Value, String> {
     let request = case.get("request").ok_or("case: missing request")?;
     if string(request, "prior_effect_state", "request")? == "unknown_after_dispatch" {
-        let retry_count = request.get("retry_count").and_then(Value::as_u64).unwrap_or(u64::MAX);
+        let retry_count = request
+            .get("retry_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(u64::MAX);
         let mut violations = Vec::new();
         if retry_count > 0 {
             violations.push("blind_retry_after_unknown".to_owned());
         }
-        return Ok(hold("operation.outcome_unknown_requires_reconciliation", violations));
+        return Ok(hold(
+            "operation.outcome_unknown_requires_reconciliation",
+            violations,
+        ));
     }
 
     if let Some(result) = check_grant(case)? {
@@ -354,15 +374,17 @@ pub fn evaluate_bundle(cases: &Value, oracle: &Value) -> Value {
             "claim_ceiling": "Synthetic DevSecOps reference semantics only; no repository, CI, signer, workload identity or deployment authority is authenticated."
         }))
     })();
-    result.unwrap_or_else(|error| json!({
-        "suite_id": SUITE_ID,
-        "evaluator_version": EVALUATOR_VERSION,
-        "status": "INVALID_INPUT",
-        "conformant": false,
-        "dispatch_eligible": false,
-        "errors": [error],
-        "claim_ceiling": "No benchmark result from invalid inputs."
-    }))
+    result.unwrap_or_else(|error| {
+        json!({
+            "suite_id": SUITE_ID,
+            "evaluator_version": EVALUATOR_VERSION,
+            "status": "INVALID_INPUT",
+            "conformant": false,
+            "dispatch_eligible": false,
+            "errors": [error],
+            "claim_ceiling": "No benchmark result from invalid inputs."
+        })
+    })
 }
 
 #[cfg(test)]
@@ -370,10 +392,10 @@ mod tests {
     use super::*;
 
     fn bundle() -> (Value, Value) {
-        let cases: Value = serde_json::from_str(include_str!("../fixtures/cases.json"))
-            .expect("cases JSON");
-        let oracle: Value = serde_json::from_str(include_str!("../fixtures/oracle.json"))
-            .expect("oracle JSON");
+        let cases: Value =
+            serde_json::from_str(include_str!("../fixtures/cases.json")).expect("cases JSON");
+        let oracle: Value =
+            serde_json::from_str(include_str!("../fixtures/oracle.json")).expect("oracle JSON");
         (cases, oracle)
     }
 
@@ -389,8 +411,12 @@ mod tests {
     #[test]
     fn agent_can_author_a_feature_branch_without_merge_authority() {
         let (cases, _) = bundle();
-        let case = cases["cases"].as_array().expect("cases")
-            .iter().find(|c| c["case_id"] == "DOPS-001").expect("case");
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-001")
+            .expect("case");
         let result = evaluate_case(case).expect("decision");
         assert_eq!(result["decision"], "ALLOW_SCOPED");
     }
@@ -398,8 +424,12 @@ mod tests {
     #[test]
     fn agent_cannot_approve_its_own_pull_request() {
         let (cases, _) = bundle();
-        let case = cases["cases"].as_array().expect("cases")
-            .iter().find(|c| c["case_id"] == "DOPS-003").expect("case");
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-003")
+            .expect("case");
         assert_eq!(
             evaluate_case(case).expect("decision")["reason_code"],
             "human_approval.self_approval"
@@ -409,8 +439,12 @@ mod tests {
     #[test]
     fn approval_must_bind_the_current_head_and_policy() {
         let (cases, _) = bundle();
-        let case = cases["cases"].as_array().expect("cases")
-            .iter().find(|c| c["case_id"] == "DOPS-004").expect("case");
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-004")
+            .expect("case");
         assert_eq!(
             evaluate_case(case).expect("decision")["reason_code"],
             "human_approval.head_sha_mismatch"
@@ -420,8 +454,12 @@ mod tests {
     #[test]
     fn production_deploy_requires_ci_workload_audience_and_subject() {
         let (cases, _) = bundle();
-        let case = cases["cases"].as_array().expect("cases")
-            .iter().find(|c| c["case_id"] == "DOPS-005").expect("case");
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-005")
+            .expect("case");
         assert_eq!(
             evaluate_case(case).expect("decision")["reason_code"],
             "workload_identity.binding_mismatch"
@@ -431,16 +469,27 @@ mod tests {
     #[test]
     fn valid_production_deploy_requires_human_approval_and_attestation() {
         let (cases, _) = bundle();
-        let case = cases["cases"].as_array().expect("cases")
-            .iter().find(|c| c["case_id"] == "DOPS-006").expect("case");
-        assert_eq!(evaluate_case(case).expect("decision")["decision"], "ALLOW_SCOPED");
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-006")
+            .expect("case");
+        assert_eq!(
+            evaluate_case(case).expect("decision")["decision"],
+            "ALLOW_SCOPED"
+        );
     }
 
     #[test]
     fn artifact_digest_mismatch_blocks_production_deploy() {
         let (cases, _) = bundle();
-        let case = cases["cases"].as_array().expect("cases")
-            .iter().find(|c| c["case_id"] == "DOPS-007").expect("case");
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-007")
+            .expect("case");
         assert_eq!(
             evaluate_case(case).expect("decision")["reason_code"],
             "artifact_attestation.subject_or_builder_mismatch"
@@ -450,8 +499,12 @@ mod tests {
     #[test]
     fn unknown_deployment_outcome_is_held_and_never_retried() {
         let (cases, _) = bundle();
-        let case = cases["cases"].as_array().expect("cases")
-            .iter().find(|c| c["case_id"] == "DOPS-008").expect("case");
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-008")
+            .expect("case");
         let result = evaluate_case(case).expect("decision");
         assert_eq!(result["decision"], "HOLD");
         assert_eq!(result["violations"], json!([]));
@@ -460,21 +513,26 @@ mod tests {
     #[test]
     fn retry_after_unknown_deployment_is_detected() {
         let (cases, _) = bundle();
-        let case = cases["cases"].as_array().expect("cases")
-            .iter().find(|c| c["case_id"] == "DOPS-009").expect("case");
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-009")
+            .expect("case");
         let result = evaluate_case(case).expect("decision");
         assert_eq!(result["decision"], "HOLD");
-        assert_eq!(
-            result["violations"],
-            json!(["blind_retry_after_unknown"])
-        );
+        assert_eq!(result["violations"], json!(["blind_retry_after_unknown"]));
     }
 
     #[test]
     fn prompt_injection_does_not_expand_an_agent_grant() {
         let (cases, _) = bundle();
-        let case = cases["cases"].as_array().expect("cases")
-            .iter().find(|c| c["case_id"] == "DOPS-010").expect("case");
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-010")
+            .expect("case");
         assert_eq!(
             evaluate_case(case).expect("decision")["reason_code"],
             "grant.scope_mismatch"
@@ -484,14 +542,22 @@ mod tests {
     #[test]
     fn revocation_and_policy_drift_fail_closed() {
         let (cases, _) = bundle();
-        let revoked = cases["cases"].as_array().expect("cases")
-            .iter().find(|c| c["case_id"] == "DOPS-011").expect("case");
+        let revoked = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-011")
+            .expect("case");
         assert_eq!(
             evaluate_case(revoked).expect("decision")["reason_code"],
             "grant.revoked"
         );
-        let drifted = cases["cases"].as_array().expect("cases")
-            .iter().find(|c| c["case_id"] == "DOPS-012").expect("case");
+        let drifted = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-012")
+            .expect("case");
         assert_eq!(
             evaluate_case(drifted).expect("decision")["reason_code"],
             "policy.digest_drift"
@@ -506,7 +572,10 @@ mod tests {
 
         let (mut cases, oracle) = bundle();
         let duplicate = cases["cases"][0].clone();
-        cases["cases"].as_array_mut().expect("cases").push(duplicate);
+        cases["cases"]
+            .as_array_mut()
+            .expect("cases")
+            .push(duplicate);
         assert_eq!(evaluate_bundle(&cases, &oracle)["status"], "INVALID_INPUT");
     }
 }
