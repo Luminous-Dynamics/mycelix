@@ -5,10 +5,11 @@
 #service_capacity_limit=220
 #max_records=100
 record_id|namespace|truth_entity_id|predicted_cluster_id|truth_entity_weight|predicted_cluster_weight|effective_at|recorded_at
-r1|PERSON|entity-a|cluster-ab|100|100|1|10
-r2|PERSON|entity-a|cluster-ab|100|100|2|11
-r3|PERSON|entity-b|cluster-ab|80|100|2|12
+r1|PERSON|entity-a|cluster-ab|100|110|1|10
+r2|PERSON|entity-a|cluster-ab|100|110|2|11
+r3|PERSON|entity-b|cluster-ab|80|110|2|12
 r4|PERSON|entity-c|cluster-c1|50|50|3|13
 r5|PERSON|entity-c|cluster-c2|50|50|3|14
-r6|PERSON|entity-a|cluster-ab|100|100|4|150
+r6|PERSON|entity-a|cluster-ab|100|110|4|150
 r7|PERSON|entity-e|cluster-e|10|10|11|90
+r8|PERSON|-|cluster-ab|0|110|5|15
