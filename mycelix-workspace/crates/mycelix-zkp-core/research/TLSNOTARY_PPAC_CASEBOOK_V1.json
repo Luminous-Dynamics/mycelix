@@ -2,7 +2,7 @@
   "schema_version": "mycelix-tlsnotary-ppac-casebook-v1",
   "profile_id": "mycelix:source-session:tlsnotary-ppac:v1",
   "status": "research_only",
-  "case_count": 46,
+  "case_count": 52,
   "oracle_status": "not_adjudicated",
   "execution_status": "not_run",
   "owner_issues": [
@@ -474,6 +474,109 @@
         "PEC #2109",
         "#2110"
       ]
+    },
+    {
+      "id": "TLSN-025",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A Beta.1 transcript commitment is reordered, duplicated or substituted after the commitment-order-preservation boundary.",
+      "expected": "BLOCKED",
+      "invariant": "The exact transcript commitment order is part of the authenticated statement; reordering cannot preserve acceptance.",
+      "release": "tlsn-v0.1.0-beta.1",
+      "upstream_regression": "#1179"
+    },
+    {
+      "id": "TLSN-026",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "Prover-supplied transcript commitment ranges are reversed, overlapping, duplicated, empty, overflowed or outside configured transcript bounds.",
+      "expected": "BLOCKED_WITH_BOUNDED_RESOURCE_USE",
+      "invariant": "Range validation must be enforced by the exact pinned implementation; attacker-controlled ranges cannot trigger unbounded work or ambiguous openings.",
+      "release": "tlsn-v0.1.0-beta.1",
+      "upstream_regression": "#1196"
+    },
+    {
+      "id": "TLSN-027",
+      "mode": "TLSN-MPC-DIRECT-V1",
+      "kind": "negative",
+      "scenario": "Verifier and prover compute different GHASH byte ordering or a transcript is verified against a wrong byte-order known-answer vector.",
+      "expected": "BLOCKED",
+      "invariant": "Exact GHASH byte order and TLS transcript authenticity must match the pinned beta.1 implementation.",
+      "release": "tlsn-v0.1.0-beta.1",
+      "upstream_regression": "#1211"
+    },
+    {
+      "id": "TLSN-028",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "positive",
+      "scenario": "The application intentionally accepts the entire response as non-sensitive; full-reveal path transfers the response write key, verifier decrypts the whole direction, and the TLS key-derivation ZK proof still verifies.",
+      "expected": "FULL_RESPONSE_DISCLOSED_TO_VERIFIER_PROFILE_ONLY",
+      "invariant": "Full reveal skips response ciphertext-to-plaintext ZK work but does not skip the key-derivation proof; this is not selective disclosure.",
+      "privacy_profile": "FULL_RESPONSE_REVEAL"
+    },
+    {
+      "id": "TLSN-029",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A response contains one sensitive byte or field but is benchmarked/admitted as full reveal, disclosing the entire response or incorrectly claiming selective privacy.",
+      "expected": "SELECTIVE_ZK_PATH_REQUIRED",
+      "invariant": "One private byte/field prevents full-reveal treatment for that direction; all-or-nothing direction semantics must be explicit.",
+      "privacy_profile": "SELECTIVE_DISCLOSURE"
+    },
+    {
+      "id": "TLSN-030",
+      "mode": "TLSN-PROXY-V1",
+      "kind": "negative",
+      "scenario": "Peer close, EOF, partial proxy write, cancellation or stream-limit mismatch causes a session to hang, busy-loop or silently drop transcript bytes.",
+      "expected": "CLEAN_COMPLETION_OR_TYPED_TRANSPORT_FAILURE",
+      "invariant": "A session must either complete deterministically or fail with an observable transport error; configured mux limits must match both peers.",
+      "release": "tlsn-v0.1.0-beta.1",
+      "upstream_regressions": [
+        "#1207",
+        "#1202",
+        "#1172",
+        "#1167",
+        "#1175",
+        "#1193"
+      ]
+    }
+  ],
+  "upstream_release_baseline": {
+    "release": "tlsn-v0.1.0-beta.1",
+    "release_commit_short": "40a0695",
+    "released": "2026-11-14",
+    "status": "prerelease_candidate_only",
+    "full_commit_sha": "must_be_resolved_from_git_before_runtime_dependency_lock",
+    "regressions": [
+      "#1179",
+      "#1196",
+      "#1211",
+      "#1207",
+      "#1202",
+      "#1172",
+      "#1167",
+      "#1175",
+      "#1193"
+    ]
+  },
+  "privacy_profiles": [
+    {
+      "id": "FULL_RESPONSE_REVEAL",
+      "disclosure": "entire selected traffic direction is revealed to verifier",
+      "zk_cost": "TLS key-derivation proof remains; direction plaintext proof skipped",
+      "admission": "only when entire direction is approved for disclosure"
+    },
+    {
+      "id": "SELECTIVE_DISCLOSURE",
+      "disclosure": "only selected ranges/HTTP objects revealed; unrelated fields redacted",
+      "zk_cost": "commitment/opening and relevant plaintext proof required",
+      "admission": "default for private claims"
+    },
+    {
+      "id": "MIXED_SENSITIVE_DIRECTION",
+      "disclosure": "one or more sensitive bytes remain hidden within direction",
+      "zk_cost": "full direction ZK path applies; full-reveal fast path unavailable",
+      "admission": "must not be benchmarked as full reveal"
     }
   ]
 }
