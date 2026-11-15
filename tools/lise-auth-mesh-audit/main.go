@@ -200,7 +200,7 @@ func auditDataset(root string, spec datasetSpec) (datasetSummary, error) {
 	}
 	lowerDisclosure := strings.ToLower(disclosure)
 	if !strings.Contains(lowerDisclosure, "public") || !strings.Contains(lowerDisclosure, "not a hidden or blinded holdout") {
-		return summary, errors.New("scenario disclosure must explicitly identify public corpus/holdout status")
+		return summary, errors.New("scenario disclosure must explicitly identify a public, non-blinded calibration corpus")
 	}
 	oracleStatus, err := rawString(oracleEnvelope, "status")
 	if err != nil {
