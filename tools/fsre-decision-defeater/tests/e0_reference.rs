@@ -16,8 +16,7 @@ fn exhaustive_subset_oracle_agrees_on_minimum_repair_defeaters() {
     for mask in 0_u8..8 {
         let repair_w1_safety = 80_i64 - if mask & 0b001 != 0 { 30 } else { 0 };
         let repair_w2_safety = 80_i64 - if mask & 0b010 != 0 { 30 } else { 0 };
-        let repair_remains_robustly_safe =
-            repair_w1_safety >= 60 && repair_w2_safety >= 60;
+        let repair_remains_robustly_safe = repair_w1_safety >= 60 && repair_w2_safety >= 60;
 
         if repair_remains_robustly_safe {
             continue;
@@ -58,7 +57,9 @@ fn exhaustive_subset_oracle_agrees_on_minimum_repair_defeaters() {
         })
         .collect();
 
-    let report = analyze(FIXTURE).expect("fixture parses").expect("baseline qualifies");
+    let report = analyze(FIXTURE)
+        .expect("fixture parses")
+        .expect("baseline qualifies");
     assert_eq!(expected_minimum, Some(2));
     assert_eq!(report.robustness_margin, expected_minimum);
     assert_eq!(report.status, "DEFEATER_FOUND");
