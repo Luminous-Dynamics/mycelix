@@ -106,8 +106,11 @@ pub struct VerificationReceipt {
 impl VerificationReceipt {
     pub fn render(&self) -> String {
         let mut out = String::new();
-        writeln!(out, "verifier_schema=fsre.independent-decision-defeater-verifier")
-            .expect("String write");
+        writeln!(
+            out,
+            "verifier_schema=fsre.independent-decision-defeater-verifier"
+        )
+        .expect("String write");
         writeln!(out, "verifier_version=0.1.0").expect("String write");
         writeln!(out, "disposition={}", self.disposition.as_str()).expect("String write");
         writeln!(out, "analysis_id={}", self.analysis_id).expect("String write");
@@ -121,8 +124,12 @@ impl VerificationReceipt {
         writeln!(out, "evaluated_subsets={}", self.evaluated_subsets).expect("String write");
         writeln!(out, "verified_minimum_cost={}", self.verified_minimum_cost)
             .expect("String write");
-        writeln!(out, "verified_witness_count={}", self.verified_witness_count)
-            .expect("String write");
+        writeln!(
+            out,
+            "verified_witness_count={}",
+            self.verified_witness_count
+        )
+        .expect("String write");
         out.push_str("input_binding=EXACT_RAW_BYTES\n");
         out.push_str("canonical_manifest=FIXED_SCHEMA_LENGTH_BOUNDED_PSV_V1\n");
         out.push_str("witness_replay=INDEPENDENT_IMPLEMENTATION\n");
@@ -230,15 +237,12 @@ fn valid_filename(value: &str) -> bool {
         && value.len() <= 128
         && value != "."
         && value != ".."
-        && value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.')
-        })
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.'))
 }
 
-fn required<'a>(
-    fields: &'a BTreeMap<String, String>,
-    key: &str,
-) -> Result<&'a str, VerifyError> {
+fn required<'a>(fields: &'a BTreeMap<String, String>, key: &str) -> Result<&'a str, VerifyError> {
     fields
         .get(key)
         .map(String::as_str)
@@ -326,10 +330,13 @@ fn parse_manifest(bytes: &[u8]) -> Result<Manifest, VerifyError> {
     }
     parse_digest(input_fields[2])?;
     parse_digest(report_fields[2])?;
-    if input_fields[1] == report_fields[1] || input_fields[1] == MANIFEST_NAME
+    if input_fields[1] == report_fields[1]
+        || input_fields[1] == MANIFEST_NAME
         || report_fields[1] == MANIFEST_NAME
     {
-        return Err(invalid("manifest, input and report filenames must be distinct"));
+        return Err(invalid(
+            "manifest, input and report filenames must be distinct",
+        ));
     }
 
     let mut evidence = Vec::new();
@@ -343,20 +350,29 @@ fn parse_manifest(bytes: &[u8]) -> Result<Manifest, VerifyError> {
     for line in lines {
         let fields: Vec<&str> = line.split('|').collect();
         if fields.len() != 5 || fields[0] != "evidence" {
-            return Err(invalid("expected evidence|reference|role|filename|sha256 row"));
+            return Err(invalid(
+                "expected evidence|reference|role|filename|sha256 row",
+            ));
         }
         if !valid_token(fields[1]) || !valid_token(fields[2]) || !valid_filename(fields[3]) {
             return Err(invalid("invalid evidence reference, role or filename"));
         }
         parse_digest(fields[4])?;
         if fields[2] != "SYNTHETIC_FIXTURE_ASSERTION" {
-            return Err(invalid("v0.1 verifier accepts synthetic fixture evidence only"));
+            return Err(invalid(
+                "v0.1 verifier accepts synthetic fixture evidence only",
+            ));
         }
         if !seen_refs.insert(fields[1].to_owned()) || !seen_files.insert(fields[3].to_owned()) {
             return Err(invalid("duplicate evidence reference or artifact filename"));
         }
-        if previous_ref.as_deref().is_some_and(|previous| previous >= fields[1]) {
-            return Err(invalid("evidence rows must be strictly sorted by reference"));
+        if previous_ref
+            .as_deref()
+            .is_some_and(|previous| previous >= fields[1])
+        {
+            return Err(invalid(
+                "evidence rows must be strictly sorted by reference",
+            ));
         }
         previous_ref = Some(fields[1].to_owned());
         evidence.push(EvidenceEntry {
@@ -382,11 +398,7 @@ fn parse_manifest(bytes: &[u8]) -> Result<Manifest, VerifyError> {
     })
 }
 
-fn read_regular_file(
-    root: &Path,
-    filename: &str,
-    limit: usize,
-) -> Result<Vec<u8>, VerifyError> {
+fn read_regular_file(root: &Path, filename: &str, limit: usize) -> Result<Vec<u8>, VerifyError> {
     if !valid_filename(filename) {
         return Err(invalid("unsafe artifact filename"));
     }
@@ -533,7 +545,9 @@ fn parse_problem(bytes: &[u8]) -> Result<Problem, VerifyError> {
         if !in_mutations && line == "MUTATIONS" {
             in_mutations = true;
             if lines.get(index).map(|line| line.trim()) != Some(MUTATION_HEADER) {
-                return Err(invalid("MUTATIONS must be followed by exact mutation header"));
+                return Err(invalid(
+                    "MUTATIONS must be followed by exact mutation header",
+                ));
             }
             mutation_header_seen = true;
             index += 1;
@@ -820,7 +834,13 @@ fn signature_value(signature: &Signature, field: &str) -> Option<String> {
     match field {
         "robustly_safe_actions" => Some(signature.robustly_safe_actions.join(",")),
         "invariant_optimal_set" => Some(signature.invariant_optimal_set.join(",")),
-        "unique_optimum" => Some(signature.unique_optimum.as_deref().unwrap_or("NONE").to_owned()),
+        "unique_optimum" => Some(
+            signature
+                .unique_optimum
+                .as_deref()
+                .unwrap_or("NONE")
+                .to_owned(),
+        ),
         "minimax_regret_actions" => Some(signature.minimax_regret_actions.join(",")),
         _ => None,
     }
@@ -831,10 +851,16 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
     let mut fields = BTreeMap::<String, String>::new();
     for (index, line) in source.lines().enumerate() {
         let Some((key, value)) = line.split_once('=') else {
-            return Err(invalid(format!("report line {} is not key=value", index + 1)));
+            return Err(invalid(format!(
+                "report line {} is not key=value",
+                index + 1
+            )));
         };
         if key.is_empty() || fields.insert(key.to_owned(), value.to_owned()).is_some() {
-            return Err(invalid(format!("duplicate or empty report key at line {}", index + 1)));
+            return Err(invalid(format!(
+                "duplicate or empty report key at line {}",
+                index + 1
+            )));
         }
     }
     if required(&fields, "analysis_id")? != problem.analysis_id
@@ -852,14 +878,19 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
     }
     if parse_u64(required(&fields, "decision_cutoff")?, "decision_cutoff")?
         != problem.decision_cutoff
-        || parse_i64(required(&fields, "safety_floor")?, "safety_floor")?
-            != problem.safety_floor
-        || parse_u64(required(&fields, "declared_mutation_count")?, "declared_mutation_count")?
-            != (problem.mutations.len() + problem.blocked_mutations) as u64
-        || parse_u64(required(&fields, "admissible_mutation_count")?, "admissible_mutation_count")?
-            != problem.mutations.len() as u64
-        || parse_u64(required(&fields, "blocked_mutation_count")?, "blocked_mutation_count")?
-            != problem.blocked_mutations as u64
+        || parse_i64(required(&fields, "safety_floor")?, "safety_floor")? != problem.safety_floor
+        || parse_u64(
+            required(&fields, "declared_mutation_count")?,
+            "declared_mutation_count",
+        )? != (problem.mutations.len() + problem.blocked_mutations) as u64
+        || parse_u64(
+            required(&fields, "admissible_mutation_count")?,
+            "admissible_mutation_count",
+        )? != problem.mutations.len() as u64
+        || parse_u64(
+            required(&fields, "blocked_mutation_count")?,
+            "blocked_mutation_count",
+        )? != problem.blocked_mutations as u64
     {
         return Err(VerifyError::new(
             Disposition::MinimumCertificateInvalid,
@@ -942,8 +973,10 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
     };
     if required(&fields, "robustness_margin")? != minimum_cost.to_string()
         || required(&fields, "best_witness_cost_upper_bound")? != minimum_cost.to_string()
-        || parse_u64(required(&fields, "minimum_witness_count")?, "minimum_witness_count")?
-            != expected_witnesses.len() as u64
+        || parse_u64(
+            required(&fields, "minimum_witness_count")?,
+            "minimum_witness_count",
+        )? != expected_witnesses.len() as u64
     {
         return Err(VerifyError::new(
             Disposition::MinimumCertificateInvalid,
@@ -971,14 +1004,12 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
             .parse::<usize>()
             .map_err(|error| invalid(format!("invalid witness index: {error}")))?;
         reported_indices.insert(parsed_index);
-        let expected = expected_witnesses
-            .get(parsed_index)
-            .ok_or_else(|| {
-                VerifyError::new(
-                    Disposition::WitnessReplayMismatch,
-                    "report includes a witness index absent from the independent minimum set",
-                )
-            })?;
+        let expected = expected_witnesses.get(parsed_index).ok_or_else(|| {
+            VerifyError::new(
+                Disposition::WitnessReplayMismatch,
+                "report includes a witness index absent from the independent minimum set",
+            )
+        })?;
         let prefix = format!("witness.{index}");
         match property {
             "mutation_ids" => {
@@ -1080,7 +1111,9 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
         ));
     }
     if truncated && reported_indices.len() == expected_witnesses.len() {
-        return Err(invalid("witnesses_truncated=true but no witness is omitted"));
+        return Err(invalid(
+            "witnesses_truncated=true but no witness is omitted",
+        ));
     }
     if required(&fields, "minimum_witness_count")? != expected_witnesses.len().to_string() {
         return Err(VerifyError::new(
@@ -1127,7 +1160,9 @@ pub fn verify_package(root: impl AsRef<Path>) -> Result<VerificationReceipt, Ver
         )
     })?;
     if !root_metadata.file_type().is_dir() {
-        return Err(invalid("package root must be a real directory, not a symlink"));
+        return Err(invalid(
+            "package root must be a real directory, not a symlink",
+        ));
     }
 
     let manifest_bytes = read_regular_file(root, MANIFEST_NAME, MAX_MANIFEST_BYTES)?;
@@ -1158,7 +1193,10 @@ pub fn verify_package(root: impl AsRef<Path>) -> Result<VerificationReceipt, Ver
         if format!("sha256:{digest}") != entry.digest {
             return Err(VerifyError::new(
                 Disposition::DigestMismatch,
-                format!("evidence object {} does not match manifest digest", entry.reference),
+                format!(
+                    "evidence object {} does not match manifest digest",
+                    entry.reference
+                ),
             ));
         }
         evidence_refs.insert(entry.reference.clone());
@@ -1201,10 +1239,8 @@ mod tests {
 
     fn temp_copy() -> PathBuf {
         let id = NEXT_DIR.fetch_add(1, Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!(
-            "fsre-verifier-test-{}-{id}",
-            std::process::id()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("fsre-verifier-test-{}-{id}", std::process::id()));
         fs::create_dir_all(&root).unwrap();
         for name in [
             "manifest.psv",
@@ -1253,8 +1289,14 @@ mod tests {
 
     #[test]
     fn digest_domain_separation_prevents_cross_type_reuse() {
-        assert_ne!(hash_artifact("INPUT", b"abc"), hash_artifact("REPORT", b"abc"));
-        assert_ne!(hash_artifact("INPUT", b"abc"), hash_artifact("EVIDENCE", b"abc"));
+        assert_ne!(
+            hash_artifact("INPUT", b"abc"),
+            hash_artifact("REPORT", b"abc")
+        );
+        assert_ne!(
+            hash_artifact("INPUT", b"abc"),
+            hash_artifact("EVIDENCE", b"abc")
+        );
     }
 
     #[test]
@@ -1334,9 +1376,10 @@ mod tests {
     fn report_signature_tampering_is_detected_after_valid_rehash() {
         let root = temp_copy();
         let report_path = root.join("report.txt");
-        let report = fs::read_to_string(&report_path)
-            .unwrap()
-            .replace("witness.0000.mutated.robustly_safe_actions=inspect", "witness.0000.mutated.robustly_safe_actions=repair");
+        let report = fs::read_to_string(&report_path).unwrap().replace(
+            "witness.0000.mutated.robustly_safe_actions=inspect",
+            "witness.0000.mutated.robustly_safe_actions=repair",
+        );
         fs::write(report_path, report).unwrap();
         rebuild_manifest(&root);
         let error = verify_package(&root).unwrap_err();
