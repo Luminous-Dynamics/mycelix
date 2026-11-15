@@ -257,6 +257,14 @@ pub struct FiniteWorldExtremum {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WorldMomentConstraint {
+    pub id: String,
+    pub coefficients: BTreeMap<String, Rational>,
+    pub lower: Option<Rational>,
+    pub upper: Option<Rational>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LpError(pub String);
 
 impl std::fmt::Display for LpError {
@@ -827,6 +835,183 @@ pub fn finite_world_extremum_lp(
         },
         best_world_id,
     ))
+}
+
+/// Builds a partial-identification LP over a declared finite world set.
+///
+/// Each moment constraint represents:
+///   lower <= sum_w coefficient[w] * probability[w] <= upper
+/// A missing lower/upper endpoint omits that side of the interval. The
+/// normalization simplex is always included. Certificates are keyed by
+/// original world IDs (primal) and generated row IDs (dual).
+///
+/// This builder does not solve the LP. Caller-supplied certificates are
+/// checked by analyze using exact rational arithmetic.
+pub fn build_world_distribution_lp(
+    problem_id: &str,
+    scope_sha256: &str,
+    assumption_set_id: &str,
+    values: &[FiniteWorldValue],
+    constraints: &[WorldMomentConstraint],
+    direction: ExtremumDirection,
+    primal_world_masses: &BTreeMap<String, Rational>,
+    dual_row_values: &BTreeMap<String, Rational>,
+) -> Result<LpModel, LpError> {
+    if !valid_token(problem_id) || !valid_token(assumption_set_id) {
+        return Err(fail("world-distribution IDs must be valid tokens"));
+    }
+    if !valid_sha256(scope_sha256) {
+        return Err(fail("world-distribution scope digest must be 64 lowercase hexadecimal characters"));
+    }
+    if values.is_empty() || values.len() > MAX_COLUMNS {
+        return Err(fail(format!("world count must be in 1..={MAX_COLUMNS}")));
+    }
+
+    let mut sorted_values = values.to_vec();
+    sorted_values.sort_by_key(|value| value.world_id.clone());
+    let mut world_ids = BTreeSet::new();
+    for value in &sorted_values {
+        if !valid_token(&value.world_id) || !world_ids.insert(value.world_id.clone()) {
+            return Err(fail(format!("invalid or duplicate world ID {}", value.world_id)));
+        }
+    }
+    if primal_world_masses.len() != values.len()
+        || world_ids.iter().any(|world_id| !primal_world_masses.contains_key(world_id))
+    {
+        return Err(fail("primal world masses must provide exactly one value for every world"));
+    }
+
+    let transformed = |value: Rational| -> Result<Rational, LpError> {
+        match direction {
+            ExtremumDirection::Maximum => Ok(value),
+            ExtremumDirection::Minimum => value.checked_neg(),
+        }
+    };
+
+    let mut columns = sorted_values
+        .iter()
+        .map(|value| {
+            Ok(LpColumn {
+                id: format!("world-{}", value.world_id),
+                objective: transformed(value.value)?,
+            })
+        })
+        .collect::<Result<Vec<_>, LpError>>()?;
+    columns.sort_by_key(|column| column.id.clone());
+
+    let mut rows = vec![
+        LpRow {
+            id: "mass-upper".to_owned(),
+            rhs: Rational::one(),
+        },
+        LpRow {
+            id: "mass-lower".to_owned(),
+            rhs: Rational::new(-1, 1)?,
+        },
+    ];
+    let mut row_ids = BTreeSet::from(["mass-upper".to_owned(), "mass-lower".to_owned()]);
+    let mut sorted_constraints = constraints.to_vec();
+    sorted_constraints.sort_by_key(|constraint| constraint.id.clone());
+
+    for constraint in &sorted_constraints {
+        if !valid_token(&constraint.id) {
+            return Err(fail(format!("invalid moment constraint ID {}", constraint.id)));
+        }
+        if constraint.lower.is_none() && constraint.upper.is_none() {
+            return Err(fail(format!("moment constraint {} has no bounds", constraint.id)));
+        }
+        if let (Some(lower), Some(upper)) = (constraint.lower, constraint.upper) {
+            if lower.checked_cmp(upper)? == Ordering::Greater {
+                return Err(fail(format!("moment constraint {} has lower bound above upper bound", constraint.id)));
+            }
+        }
+        if constraint.coefficients.keys().any(|world_id| !world_ids.contains(world_id)) {
+            return Err(fail(format!("moment constraint {} references an unknown world", constraint.id)));
+        }
+        if let Some(upper) = constraint.upper {
+            let id = format!("moment-{}-upper", constraint.id);
+            if !row_ids.insert(id.clone()) {
+                return Err(fail(format!("duplicate generated row ID {id}")));
+            }
+            rows.push(LpRow { id, rhs: upper });
+        }
+        if let Some(lower) = constraint.lower {
+            let id = format!("moment-{}-lower", constraint.id);
+            if !row_ids.insert(id.clone()) {
+                return Err(fail(format!("duplicate generated row ID {id}")));
+            }
+            rows.push(LpRow {
+                id,
+                rhs: lower.checked_neg()?,
+            });
+        }
+    }
+    rows.sort_by_key(|row| row.id.clone());
+    if rows.len() > MAX_ROWS {
+        return Err(fail(format!("generated row count exceeds {MAX_ROWS}")));
+    }
+
+    let mut coefficients = BTreeMap::<(String, String), Rational>::new();
+    for column in &columns {
+        let world_id = column.id.strip_prefix("world-").expect("generated world column");
+        coefficients.insert(
+            ("mass-upper".to_owned(), column.id.clone()),
+            Rational::one(),
+        );
+        coefficients.insert(
+            ("mass-lower".to_owned(), column.id.clone()),
+            Rational::new(-1, 1)?,
+        );
+        for constraint in &sorted_constraints {
+            let value = constraint
+                .coefficients
+                .get(world_id)
+                .copied()
+                .unwrap_or_else(Rational::zero);
+            if value == Rational::zero() {
+                continue;
+            }
+            if constraint.upper.is_some() {
+                coefficients.insert(
+                    (format!("moment-{}-upper", constraint.id), column.id.clone()),
+                    value,
+                );
+            }
+            if constraint.lower.is_some() {
+                coefficients.insert(
+                    (
+                        format!("moment-{}-lower", constraint.id),
+                        column.id.clone(),
+                    ),
+                    value.checked_neg()?,
+                );
+            }
+        }
+    }
+    if coefficients.len() > MAX_NONZEROS {
+        return Err(fail(format!("generated nonzero count exceeds {MAX_NONZEROS}")));
+    }
+
+    let primal = primal_world_masses
+        .iter()
+        .map(|(world_id, mass)| (format!("world-{world_id}"), *mass))
+        .collect::<BTreeMap<_, _>>();
+    if dual_row_values.len() != rows.len()
+        || rows.iter().any(|row| !dual_row_values.contains_key(&row.id))
+    {
+        return Err(fail("dual certificate must provide exactly one value for every generated row"));
+    }
+
+    Ok(LpModel {
+        problem_id: problem_id.to_owned(),
+        scope_sha256: scope_sha256.to_owned(),
+        assumption_set_id: assumption_set_id.to_owned(),
+        rows,
+        columns,
+        coefficients,
+        primal,
+        dual: dual_row_values.clone(),
+    })
 }
 
 pub fn analyze_finite_world_extremum(
@@ -1460,6 +1645,223 @@ mod tests {
             "finite-world-set-v1",
             &values,
             ExtremumDirection::Maximum,
+        )
+        .is_err());
+    }
+
+    fn moment_fixture_certificates() -> (
+        Vec<FiniteWorldValue>,
+        Vec<WorldMomentConstraint>,
+        BTreeMap<String, Rational>,
+        BTreeMap<String, Rational>,
+    ) {
+        let values = vec![
+            FiniteWorldValue {
+                world_id: "w0".to_owned(),
+                value: Rational::new(0, 1).unwrap(),
+            },
+            FiniteWorldValue {
+                world_id: "w1".to_owned(),
+                value: Rational::new(10, 1).unwrap(),
+            },
+            FiniteWorldValue {
+                world_id: "w2".to_owned(),
+                value: Rational::new(20, 1).unwrap(),
+            },
+            FiniteWorldValue {
+                world_id: "w3".to_owned(),
+                value: Rational::new(30, 1).unwrap(),
+            },
+        ];
+        let coefficients = BTreeMap::from([
+            ("w0".to_owned(), Rational::one()),
+            ("w1".to_owned(), Rational::one()),
+            ("w2".to_owned(), Rational::zero()),
+            ("w3".to_owned(), Rational::zero()),
+        ]);
+        let constraints = vec![WorldMomentConstraint {
+            id: "low-group-share".to_owned(),
+            coefficients,
+            lower: Some(Rational::new(1, 2).unwrap()),
+            upper: Some(Rational::new(1, 2).unwrap()),
+        }];
+        let max_primal = BTreeMap::from([
+            ("w0".to_owned(), Rational::zero()),
+            ("w1".to_owned(), Rational::new(1, 2).unwrap()),
+            ("w2".to_owned(), Rational::zero()),
+            ("w3".to_owned(), Rational::new(1, 2).unwrap()),
+        ]);
+        let max_dual = BTreeMap::from([
+            ("mass-upper".to_owned(), Rational::new(30, 1).unwrap()),
+            ("mass-lower".to_owned(), Rational::zero()),
+            (
+                "moment-low-group-share-upper".to_owned(),
+                Rational::zero(),
+            ),
+            (
+                "moment-low-group-share-lower".to_owned(),
+                Rational::new(20, 1).unwrap(),
+            ),
+        ]);
+        (values, constraints, max_primal, max_dual)
+    }
+
+    #[test]
+    fn partial_identification_moment_constraints_prove_sharp_bounds_ten_to_twenty() {
+        let (values, constraints, max_primal, max_dual) = moment_fixture_certificates();
+        let maximum_model = build_world_distribution_lp(
+            "water-population-upper",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "half-population-known-v1",
+            &values,
+            &constraints,
+            ExtremumDirection::Maximum,
+            &max_primal,
+            &max_dual,
+        )
+        .unwrap();
+        let maximum = analyze(&maximum_model).unwrap();
+        assert!(maximum.primal.feasible);
+        assert!(maximum.dual.feasible);
+        assert_eq!(maximum.primal.objective.display(), "20");
+        assert_eq!(maximum.dual.objective.display(), "20");
+        assert_eq!(
+            maximum.optimality_status,
+            "OPTIMALITY_PROVEN_BY_EXACT_PRIMAL_DUAL_EQUALITY"
+        );
+
+        let min_primal = BTreeMap::from([
+            ("w0".to_owned(), Rational::new(1, 2).unwrap()),
+            ("w1".to_owned(), Rational::zero()),
+            ("w2".to_owned(), Rational::new(1, 2).unwrap()),
+            ("w3".to_owned(), Rational::zero()),
+        ]);
+        let min_dual = BTreeMap::from([
+            ("mass-upper".to_owned(), Rational::zero()),
+            ("mass-lower".to_owned(), Rational::new(20, 1).unwrap()),
+            (
+                "moment-low-group-share-upper".to_owned(),
+                Rational::new(20, 1).unwrap(),
+            ),
+            (
+                "moment-low-group-share-lower".to_owned(),
+                Rational::zero(),
+            ),
+        ]);
+        let minimum_model = build_world_distribution_lp(
+            "water-population-lower",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "half-population-known-v1",
+            &values,
+            &constraints,
+            ExtremumDirection::Minimum,
+            &min_primal,
+            &min_dual,
+        )
+        .unwrap();
+        let minimum = analyze(&minimum_model).unwrap();
+        assert!(minimum.primal.feasible);
+        assert!(minimum.dual.feasible);
+        assert_eq!(minimum.primal.objective.display(), "-10");
+        assert_eq!(minimum.dual.objective.display(), "-10");
+        assert_eq!(
+            minimum.optimality_status,
+            "OPTIMALITY_PROVEN_BY_EXACT_PRIMAL_DUAL_EQUALITY"
+        );
+        assert_eq!(minimum.primal.objective.checked_neg().unwrap().display(), "10");
+        assert_eq!(maximum.primal.objective.display(), "20");
+    }
+
+    #[test]
+    fn moment_constraints_narrow_bounds_relative_to_unconstrained_simplex() {
+        let (values, constraints, max_primal, max_dual) = moment_fixture_certificates();
+        let constrained_model = build_world_distribution_lp(
+            "constrained-upper",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "half-population-known-v1",
+            &values,
+            &constraints,
+            ExtremumDirection::Maximum,
+            &max_primal,
+            &max_dual,
+        )
+        .unwrap();
+        let constrained = analyze(&constrained_model).unwrap();
+        assert_eq!(constrained.primal.objective.display(), "20");
+
+        let unconstrained_primal = BTreeMap::from([
+            ("w0".to_owned(), Rational::zero()),
+            ("w1".to_owned(), Rational::zero()),
+            ("w2".to_owned(), Rational::zero()),
+            ("w3".to_owned(), Rational::one()),
+        ]);
+        let unconstrained_dual = BTreeMap::from([
+            ("mass-upper".to_owned(), Rational::new(30, 1).unwrap()),
+            ("mass-lower".to_owned(), Rational::zero()),
+        ]);
+        let unconstrained_model = build_world_distribution_lp(
+            "unconstrained-upper",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "no-moment-fact-v1",
+            &values,
+            &[],
+            ExtremumDirection::Maximum,
+            &unconstrained_primal,
+            &unconstrained_dual,
+        )
+        .unwrap();
+        let unconstrained = analyze(&unconstrained_model).unwrap();
+        assert_eq!(unconstrained.primal.objective.display(), "30");
+        assert!(constrained.primal.objective.checked_cmp(unconstrained.primal.objective).unwrap() == Ordering::Less);
+    }
+
+    #[test]
+    fn moment_constraint_builder_rejects_invalid_bounds_and_unknown_worlds() {
+        let (values, _, primal, _) = moment_fixture_certificates();
+        let invalid = vec![WorldMomentConstraint {
+            id: "invalid".to_owned(),
+            coefficients: BTreeMap::from([("w0".to_owned(), Rational::one())]),
+            lower: Some(Rational::new(3, 4).unwrap()),
+            upper: Some(Rational::new(1, 2).unwrap()),
+        }];
+        let dual = BTreeMap::from([
+            ("mass-upper".to_owned(), Rational::zero()),
+            ("mass-lower".to_owned(), Rational::zero()),
+            ("moment-invalid-upper".to_owned(), Rational::zero()),
+            ("moment-invalid-lower".to_owned(), Rational::zero()),
+        ]);
+        assert!(build_world_distribution_lp(
+            "invalid-interval",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "invalid-assumptions",
+            &values,
+            &invalid,
+            ExtremumDirection::Maximum,
+            &primal,
+            &dual,
+        )
+        .is_err());
+
+        let unknown = vec![WorldMomentConstraint {
+            id: "unknown-world".to_owned(),
+            coefficients: BTreeMap::from([("not-a-world".to_owned(), Rational::one())]),
+            lower: None,
+            upper: Some(Rational::one()),
+        }];
+        let dual = BTreeMap::from([
+            ("mass-upper".to_owned(), Rational::zero()),
+            ("mass-lower".to_owned(), Rational::zero()),
+            ("moment-unknown-world-upper".to_owned(), Rational::zero()),
+        ]);
+        assert!(build_world_distribution_lp(
+            "unknown-world",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "invalid-assumptions",
+            &values,
+            &unknown,
+            ExtremumDirection::Maximum,
+            &primal,
+            &dual,
         )
         .is_err());
     }
