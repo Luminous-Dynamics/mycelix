@@ -44,9 +44,11 @@ No boolean or scalar score may collapse these distinctions. Unsupported, stale, 
 |---|---|---|
 | Mycelix | Claims, issuer/credential references, policy and governance semantics, authority decisions, provenance, request identity, effect coordination and domain-owned receipts | A universal cryptographic backend or cross-domain authority boolean |
 | Symthaea | Candidate proof computation, analysis, privacy-computation planning, proof cost/utility reasoning and exact computation identity | Issuer legitimacy, governance decisions, operator consent or production admission |
-| Xenia | Human/operator/host authentication, secure interaction, consent ceremony, session integrity, operator-scoped permissions and verifiable session evidence | Institutional policy interpretation or Mycelix domain authority |
+| Xenia | Human/operator/host authentication, consent and session integrity; the Symthaea receipt-attestation bridge (#359, #364, #369) and durable single-use issuance/replay owner (#435) | Institutional policy interpretation or Mycelix domain authority |
 | LISE | Claim applicability, dependency impact, temporal/evidence frontier qualification, targeted invalidation and requalification | A duplicate identity or proof system, global currentness boolean, generic event store or domain authority |
 | Symtropy | Physical/computational model evidence and qualified outcome observations when the effect requires them | Institutional authorization or treating simulation as an independently observed real-world effect |
+
+The existing Xenia-Symthaea receipt path is especially relevant. Xenia #359 verifies the exact hybrid attestation over canonical Symthaea receipt bytes; #364 binds portable authority to the live Xenia trust boundary; #369 freezes the portable daemon receipt, including receipt UUID/digest, operator/key lineage, typed scope, enrollment/policy version, host fingerprint, nonce and expiry; #435 owns durable single-use issuance/replay semantics. Reuse this owner chain when a Symthaea proof-verification receipt crosses into a relying system. It establishes who attested to the exact Symthaea receipt under a bounded Xenia scope; it does not establish that the underlying claim is true, that Mycelix should admit the evidence, or that a consequential action is authorized.
 
 The systems exchange versioned references and exact evidence digests, not mutable copies of each other's semantic authority.
 
@@ -244,7 +246,7 @@ Performance comparison requires identical mathematical statements, witness distr
 | Symthaea #5842 | Prove the exact RISC Zero guest relation and tag/journal binding |
 | Symthaea #4860 | Plan only among PEC profiles with admitted evidence; support NoQualifiedPlan |
 | Symthaea PR #7403 | Review the semantic corrections and privacy boundary; do not infer passing CI |
-| Xenia #449 / #450 | Bind lane capabilities, consent and independently verifiable session evidence |
+| Xenia #359 / #364 / #369 / #435 / #449 / #450 | Reuse receipt attestation, live trust binding, portable authority/replay, lane capabilities, consent and independently verifiable session evidence |
 
 ### Runner-independent tranche
 
