@@ -8,12 +8,11 @@
 //! production execution path.
 
 use ipb_finality_reference::{
-    evaluate_finality, ApprovalBinding, ApprovalState, AuthorityState,
-    ConstitutionRef, CurrentProtectedState, DenialCode, FinalityDecision,
-    FinalityInput, OperationBinding, PriorEffectState, ResourceState,
-    RetrySafety,
+    ApprovalBinding, ApprovalState, AuthorityState, ConstitutionRef, CurrentProtectedState,
+    DenialCode, FinalityDecision, FinalityInput, OperationBinding, PriorEffectState, ResourceState,
+    RetrySafety, evaluate_finality,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashSet;
 
 pub const ADAPTER_VERSION: &str = "iae-lise-conformance-v0.1";
@@ -55,7 +54,9 @@ const SCENARIOS: [Scenario; 4] = [
 ];
 
 fn member<'a>(value: &'a Value, key: &str, context: &str) -> Result<&'a Value, String> {
-    value.get(key).ok_or_else(|| format!("{context}: missing '{key}'"))
+    value
+        .get(key)
+        .ok_or_else(|| format!("{context}: missing '{key}'"))
 }
 
 fn object<'a>(value: &'a Value, key: &str, context: &str) -> Result<&'a Value, String> {
@@ -84,7 +85,9 @@ fn optional_string(value: &Value, key: &str, context: &str) -> Result<Option<Str
     match member(value, key, context)? {
         Value::Null => Ok(None),
         Value::String(s) if !s.trim().is_empty() => Ok(Some(s.clone())),
-        _ => Err(format!("{context}: '{key}' must be null or a nonempty string")),
+        _ => Err(format!(
+            "{context}: '{key}' must be null or a nonempty string"
+        )),
     }
 }
 
@@ -108,9 +111,9 @@ fn is_fixed_utc_timestamp(s: &str) -> bool {
         && b[13] == b':'
         && b[16] == b':'
         && b[19] == b'Z'
-        && b.iter().enumerate().all(|(i, c)| {
-            matches!(i, 4 | 7 | 10 | 13 | 16 | 19) || c.is_ascii_digit()
-        })
+        && b.iter()
+            .enumerate()
+            .all(|(i, c)| matches!(i, 4 | 7 | 10 | 13 | 16 | 19) || c.is_ascii_digit())
         && {
             let year = s[0..4].parse::<u32>().unwrap_or(0);
             let month = s[5..7].parse::<u32>().unwrap_or(0);
@@ -143,12 +146,8 @@ fn timestamp(value: &Value, key: &str, context: &str) -> Result<String, String> 
 fn parse_operation(value: &Value, context: &str) -> Result<OperationBinding, String> {
     Ok(OperationBinding {
         logical_operation_id: required_str(value, "logical_operation_id", context)?.to_owned(),
-        canonical_operation_digest: required_str(
-            value,
-            "canonical_operation_digest",
-            context,
-        )?
-        .to_owned(),
+        canonical_operation_digest: required_str(value, "canonical_operation_digest", context)?
+            .to_owned(),
         action_digest: required_str(value, "action_digest", context)?.to_owned(),
         target_ref: required_str(value, "target_ref", context)?.to_owned(),
         destination_or_audience: optional_string(value, "destination_or_audience", context)?,
@@ -264,9 +263,9 @@ fn resolve_authority(
     }
     visible.sort_by(|a, b| (&a.0, &a.1).cmp(&(&b.0, &b.1)));
     let latest = visible.last().expect("visible is nonempty");
-    let same_rank_conflict = visible.iter().any(|row| {
-        row.0 == latest.0 && row.1 == latest.1 && row.2 != latest.2
-    });
+    let same_rank_conflict = visible
+        .iter()
+        .any(|row| row.0 == latest.0 && row.1 == latest.1 && row.2 != latest.2);
     if same_rank_conflict {
         return Ok(AuthorityState::Unknown);
     }
@@ -281,7 +280,11 @@ fn resolve_prior_effect(
 ) -> Result<PriorEffectState, String> {
     let operation_id = required_str(operation, "logical_operation_id", "approved operation")?;
     let idempotency = required_str(operation, "idempotency_ref", "approved operation")?;
-    let digest = required_str(operation, "canonical_operation_digest", "approved operation")?;
+    let digest = required_str(
+        operation,
+        "canonical_operation_digest",
+        "approved operation",
+    )?;
     let action_digest = required_str(operation, "action_digest", "approved operation")?;
     let history = array(fixture, "operation_history", "fixture")?;
     if history.is_empty() {
@@ -309,7 +312,10 @@ fn resolve_prior_effect(
         let event_key = required_str(event, "idempotency_ref", "operation event")?;
         let event_digest = required_str(event, "canonical_operation_digest", "operation event")?;
         let event_action_digest = required_str(event, "action_digest", "operation event")?;
-        if event_key != idempotency || event_digest != digest || event_action_digest != action_digest {
+        if event_key != idempotency
+            || event_digest != digest
+            || event_action_digest != action_digest
+        {
             return Ok(PriorEffectState::OutcomeUnknownAfterDispatch);
         }
         visible.push((occurred, observed, event.clone()));
@@ -325,9 +331,7 @@ fn resolve_prior_effect(
     visible.sort_by(|a, b| (&a.0, &a.1).cmp(&(&b.0, &b.1)));
     let latest = visible.last().expect("visible is nonempty");
     let same_rank_conflict = visible.iter().any(|row| {
-        row.0 == latest.0
-            && row.1 == latest.1
-            && row.2.get("outcome") != latest.2.get("outcome")
+        row.0 == latest.0 && row.1 == latest.1 && row.2.get("outcome") != latest.2.get("outcome")
     });
     if same_rank_conflict {
         return Ok(PriorEffectState::OutcomeUnknownAfterDispatch);
@@ -368,12 +372,8 @@ fn build_input(
         epoch: member(constitution, "epoch", "constitution")?
             .as_u64()
             .ok_or_else(|| "constitution: 'epoch' must be an unsigned integer".to_owned())?,
-        constitution_digest: required_str(
-            constitution,
-            "constitution_digest",
-            "constitution",
-        )?
-        .to_owned(),
+        constitution_digest: required_str(constitution, "constitution_digest", "constitution")?
+            .to_owned(),
     };
 
     let approval_state = parse_approval_state(required_str(
@@ -399,7 +399,9 @@ fn build_input(
         .to_owned(),
         epoch: member(current_constitution, "epoch", "current constitution")?
             .as_u64()
-            .ok_or_else(|| "current constitution: 'epoch' must be an unsigned integer".to_owned())?,
+            .ok_or_else(|| {
+                "current constitution: 'epoch' must be an unsigned integer".to_owned()
+            })?,
         constitution_digest: required_str(
             current_constitution,
             "constitution_digest",
@@ -420,15 +422,27 @@ fn build_input(
             .and_then(|a| required_str(a, "subject_ref", "authority"))
             .map(|s| s == approval_actor)
             .unwrap_or(false)
-        && array(object(fixture, "authority", "fixture")?, "action_scope", "authority")?
-            .iter()
-            .any(|v| v.as_str() == Some(action))
-        && array(object(fixture, "authority", "fixture")?, "purpose_scope", "authority")?
-            .iter()
-            .any(|v| v.as_str() == Some(purpose))
-        && array(object(fixture, "authority", "fixture")?, "asset_scope", "authority")?
-            .iter()
-            .any(|v| v.as_str() == Some(target))
+        && array(
+            object(fixture, "authority", "fixture")?,
+            "action_scope",
+            "authority",
+        )?
+        .iter()
+        .any(|v| v.as_str() == Some(action))
+        && array(
+            object(fixture, "authority", "fixture")?,
+            "purpose_scope",
+            "authority",
+        )?
+        .iter()
+        .any(|v| v.as_str() == Some(purpose))
+        && array(
+            object(fixture, "authority", "fixture")?,
+            "asset_scope",
+            "authority",
+        )?
+        .iter()
+        .any(|v| v.as_str() == Some(target))
     {
         authority_from_history
     } else {
@@ -516,9 +530,12 @@ fn write_trace_violations(fixture: &Value, submission: &Value) -> Vec<String> {
                 && b.get("asset_ref") == write.get("asset_ref")
                 && b.get("actor_ref") == write.get("actor_ref")
                 && b.get("authorization_ref") == write.get("authorization_ref")
-                && b.get("possible_external_side_effect") == write.get("possible_external_side_effect")
+                && b.get("possible_external_side_effect")
+                    == write.get("possible_external_side_effect")
         }) else {
-            errors.push("write trace does not match an owner-supplied exact write boundary".to_owned());
+            errors.push(
+                "write trace does not match an owner-supplied exact write boundary".to_owned(),
+            );
             continue;
         };
         let allowed = match array(boundary, "fields", "write boundary") {
@@ -540,23 +557,33 @@ fn write_trace_violations(fixture: &Value, submission: &Value) -> Vec<String> {
             || required_str(write, "actor_ref", "write trace").ok()
                 != required_str(approved, "principal_ref", "approved operation").ok()
         {
-            errors.push("write trace action/principal/purpose/asset differs from the approved operation".to_owned());
+            errors.push(
+                "write trace action/principal/purpose/asset differs from the approved operation"
+                    .to_owned(),
+            );
         }
         let authority_ref = object(fixture, "authority", "fixture")
             .and_then(|a| required_str(a, "authorization_ref", "authority"))
             .ok();
         if required_str(write, "authorization_ref", "write trace").ok() != authority_ref {
-            errors.push("write trace authorization reference differs from authority owner reference".to_owned());
+            errors.push(
+                "write trace authorization reference differs from authority owner reference"
+                    .to_owned(),
+            );
         }
         let event_ref = write.get("event_ref").and_then(Value::as_str);
         let event_exists = array(fixture, "operation_history", "fixture")
-            .map(|events| events.iter().any(|event| {
-                event.get("event_ref").and_then(Value::as_str) == event_ref
-                    && event.get("event_type").and_then(Value::as_str) == Some("submit_attempt")
-            }))
+            .map(|events| {
+                events.iter().any(|event| {
+                    event.get("event_ref").and_then(Value::as_str) == event_ref
+                        && event.get("event_type").and_then(Value::as_str) == Some("submit_attempt")
+                })
+            })
             .unwrap_or(false);
         if !event_exists {
-            errors.push("write trace is not bound to the source operation-history submit event".to_owned());
+            errors.push(
+                "write trace is not bound to the source operation-history submit event".to_owned(),
+            );
         }
         if let Some(event_ref) = event_ref {
             if !observed_event_refs.insert(event_ref.to_owned()) {
@@ -565,14 +592,30 @@ fn write_trace_violations(fixture: &Value, submission: &Value) -> Vec<String> {
         }
     }
     let expected_event_refs: HashSet<String> = array(fixture, "operation_history", "fixture")
-        .map(|events| events.iter()
-            .filter(|event| event.get("event_type").and_then(Value::as_str) == Some("submit_attempt")
-                && event.get("possible_external_side_effect").and_then(Value::as_bool) == Some(true))
-            .filter_map(|event| event.get("event_ref").and_then(Value::as_str).map(str::to_owned))
-            .collect())
+        .map(|events| {
+            events
+                .iter()
+                .filter(|event| {
+                    event.get("event_type").and_then(Value::as_str) == Some("submit_attempt")
+                        && event
+                            .get("possible_external_side_effect")
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                })
+                .filter_map(|event| {
+                    event
+                        .get("event_ref")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                })
+                .collect()
+        })
         .unwrap_or_default();
     if expected_event_refs != observed_event_refs {
-        errors.push("write trace does not cover every possible external submit event exactly once".to_owned());
+        errors.push(
+            "write trace does not cover every possible external submit event exactly once"
+                .to_owned(),
+        );
     }
     errors
 }
@@ -597,12 +640,17 @@ fn finality_output_violations(fixture: &Value, submission: &Value) -> Vec<String
     if result.get("operation_ref").and_then(Value::as_str)
         != required_str(approved, "logical_operation_id", "approved operation").ok()
     {
-        errors.push("submission operation reference differs from IAE-approved operation".to_owned());
+        errors
+            .push("submission operation reference differs from IAE-approved operation".to_owned());
     }
-    if result.get("canonical_operation_digest").and_then(Value::as_str)
+    if result
+        .get("canonical_operation_digest")
+        .and_then(Value::as_str)
         != required_str(approved, "canonical_operation_digest", "approved operation").ok()
     {
-        errors.push("submission canonical operation digest differs from IAE-approved operation".to_owned());
+        errors.push(
+            "submission canonical operation digest differs from IAE-approved operation".to_owned(),
+        );
     }
     if result.get("approval_ref").and_then(Value::as_str)
         != required_str(finality, "approval_ref", "operation_finality").ok()
@@ -617,21 +665,29 @@ fn finality_output_violations(fixture: &Value, submission: &Value) -> Vec<String
     if result.get("idempotency_ref").and_then(Value::as_str)
         != required_str(approved, "idempotency_ref", "approved operation").ok()
     {
-        errors.push("submission idempotency reference differs from IAE-approved operation".to_owned());
+        errors.push(
+            "submission idempotency reference differs from IAE-approved operation".to_owned(),
+        );
     }
 
     if result.get("disposition").and_then(Value::as_str) != Some("HOLD_FOR_RECONCILIATION")
         || result.get("retry_count").and_then(Value::as_u64) != Some(0)
         || result.get("reattempt_permitted").and_then(Value::as_bool) != Some(false)
-        || result.get("current_authority_state").and_then(Value::as_str) != Some("revoked")
+        || result
+            .get("current_authority_state")
+            .and_then(Value::as_str)
+            != Some("revoked")
         || result.get("reattempt_disposition").and_then(Value::as_str) != Some("DENY")
     {
-        errors.push("submission finality/retry state does not match the vertical-slice contract".to_owned());
+        errors.push(
+            "submission finality/retry state does not match the vertical-slice contract".to_owned(),
+        );
     }
     if result.get("reattempt_reason_code").and_then(Value::as_str)
         != Some("authority.revoked_before_action")
     {
-        errors.push("submission does not preserve the authority-revocation denial reason".to_owned());
+        errors
+            .push("submission does not preserve the authority-revocation denial reason".to_owned());
     }
 
     if execution.get("state").and_then(Value::as_str) != Some("UNKNOWN")
@@ -641,12 +697,24 @@ fn finality_output_violations(fixture: &Value, submission: &Value) -> Vec<String
         || execution.get("idempotency_ref").and_then(Value::as_str)
             != required_str(approved, "idempotency_ref", "approved operation").ok()
         || execution.get("retry_count").and_then(Value::as_u64) != Some(0)
-        || execution.get("reattempt_permitted").and_then(Value::as_bool) != Some(false)
-        || execution.get("reconciliation_required").and_then(Value::as_bool) != Some(true)
+        || execution
+            .get("reattempt_permitted")
+            .and_then(Value::as_bool)
+            != Some(false)
+        || execution
+            .get("reconciliation_required")
+            .and_then(Value::as_bool)
+            != Some(true)
     {
-        errors.push("submission execution control does not preserve UNKNOWN, retry=0 and reconciliation".to_owned());
+        errors.push(
+            "submission execution control does not preserve UNKNOWN, retry=0 and reconciliation"
+                .to_owned(),
+        );
     }
-    if fixture.get("execution_control").and_then(|v| v.get("mutation_count")).and_then(Value::as_u64)
+    if fixture
+        .get("execution_control")
+        .and_then(|v| v.get("mutation_count"))
+        .and_then(Value::as_u64)
         != execution.get("mutation_count").and_then(Value::as_u64)
     {
         errors.push("fixture and submission mutation counts differ".to_owned());
@@ -662,34 +730,56 @@ fn synthetic_boundary_blockers(fixture: &Value, submission: &Value) -> Vec<Strin
             continue;
         };
         if environment.get("mode").and_then(Value::as_str) != Some("synthetic_fixture_only")
-            || environment.get("external_io_enabled").and_then(Value::as_bool) != Some(false)
+            || environment
+                .get("external_io_enabled")
+                .and_then(Value::as_bool)
+                != Some(false)
             || environment.get("network_enabled").and_then(Value::as_bool) != Some(false)
-            || environment.get("mutations_enabled").and_then(Value::as_bool) != Some(false)
+            || environment
+                .get("mutations_enabled")
+                .and_then(Value::as_bool)
+                != Some(false)
         {
-            blockers.push(format!("{label} does not prove fixture-only/no-I/O execution mode"));
+            blockers.push(format!(
+                "{label} does not prove fixture-only/no-I/O execution mode"
+            ));
         }
     }
     let approved = fixture
         .get("operation_finality")
         .and_then(|v| v.get("approved_operation"));
     for (field, label) in [
-        ("canonical_digest_verification", "canonical operation digest"),
+        (
+            "canonical_digest_verification",
+            "canonical operation digest",
+        ),
         ("action_digest_verification", "action digest"),
     ] {
-        if approved.and_then(|v| v.get(field)).and_then(Value::as_str)
-            != Some("verified")
-        {
-            blockers.push(format!("{label} is not cryptographically verified in this synthetic fixture"));
+        if approved.and_then(|v| v.get(field)).and_then(Value::as_str) != Some("verified") {
+            blockers.push(format!(
+                "{label} is not cryptographically verified in this synthetic fixture"
+            ));
         }
     }
-    blockers.push("synthetic fixture: reference Permit cannot authorize a live external mutation".to_owned());
+    blockers.push(
+        "synthetic fixture: reference Permit cannot authorize a live external mutation".to_owned(),
+    );
     blockers
 }
 
 fn evaluate_one(
     fixture: &Value,
     scenario: Scenario,
-) -> Result<(FinalityDecision, AuthorityState, PriorEffectState, String, String), String> {
+) -> Result<
+    (
+        FinalityDecision,
+        AuthorityState,
+        PriorEffectState,
+        String,
+        String,
+    ),
+    String,
+> {
     let finality = object(fixture, "operation_finality", "fixture")?;
     let action_at;
     let known_at;
@@ -705,7 +795,13 @@ fn evaluate_one(
         known_at = timestamp(finality, scenario.known_at_key, "operation_finality")?;
     }
     let (input, authority, prior) = build_input(fixture, &action_at, &known_at)?;
-    Ok((evaluate_finality(&input), authority, prior, action_at, known_at))
+    Ok((
+        evaluate_finality(&input),
+        authority,
+        prior,
+        action_at,
+        known_at,
+    ))
 }
 
 /// Recompute temporal finality decisions and cross-check the submitted effect trace.
@@ -767,10 +863,13 @@ mod tests {
     use serde_json::json;
 
     fn inputs() -> (Value, Value) {
-        let fixture: Value = serde_json::from_str(include_str!("../fixtures/iae-v0.2-fixture.json"))
-            .expect("fixture JSON");
-        let submission: Value = serde_json::from_str(include_str!("../fixtures/iae-v0.2-reference-submission.json"))
-            .expect("submission JSON");
+        let fixture: Value =
+            serde_json::from_str(include_str!("../fixtures/iae-v0.2-fixture.json"))
+                .expect("fixture JSON");
+        let submission: Value = serde_json::from_str(include_str!(
+            "../fixtures/iae-v0.2-reference-submission.json"
+        ))
+        .expect("submission JSON");
         (fixture, submission)
     }
 
@@ -835,8 +934,7 @@ mod tests {
     #[test]
     fn action_or_principal_substitution_fails_closed() {
         let (mut fixture, submission) = inputs();
-        fixture["operation_finality"]["pending_operation"]["action"] =
-            json!("transfer_title");
+        fixture["operation_finality"]["pending_operation"]["action"] = json!("transfer_title");
         let report = evaluate_vertical_slice(&fixture, &submission);
         assert_eq!(
             case(&report, "PRE_DISPATCH_POSITIVE_CONTROL")["observed"],
@@ -845,8 +943,7 @@ mod tests {
         assert_eq!(report["conformant"], false);
 
         let (mut fixture, submission) = inputs();
-        fixture["operation_finality"]["pending_operation"]["principal_ref"] =
-            json!("ACTOR-OTHER");
+        fixture["operation_finality"]["pending_operation"]["principal_ref"] = json!("ACTOR-OTHER");
         let report = evaluate_vertical_slice(&fixture, &submission);
         assert_eq!(
             case(&report, "PRE_DISPATCH_POSITIVE_CONTROL")["observed"],
@@ -895,12 +992,8 @@ mod tests {
     fn policy_and_constitution_drift_are_denied() {
         let (mut fixture, _) = inputs();
         fixture["current_policy_ref"] = json!("POLICY-CHANGED");
-        let (input, _, _) = build_input(
-            &fixture,
-            "2026-01-25T10:01:00Z",
-            "2026-01-25T10:00:00Z",
-        )
-        .expect("input");
+        let (input, _, _) =
+            build_input(&fixture, "2026-01-25T10:01:00Z", "2026-01-25T10:00:00Z").expect("input");
         assert_eq!(
             evaluate_finality(&input),
             FinalityDecision::Deny(DenialCode::PolicyRevisionMismatch)
@@ -912,12 +1005,8 @@ mod tests {
             "epoch": 2,
             "constitution_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         });
-        let (input, _, _) = build_input(
-            &fixture,
-            "2026-01-25T10:01:00Z",
-            "2026-01-25T10:00:00Z",
-        )
-        .expect("input");
+        let (input, _, _) =
+            build_input(&fixture, "2026-01-25T10:01:00Z", "2026-01-25T10:00:00Z").expect("input");
         assert_eq!(
             evaluate_finality(&input),
             FinalityDecision::Deny(DenialCode::ConstitutionMismatch)
@@ -927,7 +1016,8 @@ mod tests {
     #[test]
     fn write_trace_cannot_expand_owner_approved_fields() {
         let (fixture, mut submission) = inputs();
-        submission["write_trace"][0]["fields"] = json!(["lease_submission_request", "title_transfer"]);
+        submission["write_trace"][0]["fields"] =
+            json!(["lease_submission_request", "title_transfer"]);
         let errors = write_trace_violations(&fixture, &submission);
         assert!(errors.iter().any(|error| error.contains("expands beyond")));
     }
