@@ -43,3 +43,9 @@ The report includes per-stratum estimates and their sum, plus a pooled calculati
 ## Claim ceiling
 
 The E0 engine does not authenticate source lineage, independence, linkage quality, frame completeness, within-stratum homogeneity or \(\theta\) sensitivity bounds. It does not estimate sampling uncertainty, model capture heterogeneity or infer false-match rates. Its outputs are conditional mathematical consequences of the supplied counts and assumptions only.
+
+## Declared ancestry paths
+
+Each ancestry field may be a slash-separated root-to-register path, for example `national-register/utility-account`. A shared component at any path depth is treated as declared common upstream ancestry and suppresses both per-stratum and pooled Lincoln–Petersen / Chapman point-estimate baselines. The odds-ratio sensitivity interval remains available.
+
+The literal `UNKNOWN` state also withholds independence point estimates. Empty path components are rejected. Distinct declared paths do not prove statistical independence; they only mean no common ancestor is declared in the supplied paths. The path and its contents are caller assertions, not authenticated lineage.
