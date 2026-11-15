@@ -494,13 +494,9 @@ fn parse_citations(
                 } else if current_citation
                     .as_ref()
                     .is_some_and(|builder| element_stack.len() >= builder.depth)
-                {
-                    return Err(ParseError::NestedCitationElement(
-                        String::from_utf8_lossy(&name).into_owned(),
-                    ));
-                } else if current_description
-                    .as_ref()
-                    .is_some_and(|builder| element_stack.len() >= builder.depth)
+                    || current_description
+                        .as_ref()
+                        .is_some_and(|builder| element_stack.len() >= builder.depth)
                 {
                     return Err(ParseError::NestedCitationElement(
                         String::from_utf8_lossy(&name).into_owned(),
@@ -555,13 +551,17 @@ fn parse_citations(
                 let decoded = text
                     .decode()
                     .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
-                if let Some(builder) = current_citation.as_mut() {
-                    if element_stack.len() == builder.depth {
+                match current_citation.as_mut() {
+                    Some(builder) if element_stack.len() == builder.depth => {
                         builder.text.push_str(&decoded);
                     }
-                } else if let Some(builder) = current_description.as_mut() {
-                    if element_stack.len() == builder.depth {
-                        builder.text.push_str(&decoded);
+                    Some(_) => {}
+                    None => {
+                        if let Some(builder) = current_description.as_mut()
+                            && element_stack.len() == builder.depth
+                        {
+                            builder.text.push_str(&decoded);
+                        }
                     }
                 }
             }
@@ -569,13 +569,17 @@ fn parse_citations(
                 let decoded = text
                     .decode()
                     .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
-                if let Some(builder) = current_citation.as_mut() {
-                    if element_stack.len() == builder.depth {
+                match current_citation.as_mut() {
+                    Some(builder) if element_stack.len() == builder.depth => {
                         builder.text.push_str(&decoded);
                     }
-                } else if let Some(builder) = current_description.as_mut() {
-                    if element_stack.len() == builder.depth {
-                        builder.text.push_str(&decoded);
+                    Some(_) => {}
+                    None => {
+                        if let Some(builder) = current_description.as_mut()
+                            && element_stack.len() == builder.depth
+                        {
+                            builder.text.push_str(&decoded);
+                        }
                     }
                 }
             }
@@ -605,26 +609,28 @@ fn parse_citations(
                 let qualified_name = element.name();
                 let name = qualified_name.as_ref();
 
-                if let Some(builder) = current_citation.as_ref() {
-                    if builder.depth == depth && name == b"EventIVORN" {
-                        let builder = current_citation.take().expect("citation builder exists");
-                        let target_ivoid = builder.text;
-                        validate_ivoid(&target_ivoid).map_err(ParseError::InvalidCitationTarget)?;
-                        citations.push(VoEventCitation {
-                            target_ivoid,
-                            relation: builder.relation,
-                            attributes: builder.attributes,
-                        });
-                    }
+                if current_citation
+                    .as_ref()
+                    .is_some_and(|builder| builder.depth == depth && name == b"EventIVORN")
+                {
+                    let builder = current_citation.take().expect("citation builder exists");
+                    let target_ivoid = builder.text;
+                    validate_ivoid(&target_ivoid).map_err(ParseError::InvalidCitationTarget)?;
+                    citations.push(VoEventCitation {
+                        target_ivoid,
+                        relation: builder.relation,
+                        attributes: builder.attributes,
+                    });
                 }
 
-                if let Some(builder) = current_description.as_ref() {
-                    if builder.depth == depth && name == b"Description" {
-                        let builder = current_description
-                            .take()
-                            .expect("description builder exists");
-                        description = Some(builder.text);
-                    }
+                if current_description
+                    .as_ref()
+                    .is_some_and(|builder| builder.depth == depth && name == b"Description")
+                {
+                    let builder = current_description
+                        .take()
+                        .expect("description builder exists");
+                    description = Some(builder.text);
                 }
 
                 if citations_depth == Some(depth) && name == b"Citations" {
@@ -756,13 +762,17 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
                 let decoded = text
                     .decode()
                     .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
-                if let Some(builder) = current_author.as_mut() {
-                    if element_stack.len() == builder.depth {
+                match current_author.as_mut() {
+                    Some(builder) if element_stack.len() == builder.depth => {
                         builder.text.push_str(&decoded);
                     }
-                } else if let Some(builder) = current_date.as_mut() {
-                    if element_stack.len() == builder.depth {
-                        builder.text.push_str(&decoded);
+                    Some(_) => {}
+                    None => {
+                        if let Some(builder) = current_date.as_mut()
+                            && element_stack.len() == builder.depth
+                        {
+                            builder.text.push_str(&decoded);
+                        }
                     }
                 }
             }
@@ -770,13 +780,17 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
                 let decoded = text
                     .decode()
                     .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
-                if let Some(builder) = current_author.as_mut() {
-                    if element_stack.len() == builder.depth {
+                match current_author.as_mut() {
+                    Some(builder) if element_stack.len() == builder.depth => {
                         builder.text.push_str(&decoded);
                     }
-                } else if let Some(builder) = current_date.as_mut() {
-                    if element_stack.len() == builder.depth {
-                        builder.text.push_str(&decoded);
+                    Some(_) => {}
+                    None => {
+                        if let Some(builder) = current_date.as_mut()
+                            && element_stack.len() == builder.depth
+                        {
+                            builder.text.push_str(&decoded);
+                        }
                     }
                 }
             }
@@ -806,22 +820,24 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
                 let qualified_name = element.name();
                 let name = qualified_name.as_ref();
 
-                if let Some(builder) = current_author.as_ref() {
-                    if builder.depth == depth && name == b"AuthorIVORN" {
-                        let builder = current_author.take().expect("Who author builder exists");
-                        validate_ivoid(&builder.text).map_err(ParseError::InvalidWhoAuthorIvoid)?;
-                        author_ivoid = Some(builder.text);
-                    }
+                if current_author
+                    .as_ref()
+                    .is_some_and(|builder| builder.depth == depth && name == b"AuthorIVORN")
+                {
+                    let builder = current_author.take().expect("Who author builder exists");
+                    validate_ivoid(&builder.text).map_err(ParseError::InvalidWhoAuthorIvoid)?;
+                    author_ivoid = Some(builder.text);
                 }
 
-                if let Some(builder) = current_date.as_ref() {
-                    if builder.depth == depth && name == b"Date" {
-                        let builder = current_date.take().expect("Who date builder exists");
-                        if builder.text.is_empty() {
-                            return Err(ParseError::EmptyWhoDate);
-                        }
-                        source_created_at = Some(builder.text);
+                if current_date
+                    .as_ref()
+                    .is_some_and(|builder| builder.depth == depth && name == b"Date")
+                {
+                    let builder = current_date.take().expect("Who date builder exists");
+                    if builder.text.is_empty() {
+                        return Err(ParseError::EmptyWhoDate);
                     }
+                    source_created_at = Some(builder.text);
                 }
 
                 if who_depth == Some(depth) && name == b"Who" {
