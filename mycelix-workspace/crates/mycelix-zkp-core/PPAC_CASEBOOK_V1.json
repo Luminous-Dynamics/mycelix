@@ -6,7 +6,7 @@
   "status": "design_fixture_specification",
   "created_at": "2026-11-15",
   "synthetic_only": true,
-  "case_count": 29,
+  "case_count": 31,
   "oracle_status": "not_adjudicated",
   "execution_status": "not_run",
   "labels_are_provisional": true,
@@ -19,7 +19,9 @@
     "no_aggregate_score": "Hard failures such as false acceptance or unauthorized disclosure cannot be offset by performance or average accuracy.",
     "adaptive_predicate_disclosure": "Model repeated and adaptively chosen predicates as an information-flow channel; query-family/sequence policy must be domain-owned, purpose/audience scoped and consent-bound. This casebook does not implement a differential-privacy budget.",
     "credential_status_privacy": "Status-list URL, slot/index and fetch metadata are part of the privacy attack surface; group privacy must be tested with realistic issuance population sizes and status-query patterns.",
-    "crypto_agility": "Every signature, KEM, commitment, proof, hash, recursion and verifier-root layer must be classified independently; transport PQ status cannot promote the whole PPAC profile."
+    "crypto_agility": "Every signature, KEM, commitment, proof, hash, recursion and verifier-root layer must be classified independently; transport PQ status cannot promote the whole PPAC profile.",
+    "consent_voluntariness": "Authenticate exact consent bytes and key/session, but do not infer comprehension, legal capacity, free choice or absence of coercion from the signature. Human/process evidence and contestability remain separate.",
+    "revocation": "Treat revocation as prospective withdrawal; preserve prior disclosure/effect history and require separate evidence for retention/deletion/onward-use obligations."
   },
   "disposition_vocabulary": [
     "QUALIFIED_CLAIM_CANDIDATE",
@@ -734,6 +736,59 @@
         "#369",
         "Mycelix crypto profile owner"
       ]
+    },
+    {
+      "id": "PPAC-CONSENT-001",
+      "family": "consent-process",
+      "kind": "ambiguous",
+      "base_case": "PPAC-NEG-008",
+      "scenario": "A cryptographically authenticated consent receipt is presented as proof of informed, voluntary and uncoerced agreement, but the actual explanation, accessibility, comprehension and availability of alternatives are not evidenced.",
+      "facts": {
+        "consent_receipt": "signature_valid",
+        "exact_scope": "bound",
+        "purpose_explanation": "not_preserved_or_unclear",
+        "accessible_choice": "unknown",
+        "coercion_state": "not_cryptographically_establishable"
+      },
+      "mutation": {
+        "field": "consent_process_evidence",
+        "from": "reviewed_accessible_process",
+        "to": "unknown_or_incomplete"
+      },
+      "expected_gate": "human_consent_process_and_contestability",
+      "provisional_disposition": "INDETERMINATE",
+      "invariant": "A valid signature proves a recorded attestation under a key; it does not prove comprehension, capacity, free choice or absence of coercion.",
+      "owners": [
+        "Xenia #449",
+        "#450",
+        "Mycelix domain governance"
+      ]
+    },
+    {
+      "id": "PPAC-CONSENT-002",
+      "family": "consent-revocation",
+      "kind": "temporal",
+      "base_case": "PPAC-NEG-008",
+      "scenario": "Consent is revoked after one presentation or disclosure has already occurred; a later action is requested using the old consent record.",
+      "facts": {
+        "prior_disclosure": "already_delivered",
+        "consent": "revoked",
+        "new_action": "requested",
+        "recipient_copy_state": "unknown"
+      },
+      "mutation": {
+        "field": "consent_generation",
+        "from": "approved",
+        "to": "revoked"
+      },
+      "expected_gate": "prospective_consent_and_action_authority",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "Revocation blocks future use under the withdrawn authority but does not prove previously disclosed data was erased from recipients.",
+      "owners": [
+        "Xenia #449",
+        "#450",
+        "Mycelix retention/privacy policy owner"
+      ]
     }
   ],
   "nonclaims": [
@@ -742,6 +797,8 @@
     "Provisional expected dispositions are not adjudicated oracle labels.",
     "Passing these finite synthetic cases would not establish production security, universal unlinkability, issuer truth, institutional authority, legal compliance or external effect.",
     "The casebook does not define or implement a global privacy budget or differential-privacy mechanism.",
-    "A PQ-capable Xenia session does not make a BBS pairing-based credential or arbitrary ZK backend post-quantum."
+    "A PQ-capable Xenia session does not make a BBS pairing-based credential or arbitrary ZK backend post-quantum.",
+    "The casebook does not prove informed or uncoerced human consent.",
+    "Consent revocation does not demonstrate deletion of data already disclosed to a recipient."
   ]
 }
