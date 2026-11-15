@@ -76,9 +76,7 @@ fn is_independent_effect_observation(effect: &Value) -> Result<bool, String> {
     Ok(!dependencies.iter().any(|dependency| {
         dependency
             .as_str()
-            .is_some_and(|value| {
-                value == "opa_decision_log" || value == "provider_acknowledgement"
-            })
+            .is_some_and(|value| value == "opa_decision_log" || value == "provider_acknowledgement")
     }))
 }
 
@@ -241,13 +239,11 @@ fn evaluate_inner(fixture: &Value) -> Result<Value, String> {
             } else {
                 "policy_denial_is_not_proof_of_no_effect"
             },
-            vec![
-                if decision_result {
-                    "OPA records an allow decision, but no independent protected-resource observation was supplied.".to_owned()
-                } else {
-                    "OPA records a denial, but absence of an effect observation does not prove that no external effect occurred.".to_owned()
-                }
-            ],
+            vec![if decision_result {
+                "OPA records an allow decision, but no independent protected-resource observation was supplied.".to_owned()
+            } else {
+                "OPA records a denial, but absence of an effect observation does not prove that no external effect occurred.".to_owned()
+            }],
         ));
     };
 
@@ -447,8 +443,7 @@ mod tests {
     fn common_cause_observation_cannot_prove_no_effect_after_denial() {
         let mut value = fixture();
         value["opa_decision_log"]["result"] = json!(false);
-        value["effect_observation"]["source_dependencies"] =
-            json!(["provider_acknowledgement"]);
+        value["effect_observation"]["source_dependencies"] = json!(["provider_acknowledgement"]);
         let result = evaluate(&value);
         assert_eq!(result["overall"], "DENIED_WITH_UNRECONCILED_EVIDENCE");
         assert_eq!(result["effect_state"], "OBSERVATION_NOT_INDEPENDENT");
