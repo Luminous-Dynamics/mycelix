@@ -103,7 +103,49 @@
           }
         },
         "qualification": "Vendor-reported reference only; small sample count, not Mycelix results, not comparable to other system workloads."
-      }
+      },
+      "pinned_candidate_release": {
+        "version": "v0.1.0-beta.1",
+        "released": "2026-11-14",
+        "release_commit_short": "40a0695",
+        "full_commit_sha": "must_be_resolved_from_git_before_runtime_dependency_lock",
+        "status": "prerelease_candidate_only",
+        "relevant_regressions": {
+          "transcript_commitment_order": "#1179",
+          "bounded_prover_commitment_ranges": "#1196",
+          "ghash_byte_order": "#1211",
+          "deterministic_session_teardown": [
+            "#1207",
+            "#1202",
+            "#1172",
+            "#1167",
+            "#1175"
+          ],
+          "matching_mux_stream_limits": "#1193"
+        },
+        "release_api_changes": [
+          "tlsn crate consolidates former prover/verifier crates",
+          "attestation functionality moved to separate attestation crate"
+        ],
+        "source": "https://github.com/tlsnotary/tlsn/releases/tag/v0.1.0-beta.1"
+      },
+      "privacy_profiles": [
+        {
+          "id": "FULL_RESPONSE_REVEAL",
+          "description": "Entire traffic direction is disclosed; response-side ciphertext-to-plaintext proof may be skipped, but TLS key-derivation proof remains.",
+          "tradeoff": "Not selective privacy. Entire response reaches verifier."
+        },
+        {
+          "id": "SELECTIVE_DISCLOSURE",
+          "description": "Only chosen HTTP objects/ranges are revealed; other response fields remain redacted.",
+          "tradeoff": "Requires the relevant commitment/opening and plaintext proof path."
+        },
+        {
+          "id": "MIXED_SENSITIVE_DIRECTION",
+          "description": "At least one sensitive byte/field remains hidden in the direction.",
+          "tradeoff": "Full-reveal fast path does not apply; direction uses ZK path."
+        }
+      ]
     },
     {
       "id": "DECO",
@@ -337,7 +379,10 @@
       "nullifier_spent_state",
       "LISE_qualification",
       "time_to_qualified_private_decision",
-      "domain_scoped_nullifier_generation_and_consume_once"
+      "domain_scoped_nullifier_generation_and_consume_once",
+      "tlsn_release_known_answer_and_range_regression",
+      "session_teardown_failure_path",
+      "full_reveal_vs_selective_disclosure_proof_cost"
     ],
     "measures": [
       "wall_clock",
@@ -359,7 +404,11 @@
       "same_subject_repeat_claim_acceptance",
       "cross_scope_linkability",
       "recovery_and_key_rotation_continuity",
-      "concurrent_consume_once_race"
+      "concurrent_consume_once_race",
+      "full_response_disclosure_bytes",
+      "sensitive_field_disclosure_count",
+      "range_validation_rejection_rate",
+      "session_hang_or_silent_drop_count"
     ],
     "fairness_rules": [
       "Same exact request and response bytes wherever protocol allows.",
@@ -368,7 +417,9 @@
       "Include source/session witness and credential checks, not just local proof time.",
       "Report preprocessing separately from online latency.",
       "Report all failures and rejected controls; rejecting all inputs is not a valid positive-control pass.",
-      "Uniqueness subject must be frozen as account, credential, entitlement, application or person; different subject claims are not interchangeable."
+      "Uniqueness subject must be frozen as account, credential, entitlement, application or person; different subject claims are not interchangeable.",
+      "Do not compare full-response-reveal runtime with selective-disclosure runtime without reporting that the verifier receives the whole response in the former.",
+      "Pin exact TLSNotary release/tag/full source commit, crate graph, feature flags, Rust toolchain and target; prerelease Beta.1 remains an integration candidate, not a certified verifier."
     ],
     "prospective_targets": {
       "false_accepts_in_frozen_adversarial_corpus": 0,
@@ -379,7 +430,12 @@
       "independent_reproduction_of_expected_outputs": "100%",
       "latency_superiority": "Only claim after matched end-to-end benchmark under equal security, privacy, authority and hardware budgets; proposed aim is >=20% lower p95 time-to-qualified-private-decision without increasing leakage or false accepts."
     },
-    "status": "protocol_and_targets_only_not_executed"
+    "status": "protocol_and_targets_only_not_executed",
+    "privacy_profiles": [
+      "FULL_RESPONSE_REVEAL",
+      "SELECTIVE_DISCLOSURE",
+      "MIXED_SENSITIVE_DIRECTION"
+    ]
   },
   "nonclaims": [
     "No system in this matrix is certified or promoted by inclusion.",
@@ -387,6 +443,7 @@
     "Transport authenticity does not establish provider truth or account ownership.",
     "Proof validity does not establish currentness, policy authority, consent or external effect.",
     "Salted-commitment-derived spend tags do not guarantee uniqueness across fresh attestations for the same account.",
-    "Application/account-scoped uniqueness does not prove uniqueness of a legal or natural person."
+    "Application/account-scoped uniqueness does not prove uniqueness of a legal or natural person.",
+    "TLSNotary full-reveal fast path is not selective disclosure: entire traffic direction is disclosed; only the key-derivation ZK proof remains while the ciphertext-to-plaintext proof for that direction is skipped."
   ]
 }
