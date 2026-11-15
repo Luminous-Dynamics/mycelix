@@ -326,6 +326,18 @@ pub struct WorldMomentConstraint {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WorldDistributionLpInput {
+    pub problem_id: String,
+    pub scope_sha256: String,
+    pub assumption_set_id: String,
+    pub values: Vec<FiniteWorldValue>,
+    pub constraints: Vec<WorldMomentConstraint>,
+    pub direction: ExtremumDirection,
+    pub primal_world_masses: BTreeMap<String, Rational>,
+    pub dual_row_values: BTreeMap<String, Rational>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LpError(pub String);
 
 impl std::fmt::Display for LpError {
@@ -909,15 +921,18 @@ pub fn finite_world_extremum_lp(
 /// This builder does not solve the LP. Caller-supplied certificates are
 /// checked by analyze using exact rational arithmetic.
 pub fn build_world_distribution_lp(
-    problem_id: &str,
-    scope_sha256: &str,
-    assumption_set_id: &str,
-    values: &[FiniteWorldValue],
-    constraints: &[WorldMomentConstraint],
-    direction: ExtremumDirection,
-    primal_world_masses: &BTreeMap<String, Rational>,
-    dual_row_values: &BTreeMap<String, Rational>,
+    input: WorldDistributionLpInput,
 ) -> Result<LpModel, LpError> {
+    let WorldDistributionLpInput {
+        problem_id,
+        scope_sha256,
+        assumption_set_id,
+        values,
+        constraints,
+        direction,
+        primal_world_masses,
+        dual_row_values,
+    } = input;
     if !valid_token(problem_id) || !valid_token(assumption_set_id) {
         return Err(fail("world-distribution IDs must be valid tokens"));
     }
@@ -1917,12 +1932,36 @@ mod tests {
         .is_err());
     }
 
-    fn moment_fixture_certificates() -> (
-        Vec<FiniteWorldValue>,
-        Vec<WorldMomentConstraint>,
-        BTreeMap<String, Rational>,
-        BTreeMap<String, Rational>,
-    ) {
+    struct MomentFixture {
+        values: Vec<FiniteWorldValue>,
+        constraints: Vec<WorldMomentConstraint>,
+        max_primal: BTreeMap<String, Rational>,
+        max_dual: BTreeMap<String, Rational>,
+    }
+
+    fn build_fixture_model(
+        problem_id: &str,
+        assumption_set_id: &str,
+        values: &[FiniteWorldValue],
+        constraints: &[WorldMomentConstraint],
+        direction: ExtremumDirection,
+        primal: &BTreeMap<String, Rational>,
+        dual: &BTreeMap<String, Rational>,
+    ) -> LpModel {
+        build_world_distribution_lp(WorldDistributionLpInput {
+            problem_id: problem_id.to_owned(),
+            scope_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
+            assumption_set_id: assumption_set_id.to_owned(),
+            values: values.to_vec(),
+            constraints: constraints.to_vec(),
+            direction,
+            primal_world_masses: primal.clone(),
+            dual_row_values: dual.clone(),
+        })
+        .expect("fixture LP builds")
+    }
+
+    fn moment_fixture_certificates() -> MomentFixture {
         let values = vec![
             FiniteWorldValue {
                 world_id: "w0".to_owned(),
@@ -1968,23 +2007,26 @@ mod tests {
                 Rational::new(20, 1).unwrap(),
             ),
         ]);
-        (values, constraints, max_primal, max_dual)
+        MomentFixture {
+            values,
+            constraints,
+            max_primal,
+            max_dual,
+        }
     }
 
     #[test]
     fn partial_identification_moment_constraints_prove_sharp_bounds_ten_to_twenty() {
-        let (values, constraints, max_primal, max_dual) = moment_fixture_certificates();
-        let maximum_model = build_world_distribution_lp(
+        let fixture = moment_fixture_certificates();
+        let maximum_model = build_fixture_model(
             "water-population-upper",
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             "half-population-known-v1",
-            &values,
-            &constraints,
+            &fixture.values,
+            &fixture.constraints,
             ExtremumDirection::Maximum,
-            &max_primal,
-            &max_dual,
-        )
-        .unwrap();
+            &fixture.max_primal,
+            &fixture.max_dual,
+        );
         let maximum = analyze(&maximum_model).unwrap();
         assert!(maximum.primal.feasible);
         assert!(maximum.dual.feasible);
@@ -2010,17 +2052,15 @@ mod tests {
             ),
             ("moment-low-group-share-lower".to_owned(), Rational::zero()),
         ]);
-        let minimum_model = build_world_distribution_lp(
+        let minimum_model = build_fixture_model(
             "water-population-lower",
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             "half-population-known-v1",
-            &values,
-            &constraints,
+            &fixture.values,
+            &fixture.constraints,
             ExtremumDirection::Minimum,
             &min_primal,
             &min_dual,
-        )
-        .unwrap();
+        );
         let minimum = analyze(&minimum_model).unwrap();
         assert!(minimum.primal.feasible);
         assert!(minimum.dual.feasible);
@@ -2039,18 +2079,16 @@ mod tests {
 
     #[test]
     fn moment_constraints_narrow_bounds_relative_to_unconstrained_simplex() {
-        let (values, constraints, max_primal, max_dual) = moment_fixture_certificates();
-        let constrained_model = build_world_distribution_lp(
+        let fixture = moment_fixture_certificates();
+        let constrained_model = build_fixture_model(
             "constrained-upper",
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             "half-population-known-v1",
-            &values,
-            &constraints,
+            &fixture.values,
+            &fixture.constraints,
             ExtremumDirection::Maximum,
-            &max_primal,
-            &max_dual,
-        )
-        .unwrap();
+            &fixture.max_primal,
+            &fixture.max_dual,
+        );
         let constrained = analyze(&constrained_model).unwrap();
         assert_eq!(constrained.primal.objective.display(), "20");
 
@@ -2064,17 +2102,15 @@ mod tests {
             ("mass-upper".to_owned(), Rational::new(30, 1).unwrap()),
             ("mass-lower".to_owned(), Rational::zero()),
         ]);
-        let unconstrained_model = build_world_distribution_lp(
+        let unconstrained_model = build_fixture_model(
             "unconstrained-upper",
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             "no-moment-fact-v1",
-            &values,
+            &fixture.values,
             &[],
             ExtremumDirection::Maximum,
             &unconstrained_primal,
             &unconstrained_dual,
-        )
-        .unwrap();
+        );
         let unconstrained = analyze(&unconstrained_model).unwrap();
         assert_eq!(unconstrained.primal.objective.display(), "30");
         assert!(
@@ -2089,7 +2125,7 @@ mod tests {
 
     #[test]
     fn moment_constraint_builder_rejects_invalid_bounds_and_unknown_worlds() {
-        let (values, _, primal, _) = moment_fixture_certificates();
+        let fixture = moment_fixture_certificates();
         let invalid = vec![WorldMomentConstraint {
             id: "invalid".to_owned(),
             coefficients: BTreeMap::from([("w0".to_owned(), Rational::one())]),
@@ -2102,16 +2138,16 @@ mod tests {
             ("moment-invalid-upper".to_owned(), Rational::zero()),
             ("moment-invalid-lower".to_owned(), Rational::zero()),
         ]);
-        assert!(build_world_distribution_lp(
-            "invalid-interval",
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-            "invalid-assumptions",
-            &values,
-            &invalid,
-            ExtremumDirection::Maximum,
-            &primal,
-            &dual,
-        )
+        assert!(build_world_distribution_lp(WorldDistributionLpInput {
+            problem_id: "invalid-interval".to_owned(),
+            scope_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
+            assumption_set_id: "invalid-assumptions".to_owned(),
+            values: fixture.values.clone(),
+            constraints: invalid,
+            direction: ExtremumDirection::Maximum,
+            primal_world_masses: fixture.max_primal.clone(),
+            dual_row_values: dual,
+        })
         .is_err());
 
         let unknown = vec![WorldMomentConstraint {
@@ -2125,16 +2161,16 @@ mod tests {
             ("mass-lower".to_owned(), Rational::zero()),
             ("moment-unknown-world-upper".to_owned(), Rational::zero()),
         ]);
-        assert!(build_world_distribution_lp(
-            "unknown-world",
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-            "invalid-assumptions",
-            &values,
-            &unknown,
-            ExtremumDirection::Maximum,
-            &primal,
-            &dual,
-        )
+        assert!(build_world_distribution_lp(WorldDistributionLpInput {
+            problem_id: "unknown-world".to_owned(),
+            scope_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
+            assumption_set_id: "invalid-assumptions".to_owned(),
+            values: fixture.values,
+            constraints: unknown,
+            direction: ExtremumDirection::Maximum,
+            primal_world_masses: fixture.max_primal,
+            dual_row_values: dual,
+        })
         .is_err());
     }
 
@@ -2188,17 +2224,15 @@ mod tests {
             ("moment-low-minimum-lower".to_owned(), Rational::zero()),
             ("moment-low-maximum-upper".to_owned(), Rational::zero()),
         ]);
-        let model = build_world_distribution_lp(
+        let model = build_fixture_model(
             "incompatible-register-constraints",
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             "contradictory-aggregate-facts-v1",
             &values,
             &constraints,
             ExtremumDirection::Maximum,
             &primal,
             &dual,
-        )
-        .unwrap();
+        );
         let multipliers = BTreeMap::from([
             ("mass-upper".to_owned(), Rational::zero()),
             ("mass-lower".to_owned(), Rational::zero()),
@@ -2216,18 +2250,16 @@ mod tests {
 
     #[test]
     fn invalid_farkas_multiplier_or_unknown_row_is_rejected() {
-        let (values, constraints, primal, dual) = moment_fixture_certificates();
-        let model = build_world_distribution_lp(
+        let fixture = moment_fixture_certificates();
+        let model = build_fixture_model(
             "farkas-negative-control",
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             "half-population-known-v1",
-            &values,
-            &constraints,
+            &fixture.values,
+            &fixture.constraints,
             ExtremumDirection::Maximum,
-            &primal,
-            &dual,
-        )
-        .unwrap();
+            &fixture.max_primal,
+            &fixture.max_dual,
+        );
         let mut negative = BTreeMap::from([
             ("mass-upper".to_owned(), Rational::zero()),
             ("mass-lower".to_owned(), Rational::zero()),
