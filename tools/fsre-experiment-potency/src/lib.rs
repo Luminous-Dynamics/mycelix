@@ -869,6 +869,99 @@ mod tests {
         assert_eq!(ids(&best), vec!["column_probe", "row_probe"]);
     }
 
+
+    #[test]
+    fn independent_exhaustive_reference_matches_without_production_partition_helpers() {
+        let query_values = [0_i128, 1, 1, 2];
+        let column_outcomes = ["c0", "c1", "c0", "c1"];
+        let inert_outcomes = ["constant", "constant", "constant", "constant"];
+        let row_outcomes = ["r0", "r0", "r1", "r1"];
+        let experiment_outcomes: [&[&str]; 3] =
+            [&column_outcomes, &inert_outcomes, &row_outcomes];
+        let costs = [1_u128, 1, 1];
+        let budget = 2_u128;
+        let baseline_width = 2_i128;
+
+        let mut best_potency = -1_i128;
+        let mut best_cost = u128::MAX;
+        let mut best_masks = Vec::new();
+
+        for mask in 0_u8..8 {
+            let cost = (0..3)
+                .filter(|index| mask & (1_u8 << index) != 0)
+                .map(|index| costs[index])
+                .sum::<u128>();
+            if cost > budget {
+                continue;
+            }
+
+            let mut groups = BTreeMap::<Vec<&str>, (i128, i128)>::new();
+            for world_index in 0..query_values.len() {
+                let signature = (0..3)
+                    .filter(|index| mask & (1_u8 << index) != 0)
+                    .map(|index| experiment_outcomes[index][world_index])
+                    .collect::<Vec<_>>();
+                let value = query_values[world_index];
+                groups
+                    .entry(signature)
+                    .and_modify(|range| {
+                        range.0 = range.0.min(value);
+                        range.1 = range.1.max(value);
+                    })
+                    .or_insert((value, value));
+            }
+            let residual_width = groups
+                .values()
+                .map(|(minimum, maximum)| maximum - minimum)
+                .max()
+                .unwrap_or(0);
+            let potency = baseline_width - residual_width;
+
+            if potency > best_potency || (potency == best_potency && cost < best_cost) {
+                best_potency = potency;
+                best_cost = cost;
+                best_masks.clear();
+                best_masks.push(mask);
+            } else if potency == best_potency && cost == best_cost {
+                best_masks.push(mask);
+            }
+        }
+
+        let report = analyze(&fixture());
+        let best = report.unpruned.best.unwrap();
+        assert_eq!(best_potency, 2);
+        assert_eq!(best_cost, 2);
+        assert_eq!(best_masks, vec![0b101]);
+        assert_eq!(best.potency, best_potency);
+        assert_eq!(best.cost, best_cost);
+        assert_eq!(best.experiment_ids, vec!["column_probe", "row_probe"]);
+    }
+
+    #[test]
+    fn a_blocked_candidate_is_removed_before_subset_enumeration() {
+        let mut problem = fixture();
+        let row = problem
+            .experiments
+            .iter_mut()
+            .find(|experiment| experiment.id == "row_probe")
+            .unwrap();
+        row.safety = "BLOCKED".to_owned();
+
+        let report = analyze(&problem);
+        assert_eq!(report.selectable_count, 2);
+        assert_eq!(
+            report
+                .candidate_statuses
+                .iter()
+                .find(|(id, _)| id == "row_probe")
+                .unwrap()
+                .1,
+            CandidateStatus::BlockedSafetyOrServiceFloor
+        );
+        assert_eq!(report.unpruned.candidate_count, 2);
+        assert_eq!(report.unpruned.best.unwrap().experiment_ids, vec!["column_probe"]);
+    }
+
     #[test]
     fn deterministic_under_world_experiment_and_observation_row_permutation() {
         let original = analyze(&fixture()).render();
