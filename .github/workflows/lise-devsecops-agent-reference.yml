@@ -5,6 +5,13 @@ on:
     branches:
       - main
     paths:
+      - "lise-benchsecops-agent-reference/**"
+      - "lise-benchmarks/devsecops-agent-reference/**"
+      - ".github/workflows/lise-devsecops-agent-reference.yml"
+  push:
+    branches:
+      - research/lise-devsecops-profile-v0.1
+    paths:
       - "lise-benchmarks/devsecops-agent-reference/**"
       - ".github/workflows/lise-devsecops-agent-reference.yml"
 
