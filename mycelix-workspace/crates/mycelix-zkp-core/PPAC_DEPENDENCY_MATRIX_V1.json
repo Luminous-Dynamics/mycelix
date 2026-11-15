@@ -434,6 +434,31 @@
         "LISE",
         "contestability"
       ]
+    },
+    {
+      "id": "SYMTHAEA_REQUEST_BOUND_BALANCE_CANDIDATE",
+      "owner": "Symthaea",
+      "proposition": "The dedicated request-bound guest proves the private threshold relation and commits a domain-separated digest of the exact request context; host verification checks that digest and the dedicated expected ImageID.",
+      "depends_on": [
+        "request_id",
+        "source_statement_reference_digest",
+        "claim_schema_digest",
+        "predicate_digest",
+        "issuer_key_reference_digest",
+        "audience_digest",
+        "verifier_digest",
+        "purpose_digest",
+        "policy_digest",
+        "verifier_challenge",
+        "required_minimum",
+        "request_bound_guest_image_id"
+      ],
+      "consumers": [
+        "Mycelix_PPAC_verifier",
+        "LISE"
+      ],
+      "implementation_status": "draft_PR_12295_source_authored_build_and_proof_not_run",
+      "non_equivalence": "Source and issuer fields are references only. This claim does not establish issuer signature validity, issuer authority, balance commitment opening, challenge issuance/consumption or application authorization."
     }
   ],
   "existing_blockers": [
@@ -490,7 +515,7 @@
     {
       "project": "Symthaea",
       "reference": 12269,
-      "concern": "Issuer-attested, source-bound and verifier-request-bound private balance claim; new issue extending #5842 without widening its relation-refinement theorem."
+      "concern": "Issuer-attested source binding and verifier-request binding remain incomplete; PR #12295 implements request-context binding only and does not verify issuer signatures or commitment opening."
     },
     {
       "project": "Mycelix",
@@ -648,6 +673,26 @@
       "id": "PPAC-CONSENT-002",
       "class": "temporal",
       "theme": "consent revocation blocks future use but does not prove previously disclosed data was erased"
+    },
+    {
+      "id": "PPAC-SYM-REQ-001",
+      "class": "positive",
+      "theme": "separate request-bound guest commits a digest matching the exact schema/predicate/audience/verifier/purpose/policy/challenge/threshold context"
+    },
+    {
+      "id": "PPAC-SYM-REQ-NEG-001",
+      "class": "negative",
+      "theme": "request-context substitution after proving is rejected by host exact-request digest comparison"
+    },
+    {
+      "id": "PPAC-SYM-REQ-NEG-002",
+      "class": "negative",
+      "theme": "source/issuer reference digests are incorrectly promoted to issuer authentication or commitment opening"
+    },
+    {
+      "id": "PPAC-SYM-REQ-NEG-003",
+      "class": "negative",
+      "theme": "legacy or wrong-image receipt is rejected by request-bound guest ImageID verifier"
     }
   ],
   "fixture_adjudication": "not_adjudicated",
@@ -695,6 +740,11 @@
       "role": "Qualify exact vendored Binius64/Iron Spartan source identity, relation-target witness privacy and upstream PR #2526 adoption gate."
     },
     {
+      "project": "Symthaea",
+      "reference": 12295,
+      "role": "Draft separate guest and isolated core for exact request-context binding; request-binding only, not issuer-source authentication; build/proofs pending."
+    },
+    {
       "project": "Xenia",
       "reference": 359,
       "role": "Verify exact hybrid Xenia authority over canonical Symthaea receipt attestation bytes."
@@ -733,7 +783,7 @@
   "casebook": {
     "file": "PPAC_CASEBOOK_V1.json",
     "version": 1,
-    "case_count": 31,
+    "case_count": 35,
     "status": "design_fixture_specification",
     "oracle_status": "not_adjudicated",
     "execution_status": "not_run",
