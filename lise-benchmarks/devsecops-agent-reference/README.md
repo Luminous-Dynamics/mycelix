@@ -47,8 +47,11 @@ Related agent authorization and side-effect benchmarks:
 
 ## Cases
 
-The 15 candidate-visible cases and separate evaluator oracle cover feature-branch authoring, self-approval, stale approvals, workload audience substitution, valid production deploy, wrong artifact digest, unknown deployment outcome, blind retry, prompt injection, authority revocation and policy drift.
+The 16 candidate-visible cases and separate evaluator oracle cover feature-branch authoring, self-approval, stale approvals, workload audience substitution, valid production deploy, wrong artifact digest, unknown deployment outcome, blind retry, prompt injection, authority revocation and policy drift.
 
 ## Claim ceiling
 
 The fixtures use synthetic grants, policies, approvals, workload identities and attestations. This crate does not authenticate a GitHub actor, inspect a live repository, enforce branch protection, validate a Sigstore/SLSA attestation, read a CI token or perform a deployment. The benchmark reference is not a production security verdict.
+
+
+Workload identity now includes a separately trusted OIDC issuer, exact audience, repository, workflow reference/SHA, observation time and action-time validity interval. The expiry negative control ensures a previously valid CI workload token cannot authorize a deployment after its validity window.
