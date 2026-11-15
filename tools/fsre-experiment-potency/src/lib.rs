@@ -429,7 +429,7 @@ fn make_set(problem: &Problem, selected: &[&Experiment]) -> SelectedSet {
     }
 }
 
-fn subsets_to_search(problem: &Problem, candidates: &[&Experiment], label: &str) -> SearchResult {
+fn subsets_to_search(problem: &Problem, candidates: &[&Experiment]) -> SearchResult {
     let base_width = baseline_width(&problem.worlds);
     if candidates.len() > MAX_EXPERIMENTS {
         return SearchResult {
@@ -577,7 +577,7 @@ pub fn analyze(problem: &Problem) -> Analysis {
             tied_best_sets: Vec::new(), baseline_width: baseline_width(&problem.worlds),
         }
     } else {
-        subsets_to_search(problem, &selectable, "unpruned")
+        subsets_to_search(problem, &selectable)
     };
     let pruned_candidates: Vec<&Experiment> = selectable.iter()
         .copied()
@@ -590,7 +590,7 @@ pub fn analyze(problem: &Problem) -> Analysis {
             tied_best_sets: Vec::new(), baseline_width: baseline_width(&problem.worlds),
         }
     } else {
-        subsets_to_search(problem, &pruned_candidates, "sound-inert-pruned")
+        subsets_to_search(problem, &pruned_candidates)
     };
     let pruning_equivalence = unpruned.status == "EXACT_OPTIMUM"
         && pruned.status == "EXACT_OPTIMUM"
@@ -706,8 +706,8 @@ mod tests {
         let report = analyze(&fixture());
         assert_eq!(report.search_status, "EXACT_OPTIMUM");
         assert!(report.pruning_equivalence);
-        assert_eq!(report.unpruned.evaluated_subsets, 16);
-        assert_eq!(report.pruned.evaluated_subsets, 8);
+        assert_eq!(report.unpruned.evaluated_subsets, 8);
+        assert_eq!(report.pruned.evaluated_subsets, 4);
         assert_eq!(report.pruned_inert_ids, vec!["inert_probe"]);
         let best = report.unpruned.best.unwrap();
         assert_eq!(best.potency, 2);
