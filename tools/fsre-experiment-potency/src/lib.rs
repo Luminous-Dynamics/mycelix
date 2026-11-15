@@ -869,7 +869,6 @@ mod tests {
         assert_eq!(ids(&best), vec!["column_probe", "row_probe"]);
     }
 
-
     #[test]
     fn independent_exhaustive_reference_matches_without_production_partition_helpers() {
         let query_values = [0_i128, 1, 1, 2];
