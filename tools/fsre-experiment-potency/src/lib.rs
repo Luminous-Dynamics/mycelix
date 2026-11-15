@@ -872,7 +872,11 @@ mod tests {
     #[test]
     fn deterministic_under_world_experiment_and_observation_row_permutation() {
         let original = analyze(&fixture()).render();
-        let mut lines: Vec<&str> = FIXTURE.lines().collect();
+        let lines: Vec<&str> = FIXTURE.lines().collect();
+        let world_header = lines
+            .iter()
+            .position(|line| *line == WORLD_HEADER)
+            .unwrap();
         let marker = lines
             .iter()
             .position(|line| *line == "EXPERIMENTS")
@@ -881,16 +885,18 @@ mod tests {
             .iter()
             .position(|line| *line == "OBSERVATIONS")
             .unwrap();
-        let mut world_rows = lines[1..marker].to_vec();
+        let mut metadata_lines = lines[..world_header].to_vec();
+        let mut world_rows = lines[world_header + 1..marker].to_vec();
         world_rows.reverse();
         let mut exp_rows = lines[marker + 2..obs_marker].to_vec();
         exp_rows.reverse();
         let mut obs_rows = lines[obs_marker + 2..].to_vec();
         obs_rows.reverse();
-        let metadata = lines[0];
         let mut rebuilt = String::new();
-        rebuilt.push_str(metadata);
-        rebuilt.push('\n');
+        for line in metadata_lines.drain(..) {
+            rebuilt.push_str(line);
+            rebuilt.push('\n');
+        }
         rebuilt.push_str(WORLD_HEADER);
         rebuilt.push('\n');
         for line in world_rows {
@@ -971,7 +977,7 @@ mod tests {
 
     #[test]
     fn half_open_adjacent_regimes_need_verified_carryover_or_no_carryover() {
-        let mut problem = fixture();
+        let problem = fixture();
         let mut first = problem.experiments[0].clone();
         let mut second = problem.experiments[1].clone();
         first.unit_id = "pump-7".to_owned();
