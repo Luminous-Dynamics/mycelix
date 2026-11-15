@@ -93,6 +93,12 @@
       "expected_decision": "DENY",
       "expected_reason_code": "human_approval.revoked",
       "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-016",
+      "expected_decision": "DENY",
+      "expected_reason_code": "workload_identity.expired",
+      "expected_violations": []
     }
   ]
 }
