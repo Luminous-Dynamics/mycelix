@@ -117,6 +117,18 @@
       "expected_decision": "DENY",
       "expected_reason_code": "workload_identity.run_attempt_mismatch",
       "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-020",
+      "expected_decision": "DENY",
+      "expected_reason_code": "artifact_attestation.untrusted_signer_builder_pair",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-021",
+      "expected_decision": "DENY",
+      "expected_reason_code": "artifact_attestation.dependency_missing_or_mismatched",
+      "expected_violations": []
     }
   ]
 }
