@@ -1,0 +1,17 @@
+#analysis_id=water-pump-worldset-stability-v1
+#target_action=repair-pump-7
+#safety_floor=60
+#expansion_cost_unit=inspection_points
+#world_set_status=DECLARED_COMPLETE
+#candidate_pool_status=DECLARED_COMPLETE
+#max_subsets=1000
+world_id|safety_value|decision_value
+base-a|80|90
+base-b|70|85
+OMITTED_CANDIDATES
+candidate_id|safety_value|decision_value|expansion_cost|population_mass_milli|evidence_state|admissibility|evidence_ref
+omitted-a|50|20|9|100|SUPPORTED|ADMISSIBLE|evidence-a
+omitted-b|55|30|3|700|SUPPORTED|ADMISSIBLE|evidence-b
+hypothetical-c|35|10|1|50|HYPOTHETICAL|ADMISSIBLE|scenario-c
+unknown-d|40|15|0|1|UNKNOWN|UNKNOWN|unknown-d
+blocked-e|5|2|0|1|BLOCKED|BLOCKED|blocked-e
