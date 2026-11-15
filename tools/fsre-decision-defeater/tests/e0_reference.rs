@@ -52,7 +52,7 @@ fn exhaustive_subset_oracle_agrees_on_minimum_repair_defeaters() {
             mutation_ids
                 .iter()
                 .enumerate()
-                .filter(|(index, _)| mask & (1_u8 << index) != 0)
+                .filter(|&(index, _)| *mask & (1_u8 << index) != 0)
                 .map(|(_, id)| (*id).to_owned())
                 .collect()
         })
