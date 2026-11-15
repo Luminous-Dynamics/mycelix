@@ -300,7 +300,7 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                             revision_kind.as_deref(),
                         ) {
                             (None, None, None) => {}
-                            (Some(_), Some(_), Some(kind))
+                            (Some(_), Some(known_at), Some(kind))
                                 if matches!(
                                     kind,
                                     "MEASUREMENT_CORRECTION"
@@ -309,7 +309,13 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                                         | "NEW_SOURCE"
                                         | "RECLASSIFICATION"
                                         | "BOUNDARY_CHANGE"
-                                ) => {}
+                                ) => {
+                                    if known_at < available {
+                                        return Err(ReferenceError(format!(
+                                            "row {row_number}: supersession predates replacement availability"
+                                        )));
+                                    }
+                                }
                             _ => {
                                 return Err(ReferenceError(format!(
                                     "row {row_number}: invalid evidence supersession declaration"
@@ -839,6 +845,23 @@ mod tests {
             validate_and_report(&format!("{FIXTURE}{late}\n")).expect("late correction");
         assert!(historical.contains("e-pump-1|pump_capacity|ADMISSIBLE|admissible=YES"));
         assert!(historical.contains("superseded_as_known_records=0"));
+    }
+
+    #[test]
+    fn independent_oracle_rejects_supersession_known_before_replacement_is_available() {
+        let too_early = revision_row(
+            "oracle-revision-too-early",
+            7000,
+            7100,
+            7000,
+            "e-pump-1",
+            7099,
+            "MEASUREMENT_CORRECTION",
+        );
+        assert!(validate_and_report(&format!("{FIXTURE}{too_early}\n"))
+            .unwrap_err()
+            .0
+            .contains("supersession predates replacement availability"));
     }
 
     #[test]
