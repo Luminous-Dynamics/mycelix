@@ -568,6 +568,7 @@ fn add_assessment(counts: &mut Counts, assessment: Assessment) {
             counts.admissible += 1;
             counts.hindsight_revocation += 1;
         }
+        Assessment::SupersededAsKnown => {}
     }
 }
 
