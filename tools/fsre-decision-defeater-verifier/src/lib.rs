@@ -936,8 +936,7 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
     if required(&fields, "source_use")? != "ASSERTED_NOT_AUTHENTICATED"
         || required(&fields, "authority")? != "ASSERTED_NOT_AUTHENTICATED"
         || required(&fields, "perturbation_admissibility")? != "ASSERTED_NOT_AUTHENTICATED"
-        || required(&fields, "world_set_completeness")?
-            != "DECLARED_ASSERTION_NOT_AUTHENTICATED"
+        || required(&fields, "world_set_completeness")? != "DECLARED_ASSERTION_NOT_AUTHENTICATED"
         || required(&fields, "perturbation_universe_completeness")?
             != "DECLARED_ASSERTION_NOT_AUTHENTICATED"
         || required(&fields, "causal_truth")? != "NOT_ESTABLISHED"
@@ -1427,7 +1426,6 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
-
     #[test]
     fn unknown_report_fields_are_not_silently_ignored() {
         let root = temp_copy();
@@ -1445,12 +1443,10 @@ mod tests {
     fn missing_completeness_claim_boundary_is_rejected_after_rehash() {
         let root = temp_copy();
         let report_path = root.join("report.txt");
-        let report = fs::read_to_string(&report_path)
-            .unwrap()
-            .replace(
-                "world_set_completeness=DECLARED_ASSERTION_NOT_AUTHENTICATED\n",
-                "",
-            );
+        let report = fs::read_to_string(&report_path).unwrap().replace(
+            "world_set_completeness=DECLARED_ASSERTION_NOT_AUTHENTICATED\n",
+            "",
+        );
         fs::write(report_path, report).unwrap();
         rebuild_manifest(&root);
         let error = verify_package(&root).unwrap_err();
