@@ -922,7 +922,9 @@ pub fn build_world_distribution_lp(
         return Err(fail("world-distribution IDs must be valid tokens"));
     }
     if !valid_sha256(scope_sha256) {
-        return Err(fail("world-distribution scope digest must be 64 lowercase hexadecimal characters"));
+        return Err(fail(
+            "world-distribution scope digest must be 64 lowercase hexadecimal characters",
+        ));
     }
     if values.is_empty() || values.len() > MAX_COLUMNS {
         return Err(fail(format!("world count must be in 1..={MAX_COLUMNS}")));
@@ -933,13 +935,20 @@ pub fn build_world_distribution_lp(
     let mut world_ids = BTreeSet::new();
     for value in &sorted_values {
         if !valid_token(&value.world_id) || !world_ids.insert(value.world_id.clone()) {
-            return Err(fail(format!("invalid or duplicate world ID {}", value.world_id)));
+            return Err(fail(format!(
+                "invalid or duplicate world ID {}",
+                value.world_id
+            )));
         }
     }
     if primal_world_masses.len() != values.len()
-        || world_ids.iter().any(|world_id| !primal_world_masses.contains_key(world_id))
+        || world_ids
+            .iter()
+            .any(|world_id| !primal_world_masses.contains_key(world_id))
     {
-        return Err(fail("primal world masses must provide exactly one value for every world"));
+        return Err(fail(
+            "primal world masses must provide exactly one value for every world",
+        ));
     }
 
     let transformed = |value: Rational| -> Result<Rational, LpError> {
@@ -976,18 +985,34 @@ pub fn build_world_distribution_lp(
 
     for constraint in &sorted_constraints {
         if !valid_token(&constraint.id) {
-            return Err(fail(format!("invalid moment constraint ID {}", constraint.id)));
+            return Err(fail(format!(
+                "invalid moment constraint ID {}",
+                constraint.id
+            )));
         }
         if constraint.lower.is_none() && constraint.upper.is_none() {
-            return Err(fail(format!("moment constraint {} has no bounds", constraint.id)));
+            return Err(fail(format!(
+                "moment constraint {} has no bounds",
+                constraint.id
+            )));
         }
         if let (Some(lower), Some(upper)) = (constraint.lower, constraint.upper) {
             if lower.checked_cmp(upper)? == Ordering::Greater {
-                return Err(fail(format!("moment constraint {} has lower bound above upper bound", constraint.id)));
+                return Err(fail(format!(
+                    "moment constraint {} has lower bound above upper bound",
+                    constraint.id
+                )));
             }
         }
-        if constraint.coefficients.keys().any(|world_id| !world_ids.contains(world_id)) {
-            return Err(fail(format!("moment constraint {} references an unknown world", constraint.id)));
+        if constraint
+            .coefficients
+            .keys()
+            .any(|world_id| !world_ids.contains(world_id))
+        {
+            return Err(fail(format!(
+                "moment constraint {} references an unknown world",
+                constraint.id
+            )));
         }
         if let Some(upper) = constraint.upper {
             let id = format!("moment-{}-upper", constraint.id);
@@ -1014,7 +1039,10 @@ pub fn build_world_distribution_lp(
 
     let mut coefficients = BTreeMap::<(String, String), Rational>::new();
     for column in &columns {
-        let world_id = column.id.strip_prefix("world-").expect("generated world column");
+        let world_id = column
+            .id
+            .strip_prefix("world-")
+            .expect("generated world column");
         coefficients.insert(
             ("mass-upper".to_owned(), column.id.clone()),
             Rational::one(),
@@ -1040,17 +1068,16 @@ pub fn build_world_distribution_lp(
             }
             if constraint.lower.is_some() {
                 coefficients.insert(
-                    (
-                        format!("moment-{}-lower", constraint.id),
-                        column.id.clone(),
-                    ),
+                    (format!("moment-{}-lower", constraint.id), column.id.clone()),
                     value.checked_neg()?,
                 );
             }
         }
     }
     if coefficients.len() > MAX_NONZEROS {
-        return Err(fail(format!("generated nonzero count exceeds {MAX_NONZEROS}")));
+        return Err(fail(format!(
+            "generated nonzero count exceeds {MAX_NONZEROS}"
+        )));
     }
 
     let primal = primal_world_masses
@@ -1058,9 +1085,13 @@ pub fn build_world_distribution_lp(
         .map(|(world_id, mass)| (format!("world-{world_id}"), *mass))
         .collect::<BTreeMap<_, _>>();
     if dual_row_values.len() != rows.len()
-        || rows.iter().any(|row| !dual_row_values.contains_key(&row.id))
+        || rows
+            .iter()
+            .any(|row| !dual_row_values.contains_key(&row.id))
     {
-        return Err(fail("dual certificate must provide exactly one value for every generated row"));
+        return Err(fail(
+            "dual certificate must provide exactly one value for every generated row",
+        ));
     }
 
     Ok(LpModel {
@@ -1117,11 +1148,20 @@ pub fn verify_farkas_infeasibility(
     model: &LpModel,
     multipliers: &BTreeMap<String, Rational>,
 ) -> Result<FarkasCheck, LpError> {
-    if multipliers.keys().any(|row_id| !model.rows.iter().any(|row| &row.id == row_id)) {
+    if multipliers
+        .keys()
+        .any(|row_id| !model.rows.iter().any(|row| &row.id == row_id))
+    {
         return Err(fail("Farkas certificate references an unknown row"));
     }
-    if model.rows.iter().any(|row| !multipliers.contains_key(&row.id)) {
-        return Err(fail("Farkas certificate must provide exactly one multiplier for every row"));
+    if model
+        .rows
+        .iter()
+        .any(|row| !multipliers.contains_key(&row.id))
+    {
+        return Err(fail(
+            "Farkas certificate must provide exactly one multiplier for every row",
+        ));
     }
 
     let mut violations = Vec::new();
@@ -1131,14 +1171,15 @@ pub fn verify_farkas_infeasibility(
         }
     }
 
-    let contradiction_value = dot(model.rows.iter().map(|row| {
-        (row.rhs, multipliers[&row.id])
-    }))?;
+    let contradiction_value = dot(model.rows.iter().map(|row| (row.rhs, multipliers[&row.id])))?;
 
     let mut column_combinations = BTreeMap::new();
     for column in &model.columns {
         let combined = dot(model.rows.iter().map(|row| {
-            (coefficient(model, &row.id, &column.id), multipliers[&row.id])
+            (
+                coefficient(model, &row.id, &column.id),
+                multipliers[&row.id],
+            )
         }))?;
         if !combined.is_nonnegative() {
             violations.push(format!(
@@ -1243,9 +1284,9 @@ pub fn analyze(model: &LpModel) -> Result<Analysis, LpError> {
 fn valid_mps_name(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 200
-        && value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.')
-        })
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.'))
 }
 
 /// Emits deterministic free-format MPS for the exact canonical LP.
@@ -1254,9 +1295,14 @@ fn valid_mps_name(value: &str) -> bool {
 /// rejects non-terminating decimal coefficients and never rounds them.
 pub fn render_mps(model: &LpModel) -> Result<String, LpError> {
     if model.rows.iter().any(|row| !valid_mps_name(&row.id))
-        || model.columns.iter().any(|column| !valid_mps_name(&column.id))
+        || model
+            .columns
+            .iter()
+            .any(|column| !valid_mps_name(&column.id))
     {
-        return Err(fail("MPS row/column names must use ASCII alphanumeric, underscore, dash or dot"));
+        return Err(fail(
+            "MPS row/column names must use ASCII alphanumeric, underscore, dash or dot",
+        ));
     }
 
     let mut out = String::new();
@@ -1539,7 +1585,10 @@ mod tests {
     #[test]
     fn mps_export_is_deterministic_and_preserves_finite_decimals() {
         let exported = render_mps(&fixture()).unwrap();
-        assert_eq!(exported, include_str!("../fixtures/reduced-columns-optimal.mps.expected.txt"));
+        assert_eq!(
+            exported,
+            include_str!("../fixtures/reduced-columns-optimal.mps.expected.txt")
+        );
         assert!(exported.contains(" MAX\n"));
         assert!(exported.contains("    x1                       OBJ                      3\n"));
         assert!(exported.contains("    x1                       total-cap                1\n"));
@@ -1554,9 +1603,18 @@ mod tests {
 
     #[test]
     fn finite_decimal_formats_negative_and_fractional_values_exactly() {
-        assert_eq!(Rational::new(1, 2).unwrap().finite_decimal().unwrap(), "0.5");
-        assert_eq!(Rational::new(-7, 4).unwrap().finite_decimal().unwrap(), "-1.75");
-        assert_eq!(Rational::new(5, 2).unwrap().finite_decimal().unwrap(), "2.5");
+        assert_eq!(
+            Rational::new(1, 2).unwrap().finite_decimal().unwrap(),
+            "0.5"
+        );
+        assert_eq!(
+            Rational::new(-7, 4).unwrap().finite_decimal().unwrap(),
+            "-1.75"
+        );
+        assert_eq!(
+            Rational::new(5, 2).unwrap().finite_decimal().unwrap(),
+            "2.5"
+        );
         assert!(Rational::new(1, 3).unwrap().finite_decimal().is_err());
     }
 
@@ -1813,10 +1871,12 @@ mod tests {
                     maximum.lp_analysis.dual.objective
                 );
                 assert!(values.iter().any(|value| {
-                    value.world_id == minimum.witness_world_id && value.value.numerator == expected_min
+                    value.world_id == minimum.witness_world_id
+                        && value.value.numerator == expected_min
                 }));
                 assert!(values.iter().any(|value| {
-                    value.world_id == maximum.witness_world_id && value.value.numerator == expected_max
+                    value.world_id == maximum.witness_world_id
+                        && value.value.numerator == expected_max
                 }));
             }
         }
@@ -1902,10 +1962,7 @@ mod tests {
         let max_dual = BTreeMap::from([
             ("mass-upper".to_owned(), Rational::new(30, 1).unwrap()),
             ("mass-lower".to_owned(), Rational::zero()),
-            (
-                "moment-low-group-share-upper".to_owned(),
-                Rational::zero(),
-            ),
+            ("moment-low-group-share-upper".to_owned(), Rational::zero()),
             (
                 "moment-low-group-share-lower".to_owned(),
                 Rational::new(20, 1).unwrap(),
@@ -1951,10 +2008,7 @@ mod tests {
                 "moment-low-group-share-upper".to_owned(),
                 Rational::new(20, 1).unwrap(),
             ),
-            (
-                "moment-low-group-share-lower".to_owned(),
-                Rational::zero(),
-            ),
+            ("moment-low-group-share-lower".to_owned(), Rational::zero()),
         ]);
         let minimum_model = build_world_distribution_lp(
             "water-population-lower",
@@ -1976,7 +2030,10 @@ mod tests {
             minimum.optimality_status,
             "OPTIMALITY_PROVEN_BY_EXACT_PRIMAL_DUAL_EQUALITY"
         );
-        assert_eq!(minimum.primal.objective.checked_neg().unwrap().display(), "10");
+        assert_eq!(
+            minimum.primal.objective.checked_neg().unwrap().display(),
+            "10"
+        );
         assert_eq!(maximum.primal.objective.display(), "20");
     }
 
@@ -2020,7 +2077,14 @@ mod tests {
         .unwrap();
         let unconstrained = analyze(&unconstrained_model).unwrap();
         assert_eq!(unconstrained.primal.objective.display(), "30");
-        assert!(constrained.primal.objective.checked_cmp(unconstrained.primal.objective).unwrap() == Ordering::Less);
+        assert!(
+            constrained
+                .primal
+                .objective
+                .checked_cmp(unconstrained.primal.objective)
+                .unwrap()
+                == Ordering::Less
+        );
     }
 
     #[test]
@@ -2077,10 +2141,22 @@ mod tests {
     #[test]
     fn farkas_certificate_proves_conflicting_aggregate_constraints_infeasible() {
         let values = vec![
-            FiniteWorldValue { world_id: "w0".to_owned(), value: Rational::new(0, 1).unwrap() },
-            FiniteWorldValue { world_id: "w1".to_owned(), value: Rational::new(10, 1).unwrap() },
-            FiniteWorldValue { world_id: "w2".to_owned(), value: Rational::new(20, 1).unwrap() },
-            FiniteWorldValue { world_id: "w3".to_owned(), value: Rational::new(30, 1).unwrap() },
+            FiniteWorldValue {
+                world_id: "w0".to_owned(),
+                value: Rational::new(0, 1).unwrap(),
+            },
+            FiniteWorldValue {
+                world_id: "w1".to_owned(),
+                value: Rational::new(10, 1).unwrap(),
+            },
+            FiniteWorldValue {
+                world_id: "w2".to_owned(),
+                value: Rational::new(20, 1).unwrap(),
+            },
+            FiniteWorldValue {
+                world_id: "w3".to_owned(),
+                value: Rational::new(30, 1).unwrap(),
+            },
         ];
         let low_group = BTreeMap::from([
             ("w0".to_owned(), Rational::one()),
@@ -2132,7 +2208,10 @@ mod tests {
         let check = verify_farkas_infeasibility(&model, &multipliers).unwrap();
         assert!(check.valid);
         assert_eq!(check.contradiction_value.display(), "-1/4");
-        assert!(check.column_combinations.values().all(|value| *value == Rational::zero()));
+        assert!(check
+            .column_combinations
+            .values()
+            .all(|value| *value == Rational::zero()));
     }
 
     #[test]
@@ -2153,9 +2232,16 @@ mod tests {
             ("mass-upper".to_owned(), Rational::zero()),
             ("mass-lower".to_owned(), Rational::zero()),
             ("moment-low-group-share-upper".to_owned(), Rational::zero()),
-            ("moment-low-group-share-lower".to_owned(), Rational::new(-1, 1).unwrap()),
+            (
+                "moment-low-group-share-lower".to_owned(),
+                Rational::new(-1, 1).unwrap(),
+            ),
         ]);
-        assert!(!verify_farkas_infeasibility(&model, &negative).unwrap().valid);
+        assert!(
+            !verify_farkas_infeasibility(&model, &negative)
+                .unwrap()
+                .valid
+        );
         negative.insert("unknown-row".to_owned(), Rational::one());
         assert!(verify_farkas_infeasibility(&model, &negative).is_err());
     }
