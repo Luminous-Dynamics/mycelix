@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/auth-mesh/oracle.schema.json",
+  "title": "LISE Authenticated Workflow Oracle Outcome",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scenario_id",
+    "authenticity",
+    "integrity",
+    "authorization",
+    "currentness",
+    "mediation",
+    "workflow_binding",
+    "effect_evidence",
+    "disposition",
+    "reason_code"
+  ],
+  "properties": {
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^AUTH-MESH-[0-9]{3}$"
+    },
+    "authenticity": {
+      "enum": [
+        "VERIFIED",
+        "REJECTED",
+        "UNKNOWN",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "integrity": {
+      "enum": [
+        "VERIFIED",
+        "REJECTED",
+        "UNKNOWN",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "authorization": {
+      "enum": [
+        "ALLOW",
+        "DENY",
+        "HOLD",
+        "UNKNOWN",
+        "NOT_CLAIMED"
+      ]
+    },
+    "currentness": {
+      "enum": [
+        "CURRENT",
+        "STALE",
+        "UNKNOWN",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "mediation": {
+      "enum": [
+        "COMPLETE",
+        "BYPASS",
+        "INCOMPLETE",
+        "NOT_TESTED"
+      ]
+    },
+    "workflow_binding": {
+      "enum": [
+        "MATCHED",
+        "MISMATCH",
+        "UNKNOWN",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "effect_evidence": {
+      "enum": [
+        "INDEPENDENT_OBSERVATION",
+        "PROVIDER_ASSERTION",
+        "PEP_RECEIPT",
+        "PARTIAL",
+        "UNKNOWN",
+        "NO_DISPATCH",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "disposition": {
+      "enum": [
+        "PERMIT",
+        "DENY",
+        "HOLD",
+        "INDETERMINATE",
+        "NARROW_CLAIM"
+      ]
+    },
+    "reason_code": {
+      "type": "string",
+      "pattern": "^[A-Z0-9_]+$"
+    }
+  }
+}
