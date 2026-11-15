@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 const MANIFEST_NAME: &str = "manifest.psv";
 const MANIFEST_HEADER: &str = "FSRE-DECISION-EVIDENCE-MANIFEST|1";
@@ -232,6 +232,16 @@ fn valid_filename(value: &str) -> bool {
         && value.bytes().all(|byte| {
             byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.')
         })
+}
+
+fn required<'a>(
+    fields: &'a BTreeMap<String, String>,
+    key: &str,
+) -> Result<&'a str, VerifyError> {
+    fields
+        .get(key)
+        .map(String::as_str)
+        .ok_or_else(|| invalid(format!("missing field {key}")))
 }
 
 fn parse_u64(value: &str, name: &str) -> Result<u64, VerifyError> {
@@ -456,54 +466,48 @@ fn parse_problem(bytes: &[u8]) -> Result<Problem, VerifyError> {
     }
     let header_index = header_index.ok_or_else(|| invalid("missing input header"))?;
 
-    let required = |key: &str| -> Result<&str, VerifyError> {
-        metadata
-            .get(key)
-            .map(String::as_str)
-            .ok_or_else(|| invalid(format!("missing metadata key {key}")))
-    };
-    let analysis_id = required("analysis_id")?.to_owned();
-    let snapshot_id = required("input_snapshot_id")?.to_owned();
-    let _cutoff = parse_u64(required("decision_cutoff")?, "decision_cutoff")?;
+    let analysis_id = required(&metadata, "analysis_id")?.to_owned();
+    let snapshot_id = required(&metadata, "input_snapshot_id")?.to_owned();
+    let _cutoff = parse_u64(required(&metadata, "decision_cutoff")?, "decision_cutoff")?;
     if !valid_token(&analysis_id) || !valid_token(&snapshot_id) {
         return Err(invalid("invalid analysis or snapshot identifier"));
     }
-    if required("source_use_status")? != "AUTHORIZED" {
+    if required(&metadata, "source_use_status")? != "AUTHORIZED" {
         return Err(VerifyError::new(
             Disposition::SourceUseBlockedOrUnknown,
             "source-use status is blocked or unknown",
         ));
     }
-    if required("authority_status")? != "ESTABLISHED" {
+    if required(&metadata, "authority_status")? != "ESTABLISHED" {
         return Err(VerifyError::new(
             Disposition::AuthorityBlockedOrUnknown,
             "authority status is blocked or unknown",
         ));
     }
-    if required("world_set_completeness")? != "DECLARED_COMPLETE"
-        || required("perturbation_universe_completeness")? != "DECLARED_COMPLETE"
+    if required(&metadata, "world_set_completeness")? != "DECLARED_COMPLETE"
+        || required(&metadata, "perturbation_universe_completeness")? != "DECLARED_COMPLETE"
     {
         return Err(VerifyError::new(
             Disposition::InputOrWorldSetIncomplete,
             "declared world set or perturbation universe is not complete",
         ));
     }
-    if required("decision_direction")? != "MAXIMIZE" {
+    if required(&metadata, "decision_direction")? != "MAXIMIZE" {
         return Err(invalid("v0.1 verifier supports MAXIMIZE only"));
     }
-    let property = required("decision_property")?.to_owned();
+    let property = required(&metadata, "decision_property")?.to_owned();
     if property != "ROBUST_SAFE_ACTION_RETAINED" {
         return Err(VerifyError::new(
             Disposition::SchemaUnsupported,
             "v0.1 independent verifier supports ROBUST_SAFE_ACTION_RETAINED only",
         ));
     }
-    let target_action = required("target_action")?.to_owned();
+    let target_action = required(&metadata, "target_action")?.to_owned();
     if !valid_token(&target_action) {
         return Err(invalid("invalid target action"));
     }
-    let safety_floor = parse_i64(required("safety_floor")?, "safety_floor")?;
-    let cost_unit = required("cost_unit")?.to_owned();
+    let safety_floor = parse_i64(required(&metadata, "safety_floor")?, "safety_floor")?;
+    let cost_unit = required(&metadata, "cost_unit")?.to_owned();
     if !valid_token(&cost_unit) {
         return Err(invalid("invalid cost unit"));
     }
@@ -831,30 +835,24 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
             return Err(invalid(format!("duplicate or empty report key at line {}", index + 1)));
         }
     }
-    let required = |key: &str| -> Result<&str, VerifyError> {
-        fields
-            .get(key)
-            .map(String::as_str)
-            .ok_or_else(|| invalid(format!("missing report key {key}")))
-    };
-    if required("analysis_id")? != problem.analysis_id
-        || required("input_snapshot_id")? != problem.snapshot_id
-        || required("decision_property")? != problem.property
-        || required("target_action")? != problem.target_action
-        || required("cost_unit")? != problem.cost_unit
-        || required("search_status")? != "DEFEATER_FOUND"
-        || required("minimality_status")? != "PROVEN_MINIMAL"
+    if required(&metadata, "analysis_id")? != problem.analysis_id
+        || required(&metadata, "input_snapshot_id")? != problem.snapshot_id
+        || required(&metadata, "decision_property")? != problem.property
+        || required(&metadata, "target_action")? != problem.target_action
+        || required(&metadata, "cost_unit")? != problem.cost_unit
+        || required(&metadata, "search_status")? != "DEFEATER_FOUND"
+        || required(&metadata, "minimality_status")? != "PROVEN_MINIMAL"
     {
         return Err(VerifyError::new(
             Disposition::MinimumCertificateInvalid,
             "report identity, property or complete-search claim does not match input",
         ));
     }
-    if required("source_use")? != "ASSERTED_NOT_AUTHENTICATED"
-        || required("authority")? != "ASSERTED_NOT_AUTHENTICATED"
-        || required("perturbation_admissibility")? != "ASSERTED_NOT_AUTHENTICATED"
-        || required("causal_truth")? != "NOT_ESTABLISHED"
-        || required("physical_realizability")? != "NOT_ESTABLISHED"
+    if required(&metadata, "source_use")? != "ASSERTED_NOT_AUTHENTICATED"
+        || required(&metadata, "authority")? != "ASSERTED_NOT_AUTHENTICATED"
+        || required(&metadata, "perturbation_admissibility")? != "ASSERTED_NOT_AUTHENTICATED"
+        || required(&metadata, "causal_truth")? != "NOT_ESTABLISHED"
+        || required(&metadata, "physical_realizability")? != "NOT_ESTABLISHED"
     {
         return Err(VerifyError::new(
             Disposition::MinimumCertificateInvalid,
@@ -863,8 +861,8 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
     }
 
     let total_subsets = 1_u64 << problem.mutations.len();
-    let reported_total = parse_u64(required("total_subsets")?, "total_subsets")?;
-    let evaluated = parse_u64(required("evaluated_subsets")?, "evaluated_subsets")?;
+    let reported_total = parse_u64(required(&metadata, "total_subsets")?, "total_subsets")?;
+    let evaluated = parse_u64(required(&metadata, "evaluated_subsets")?, "evaluated_subsets")?;
     if reported_total != total_subsets || evaluated != total_subsets {
         return Err(VerifyError::new(
             Disposition::MinimumCertificateInvalid,
@@ -917,15 +915,16 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
         }
     }
 
+    expected_witnesses.sort_by_key(|witness| witness.mutation_ids.clone());
     let Some(minimum_cost) = minimum_cost else {
         return Err(VerifyError::new(
             Disposition::WitnessReplayMismatch,
             "report claims a defeater but independent enumeration found none",
         ));
     };
-    if required("robustness_margin")? != minimum_cost.to_string()
-        || required("best_witness_cost_upper_bound")? != minimum_cost.to_string()
-        || parse_u64(required("minimum_witness_count")?, "minimum_witness_count")?
+    if required(&metadata, "robustness_margin")? != minimum_cost.to_string()
+        || required(&metadata, "best_witness_cost_upper_bound")? != minimum_cost.to_string()
+        || parse_u64(required(&metadata, "minimum_witness_count")?, "minimum_witness_count")?
             != expected_witnesses.len() as u64
     {
         return Err(VerifyError::new(
@@ -934,7 +933,7 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
         ));
     }
 
-    let truncated = match required("witnesses_truncated")? {
+    let truncated = match required(&fields, "witnesses_truncated")? {
         "true" => true,
         "false" => false,
         _ => return Err(invalid("witnesses_truncated must be true or false")),
@@ -1032,7 +1031,7 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
     if truncated && reported_indices.len() == expected_witnesses.len() {
         return Err(invalid("witnesses_truncated=true but no witness is omitted"));
     }
-    if required("minimum_witness_count")? != expected_witnesses.len().to_string() {
+    if required(&metadata, "minimum_witness_count")? != expected_witnesses.len().to_string() {
         return Err(VerifyError::new(
             Disposition::MinimumCertificateInvalid,
             "minimum witness count mismatch",
@@ -1143,6 +1142,7 @@ pub fn verify_package(root: impl AsRef<Path>) -> Result<VerificationReceipt, Ver
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/pump-station");
