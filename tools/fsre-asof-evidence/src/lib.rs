@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-const HEADER: &str = "record_type|record_id|claim_id|scenario_id|observed_at|available_at|valid_from|valid_until|revoked_effective_at|revocation_known_at|status|clock_basis_id|source_owner|source_ref|required_evidence_count|max_observation_age_seconds";
+const HEADER: &str = "record_type|record_id|claim_id|scenario_id|observed_at|available_at|valid_from|valid_until|revoked_effective_at|revocation_known_at|status|clock_basis_id|source_owner|source_ref|required_evidence_count|max_observation_age_seconds|supersedes_record_id|supersession_known_at|revision_kind";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InputError(pub String);
@@ -33,6 +33,9 @@ struct Evidence {
     valid_until: Option<u64>,
     revoked_effective_at: Option<u64>,
     revocation_known_at: Option<u64>,
+    supersedes_record_id: Option<String>,
+    supersession_known_at: Option<u64>,
+    revision_kind: Option<String>,
     status: String,
     owner: String,
     source_ref: String,
@@ -117,9 +120,9 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
         }
 
         let fields: Vec<&str> = line.split('|').map(str::trim).collect();
-        if fields.len() != 16 {
+        if fields.len() != 19 {
             return Err(InputError(format!(
-                "line {line_number}: expected 16 columns, received {}",
+                "line {line_number}: expected 19 columns, received {}",
                 fields.len()
             )));
         }
@@ -154,6 +157,19 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
         let valid_until = optional_u64(fields[7], "valid_until", line_number)?;
         let revoked_effective = optional_u64(fields[8], "revoked_effective_at", line_number)?;
         let revocation_known = optional_u64(fields[9], "revocation_known_at", line_number)?;
+        let supersedes_record_id = if fields[16].is_empty() {
+            None
+        } else {
+            require_id(fields[16], "supersedes_record_id", line_number)?;
+            Some(fields[16].to_owned())
+        };
+        let supersession_known_at =
+            optional_u64(fields[17], "supersession_known_at", line_number)?;
+        let revision_kind = if fields[18].is_empty() {
+            None
+        } else {
+            Some(fields[18].to_owned())
+        };
 
         match record_type {
             "CLAIM" => {
@@ -164,6 +180,9 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
                     || valid_until.is_some()
                     || revoked_effective.is_some()
                     || revocation_known.is_some()
+                    || supersedes_record_id.is_some()
+                    || supersession_known_at.is_some()
+                    || revision_kind.is_some()
                     || fields[10] != "REQUIRED"
                 {
                     return Err(InputError(format!(
@@ -239,6 +258,28 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
                                 return Err(InputError(format!("line {line_number}: revocation cannot be known before source evidence was available")));
                             }
                         }
+                        match (
+                            supersedes_record_id.as_ref(),
+                            supersession_known_at,
+                            revision_kind.as_deref(),
+                        ) {
+                            (None, None, None) => {}
+                            (Some(_), Some(_), Some(kind))
+                                if matches!(
+                                    kind,
+                                    "MEASUREMENT_CORRECTION"
+                                        | "SOURCE_CORRECTION"
+                                        | "METHODOLOGY_CHANGE"
+                                        | "NEW_SOURCE"
+                                        | "RECLASSIFICATION"
+                                        | "BOUNDARY_CHANGE"
+                                ) => {}
+                            _ => {
+                                return Err(InputError(format!(
+                                    "line {line_number}: supersession id, knowledge time and valid revision_kind must be declared together"
+                                )));
+                            }
+                        }
                     }
                     "UNKNOWN" => {
                         if observed.is_some()
@@ -247,8 +288,11 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
                             || valid_until.is_some()
                             || revoked_effective.is_some()
                             || revocation_known.is_some()
+                            || supersedes_record_id.is_some()
+                            || supersession_known_at.is_some()
+                            || revision_kind.is_some()
                         {
-                            return Err(InputError(format!("line {line_number}: UNKNOWN evidence must not carry temporal assertions")));
+                            return Err(InputError(format!("line {line_number}: UNKNOWN evidence must not carry temporal or revision assertions")));
                         }
                     }
                     _ => {
@@ -266,6 +310,9 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
                     valid_until,
                     revoked_effective_at: revoked_effective,
                     revocation_known_at: revocation_known,
+                    supersedes_record_id,
+                    supersession_known_at,
+                    revision_kind,
                     status: status.to_owned(),
                     owner: owner.to_owned(),
                     source_ref: source_ref.to_owned(),
@@ -325,12 +372,63 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
             )));
         }
     }
+    let evidence_by_id = evidence
+        .iter()
+        .map(|row| (row.id.as_str(), row))
+        .collect::<BTreeMap<_, _>>();
+    let mut predecessor_successors = BTreeMap::<String, String>::new();
+    let mut supersession_edges = BTreeMap::<String, String>::new();
     for row in &evidence {
         if row.claim_id.is_empty() || !claim_ids.contains(&row.claim_id) {
             return Err(InputError(format!(
                 "evidence {} references an undeclared claim",
                 row.id
             )));
+        }
+        if let Some(predecessor_id) = &row.supersedes_record_id {
+            let predecessor = evidence_by_id.get(predecessor_id.as_str()).ok_or_else(|| {
+                InputError(format!(
+                    "evidence {} supersedes unknown record {}",
+                    row.id, predecessor_id
+                ))
+            })?;
+            if predecessor.claim_id != row.claim_id {
+                return Err(InputError(format!(
+                    "evidence {} supersedes record {} from another claim",
+                    row.id, predecessor_id
+                )));
+            }
+            if predecessor.status != "ASSERTED" || row.status != "ASSERTED" {
+                return Err(InputError(format!(
+                    "evidence {} can supersede only an asserted evidence record",
+                    row.id
+                )));
+            }
+            if predecessor_successors
+                .insert(predecessor_id.clone(), row.id.clone())
+                .is_some()
+            {
+                return Err(InputError(format!(
+                    "evidence record {} has multiple successors",
+                    predecessor_id
+                )));
+            }
+            supersession_edges.insert(row.id.clone(), predecessor_id.clone());
+        }
+    }
+
+    // A revision is a directed edge from the new record to its predecessor.
+    // Walk every chain to reject cycles before any as-of evaluation.
+    for start in supersession_edges.keys() {
+        let mut seen = BTreeSet::new();
+        let mut cursor = Some(start.as_str());
+        while let Some(record_id) = cursor {
+            if !seen.insert(record_id.to_owned()) {
+                return Err(InputError(format!(
+                    "supersession cycle includes record {record_id}"
+                )));
+            }
+            cursor = supersession_edges.get(record_id).map(String::as_str);
         }
     }
 
@@ -357,6 +455,7 @@ enum Assessment {
     Admissible,
     RevocationPending,
     HindsightRevocation,
+    SupersededAsKnown,
 }
 
 impl Assessment {
@@ -372,6 +471,7 @@ impl Assessment {
             Self::Admissible => "ADMISSIBLE",
             Self::RevocationPending => "REVOCATION_PENDING",
             Self::HindsightRevocation => "ADMISSIBLE_WITH_HINDSIGHT_REVOCATION",
+            Self::SupersededAsKnown => "SUPERSEDED_AS_KNOWN",
         }
     }
 
@@ -486,11 +586,28 @@ fn evaluate(input: &Input) -> String {
             )
         })
         .collect();
+    let mut superseded_by = BTreeMap::<String, String>::new();
+    let mut revision_history_records = 0_u64;
+    for row in &evidence {
+        if let (Some(predecessor_id), Some(known_at)) =
+            (&row.supersedes_record_id, row.supersession_known_at)
+        {
+            revision_history_records += 1;
+            if known_at <= input.decision_at {
+                superseded_by.insert(predecessor_id.clone(), row.id.clone());
+            }
+        }
+    }
+
     let mut assessments = BTreeMap::<String, Assessment>::new();
     let mut counts_by_claim = BTreeMap::<String, Counts>::new();
     for row in &evidence {
         let max_age = max_age_by_claim[&row.claim_id];
-        let assessment = assess(row, input, max_age);
+        let assessment = if superseded_by.contains_key(&row.id) {
+            Assessment::SupersededAsKnown
+        } else {
+            assess(row, input, max_age)
+        };
         assessments.insert(row.id.clone(), assessment);
         add_assessment(
             counts_by_claim.entry(row.claim_id.clone()).or_default(),
@@ -499,7 +616,7 @@ fn evaluate(input: &Input) -> String {
     }
 
     let mut out = vec![
-        "report_schema=fsre-asof-evidence-report.v0.1".to_owned(),
+        "report_schema=fsre-asof-evidence-report.v0.2".to_owned(),
         format!("scenario_id={}", input.scenario_id),
         format!("evidence_snapshot_id={}", input.evidence_snapshot_id),
         format!("decision_at={}", input.decision_at),
@@ -544,16 +661,20 @@ fn evaluate(input: &Input) -> String {
     for row in &evidence {
         let assessment = assessments[&row.id];
         out.push(format!(
-            "evidence={}|{}|{}|admissible={}|owner={}|ref={}",
+            "evidence={}|{}|{}|admissible={}|owner={}|ref={}|superseded_by={}|revision_kind={}",
             row.id,
             row.claim_id,
             assessment.label(),
             if assessment.admissible() { "YES" } else { "NO" },
             row.owner,
-            row.source_ref
+            row.source_ref,
+            superseded_by.get(&row.id).map(String::as_str).unwrap_or("NONE"),
+            row.revision_kind.as_deref().unwrap_or("ORIGINAL")
         ));
     }
     out.push(format!("hindsight_revocation_records={total_hindsight}"));
+    out.push(format!("revision_history_records={revision_history_records}"));
+    out.push(format!("superseded_as_known_records={}", superseded_by.len()));
     out.push("replay_semantics=AS_KNOWN_AT_DECISION_CUTOFF".to_owned());
     out.push("future_information_used=NO".to_owned());
     out.push("source_authenticity=NOT_AUTHENTICATED_BY_THIS_TOOL".to_owned());
