@@ -14,6 +14,7 @@ on:
       - research/fsre-decision-defeater-oracle-v0.1
       - research/fsre-decision-defeater-verifier-v0.1
       - research/fsre-experiment-potency-v0.1-rebased
+      - research/fsre-experiment-potency-v0.1-stack3
     paths:
       - 'tools/fsre-decision-defeater/**'
       - 'research/fsre/DECISION_DEFEATER_ANALYSIS_BENCHMARK_V0_1.md'
