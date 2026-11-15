@@ -495,8 +495,8 @@ mod tests {
         let (cases, oracle) = bundle();
         let report = evaluate_bundle(&cases, &oracle);
         assert_eq!(report["conformant"], true);
-        assert_eq!(report["case_count"], 19);
-        assert_eq!(report["conformant_case_count"], 19);
+        assert_eq!(report["case_count"], 21);
+        assert_eq!(report["conformant_case_count"], 21);
     }
 
     #[test]
