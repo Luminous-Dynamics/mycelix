@@ -144,7 +144,14 @@ The table describes intended boundaries, not existing deployed enforcement.
 
 ## 7. Cross-hApp bridge contract
 
-Hearth already exposes cross-cluster dispatch functions for Commons and uses a routing registry to define allowed targets. The integration must not assume that the presence of a bridge function proves every desired route is enabled or correctly protected.
+Hearth already exposes cross-cluster dispatch functions for Commons and uses a routing registry to define allowed targets. The current shared registry is narrower than a general “Hearth can call Commons” statement:
+
+| Direction | Current allowed target zomes in the shared registry |
+|---|---|
+| Hearth → Commons | `commons_bridge` only |
+| Commons → Hearth | `hearth_bridge`, `hearth_care`, `hearth_resources` |
+
+This is source-level allowlist evidence, not proof that every bridge function, hApp role, DNA hash or deployed conductor is correctly configured. In particular, a direct Commons call to `hearth_autonomy` is not listed in the current shared Commons→Hearth allowlist. The initial integration should use a narrowly typed, purpose-specific bridge adapter and should not widen the allowlist until the required call graph and authority checks are reviewed.
 
 Before an implementation is relied upon:
 
