@@ -989,22 +989,26 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
                 let depth = element_stack.len();
                 let name = element.name().as_ref().to_vec();
 
-                if let Some(builder) = current_author.as_ref() {
-                    if builder.depth == depth && name.as_slice() == b"AuthorIVORN" {
-                        let builder = current_author.take().expect("Who author builder exists");
-                        validate_ivoid(&builder.text).map_err(ParseError::InvalidWhoAuthorIvoid)?;
-                        author_ivoid = Some(builder.text);
-                    }
+                if current_author
+                    .as_ref()
+                    .is_some_and(|builder| {
+                        builder.depth == depth && name.as_slice() == b"AuthorIVORN"
+                    })
+                {
+                    let builder = current_author.take().expect("Who author builder exists");
+                    validate_ivoid(&builder.text).map_err(ParseError::InvalidWhoAuthorIvoid)?;
+                    author_ivoid = Some(builder.text);
                 }
 
-                if let Some(builder) = current_date.as_ref() {
-                    if builder.depth == depth && name.as_slice() == b"Date" {
-                        let builder = current_date.take().expect("Who date builder exists");
-                        if builder.text.is_empty() {
-                            return Err(ParseError::EmptyWhoDate);
-                        }
-                        source_created_at = Some(builder.text);
+                if current_date
+                    .as_ref()
+                    .is_some_and(|builder| builder.depth == depth && name.as_slice() == b"Date")
+                {
+                    let builder = current_date.take().expect("Who date builder exists");
+                    if builder.text.is_empty() {
+                        return Err(ParseError::EmptyWhoDate);
                     }
+                    source_created_at = Some(builder.text);
                 }
 
                 if who_depth == Some(depth) && name.as_slice() == b"Who" {
@@ -1087,7 +1091,7 @@ mod tests {
             .expect("expected source attribute")
     }
 
-    fn direct_text<'a>(element: &'a SourceElement) -> &'a str {
+    fn direct_text(element: &SourceElement) -> &str {
         element
             .content
             .iter()
