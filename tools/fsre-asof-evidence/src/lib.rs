@@ -263,7 +263,7 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
                             revision_kind.as_deref(),
                         ) {
                             (None, None, None) => {}
-                            (Some(_), Some(_), Some(kind))
+                            (Some(_), Some(known_at), Some(kind))
                                 if matches!(
                                     kind,
                                     "MEASUREMENT_CORRECTION"
@@ -272,7 +272,13 @@ fn parse_input(source: &str) -> Result<Input, InputError> {
                                         | "NEW_SOURCE"
                                         | "RECLASSIFICATION"
                                         | "BOUNDARY_CHANGE"
-                                ) => {}
+                                ) => {
+                                    if known_at < available_value {
+                                        return Err(InputError(format!(
+                                            "line {line_number}: supersession cannot be known before replacement availability"
+                                        )));
+                                    }
+                                }
                             _ => {
                                 return Err(InputError(format!(
                                     "line {line_number}: supersession id, knowledge time and valid revision_kind must be declared together"
@@ -1224,6 +1230,22 @@ mod tests {
             .unwrap_err()
             .0
             .contains("revision_kind must be declared together"));
+    }
+
+    #[test]
+    fn supersession_knowledge_cannot_precede_replacement_availability() {
+        let revision = revision_row(
+            "e-pump-rev-too-early",
+            7000,
+            7100,
+            7000,
+            "e-pump-1",
+            7099,
+            "MEASUREMENT_CORRECTION",
+        );
+        let error = validate_and_report(&format!("{FIXTURE}{revision}\n"))
+            .expect_err("supersession time before availability must fail");
+        assert!(error.0.contains("supersession cannot be known before replacement availability"));
     }
 
     #[test]
