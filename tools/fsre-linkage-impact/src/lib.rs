@@ -207,10 +207,6 @@ pub fn parse_input(source: &str) -> Result<Problem, LinkageImpactError> {
             "max_records must be in 1..={MAX_RECORDS_HARD}"
         )));
     }
-    if effective_cutoff > recorded_cutoff {
-        // The clocks are independent; this is valid, so no ordering assumption.
-    }
-
     if lines.first().map(|(_, line)| *line) != Some(HEADER) {
         return Err(fail("expected exact linkage-impact record header"));
     }
@@ -418,7 +414,7 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
     let mut bridge_cluster_count = 0_usize;
     let mut bridge_entity_pair_count = 0_u128;
     let mut bridge_at_risk_population_weight = 0_u128;
-    for (cluster, entities) in &cluster_truths {
+    for entities in cluster_truths.values() {
         if entities.len() <= 1 {
             continue;
         }
@@ -438,7 +434,6 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
         bridge_at_risk_population_weight = bridge_at_risk_population_weight
             .checked_add(total - maximum)
             .ok_or_else(|| fail("bridge at-risk population weight overflow"))?;
-        let _ = cluster;
     }
 
     let mut fragmented_entity_count = 0_usize;
