@@ -2,7 +2,7 @@
   "schema_version": "mycelix-tlsnotary-ppac-casebook-v1",
   "profile_id": "mycelix:source-session:tlsnotary-ppac:v1",
   "status": "research_only",
-  "case_count": 56,
+  "case_count": 60,
   "oracle_status": "not_adjudicated",
   "execution_status": "not_run",
   "owner_issues": [
@@ -18,7 +18,8 @@
     "symthaea#12269",
     "symthaea#12295",
     "mycelix#6251",
-    "mycelix#6254"
+    "mycelix#6254",
+    "symthaea#12328"
   ],
   "modes": [
     {
@@ -91,7 +92,9 @@
     "A valid TEE quote does not establish source authenticity unless exact measured code, TCB and dataflow roles are qualified.",
     "A scoped nullifier does not establish person-level uniqueness unless a domain-authorized subject binding connects the relevant accounts/credentials.",
     "A TEE-attested verifier does not preserve prover-side plaintext privacy if decryption keys or application plaintext enter the enclave.",
-    "A valid TEE quote does not establish reviewed source semantics without source-to-build correspondence and exact TCB qualification."
+    "A valid TEE quote does not establish reviewed source semantics without source-to-build correspondence and exact TCB qualification.",
+    "A TLSNotary-authenticated byte-range opening plus a valid private predicate does not prove that the range denotes the intended JSON Pointer or application field.",
+    "A prover-side parser selection is not independent proof of parser/schema/duplicate-key semantics."
   ],
   "cases": [
     {
@@ -593,6 +596,42 @@
       "owners": [
         "Mycelix #6254"
       ]
+    },
+    {
+      "id": "TLSN-FIELD-001",
+      "mode": "TLSN-MPC-DIRECT-V1",
+      "kind": "positive",
+      "scenario": "Verifier independently checks authenticated structural JSON context, the exact requested JSON Pointer and byte-range relationship while the target leaf value remains hidden; the private predicate proof uses that same opened leaf.",
+      "expected": "FIELD_SEMANTICS_BOUND_PRIVATE_PREDICATE",
+      "invariant": "A proof must bind the private value to the requested response field, not merely to any valid transcript range.",
+      "owner": "Symthaea #12328"
+    },
+    {
+      "id": "TLSN-FIELD-002",
+      "mode": "TLSN-MPC-DIRECT-V1",
+      "kind": "negative",
+      "scenario": "An authentic response contains two date-shaped fields; prover commits to an unrelated date field but labels it as taxpayer.date_of_birth, and the ZK predicate over the unrelated date is valid.",
+      "expected": "BLOCKED_WRONG_JSON_POINTER",
+      "invariant": "Transcript authenticity plus a valid predicate does not establish application-field meaning; verifier must check the exact path and response object.",
+      "owner": "Symthaea #12328"
+    },
+    {
+      "id": "TLSN-FIELD-003",
+      "mode": "TLSN-MPC-DIRECT-V1",
+      "kind": "negative",
+      "scenario": "Response includes duplicate JSON keys or escaped/Unicode-equivalent field names, and prover/verifier parser configurations select different values for the requested field.",
+      "expected": "BLOCKED_PARSER_AMBIGUITY",
+      "invariant": "Parser version, duplicate-key policy, escape/Unicode rules and canonicalization are part of the exact claim semantics.",
+      "owner": "Symthaea #12328"
+    },
+    {
+      "id": "TLSN-FIELD-004",
+      "mode": "TLSN-MPC-DIRECT-V1",
+      "kind": "negative",
+      "scenario": "Prover selects the correct-looking leaf bytes from a second HTTP response/message or wrong transcript direction and attempts to use them for the first requested response.",
+      "expected": "BLOCKED_MESSAGE_ORDINAL_OR_DIRECTION_MISMATCH",
+      "invariant": "The authenticated field binding includes exact HTTP message ordinal, request-response pairing, direction, response framing and JSON Pointer.",
+      "owner": "Symthaea #12328"
     }
   ],
   "upstream_release_baseline": {
