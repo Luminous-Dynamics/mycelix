@@ -244,21 +244,34 @@ fn evaluate_inner(fixture: &Value) -> Result<Value, String> {
     }
     let kind = string(effect, "kind", "effect observation")?;
     let outcome = string(effect, "outcome", "effect observation")?;
-    if !decision_result && matches!(outcome, "applied" | "partially_applied") {
-        return Ok(report(
-            "UNAUTHORIZED_EFFECT",
-            decision_state,
-            "EFFECT_OBSERVED",
-            "effect_observed_after_policy_denial",
-            vec!["A protected-resource effect was observed even though the OPA decision denied the operation.".to_owned()],
-        ));
-    }
     if !decision_result {
+        if kind == "provider_acknowledgement" {
+            return Ok(report(
+                "DENIED_WITH_UNRECONCILED_ACK",
+                decision_state,
+                "PROVIDER_ACK_ONLY",
+                "denied_operation_has_provider_ack_but_no_independent_effect_observation",
+                vec!["A provider acknowledgement after policy denial is a serious reconciliation signal, but is not by itself independent proof of the protected-resource effect.".to_owned()],
+            ));
+        }
+        if kind == "independent_resource_observation"
+            && string(effect, "observation_independence", "effect observation")? == "independent"
+            && string(effect, "trust_state", "effect observation")? == "fixture_only"
+            && matches!(outcome, "applied" | "partially_applied")
+        {
+            return Ok(report(
+                "UNAUTHORIZED_EFFECT",
+                decision_state,
+                "EFFECT_OBSERVED",
+                "effect_observed_after_policy_denial",
+                vec!["A protected-resource effect was independently observed even though the OPA decision denied the operation.".to_owned()],
+            ));
+        }
         return Ok(report(
             "POLICY_DENIED",
             decision_state,
             "NO_EFFECT_PROVEN",
-            "policy_denied",
+            "policy_denied_without_independent_effect_observation",
             Vec::new(),
         ));
     }
@@ -394,6 +407,16 @@ mod tests {
         value["opa_decision_log"]["result"] = json!(false);
         let result = evaluate(&value);
         assert_eq!(result["overall"], "UNAUTHORIZED_EFFECT");
+    }
+
+    #[test]
+    fn provider_ack_after_denial_is_a_reconciliation_signal_not_effect_proof() {
+        let mut value = fixture();
+        value["opa_decision_log"]["result"] = json!(false);
+        value["effect_observation"]["kind"] = json!("provider_acknowledgement");
+        let result = evaluate(&value);
+        assert_eq!(result["overall"], "DENIED_WITH_UNRECONCILED_ACK");
+        assert_eq!(result["effect_state"], "PROVIDER_ACK_ONLY");
     }
 
     #[test]
