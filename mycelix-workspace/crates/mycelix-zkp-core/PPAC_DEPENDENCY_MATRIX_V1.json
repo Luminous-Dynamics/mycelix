@@ -291,6 +291,37 @@
         "institutional_authorization",
         "effect_owner"
       ]
+    },
+    {
+      "id": "XENIA_SYMTHAEA_RECEIPT_AUTHORITY",
+      "owner": "Xenia",
+      "proposition": "The exact Symthaea verification receipt was attested by an enrolled Xenia signer/daemon under the expected typed scope and live authority state.",
+      "depends_on": [
+        "symthaea_receipt_id",
+        "canonical_receipt_digest",
+        "operator_identity",
+        "hybrid_key_lineage",
+        "enrollment_record",
+        "rbac_policy_version",
+        "typed_authority_scope",
+        "daemon_host_fingerprint",
+        "decision_nonce",
+        "issued_at",
+        "expiry",
+        "signature_suite"
+      ],
+      "consumers": [
+        "Mycelix_PPAC_verifier",
+        "LISE",
+        "institutional_audit"
+      ],
+      "existing_owners": [
+        "xenia-peer#359",
+        "xenia-peer#364",
+        "xenia-peer#369",
+        "xenia-peer#435"
+      ],
+      "non_equivalence": "Xenia attestation authenticates who attested to the exact Symthaea receipt; it does not prove the underlying claim, evidence admission, institutional authority or effect."
     }
   ],
   "existing_blockers": [
@@ -410,6 +441,26 @@
       "id": "PPAC-TIME-001",
       "class": "temporal",
       "theme": "historical proof remains valid for old cutoff while current applicability is stale or indeterminate"
+    },
+    {
+      "id": "PPAC-XEN-001",
+      "class": "negative",
+      "theme": "Symthaea receipt ID or canonical receipt digest substituted in portable Xenia authority receipt"
+    },
+    {
+      "id": "PPAC-XEN-002",
+      "class": "negative",
+      "theme": "mixed or non-enrolled hybrid signing keys, wrong typed scope or daemon host fingerprint"
+    },
+    {
+      "id": "PPAC-XEN-003",
+      "class": "negative",
+      "theme": "expired portable authority receipt, duplicate nonce, same nonce with changed receipt binding"
+    },
+    {
+      "id": "PPAC-XEN-004",
+      "class": "temporal",
+      "theme": "daemon restart after durable reservation but before receipt retention; DeliveryUnknown must not mint again"
     }
   ],
   "fixture_adjudication": "not_adjudicated",
@@ -419,5 +470,37 @@
     "No scenario has been executed or independently adjudicated.",
     "No privacy, unlinkability, issuer truth, institutional authority or external-effect claim is established.",
     "This matrix is not a runtime schema or authorization input."
+  ],
+  "existing_owner_references": [
+    {
+      "project": "Xenia",
+      "reference": 359,
+      "role": "Verify exact hybrid Xenia authority over canonical Symthaea receipt attestation bytes."
+    },
+    {
+      "project": "Xenia",
+      "reference": 364,
+      "role": "Bind portable Xenia authorization evidence to live enrollment and trust boundary."
+    },
+    {
+      "project": "Xenia",
+      "reference": 369,
+      "role": "Freeze exact portable Xenia daemon authority receipt, with receipt digest, signer lineage, scope, host identity, nonce and expiry."
+    },
+    {
+      "project": "Xenia",
+      "reference": 435,
+      "role": "Durable single-use issuance and replay journal for portable authorization receipts."
+    },
+    {
+      "project": "Xenia",
+      "reference": 449,
+      "role": "Session capability and privileged-lane mediation."
+    },
+    {
+      "project": "Xenia",
+      "reference": 450,
+      "role": "Independently verifiable redacted session evidence."
+    }
   ]
 }
