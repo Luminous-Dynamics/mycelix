@@ -274,3 +274,23 @@ Add ACS-focused cases to the #6216 development panel for:
 ACS fills a useful interoperability gap around hook-based runtime control, trace, inspection and provenance. LISE should build a read-only conformance/evidence adapter rather than reimplement the protocol. The differentiation remains owner-authorized exact-effect assurance, temporal authority reconstruction, complete mediation evidence, independent effect observation, trust-dependency qualification and remedies.
 
 The ACS project describes an AGT Guardian interoperability objective; where its public conformance harness and reference implementation are available, use that as an additional matched implementation baseline. Do not infer production enforcement or universal prompt-injection prevention from a schema/conformance pass.
+### Normative v0.1.4 distinctions for conformance work
+
+A closer reading of the current normative specification sharpens the conformance rule. ACS-Core's minimum hook set is not the same as the entire hook taxonomy:
+- Mandatory core hooks include `sessionStart`, `userMessage` or `agentTrigger`, `toolCallRequest`, `toolCallResult`, `agentResponse` and `sessionEnd`; `subagentStart` is required for clients that support subagents.
+- `subagentStop` is SHOULD-emit and audit-only.
+- Additional hooks such as `turnStart`/`turnEnd`, `knowledgeRetrieval`, `memoryContextRetrieval`, `memoryStore`, `preCompact`/`postCompact`, and `skillRegister`/`skillLoad`/`skillUnload` are normatively defined and SHOULD be implemented when the host can observe the corresponding event. If the AgBOM includes skill components, the spec says skill lifecycle hooks SHOULD be emitted.
+- Therefore, assess mandatory Core conformance and additional observable-hook coverage as separate axes. Do not call every SHOULD hook a universal MUST, and do not treat a missing hook for an unobservable framework surface as the same as a known bypass.
+
+The six optional profiles are declared during handshake: ClientHello lists `profiles_supported`; ServerHello lists `profiles_accepted`. The profile declaration is explicitly a self-declared claim, not a verified fact. A read-only evaluator must check actual evidence for each profile rather than inherit conformance from the handshake label.
+
+`MODIFY` is SHOULD-support, unlike the four MUST-support dispositions ALLOW, DENY, ASK and DEFER. A client that supports MODIFY must follow the specified composition and execute the modified operation. If a client does not support MODIFY, the Guardian substitutes DENY with the `modify_unsupported` reason code and an audit event; the host must not silently execute the original arguments.
+
+A2A wrapping is **not part of ACS v0.1.4**. The `protocols/A2A/*` namespace is reserved; the detailed A2A method mapping is deferred to v0.2.0. MCP wrapping is specified in v0.1. A v0.1.4 conformance report must not claim A2A wrapping merely because the deployment uses A2A.
+
+These distinctions are covered by the ACS extension seed in #6218: additional hooks, self-declared profile versus observed implementation, MODIFY behavior, and v0.1.4 A2A scope.
+
+Sources (normative, version-pinned to ACS v0.1.4 / schema namespace v0.1.0):
+- Conformance profiles: https://owaspacs.org/docs/spec/conformance/
+- Instrument specification and hook taxonomy: https://owaspacs.org/docs/spec/instrument/specification/
+- FAQ/version and roadmap: https://owaspacs.org/docs/topics/faq/
