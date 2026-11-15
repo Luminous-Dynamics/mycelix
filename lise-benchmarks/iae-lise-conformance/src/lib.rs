@@ -10,10 +10,11 @@
 use ipb_finality_reference::{
     evaluate_finality, ApprovalBinding, ApprovalState, AuthorityState,
     ConstitutionRef, CurrentProtectedState, DenialCode, FinalityDecision,
-    FinalityInput, HoldCode, OperationBinding, PriorEffectState, ResourceState,
+    FinalityInput, OperationBinding, PriorEffectState, ResourceState,
     RetrySafety,
 };
 use serde_json::{json, Value};
+use std::collections::HashSet;
 
 pub const ADAPTER_VERSION: &str = "iae-lise-conformance-v0.1";
 pub const SUITE_ID: &str = "IAE-LISE-TEMPORAL-CONFORMANCE-v0.1";
@@ -104,6 +105,23 @@ fn is_fixed_utc_timestamp(s: &str) -> bool {
         && b.iter().enumerate().all(|(i, c)| {
             matches!(i, 4 | 7 | 10 | 13 | 16 | 19) || c.is_ascii_digit()
         })
+        && {
+            let year = s[0..4].parse::<u32>().unwrap_or(0);
+            let month = s[5..7].parse::<u32>().unwrap_or(0);
+            let day = s[8..10].parse::<u32>().unwrap_or(0);
+            let hour = s[11..13].parse::<u32>().unwrap_or(99);
+            let minute = s[14..16].parse::<u32>().unwrap_or(99);
+            let second = s[17..19].parse::<u32>().unwrap_or(99);
+            let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+            let days = match month {
+                1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+                4 | 6 | 9 | 11 => 30,
+                2 if leap => 29,
+                2 => 28,
+                _ => 0,
+            };
+            year > 0 && day >= 1 && day <= days && hour <= 23 && minute <= 59 && second <= 59
+        }
 }
 
 fn timestamp(value: &Value, key: &str, context: &str) -> Result<String, String> {
@@ -168,17 +186,6 @@ fn parse_resource_state(s: &str) -> ResourceState {
     }
 }
 
-fn parse_prior_effect(s: &str) -> PriorEffectState {
-    match s {
-        "never_attempted" => PriorEffectState::NeverAttempted,
-        "outcome_unknown_after_dispatch" => PriorEffectState::OutcomeUnknownAfterDispatch,
-        "confirmed_not_applied" => PriorEffectState::ConfirmedNotApplied,
-        "confirmed_applied" => PriorEffectState::ConfirmedApplied,
-        "partially_applied" => PriorEffectState::PartiallyApplied,
-        _ => PriorEffectState::OutcomeUnknownAfterDispatch,
-    }
-}
-
 fn parse_retry_safety(s: &str) -> RetrySafety {
     match s {
         "same_operation_same_idempotency_key_qualified" => {
@@ -194,6 +201,7 @@ fn resolve_authority(
     operation: &Value,
     action_at: &str,
     known_at: &str,
+    institution_ref: &str,
 ) -> Result<AuthorityState, String> {
     let authority = object(fixture, "authority", "fixture")?;
     if required_str(authority, "verification_state", "authority")? != "verified" {
@@ -201,6 +209,9 @@ fn resolve_authority(
     }
 
     let subject = required_str(authority, "subject_ref", "authority")?;
+    if required_str(authority, "entity_ref", "authority")? != institution_ref {
+        return Ok(AuthorityState::Unknown);
+    }
     let actor = required_str(operation, "principal_ref", "approved operation")?;
     let action = required_str(operation, "action", "approved operation")?;
     let purpose = required_str(operation, "purpose", "approved operation")?;
@@ -278,17 +289,19 @@ fn resolve_prior_effect(
             continue;
         }
         matching_history = true;
+        let occurred = timestamp(event, "occurred_at", "operation event")?;
+        let observed = timestamp(event, "observed_at", "operation event")?;
+        // Events outside either cutoff cannot rewrite this historical view.
+        if occurred.as_str() > action_at || observed.as_str() > known_at {
+            continue;
+        }
         let event_key = required_str(event, "idempotency_ref", "operation event")?;
         let event_digest = required_str(event, "canonical_operation_digest", "operation event")?;
         let event_action_digest = required_str(event, "action_digest", "operation event")?;
         if event_key != idempotency || event_digest != digest || event_action_digest != action_digest {
             return Ok(PriorEffectState::OutcomeUnknownAfterDispatch);
         }
-        let occurred = timestamp(event, "occurred_at", "operation event")?;
-        let observed = timestamp(event, "observed_at", "operation event")?;
-        if occurred.as_str() <= action_at && observed.as_str() <= known_at {
-            visible.push((occurred, observed, event.clone()));
-        }
+        visible.push((occurred, observed, event.clone()));
     }
     if !matching_history {
         return Ok(PriorEffectState::OutcomeUnknownAfterDispatch);
@@ -384,7 +397,13 @@ fn build_input(
         .to_owned(),
     };
 
-    let authority_from_history = resolve_authority(fixture, approved, action_at, known_at)?;
+    let authority_from_history = resolve_authority(
+        fixture,
+        approved,
+        action_at,
+        known_at,
+        &constitution_ref.institution_ref,
+    )?;
     let authority = if aux_equal
         && object(fixture, "authority", "fixture")
             .and_then(|a| required_str(a, "subject_ref", "authority"))
@@ -467,6 +486,7 @@ fn write_trace_violations(fixture: &Value, submission: &Value) -> Vec<String> {
         return vec!["write trace is empty despite a recorded submit attempt".to_owned()];
     }
 
+    let mut observed_event_refs = HashSet::new();
     for write in writes {
         let write_fields = match array(write, "fields", "write trace") {
             Ok(v) => v.iter().filter_map(Value::as_str).collect::<Vec<_>>(),
@@ -527,6 +547,21 @@ fn write_trace_violations(fixture: &Value, submission: &Value) -> Vec<String> {
         if !event_exists {
             errors.push("write trace is not bound to the source operation-history submit event".to_owned());
         }
+        if let Some(event_ref) = event_ref {
+            if !observed_event_refs.insert(event_ref.to_owned()) {
+                errors.push("duplicate write-trace event reference".to_owned());
+            }
+        }
+    }
+    let expected_event_refs: HashSet<String> = array(fixture, "operation_history", "fixture")
+        .map(|events| events.iter()
+            .filter(|event| event.get("event_type").and_then(Value::as_str) == Some("submit_attempt")
+                && event.get("possible_external_side_effect").and_then(Value::as_bool) == Some(true))
+            .filter_map(|event| event.get("event_ref").and_then(Value::as_str).map(str::to_owned))
+            .collect())
+        .unwrap_or_default();
+    if expected_event_refs != observed_event_refs {
+        errors.push("write trace does not cover every possible external submit event exactly once".to_owned());
     }
     errors
 }
@@ -676,7 +711,7 @@ pub fn evaluate_vertical_slice(fixture: &Value, submission: &Value) -> Value {
                     "authority_state": format!("{authority:?}"),
                     "prior_effect_state": format!("{prior:?}"),
                     "expected": scenario.expected,
-                    "observed": observed_label,
+                    "observed": observed_label.clone(),
                     "conformant": observed_label == scenario.expected
                 }));
             }
@@ -812,6 +847,7 @@ mod tests {
             approved,
             action_at,
             "2026-02-01T23:59:59Z",
+            "ENTITY-TRUST-01",
         )
         .expect("historical authority resolves");
         assert_eq!(before_observation, AuthorityState::Current);
@@ -820,6 +856,7 @@ mod tests {
             approved,
             action_at,
             "2026-02-06T10:00:00Z",
+            "ENTITY-TRUST-01",
         )
         .expect("current authority resolves");
         assert_eq!(after_observation, AuthorityState::Revoked);
@@ -890,6 +927,48 @@ mod tests {
             "Deny(AuthorityRevoked)"
         );
         assert_eq!(report["dispatch_eligible"], false);
+    }
+
+    #[test]
+    fn authority_from_another_institution_is_not_accepted() {
+        let (mut fixture, submission) = inputs();
+        fixture["authority"]["entity_ref"] = json!("ENTITY-OTHER");
+        let report = evaluate_vertical_slice(&fixture, &submission);
+        assert_eq!(
+            case(&report, "PRE_DISPATCH")["observed"],
+            "Hold(AuthorityUnknown)"
+        );
+    }
+
+    #[test]
+    fn future_mismatched_event_does_not_rewrite_prior_knowledge() {
+        let (mut fixture, _) = inputs();
+        fixture["operation_history"].as_array_mut().expect("history").push(json!({
+            "event_ref": "OP-EVENT-FUTURE-OTHER",
+            "operation_ref": "OP-LEASE-001",
+            "idempotency_ref": "IDEM-OTHER",
+            "canonical_operation_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "action_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "event_type": "submit_attempt",
+            "outcome": "submitted",
+            "occurred_at": "2026-02-10T10:00:00Z",
+            "observed_at": "2026-02-10T10:00:00Z"
+        }));
+        let prior = resolve_prior_effect(
+            &fixture,
+            &fixture["operation_finality"]["approved_operation"],
+            "2026-01-25T10:01:00Z",
+            "2026-01-25T10:00:00Z",
+        )
+        .expect("past view resolves");
+        assert_eq!(prior, PriorEffectState::NeverAttempted);
+    }
+
+    #[test]
+    fn malformed_calendar_timestamp_is_rejected() {
+        assert!(!is_fixed_utc_timestamp("2026-02-30T10:00:00Z"));
+        assert!(!is_fixed_utc_timestamp("2026-13-01T10:00:00Z"));
+        assert!(is_fixed_utc_timestamp("2024-02-29T23:59:59Z"));
     }
 
     #[test]
