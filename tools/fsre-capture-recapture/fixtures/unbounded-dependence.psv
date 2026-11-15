@@ -4,6 +4,7 @@
 #source_a_ancestry=shared-admin-core
 #source_b_ancestry=shared-admin-core
 #population_frame_status=NOT_ESTABLISHED
+#strata_universe_status=DECLARED_COMPLETE
 #independence_assumption=NOT_DECLARED
 #linkage_status=NOT_ESTABLISHED
 #within_stratum_homogeneity=NOT_ESTABLISHED
