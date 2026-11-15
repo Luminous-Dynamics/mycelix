@@ -134,7 +134,7 @@ Never compare the full-reveal timing against selective disclosure and claim a pr
 ### Version pin and source admission
 
 Before a runtime adapter is written:
-- pin release tag `v0.1.0-beta.1` and full source commit `40a0695` (resolve and record the full commit SHA from Git);
+- pin release tag `v0.1.0-beta.1` and full source commit `40a069565a2eaecbb5e691dbc634be20e8498daf` (resolve and record the full commit SHA `40a069565a2eaecbb5e691dbc634be20e8498daf`);
 - pin the Rust toolchain and every TLSNotary/mpz transitive source revision;
 - pin feature flags, target triples and commitment strategy;
 - verify Beta.1's actual selected protocol mode and negotiated TLS 1.2 profile;
@@ -276,6 +276,39 @@ Include:
 - retained Secret artefact and transcript data.
 
 Selective disclosure is not anonymity. A valid presentation can remain linkable through stable identifiers, repeated roots, timing and metadata. Query-family controls belong to PEC / #2109 / #2110; this profile does not create a second privacy budget engine.
+
+## 9a. Attested verifier, prover-side plaintext: a fourth TLS witness profile
+
+Mycelix [WEB-CAPTURE-TEE-VERIFIER-001 / #6254](https://github.com/Luminous-Dynamics/mycelix/issues/6254) tracks an additional composition suggested by TLSNotary's June 23, 2026 TEE analysis:
+
+**Run the delegated MPC-TLS verifier inside a measured TEE, while keeping TLS decryption and application plaintext on the prover device.**
+
+The TEE is the witness/verifier, not a plaintext processor.
+
+This aims to combine:
+- stronger integrity against a malicious host/operator because the verifier receipt key is bound to measured code and attestation;
+- prover-side cryptographic confidentiality because the enclave sees protocol/ciphertext material but never the TLS write/decryption key or plaintext;
+- user-controlled selective disclosure through TLSNotary's existing transcript commitment/opening path.
+
+It is a different profile from the common TEE relay in which a user encrypts credentials/session token to an enclave, the enclave makes the provider request, and the enclave sees the full response in plaintext.
+
+The four distinct profiles are:
+1. ordinary delegated MPC-TLS notary (integrity anchored in notary/operator key);
+2. **attested MPC-TLS verifier with prover-side plaintext** (integrity anchored in measured TEE code/TCB, privacy remains prover-side only if dataflow proves no plaintext/key ingress);
+3. TEE plaintext processor (plaintext and often credentials enter enclave; confidentiality is attestation-based);
+4. direct relying-party verifier (institution participates in its own session).
+
+### Mandatory boundary for the hybrid
+
+- The exact measured verifier image, TCB version, vendor root, source/build mapping and protocol release are qualified.
+- The enclave participates as the verifier but does not receive TLS write keys or application plaintext.
+- The attested receipt binds image identity, TCB, TLSNotary release/mode, session/commitment root, request, audience and policy.
+- If a key or plaintext enters the enclave, the run is reclassified as a TEE plaintext processor; it cannot be claimed as the hybrid privacy profile.
+- A valid hardware quote identifies measured bytes; it does not prove those bytes implement the reviewed source semantics. Reproducible build/source mapping is a separate requirement.
+
+This profile is not trustless: it relies on hardware/vendor attestation, the TCB and measurement verification. Its proposed advantage is preserving a cryptographic plaintext boundary while strengthening the integrity of the delegated verifier.
+
+Primary analysis: https://tlsnotary.org/blog/2026/06/23/where-trust-lives/
 
 ## 10. Industry baseline and matched benchmark
 
