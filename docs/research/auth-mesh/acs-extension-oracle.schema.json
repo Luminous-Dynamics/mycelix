@@ -59,6 +59,7 @@
       "enum": [
         "DECLARED_AND_ACCEPTED",
         "DECLARED_NOT_ACCEPTED",
+        "NEGOTIATED",
         "NOT_APPLICABLE",
         "UNKNOWN"
       ]
@@ -66,6 +67,7 @@
     "profile_evidence": {
       "enum": [
         "IMPLEMENTATION_VERIFIED",
+        "OBSERVED_IMPLEMENTATION",
         "DECLARATION_ONLY",
         "UNSUPPORTED",
         "UNKNOWN",
