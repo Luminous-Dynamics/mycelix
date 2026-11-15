@@ -84,8 +84,7 @@ fn valid_token(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= MAX_TOKEN_BYTES
         && value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric()
-                || matches!(byte, b'_' | b'-' | b'.' | b':' | b'/')
+            byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.' | b':' | b'/')
         })
 }
 
@@ -288,10 +287,7 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
             .checked_add(1)
             .ok_or_else(|| fail("effective record counter overflow"))?;
 
-        let entity_key = (
-            record.namespace.clone(),
-            record.truth_entity_id.clone(),
-        );
+        let entity_key = (record.namespace.clone(), record.truth_entity_id.clone());
         namespaces.insert(record.namespace.clone());
 
         match truth_weights.get(&entity_key) {
@@ -302,14 +298,13 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
                 )));
             }
             None => {
-                truth_weights.insert(
-                    entity_key.clone(),
-                    u128::from(record.truth_entity_weight),
-                );
+                truth_weights.insert(entity_key.clone(), u128::from(record.truth_entity_weight));
             }
             _ => {}
         }
-        let truth_count = record_counts_by_truth.entry(entity_key.clone()).or_default();
+        let truth_count = record_counts_by_truth
+            .entry(entity_key.clone())
+            .or_default();
         *truth_count = truth_count
             .checked_add(1)
             .ok_or_else(|| fail("truth record count overflow"))?;
@@ -383,27 +378,23 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
             .insert(cluster_key);
     }
 
-    let true_pair_count = record_counts_by_truth.values().try_fold(
-        0_u128,
-        |sum, count| {
+    let true_pair_count = record_counts_by_truth
+        .values()
+        .try_fold(0_u128, |sum, count| {
             sum.checked_add(choose_two(*count)?)
                 .ok_or_else(|| fail("true pair total overflow"))
-        },
-    )?;
-    let predicted_pair_count = record_counts_by_cluster.values().try_fold(
-        0_u128,
-        |sum, count| {
-            sum.checked_add(choose_two(*count)?)
-                .ok_or_else(|| fail("predicted pair total overflow"))
-        },
-    )?;
-    let true_positive_pair_count = contingency.values().try_fold(
-        0_u128,
-        |sum, count| {
-            sum.checked_add(choose_two(*count)?)
-                .ok_or_else(|| fail("true-positive pair total overflow"))
-        },
-    )?;
+        })?;
+    let predicted_pair_count =
+        record_counts_by_cluster
+            .values()
+            .try_fold(0_u128, |sum, count| {
+                sum.checked_add(choose_two(*count)?)
+                    .ok_or_else(|| fail("predicted pair total overflow"))
+            })?;
+    let true_positive_pair_count = contingency.values().try_fold(0_u128, |sum, count| {
+        sum.checked_add(choose_two(*count)?)
+            .ok_or_else(|| fail("true-positive pair total overflow"))
+    })?;
     let false_positive_pair_count = predicted_pair_count
         .checked_sub(true_positive_pair_count)
         .ok_or_else(|| fail("true-positive count exceeds predicted pair count"))?;
@@ -453,20 +444,15 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
             .ok_or_else(|| fail("fragmentation duplicate-weight total overflow"))?;
     }
 
-    let truth_population_weight = truth_weights.values().try_fold(
-        0_u128,
-        |sum, weight| {
-            sum.checked_add(*weight)
-                .ok_or_else(|| fail("truth population weight overflow"))
-        },
-    )?;
-    let predicted_population_weight = predicted_weights.values().try_fold(
-        0_u128,
-        |sum, weight| {
+    let truth_population_weight = truth_weights.values().try_fold(0_u128, |sum, weight| {
+        sum.checked_add(*weight)
+            .ok_or_else(|| fail("truth population weight overflow"))
+    })?;
+    let predicted_population_weight =
+        predicted_weights.values().try_fold(0_u128, |sum, weight| {
             sum.checked_add(*weight)
                 .ok_or_else(|| fail("predicted population weight overflow"))
-        },
-    )?;
+        })?;
 
     let truth_entity_count = truth_weights.len();
     let predicted_cluster_count = predicted_weights.len();
@@ -515,16 +501,24 @@ impl Report {
         writeln!(out, "scope_sha256={}", self.problem.scope_sha256).expect("String write");
         writeln!(out, "effective_cutoff={}", self.problem.effective_cutoff).expect("String write");
         writeln!(out, "recorded_cutoff={}", self.problem.recorded_cutoff).expect("String write");
-        writeln!(out, "effective_record_count={}", self.effective_record_count)
-            .expect("String write");
+        writeln!(
+            out,
+            "effective_record_count={}",
+            self.effective_record_count
+        )
+        .expect("String write");
         writeln!(
             out,
             "future_effective_excluded_count={}",
             self.future_effective_excluded_count
         )
         .expect("String write");
-        writeln!(out, "late_arrival_leakage_count={}", self.late_arrival_leakage_count)
-            .expect("String write");
+        writeln!(
+            out,
+            "late_arrival_leakage_count={}",
+            self.late_arrival_leakage_count
+        )
+        .expect("String write");
         writeln!(
             out,
             "candidate_assigned_record_count={}",
@@ -539,11 +533,14 @@ impl Report {
         .expect("String write");
         writeln!(out, "namespace_count={}", self.namespace_count).expect("String write");
         writeln!(out, "truth_entity_count={}", self.truth_entity_count).expect("String write");
-        writeln!(out, "predicted_cluster_count={}", self.predicted_cluster_count)
-            .expect("String write");
+        writeln!(
+            out,
+            "predicted_cluster_count={}",
+            self.predicted_cluster_count
+        )
+        .expect("String write");
         writeln!(out, "true_pair_count={}", self.true_pair_count).expect("String write");
-        writeln!(out, "predicted_pair_count={}", self.predicted_pair_count)
-            .expect("String write");
+        writeln!(out, "predicted_pair_count={}", self.predicted_pair_count).expect("String write");
         writeln!(
             out,
             "true_positive_pair_count={}",
@@ -564,8 +561,7 @@ impl Report {
         .expect("String write");
         writeln!(out, "pair_precision={}", self.pair_precision).expect("String write");
         writeln!(out, "pair_recall={}", self.pair_recall).expect("String write");
-        writeln!(out, "bridge_cluster_count={}", self.bridge_cluster_count)
-            .expect("String write");
+        writeln!(out, "bridge_cluster_count={}", self.bridge_cluster_count).expect("String write");
         writeln!(
             out,
             "bridge_entity_pair_count={}",
@@ -578,8 +574,12 @@ impl Report {
             self.bridge_at_risk_population_weight
         )
         .expect("String write");
-        writeln!(out, "fragmented_entity_count={}", self.fragmented_entity_count)
-            .expect("String write");
+        writeln!(
+            out,
+            "fragmented_entity_count={}",
+            self.fragmented_entity_count
+        )
+        .expect("String write");
         writeln!(
             out,
             "fragmentation_duplicate_weight_at_risk={}",
@@ -689,9 +689,15 @@ mod tests {
 
     #[test]
     fn inconsistent_gold_or_predicted_weights_fail_closed() {
-        let gold = FIXTURE.replace("r2|PERSON|entity-a|cluster-ab|100", "r2|PERSON|entity-a|cluster-ab|101");
+        let gold = FIXTURE.replace(
+            "r2|PERSON|entity-a|cluster-ab|100",
+            "r2|PERSON|entity-a|cluster-ab|101",
+        );
         assert!(analyze(&parse_input(&gold).unwrap()).is_err());
-        let predicted = FIXTURE.replace("r2|PERSON|entity-a|cluster-ab|100|100", "r2|PERSON|entity-a|cluster-ab|100|101");
+        let predicted = FIXTURE.replace(
+            "r2|PERSON|entity-a|cluster-ab|100|100",
+            "r2|PERSON|entity-a|cluster-ab|100|101",
+        );
         assert!(analyze(&parse_input(&predicted).unwrap()).is_err());
     }
 
@@ -713,9 +719,15 @@ mod tests {
     fn row_permutation_does_not_change_the_receipt() {
         let original = analyze(&fixture()).unwrap().render();
         let mut lines = FIXTURE.lines().collect::<Vec<_>>();
-        let header = lines.iter().position(|line| line.starts_with("record_id|")).unwrap();
+        let header = lines
+            .iter()
+            .position(|line| line.starts_with("record_id|"))
+            .unwrap();
         lines[header + 1..].reverse();
         let reordered = lines.join("\n");
-        assert_eq!(original, analyze(&parse_input(&reordered).unwrap()).unwrap().render());
+        assert_eq!(
+            original,
+            analyze(&parse_input(&reordered).unwrap()).unwrap().render()
+        );
     }
 }
