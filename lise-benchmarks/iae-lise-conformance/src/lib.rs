@@ -9,7 +9,7 @@
 
 use ipb_finality_reference::{
     ApprovalBinding, ApprovalState, AuthorityState, ConstitutionRef, CurrentProtectedState,
-    DenialCode, FinalityDecision, FinalityInput, OperationBinding, PriorEffectState, ResourceState,
+    FinalityDecision, FinalityInput, OperationBinding, PriorEffectState, ResourceState,
     RetrySafety, evaluate_finality,
 };
 use serde_json::{Value, json};
@@ -646,10 +646,10 @@ fn write_trace_violations(fixture: &Value, submission: &Value) -> Vec<String> {
                 "write trace is not bound to the source operation-history submit event".to_owned(),
             );
         }
-        if let Some(event_ref) = event_ref {
-            if !observed_event_refs.insert(event_ref.to_owned()) {
-                errors.push("duplicate write-trace event reference".to_owned());
-            }
+        if let Some(event_ref) = event_ref
+            && !observed_event_refs.insert(event_ref.to_owned())
+        {
+            errors.push("duplicate write-trace event reference".to_owned());
         }
     }
     let expected_event_refs: HashSet<String> = array(fixture, "operation_history", "fixture")
@@ -842,19 +842,21 @@ fn evaluate_one(
     String,
 > {
     let finality = object(fixture, "operation_finality", "fixture")?;
-    let action_at;
-    let known_at;
-    if scenario.id == "POST_TIMEOUT" {
+    let (action_at, known_at) = if scenario.id == "POST_TIMEOUT" {
         let timeout = array(fixture, "operation_history", "fixture")?
             .iter()
             .find(|event| event.get("event_type").and_then(Value::as_str) == Some("timeout"))
             .ok_or_else(|| "operation history has no timeout event".to_owned())?;
-        action_at = timestamp(timeout, "occurred_at", "timeout event")?;
-        known_at = timestamp(timeout, "observed_at", "timeout event")?;
+        (
+            timestamp(timeout, "occurred_at", "timeout event")?,
+            timestamp(timeout, "observed_at", "timeout event")?,
+        )
     } else {
-        action_at = timestamp(finality, scenario.action_at_key, "operation_finality")?;
-        known_at = timestamp(finality, scenario.known_at_key, "operation_finality")?;
-    }
+        (
+            timestamp(finality, scenario.action_at_key, "operation_finality")?,
+            timestamp(finality, scenario.known_at_key, "operation_finality")?,
+        )
+    };
     let (input, authority, prior) = build_input(fixture, &action_at, &known_at)?;
     Ok((
         evaluate_finality(&input),
@@ -921,6 +923,7 @@ pub fn evaluate_vertical_slice(fixture: &Value, submission: &Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ipb_finality_reference::DenialCode;
     use serde_json::json;
 
     fn inputs() -> (Value, Value) {
