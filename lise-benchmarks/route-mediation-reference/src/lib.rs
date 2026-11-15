@@ -373,13 +373,12 @@ fn matching_mediator(
 }
 
 fn invalid_report(error: String) -> Value {
-    let status = if error.starts_with("path count exceeded")
-        || error.starts_with("path depth exceeded")
-    {
-        "INDETERMINATE"
-    } else {
-        "INVALID_INPUT"
-    };
+    let status =
+        if error.starts_with("path count exceeded") || error.starts_with("path depth exceeded") {
+            "INDETERMINATE"
+        } else {
+            "INVALID_INPUT"
+        };
     json!({
         "suite_id": SUITE_ID,
         "evaluator_version": EVALUATOR_VERSION,
@@ -676,8 +675,7 @@ mod tests {
         let mut value = fixture();
         let nodes = value["graph"]["nodes"].as_array_mut().expect("nodes");
         nodes.retain(|node| {
-            node["node_id"] == "agent-entry"
-                || node["node_id"] == "production-environment"
+            node["node_id"] == "agent-entry" || node["node_id"] == "production-environment"
         });
         let edges = value["graph"]["edges"].as_array_mut().expect("edges");
         edges.clear();
