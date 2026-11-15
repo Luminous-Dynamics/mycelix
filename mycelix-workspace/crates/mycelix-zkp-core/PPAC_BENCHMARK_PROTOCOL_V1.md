@@ -282,6 +282,11 @@ Measure:
 
 The capability must not survive a change to the exact action, target, recipient, route, authority generation or consent scope.
 
+Also test the consent presentation itself: exact purpose and recipient shown, scope/action bytes summarized intelligibly, duration and revocation consequences explained, accessible alternatives, and a usable challenge route. The cryptographic receipt authenticates the recorded attestation; it does not prove comprehension, legal capacity, free choice or absence of coercion. Those require separate human/process review and must not be claimed from a signature or session log.
+
+Consent revocation is prospective. Measure whether new capability issuance and effect commit are blocked after the revocation frontier advances, while preserving the evidence that an earlier disclosure occurred. Do not mark prior recipient copies as deleted without separate deletion/retention evidence.
+
+
 ### End-to-end institutional metric
 
 Introduce **time-to-trustworthy-decision (TTD)**:
