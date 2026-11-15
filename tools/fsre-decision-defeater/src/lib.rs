@@ -1313,7 +1313,10 @@ m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE
 
     #[test]
     fn mutation_reference_must_resolve_inside_the_frozen_grid() {
-        let input = FIXTURE.replace("w1|inspect|0|1", "missing-world|inspect|0|1");
+        let input = FIXTURE.replace(
+            "m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE",
+            "m-noop|DECISION_VALUE_DELTA|missing-world|inspect|0|1|evidence-noop|ADMISSIBLE",
+        );
         assert!(analyze(&input).is_err());
     }
 
