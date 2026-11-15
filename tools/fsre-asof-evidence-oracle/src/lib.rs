@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-const COLUMNS: &str = "record_type|record_id|claim_id|scenario_id|observed_at|available_at|valid_from|valid_until|revoked_effective_at|revocation_known_at|status|clock_basis_id|source_owner|source_ref|required_evidence_count|max_observation_age_seconds";
+const COLUMNS: &str = "record_type|record_id|claim_id|scenario_id|observed_at|available_at|valid_from|valid_until|revoked_effective_at|revocation_known_at|status|clock_basis_id|source_owner|source_ref|required_evidence_count|max_observation_age_seconds|supersedes_record_id|supersession_known_at|revision_kind";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReferenceError(pub String);
@@ -33,6 +33,9 @@ struct Observation {
     ends: Option<u64>,
     revoked_at: Option<u64>,
     revocation_learned_at: Option<u64>,
+    supersedes: Option<String>,
+    supersession_learned_at: Option<u64>,
+    revision_kind: Option<String>,
     state: String,
     owner: String,
     reference: String,
@@ -63,9 +66,8 @@ fn identifier(text: &str) -> bool {
 }
 
 fn integer(text: &str, field: &str, row: usize) -> Result<u64, ReferenceError> {
-    text.parse::<u64>().map_err(|error| {
-        ReferenceError(format!("row {row}: bad {field}: {error}"))
-    })
+    text.parse::<u64>()
+        .map_err(|error| ReferenceError(format!("row {row}: bad {field}: {error}")))
 }
 
 fn maybe_integer(text: &str, field: &str, row: usize) -> Result<Option<u64>, ReferenceError> {
@@ -85,9 +87,9 @@ fn check_identifier(text: &str, field: &str, row: usize) -> Result<(), Reference
 
 fn split_row(line: &str, row: usize) -> Result<Vec<&str>, ReferenceError> {
     let fields: Vec<&str> = line.split('|').map(str::trim).collect();
-    if fields.len() != 16 {
+    if fields.len() != 19 {
         return Err(ReferenceError(format!(
-            "row {row}: expected 16 columns, got {}",
+            "row {row}: expected 19 columns, got {}",
             fields.len()
         )));
     }
@@ -111,15 +113,22 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
         }
         if let Some(comment) = line.strip_prefix('#') {
             if let Some((name, value)) = comment.trim().split_once('=') {
-                if properties.insert(name.trim().to_owned(), value.trim().to_owned()).is_some() {
-                    return Err(ReferenceError(format!("row {row_number}: repeated metadata key")));
+                if properties
+                    .insert(name.trim().to_owned(), value.trim().to_owned())
+                    .is_some()
+                {
+                    return Err(ReferenceError(format!(
+                        "row {row_number}: repeated metadata key"
+                    )));
                 }
             }
             continue;
         }
         if !header {
             if line != COLUMNS {
-                return Err(ReferenceError(format!("row {row_number}: unexpected header")));
+                return Err(ReferenceError(format!(
+                    "row {row_number}: unexpected header"
+                )));
             }
             header = true;
             continue;
@@ -145,10 +154,14 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
             check_identifier(value, field, row_number)?;
         }
         if reference.is_empty() || reference.len() > 512 {
-            return Err(ReferenceError(format!("row {row_number}: bad source reference")));
+            return Err(ReferenceError(format!(
+                "row {row_number}: bad source reference"
+            )));
         }
         if !record_keys.insert(record_id.to_owned()) {
-            return Err(ReferenceError(format!("row {row_number}: reused record ID")));
+            return Err(ReferenceError(format!(
+                "row {row_number}: reused record ID"
+            )));
         }
         row_scenarios.push(scenario.to_owned());
 
@@ -158,9 +171,24 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
         let ends = maybe_integer(fields[7], "valid_until", row_number)?;
         let revoked_at = maybe_integer(fields[8], "revoked_effective_at", row_number)?;
         let revocation_learned_at = maybe_integer(fields[9], "revocation_known_at", row_number)?;
+        let supersedes = if fields[16].is_empty() {
+            None
+        } else {
+            check_identifier(fields[16], "supersedes_record_id", row_number)?;
+            Some(fields[16].to_owned())
+        };
+        let supersession_learned_at =
+            maybe_integer(fields[17], "supersession_known_at", row_number)?;
+        let revision_kind = if fields[18].is_empty() {
+            None
+        } else {
+            Some(fields[18].to_owned())
+        };
 
         if clock != "UTC_UNIX_SECONDS_V1" {
-            return Err(ReferenceError(format!("row {row_number}: clock basis mismatch")));
+            return Err(ReferenceError(format!(
+                "row {row_number}: clock basis mismatch"
+            )));
         }
 
         match kind {
@@ -171,15 +199,23 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                     || ends.is_some()
                     || revoked_at.is_some()
                     || revocation_learned_at.is_some()
+                    || supersedes.is_some()
+                    || supersession_learned_at.is_some()
+                    || revision_kind.is_some()
                     || state != "REQUIRED"
                 {
-                    return Err(ReferenceError(format!("row {row_number}: malformed claim requirement")));
+                    return Err(ReferenceError(format!(
+                        "row {row_number}: malformed claim requirement"
+                    )));
                 }
                 let minimum = integer(fields[14], "required evidence count", row_number)?;
                 if minimum == 0 {
-                    return Err(ReferenceError(format!("row {row_number}: zero required evidence count")));
+                    return Err(ReferenceError(format!(
+                        "row {row_number}: zero required evidence count"
+                    )));
                 }
-                let freshness_limit = maybe_integer(fields[15], "claim freshness limit", row_number)?;
+                let freshness_limit =
+                    maybe_integer(fields[15], "claim freshness limit", row_number)?;
                 requirements.push(Requirement {
                     key: requirement_id.to_owned(),
                     owner: owner.to_owned(),
@@ -190,10 +226,14 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
             }
             "EVIDENCE" => {
                 if !fields[14].is_empty() || !fields[15].is_empty() {
-                    return Err(ReferenceError(format!("row {row_number}: evidence row contains claim policy")));
+                    return Err(ReferenceError(format!(
+                        "row {row_number}: evidence row contains claim policy"
+                    )));
                 }
                 if !reference_keys.insert((requirement_id.to_owned(), reference.to_owned())) {
-                    return Err(ReferenceError(format!("row {row_number}: duplicated evidence reference")));
+                    return Err(ReferenceError(format!(
+                        "row {row_number}: duplicated evidence reference"
+                    )));
                 }
                 match state {
                     "UNKNOWN" => {
@@ -207,6 +247,9 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                         ]
                         .iter()
                         .any(Option::is_some)
+                            || supersedes.is_some()
+                            || supersession_learned_at.is_some()
+                            || revision_kind.is_some()
                         {
                             return Err(ReferenceError(format!(
                                 "row {row_number}: unknown row contains a time assertion"
@@ -215,13 +258,19 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                     }
                     "ASSERTED" => {
                         let measured = observed.ok_or_else(|| {
-                            ReferenceError(format!("row {row_number}: asserted row has no observation time"))
+                            ReferenceError(format!(
+                                "row {row_number}: asserted row has no observation time"
+                            ))
                         })?;
                         let available = released.ok_or_else(|| {
-                            ReferenceError(format!("row {row_number}: asserted row has no availability time"))
+                            ReferenceError(format!(
+                                "row {row_number}: asserted row has no availability time"
+                            ))
                         })?;
                         let start = begins.ok_or_else(|| {
-                            ReferenceError(format!("row {row_number}: asserted row has no validity start"))
+                            ReferenceError(format!(
+                                "row {row_number}: asserted row has no validity start"
+                            ))
                         })?;
                         if measured > available {
                             return Err(ReferenceError(format!(
@@ -245,8 +294,40 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                                 "row {row_number}: revocation known before evidence became available"
                             )));
                         }
+                        match (
+                            supersedes.as_ref(),
+                            supersession_learned_at,
+                            revision_kind.as_deref(),
+                        ) {
+                            (None, None, None) => {}
+                            (Some(_), Some(known_at), Some(kind))
+                                if matches!(
+                                    kind,
+                                    "MEASUREMENT_CORRECTION"
+                                        | "SOURCE_CORRECTION"
+                                        | "METHODOLOGY_CHANGE"
+                                        | "NEW_SOURCE"
+                                        | "RECLASSIFICATION"
+                                        | "BOUNDARY_CHANGE"
+                                ) => {
+                                    if known_at < available {
+                                        return Err(ReferenceError(format!(
+                                            "row {row_number}: supersession predates replacement availability"
+                                        )));
+                                    }
+                                }
+                            _ => {
+                                return Err(ReferenceError(format!(
+                                    "row {row_number}: invalid evidence supersession declaration"
+                                )));
+                            }
+                        }
                     }
-                    _ => return Err(ReferenceError(format!("row {row_number}: unknown evidence state"))),
+                    _ => {
+                        return Err(ReferenceError(format!(
+                            "row {row_number}: unknown evidence state"
+                        )))
+                    }
                 }
                 observations.push(Observation {
                     key: record_id.to_owned(),
@@ -257,12 +338,19 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                     ends,
                     revoked_at,
                     revocation_learned_at,
+                    supersedes,
+                    supersession_learned_at,
+                    revision_kind,
                     state: state.to_owned(),
                     owner: owner.to_owned(),
                     reference: reference.to_owned(),
                 });
             }
-            _ => return Err(ReferenceError(format!("row {row_number}: unrecognised row kind"))),
+            _ => {
+                return Err(ReferenceError(format!(
+                    "row {row_number}: unrecognised row kind"
+                )))
+            }
         }
     }
 
@@ -277,30 +365,87 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
     let scenario = take("scenario_id")?;
     let evidence_snapshot = take("evidence_snapshot_id")?;
     let cutoff = integer(&take("decision_at")?, "decision_at", 0)?;
-    let standard_freshness = integer(&take("max_observation_age_seconds")?, "default freshness", 0)?;
+    let standard_freshness = integer(
+        &take("max_observation_age_seconds")?,
+        "default freshness",
+        0,
+    )?;
     let clock = take("clock_basis_id")?;
     if !identifier(&scenario) || !identifier(&evidence_snapshot) || clock != "UTC_UNIX_SECONDS_V1" {
-        return Err(ReferenceError("unsupported scenario or replay clock".to_owned()));
+        return Err(ReferenceError(
+            "unsupported scenario or replay clock".to_owned(),
+        ));
     }
     if properties.keys().next().is_some() {
         return Err(ReferenceError("unexpected metadata field".to_owned()));
     }
     if row_scenarios.iter().any(|value| value != &scenario) {
-        return Err(ReferenceError("row crosses frozen scenario boundary".to_owned()));
+        return Err(ReferenceError(
+            "row crosses frozen scenario boundary".to_owned(),
+        ));
     }
 
     let mut required = BTreeSet::new();
     for claim in &requirements {
         if !required.insert(claim.key.clone()) {
-            return Err(ReferenceError(format!("duplicate requirement {}", claim.key)));
+            return Err(ReferenceError(format!(
+                "duplicate requirement {}",
+                claim.key
+            )));
         }
     }
+    let by_key = observations
+        .iter()
+        .map(|item| (item.key.as_str(), item))
+        .collect::<BTreeMap<_, _>>();
+    let mut predecessor_owner = BTreeMap::<String, String>::new();
+    let mut parent_of = BTreeMap::<String, String>::new();
     for item in &observations {
         if !required.contains(&item.requirement) {
             return Err(ReferenceError(format!(
                 "evidence {} has no declared requirement",
                 item.key
             )));
+        }
+        if let Some(parent_key) = &item.supersedes {
+            let parent = by_key.get(parent_key.as_str()).ok_or_else(|| {
+                ReferenceError(format!(
+                    "evidence {} has missing predecessor {}",
+                    item.key, parent_key
+                ))
+            })?;
+            if parent.requirement != item.requirement {
+                return Err(ReferenceError(format!(
+                    "evidence {} supersedes a different requirement",
+                    item.key
+                )));
+            }
+            if parent.state != "ASSERTED" || item.state != "ASSERTED" {
+                return Err(ReferenceError(format!(
+                    "evidence {} uses a non-asserted revision edge",
+                    item.key
+                )));
+            }
+            if predecessor_owner
+                .insert(parent_key.clone(), item.key.clone())
+                .is_some()
+            {
+                return Err(ReferenceError(format!(
+                    "predecessor {} has competing successors",
+                    parent_key
+                )));
+            }
+            parent_of.insert(item.key.clone(), parent_key.clone());
+        }
+    }
+    for origin in parent_of.keys() {
+        let mut visited = BTreeSet::new();
+        let mut cursor = Some(origin.as_str());
+        while let Some(node) = cursor {
+            if !visited.insert(node.to_owned()) {
+                return Err(ReferenceError(format!("revision cycle at {node}")));
+            }
+            cursor = parent_of.get(node).map(String::as_str);
         }
     }
 
@@ -327,6 +472,7 @@ enum ResultClass {
     Usable,
     RevocationNotice,
     RetrospectiveRevocation,
+    SupersededAsKnown,
 }
 
 impl ResultClass {
@@ -342,6 +488,7 @@ impl ResultClass {
             Self::Usable => "ADMISSIBLE",
             Self::RevocationNotice => "REVOCATION_PENDING",
             Self::RetrospectiveRevocation => "ADMISSIBLE_WITH_HINDSIGHT_REVOCATION",
+            Self::SupersededAsKnown => "SUPERSEDED_AS_KNOWN",
         }
     }
 
@@ -378,19 +525,13 @@ fn classify(row: &Observation, replay: &Replay, allowed_age: u64) -> ResultClass
     }
 
     match (row.revoked_at, row.revocation_learned_at) {
-        (Some(effective), Some(known))
-            if effective <= replay.cutoff && known <= replay.cutoff =>
-        {
+        (Some(effective), Some(known)) if effective <= replay.cutoff && known <= replay.cutoff => {
             ResultClass::Revoked
         }
-        (Some(effective), Some(known))
-            if effective > replay.cutoff && known <= replay.cutoff =>
-        {
+        (Some(effective), Some(known)) if effective > replay.cutoff && known <= replay.cutoff => {
             ResultClass::RevocationNotice
         }
-        (Some(effective), Some(known))
-            if effective <= replay.cutoff && known > replay.cutoff =>
-        {
+        (Some(effective), Some(known)) if effective <= replay.cutoff && known > replay.cutoff => {
             ResultClass::RetrospectiveRevocation
         }
         _ => ResultClass::Usable,
@@ -418,13 +559,25 @@ fn reproduce(replay: &Replay) -> String {
             )
         })
         .collect();
+    let mut superseded_by = BTreeMap::<String, String>::new();
+    let mut revision_history_records = 0_u64;
+    for row in &observations {
+        if let (Some(parent), Some(known_at)) = (&row.supersedes, row.supersession_learned_at) {
+            revision_history_records += 1;
+            if known_at <= replay.cutoff {
+                superseded_by.insert(parent.clone(), row.key.clone());
+            }
+        }
+    }
     let classes: BTreeMap<String, ResultClass> = observations
         .iter()
         .map(|row| {
-            (
-                row.key.clone(),
-                classify(row, replay, ages[&row.requirement]),
-            )
+            let class = if superseded_by.contains_key(&row.key) {
+                ResultClass::SupersededAsKnown
+            } else {
+                classify(row, replay, ages[&row.requirement])
+            };
+            (row.key.clone(), class)
         })
         .collect();
 
@@ -441,7 +594,7 @@ fn reproduce(replay: &Replay) -> String {
     }
 
     let mut report = vec![
-        "report_schema=fsre-asof-evidence-report.v0.1".to_owned(),
+        "report_schema=fsre-asof-evidence-report.v0.2".to_owned(),
         format!("scenario_id={}", replay.scenario),
         format!("evidence_snapshot_id={}", replay.evidence_snapshot),
         format!("decision_at={}", replay.cutoff),
@@ -484,18 +637,32 @@ fn reproduce(replay: &Replay) -> String {
     for row in &observations {
         let state = classes[&row.key];
         report.push(format!(
-            "evidence={}|{}|{}|admissible={}|owner={}|ref={}",
+            "evidence={}|{}|{}|admissible={}|owner={}|ref={}|superseded_by={}|revision_kind={}",
             row.key,
             row.requirement,
             state.text(),
             if state.counts() { "YES" } else { "NO" },
             row.owner,
-            row.reference
+            row.reference,
+            superseded_by
+                .get(&row.key)
+                .map(String::as_str)
+                .unwrap_or("NONE"),
+            row.revision_kind.as_deref().unwrap_or("ORIGINAL")
         ));
     }
 
     let retrospective_total: u64 = tallies.values().map(|value| value.retrospective).sum();
-    report.push(format!("hindsight_revocation_records={retrospective_total}"));
+    report.push(format!(
+        "hindsight_revocation_records={retrospective_total}"
+    ));
+    report.push(format!(
+        "revision_history_records={revision_history_records}"
+    ));
+    report.push(format!(
+        "superseded_as_known_records={}",
+        superseded_by.len()
+    ));
     report.push("replay_semantics=AS_KNOWN_AT_DECISION_CUTOFF".to_owned());
     report.push("future_information_used=NO".to_owned());
     report.push("source_authenticity=NOT_AUTHENTICATED_BY_THIS_TOOL".to_owned());
@@ -511,8 +678,7 @@ pub fn validate_and_report(source: &str) -> Result<String, ReferenceError> {
 mod tests {
     use super::*;
 
-    const FIXTURE: &str =
-        include_str!("../../fsre-asof-evidence/fixtures/synthetic-asof.psv");
+    const FIXTURE: &str = include_str!("../../fsre-asof-evidence/fixtures/synthetic-asof.psv");
 
     #[test]
     fn snapshot_binding_is_required_and_preserved() {
@@ -550,12 +716,7 @@ mod tests {
         }
         let header = rows.remove(0);
         rows.reverse();
-        let reversed = format!(
-            "{}\n{}\n{}\n",
-            metadata.join("\n"),
-            header,
-            rows.join("\n")
-        );
+        let reversed = format!("{}\n{}\n{}\n", metadata.join("\n"), header, rows.join("\n"));
         assert_eq!(
             validate_and_report(FIXTURE).expect("original"),
             validate_and_report(&reversed).expect("reversed")
@@ -638,5 +799,135 @@ mod tests {
             .unwrap_err()
             .0
             .contains("duplicated evidence reference"));
+    }
+
+    fn revision_row(
+        id: &str,
+        observed: u64,
+        available: u64,
+        valid_from: u64,
+        predecessor: &str,
+        known: u64,
+        revision_kind: &str,
+    ) -> String {
+        format!(
+            "EVIDENCE|{id}|pump_capacity|synthetic-water-shock|{observed}|{available}|{valid_from}|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:evidence:{id}|||{predecessor}|{known}|{revision_kind}"
+        )
+    }
+
+    #[test]
+    fn independent_oracle_replays_known_and_late_corrections() {
+        let correction = revision_row(
+            "oracle-revision-1",
+            7000,
+            7100,
+            7000,
+            "e-pump-1",
+            7100,
+            "MEASUREMENT_CORRECTION",
+        );
+        let known =
+            validate_and_report(&format!("{FIXTURE}{correction}\n")).expect("known correction");
+        assert!(known.contains("e-pump-1|pump_capacity|SUPERSEDED_AS_KNOWN|admissible=NO"));
+        assert!(known.contains("oracle-revision-1|pump_capacity|ADMISSIBLE|admissible=YES"));
+        assert!(known.contains("superseded_as_known_records=1"));
+
+        let late = revision_row(
+            "oracle-revision-late",
+            7000,
+            7100,
+            7000,
+            "e-pump-1",
+            7201,
+            "SOURCE_CORRECTION",
+        );
+        let historical =
+            validate_and_report(&format!("{FIXTURE}{late}\n")).expect("late correction");
+        assert!(historical.contains("e-pump-1|pump_capacity|ADMISSIBLE|admissible=YES"));
+        assert!(historical.contains("superseded_as_known_records=0"));
+    }
+
+    #[test]
+    fn independent_oracle_rejects_supersession_known_before_replacement_is_available() {
+        let too_early = revision_row(
+            "oracle-revision-too-early",
+            7000,
+            7100,
+            7000,
+            "e-pump-1",
+            7099,
+            "MEASUREMENT_CORRECTION",
+        );
+        assert!(validate_and_report(&format!("{FIXTURE}{too_early}\n"))
+            .unwrap_err()
+            .0
+            .contains("supersession predates replacement availability"));
+    }
+
+    #[test]
+    fn independent_oracle_rejects_dangling_fork_and_cycle_edges() {
+        let dangling = revision_row(
+            "oracle-dangling",
+            7000,
+            7100,
+            7000,
+            "missing",
+            7100,
+            "MEASUREMENT_CORRECTION",
+        );
+        assert!(validate_and_report(&format!("{FIXTURE}{dangling}\n"))
+            .unwrap_err()
+            .0
+            .contains("missing predecessor"));
+
+        let first = revision_row(
+            "oracle-rev-a",
+            7000,
+            7100,
+            7000,
+            "e-pump-1",
+            7100,
+            "MEASUREMENT_CORRECTION",
+        );
+        let second = revision_row(
+            "oracle-rev-b",
+            7001,
+            7101,
+            7001,
+            "e-pump-1",
+            7101,
+            "SOURCE_CORRECTION",
+        );
+        assert!(
+            validate_and_report(&format!("{FIXTURE}{first}\n{second}\n"))
+                .unwrap_err()
+                .0
+                .contains("competing successors")
+        );
+
+        let cycle_a = revision_row(
+            "oracle-cycle-a",
+            7000,
+            7100,
+            7000,
+            "oracle-cycle-b",
+            7100,
+            "MEASUREMENT_CORRECTION",
+        );
+        let cycle_b = revision_row(
+            "oracle-cycle-b",
+            7001,
+            7101,
+            7001,
+            "oracle-cycle-a",
+            7101,
+            "SOURCE_CORRECTION",
+        );
+        assert!(
+            validate_and_report(&format!("{FIXTURE}{cycle_a}\n{cycle_b}\n"))
+                .unwrap_err()
+                .0
+                .contains("revision cycle")
+        );
     }
 }
