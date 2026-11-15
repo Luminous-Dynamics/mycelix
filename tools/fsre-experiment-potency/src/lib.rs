@@ -135,11 +135,15 @@ fn valid_token(value: &str) -> bool {
 }
 
 fn parse_u64(value: &str, name: &str) -> Result<u64, PotencyError> {
-    value.parse::<u64>().map_err(|error| fail(format!("invalid {name}: {error}")))
+    value
+        .parse::<u64>()
+        .map_err(|error| fail(format!("invalid {name}: {error}")))
 }
 
 fn parse_i64(value: &str, name: &str) -> Result<i64, PotencyError> {
-    value.parse::<i64>().map_err(|error| fail(format!("invalid {name}: {error}")))
+    value
+        .parse::<i64>()
+        .map_err(|error| fail(format!("invalid {name}: {error}")))
 }
 
 fn parse_bool_complete(value: &str, name: &str) -> Result<bool, PotencyError> {
@@ -162,23 +166,38 @@ pub fn parse_input(source: &str) -> Result<Problem, PotencyError> {
             continue;
         }
         if let Some(comment) = line.strip_prefix('#') {
-            let (key, value) = comment.trim().split_once('=')
+            let (key, value) = comment
+                .trim()
+                .split_once('=')
                 .ok_or_else(|| fail(format!("line {}: malformed metadata", index + 1)))?;
-            if !matches!(key,
-                "analysis_id" | "cost_unit" | "budget" | "max_subsets" |
-                "world_set_completeness" | "experiment_universe_completeness")
-            {
-                return Err(fail(format!("line {}: unknown metadata key {key}", index + 1)));
+            if !matches!(
+                key,
+                "analysis_id"
+                    | "cost_unit"
+                    | "budget"
+                    | "max_subsets"
+                    | "world_set_completeness"
+                    | "experiment_universe_completeness"
+            ) {
+                return Err(fail(format!(
+                    "line {}: unknown metadata key {key}",
+                    index + 1
+                )));
             }
             if value.is_empty() || metadata.insert(key.to_owned(), value.to_owned()).is_some() {
-                return Err(fail(format!("line {}: empty or duplicate metadata", index + 1)));
+                return Err(fail(format!(
+                    "line {}: empty or duplicate metadata",
+                    index + 1
+                )));
             }
         } else {
             lines.push((index + 1, line));
         }
     }
     let required = |key: &str| -> Result<&str, PotencyError> {
-        metadata.get(key).map(String::as_str)
+        metadata
+            .get(key)
+            .map(String::as_str)
             .ok_or_else(|| fail(format!("missing metadata key {key}")))
     };
     let analysis_id = required("analysis_id")?.to_owned();
@@ -191,8 +210,14 @@ pub fn parse_input(source: &str) -> Result<Problem, PotencyError> {
     if max_subsets == 0 {
         return Err(fail("max_subsets must be positive"));
     }
-    let world_set_complete = parse_bool_complete(required("world_set_completeness")?, "world_set_completeness")?;
-    let experiment_universe_complete = parse_bool_complete(required("experiment_universe_completeness")?, "experiment_universe_completeness")?;
+    let world_set_complete = parse_bool_complete(
+        required("world_set_completeness")?,
+        "world_set_completeness",
+    )?;
+    let experiment_universe_complete = parse_bool_complete(
+        required("experiment_universe_completeness")?,
+        "experiment_universe_completeness",
+    )?;
 
     let mut cursor = 0usize;
     if lines.get(cursor).map(|(_, line)| *line) != Some(WORLD_HEADER) {
@@ -211,7 +236,10 @@ pub fn parse_input(source: &str) -> Result<Problem, PotencyError> {
             return Err(fail(format!("line {line_no}: invalid world row")));
         }
         if !world_ids.insert(fields[0].to_owned()) {
-            return Err(fail(format!("line {line_no}: duplicate world {}", fields[0])));
+            return Err(fail(format!(
+                "line {line_no}: duplicate world {}",
+                fields[0]
+            )));
         }
         worlds.push(World {
             id: fields[0].to_owned(),
@@ -243,14 +271,19 @@ pub fn parse_input(source: &str) -> Result<Problem, PotencyError> {
             break;
         }
         let fields: Vec<&str> = line.split('|').map(str::trim).collect();
-        if fields.len() != 13 || !valid_token(fields[0]) ||
-            !valid_token(fields[2]) || !valid_token(fields[5]) ||
-            !valid_token(fields[12])
+        if fields.len() != 13
+            || !valid_token(fields[0])
+            || !valid_token(fields[2])
+            || !valid_token(fields[5])
+            || !valid_token(fields[12])
         {
             return Err(fail(format!("line {line_no}: invalid experiment row")));
         }
         if !experiment_ids.insert(fields[0].to_owned()) {
-            return Err(fail(format!("line {line_no}: duplicate experiment {}", fields[0])));
+            return Err(fail(format!(
+                "line {line_no}: duplicate experiment {}",
+                fields[0]
+            )));
         }
         let exp = Experiment {
             id: fields[0].to_owned(),
@@ -269,7 +302,9 @@ pub fn parse_input(source: &str) -> Result<Problem, PotencyError> {
             outcomes: BTreeMap::new(),
         };
         if exp.start >= exp.end {
-            return Err(fail(format!("line {line_no}: schedule interval must have start < end")));
+            return Err(fail(format!(
+                "line {line_no}: schedule interval must have start < end"
+            )));
         }
         for (value, field) in [
             (&exp.carryover, "carryover"),
@@ -306,16 +341,28 @@ pub fn parse_input(source: &str) -> Result<Problem, PotencyError> {
     while cursor < lines.len() {
         let (line_no, line) = lines[cursor];
         let fields: Vec<&str> = line.split('|').map(str::trim).collect();
-        if fields.len() != 3 || !valid_token(fields[0]) || !valid_token(fields[1]) || !valid_token(fields[2]) {
+        if fields.len() != 3
+            || !valid_token(fields[0])
+            || !valid_token(fields[1])
+            || !valid_token(fields[2])
+        {
             return Err(fail(format!("line {line_no}: invalid observation row")));
         }
-        let experiment = experiments.iter_mut().find(|experiment| experiment.id == fields[0])
+        let experiment = experiments
+            .iter_mut()
+            .find(|experiment| experiment.id == fields[0])
             .ok_or_else(|| fail(format!("line {line_no}: unknown experiment {}", fields[0])))?;
         if !world_ids.contains(fields[1]) {
             return Err(fail(format!("line {line_no}: unknown world {}", fields[1])));
         }
-        if experiment.outcomes.insert(fields[1].to_owned(), fields[2].to_owned()).is_some() {
-            return Err(fail(format!("line {line_no}: duplicate experiment/world observation")));
+        if experiment
+            .outcomes
+            .insert(fields[1].to_owned(), fields[2].to_owned())
+            .is_some()
+        {
+            return Err(fail(format!(
+                "line {line_no}: duplicate experiment/world observation"
+            )));
         }
         observation_count += 1;
         if observation_count > MAX_ROWS {
@@ -323,20 +370,33 @@ pub fn parse_input(source: &str) -> Result<Problem, PotencyError> {
         }
         cursor += 1;
     }
-    let expected = experiments.len().checked_mul(worlds.len())
+    let expected = experiments
+        .len()
+        .checked_mul(worlds.len())
         .ok_or_else(|| fail("observation matrix size overflow"))?;
     if observation_count != expected {
-        return Err(fail(format!("observation matrix incomplete: expected {expected}, got {observation_count}")));
+        return Err(fail(format!(
+            "observation matrix incomplete: expected {expected}, got {observation_count}"
+        )));
     }
     for experiment in &experiments {
         if experiment.outcomes.len() != worlds.len() {
-            return Err(fail(format!("experiment {} lacks a world outcome", experiment.id)));
+            return Err(fail(format!(
+                "experiment {} lacks a world outcome",
+                experiment.id
+            )));
         }
     }
 
     Ok(Problem {
-        analysis_id, cost_unit, budget, max_subsets, world_set_complete,
-        experiment_universe_complete, worlds, experiments,
+        analysis_id,
+        cost_unit,
+        budget,
+        max_subsets,
+        world_set_complete,
+        experiment_universe_complete,
+        worlds,
+        experiments,
     })
 }
 
@@ -367,7 +427,10 @@ pub fn candidate_status(experiment: &Experiment) -> CandidateStatus {
         "ESTABLISHED" => {}
         _ => return CandidateStatus::RealizabilityNotEstablished,
     }
-    if !matches!(experiment.carryover.as_str(), "NO_CARRYOVER" | "WASHOUT_VERIFIED" | "UNKNOWN") {
+    if !matches!(
+        experiment.carryover.as_str(),
+        "NO_CARRYOVER" | "WASHOUT_VERIFIED" | "UNKNOWN"
+    ) {
         return CandidateStatus::InvalidDesign;
     }
     CandidateStatus::Selectable
@@ -396,34 +459,60 @@ fn schedule_compatible(selected: &[&Experiment]) -> bool {
 }
 
 fn baseline_width(worlds: &[World]) -> i128 {
-    let min = worlds.iter().map(|world| i128::from(world.query_value)).min().unwrap_or(0);
-    let max = worlds.iter().map(|world| i128::from(world.query_value)).max().unwrap_or(0);
+    let min = worlds
+        .iter()
+        .map(|world| i128::from(world.query_value))
+        .min()
+        .unwrap_or(0);
+    let max = worlds
+        .iter()
+        .map(|world| i128::from(world.query_value))
+        .max()
+        .unwrap_or(0);
     max - min
 }
 
 pub fn residual_width(problem: &Problem, selected: &[&Experiment]) -> i128 {
     let mut groups = BTreeMap::<Vec<String>, (i128, i128)>::new();
     for world in &problem.worlds {
-        let signature = selected.iter()
-            .map(|experiment| experiment.outcomes.get(&world.id).expect("complete outcome matrix").clone())
+        let signature = selected
+            .iter()
+            .map(|experiment| {
+                experiment
+                    .outcomes
+                    .get(&world.id)
+                    .expect("complete outcome matrix")
+                    .clone()
+            })
             .collect::<Vec<_>>();
         let value = i128::from(world.query_value);
-        groups.entry(signature)
+        groups
+            .entry(signature)
             .and_modify(|range| {
                 range.0 = range.0.min(value);
                 range.1 = range.1.max(value);
             })
             .or_insert((value, value));
     }
-    groups.values().map(|(min, max)| max - min).max().unwrap_or(0)
+    groups
+        .values()
+        .map(|(min, max)| max - min)
+        .max()
+        .unwrap_or(0)
 }
 
 fn make_set(problem: &Problem, selected: &[&Experiment]) -> SelectedSet {
     let residual = residual_width(problem, selected);
     let base = baseline_width(&problem.worlds);
     SelectedSet {
-        experiment_ids: selected.iter().map(|experiment| experiment.id.clone()).collect(),
-        cost: selected.iter().map(|experiment| u128::from(experiment.cost)).sum(),
+        experiment_ids: selected
+            .iter()
+            .map(|experiment| experiment.id.clone())
+            .collect(),
+        cost: selected
+            .iter()
+            .map(|experiment| u128::from(experiment.cost))
+            .sum(),
         residual_width: residual,
         potency: base - residual,
     }
@@ -458,12 +547,21 @@ fn subsets_to_search(problem: &Problem, candidates: &[&Experiment]) -> SearchRes
 
     for mask in 0..total {
         evaluated += 1;
-        let selected: Vec<&Experiment> = candidates.iter().enumerate()
+        let selected: Vec<&Experiment> = candidates
+            .iter()
+            .enumerate()
             .filter_map(|(index, experiment)| {
-                if mask & (1_u64 << index) != 0 { Some(*experiment) } else { None }
+                if mask & (1_u64 << index) != 0 {
+                    Some(*experiment)
+                } else {
+                    None
+                }
             })
             .collect();
-        let cost: u128 = selected.iter().map(|experiment| u128::from(experiment.cost)).sum();
+        let cost: u128 = selected
+            .iter()
+            .map(|experiment| u128::from(experiment.cost))
+            .sum();
         if cost > u128::from(problem.budget) || !schedule_compatible(&selected) {
             continue;
         }
@@ -474,13 +572,17 @@ fn subsets_to_search(problem: &Problem, candidates: &[&Experiment]) -> SearchRes
                 ties.clear();
                 ties.push(candidate);
             }
-            Some(current) if candidate.potency > current.potency ||
-                (candidate.potency == current.potency && candidate.cost < current.cost) => {
+            Some(current)
+                if candidate.potency > current.potency
+                    || (candidate.potency == current.potency && candidate.cost < current.cost) =>
+            {
                 best = Some(candidate.clone());
                 ties.clear();
                 ties.push(candidate);
             }
-            Some(current) if candidate.potency == current.potency && candidate.cost == current.cost => {
+            Some(current)
+                if candidate.potency == current.potency && candidate.cost == current.cost =>
+            {
                 ties.push(candidate);
             }
             Some(_) => {}
@@ -499,9 +601,14 @@ fn subsets_to_search(problem: &Problem, candidates: &[&Experiment]) -> SearchRes
 
 fn inert_experiment(experiment: &Experiment, worlds: &[World]) -> bool {
     let mut outcomes = worlds.iter().map(|world| {
-        experiment.outcomes.get(&world.id).expect("complete outcome matrix")
+        experiment
+            .outcomes
+            .get(&world.id)
+            .expect("complete outcome matrix")
     });
-    let Some(first) = outcomes.next() else { return true; };
+    let Some(first) = outcomes.next() else {
+        return true;
+    };
     outcomes.all(|outcome| outcome == first)
 }
 
@@ -550,7 +657,9 @@ fn greedy(problem: &Problem, candidates: &[&Experiment]) -> SelectedSet {
                 best = Some((candidate, marginal));
             }
         }
-        let Some((chosen, _)) = best else { break; };
+        let Some((chosen, _)) = best else {
+            break;
+        };
         selected.push(chosen);
         selected.sort_by_key(|experiment| experiment.id.clone());
         selected_ids.insert(chosen.id.clone());
@@ -560,34 +669,46 @@ fn greedy(problem: &Problem, candidates: &[&Experiment]) -> SelectedSet {
 }
 
 pub fn analyze(problem: &Problem) -> Analysis {
-    let statuses: Vec<(String, CandidateStatus)> = problem.experiments.iter()
+    let statuses: Vec<(String, CandidateStatus)> = problem
+        .experiments
+        .iter()
         .map(|experiment| (experiment.id.clone(), candidate_status(experiment)))
         .collect();
-    let selectable: Vec<&Experiment> = problem.experiments.iter()
+    let selectable: Vec<&Experiment> = problem
+        .experiments
+        .iter()
         .filter(|experiment| candidate_status(experiment) == CandidateStatus::Selectable)
         .collect();
-    let pruned_inert_ids = selectable.iter()
+    let pruned_inert_ids = selectable
+        .iter()
         .filter(|experiment| inert_experiment(experiment, &problem.worlds))
         .map(|experiment| experiment.id.clone())
         .collect::<Vec<_>>();
     let unpruned = if !problem.world_set_complete || !problem.experiment_universe_complete {
         SearchResult {
             status: "INPUT_OR_EXPERIMENT_UNIVERSE_INCOMPLETE".to_owned(),
-            evaluated_subsets: 0, candidate_count: selectable.len(), best: None,
-            tied_best_sets: Vec::new(), baseline_width: baseline_width(&problem.worlds),
+            evaluated_subsets: 0,
+            candidate_count: selectable.len(),
+            best: None,
+            tied_best_sets: Vec::new(),
+            baseline_width: baseline_width(&problem.worlds),
         }
     } else {
         subsets_to_search(problem, &selectable)
     };
-    let pruned_candidates: Vec<&Experiment> = selectable.iter()
+    let pruned_candidates: Vec<&Experiment> = selectable
+        .iter()
         .copied()
         .filter(|experiment| !inert_experiment(experiment, &problem.worlds))
         .collect();
     let pruned = if !problem.world_set_complete || !problem.experiment_universe_complete {
         SearchResult {
             status: "INPUT_OR_EXPERIMENT_UNIVERSE_INCOMPLETE".to_owned(),
-            evaluated_subsets: 0, candidate_count: pruned_candidates.len(), best: None,
-            tied_best_sets: Vec::new(), baseline_width: baseline_width(&problem.worlds),
+            evaluated_subsets: 0,
+            candidate_count: pruned_candidates.len(),
+            best: None,
+            tied_best_sets: Vec::new(),
+            baseline_width: baseline_width(&problem.worlds),
         }
     } else {
         subsets_to_search(problem, &pruned_candidates)
@@ -597,12 +718,14 @@ pub fn analyze(problem: &Problem) -> Analysis {
         && unpruned.best == pruned.best
         && unpruned.tied_best_sets == pruned.tied_best_sets;
     let greedy_set = greedy(problem, &selectable);
-    let greedy_is_optimal = unpruned.best.as_ref().is_some_and(|best| {
-        best.potency == greedy_set.potency && best.cost == greedy_set.cost
-    });
+    let greedy_is_optimal = unpruned
+        .best
+        .as_ref()
+        .is_some_and(|best| best.potency == greedy_set.potency && best.cost == greedy_set.cost);
     let search_status = if !problem.world_set_complete || !problem.experiment_universe_complete {
         "INPUT_OR_EXPERIMENT_UNIVERSE_INCOMPLETE"
-    } else if unpruned.status == "SEARCH_LIMIT_EXCEEDED" || pruned.status == "SEARCH_LIMIT_EXCEEDED" {
+    } else if unpruned.status == "SEARCH_LIMIT_EXCEEDED" || pruned.status == "SEARCH_LIMIT_EXCEEDED"
+    {
         "SEARCH_LIMIT_EXCEEDED"
     } else if !pruning_equivalence {
         "PRUNING_EQUIVALENCE_NOT_ESTABLISHED"
@@ -639,25 +762,47 @@ impl Analysis {
         writeln!(out, "selectable_count={}", self.selectable_count).expect("String write");
         writeln!(out, "budget={}", self.budget).expect("String write");
         writeln!(out, "cost_unit={}", self.cost_unit).expect("String write");
-        writeln!(out, "unpruned_evaluated_subsets={}", self.unpruned.evaluated_subsets).expect("String write");
-        writeln!(out, "pruned_evaluated_subsets={}", self.pruned.evaluated_subsets).expect("String write");
+        writeln!(
+            out,
+            "unpruned_evaluated_subsets={}",
+            self.unpruned.evaluated_subsets
+        )
+        .expect("String write");
+        writeln!(
+            out,
+            "pruned_evaluated_subsets={}",
+            self.pruned.evaluated_subsets
+        )
+        .expect("String write");
         writeln!(out, "pruned_inert_count={}", self.pruned_inert_ids.len()).expect("String write");
-        writeln!(out, "pruned_inert_ids={}", self.pruned_inert_ids.join(",")).expect("String write");
+        writeln!(out, "pruned_inert_ids={}", self.pruned_inert_ids.join(","))
+            .expect("String write");
         writeln!(out, "pruning_equivalence={}", self.pruning_equivalence).expect("String write");
         writeln!(out, "baseline_width={}", self.unpruned.baseline_width).expect("String write");
         if let Some(best) = &self.unpruned.best {
             writeln!(out, "optimal_potency={}", best.potency).expect("String write");
             writeln!(out, "optimal_residual_width={}", best.residual_width).expect("String write");
             writeln!(out, "optimal_cost={}", best.cost).expect("String write");
-            writeln!(out, "optimal_set_count={}", self.unpruned.tied_best_sets.len()).expect("String write");
+            writeln!(
+                out,
+                "optimal_set_count={}",
+                self.unpruned.tied_best_sets.len()
+            )
+            .expect("String write");
             for (index, set) in self.unpruned.tied_best_sets.iter().enumerate() {
-                writeln!(out, "optimal_set.{index:04}={}", set.experiment_ids.join(",")).expect("String write");
+                writeln!(
+                    out,
+                    "optimal_set.{index:04}={}",
+                    set.experiment_ids.join(",")
+                )
+                .expect("String write");
             }
         } else {
             out.push_str("optimal_potency=NOT_ESTABLISHED\noptimal_cost=NOT_ESTABLISHED\noptimal_set_count=0\n");
         }
         writeln!(out, "greedy_potency={}", self.greedy.potency).expect("String write");
-        writeln!(out, "greedy_residual_width={}", self.greedy.residual_width).expect("String write");
+        writeln!(out, "greedy_residual_width={}", self.greedy.residual_width)
+            .expect("String write");
         writeln!(out, "greedy_cost={}", self.greedy.cost).expect("String write");
         writeln!(out, "greedy_set={}", self.greedy.experiment_ids.join(",")).expect("String write");
         writeln!(out, "greedy_matches_exact={}", self.greedy_is_optimal).expect("String write");
@@ -693,8 +838,16 @@ mod tests {
     #[test]
     fn complementary_row_and_column_probes_double_individual_potency() {
         let problem = fixture();
-        let row = problem.experiments.iter().find(|experiment| experiment.id == "row_probe").unwrap();
-        let col = problem.experiments.iter().find(|experiment| experiment.id == "column_probe").unwrap();
+        let row = problem
+            .experiments
+            .iter()
+            .find(|experiment| experiment.id == "row_probe")
+            .unwrap();
+        let col = problem
+            .experiments
+            .iter()
+            .find(|experiment| experiment.id == "column_probe")
+            .unwrap();
         assert_eq!(residual_width(&problem, &[]), 2);
         assert_eq!(2 - residual_width(&problem, &[row]), 1);
         assert_eq!(2 - residual_width(&problem, &[col]), 1);
@@ -720,8 +873,14 @@ mod tests {
     fn deterministic_under_world_experiment_and_observation_row_permutation() {
         let original = analyze(&fixture()).render();
         let mut lines: Vec<&str> = FIXTURE.lines().collect();
-        let marker = lines.iter().position(|line| *line == "EXPERIMENTS").unwrap();
-        let obs_marker = lines.iter().position(|line| *line == "OBSERVATIONS").unwrap();
+        let marker = lines
+            .iter()
+            .position(|line| *line == "EXPERIMENTS")
+            .unwrap();
+        let obs_marker = lines
+            .iter()
+            .position(|line| *line == "OBSERVATIONS")
+            .unwrap();
         let mut world_rows = lines[1..marker].to_vec();
         world_rows.reverse();
         let mut exp_rows = lines[marker + 2..obs_marker].to_vec();
@@ -734,45 +893,80 @@ mod tests {
         rebuilt.push('\n');
         rebuilt.push_str(WORLD_HEADER);
         rebuilt.push('\n');
-        for line in world_rows { rebuilt.push_str(line); rebuilt.push('\n'); }
+        for line in world_rows {
+            rebuilt.push_str(line);
+            rebuilt.push('\n');
+        }
         rebuilt.push_str("EXPERIMENTS\n");
         rebuilt.push_str(EXPERIMENT_HEADER);
         rebuilt.push('\n');
-        for line in exp_rows { rebuilt.push_str(line); rebuilt.push('\n'); }
+        for line in exp_rows {
+            rebuilt.push_str(line);
+            rebuilt.push('\n');
+        }
         rebuilt.push_str("OBSERVATIONS\n");
         rebuilt.push_str(OBSERVATION_HEADER);
         rebuilt.push('\n');
-        for line in obs_rows { rebuilt.push_str(line); rebuilt.push('\n'); }
+        for line in obs_rows {
+            rebuilt.push_str(line);
+            rebuilt.push('\n');
+        }
         assert_eq!(original, analyze(&parse_input(&rebuilt).unwrap()).render());
     }
 
     #[test]
     fn blocked_authority_source_rights_and_safety_never_enter_search() {
         let mut problem = fixture();
-        let exp = problem.experiments.iter_mut().find(|experiment| experiment.id == "row_probe").unwrap();
+        let exp = problem
+            .experiments
+            .iter_mut()
+            .find(|experiment| experiment.id == "row_probe")
+            .unwrap();
         exp.authority = "UNKNOWN".to_owned();
-        assert_eq!(candidate_status(exp), CandidateStatus::RealizabilityNotEstablished);
+        assert_eq!(
+            candidate_status(exp),
+            CandidateStatus::RealizabilityNotEstablished
+        );
         exp.authority = "BLOCKED".to_owned();
         assert_eq!(candidate_status(exp), CandidateStatus::BlockedAuthority);
         exp.authority = "ESTABLISHED".to_owned();
         exp.source_use = "UNKNOWN".to_owned();
-        assert_eq!(candidate_status(exp), CandidateStatus::BlockedSourceUseOrRights);
+        assert_eq!(
+            candidate_status(exp),
+            CandidateStatus::BlockedSourceUseOrRights
+        );
         exp.source_use = "AUTHORIZED".to_owned();
         exp.rights_ethics = "BLOCKED".to_owned();
-        assert_eq!(candidate_status(exp), CandidateStatus::BlockedSourceUseOrRights);
+        assert_eq!(
+            candidate_status(exp),
+            CandidateStatus::BlockedSourceUseOrRights
+        );
         exp.rights_ethics = "CLEARED".to_owned();
         exp.safety = "BLOCKED".to_owned();
-        assert_eq!(candidate_status(exp), CandidateStatus::BlockedSafetyOrServiceFloor);
+        assert_eq!(
+            candidate_status(exp),
+            CandidateStatus::BlockedSafetyOrServiceFloor
+        );
     }
 
     #[test]
     fn unknown_physical_realizability_is_not_promoted() {
         let mut problem = fixture();
-        let exp = problem.experiments.iter_mut().find(|experiment| experiment.id == "row_probe").unwrap();
+        let exp = problem
+            .experiments
+            .iter_mut()
+            .find(|experiment| experiment.id == "row_probe")
+            .unwrap();
         exp.realizability = "UNKNOWN".to_owned();
-        assert_eq!(candidate_status(exp), CandidateStatus::RealizabilityNotEstablished);
+        assert_eq!(
+            candidate_status(exp),
+            CandidateStatus::RealizabilityNotEstablished
+        );
         exp.realizability = "NOT_REALIZABLE".to_owned();
-        assert_eq!(candidate_status(exp), CandidateStatus::NotPhysicallyRealizable);
+        assert_eq!(
+            candidate_status(exp),
+            CandidateStatus::NotPhysicallyRealizable
+        );
     }
 
     #[test]
@@ -782,8 +976,12 @@ mod tests {
         let mut second = problem.experiments[1].clone();
         first.unit_id = "pump-7".to_owned();
         second.unit_id = "pump-7".to_owned();
-        first.start = 0; first.end = 10; first.regime = "inspection".to_owned();
-        second.start = 10; second.end = 20; second.regime = "flush".to_owned();
+        first.start = 0;
+        first.end = 10;
+        first.regime = "inspection".to_owned();
+        second.start = 10;
+        second.end = 20;
+        second.regime = "flush".to_owned();
         first.carryover = "UNKNOWN".to_owned();
         second.carryover = "UNKNOWN".to_owned();
         assert!(!schedule_compatible(&[&first, &second]));
@@ -799,8 +997,12 @@ mod tests {
         let mut second = problem.experiments[1].clone();
         first.unit_id = "pump-7".to_owned();
         second.unit_id = "pump-7".to_owned();
-        first.start = 0; first.end = 15; first.regime = "inspection".to_owned();
-        second.start = 10; second.end = 20; second.regime = "flush".to_owned();
+        first.start = 0;
+        first.end = 15;
+        first.regime = "inspection".to_owned();
+        second.start = 10;
+        second.end = 20;
+        second.regime = "flush".to_owned();
         first.carryover = "NO_CARRYOVER".to_owned();
         second.carryover = "NO_CARRYOVER".to_owned();
         assert!(!schedule_compatible(&[&first, &second]));
@@ -811,7 +1013,10 @@ mod tests {
         let mut problem = fixture();
         problem.experiment_universe_complete = false;
         let report = analyze(&problem);
-        assert_eq!(report.search_status, "INPUT_OR_EXPERIMENT_UNIVERSE_INCOMPLETE");
+        assert_eq!(
+            report.search_status,
+            "INPUT_OR_EXPERIMENT_UNIVERSE_INCOMPLETE"
+        );
         assert!(report.unpruned.best.is_none());
         assert!(report.render().contains("optimal_potency=NOT_ESTABLISHED"));
     }
@@ -833,10 +1038,7 @@ mod tests {
 
     #[test]
     fn duplicate_observation_is_rejected() {
-        let duplicated = FIXTURE.replace(
-            "row_probe|w00|r0",
-            "row_probe|w00|r0\nrow_probe|w00|r0",
-        );
+        let duplicated = FIXTURE.replace("row_probe|w00|r0", "row_probe|w00|r0\nrow_probe|w00|r0");
         assert!(parse_input(&duplicated).is_err());
     }
 
@@ -849,8 +1051,15 @@ mod tests {
     #[test]
     fn constant_experiment_is_zero_potency_and_prunable() {
         let problem = fixture();
-        let inert = problem.experiments.iter().find(|experiment| experiment.id == "inert_probe").unwrap();
-        assert_eq!(residual_width(&problem, &[]), residual_width(&problem, &[inert]));
+        let inert = problem
+            .experiments
+            .iter()
+            .find(|experiment| experiment.id == "inert_probe")
+            .unwrap();
+        assert_eq!(
+            residual_width(&problem, &[]),
+            residual_width(&problem, &[inert])
+        );
         assert!(inert_experiment(inert, &problem.worlds));
     }
 }
