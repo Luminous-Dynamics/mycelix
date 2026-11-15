@@ -38,5 +38,13 @@ jobs:
           trap 'rm -f "$output"' EXIT
           cargo run --quiet --locked --offline --manifest-path tools/fsre-asof-evidence/Cargo.toml -- tools/fsre-asof-evidence/fixtures/synthetic-asof.psv > "$output"
           diff -u tools/fsre-asof-evidence/fixtures/synthetic-asof.expected.txt "$output"
+      - name: Verify revision-aware CLI golden report
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$(mktemp)"
+          trap 'rm -f "$output"' EXIT
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-asof-evidence/Cargo.toml -- tools/fsre-asof-evidence/fixtures/revision-correction-asof.psv > "$output"
+          diff -u tools/fsre-asof-evidence/fixtures/revision-correction-asof.expected.txt "$output"
       - name: Run Clippy
         run: cargo clippy --locked --offline --manifest-path tools/fsre-asof-evidence/Cargo.toml --all-targets -- -D warnings
