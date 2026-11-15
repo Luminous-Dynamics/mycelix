@@ -500,6 +500,11 @@
       "project": "Symthaea",
       "reference": 12274,
       "concern": "Exact vendored Binius64/Iron Spartan source and witness-hiding repair must be independently qualified before HDC witness-privacy claims."
+    },
+    {
+      "project": "Xenia",
+      "reference": 455,
+      "concern": "Consent presentation/process evidence and revocation/retention boundary; do not overclaim comprehension or coercion resistance from cryptographic authentication."
     }
   ],
   "planned_scenarios": [
@@ -697,6 +702,11 @@
       "project": "Xenia",
       "reference": 450,
       "role": "Independently verifiable redacted session evidence."
+    },
+    {
+      "project": "Xenia",
+      "reference": 455,
+      "role": "Human-readable, accessible consent presentation, exact explanation/recipient binding and prospective revocation; consent authentication is not proof of voluntariness."
     }
   ],
   "casebook": {
