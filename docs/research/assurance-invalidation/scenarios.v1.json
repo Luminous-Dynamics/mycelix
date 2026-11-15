@@ -313,7 +313,7 @@
       "claim_scope": "Child capability use after a parent grant changes",
       "prior_evidence": [
         "Parent P granted child C resource set {A,B}.",
-        "Child C remains active and can access {A}."
+        "Child C token still carries the parent-bounded set {A,B}."
       ],
       "change_observations": [
         "Parent P is amended to {A} only and the new epoch is known.",
