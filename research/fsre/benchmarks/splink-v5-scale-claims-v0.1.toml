@@ -1,0 +1,35 @@
+schema = "fsre.entity-resolution-comparator"
+version = "0.1.0"
+benchmark_id = "splink-5.0.0-scale-comparator"
+
+[release]
+name = "Splink"
+version = "5.0.0"
+release_date = "2026-09-28"
+official_release_url = "https://moj-analytical-services.github.io/splink/blog/2026/09/28/splink-500-released.html"
+model_change_from_v4 = "NO_CHANGE_REPORTED_BY_MAINTAINER"
+reported_capacity_claim = "UP_TO_1_BILLION_RECORDS_IN_UNDER_10_MINUTES"
+reported_capacity_status = "MAINTAINER_REPORTED_NOT_INDEPENDENTLY_REPRODUCED_HERE"
+
+[historical_production_case]
+publisher = "UK Ministry of Justice / GOV.UK"
+reported_case = "UP_TO_APPROXIMATELY_15_MILLION_RECORDS_IN_UNDER_1_HOUR"
+url = "https://www.gov.uk/government/publications/joined-up-data-in-government-the-future-of-data-linking-methods/splink-mojs-open-source-library-for-probabilistic-record-linkage-at-scale"
+status = "HISTORICAL_PRODUCTION_USE_CASE_NOT_CURRENT_SCALE_CEILING"
+
+[performance_drivers]
+primary = ["POST_BLOCKING_CANDIDATE_PAIR_COUNT", "COMPARISON_FEATURE_COMPLEXITY", "TERM_FREQUENCY_ADJUSTMENTS"]
+approximation_tradeoffs = ["TRAINING_OR_BLOCKING_SAMPLING_CAN_TRADE_ACCURACY_FOR_SPEED"]
+memory_controls = ["CHUNKING", "DISTRIBUTED_BACKEND"]
+
+[evaluation_levels]
+levels = ["MODEL", "EDGE_LINK", "CLUSTER"]
+
+[matched_run_requirements]
+freeze = ["RELEASE_COMMIT", "HARDWARE", "BACKEND", "CLUSTER_SHAPE", "BLOCKING_RULES", "CANDIDATE_PAIR_COUNT", "COMPARISON_FEATURES", "TERM_FREQUENCY_ADJUSTMENTS", "THRESHOLDS", "SAMPLING", "CHUNKING", "SEED", "INPUT_HASHES"]
+metrics = ["PAIR_PRECISION", "PAIR_RECALL", "CLUSTER_PRECISION", "CLUSTER_RECALL", "FALSE_CLUSTER_BRIDGES", "MISSED_MATCHES", "P50_RUNTIME", "P95_RUNTIME", "PEAK_MEMORY", "STORAGE_FOOTPRINT"]
+scale_points = ["15M", "100M", "1B_STRETCH"]
+
+[fsre_differentiation]
+not_a_claim = ["OUTPERFORMS_SPLINK_LINKAGE_THROUGHPUT", "OUTPERFORMS_SPLINK_MATCH_ACCURACY"]
+evaluated_downstream = ["BITEMPORAL_IDENTITY_REPLAY", "NAMESPACE_SEPARATION", "DENOMINATOR_CORRUPTION_FROM_FALSE_BRIDGES", "SOURCE_DEPENDENCE", "FRAME_AND_STRATUM_COVERAGE", "FALSE_SAFE_DECISIONS", "ABSTENTION_CORRECTNESS", "INDEPENDENT_EVIDENCE_VERIFICATION"]
