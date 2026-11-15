@@ -6,7 +6,7 @@
   "status": "design_fixture_specification",
   "created_at": "2026-11-15",
   "synthetic_only": true,
-  "case_count": 26,
+  "case_count": 29,
   "oracle_status": "not_adjudicated",
   "execution_status": "not_run",
   "labels_are_provisional": true,
@@ -17,7 +17,9 @@
     "fail_closed": "Unsupported, stale, revoked, contradicted, expired, mismatched and indeterminate states cannot be promoted to a positive claim or action authorization.",
     "independence": "Expected dispositions require independent review and must not be authored solely by the implementation under test.",
     "no_aggregate_score": "Hard failures such as false acceptance or unauthorized disclosure cannot be offset by performance or average accuracy.",
-    "adaptive_predicate_disclosure": "Model repeated and adaptively chosen predicates as an information-flow channel; query-family/sequence policy must be domain-owned, purpose/audience scoped and consent-bound. This casebook does not implement a differential-privacy budget."
+    "adaptive_predicate_disclosure": "Model repeated and adaptively chosen predicates as an information-flow channel; query-family/sequence policy must be domain-owned, purpose/audience scoped and consent-bound. This casebook does not implement a differential-privacy budget.",
+    "credential_status_privacy": "Status-list URL, slot/index and fetch metadata are part of the privacy attack surface; group privacy must be tested with realistic issuance population sizes and status-query patterns.",
+    "crypto_agility": "Every signature, KEM, commitment, proof, hash, recursion and verifier-root layer must be classified independently; transport PQ status cannot promote the whole PPAC profile."
   },
   "disposition_vocabulary": [
     "QUALIFIED_CLAIM_CANDIDATE",
@@ -654,6 +656,84 @@
         "Symthaea #4860",
         "LISE #6219"
       ]
+    },
+    {
+      "id": "PPAC-REV-PRIV-001",
+      "family": "credential-status-privacy",
+      "kind": "privacy",
+      "base_case": "PPAC-POS-001",
+      "scenario": "A verifier or issuer can correlate a presentation because a credential-specific status URL or globally visible status-list index is fetched during the check.",
+      "facts": {
+        "credential_proof": "unlinkable_derived_presentation",
+        "status_lookup": "one_to_one_url_or_global_index",
+        "network_observer": "issuer_or_status_host"
+      },
+      "mutation": {
+        "field": "status_lookup_privacy",
+        "from": "shared_group_status_list_or_holder_cached",
+        "to": "credential_specific_fetch"
+      },
+      "expected_gate": "credential_status_lookup_privacy",
+      "provisional_disposition": "PRIVACY_UNQUALIFIED",
+      "invariant": "Unlinkable proof bytes do not provide unlinkable status checking when the status endpoint or identifier reveals the interaction.",
+      "owners": [
+        "Mycelix #2109",
+        "#2110",
+        "W3C Bitstring Status List"
+      ]
+    },
+    {
+      "id": "PPAC-PQ-001",
+      "family": "crypto-agility",
+      "kind": "negative",
+      "base_case": null,
+      "scenario": "A policy requires a post-quantum claim profile, but the presentation uses a pairing-based BBS signature suite while only the Xenia session uses ML-DSA/ML-KEM.",
+      "facts": {
+        "policy": "post_quantum_required",
+        "credential_suite": "BBS_BLS12_381_pairing",
+        "xenia_session": "ML_DSA_ML_KEM_hybrid",
+        "whole_profile_label": "post_quantum"
+      },
+      "mutation": {
+        "field": "credential_and_proof_security_profile",
+        "from": "qualified_PQ_profile",
+        "to": "classical_pairing_profile"
+      },
+      "expected_gate": "end_to_end_crypto_profile_qualification",
+      "provisional_disposition": "UNSUPPORTED",
+      "invariant": "Post-quantum session authentication cannot confer post-quantum security on credential signatures or proof systems.",
+      "owners": [
+        "Mycelix crypto profile owner",
+        "Xenia #359",
+        "#364",
+        "W3C Quantum-Resistant Cryptosuites"
+      ]
+    },
+    {
+      "id": "PPAC-PQ-002",
+      "family": "crypto-agility",
+      "kind": "negative",
+      "base_case": "PPAC-PQ-001",
+      "scenario": "A policy requires hybrid/PQ signing, but a receipt or portable authority path silently downgrades to classical-only or mixes signatures from non-enrolled key lineages.",
+      "facts": {
+        "policy": "hybrid_or_PQ_required",
+        "signature_path": "classical_fallback_or_mixed_keys",
+        "downgrade": "not_explicitly_authorized"
+      },
+      "mutation": {
+        "field": "signature_profile_or_key_lineage",
+        "from": "approved_profile",
+        "to": "classical_only_or_mixed"
+      },
+      "expected_gate": "algorithm_downgrade_and_enrollment_policy",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "No cryptographic downgrade or mixed-key identity can be hidden behind a generic valid-signature result.",
+      "owners": [
+        "Xenia #359",
+        "#364",
+        "#369",
+        "Mycelix crypto profile owner"
+      ]
     }
   ],
   "nonclaims": [
@@ -661,6 +741,7 @@
     "The casebook does not execute any proof system or verifier.",
     "Provisional expected dispositions are not adjudicated oracle labels.",
     "Passing these finite synthetic cases would not establish production security, universal unlinkability, issuer truth, institutional authority, legal compliance or external effect.",
-    "The casebook does not define or implement a global privacy budget or differential-privacy mechanism."
+    "The casebook does not define or implement a global privacy budget or differential-privacy mechanism.",
+    "A PQ-capable Xenia session does not make a BBS pairing-based credential or arbitrary ZK backend post-quantum."
   ]
 }
