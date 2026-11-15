@@ -15,11 +15,16 @@ fn main() -> ExitCode {
         }
     };
     match parse_input(&source) {
-        Ok(problem) => {
-            let report = analyze(&problem);
-            print!("{}", report.render());
-            ExitCode::SUCCESS
-        }
+        Ok(problem) => match analyze(&problem) {
+            Ok(report) => {
+                print!("{}", report.render());
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("analysis_error: {error}");
+                ExitCode::from(3)
+            }
+        },
         Err(error) => {
             eprintln!("input_error: {error}");
             ExitCode::from(2)
