@@ -41,7 +41,7 @@
     {
       "case_id": "DOPS-007",
       "expected_decision": "DENY",
-      "expected_reason_code": "artifact_attestation.subject_or_builder_mismatch",
+      "expected_reason_code": "artifact_attestation.subject_builder_or_invocation_mismatch",
       "expected_violations": []
     },
     {
