@@ -41,3 +41,12 @@ ACS-specific conformance cases are maintained separately so ACS protocol require
 - `acs-README.md`: ACS-only semantics and limitations.
 
 The general Auth Mesh set has 48 scenarios; the ACS-specific slice adds 18 distinct scenarios. Both sets and their answer keys are public development material (66 scenarios, 33 minimal pairs total), not blind holdouts. Do not aggregate their scores into one security or conformance score.
+## ACS conformance refinements
+
+The first ACS slice has an additive extension under `acs-extension-*` (8 scenarios in four pairs). It preserves the original `ACS-COMP-18-v1` set and covers:
+- additional observable memory/retrieval/compaction/skill hooks, distinguished from ACS-Core's mandatory minimum hooks;
+- profile declarations versus actual profile-specific implementation evidence;
+- MODIFY-capable behavior and the required DENY substitution for clients that cannot modify;
+- MCP versus A2A interoperability scope (A2A wrapping is deferred beyond ACS v0.1.4).
+
+Use the extension with `acs-extension-README.md`; do not merge these axes into a composite conformance score. The extension and oracle are public calibration materials.
