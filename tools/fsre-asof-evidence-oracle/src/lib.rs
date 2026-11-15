@@ -226,6 +226,9 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                         ]
                         .iter()
                         .any(Option::is_some)
+                            || supersedes.is_some()
+                            || supersession_learned_at.is_some()
+                            || revision_kind.is_some()
                         {
                             return Err(ReferenceError(format!(
                                 "row {row_number}: unknown row contains a time assertion"
