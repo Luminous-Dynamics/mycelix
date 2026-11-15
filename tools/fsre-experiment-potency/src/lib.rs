@@ -876,8 +876,7 @@ mod tests {
         let column_outcomes = ["c0", "c1", "c0", "c1"];
         let inert_outcomes = ["constant", "constant", "constant", "constant"];
         let row_outcomes = ["r0", "r0", "r1", "r1"];
-        let experiment_outcomes: [&[&str]; 3] =
-            [&column_outcomes, &inert_outcomes, &row_outcomes];
+        let experiment_outcomes: [&[&str]; 3] = [&column_outcomes, &inert_outcomes, &row_outcomes];
         let costs = [1_u128, 1, 1];
         let budget = 2_u128;
         let baseline_width = 2_i128;
@@ -959,17 +958,17 @@ mod tests {
             CandidateStatus::BlockedSafetyOrServiceFloor
         );
         assert_eq!(report.unpruned.candidate_count, 2);
-        assert_eq!(report.unpruned.best.unwrap().experiment_ids, vec!["column_probe"]);
+        assert_eq!(
+            report.unpruned.best.unwrap().experiment_ids,
+            vec!["column_probe"]
+        );
     }
 
     #[test]
     fn deterministic_under_world_experiment_and_observation_row_permutation() {
         let original = analyze(&fixture()).render();
         let lines: Vec<&str> = FIXTURE.lines().collect();
-        let world_header = lines
-            .iter()
-            .position(|line| *line == WORLD_HEADER)
-            .unwrap();
+        let world_header = lines.iter().position(|line| *line == WORLD_HEADER).unwrap();
         let marker = lines
             .iter()
             .position(|line| *line == "EXPERIMENTS")
