@@ -920,9 +920,7 @@ pub fn finite_world_extremum_lp(
 ///
 /// This builder does not solve the LP. Caller-supplied certificates are
 /// checked by analyze using exact rational arithmetic.
-pub fn build_world_distribution_lp(
-    input: WorldDistributionLpInput,
-) -> Result<LpModel, LpError> {
+pub fn build_world_distribution_lp(input: WorldDistributionLpInput) -> Result<LpModel, LpError> {
     let WorldDistributionLpInput {
         problem_id,
         scope_sha256,
@@ -1950,7 +1948,8 @@ mod tests {
     ) -> LpModel {
         build_world_distribution_lp(WorldDistributionLpInput {
             problem_id: problem_id.to_owned(),
-            scope_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
+            scope_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+                .to_owned(),
             assumption_set_id: assumption_set_id.to_owned(),
             values: values.to_vec(),
             constraints: constraints.to_vec(),
@@ -2140,7 +2139,8 @@ mod tests {
         ]);
         assert!(build_world_distribution_lp(WorldDistributionLpInput {
             problem_id: "invalid-interval".to_owned(),
-            scope_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
+            scope_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+                .to_owned(),
             assumption_set_id: "invalid-assumptions".to_owned(),
             values: fixture.values.clone(),
             constraints: invalid,
@@ -2163,7 +2163,8 @@ mod tests {
         ]);
         assert!(build_world_distribution_lp(WorldDistributionLpInput {
             problem_id: "unknown-world".to_owned(),
-            scope_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
+            scope_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+                .to_owned(),
             assumption_set_id: "invalid-assumptions".to_owned(),
             values: fixture.values,
             constraints: unknown,
