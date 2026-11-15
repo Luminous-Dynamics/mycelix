@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/auth-mesh/acs-oracle.schema.json",
+  "title": "ACS Comparator Oracle Outcome",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scenario_id",
+    "hook_coverage",
+    "disposition_honored",
+    "session_chain_integrity",
+    "event_completeness",
+    "guardian_tamper_evidence",
+    "inventory_completeness",
+    "provenance_monotonicity",
+    "effect_observation",
+    "protocol_conformance",
+    "claim_disposition",
+    "reason_code"
+  ],
+  "properties": {
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^ACS-[0-9]{3}$"
+    },
+    "hook_coverage": {
+      "enum": [
+        "COMPLETE",
+        "BYPASS",
+        "INCOMPLETE",
+        "NOT_TESTED"
+      ]
+    },
+    "disposition_honored": {
+      "enum": [
+        "HONORED",
+        "IGNORED",
+        "UNKNOWN",
+        "NOT_TESTED"
+      ]
+    },
+    "session_chain_integrity": {
+      "enum": [
+        "VALID",
+        "INVALID",
+        "UNKNOWN",
+        "NOT_TESTED"
+      ]
+    },
+    "event_completeness": {
+      "enum": [
+        "COMPLETE",
+        "INCOMPLETE",
+        "UNKNOWN",
+        "NOT_TESTED"
+      ]
+    },
+    "guardian_tamper_evidence": {
+      "enum": [
+        "DETECTED",
+        "NOT_DETECTED",
+        "UNSUPPORTED",
+        "UNKNOWN",
+        "NOT_TESTED"
+      ]
+    },
+    "inventory_completeness": {
+      "enum": [
+        "COMPLETE",
+        "INCOMPLETE",
+        "UNKNOWN",
+        "NOT_TESTED"
+      ]
+    },
+    "provenance_monotonicity": {
+      "enum": [
+        "MONOTONE",
+        "INCREASED_WITHOUT_EVIDENCE",
+        "UNKNOWN",
+        "NOT_TESTED"
+      ]
+    },
+    "effect_observation": {
+      "enum": [
+        "INDEPENDENT_OBSERVATION",
+        "PROVIDER_ASSERTION",
+        "PEP_RECEIPT",
+        "PARTIAL",
+        "UNKNOWN",
+        "NO_DISPATCH",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "protocol_conformance": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "PARTIAL",
+        "INDETERMINATE",
+        "NOT_TESTED"
+      ]
+    },
+    "claim_disposition": {
+      "enum": [
+        "SUPPORTED_AT_SCOPE",
+        "NARROWER_SUPPORT_ONLY",
+        "UNSUPPORTED_EVIDENCE",
+        "CONTRADICTED_BY_OBSERVATION",
+        "INDETERMINATE",
+        "NOT_CLAIMED"
+      ]
+    },
+    "reason_code": {
+      "type": "string",
+      "pattern": "^[A-Z0-9_]+$"
+    }
+  }
+}
