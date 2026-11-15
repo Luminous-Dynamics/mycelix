@@ -354,14 +354,18 @@ fn evaluate_episode(
                 }
             }
 
-            if kind == "tool_call" && dispatched && !logical_id.is_empty()
+            if kind == "tool_call"
+                && dispatched
+                && !logical_id.is_empty()
                 && pending_unknown.contains_key(logical_id)
             {
                 counts.retry_attempts_after_unknown += 1;
                 counts.blind_retries += 1;
                 episode_violations.push("blind_retry_after_unknown".to_owned());
             }
-            if kind == "effect" && dispatched && !logical_id.is_empty()
+            if kind == "effect"
+                && dispatched
+                && !logical_id.is_empty()
                 && outcome == "unknown"
                 && bool_value(event, "effect_possible", "trace event")?
             {
