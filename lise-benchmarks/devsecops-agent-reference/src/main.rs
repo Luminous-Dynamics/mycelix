@@ -25,7 +25,9 @@ fn run() -> Result<(), Box<dyn Error>> {
     });
     fs::write(&args[3], serde_json::to_vec_pretty(&report)?)?;
     if report["conformant"].as_bool() != Some(true) {
-        return Err(invalid("DevSecOps reference bundle did not match its separate oracle"));
+        return Err(invalid(
+            "DevSecOps reference bundle did not match its separate oracle",
+        ));
     }
     eprintln!(
         "DevSecOps reference: {} scenarios, {} conformant; dispatch_eligible=false",
