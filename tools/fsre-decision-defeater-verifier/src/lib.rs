@@ -28,7 +28,12 @@ const MAX_INPUT_BYTES: usize = 16 * 1024 * 1024;
 const MAX_REPORT_BYTES: usize = 8 * 1024 * 1024;
 const MAX_EVIDENCE_BYTES: usize = 8 * 1024 * 1024;
 const MAX_PERTURBATIONS: usize = 22;
-type AppliedSubset = (BTreeMap<(String, String), (i128, i128)>, u128, Vec<String>, Vec<String>);
+type AppliedSubset = (
+    BTreeMap<(String, String), (i128, i128)>,
+    u128,
+    Vec<String>,
+    Vec<String>,
+);
 
 const REPORT_FIELDS: &[&str] = &[
     "analysis_id",
