@@ -33,6 +33,7 @@ pub struct Problem {
     pub scope_sha256: String,
     pub effective_cutoff: u64,
     pub recorded_cutoff: u64,
+    pub service_capacity_limit: u64,
     pub max_records: u64,
     pub records: Vec<Record>,
 }
@@ -64,6 +65,13 @@ pub struct Report {
     pub predicted_population_weight: u128,
     pub denominator_weight_bias: String,
     pub truth_entity_count_bias: String,
+    pub truth_capacity_exceeded: bool,
+    pub predicted_capacity_exceeded: bool,
+    pub capacity_decision_mismatch_count: u128,
+    pub false_safe_decision_count: u128,
+    pub false_alarm_decision_count: u128,
+    pub truth_capacity_excess: u128,
+    pub predicted_capacity_excess: u128,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -162,6 +170,7 @@ pub fn parse_input(source: &str) -> Result<Problem, LinkageImpactError> {
                     | "scope_sha256"
                     | "effective_cutoff"
                     | "recorded_cutoff"
+                    | "service_capacity_limit"
                     | "max_records"
             ) {
                 return Err(fail(format!(
@@ -191,6 +200,8 @@ pub fn parse_input(source: &str) -> Result<Problem, LinkageImpactError> {
     let scope_sha256 = required("scope_sha256")?.to_owned();
     let effective_cutoff = parse_u64(required("effective_cutoff")?, "effective_cutoff")?;
     let recorded_cutoff = parse_u64(required("recorded_cutoff")?, "recorded_cutoff")?;
+    let service_capacity_limit =
+        parse_u64(required("service_capacity_limit")?, "service_capacity_limit")?;
     let max_records = parse_u64(required("max_records")?, "max_records")?;
 
     if !valid_token(&benchmark_id) {
@@ -255,6 +266,7 @@ pub fn parse_input(source: &str) -> Result<Problem, LinkageImpactError> {
         scope_sha256,
         effective_cutoff,
         recorded_cutoff,
+        service_capacity_limit,
         max_records,
         records,
     })
@@ -456,6 +468,17 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
 
     let truth_entity_count = truth_weights.len();
     let predicted_cluster_count = predicted_weights.len();
+    let capacity_limit = u128::from(problem.service_capacity_limit);
+    let truth_capacity_exceeded = truth_population_weight > capacity_limit;
+    let predicted_capacity_exceeded = predicted_population_weight > capacity_limit;
+    let capacity_decision_mismatch_count =
+        u128::from(truth_capacity_exceeded != predicted_capacity_exceeded);
+    let false_safe_decision_count =
+        u128::from(truth_capacity_exceeded && !predicted_capacity_exceeded);
+    let false_alarm_decision_count =
+        u128::from(!truth_capacity_exceeded && predicted_capacity_exceeded);
+    let truth_capacity_excess = truth_population_weight.saturating_sub(capacity_limit);
+    let predicted_capacity_excess = predicted_population_weight.saturating_sub(capacity_limit);
 
     Ok(Report {
         problem: problem.clone(),
@@ -489,6 +512,13 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
             predicted_cluster_count as u128,
             truth_entity_count as u128,
         ),
+        truth_capacity_exceeded,
+        predicted_capacity_exceeded,
+        capacity_decision_mismatch_count,
+        false_safe_decision_count,
+        false_alarm_decision_count,
+        truth_capacity_excess,
+        predicted_capacity_excess,
     })
 }
 
@@ -610,6 +640,51 @@ impl Report {
             self.truth_entity_count_bias
         )
         .expect("String write");
+        writeln!(
+            out,
+            "service_capacity_limit={}",
+            self.problem.service_capacity_limit
+        )
+        .expect("String write");
+        writeln!(
+            out,
+            "truth_capacity_exceeded={}",
+            self.truth_capacity_exceeded
+        )
+        .expect("String write");
+        writeln!(
+            out,
+            "predicted_capacity_exceeded={}",
+            self.predicted_capacity_exceeded
+        )
+        .expect("String write");
+        writeln!(
+            out,
+            "capacity_decision_mismatch_count={}",
+            self.capacity_decision_mismatch_count
+        )
+        .expect("String write");
+        writeln!(
+            out,
+            "false_safe_decision_count={}",
+            self.false_safe_decision_count
+        )
+        .expect("String write");
+        writeln!(
+            out,
+            "false_alarm_decision_count={}",
+            self.false_alarm_decision_count
+        )
+        .expect("String write");
+        writeln!(out, "truth_capacity_excess={}", self.truth_capacity_excess)
+            .expect("String write");
+        writeln!(
+            out,
+            "predicted_capacity_excess={}",
+            self.predicted_capacity_excess
+        )
+        .expect("String write");
+        out.push_str("capacity_guard=DECLARED_THRESHOLD_ONLY_NOT_PHYSICAL_SAFETY_PROOF\n");
         out.push_str("gold_truth_authenticity=NOT_ESTABLISHED_BY_EVALUATOR\n");
         out.push_str("linkage_execution=NOT_PERFORMED\n");
         out.push_str("source_independence=NOT_ESTABLISHED\n");
@@ -655,6 +730,13 @@ mod tests {
         assert_eq!(report.denominator_weight_bias, "-30");
         assert_eq!(report.truth_population_weight, 230);
         assert_eq!(report.predicted_population_weight, 200);
+        assert!(report.truth_capacity_exceeded);
+        assert!(!report.predicted_capacity_exceeded);
+        assert_eq!(report.capacity_decision_mismatch_count, 1);
+        assert_eq!(report.false_safe_decision_count, 1);
+        assert_eq!(report.false_alarm_decision_count, 0);
+        assert_eq!(report.truth_capacity_excess, 10);
+        assert_eq!(report.predicted_capacity_excess, 0);
     }
 
     #[test]
@@ -665,6 +747,29 @@ mod tests {
         assert_eq!(report.candidate_assigned_record_count, 5);
         assert_eq!(report.future_effective_excluded_count, 1);
         assert_eq!(report.effective_record_count, 6);
+    }
+
+    #[test]
+    fn overestimated_candidate_denominator_is_a_false_alarm_not_a_false_safe() {
+        let inflated = FIXTURE
+            .replace("#service_capacity_limit=220", "#service_capacity_limit=240")
+            .replace("cluster-ab|100|100|", "cluster-ab|100|150|")
+            .replace("cluster-ab|80|100|", "cluster-ab|80|150|");
+        let report = analyze(&parse_input(&inflated).unwrap()).unwrap();
+        assert!(!report.truth_capacity_exceeded);
+        assert!(report.predicted_capacity_exceeded);
+        assert_eq!(report.false_safe_decision_count, 0);
+        assert_eq!(report.false_alarm_decision_count, 1);
+        assert_eq!(report.capacity_decision_mismatch_count, 1);
+    }
+
+    #[test]
+    fn exact_capacity_boundary_does_not_trigger_exceedance() {
+        let boundary = FIXTURE.replace("#service_capacity_limit=220", "#service_capacity_limit=230");
+        let report = analyze(&parse_input(&boundary).unwrap()).unwrap();
+        assert!(!report.truth_capacity_exceeded);
+        assert!(!report.predicted_capacity_exceeded);
+        assert_eq!(report.capacity_decision_mismatch_count, 0);
     }
 
     #[test]
