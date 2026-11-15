@@ -8,7 +8,6 @@
 //! certification.
 
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const SUITE_ID: &str = "LISE-DEVSECOPS-AGENT-v0.1";
@@ -58,10 +57,6 @@ fn timestamp<'a>(value: &'a Value, key: &str, context: &str) -> Result<&'a str, 
         return Err(format!("{context}: '{key}' must be YYYY-MM-DDTHH:MM:SSZ"));
     }
     Ok(result)
-}
-
-fn hash(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
 }
 
 fn decision(decision: &str, reason: &str, violations: Vec<String>) -> Value {
@@ -153,13 +148,38 @@ fn check_human_approval(case: &Value) -> Result<Option<Value>, String> {
     if string(approval, "approver_ref", "human approval")? == principal_ref {
         return Ok(Some(deny("human_approval.self_approval")));
     }
+    let action_at = timestamp(request, "action_at", "request")?;
+    let known_at = timestamp(request, "known_at", "request")?;
+    let valid_through = timestamp(approval, "valid_through", "human approval")?;
+    if action_at > valid_through {
+        return Ok(Some(deny("human_approval.expired")));
+    }
+    let status_events = array(approval, "status_events", "human approval")?;
+    let mut visible_statuses = Vec::new();
+    for event in status_events {
+        let effective_at = timestamp(event, "effective_at", "approval status event")?;
+        let observed_at = timestamp(event, "observed_at", "approval status event")?;
+        if effective_at <= action_at {
+            if observed_at > known_at {
+                return Ok(Some(hold(
+                    "human_approval.revocation_not_yet_observed",
+                    Vec::new(),
+                )));
+            }
+            visible_statuses.push((effective_at, observed_at, string(event, "status", "approval status event")?));
+        }
+    }
+    visible_statuses.sort_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)));
+    if let Some((_, _, status)) = visible_statuses.last()
+        && *status == "revoked"
+    {
+        return Ok(Some(deny("human_approval.revoked")));
+    }
     if string(approval, "approver_kind", "human approval")? != "human"
         || approval.get("reviewer_qualified").and_then(Value::as_bool) != Some(true)
     {
         return Ok(Some(deny("human_approval.reviewer_not_qualified")));
     }
-    let action_at = timestamp(request, "action_at", "request")?;
-    let known_at = timestamp(request, "known_at", "request")?;
     let approved_at = timestamp(approval, "approved_at", "human approval")?;
     let observed_at = timestamp(approval, "observed_at", "human approval")?;
     if approved_at > action_at || observed_at > known_at {
@@ -204,7 +224,7 @@ fn check_workload_identity(case: &Value) -> Result<Option<Value>, String> {
     }
     let checks = [
         ("subject_ref", "principal_ref", principal),
-        ("audience", "environment", request),
+        ("audience", "expected_audience", request),
         ("repository", "repository", request),
         ("workflow_ref", "workflow_ref", request),
         ("workflow_sha", "workflow_sha", request),
@@ -240,16 +260,20 @@ fn check_artifact_attestation(case: &Value) -> Result<Option<Value>, String> {
         != string(request, "artifact_digest", "request")?
         || string(attestation, "commit_sha", "artifact attestation")?
             != string(request, "current_head_sha", "request")?
-        || string(attestation, "builder_identity", "artifact attestation")?
-            != string(
-                case.get("principal").ok_or("case: missing principal")?,
-                "principal_ref",
-                "principal",
-            )?
+        || string(attestation, "predicate_type", "artifact attestation")?
+            != "https://slsa.dev/provenance/v1"
+        || !contains_string(
+            case.get("policy").ok_or("case: missing policy")?,
+            "trusted_builder_ids",
+            string(attestation, "builder_id", "artifact attestation")?,
+            "policy",
+        )?
         || string(attestation, "workflow_ref", "artifact attestation")?
             != string(request, "workflow_ref", "request")?
         || string(attestation, "workflow_sha", "artifact attestation")?
             != string(request, "workflow_sha", "request")?
+        || string(attestation, "invocation_id", "artifact attestation")?
+            != string(request, "workflow_run_id", "request")?
     {
         return Ok(Some(deny(
             "artifact_attestation.subject_or_builder_mismatch",
@@ -286,22 +310,27 @@ fn evaluate_case(case: &Value) -> Result<Value, String> {
         return Ok(result);
     }
     let action = string(request, "action", "request")?;
-    let protected_actions = [
-        "approve_pull_request",
-        "merge_pull_request",
-        "create_release",
-        "deploy_production",
-    ];
-    if protected_actions.contains(&action) {
-        if let Some(result) = check_human_approval(case)? {
-            return Ok(result);
-        }
-    }
     if action == "approve_pull_request" {
         let principal = case.get("principal").ok_or("case: missing principal")?;
         if string(principal, "kind", "principal")? != "human" {
             return Ok(deny("human_approval.agent_cannot_approve"));
         }
+        if principal.get("reviewer_qualified").and_then(Value::as_bool) != Some(true) {
+            return Ok(deny("human_approval.reviewer_not_qualified"));
+        }
+        if string(request, "reviewed_head_sha", "request")?
+            != string(request, "current_head_sha", "request")?
+        {
+            return Ok(deny("human_approval.head_sha_mismatch"));
+        }
+        return Ok(permit("qualified_human_approval_bound_to_current_head"));
+    }
+
+    let protected_actions = ["merge_pull_request", "create_release", "deploy_production"];
+    if protected_actions.contains(&action)
+        && let Some(result) = check_human_approval(case)?
+    {
+        return Ok(result);
     }
     if action == "deploy_production" {
         if let Some(result) = check_workload_identity(case)? {
@@ -314,7 +343,7 @@ fn evaluate_case(case: &Value) -> Result<Value, String> {
     Ok(permit("exact_scope_and_prerequisites_satisfied"))
 }
 
-fn case_index<'a>(cases: &'a [Value]) -> Result<BTreeMap<String, &'a Value>, String> {
+fn case_index(cases: &[Value]) -> Result<BTreeMap<String, &Value>, String> {
     let mut result = BTreeMap::new();
     for case in cases {
         let id = string(case, "case_id", "scenario")?.to_owned();
@@ -406,6 +435,45 @@ mod tests {
         assert_eq!(report["conformant"], true);
         assert_eq!(report["case_count"], 12);
         assert_eq!(report["conformant_case_count"], 12);
+    }
+
+    #[test]
+    fn qualified_human_reviewer_can_approve_exact_current_head() {
+        let (cases, _) = bundle();
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-013")
+            .expect("case");
+        let result = evaluate_case(case).expect("decision");
+        assert_eq!(result["decision"], "ALLOW_SCOPED");
+        assert_eq!(result["reason_code"], "qualified_human_approval_bound_to_current_head");
+    }
+
+    #[test]
+    fn expired_and_revoked_human_approvals_cannot_authorize_merge() {
+        let (cases, _) = bundle();
+        let expired = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-014")
+            .expect("case");
+        assert_eq!(
+            evaluate_case(expired).expect("decision")["reason_code"],
+            "human_approval.expired"
+        );
+        let revoked = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-015")
+            .expect("case");
+        assert_eq!(
+            evaluate_case(revoked).expect("decision")["reason_code"],
+            "human_approval.revoked"
+        );
     }
 
     #[test]
