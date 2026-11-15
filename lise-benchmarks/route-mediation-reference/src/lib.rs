@@ -10,7 +10,7 @@
 //! claim requires an independently sourced, authenticated owner inventory.
 //! Its bundled fixture receipt is synthetic and untrusted.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
@@ -63,9 +63,9 @@ fn is_timestamp(value: &str) -> bool {
         && b[13] == b':'
         && b[16] == b':'
         && b[19] == b'Z'
-        && b.iter().enumerate().all(|(i, c)| {
-            matches!(i, 4 | 7 | 10 | 13 | 16 | 19) || c.is_ascii_digit()
-        })
+        && b.iter()
+            .enumerate()
+            .all(|(i, c)| matches!(i, 4 | 7 | 10 | 13 | 16 | 19) || c.is_ascii_digit())
 }
 
 fn timestamp(value: &Value, key: &str, context: &str) -> Result<&str, String> {
@@ -148,7 +148,15 @@ fn canonical_graph_digest(graph: &Value) -> Result<String, String> {
 
 fn parse_graph(
     graph: &Value,
-) -> Result<(BTreeMap<String, String>, Vec<Edge>, Vec<String>, Vec<String>), String> {
+) -> Result<
+    (
+        BTreeMap<String, String>,
+        Vec<Edge>,
+        Vec<String>,
+        Vec<String>,
+    ),
+    String,
+> {
     let raw_nodes = array(graph, "nodes", "graph")?;
     let raw_edges = array(graph, "edges", "graph")?;
     if raw_nodes.is_empty() || raw_nodes.len() > MAX_NODES {
@@ -202,7 +210,9 @@ fn parse_graph(
     }
     for target in &protected {
         if !nodes.contains_key(target) {
-            return Err(format!("graph: protected effect node '{target}' is not a known node"));
+            return Err(format!(
+                "graph: protected effect node '{target}' is not a known node"
+            ));
         }
     }
     if entry_points.is_empty() || protected.is_empty() {
@@ -229,11 +239,7 @@ fn parse_string_array(value: &Value, key: &str, context: &str) -> Result<Vec<Str
     Ok(result)
 }
 
-fn inventory_receipt_valid(
-    fixture: &Value,
-    graph_digest: &str,
-    scope: &Scope,
-) -> bool {
+fn inventory_receipt_valid(fixture: &Value, graph_digest: &str, scope: &Scope) -> bool {
     if fixture.get("synthetic").and_then(Value::as_bool) != Some(true) {
         return false;
     }
@@ -248,20 +254,34 @@ fn inventory_receipt_valid(
         ("operation_digest", &scope.operation_digest),
         ("policy_digest", &scope.policy_digest),
     ];
-    if fields.iter().any(|(key, expected)| receipt.get(*key).and_then(Value::as_str) != Some(expected.as_str())) {
+    if fields
+        .iter()
+        .any(|(key, expected)| receipt.get(*key).and_then(Value::as_str) != Some(expected.as_str()))
+    {
         return false;
     }
     receipt.get("graph_sha256").and_then(Value::as_str) == Some(graph_digest)
         && receipt.get("completeness_state").and_then(Value::as_str) == Some("complete_for_scope")
         && bool_is(receipt, "query_scope_exact", true)
         && bool_is(receipt, "independent_inventory_source", true)
-        && receipt.get("verification_state").and_then(Value::as_str) == Some("fixture_assertion_not_cryptographically_verified")
-        && receipt.get("issuer_trust").and_then(Value::as_str) == Some("untrusted_synthetic_fixture")
-        && receipt.get("inventory_source_ref").and_then(Value::as_str).is_some_and(|s| !s.is_empty())
-        && receipt.get("independent_observer_ref").and_then(Value::as_str).is_some_and(|s| !s.is_empty())
-        && timestamp(receipt, "coverage_from", "inventory receipt").is_ok_and(|v| v <= scope.action_at.as_str())
-        && timestamp(receipt, "coverage_through", "inventory receipt").is_ok_and(|v| v >= scope.action_at.as_str())
-        && timestamp(receipt, "observed_at", "inventory receipt").is_ok_and(|v| v <= scope.known_at.as_str())
+        && receipt.get("verification_state").and_then(Value::as_str)
+            == Some("fixture_assertion_not_cryptographically_verified")
+        && receipt.get("issuer_trust").and_then(Value::as_str)
+            == Some("untrusted_synthetic_fixture")
+        && receipt
+            .get("inventory_source_ref")
+            .and_then(Value::as_str)
+            .is_some_and(|s| !s.is_empty())
+        && receipt
+            .get("independent_observer_ref")
+            .and_then(Value::as_str)
+            .is_some_and(|s| !s.is_empty())
+        && timestamp(receipt, "coverage_from", "inventory receipt")
+            .is_ok_and(|v| v <= scope.action_at.as_str())
+        && timestamp(receipt, "coverage_through", "inventory receipt")
+            .is_ok_and(|v| v >= scope.action_at.as_str())
+        && timestamp(receipt, "observed_at", "inventory receipt")
+            .is_ok_and(|v| v <= scope.known_at.as_str())
 }
 
 struct PathEnumerator<'a> {
@@ -323,19 +343,24 @@ fn matching_mediator(
         {
             continue;
         }
-        let scope_matches = mediator.get("principal_ref").and_then(Value::as_str) == Some(&scope.principal_ref)
+        let scope_matches = mediator.get("principal_ref").and_then(Value::as_str)
+            == Some(&scope.principal_ref)
             && mediator.get("action").and_then(Value::as_str) == Some(&scope.action)
             && mediator.get("purpose").and_then(Value::as_str) == Some(&scope.purpose)
             && mediator.get("resource_ref").and_then(Value::as_str) == Some(&scope.resource_ref)
-            && mediator.get("operation_digest").and_then(Value::as_str) == Some(&scope.operation_digest)
+            && mediator.get("operation_digest").and_then(Value::as_str)
+                == Some(&scope.operation_digest)
             && mediator.get("policy_digest").and_then(Value::as_str) == Some(&scope.policy_digest)
             && mediator.get("state").and_then(Value::as_str) == Some("active");
         if !scope_matches {
             continue;
         }
-        if !timestamp(mediator, "valid_from", "mediator").is_ok_and(|v| v <= scope.action_at.as_str())
-            || !timestamp(mediator, "valid_through", "mediator").is_ok_and(|v| v >= scope.action_at.as_str())
-            || !timestamp(mediator, "observed_at", "mediator").is_ok_and(|v| v <= scope.known_at.as_str())
+        if !timestamp(mediator, "valid_from", "mediator")
+            .is_ok_and(|v| v <= scope.action_at.as_str())
+            || !timestamp(mediator, "valid_through", "mediator")
+                .is_ok_and(|v| v >= scope.action_at.as_str())
+            || !timestamp(mediator, "observed_at", "mediator")
+                .is_ok_and(|v| v <= scope.known_at.as_str())
         {
             continue;
         }
@@ -401,12 +426,7 @@ pub fn evaluate(fixture: &Value) -> Value {
             let mut path_nodes = vec![entry.clone()];
             let mut path_edges = Vec::new();
             visiting.insert(entry.clone());
-            enumerator.walk(
-                &entry,
-                &mut visiting,
-                &mut path_nodes,
-                &mut path_edges,
-            )?;
+            enumerator.walk(&entry, &mut visiting, &mut path_nodes, &mut path_edges)?;
         }
         let paths = enumerator.output;
 
@@ -464,7 +484,8 @@ mod tests {
     use serde_json::json;
 
     fn fixture() -> Value {
-        serde_json::from_str(include_str!("../fixtures/route-inventory.json")).expect("fixture JSON")
+        serde_json::from_str(include_str!("../fixtures/route-inventory.json"))
+            .expect("fixture JSON")
     }
 
     fn refresh_receipt(value: &mut Value) {
@@ -491,30 +512,40 @@ mod tests {
     #[test]
     fn all_paths_mediated_positive_control() {
         let mut value = fixture();
-        value["graph"]["edges"].as_array_mut().expect("edges").retain(|edge| {
-            edge["edge_id"] != "E-DIRECT" && edge["edge_id"] != "E-WEBHOOK"
-        });
-        value["graph"]["edges"].as_array_mut().expect("edges").push(json!({
-            "edge_id": "E-WEBHOOK-PEP",
-            "from": "workflow-connector",
-            "to": "policy-pep",
-            "enabled": true,
-            "effect_capable": true
-        }));
-        value["graph"]["edges"].as_array_mut().expect("edges").push(json!({
-            "edge_id": "E-PEP-WORKER",
-            "from": "policy-pep",
-            "to": "background-worker",
-            "enabled": true,
-            "effect_capable": true
-        }));
-        value["graph"]["edges"].as_array_mut().expect("edges").push(json!({
-            "edge_id": "E-WORKER-EFFECT",
-            "from": "background-worker",
-            "to": "production-environment",
-            "enabled": true,
-            "effect_capable": true
-        }));
+        value["graph"]["edges"]
+            .as_array_mut()
+            .expect("edges")
+            .retain(|edge| edge["edge_id"] != "E-DIRECT" && edge["edge_id"] != "E-WEBHOOK");
+        value["graph"]["edges"]
+            .as_array_mut()
+            .expect("edges")
+            .push(json!({
+                "edge_id": "E-WEBHOOK-PEP",
+                "from": "workflow-connector",
+                "to": "policy-pep",
+                "enabled": true,
+                "effect_capable": true
+            }));
+        value["graph"]["edges"]
+            .as_array_mut()
+            .expect("edges")
+            .push(json!({
+                "edge_id": "E-PEP-WORKER",
+                "from": "policy-pep",
+                "to": "background-worker",
+                "enabled": true,
+                "effect_capable": true
+            }));
+        value["graph"]["edges"]
+            .as_array_mut()
+            .expect("edges")
+            .push(json!({
+                "edge_id": "E-WORKER-EFFECT",
+                "from": "background-worker",
+                "to": "production-environment",
+                "enabled": true,
+                "effect_capable": true
+            }));
         refresh_receipt(&mut value);
         let report = evaluate(&value);
         assert_eq!(report["status"], "ALL_PATHS_MEDIATED");
@@ -567,7 +598,10 @@ mod tests {
     fn duplicate_edges_and_dangling_endpoints_are_invalid() {
         let mut value = fixture();
         let duplicate = value["graph"]["edges"][0].clone();
-        value["graph"]["edges"].as_array_mut().expect("edges").push(duplicate);
+        value["graph"]["edges"]
+            .as_array_mut()
+            .expect("edges")
+            .push(duplicate);
         assert_eq!(evaluate(&value)["status"], "INVALID_INPUT");
 
         let mut value = fixture();
@@ -579,13 +613,16 @@ mod tests {
     #[test]
     fn cycles_do_not_create_infinite_routes() {
         let mut value = fixture();
-        value["graph"]["edges"].as_array_mut().expect("edges").push(json!({
-            "edge_id": "E-CYCLE",
-            "from": "background-worker",
-            "to": "workflow-connector",
-            "enabled": true,
-            "effect_capable": true
-        }));
+        value["graph"]["edges"]
+            .as_array_mut()
+            .expect("edges")
+            .push(json!({
+                "edge_id": "E-CYCLE",
+                "from": "background-worker",
+                "to": "workflow-connector",
+                "enabled": true,
+                "effect_capable": true
+            }));
         refresh_receipt(&mut value);
         let report = evaluate(&value);
         assert_eq!(report["status"], "BYPASS_DETECTED");
@@ -595,16 +632,20 @@ mod tests {
     #[test]
     fn disabled_or_non_effect_edges_do_not_create_protected_paths() {
         let mut value = fixture();
-        value["graph"]["edges"].as_array_mut().expect("edges").retain(|edge| {
-            edge["edge_id"] != "E-DIRECT" && edge["edge_id"] != "E-WEBHOOK"
-        });
-        value["graph"]["edges"].as_array_mut().expect("edges").push(json!({
-            "edge_id": "E-DISABLED",
-            "from": "agent-entry",
-            "to": "production-environment",
-            "enabled": false,
-            "effect_capable": true
-        }));
+        value["graph"]["edges"]
+            .as_array_mut()
+            .expect("edges")
+            .retain(|edge| edge["edge_id"] != "E-DIRECT" && edge["edge_id"] != "E-WEBHOOK");
+        value["graph"]["edges"]
+            .as_array_mut()
+            .expect("edges")
+            .push(json!({
+                "edge_id": "E-DISABLED",
+                "from": "agent-entry",
+                "to": "production-environment",
+                "enabled": false,
+                "effect_capable": true
+            }));
         refresh_receipt(&mut value);
         assert_eq!(evaluate(&value)["status"], "NO_REACHABLE_EFFECT_PATH");
     }
