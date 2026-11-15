@@ -228,8 +228,7 @@ impl DefeaterReport {
     pub fn render(&self) -> String {
         let mut out = String::new();
         writeln!(out, "analysis_id={}", self.analysis_id).expect("String write");
-        writeln!(out, "input_snapshot_id={}", self.input_snapshot_id)
-            .expect("String write");
+        writeln!(out, "input_snapshot_id={}", self.input_snapshot_id).expect("String write");
         writeln!(out, "decision_cutoff={}", self.decision_cutoff).expect("String write");
         writeln!(out, "decision_property={}", self.property).expect("String write");
         writeln!(
@@ -241,8 +240,7 @@ impl DefeaterReport {
         writeln!(out, "safety_floor={}", self.safety_floor).expect("String write");
         writeln!(out, "cost_unit={}", self.cost_unit).expect("String write");
         writeln!(out, "search_status={}", self.status).expect("String write");
-        writeln!(out, "minimality_status={}", self.minimality_status)
-            .expect("String write");
+        writeln!(out, "minimality_status={}", self.minimality_status).expect("String write");
         writeln!(
             out,
             "declared_mutation_count={}",
@@ -255,15 +253,16 @@ impl DefeaterReport {
             self.admissible_mutation_count
         )
         .expect("String write");
-        writeln!(out, "blocked_mutation_count={}", self.blocked_mutation_count)
-            .expect("String write");
+        writeln!(
+            out,
+            "blocked_mutation_count={}",
+            self.blocked_mutation_count
+        )
+        .expect("String write");
         writeln!(out, "total_subsets={}", self.total_subsets).expect("String write");
-        writeln!(out, "evaluated_subsets={}", self.evaluated_subsets)
-            .expect("String write");
-        writeln!(out, "minimum_witness_count={}", self.witness_count)
-            .expect("String write");
-        writeln!(out, "witnesses_truncated={}", self.witnesses_truncated)
-            .expect("String write");
+        writeln!(out, "evaluated_subsets={}", self.evaluated_subsets).expect("String write");
+        writeln!(out, "minimum_witness_count={}", self.witness_count).expect("String write");
+        writeln!(out, "witnesses_truncated={}", self.witnesses_truncated).expect("String write");
         writeln!(
             out,
             "robustness_margin={}",
@@ -281,18 +280,21 @@ impl DefeaterReport {
         self.baseline_signature.render_into(&mut out, "baseline");
         for (index, witness) in self.witnesses.iter().enumerate() {
             let prefix = format!("witness.{index:04}");
-            writeln!(out, "{prefix}.mutation_ids={}", witness.mutation_ids.join(","))
-                .expect("String write");
-            writeln!(out, "{prefix}.evidence_refs={}", witness.evidence_refs.join(","))
-                .expect("String write");
-            writeln!(out, "{prefix}.total_cost={}", witness.total_cost)
-                .expect("String write");
             writeln!(
                 out,
-                "{prefix}.failed_property={}",
-                witness.failed_property
+                "{prefix}.mutation_ids={}",
+                witness.mutation_ids.join(",")
             )
             .expect("String write");
+            writeln!(
+                out,
+                "{prefix}.evidence_refs={}",
+                witness.evidence_refs.join(",")
+            )
+            .expect("String write");
+            writeln!(out, "{prefix}.total_cost={}", witness.total_cost).expect("String write");
+            writeln!(out, "{prefix}.failed_property={}", witness.failed_property)
+                .expect("String write");
             witness
                 .baseline_signature
                 .render_into(&mut out, &format!("{prefix}.baseline"));
@@ -341,8 +343,7 @@ fn valid_token(value: &str) -> bool {
         && value != "-"
         && value.len() <= 200
         && value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric()
-                || matches!(byte, b'_' | b'-' | b'.' | b':' | b'/')
+            byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.' | b':' | b'/')
         })
 }
 
@@ -431,16 +432,16 @@ fn qualification(
     })
 }
 
-fn preflight(
-    metadata: &BTreeMap<String, String>,
-) -> Result<Option<Qualification>, DefeaterError> {
+fn preflight(metadata: &BTreeMap<String, String>) -> Result<Option<Qualification>, DefeaterError> {
     let analysis_id = required(metadata, "analysis_id")?;
     let input_snapshot_id = required(metadata, "input_snapshot_id")?;
     let _ = required(metadata, "decision_cutoff")?
         .parse::<u64>()
         .map_err(|error| DefeaterError(format!("invalid decision_cutoff: {error}")))?;
     if !valid_token(analysis_id) || !valid_token(input_snapshot_id) {
-        return Err(DefeaterError("invalid analysis or snapshot token".to_owned()));
+        return Err(DefeaterError(
+            "invalid analysis or snapshot token".to_owned(),
+        ));
     }
 
     match required(metadata, "source_use_status")? {
@@ -633,26 +634,23 @@ fn property_satisfied(
     current: &DecisionSignature,
 ) -> bool {
     match property {
-        DecisionProperty::RobustSafeActionRetained => target_action
-            .is_some_and(|target| current.robustly_safe_actions.iter().any(|item| item == target)),
+        DecisionProperty::RobustSafeActionRetained => target_action.is_some_and(|target| {
+            current
+                .robustly_safe_actions
+                .iter()
+                .any(|item| item == target)
+        }),
         DecisionProperty::NonemptySafeActionSet => !current.robustly_safe_actions.is_empty(),
-        DecisionProperty::InvariantUniqueOptimum => target_action
-            .is_some_and(|target| current.unique_optimum.as_deref() == Some(target)),
+        DecisionProperty::InvariantUniqueOptimum => {
+            target_action.is_some_and(|target| current.unique_optimum.as_deref() == Some(target))
+        }
         DecisionProperty::MinimaxRegretSetUnchanged => {
             current.minimax_regret_actions == baseline.minimax_regret_actions
         }
     }
 }
 
-fn apply_mask(
-    mutations: &[Mutation],
-    mask: u64,
-) -> (
-    DeltaMap,
-    u128,
-    Vec<String>,
-    Vec<String>,
-) {
+fn apply_mask(mutations: &[Mutation], mask: u64) -> (DeltaMap, u128, Vec<String>, Vec<String>) {
     let mut deltas = DeltaMap::new();
     let mut total_cost = 0_u128;
     let mut mutation_ids = Vec::new();
@@ -698,8 +696,7 @@ fn parse_problem(
         }
     }
     match property {
-        DecisionProperty::RobustSafeActionRetained
-        | DecisionProperty::InvariantUniqueOptimum
+        DecisionProperty::RobustSafeActionRetained | DecisionProperty::InvariantUniqueOptimum
             if target_action.is_none() =>
         {
             return Err(DefeaterError(
@@ -731,7 +728,9 @@ fn parse_problem(
         None => DEFAULT_MAX_WITNESSES,
     };
     if !(1..=10_000).contains(&max_witnesses) {
-        return Err(DefeaterError("max_witnesses must be in 1..=10000".to_owned()));
+        return Err(DefeaterError(
+            "max_witnesses must be in 1..=10000".to_owned(),
+        ));
     }
 
     let lines: Vec<&str> = source.lines().collect();
@@ -797,7 +796,9 @@ fn parse_problem(
             worlds.insert(fields[0].to_owned());
             actions.insert(fields[1].to_owned());
             if cells.len() > MAX_ROWS {
-                return Err(DefeaterError(format!("input exceeds {MAX_ROWS} world rows")));
+                return Err(DefeaterError(format!(
+                    "input exceeds {MAX_ROWS} world rows"
+                )));
             }
         } else {
             let fields: Vec<&str> = line.split('|').map(str::trim).collect();
@@ -861,7 +862,9 @@ fn parse_problem(
                 }
             }
             if mutations.len() + blocked_mutation_count > MAX_ROWS {
-                return Err(DefeaterError(format!("input exceeds {MAX_ROWS} mutation rows")));
+                return Err(DefeaterError(format!(
+                    "input exceeds {MAX_ROWS} mutation rows"
+                )));
             }
         }
     }
@@ -908,13 +911,8 @@ fn parse_problem(
     let worlds: Vec<String> = worlds.into_iter().collect();
     let actions: Vec<String> = actions.into_iter().collect();
     let baseline_deltas = DeltaMap::new();
-    let baseline_signature = compute_signature(
-        &worlds,
-        &actions,
-        &cells,
-        &baseline_deltas,
-        safety_floor,
-    );
+    let baseline_signature =
+        compute_signature(&worlds, &actions, &cells, &baseline_deltas, safety_floor);
 
     if matches!(
         property,
@@ -1217,8 +1215,14 @@ m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE
     #[test]
     fn complete_negative_search_is_not_universal_robustness() {
         let input = FIXTURE
-            .replace("m-a|SAFETY_VALUE_DELTA|w1|repair|-30|2|evidence-a|ADMISSIBLE\n", "")
-            .replace("m-b|SAFETY_VALUE_DELTA|w2|repair|-30|2|evidence-b|ADMISSIBLE\n", "");
+            .replace(
+                "m-a|SAFETY_VALUE_DELTA|w1|repair|-30|2|evidence-a|ADMISSIBLE\n",
+                "",
+            )
+            .replace(
+                "m-b|SAFETY_VALUE_DELTA|w2|repair|-30|2|evidence-b|ADMISSIBLE\n",
+                "",
+            );
         let report = analyze(&input).unwrap().unwrap();
         assert_eq!(report.status, "NO_DEFEATER_FOUND_IN_DECLARED_UNIVERSE");
         assert_eq!(report.minimality_status, "NOT_APPLICABLE");
@@ -1253,10 +1257,7 @@ m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE
     fn unknown_mutation_admissibility_prevents_negative_search() {
         let input = FIXTURE.replace("|ADMISSIBLE\nm-b|", "|UNKNOWN\nm-b|");
         let qualification = analyze(&input).unwrap().unwrap_err();
-        assert_eq!(
-            qualification.status,
-            "NOT_IDENTIFIED_PERTURBATION_UNIVERSE"
-        );
+        assert_eq!(qualification.status, "NOT_IDENTIFIED_PERTURBATION_UNIVERSE");
     }
 
     #[test]
@@ -1286,10 +1287,7 @@ m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE
 
     #[test]
     fn duplicate_cells_and_incomplete_grids_are_rejected() {
-        let duplicate = FIXTURE.replace(
-            "w2|inspect|75|75",
-            "w2|inspect|75|75\nw2|inspect|75|75",
-        );
+        let duplicate = FIXTURE.replace("w2|inspect|75|75", "w2|inspect|75|75\nw2|inspect|75|75");
         assert!(analyze(&duplicate).is_err());
         let missing = FIXTURE.replace("w2|inspect|75|75\n", "");
         assert!(analyze(&missing).is_err());
@@ -1303,10 +1301,7 @@ m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE
 
     #[test]
     fn unsupported_mutation_type_is_not_silently_ignored() {
-        let input = FIXTURE.replace(
-            "m-noop|DECISION_VALUE_DELTA",
-            "m-noop|IDENTITY_EDGE_CHANGE",
-        );
+        let input = FIXTURE.replace("m-noop|DECISION_VALUE_DELTA", "m-noop|IDENTITY_EDGE_CHANGE");
         let qualification = analyze(&input).unwrap().unwrap_err();
         assert_eq!(qualification.status, "UNSUPPORTED_MUTATION");
     }
@@ -1389,9 +1384,10 @@ m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE
         let report = analyze(&input).unwrap().unwrap();
         assert_eq!(report.robustness_margin, Some(6));
         assert_eq!(report.witness_count, 2);
-        assert!(report.witnesses.iter().all(|witness| {
-            witness.mutated_signature.robustly_safe_actions.is_empty()
-        }));
+        assert!(report
+            .witnesses
+            .iter()
+            .all(|witness| { witness.mutated_signature.robustly_safe_actions.is_empty() }));
     }
 
     #[test]
@@ -1400,5 +1396,4 @@ m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE
         let qualification = analyze(&input).unwrap().unwrap_err();
         assert_eq!(qualification.status, "NOT_IDENTIFIED_AUTHORITY");
     }
-
 }
