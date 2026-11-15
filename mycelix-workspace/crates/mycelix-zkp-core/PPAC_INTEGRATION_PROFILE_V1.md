@@ -196,6 +196,7 @@ These observations are source-level inspection, not fresh build or test results.
 | Component | Current inspected boundary | Consequence |
 |---|---|---|
 | Symthaea RISC Zero balance guest | Real guest/host proving path. It evaluates balance >= threshold and commits sufficiency, threshold and caller-supplied nonce. | Promising relation-proof candidate. It does not yet bind an issuer-signed balance source or verifier-issued challenge. Symthaea #5842 tracks formal guest-relation refinement. |
+| Symthaea request-bound guest candidate (PR #12295) | Separate guest image and isolated core commit a domain-separated digest binding request ID, source reference, claim schema, predicate, issuer-key reference, audience, verifier, purpose, policy, challenge and threshold; host checks the exact expected request and dedicated ImageID. | Draft source candidate only. Source/issuer fields remain references; no issuer signature or balance-commitment opening is proved. Methods build, generated constants and receipt execution remain unverified. |
 | Symthaea Binius HDC harness | Current vendored standard prover/verifier path is described by repository documentation as non-zero-knowledge. Upstream Binius64 PR #2526 proposes masking relation targets with fresh one-time-pad keys; its PR description reports a transcript leak-check and a 2,043-test workspace run, and its review history includes approval after earlier requested changes. | Treat the vendored snapshot as computational-integrity only, not private-witness assurance. The Symthaea tree has not been shown to contain the upstream patch; PR #2526 explicitly omits a verifier-side wrong-key adversarial test; a byte-level transcript check is not by itself a zero-knowledge proof for every witness/query channel. Require merged source identity, independent privacy review and matched adversarial tests before integration. PR #7403's Iron Spartan smoke test is a statement-binding smoke test, not witness-privacy evidence. |
 | Mycelix RISC Zero adapter | Capability matrix describes it as structural-only, with no linked verifier. | Do not call it an operational RISC Zero backend. |
 | Mycelix HealthRangeAir | The inspected AIR discards public inputs and constrains bitness without constraining the intended range decomposition or binding the value commitment. | Already quarantined by #227; do not use for eligibility or authorization pending soundness repair and malicious-witness requalification. |
@@ -261,7 +262,7 @@ Performance comparison requires identical mathematical statements, witness distr
 | Mycelix #6219 | Add PPAC dependency/change mutations to the owner-specific invalidation evaluator |
 | Mycelix #4753 | Consume exact decision-to-effect freshness and commit-time authority checks |
 | Mycelix #6140 / #6069 | Independent observation evidence and historical reconstruction |
-| Symthaea #5842 / #12269 | Refine the exact balance guest relation, then bind the private value to issuer evidence and a verifier-issued request without overstating issuer authority or privacy |
+| Symthaea #5842 / #12269 / PR #12295 | Preserve the original guest; incrementally bind request context in a separate ImageID; follow with issuer signature verification and proof that the private value opens the source statement |
 | Symthaea #4860 | Plan only among PEC profiles with admitted evidence; support NoQualifiedPlan |
 | Symthaea PR #7403 / issue #12274 | Review HDC semantic corrections, freeze the exact Binius/Iron Spartan vendor source and qualify the witness-hiding boundary before any ZK privacy claim |
 | Xenia #359 / #364 / #369 / #435 / #449 / #450 / #455 | Reuse receipt attestation, live trust binding, portable authority/replay, lane capabilities, consent presentation and independently verifiable session evidence |
@@ -271,7 +272,7 @@ Performance comparison requires identical mathematical statements, witness distr
 1. Freeze the owner map and this semantic contract.
 2. Build a machine-readable matrix from each claim to its issuer, source, credential, circuit/program, verifier, policy, session, capability and effect-observation dependencies.
 3. Use the synthetic PPAC casebook at PPAC_CASEBOOK_V1.json (24 cases) as the initial mutation specification; its expected dispositions remain provisional, unadjudicated and not run until an independent oracle review.
-4. Map the existing Symthaea RISC Zero balance guest and Mycelix envelope/statement types without changing their current semantics.
+4. Map the existing Symthaea RISC Zero balance guest and Mycelix envelope/statement types; track request-binding candidate PR #12295 separately from the unimplemented issuer-signature/commitment-opening theorem.
 5. Record exact blockers and establish a matched benchmark environment before numerical comparisons.
 6. Keep all implementation and qualification claims at their current evidence tier until exact-head and independent checks exist.
 
