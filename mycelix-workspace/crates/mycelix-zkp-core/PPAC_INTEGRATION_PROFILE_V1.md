@@ -196,6 +196,8 @@ These observations are source-level inspection, not fresh build or test results.
 
 ## 9. Benchmark design
 
+Use the matched external-comparison and workload protocol in [PPAC_BENCHMARK_PROTOCOL_V1.md](PPAC_BENCHMARK_PROTOCOL_V1.md). It separates credential disclosure, private eligibility, general zkVM execution, HDC and multi-party computation; it records dated industry references and forbids cross-workload headline comparisons. It adds time-to-trustworthy-decision and requalification amplification as full-system metrics.
+
 Compose with LISE #6219 and Mycelix #6140 rather than building another generic evidence invalidation or effect-observation framework.
 
 The PPAC-specific panel should contain positive, negative and ambiguous controls for:
