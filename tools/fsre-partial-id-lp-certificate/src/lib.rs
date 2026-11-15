@@ -217,6 +217,14 @@ pub struct ReductionCheck {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FarkasCheck {
+    pub valid: bool,
+    pub contradiction_value: Rational,
+    pub column_combinations: BTreeMap<String, Rational>,
+    pub violations: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Analysis {
     pub model: LpModel,
     pub primal: CertificateCheck,
@@ -1046,6 +1054,64 @@ pub fn analyze_finite_world_extremum(
     })
 }
 
+/// Verifies a Farkas infeasibility certificate for:
+///   A x <= b, x >= 0
+///
+/// A valid certificate has y >= 0, A^T y >= 0, and b^T y < 0.
+/// This proves that no nonnegative x can satisfy every declared row.
+/// It proves infeasibility only for the encoded LP and supplied constraints.
+pub fn verify_farkas_infeasibility(
+    model: &LpModel,
+    multipliers: &BTreeMap<String, Rational>,
+) -> Result<FarkasCheck, LpError> {
+    if multipliers.keys().any(|row_id| !model.rows.iter().any(|row| &row.id == row_id)) {
+        return Err(fail("Farkas certificate references an unknown row"));
+    }
+    if model.rows.iter().any(|row| !multipliers.contains_key(&row.id)) {
+        return Err(fail("Farkas certificate must provide exactly one multiplier for every row"));
+    }
+
+    let mut violations = Vec::new();
+    for row in &model.rows {
+        if !multipliers[&row.id].is_nonnegative() {
+            violations.push(format!("FARKAS_MULTIPLIER_NEGATIVE:{}", row.id));
+        }
+    }
+
+    let contradiction_value = dot(model.rows.iter().map(|row| {
+        (row.rhs, multipliers[&row.id])
+    }))?;
+
+    let mut column_combinations = BTreeMap::new();
+    for column in &model.columns {
+        let combined = dot(model.rows.iter().map(|row| {
+            (coefficient(model, &row.id, &column.id), multipliers[&row.id])
+        }))?;
+        if !combined.is_nonnegative() {
+            violations.push(format!(
+                "FARKAS_COLUMN_COMBINATION_NEGATIVE:{}:{}",
+                column.id,
+                combined.display()
+            ));
+        }
+        column_combinations.insert(column.id.clone(), combined);
+    }
+
+    if contradiction_value.checked_cmp(Rational::zero())? != Ordering::Less {
+        violations.push(format!(
+            "FARKAS_CONTRADICTION_NOT_NEGATIVE:{}",
+            contradiction_value.display()
+        ));
+    }
+
+    Ok(FarkasCheck {
+        valid: violations.is_empty(),
+        contradiction_value,
+        column_combinations,
+        violations,
+    })
+}
+
 pub fn analyze(model: &LpModel) -> Result<Analysis, LpError> {
     let primal = check_primal(model)?;
     let dual = check_dual(model)?;
@@ -1864,6 +1930,92 @@ mod tests {
             &dual,
         )
         .is_err());
+    }
+
+    #[test]
+    fn farkas_certificate_proves_conflicting_aggregate_constraints_infeasible() {
+        let values = vec![
+            FiniteWorldValue { world_id: "w0".to_owned(), value: Rational::new(0, 1).unwrap() },
+            FiniteWorldValue { world_id: "w1".to_owned(), value: Rational::new(10, 1).unwrap() },
+            FiniteWorldValue { world_id: "w2".to_owned(), value: Rational::new(20, 1).unwrap() },
+            FiniteWorldValue { world_id: "w3".to_owned(), value: Rational::new(30, 1).unwrap() },
+        ];
+        let low_group = BTreeMap::from([
+            ("w0".to_owned(), Rational::one()),
+            ("w1".to_owned(), Rational::one()),
+        ]);
+        let constraints = vec![
+            WorldMomentConstraint {
+                id: "low-minimum".to_owned(),
+                coefficients: low_group.clone(),
+                lower: Some(Rational::new(3, 4).unwrap()),
+                upper: None,
+            },
+            WorldMomentConstraint {
+                id: "low-maximum".to_owned(),
+                coefficients: low_group,
+                lower: None,
+                upper: Some(Rational::new(1, 2).unwrap()),
+            },
+        ];
+        let primal = BTreeMap::from([
+            ("w0".to_owned(), Rational::zero()),
+            ("w1".to_owned(), Rational::zero()),
+            ("w2".to_owned(), Rational::zero()),
+            ("w3".to_owned(), Rational::zero()),
+        ]);
+        let dual = BTreeMap::from([
+            ("mass-upper".to_owned(), Rational::zero()),
+            ("mass-lower".to_owned(), Rational::zero()),
+            ("moment-low-minimum-lower".to_owned(), Rational::zero()),
+            ("moment-low-maximum-upper".to_owned(), Rational::zero()),
+        ]);
+        let model = build_world_distribution_lp(
+            "incompatible-register-constraints",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "contradictory-aggregate-facts-v1",
+            &values,
+            &constraints,
+            ExtremumDirection::Maximum,
+            &primal,
+            &dual,
+        )
+        .unwrap();
+        let multipliers = BTreeMap::from([
+            ("mass-upper".to_owned(), Rational::zero()),
+            ("mass-lower".to_owned(), Rational::zero()),
+            ("moment-low-minimum-lower".to_owned(), Rational::one()),
+            ("moment-low-maximum-upper".to_owned(), Rational::one()),
+        ]);
+        let check = verify_farkas_infeasibility(&model, &multipliers).unwrap();
+        assert!(check.valid);
+        assert_eq!(check.contradiction_value.display(), "-1/4");
+        assert!(check.column_combinations.values().all(|value| *value == Rational::zero()));
+    }
+
+    #[test]
+    fn invalid_farkas_multiplier_or_unknown_row_is_rejected() {
+        let (values, constraints, primal, dual) = moment_fixture_certificates();
+        let model = build_world_distribution_lp(
+            "farkas-negative-control",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "half-population-known-v1",
+            &values,
+            &constraints,
+            ExtremumDirection::Maximum,
+            &primal,
+            &dual,
+        )
+        .unwrap();
+        let mut negative = BTreeMap::from([
+            ("mass-upper".to_owned(), Rational::zero()),
+            ("mass-lower".to_owned(), Rational::zero()),
+            ("moment-low-group-share-upper".to_owned(), Rational::zero()),
+            ("moment-low-group-share-lower".to_owned(), Rational::new(-1, 1).unwrap()),
+        ]);
+        assert!(!verify_farkas_infeasibility(&model, &negative).unwrap().valid);
+        negative.insert("unknown-row".to_owned(), Rational::one());
+        assert!(verify_farkas_infeasibility(&model, &negative).is_err());
     }
 
     #[test]
