@@ -25,13 +25,13 @@ If the upper \(\theta\) bound is unbounded, the population upper bound is also u
 
 ## Independence and linkage
 
-Lincoln–Petersen and Chapman estimates are separate conditional baselines. They are emitted only when the input explicitly declares independence, perfect linkage and within-stratum homogeneity. Each remains labelled as conditional and unauthenticated.
+Lincoln–Petersen and Chapman estimates are separate conditional baselines. They are emitted only when the input explicitly declares independence, perfect linkage and within-stratum homogeneity. Each remains labelled as conditional and unauthenticated. These labels are supplied assumptions, not authenticated facts.
 
 Two different source identifiers do not imply source independence. Shared declared ancestry emits a warning; distinct declared ancestry still does not establish independence. A perfect-linkage declaration is also only an input assertion. False-positive and false-negative linkage are not yet modelled in this E0 implementation.
 
 ## Stratification
 
-The report includes per-stratum estimates and their sum, plus a pooled calculation for comparison. Pooled estimates can differ materially from stratified estimates when capture propensities differ. The pooled calculation is a comparator, not a substitute for a justified stratification model.
+The report includes per-stratum estimates and their sum, plus a pooled calculation for comparison. Pooled estimates can differ materially from stratified estimates when capture propensities differ. The pooled calculation is a comparator, not a substitute for a justified stratification model. If the declared stratum universe is incomplete, the crate still reports observed per-stratum quantities but withholds the target-population aggregate.
 
 ## Run
 
