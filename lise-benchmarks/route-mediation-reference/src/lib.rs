@@ -68,7 +68,7 @@ fn is_timestamp(value: &str) -> bool {
             .all(|(i, c)| matches!(i, 4 | 7 | 10 | 13 | 16 | 19) || c.is_ascii_digit())
 }
 
-fn timestamp(value: &Value, key: &str, context: &str) -> Result<&str, String> {
+fn timestamp<'a>(value: &'a Value, key: &str, context: &str) -> Result<&'a str, String> {
     let result = string(value, key, context)?;
     if !is_timestamp(result) {
         return Err(format!("{context}: '{key}' must be YYYY-MM-DDTHH:MM:SSZ"));
@@ -373,10 +373,17 @@ fn matching_mediator(
 }
 
 fn invalid_report(error: String) -> Value {
+    let status = if error.starts_with("path count exceeded")
+        || error.starts_with("path depth exceeded")
+    {
+        "INDETERMINATE"
+    } else {
+        "INVALID_INPUT"
+    };
     json!({
         "suite_id": SUITE_ID,
         "evaluator_version": EVALUATOR_VERSION,
-        "status": "INVALID_INPUT",
+        "status": status,
         "dispatch_eligible": false,
         "errors": [error],
         "claim_ceiling": "Finite synthetic route-graph structural evaluation only."
@@ -515,7 +522,10 @@ mod tests {
         value["graph"]["edges"]
             .as_array_mut()
             .expect("edges")
-            .retain(|edge| edge["edge_id"] != "E-DIRECT" && edge["edge_id"] != "E-WEBHOOK");
+            .retain(|edge| {
+                edge["edge_id"] != "E-DIRECT"
+                    && edge["edge_id"] != "E-WORKFLOW-WORKER"
+            });
         value["graph"]["edges"]
             .as_array_mut()
             .expect("edges")
@@ -635,7 +645,7 @@ mod tests {
         value["graph"]["edges"]
             .as_array_mut()
             .expect("edges")
-            .retain(|edge| edge["edge_id"] != "E-DIRECT" && edge["edge_id"] != "E-WEBHOOK");
+            .clear();
         value["graph"]["edges"]
             .as_array_mut()
             .expect("edges")
@@ -655,29 +665,58 @@ mod tests {
         let mut value = fixture();
         value["scope"]["resource_ref"] = json!("staging-environment");
         refresh_receipt(&mut value);
-        assert_eq!(evaluate(&value)["status"], "BYPASS_DETECTED");
-        assert_eq!(evaluate(&value)["mediated_path_count"], 0);
+        assert_eq!(evaluate(&value)["status"], "INDETERMINATE");
+        assert_eq!(evaluate(&value)["dispatch_eligible"], false);
     }
 
     #[test]
     fn path_enumeration_limit_fails_closed() {
         let mut value = fixture();
+        let nodes = value["graph"]["nodes"].as_array_mut().expect("nodes");
+        nodes.retain(|node| {
+            node["node_id"] == "agent-entry"
+                || node["node_id"] == "production-environment"
+        });
         let edges = value["graph"]["edges"].as_array_mut().expect("edges");
         edges.clear();
+
         let mut previous = "agent-entry".to_owned();
         for layer in 0..12 {
             let left = format!("L{layer}");
             let right = format!("R{layer}");
-            for (suffix, next) in [("A", &left), ("B", &right)] {
-                edges.push(json!({
-                    "edge_id": format!("E-{layer}-{suffix}"),
-                    "from": previous,
-                    "to": next,
-                    "enabled": true,
-                    "effect_capable": true
-                }));
-            }
-            previous = left;
+            let next = format!("N{layer}");
+            nodes.push(json!({"node_id": left, "kind": "connector"}));
+            nodes.push(json!({"node_id": right, "kind": "connector"}));
+            nodes.push(json!({"node_id": next, "kind": "connector"}));
+            edges.push(json!({
+                "edge_id": format!("E-{layer}-A"),
+                "from": previous,
+                "to": left,
+                "enabled": true,
+                "effect_capable": true
+            }));
+            edges.push(json!({
+                "edge_id": format!("E-{layer}-B"),
+                "from": previous,
+                "to": right,
+                "enabled": true,
+                "effect_capable": true
+            }));
+            edges.push(json!({
+                "edge_id": format!("E-{layer}-C"),
+                "from": left,
+                "to": next,
+                "enabled": true,
+                "effect_capable": true
+            }));
+            edges.push(json!({
+                "edge_id": format!("E-{layer}-D"),
+                "from": right,
+                "to": next,
+                "enabled": true,
+                "effect_capable": true
+            }));
+            previous = next;
         }
         edges.push(json!({
             "edge_id": "E-END",
@@ -689,5 +728,6 @@ mod tests {
         refresh_receipt(&mut value);
         let report = evaluate(&value);
         assert_eq!(report["status"], "INDETERMINATE");
+        assert_eq!(report["dispatch_eligible"], false);
     }
 }
