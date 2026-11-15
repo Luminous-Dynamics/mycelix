@@ -11,7 +11,7 @@
 //! not an OPA plugin, policy enforcement point, provider adapter, or production
 //! trust verifier.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 pub const SUITE_ID: &str = "LISE-OPA-EFFECT-BINDING-v0.1";
@@ -46,9 +46,10 @@ fn timestamp<'a>(value: &'a Value, key: &str, context: &str) -> Result<&'a str, 
         || b[13] != b':'
         || b[16] != b':'
         || b[19] != b'Z'
-        || !b.iter().enumerate().all(|(i, c)| {
-            matches!(i, 4 | 7 | 10 | 13 | 16 | 19) || c.is_ascii_digit()
-        })
+        || !b
+            .iter()
+            .enumerate()
+            .all(|(i, c)| matches!(i, 4 | 7 | 10 | 13 | 16 | 19) || c.is_ascii_digit())
     {
         return Err(format!("{context}: '{key}' must be YYYY-MM-DDTHH:MM:SSZ"));
     }
@@ -109,7 +110,9 @@ fn evaluate_inner(fixture: &Value) -> Result<Value, String> {
     let expected_bundle_name = string(intent, "expected_bundle_name", "intent")?;
     let expected_bundle_revision = string(intent, "expected_bundle_revision", "intent")?;
 
-    let log = fixture.get("opa_decision_log").ok_or("fixture: missing opa_decision_log")?;
+    let log = fixture
+        .get("opa_decision_log")
+        .ok_or("fixture: missing opa_decision_log")?;
     let decision_id = string(log, "decision_id", "OPA decision log")?;
     let trace_id = string(log, "trace_id", "OPA decision log")?;
     let _span_id = string(log, "span_id", "OPA decision log")?;
@@ -160,7 +163,9 @@ fn evaluate_inner(fixture: &Value) -> Result<Value, String> {
         return Ok(indeterminate("opa_input_contains_erased_or_masked_fields"));
     }
 
-    let bundles = log.get("bundles").ok_or("OPA decision log: missing bundles")?;
+    let bundles = log
+        .get("bundles")
+        .ok_or("OPA decision log: missing bundles")?;
     let revision = bundles
         .get(expected_bundle_name)
         .and_then(|bundle| bundle.get("revision"))
@@ -180,19 +185,22 @@ fn evaluate_inner(fixture: &Value) -> Result<Value, String> {
         || string(receipt, "trace_id", "collection receipt")? != trace_id
         || string(receipt, "input_sha256", "collection receipt")? != input_digest
         || string(receipt, "bundle_revision", "collection receipt")? != revision
-        || string(receipt, "completeness_state", "collection receipt")?
-            != "complete_for_decision"
+        || string(receipt, "completeness_state", "collection receipt")? != "complete_for_decision"
         || string(receipt, "signature_state", "collection receipt")? != "synthetic_unverified"
         || string(receipt, "trust_state", "collection receipt")? != "untrusted_synthetic"
         || !is_sha256(string(receipt, "adapter_digest", "collection receipt")?)
     {
-        return Ok(indeterminate("opa_collection_receipt_invalid_or_mismatched"));
+        return Ok(indeterminate(
+            "opa_collection_receipt_invalid_or_mismatched",
+        ));
     }
     let _receipt_ref = string(receipt, "receipt_ref", "collection receipt")?;
     let _source_identity = string(receipt, "source_identity", "collection receipt")?;
     let receipt_observed_at = timestamp(receipt, "observed_at", "collection receipt")?;
     if receipt_observed_at < decision_at || receipt_observed_at > known_at {
-        return Ok(indeterminate("opa_collection_receipt_outside_knowledge_window"));
+        return Ok(indeterminate(
+            "opa_collection_receipt_outside_knowledge_window",
+        ));
     }
 
     let decision_state = if decision_result {
@@ -203,7 +211,11 @@ fn evaluate_inner(fixture: &Value) -> Result<Value, String> {
 
     let Some(effect) = optional_object(fixture, "effect_observation") else {
         return Ok(report(
-            if decision_result { "POLICY_ALLOW_ONLY" } else { "POLICY_DENIED" },
+            if decision_result {
+                "POLICY_ALLOW_ONLY"
+            } else {
+                "POLICY_DENIED"
+            },
             decision_state,
             "NO_EFFECT_OBSERVATION",
             if decision_result {
@@ -235,12 +247,17 @@ fn evaluate_inner(fixture: &Value) -> Result<Value, String> {
             decision_state,
             "UNBOUND_EFFECT",
             "effect_observation_does_not_match_exact_decision_operation",
-            vec!["Effect observation is not bound to the exact decision ID and intent operation.".to_owned()],
+            vec![
+                "Effect observation is not bound to the exact decision ID and intent operation."
+                    .to_owned(),
+            ],
         ));
     }
     let effect_at = timestamp(effect, "observed_at", "effect observation")?;
     if effect_at > known_at {
-        return Ok(indeterminate("effect_not_yet_observed_at_evaluation_cutoff"));
+        return Ok(indeterminate(
+            "effect_not_yet_observed_at_evaluation_cutoff",
+        ));
     }
     let kind = string(effect, "kind", "effect observation")?;
     let outcome = string(effect, "outcome", "effect observation")?;
@@ -464,10 +481,7 @@ mod tests {
     fn common_cause_and_late_observation_do_not_reconcile() {
         let mut value = fixture();
         value["effect_observation"]["source_dependencies"] = json!(["provider_acknowledgement"]);
-        assert_eq!(
-            evaluate(&value)["overall"],
-            "ACKNOWLEDGED_NOT_RECONCILED"
-        );
+        assert_eq!(evaluate(&value)["overall"], "ACKNOWLEDGED_NOT_RECONCILED");
 
         let mut value = fixture();
         value["effect_observation"]["observed_at"] = json!("2026-03-10T11:02:00Z");
