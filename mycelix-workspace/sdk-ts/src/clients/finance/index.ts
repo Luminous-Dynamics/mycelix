@@ -75,6 +75,25 @@ export { HearthClient } from './hearth.js';
 export { StakingClient } from './staking.js';
 export { BridgeClient } from './bridge.js';
 
+export {
+  SAP_MICRO_V1_PROFILE_ID,
+  TEND_V1_PROFILE_ID,
+  MONEY_AMOUNT_V1_MAX_MINOR_UNITS,
+  SAP_MICRO_PROFILE_V1,
+  resolveMoneyAmountProfileV1,
+  validateMoneyAmountV1,
+  isPositiveMoneyAmountV1,
+  requireMoneyAmountProfileV1,
+  checkedAddMoneyAmountV1,
+  checkedSubMoneyAmountV1,
+} from './money-amount.js';
+export type {
+  MoneyAmountV1,
+  MoneyAmountProfileV1,
+  MoneyAmountV1Error,
+  MoneyAmountV1Result,
+} from './money-amount.js';
+
 // =============================================================================
 // Barrel Exports - Types
 // =============================================================================
