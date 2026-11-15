@@ -1,0 +1,13 @@
+{
+  "cutoff_unix_ms": 200,
+  "packets": [
+    {
+      "received_at_unix_ms": 100,
+      "raw_packet_xml": "<VOEvent ivorn=\"ivo://survey.example/event?one\" version=\"2.1\"><Who><AuthorIVORN>ivo://publisher.example/stream</AuthorIVORN><Date>2026-11-14T08:00:00Z</Date></Who><What/></VOEvent>"
+    },
+    {
+      "received_at_unix_ms": 300,
+      "raw_packet_xml": "<VOEvent ivorn=\"ivo://survey.example/event?two\" version=\"2.1\" role=\"observation\"><Who><AuthorIVORN>ivo://review.example/stream</AuthorIVORN><Date>2026-11-14T07:55:00Z</Date></Who><Citations><EventIVORN cite=\"supersedes\">ivo://survey.example/event?one</EventIVORN><Description>Reprocessed.</Description></Citations><What/></VOEvent>"
+    }
+  ]
+}
