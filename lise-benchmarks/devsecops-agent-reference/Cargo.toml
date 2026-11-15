@@ -1,0 +1,11 @@
+[package]
+name = "lise-devsecops-agent-reference"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Synthetic DevSecOps agent identity, authority and deployment-effect reference evaluator."
+
+[dependencies]
+serde_json = "1"
+sha2 = "0.10"
