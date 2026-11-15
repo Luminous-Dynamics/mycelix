@@ -700,7 +700,7 @@ pub fn analyze(problem: &Problem) -> Analysis {
         } else if problem.within_stratum_homogeneity != "DECLARED_WITHIN_STRATUM" {
             "NOT_EMITTED_WITHIN_STRATUM_HOMOGENEITY_NOT_DECLARED"
         } else if problem.source_a_ancestry == problem.source_b_ancestry {
-            "CONDITIONAL_ESTIMATES_EMITTED_SHARED_UPSTREAM_ANCESTRY_REVIEW_REQUIRED"
+            "NOT_EMITTED_SHARED_UPSTREAM_ANCESTRY_DEPENDENCE_RISK"
         } else {
             "CONDITIONAL_ESTIMATES_EMITTED_INDEPENDENCE_ASSUMPTION_NOT_AUTHENTICATED"
         }
@@ -1107,9 +1107,14 @@ mod tests {
             shared.source_ancestry_relation,
             "SHARED_DECLARED_UPSTREAM_ANCESTRY"
         );
+        assert_eq!(
+            shared.independence_point_status,
+            "NOT_EMITTED_SHARED_UPSTREAM_ANCESTRY_DEPENDENCE_RISK"
+        );
         assert!(shared
-            .independence_point_status
-            .contains("SHARED_UPSTREAM_ANCESTRY"));
+            .results
+            .iter()
+            .all(|result| result.lincoln_petersen.is_none() && result.chapman.is_none()));
     }
 
     #[test]
