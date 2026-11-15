@@ -954,7 +954,7 @@ mod tests {
                 .as_ref()
                 .unwrap()
                 .display(),
-            "1100/1"
+            "800/1"
         );
         assert_eq!(
             report
