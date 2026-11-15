@@ -2,7 +2,7 @@
   "schema_version": "mycelix-tlsnotary-ppac-casebook-v1",
   "profile_id": "mycelix:source-session:tlsnotary-ppac:v1",
   "status": "research_only",
-  "case_count": 34,
+  "case_count": 40,
   "oracle_status": "not_adjudicated",
   "execution_status": "not_run",
   "owner_issues": [
@@ -42,6 +42,30 @@
       "witness": "attestation node validates TLS provenance, extracts a field and signs a salted value commitment; client proves commitment/signature/policy in a transparent STARK",
       "portability": "portable proof under explicit attestation-node, STARK and aggregator profiles",
       "claim_ceiling": "the proof is linked to the attestor-signed extracted value; source extraction correctness inherits the attestation-node trust assumption"
+    },
+    {
+      "id": "DECO-3PTLS-V1",
+      "witness": "prover and verifier jointly participate in a three-party TLS handshake with the web server",
+      "portability": "designated verifier / application-specific proof",
+      "claim_ceiling": "the verifier checks exact TLS data provenance and selective opening under DECO's exact construction; context integrity and collusion assumptions remain explicit"
+    },
+    {
+      "id": "DIDO-PLUS-TLS13-V1",
+      "witness": "paper-specific three-party TLS/MPC protocol for restricted TLS 1.3 websites",
+      "portability": "paper-specific research protocol",
+      "claim_ceiling": "only the exact DIDO+ implementation/profile; no qualification inheritance to DECO or TLSNotary"
+    },
+    {
+      "id": "ZKPASS-HYBRID-V2",
+      "witness": "zkPass documented hybrid of proxy mode and MPC mode with VOLE-based ZK",
+      "portability": "profile-specific public proof",
+      "claim_ceiling": "mode, witness/network assumptions and exact release remain explicit"
+    },
+    {
+      "id": "RECLAIM-TEE-SPLIT-V1",
+      "witness": "split TEE services with hardware attestation and MPC/TLS proof path",
+      "portability": "profile-specific attestation",
+      "claim_ceiling": "trust is conditional on the exact TEE vendor chain, image measurement, hardware/configuration and split-service threat model"
     }
   ],
   "nonclaims": [
@@ -54,7 +78,9 @@
     "TLS 1.3 support must be established from the exact release, not roadmap language.",
     "Scribe-style salted commitment nullifiers do not guarantee account-level or person-level uniqueness across fresh salts.",
     "Falcon-signed aggregator roots authenticate the root signer but do not by themselves prove append-only state transition correctness.",
-    "A circuit-friendly attestation signature is not automatically a standard or post-quantum signature."
+    "A circuit-friendly attestation signature is not automatically a standard or post-quantum signature.",
+    "TLS 1.3 support in one research protocol does not qualify TLS 1.3 support in another TLS-provenance implementation.",
+    "A valid TEE quote does not establish source authenticity unless exact measured code, TCB and dataflow roles are qualified."
   ],
   "cases": [
     {
@@ -328,6 +354,54 @@
       "scenario": "An application-scoped spend tag is expected to guarantee legal-person uniqueness even though no domain-qualified subject binding connects accounts to that person.",
       "expected": "UNSUPPORTED",
       "invariant": "Account, legal person, credential, entitlement and application are distinct uniqueness subjects. A nullifier cannot prove real-world uniqueness by itself."
+    },
+    {
+      "id": "DECO-001",
+      "mode": "DECO-3PTLS-V1",
+      "kind": "negative",
+      "scenario": "The prover reveals a selected substring that appears in multiple places or can be interpreted differently, without proving the required surrounding context and exact response position.",
+      "expected": "BLOCKED",
+      "invariant": "Selective opening must preserve context integrity; substring presence alone does not establish the intended semantic field."
+    },
+    {
+      "id": "DIDO-001",
+      "mode": "DIDO-PLUS-TLS13-V1",
+      "kind": "negative",
+      "scenario": "An implementation using DECO or TLSNotary claims TLS 1.3 coverage solely because a separate DIDO+ paper demonstrates a TLS 1.3 research protocol.",
+      "expected": "UNSUPPORTED",
+      "invariant": "TLS-version support is implementation- and profile-specific; no protocol inherits another paper's negotiated-version capability."
+    },
+    {
+      "id": "ZKPASS-001",
+      "mode": "ZKPASS-HYBRID-V2",
+      "kind": "negative",
+      "scenario": "A proxy-mode zkPass presentation is admitted under a profile that requires the MPC-mode or another direct-verifier network-path assumption.",
+      "expected": "BLOCKED",
+      "invariant": "Proxy and MPC are distinct protocol profiles; hybrid fallback does not permit cross-mode qualification inheritance."
+    },
+    {
+      "id": "ZKPASS-002",
+      "mode": "ZKPASS-HYBRID-V2",
+      "kind": "negative",
+      "scenario": "The deployment selects MPC mode without enforcing the declared bandwidth, response-size and resource limits for the exact protocol release.",
+      "expected": "RESOURCE_PROFILE_FAILURE",
+      "invariant": "Protocol mode and workload bounds are part of qualification; throughput figures from proxy mode do not establish MPC feasibility."
+    },
+    {
+      "id": "RECLAIM-001",
+      "mode": "RECLAIM-TEE-SPLIT-V1",
+      "kind": "negative",
+      "scenario": "A hardware quote verifies cryptographically but its TEE image measurement, firmware chain, cloud configuration or security version does not match the admitted profile.",
+      "expected": "BLOCKED",
+      "invariant": "A valid quote is not enough; exact measurement, vendor root, TCB version and policy must match."
+    },
+    {
+      "id": "RECLAIM-002",
+      "mode": "RECLAIM-TEE-SPLIT-V1",
+      "kind": "negative",
+      "scenario": "The split TEE architecture is reduced to a generic tee_attested=true flag, losing which service held TLS keys, which service saw request/response data, and which code measurement each quote binds.",
+      "expected": "BLOCKED",
+      "invariant": "TEE roles, data visibility, measurements and trust domains must remain separately represented and qualified."
     }
   ]
 }
