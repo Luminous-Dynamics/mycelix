@@ -1,0 +1,3 @@
+FSRE-SYNTHETIC-EVIDENCE-V1
+reference=evidence-noop
+kind=synthetic-fixture-assertion
