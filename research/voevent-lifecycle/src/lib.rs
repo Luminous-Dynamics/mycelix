@@ -12,7 +12,7 @@ use std::fmt;
 
 use mycelix_voevent_header::{
     parse_packet as parse_voevent_packet, CitationRelation as SourceCitationRelation,
-    PacketRole as SourcePacketRole,
+    PacketRole as SourcePacketRole, SourceElement,
 };
 use serde::{Deserialize, Serialize};
 
@@ -97,6 +97,8 @@ pub struct Packet {
     pub published_at: Option<String>,
     /// Exact event-time fields, including source time scale/frame. Not normalized.
     pub event_time: Option<SourceTime>,
+    /// Source-preserving WhereWhen/STC subtree; no time/frame/unit normalization.
+    pub where_when: Option<SourceElement>,
     /// All root attributes in their source order, including uninterpreted values.
     pub root_attributes: Vec<PacketAttribute>,
     /// Exact decoded Citations/Description text, if present.
@@ -201,6 +203,7 @@ fn packet_from_source(
         })
         .collect();
     let citations_description = parsed.citations_description;
+    let where_when = parsed.where_when;
 
     Ok(Packet {
         id: parsed_header.ivoid,
@@ -211,6 +214,7 @@ fn packet_from_source(
         received_at_unix_ms: received.received_at_unix_ms,
         published_at: parsed_who.source_created_at,
         event_time: None,
+        where_when,
         root_attributes,
         citations_description,
         citations,
@@ -244,6 +248,7 @@ pub struct VisiblePacket {
     pub received_at_unix_ms: u64,
     pub published_at: Option<String>,
     pub event_time: Option<SourceTime>,
+    pub where_when: Option<SourceElement>,
     pub root_attributes: Vec<PacketAttribute>,
     pub citations_description: Option<String>,
 }
@@ -415,6 +420,7 @@ pub fn replay_as_of(
             received_at_unix_ms: packet.received_at_unix_ms,
             published_at: packet.published_at.clone(),
             event_time: packet.event_time.clone(),
+            where_when: packet.where_when.clone(),
             root_attributes: packet.root_attributes.clone(),
             citations_description: packet.citations_description.clone(),
         })
@@ -544,6 +550,7 @@ mod tests {
             received_at_unix_ms,
             published_at: None,
             event_time: None,
+            where_when: None,
             root_attributes: Vec::new(),
             citations_description: None,
             citations: Vec::new(),
