@@ -45,6 +45,8 @@ The source fixture and reference submission are copied byte-for-byte from IAE v0
 - Action, principal, target, purpose, policy, constitution and idempotency remain separate bindings.
 - Authority is reconstructed from scoped status events using both effective and observed time. A revocation not yet known at the query cutoff is not silently backdated into historical knowledge.
 - Submitted/timeout events are not evidence of no effect. Missing, ambiguous or incompatible history is held as unknown.
+- A no-visible-event result can become `NeverAttempted` only when a separately supplied, query-scoped history-completeness receipt matches the exact operation, idempotency key, operation/action digests and resource; covers the action-time interval; has no pagination gaps; and was observed by the knowledge cutoff.
+- The bundled receipt is explicitly a synthetic closed-world fixture assertion, untrusted and not cryptographically verified. It is not a production completeness credential. Production adapters require an owner-authenticated receipt, source/adapter identity, query watermark, cursor/gap/retention evidence and trust evaluation.
 - A write outside the source write boundary fails conformance.
 - The report always emits dispatch_eligible: false for this fixture.
 
