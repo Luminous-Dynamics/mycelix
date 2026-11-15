@@ -931,10 +931,10 @@ pub fn build_world_distribution_lp(input: WorldDistributionLpInput) -> Result<Lp
         primal_world_masses,
         dual_row_values,
     } = input;
-    if !valid_token(problem_id) || !valid_token(assumption_set_id) {
+    if !valid_token(&problem_id) || !valid_token(&assumption_set_id) {
         return Err(fail("world-distribution IDs must be valid tokens"));
     }
-    if !valid_sha256(scope_sha256) {
+    if !valid_sha256(&scope_sha256) {
         return Err(fail(
             "world-distribution scope digest must be 64 lowercase hexadecimal characters",
         ));
