@@ -240,7 +240,15 @@
             "aggregator spent-tag integrity",
             "Falcon root signing key"
           ],
-          "claim_limit": "Fresh salt can create new commitment/spend tag for same account; Falcon signature authenticates root signer but not correct append-only state transition."
+          "claim_limit": "Fresh salt can create new commitment/spend tag for same account; Falcon signature authenticates root signer but not correct append-only state transition.",
+          "qualification_dependencies": [
+            "mycelix#6245",
+            "mycelix#6251",
+            "mycelix#2109",
+            "mycelix#2110",
+            "LISE#6219"
+          ],
+          "additional_replay_risk": "A fresh salt can generate a different commitment and spend tag for the same Web2 account. Application uniqueness therefore requires a separately qualified domain-scoped subject binding; account uniqueness does not establish person uniqueness."
         }
       ],
       "published_baseline": {
@@ -328,7 +336,8 @@
       "proof_verification",
       "nullifier_spent_state",
       "LISE_qualification",
-      "time_to_qualified_private_decision"
+      "time_to_qualified_private_decision",
+      "domain_scoped_nullifier_generation_and_consume_once"
     ],
     "measures": [
       "wall_clock",
@@ -346,7 +355,11 @@
       "replay_rate",
       "linkability_advantage",
       "unintended_field_disclosure",
-      "requalification_latency"
+      "requalification_latency",
+      "same_subject_repeat_claim_acceptance",
+      "cross_scope_linkability",
+      "recovery_and_key_rotation_continuity",
+      "concurrent_consume_once_race"
     ],
     "fairness_rules": [
       "Same exact request and response bytes wherever protocol allows.",
@@ -354,7 +367,8 @@
       "Do not compare proxy with MPC/TEE/notary as equal security modes.",
       "Include source/session witness and credential checks, not just local proof time.",
       "Report preprocessing separately from online latency.",
-      "Report all failures and rejected controls; rejecting all inputs is not a valid positive-control pass."
+      "Report all failures and rejected controls; rejecting all inputs is not a valid positive-control pass.",
+      "Uniqueness subject must be frozen as account, credential, entitlement, application or person; different subject claims are not interchangeable."
     ],
     "prospective_targets": {
       "false_accepts_in_frozen_adversarial_corpus": 0,
@@ -371,6 +385,8 @@
     "No system in this matrix is certified or promoted by inclusion.",
     "Reported performance from separate papers/vendor posts is not a matched leaderboard.",
     "Transport authenticity does not establish provider truth or account ownership.",
-    "Proof validity does not establish currentness, policy authority, consent or external effect."
+    "Proof validity does not establish currentness, policy authority, consent or external effect.",
+    "Salted-commitment-derived spend tags do not guarantee uniqueness across fresh attestations for the same account.",
+    "Application/account-scoped uniqueness does not prove uniqueness of a legal or natural person."
   ]
 }
