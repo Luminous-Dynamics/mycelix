@@ -980,9 +980,9 @@ mod tests {
         // These reference calculations are written directly from the
         // cross-product equation, not via hidden_cell(), result_for(), or
         // the production aggregation helpers.
-        let a_lower_hidden = (1_u128 * 100 * 150) / (2 * 50);
-        let a_upper_hidden = (2_u128 * 100 * 150) / (1 * 50);
-        let b_hidden = (1_u128 * 50 * 50) / (1 * 50);
+        let a_lower_hidden = (100_u128 * 150) / 100;
+        let a_upper_hidden = (2_u128 * 100 * 150) / 50;
+        let b_hidden = (50_u128 * 50) / 50;
         assert_eq!(a_lower_hidden, 150);
         assert_eq!(a_upper_hidden, 600);
         assert_eq!(b_hidden, 50);
