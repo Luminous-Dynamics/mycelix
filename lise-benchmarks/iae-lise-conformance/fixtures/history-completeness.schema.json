@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/lise-benchmarks/iae-lise-conformance/fixtures/history-completeness.schema.json",
+  "title": "Synthetic operation-history completeness fixture receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_ref",
+    "operation_ref",
+    "idempotency_ref",
+    "canonical_operation_digest",
+    "action_digest",
+    "resource_ref",
+    "provider_ref",
+    "source_ref",
+    "source_kind",
+    "completeness_state",
+    "query_scope_exact",
+    "coverage_from",
+    "watermark_occurred_at",
+    "observed_at",
+    "pagination_complete",
+    "retention_complete",
+    "gap_detected",
+    "verification_state",
+    "issuer_trust"
+  ],
+  "properties": {
+    "receipt_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "operation_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "idempotency_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "canonical_operation_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "action_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "resource_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_kind": {
+      "const": "synthetic_closed_world_fixture"
+    },
+    "completeness_state": {
+      "const": "complete_for_scope"
+    },
+    "query_scope_exact": {
+      "const": true
+    },
+    "coverage_from": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "watermark_occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pagination_complete": {
+      "const": true
+    },
+    "retention_complete": {
+      "const": true
+    },
+    "gap_detected": {
+      "const": false
+    },
+    "verification_state": {
+      "const": "fixture_assertion_not_cryptographically_verified"
+    },
+    "issuer_trust": {
+      "const": "untrusted_synthetic_fixture"
+    }
+  }
+}

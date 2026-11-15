@@ -1,0 +1,12 @@
+[package]
+name = "iae-lise-conformance"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Cross-owner IAE to LISE temporal and effectuation conformance evaluator."
+
+[dependencies]
+ipb-finality-reference = { path = "../ipb-finality-reference" }
+serde_json = "1"
+sha2 = "0.10"
