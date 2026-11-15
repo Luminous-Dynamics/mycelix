@@ -9,6 +9,7 @@
 - `claim-packets.v1.json` — 24 reviewer-facing synthetic claim packets.
 - `oracle.v1.json` — separate, public known-answer classifications and claim ceilings.
 - `claim-packet.schema.json` — strict JSON Schema for reviewer-facing packets.
+- `review-appraisal.schema.json` — strict JSON Schema for reviewer outputs, including field-level evidence codes, claim ceiling, rationale and abstention.
 
 ## Design
 
