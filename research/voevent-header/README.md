@@ -12,6 +12,9 @@ This isolated Rust package is the first executable astronomy adapter slice under
 - Extracts the optional Who curation block's direct AuthorIVORN and Date values, preserving source lexical values and absence.
 - Treats AuthorIVORN as a source assertion, not a verified publisher identity; Date is retained as source packet-creation time and is not used as fabric receipt time.
 - Extracts the optional root Citations block and every direct EventIVORN child.
+- Preserves the optional WhereWhen/STC subtree as an ordered source-element tree, including element/attribute order, text, CDATA and decoded XML character-reference boundaries.
+- Preserves both ObservationLocation and ObservatoryLocation; frame identifiers and definitions; AstroCoords; TimeInstant and TimeInterval; Position2D/Position3D and PositionName; axis names; numeric lexical values; units, UCDs and uncertainty elements.
+- Does not normalize UTC/TT/GPS/TDB, ICRS/FK5/solar frames, TOPO/GEO/BARY, units or uncertainty. Unknown STC extensions remain in the source tree.
 - Requires the cite attribute and accepts only followup, supersedes or retraction; there is no implicit relationship default.
 - Preserves each citation's decoded IVOID target and all EventIVORN attributes.
 - Preserves the optional Citations/Description as text.
@@ -28,7 +31,7 @@ From the repository root:
     cargo clippy --manifest-path research/voevent-header/Cargo.toml --all-targets -- -D warnings
     cargo run --manifest-path research/voevent-header/Cargo.toml --bin voevent-header -- path/to/packet.xml
 
-The CLI emits a JSON packet projection with its header, citation set, and optional citation description. It does not rewrite, upload or task an instrument with the input packet.
+The CLI emits a JSON packet projection with its header, Who fields, source-preserving WhereWhen tree, citation set and optional citation description. It does not rewrite, upload or task an instrument with the input packet.
 
 ## Lifecycle semantics
 
@@ -40,18 +43,18 @@ The separate [VOEvent lifecycle replay package](../voevent-lifecycle/README.md) 
 
 This is a bounded extraction profile, not a complete VOEvent 2.1 XSD validator or a source trust service. In particular it does not yet parse or qualify:
 
-- Who, What, WhereWhen, How, Why, References, full follow-up content or external content;
-- full STC coordinate/time/frame semantics;
+- What, How, Why, References, full follow-up content or external content;
+- full VOEvent XSD conformance, STC interpretation, transform/ephemeris validation or physical coordinate qualification;
 - IVOID registry resolution or publisher authentication;
 - XML signatures;
 - source rights or artifact retrieval permissions;
 - source independence, calibration applicability or instrument authority;
 - scientific event reality or astrophysical hypotheses.
 
-The original packet bytes and digest remain authoritative. Parsed fields are a derived projection tied to this parser version. A valid header/citation extraction is not proof that the remainder of the packet is schema-valid or that the physical event occurred.
+The original packet bytes and digest remain authoritative. The WhereWhen tree is a source-preserving projection tied to this parser version, not a normalized coordinate model. A valid header/WhereWhen/citation extraction is not proof that the packet is XSD-valid, that a frame is understood, or that the physical event occurred.
 
 ## Frozen synthetic tests
 
-The library tests cover explicit and implicit packet roles, prediction/utility/test separation, unknown role, wrong/missing version, missing/invalid root, author and citation IVOIDs, optional/partial/duplicate Who curation fields, citation cardinality, missing/unknown cite relation, multiple citations, descriptions, XML character references, duplicate attributes, nested citation markup, DOCTYPE, multiple roots, malformed/incomplete XML, text outside the document root, oversized/non-UTF-8 input and retention of uninterpreted attributes.
+The library tests cover explicit and implicit packet roles, prediction/utility/test separation, unknown role, wrong/missing version, missing/invalid root, author and citation IVOIDs, optional/partial/duplicate Who curation fields, citation cardinality, missing/unknown cite relation, multiple citations, descriptions, XML character references, duplicate attributes, nested citation markup, WhereWhen frames, observatory vs observation locations, TimeInstant/TimeInterval, Position2D, named targets, units/UCDs, uncertainty, custom STC extensions, duplicate WhereWhen, DOCTYPE, multiple roots, malformed/incomplete XML, text outside the document root, oversized/non-UTF-8 input and retention of uninterpreted attributes.
 
 Synthetic unit cases are not real astronomical events and are not an IVOA conformance certification.
