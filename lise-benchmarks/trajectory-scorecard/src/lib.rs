@@ -375,7 +375,8 @@ fn evaluate_episode(
                     logical_id.to_owned(),
                     (operation_ref.to_owned(), idempotency.to_owned()),
                 );
-            }        }
+            }
+        }
 
         event_summaries.push(json!({
             "event_id": event_id,
