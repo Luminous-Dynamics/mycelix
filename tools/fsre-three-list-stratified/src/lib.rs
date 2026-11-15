@@ -458,13 +458,49 @@ fn pooled_ratio_diagnostic(strata: &[Stratum]) -> Option<Rational> {
 }
 
 fn source_relation_for(problem: &Problem) -> String {
-    // The single-stratum reference applies the same conservative rule.
-    analyze_single(&single_problem(problem, &problem.strata[0]))
-        .source_ancestry_relation
+    if problem
+        .source_ancestry
+        .iter()
+        .any(|path| path == "UNKNOWN")
+    {
+        return "UPSTREAM_ANCESTRY_UNKNOWN_INDEPENDENCE_WITHHELD".to_owned();
+    }
+    let ancestry = problem
+        .source_ancestry
+        .iter()
+        .map(|path| path.split('/').collect::<BTreeSet<_>>())
+        .collect::<Vec<_>>();
+    for left in 0..ancestry.len() {
+        for right in (left + 1)..ancestry.len() {
+            if !ancestry[left].is_disjoint(&ancestry[right]) {
+                return "SHARED_DECLARED_UPSTREAM_ANCESTRY".to_owned();
+            }
+        }
+    }
+    "DISTINCT_DECLARED_ANCESTRY_INDEPENDENCE_NOT_ESTABLISHED".to_owned()
 }
 
 pub fn analyze(problem: &Problem) -> Analysis {
     let source_ancestry_relation = source_relation_for(problem);
+    if problem.strata.is_empty() {
+        return Analysis {
+            problem: problem.clone(),
+            source_ancestry_relation,
+            strata_results: Vec::new(),
+            aggregate_status: "AGGREGATE_NOT_ESTABLISHED_NO_STRATA".to_owned(),
+            within_declared_strata_observed_union: None,
+            within_declared_strata_hidden_min: None,
+            within_declared_strata_hidden_max: None,
+            target_hidden_min: None,
+            target_hidden_max: None,
+            target_population_min: None,
+            target_population_max: None,
+            no_three_way_hidden_baseline: None,
+            no_three_way_population_baseline: None,
+            pooled_cross_product_ratio_diagnostic: None,
+            aggregate_numeric_overflow: false,
+        };
+    }
     let strata_results = problem
         .strata
         .iter()
@@ -769,7 +805,8 @@ impl Analysis {
             self.aggregate_numeric_overflow
         )
         .expect("String write");
-        out.push_str("stratum_theta_intervals=INDEPENDENT_DECLARED_SENSITIVITY_ASSUMPTIONS\n");
+        out.push_str("stratum_theta_intervals=SEPARATE_DECLARED_SENSITIVITY_INTERVALS\n");
+        out.push_str("cross_stratum_restrictions=NONE_DECLARED_CARTESIAN_PRODUCT_ASSUMPTION\n");
         out.push_str("stratified_interval=SUM_OF_PER_STRATUM_INTERVAL_ENDPOINTS\n");
         out.push_str("population_total_requires_complete_frame_and_strata_universe=true\n");
         out.push_str("three_way_theta_interval=DECLARED_SENSITIVITY_NOT_SAMPLING_CI\n");
