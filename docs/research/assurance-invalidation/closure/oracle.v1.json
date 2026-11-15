@@ -1,0 +1,146 @@
+{
+  "corpus_id": "LISE-INV-CLOSURE-12-v1",
+  "status": "public_development_oracle",
+  "disclosure": "Public expected impact-closure results; calibration only.",
+  "outcome_count": 12,
+  "outcomes": [
+    {
+      "scenario_id": "CLOSE-001",
+      "affected_claim_nodes": [],
+      "unknown_claim_nodes": [],
+      "unaffected_claim_nodes": [
+        "claim:current-authority",
+        "claim:historical-integrity"
+      ],
+      "rejected_event_ids": [],
+      "reason_code": "NO_QUALIFIED_CHANGE"
+    },
+    {
+      "scenario_id": "CLOSE-002",
+      "affected_claim_nodes": [
+        "claim:current-authority"
+      ],
+      "unknown_claim_nodes": [],
+      "unaffected_claim_nodes": [
+        "claim:historical-integrity"
+      ],
+      "rejected_event_ids": [],
+      "reason_code": "KEY_ROTATION_REACHES_CURRENT_AUTHORITY_ONLY"
+    },
+    {
+      "scenario_id": "CLOSE-003",
+      "affected_claim_nodes": [],
+      "unknown_claim_nodes": [],
+      "unaffected_claim_nodes": [
+        "claim:current-effect-auth",
+        "claim:historic-decision"
+      ],
+      "rejected_event_ids": [],
+      "reason_code": "NO_QUALIFIED_POLICY_CHANGE"
+    },
+    {
+      "scenario_id": "CLOSE-004",
+      "affected_claim_nodes": [
+        "claim:current-effect-auth"
+      ],
+      "unknown_claim_nodes": [],
+      "unaffected_claim_nodes": [
+        "claim:historic-decision"
+      ],
+      "rejected_event_ids": [],
+      "reason_code": "TRANSITIVE_IMPORT_DEPENDENCY_REACHES_EFFECT_AUTHORITY"
+    },
+    {
+      "scenario_id": "CLOSE-005",
+      "affected_claim_nodes": [],
+      "unknown_claim_nodes": [],
+      "unaffected_claim_nodes": [
+        "claim:model-behavior",
+        "claim:policy-semantics"
+      ],
+      "rejected_event_ids": [],
+      "reason_code": "NO_QUALIFIED_CHANGE"
+    },
+    {
+      "scenario_id": "CLOSE-006",
+      "affected_claim_nodes": [
+        "claim:model-behavior"
+      ],
+      "unknown_claim_nodes": [],
+      "unaffected_claim_nodes": [
+        "claim:policy-semantics"
+      ],
+      "rejected_event_ids": [],
+      "reason_code": "ONLY_DEPENDENT_MODEL_BEHAVIOR_CLAIM_IS_AFFECTED"
+    },
+    {
+      "scenario_id": "CLOSE-007",
+      "affected_claim_nodes": [],
+      "unknown_claim_nodes": [],
+      "unaffected_claim_nodes": [
+        "claim:complete-mediation",
+        "claim:pep-identity"
+      ],
+      "rejected_event_ids": [],
+      "reason_code": "NO_ROUTE_CHANGE"
+    },
+    {
+      "scenario_id": "CLOSE-008",
+      "affected_claim_nodes": [
+        "claim:complete-mediation"
+      ],
+      "unknown_claim_nodes": [],
+      "unaffected_claim_nodes": [
+        "claim:pep-identity"
+      ],
+      "rejected_event_ids": [],
+      "reason_code": "NEW_ROUTE_AFFECTS_MEDIATION_NOT_PEP_IDENTITY"
+    },
+    {
+      "scenario_id": "CLOSE-009",
+      "affected_claim_nodes": [],
+      "unknown_claim_nodes": [],
+      "unaffected_claim_nodes": [
+        "claim:route-completeness",
+        "claim:static-tests"
+      ],
+      "rejected_event_ids": [],
+      "reason_code": "COMPLETE_ROUTE_INVENTORY_UNCHANGED"
+    },
+    {
+      "scenario_id": "CLOSE-010",
+      "affected_claim_nodes": [],
+      "unknown_claim_nodes": [
+        "claim:route-completeness"
+      ],
+      "unaffected_claim_nodes": [
+        "claim:static-tests"
+      ],
+      "rejected_event_ids": [],
+      "reason_code": "INCOMPLETE_ROUTE_COVERAGE_MARKS_ONLY_ROUTE_CLAIM_UNKNOWN"
+    },
+    {
+      "scenario_id": "CLOSE-011",
+      "affected_claim_nodes": [],
+      "unknown_claim_nodes": [],
+      "unaffected_claim_nodes": [
+        "claim:observer-independence",
+        "claim:observation-authenticity"
+      ],
+      "rejected_event_ids": [],
+      "reason_code": "NO_SHARED_DEPENDENCY_DISCOVERED"
+    },
+    {
+      "scenario_id": "CLOSE-012",
+      "affected_claim_nodes": [
+        "claim:observer-independence"
+      ],
+      "unknown_claim_nodes": [],
+      "unaffected_claim_nodes": [
+        "claim:observation-authenticity"
+      ],
+      "rejected_event_ids": [],
+      "reason_code": "COMMON_CAUSE_AFFECTS_INDEPENDENCE_NOT_RECORD_AUTHENTICITY"
+    }
+  ]
+}
