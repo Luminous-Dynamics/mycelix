@@ -18,10 +18,7 @@ fn read_bounded(path: &std::ffi::OsStr, limit: u64, label: &str) -> Result<Vec<u
         .read_to_end(&mut bytes)
         .map_err(|error| format!("cannot read {label}: {error}"))?;
     if bytes.len() as u64 > limit {
-        return Err(format!(
-            "{label} exceeds the {} byte input limit",
-            limit
-        ));
+        return Err(format!("{label} exceeds the {} byte input limit", limit));
     }
     Ok(bytes)
 }
@@ -48,7 +45,8 @@ fn run() -> Result<(), String> {
     }
 
     let journal_bytes = read_bounded(&journal_path, MAX_JOURNAL_BYTES, "receipt journal")?;
-    let checkpoint_bytes = read_bounded(&checkpoint_path, MAX_CHECKPOINT_BYTES, "trusted checkpoint")?;
+    let checkpoint_bytes =
+        read_bounded(&checkpoint_path, MAX_CHECKPOINT_BYTES, "trusted checkpoint")?;
 
     let manifest: ReceiptJournalManifest = serde_json::from_slice(&journal_bytes)
         .map_err(|error| format!("invalid receipt journal JSON: {error}"))?;
