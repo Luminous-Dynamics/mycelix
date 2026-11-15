@@ -1541,8 +1541,8 @@ mod tests {
         let exported = render_mps(&fixture()).unwrap();
         assert_eq!(exported, include_str!("../fixtures/reduced-columns-optimal.mps.expected.txt"));
         assert!(exported.contains(" MAX\n"));
-        assert!(exported.contains("    x1                      OBJ                      3\n"));
-        assert!(exported.contains("    x1                      mass-upper              1\n"));
+        assert!(exported.contains("    x1                       OBJ                      3\n"));
+        assert!(exported.contains("    x1                       total-cap                1\n"));
     }
 
     #[test]
