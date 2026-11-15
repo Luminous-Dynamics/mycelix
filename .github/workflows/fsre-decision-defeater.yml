@@ -7,7 +7,9 @@ on:
       - 'research/fsre/DECISION_DEFEATER_ANALYSIS_BENCHMARK_V0_1.md'
       - '.github/workflows/fsre-decision-defeater.yml'
   push:
-    branches: [main]
+    branches:
+      - main
+      - research/fsre-decision-defeater-oracle-v0.1
     paths:
       - 'tools/fsre-decision-defeater/**'
       - 'research/fsre/DECISION_DEFEATER_ANALYSIS_BENCHMARK_V0_1.md'
