@@ -40,7 +40,7 @@ fn contains_string(
         .any(|item| item.as_str() == Some(expected)))
 }
 
-fn timestamp(value: &Value, key: &str, context: &str) -> Result<&str, String> {
+fn timestamp<'a>(value: &'a Value, key: &str, context: &str) -> Result<&'a str, String> {
     let result = string(value, key, context)?;
     let b = result.as_bytes();
     if b.len() != 20
