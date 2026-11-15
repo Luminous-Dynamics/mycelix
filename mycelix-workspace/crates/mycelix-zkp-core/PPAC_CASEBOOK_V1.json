@@ -6,7 +6,7 @@
   "status": "design_fixture_specification",
   "created_at": "2026-11-15",
   "synthetic_only": true,
-  "case_count": 35,
+  "case_count": 42,
   "oracle_status": "not_adjudicated",
   "execution_status": "not_run",
   "labels_are_provisional": true,
@@ -22,7 +22,8 @@
     "crypto_agility": "Every signature, KEM, commitment, proof, hash, recursion and verifier-root layer must be classified independently; transport PQ status cannot promote the whole PPAC profile.",
     "consent_voluntariness": "Authenticate exact consent bytes and key/session, but do not infer comprehension, legal capacity, free choice or absence of coercion from the signature. Human/process evidence and contestability remain separate.",
     "revocation": "Treat revocation as prospective withdrawal; preserve prior disclosure/effect history and require separate evidence for retention/deletion/onward-use obligations.",
-    "request_bound_guest": "The separate request-bound guest must bind all declared public request semantics; a valid request digest does not establish issuer signature verification or commitment opening."
+    "request_bound_guest": "The separate request-bound guest must bind all declared public request semantics; a valid request digest does not establish issuer signature verification or commitment opening.",
+    "tls_notary": "A TLSNotary session/attestation proves only the exact TLS transcript/session claim under its declared mode and trust profile. The application parser, exact selector and private witness must be joined to the same transcript commitment. Server origin does not establish provider truth, account ownership or issuer authority."
   },
   "disposition_vocabulary": [
     "QUALIFIED_CLAIM_CANDIDATE",
@@ -34,7 +35,9 @@
     "DELIVERY_UNKNOWN_NO_REISSUE",
     "BLOCKED_BY_QUARANTINE",
     "TYPED_REJECTION_NO_PANIC",
-    "REQUEST_BOUND_CANDIDATE"
+    "REQUEST_BOUND_CANDIDATE",
+    "TLS_SOURCE_CANDIDATE",
+    "SOURCE_PROVENANCE_ONLY"
   ],
   "cases": [
     {
@@ -886,6 +889,185 @@
       "owners": [
         "Symthaea PR #12295"
       ]
+    },
+    {
+      "id": "PPAC-TLS-001",
+      "family": "tlsnotary-source-join",
+      "kind": "positive",
+      "base_case": null,
+      "scenario": "The exact TLSNotary transcript/session evidence, server identity, selected HTTP response field, parser profile and ZK commitment opening are all bound to the same private predicate witness and request.",
+      "facts": {
+        "tls_session": "MPC_TLS_profile_qualified",
+        "server_identity": "verified_for_expected_origin",
+        "session_header": "verified",
+        "transcript_commitment": "valid",
+        "selector": "exact",
+        "parser_profile": "pinned",
+        "private_witness_opening": "valid_for_same_committed_field",
+        "predicate": "valid",
+        "guest_image": "expected"
+      },
+      "mutation": null,
+      "expected_gate": "tls_transcript_commitment_join",
+      "provisional_disposition": "TLS_SOURCE_CANDIDATE",
+      "invariant": "Only a proof that joins the same committed transcript field to the private witness can support the private predicate; a session attestation alone is insufficient.",
+      "owners": [
+        "Mycelix #6245",
+        "#2640",
+        "#2641",
+        "#2821",
+        "Symthaea #12269",
+        "Symthaea PR #12295"
+      ]
+    },
+    {
+      "id": "PPAC-TLS-NEG-001",
+      "family": "tlsnotary-source-join",
+      "kind": "negative",
+      "base_case": "PPAC-TLS-001",
+      "scenario": "The TLS proof identifies a different server name, certificate, request method, path, query profile or redirect origin than the source profile expected by the relying application.",
+      "facts": {
+        "session": "cryptographically_valid",
+        "origin_or_request_profile": "mismatch"
+      },
+      "mutation": {
+        "field": "server_or_request_profile",
+        "from": "exact_expected_profile",
+        "to": "different_profile"
+      },
+      "expected_gate": "tls_server_and_request_profile_binding",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "Cryptographic authenticity of a session does not permit substituting another endpoint or request.",
+      "owners": [
+        "Mycelix #6245",
+        "#2640",
+        "#2821"
+      ]
+    },
+    {
+      "id": "PPAC-TLS-NEG-002",
+      "family": "tlsnotary-source-join",
+      "kind": "negative",
+      "base_case": "PPAC-TLS-001",
+      "scenario": "The transcript commitment is valid, but a different JSON parser version, selector, duplicate-key policy or content-decoding profile extracts the claim.",
+      "facts": {
+        "transcript_commitment": "valid",
+        "parser_profile": "changed",
+        "selector": "changed_or_ambiguous"
+      },
+      "mutation": {
+        "field": "parser_or_selector_profile",
+        "from": "pinned_expected",
+        "to": "different_or_ambiguous"
+      },
+      "expected_gate": "exact_parser_schema_and_selector_binding",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "Authentic bytes do not guarantee identical semantic extraction under different parsers or schemas.",
+      "owners": [
+        "Mycelix #6245",
+        "#2640",
+        "EPI-002 #2616",
+        "EPI-004 #2624"
+      ]
+    },
+    {
+      "id": "PPAC-TLS-NEG-003",
+      "family": "tlsnotary-source-join",
+      "kind": "negative",
+      "base_case": "PPAC-TLS-001",
+      "scenario": "The Symthaea private witness satisfies the threshold but does not open the selected value committed by the TLSNotary transcript.",
+      "facts": {
+        "tls_commitment": "valid",
+        "private_witness": "different_value",
+        "predicate": "true_for_substituted_value"
+      },
+      "mutation": {
+        "field": "private_witness_opening",
+        "from": "opens_selected_tls_field",
+        "to": "unrelated_or_substituted_value"
+      },
+      "expected_gate": "tls_commitment_opening_inside_private_predicate_proof",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "The prover cannot pair a valid origin proof with a separately chosen private value.",
+      "owners": [
+        "Mycelix #6245",
+        "Symthaea #12269",
+        "Symthaea PR #12295"
+      ]
+    },
+    {
+      "id": "PPAC-TLS-NEG-004",
+      "family": "tlsnotary-source-join",
+      "kind": "negative",
+      "base_case": "PPAC-TLS-001",
+      "scenario": "The endpoint response is authentically delivered over TLS but the provider's value is stale, semantically false, unrelated to the claimant or not evidence of account ownership.",
+      "facts": {
+        "tls_origin": "valid",
+        "provider_semantics": "false_or_stale_or_unqualified",
+        "account_ownership": "not_established"
+      },
+      "mutation": {
+        "field": "provider_semantics_and_subject_authority",
+        "from": "qualified_domain_profile",
+        "to": "unknown_or_false"
+      },
+      "expected_gate": "provider_claim_semantics_and_subject_authority",
+      "provisional_disposition": "SOURCE_PROVENANCE_ONLY",
+      "invariant": "TLS proves a bounded origin/session proposition, not oracle truth, issuer authority, account ownership or legal beneficial ownership.",
+      "owners": [
+        "Mycelix #6245",
+        "#2821",
+        "Mycelix PEC #2109/#2110",
+        "LISE #6219"
+      ]
+    },
+    {
+      "id": "PPAC-TLS-NEG-005",
+      "family": "tlsnotary-source-join",
+      "kind": "negative",
+      "base_case": "PPAC-TLS-001",
+      "scenario": "A proxy-mode proof is admitted under the stronger MPC-TLS profile even though the verifier-to-server network-path assumption is unreviewed or violated.",
+      "facts": {
+        "proof": "valid_proxy_mode",
+        "profile_expected": "MPC_TLS",
+        "network_path": "unknown_or_hijacked"
+      },
+      "mutation": {
+        "field": "tlsnotary_protocol_mode",
+        "from": "MPC_TLS",
+        "to": "Proxy"
+      },
+      "expected_gate": "exact_tlsnotary_mode_and_network_assumption",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "Proxy mode and MPC-TLS are distinct security profiles; performance cannot upgrade the proxy trust model.",
+      "owners": [
+        "Mycelix #6245",
+        "TLSNotary Proxy Mode profile"
+      ]
+    },
+    {
+      "id": "PPAC-TLS-AMB-001",
+      "family": "tlsnotary-source-join",
+      "kind": "ambiguous",
+      "base_case": "PPAC-TLS-001",
+      "scenario": "An offline Session Header is signed by a notary, but the relying verifier has no current trusted notary profile, signer authorization or policy evidence for that attestation.",
+      "facts": {
+        "session_header": "signature_valid",
+        "notary_identity": "known_string_only",
+        "notary_trust_profile": "missing_or_stale"
+      },
+      "mutation": {
+        "field": "notary_trust_profile",
+        "from": "qualified_current",
+        "to": "unknown_or_stale"
+      },
+      "expected_gate": "offline_notary_attestation_qualification",
+      "provisional_disposition": "INDETERMINATE",
+      "invariant": "A valid signature from an unqualified notary does not establish trusted source provenance.",
+      "owners": [
+        "Mycelix #6245",
+        "Mycelix #2000"
+      ]
     }
   ],
   "nonclaims": [
@@ -897,6 +1079,8 @@
     "A PQ-capable Xenia session does not make a BBS pairing-based credential or arbitrary ZK backend post-quantum.",
     "The casebook does not prove informed or uncoerced human consent.",
     "Consent revocation does not demonstrate deletion of data already disclosed to a recipient.",
-    "Request-context binding by the Symthaea request-bound guest is not issuer-source authentication and does not prove that the private balance opens the referenced source statement."
+    "Request-context binding by the Symthaea request-bound guest is not issuer-source authentication and does not prove that the private balance opens the referenced source statement.",
+    "The casebook does not establish that TLSNotary commitments can currently be opened/verified by the Symthaea request-bound RISC Zero guest.",
+    "A TLSNotary source-session proof does not solve the provider oracle problem or establish legal account ownership."
   ]
 }
