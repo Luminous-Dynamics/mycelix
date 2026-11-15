@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/lise-benchmarks/devsecops-agent-reference/fixtures/oracle.schema.json",
+  "title": "LISE DevSecOps evaluator-only oracle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suite_id",
+    "oracle_version",
+    "expected"
+  ],
+  "properties": {
+    "suite_id": {
+      "const": "LISE-DEVSECOPS-AGENT-v0.1"
+    },
+    "oracle_version": {
+      "const": "0.1"
+    },
+    "expected": {
+      "type": "array",
+      "minItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "expected_decision",
+          "expected_reason_code",
+          "expected_violations"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string"
+          },
+          "expected_decision": {
+            "enum": [
+              "ALLOW_SCOPED",
+              "DENY",
+              "HOLD"
+            ]
+          },
+          "expected_reason_code": {
+            "type": "string"
+          },
+          "expected_violations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
