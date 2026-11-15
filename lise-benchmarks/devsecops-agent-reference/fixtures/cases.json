@@ -48,7 +48,8 @@
         "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       "policy": {
-        "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "trusted_oidc_issuers": []
       }
     },
     {
@@ -97,7 +98,8 @@
         "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       "policy": {
-        "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "trusted_oidc_issuers": []
       }
     },
     {
@@ -145,7 +147,8 @@
         "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       "policy": {
-        "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "trusted_oidc_issuers": []
       },
       "human_approval": {
         "state": "approved",
@@ -209,7 +212,8 @@
         "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       "policy": {
-        "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "trusted_oidc_issuers": []
       },
       "human_approval": {
         "state": "approved",
@@ -278,6 +282,9 @@
         "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "trusted_builder_ids": [
           "https://github.com/Luminous-Dynamics/ci-build-platforms/hosted-runner-v1"
+        ],
+        "trusted_oidc_issuers": [
+          "https://token.actions.githubusercontent.com"
         ]
       },
       "human_approval": {
@@ -303,7 +310,10 @@
         "workflow_ref": "Luminous-Dynamics/mycelix/.github/workflows/release.yml@refs/heads/main",
         "workflow_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "state": "verified",
-        "observed_at": "2026-03-10T10:45:00Z"
+        "observed_at": "2026-03-10T10:45:00Z",
+        "issuer": "https://token.actions.githubusercontent.com",
+        "valid_from": "2026-01-01T00:00:00Z",
+        "valid_through": "2026-03-10T12:00:00Z"
       },
       "artifact_attestation": {
         "state": "verified",
@@ -368,6 +378,9 @@
         "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "trusted_builder_ids": [
           "https://github.com/Luminous-Dynamics/ci-build-platforms/hosted-runner-v1"
+        ],
+        "trusted_oidc_issuers": [
+          "https://token.actions.githubusercontent.com"
         ]
       },
       "human_approval": {
@@ -393,7 +406,10 @@
         "workflow_ref": "Luminous-Dynamics/mycelix/.github/workflows/release.yml@refs/heads/main",
         "workflow_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "state": "verified",
-        "observed_at": "2026-03-10T10:45:00Z"
+        "observed_at": "2026-03-10T10:45:00Z",
+        "issuer": "https://token.actions.githubusercontent.com",
+        "valid_from": "2026-01-01T00:00:00Z",
+        "valid_through": "2026-03-10T12:00:00Z"
       },
       "artifact_attestation": {
         "state": "verified",
@@ -458,6 +474,9 @@
         "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "trusted_builder_ids": [
           "https://github.com/Luminous-Dynamics/ci-build-platforms/hosted-runner-v1"
+        ],
+        "trusted_oidc_issuers": [
+          "https://token.actions.githubusercontent.com"
         ]
       },
       "human_approval": {
@@ -483,7 +502,10 @@
         "workflow_ref": "Luminous-Dynamics/mycelix/.github/workflows/release.yml@refs/heads/main",
         "workflow_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "state": "verified",
-        "observed_at": "2026-03-10T10:45:00Z"
+        "observed_at": "2026-03-10T10:45:00Z",
+        "issuer": "https://token.actions.githubusercontent.com",
+        "valid_from": "2026-01-01T00:00:00Z",
+        "valid_through": "2026-03-10T12:00:00Z"
       },
       "artifact_attestation": {
         "state": "verified",
@@ -548,6 +570,9 @@
         "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "trusted_builder_ids": [
           "https://github.com/Luminous-Dynamics/ci-build-platforms/hosted-runner-v1"
+        ],
+        "trusted_oidc_issuers": [
+          "https://token.actions.githubusercontent.com"
         ]
       },
       "human_approval": {
@@ -573,7 +598,10 @@
         "workflow_ref": "Luminous-Dynamics/mycelix/.github/workflows/release.yml@refs/heads/main",
         "workflow_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "state": "verified",
-        "observed_at": "2026-03-10T10:45:00Z"
+        "observed_at": "2026-03-10T10:45:00Z",
+        "issuer": "https://token.actions.githubusercontent.com",
+        "valid_from": "2026-01-01T00:00:00Z",
+        "valid_through": "2026-03-10T12:00:00Z"
       },
       "artifact_attestation": {
         "state": "verified",
@@ -638,6 +666,9 @@
         "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "trusted_builder_ids": [
           "https://github.com/Luminous-Dynamics/ci-build-platforms/hosted-runner-v1"
+        ],
+        "trusted_oidc_issuers": [
+          "https://token.actions.githubusercontent.com"
         ]
       },
       "human_approval": {
@@ -663,7 +694,10 @@
         "workflow_ref": "Luminous-Dynamics/mycelix/.github/workflows/release.yml@refs/heads/main",
         "workflow_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "state": "verified",
-        "observed_at": "2026-03-10T10:45:00Z"
+        "observed_at": "2026-03-10T10:45:00Z",
+        "issuer": "https://token.actions.githubusercontent.com",
+        "valid_from": "2026-01-01T00:00:00Z",
+        "valid_through": "2026-03-10T12:00:00Z"
       },
       "artifact_attestation": {
         "state": "verified",
@@ -735,7 +769,8 @@
         "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "trusted_builder_ids": [
           "https://github.com/Luminous-Dynamics/ci-build-platforms/hosted-runner-v1"
-        ]
+        ],
+        "trusted_oidc_issuers": []
       }
     },
     {
@@ -784,7 +819,8 @@
         "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       "policy": {
-        "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "trusted_oidc_issuers": []
       }
     },
     {
@@ -833,7 +869,8 @@
         "policy_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
       },
       "policy": {
-        "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "trusted_oidc_issuers": []
       }
     },
     {
@@ -885,7 +922,8 @@
       },
       "policy": {
         "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-        "trusted_builder_ids": []
+        "trusted_builder_ids": [],
+        "trusted_oidc_issuers": []
       }
     },
     {
@@ -936,7 +974,8 @@
       },
       "policy": {
         "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-        "trusted_builder_ids": []
+        "trusted_builder_ids": [],
+        "trusted_oidc_issuers": []
       },
       "human_approval": {
         "state": "approved",
@@ -1003,7 +1042,8 @@
       },
       "policy": {
         "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-        "trusted_builder_ids": []
+        "trusted_builder_ids": [],
+        "trusted_oidc_issuers": []
       },
       "human_approval": {
         "state": "approved",
@@ -1026,6 +1066,102 @@
             "observed_at": "2026-03-10T10:50:00Z"
           }
         ]
+      }
+    },
+    {
+      "case_id": "DOPS-016",
+      "principal": {
+        "principal_ref": "CI-WORKLOAD-01",
+        "kind": "ci_workload"
+      },
+      "request": {
+        "prior_effect_state": "never_attempted",
+        "retry_count": 0,
+        "action_at": "2026-03-10T11:00:00Z",
+        "known_at": "2026-03-10T11:00:00Z",
+        "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "workflow_ref": "Luminous-Dynamics/mycelix/.github/workflows/release.yml@refs/heads/main",
+        "workflow_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "action": "deploy_production",
+        "repository": "Luminous-Dynamics/mycelix",
+        "branch": "main",
+        "environment": "production",
+        "purpose": "release_approved_build",
+        "expected_audience": "https://github.com/Luminous-Dynamics/mycelix",
+        "workflow_run_id": "run-20260310-001"
+      },
+      "grant": {
+        "principal_ref": "CI-WORKLOAD-01",
+        "actions": [
+          "deploy_production"
+        ],
+        "repositories": [
+          "Luminous-Dynamics/mycelix"
+        ],
+        "branches": [
+          "main"
+        ],
+        "environments": [
+          "production"
+        ],
+        "purposes": [
+          "release_approved_build"
+        ],
+        "state": "active",
+        "valid_from": "2026-01-01T00:00:00Z",
+        "valid_through": "2026-12-31T23:59:59Z",
+        "observed_at": "2026-03-10T10:00:00Z",
+        "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "policy": {
+        "current_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "trusted_builder_ids": [
+          "https://github.com/Luminous-Dynamics/ci-build-platforms/hosted-runner-v1"
+        ],
+        "trusted_oidc_issuers": [
+          "https://token.actions.githubusercontent.com"
+        ]
+      },
+      "human_approval": {
+        "state": "approved",
+        "approver_ref": "TRUSTEE-01",
+        "approver_kind": "human",
+        "reviewer_qualified": true,
+        "approved_head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "repository": "Luminous-Dynamics/mycelix",
+        "branch": "main",
+        "environment": "production",
+        "action": "deploy_production",
+        "approved_at": "2026-03-10T10:30:00Z",
+        "observed_at": "2026-03-10T10:30:10Z",
+        "valid_through": "2026-03-10T11:30:00Z",
+        "status_events": []
+      },
+      "workload_identity": {
+        "subject_ref": "CI-WORKLOAD-01",
+        "audience": "https://github.com/Luminous-Dynamics/mycelix",
+        "repository": "Luminous-Dynamics/mycelix",
+        "workflow_ref": "Luminous-Dynamics/mycelix/.github/workflows/release.yml@refs/heads/main",
+        "workflow_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "state": "verified",
+        "observed_at": "2026-03-10T10:45:00Z",
+        "issuer": "https://token.actions.githubusercontent.com",
+        "valid_from": "2026-01-01T00:00:00Z",
+        "valid_through": "2026-03-10T10:59:59Z"
+      },
+      "artifact_attestation": {
+        "state": "verified",
+        "signer_trusted": true,
+        "subject_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "commit_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "workflow_ref": "Luminous-Dynamics/mycelix/.github/workflows/release.yml@refs/heads/main",
+        "workflow_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "observed_at": "2026-03-10T10:44:00Z",
+        "predicate_type": "https://slsa.dev/provenance/v1",
+        "builder_id": "https://github.com/Luminous-Dynamics/ci-build-platforms/hosted-runner-v1",
+        "invocation_id": "run-20260310-001"
       }
     }
   ]
