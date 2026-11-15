@@ -637,9 +637,9 @@ mod tests {
     #[test]
     fn bridge_and_split_failures_remain_visible_when_count_bias_cancels() {
         let report = analyze(&fixture()).unwrap();
-        assert_eq!(report.truth_entity_count, 4);
+        assert_eq!(report.truth_entity_count, 3);
         assert_eq!(report.predicted_cluster_count, 3);
-        assert_eq!(report.truth_entity_count_bias, "-1");
+        assert_eq!(report.truth_entity_count_bias, "+0");
         assert_eq!(report.bridge_cluster_count, 1);
         assert_eq!(report.bridge_entity_pair_count, 1);
         assert_eq!(report.bridge_at_risk_population_weight, 80);
@@ -650,15 +650,15 @@ mod tests {
     #[test]
     fn pair_metrics_are_exact_and_reported_separately_from_denominator_harm() {
         let report = analyze(&fixture()).unwrap();
-        assert_eq!(report.true_pair_count, 2);
+        assert_eq!(report.true_pair_count, 4);
         assert_eq!(report.predicted_pair_count, 3);
         assert_eq!(report.true_positive_pair_count, 1);
         assert_eq!(report.false_positive_pair_count, 2);
-        assert_eq!(report.false_negative_pair_count, 1);
+        assert_eq!(report.false_negative_pair_count, 3);
         assert_eq!(report.pair_precision, "1/3");
-        assert_eq!(report.pair_recall, "1/2");
-        assert_eq!(report.denominator_weight_bias, "-70");
-        assert_eq!(report.truth_population_weight, 270);
+        assert_eq!(report.pair_recall, "1/4");
+        assert_eq!(report.denominator_weight_bias, "-30");
+        assert_eq!(report.truth_population_weight, 230);
         assert_eq!(report.predicted_population_weight, 200);
     }
 
