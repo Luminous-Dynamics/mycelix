@@ -2,7 +2,7 @@
   "schema_version": "mycelix-tlsnotary-ppac-casebook-v1",
   "profile_id": "mycelix:source-session:tlsnotary-ppac:v1",
   "status": "research_only",
-  "case_count": 24,
+  "case_count": 34,
   "oracle_status": "not_adjudicated",
   "execution_status": "not_run",
   "owner_issues": [
@@ -36,6 +36,12 @@
       "witness": "verifier proxies encrypted traffic and verifies TLS proof",
       "portability": "profile-specific",
       "claim_ceiling": "includes verifier-to-server network-path assumption"
+    },
+    {
+      "id": "SCRIBE-ATTESTOR-STARK-V1",
+      "witness": "attestation node validates TLS provenance, extracts a field and signs a salted value commitment; client proves commitment/signature/policy in a transparent STARK",
+      "portability": "portable proof under explicit attestation-node, STARK and aggregator profiles",
+      "claim_ceiling": "the proof is linked to the attestor-signed extracted value; source extraction correctness inherits the attestation-node trust assumption"
     }
   ],
   "nonclaims": [
@@ -45,7 +51,10 @@
     "Proxy mode is not security-equivalent to MPC-TLS.",
     "Selective disclosure does not establish anonymity.",
     "A request-bound balance proof is not a TLS transcript commitment opening.",
-    "TLS 1.3 support must be established from the exact release, not roadmap language."
+    "TLS 1.3 support must be established from the exact release, not roadmap language.",
+    "Scribe-style salted commitment nullifiers do not guarantee account-level or person-level uniqueness across fresh salts.",
+    "Falcon-signed aggregator roots authenticate the root signer but do not by themselves prove append-only state transition correctness.",
+    "A circuit-friendly attestation signature is not automatically a standard or post-quantum signature."
   ],
   "cases": [
     {
@@ -239,6 +248,86 @@
       "scenario": "A receipt valid for a different Symthaea guest ImageID is offered to the request-bound predicate verifier.",
       "expected": "BLOCKED",
       "invariant": "The expected exact guest ImageID is verifier-owned."
+    },
+    {
+      "id": "SCRIBE-001",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "positive",
+      "scenario": "Attestation node witnesses the exact TLS session, applies a frozen extraction rule, signs a commitment, and the STARK proves the policy over the same committed value.",
+      "expected": "ATTESTOR_BOUND_PRIVATE_PREDICATE",
+      "invariant": "This is valid only under the declared attestation-node trust assumption and exact extraction profile."
+    },
+    {
+      "id": "SCRIBE-002",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "The same Web2 account obtains a second attestation using a fresh salt, producing a different commitment and different spend tag, then claims a second one-time entitlement.",
+      "expected": "BLOCKED_WHEN_ACCOUNT_OR_ENTITLEMENT_UNIQUENESS_REQUIRED",
+      "invariant": "A salted commitment-derived spend tag prevents same-tag replay, not necessarily repeat claims by the same account. Uniqueness subject and privacy-preserving subject binding must be explicit."
+    },
+    {
+      "id": "SCRIBE-003",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "The attestation node signs a value commitment without executing or verifying a genuine TLS provenance session.",
+      "expected": "TRUST_ROOT_FAILURE_OR_INDEPENDENT_WITNESS_REQUIRED",
+      "invariant": "Base Scribe-style security assumes the attestation node behaves correctly; a signature cannot prove the witness actually ran the protocol."
+    },
+    {
+      "id": "SCRIBE-004",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "A client substitutes application ID, server ID, extraction rule, data or salt after receiving an attestation signature.",
+      "expected": "BLOCKED",
+      "invariant": "Every authority/privacy-relevant field must be covered by one unambiguous, domain-separated commitment preimage and signature."
+    },
+    {
+      "id": "SCRIBE-005",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "An in-circuit attestation signature implementation is treated as EUF-CMA secure without exact construction review, multi-message analysis, key-lifecycle rules or independent cryptanalysis.",
+      "expected": "UNSUPPORTED",
+      "invariant": "Circuit-friendly does not mean standard, secure or post-quantum; theorem assumptions must match the exact deployed construction."
+    },
+    {
+      "id": "SCRIBE-006",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "Aggregator publishes a Falcon-signed new root that omits a previously accepted spend tag or equivocates between two roots.",
+      "expected": "BLOCKED_OR_EQUIVOCATION_EVIDENCE",
+      "invariant": "A signature authenticates the root signer; it does not prove append-only correctness, inclusion of accepted submissions or consistency with the prior root."
+    },
+    {
+      "id": "SCRIBE-007",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "Deployment labels the whole credential pipeline post-quantum because the aggregator root is Falcon-signed, while TLS and attestation signatures use classical assumptions.",
+      "expected": "CRYPTO_PROFILE_MISLABEL_BLOCKED",
+      "invariant": "Post-quantum status is layer-specific; PQ root authorization does not promote the attestation, TLS, commitment or complete protocol."
+    },
+    {
+      "id": "SCRIBE-008",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "A response has ambiguous JSON/canonicalization or duplicate-key interpretation and the attestation node and prover use different extraction semantics.",
+      "expected": "BLOCKED",
+      "invariant": "The exact parser/canonicalization and extraction-rule version must be frozen and bound into the signed commitment."
+    },
+    {
+      "id": "SCRIBE-009",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "A ZK proof reveals no private witness, but request timing, response size, attestation metadata or repeated queries correlate the same subject across sessions.",
+      "expected": "PRIVACY_PROFILE_FAILURE",
+      "invariant": "Proof zero-knowledge does not hide network metadata, timing, sizes or linkability across repeated predicates."
+    },
+    {
+      "id": "SCRIBE-010",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "An application-scoped spend tag is expected to guarantee legal-person uniqueness even though no domain-qualified subject binding connects accounts to that person.",
+      "expected": "UNSUPPORTED",
+      "invariant": "Account, legal person, credential, entitlement and application are distinct uniqueness subjects. A nullifier cannot prove real-world uniqueness by itself."
     }
   ]
 }
