@@ -1,0 +1,24 @@
+{
+  "packets": [
+    {
+      "receipt": {
+        "sequence": 1,
+        "received_at_unix_ms": 2000000,
+        "packet_sha256": "9e21c6573ad6578d65a1591da4396cbc4fd8cec1effbf57e1ad1015ae512198c",
+        "previous_receipt_sha256": "84bfd4769ea49f7f4659e5f8955dc2fdbf046b9932919bc0cd68e57e828313ac",
+        "receipt_sha256": "4d1ea31c8a46033f5a703d1600414e6c7dee31f627c15975a18aa7b1e4288774"
+      },
+      "raw_packet_xml": "<VOEvent ivorn=\"ivo://survey.example/event?one\" version=\"2.1\"><Who><AuthorIVORN>ivo://publisher.example/stream</AuthorIVORN><Date>2026-11-14T08:00:00Z</Date></Who><What/></VOEvent>"
+    },
+    {
+      "receipt": {
+        "sequence": 2,
+        "received_at_unix_ms": 1000000,
+        "packet_sha256": "3bbcc652cdfa17cc86eae16acfefe633a97beb63f6433cf6fa9d9111b0fe70da",
+        "previous_receipt_sha256": "4d1ea31c8a46033f5a703d1600414e6c7dee31f627c15975a18aa7b1e4288774",
+        "receipt_sha256": "cae093e4fdd40acdf7ec987adf247abbf56deb35e35af30c7e9c24df992fcb7c"
+      },
+      "raw_packet_xml": "<VOEvent ivorn=\"ivo://survey.example/event?two\" version=\"2.1\"><Citations><EventIVORN cite=\"followup\">ivo://survey.example/event?one</EventIVORN></Citations><What/></VOEvent>"
+    }
+  ]
+}
