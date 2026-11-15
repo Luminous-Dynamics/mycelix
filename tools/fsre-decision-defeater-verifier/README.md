@@ -17,8 +17,8 @@
 
 ```sh
 cargo fmt --manifest-path tools/fsre-decision-defeater-verifier/Cargo.toml -- --check
-cargo test --locked --offline --manifest-path tools/fsre-decision-defeater-verifier/Cargo.toml
-cargo run --quiet --locked --offline --manifest-path tools/fsre-decision-defeater-verifier/Cargo.toml -- verify tools/fsre-decision-defeater-verifier/fixtures/pump-station
+cargo test --locked --manifest-path tools/fsre-decision-defeater-verifier/Cargo.toml
+cargo run --quiet --locked --manifest-path tools/fsre-decision-defeater-verifier/Cargo.toml -- verify tools/fsre-decision-defeater-verifier/fixtures/pump-station
 ```
 
 ## Manifest schema
@@ -42,7 +42,7 @@ Evidence rows are sorted by reference. Filenames are single safe path components
 || exact_content_bytes
 ```
 
-Domains are `MANIFEST`, `INPUT`, `REPORT` and `EVIDENCE`. No text normalization occurs: changed whitespace or line endings in an input change its byte digest. The manifest is a versioned, fixed-schema transcript, not general JSON and not claimed to be RFC 8785 JCS.
+Domains are `MANIFEST`, `INPUT`, `REPORT` and `EVIDENCE`. No text normalization occurs: changed whitespace or line endings in an input change its byte digest. The manifest is a versioned, fixed-schema transcript, not general JSON and not claimed to be RFC 8785 JCS. The Rust verifier uses the standard `sha2` crate; its version and all transitive dependencies are pinned in the crate-local lockfile. CI resolves these locked crates from the registry rather than claiming a pre-vendored/offline build.
 
 ## Independent semantics
 
