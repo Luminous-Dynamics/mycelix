@@ -19,7 +19,8 @@
     "symthaea#12295",
     "mycelix#6251",
     "mycelix#6254",
-    "symthaea#12328"
+    "symthaea#12328",
+    "symthaea#12336"
   ],
   "modes": [
     {
@@ -676,5 +677,23 @@
       "disclosure": "TEE sees only the protocol inputs/ciphertext needed to act as verifier; plaintext and decryption remain on prover device",
       "trust": "TEE/vendor/image measurement anchors verifier integrity; cryptographic protocol anchors plaintext confidentiality"
     }
-  ]
+  ],
+  "parser_selector_candidate": {
+    "issue": "symthaea#12328",
+    "pull_request": "symthaea#12336",
+    "status": "draft_host_side_selector_only_not_compiled_or_executed",
+    "capabilities": [
+      "serde_json RawValue exact field token span",
+      "RFC 6901 JSON Pointer",
+      "duplicate decoded key rejection",
+      "resource limits",
+      "raw numeric lexeme preservation"
+    ],
+    "nonclaims": [
+      "not HTTP framing",
+      "not TLS transcript offset mapping",
+      "not TLSN commitment opening verification",
+      "not proof of source authenticity"
+    ]
+  }
 }
