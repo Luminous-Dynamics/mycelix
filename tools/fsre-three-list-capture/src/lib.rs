@@ -841,6 +841,121 @@ mod tests {
     }
 
     #[test]
+    fn cross_product_ratio_matches_independent_exhaustive_positive_tables() {
+        let patterns = ["100", "010", "001", "110", "101", "011", "111"];
+        for case_index in 0..16_384_u32 {
+            let mut code = case_index;
+            let mut problem = fixture();
+            let mut counts = [0_u128; 7];
+            for (index, pattern) in patterns.iter().enumerate() {
+                let value = u128::from((code % 4) + 1);
+                code /= 4;
+                counts[index] = value;
+                problem.counts.insert((*pattern).to_owned(), value as u64);
+            }
+            let numerator = counts[6] * counts[0] * counts[1] * counts[2];
+            let denominator = counts[3] * counts[4] * counts[5];
+            let expected = Rational::new(numerator, denominator).unwrap();
+            assert_eq!(cross_product_ratio(&problem), Some(expected));
+        }
+    }
+
+    #[test]
+    fn widening_theta_interval_never_narrows_hidden_cell_bounds() {
+        let narrow = analyze(&fixture());
+        let mut wide_problem = fixture();
+        wide_problem.theta_abc_min = Rational::new(1, 4).unwrap();
+        wide_problem.theta_abc_max = Some(Rational::new(4, 1).unwrap());
+        let wide = analyze(&wide_problem);
+
+        assert!(wide
+            .hidden_min
+            .unwrap()
+            .checked_cmp(narrow.hidden_min.unwrap())
+            .unwrap()
+            != Ordering::Greater);
+        assert!(wide
+            .hidden_max
+            .unwrap()
+            .checked_cmp(narrow.hidden_max.unwrap())
+            .unwrap()
+            != Ordering::Less);
+        assert_eq!(wide.hidden_min.unwrap().display(), "60");
+        assert_eq!(wide.hidden_max.unwrap().display(), "960");
+    }
+
+    #[test]
+    fn every_zero_observed_pattern_withholds_numeric_results() {
+        for pattern in PATTERNS {
+            let mut problem = fixture();
+            problem.counts.insert(pattern.to_owned(), 0);
+            let report = analyze(&problem);
+            assert_eq!(report.status, "NOT_IDENTIFIED_ZERO_OR_SPARSE_PATTERN");
+            assert_eq!(report.zero_patterns, vec![pattern.to_owned()]);
+            assert!(report.cross_product_ratio.is_none());
+            assert!(report.hidden_min.is_none());
+            assert!(report.hidden_max.is_none());
+            assert!(report.population_min.is_none());
+            assert!(report.population_max.is_none());
+        }
+    }
+
+    #[test]
+    fn unassumed_three_way_interaction_keeps_interval_but_withholds_baseline() {
+        let mut problem = fixture();
+        problem.three_way_interaction_assumption = "NOT_DECLARED".to_owned();
+        let report = analyze(&problem);
+        assert!(report.hidden_min.is_some());
+        assert!(report.hidden_max.is_some());
+        assert!(report.no_three_way_hidden_baseline.is_none());
+        assert!(report.no_three_way_population_baseline.is_none());
+        assert_eq!(
+            report.baseline_status,
+            "NOT_EMITTED_NO_THREE_WAY_INTERACTION_NOT_DECLARED"
+        );
+    }
+
+    #[test]
+    fn common_ancestry_between_any_pair_of_three_lists_withholds_baseline() {
+        for pair in [(0_usize, 1_usize), (0, 2), (1, 2)] {
+            let mut problem = fixture();
+            problem.source_ancestry[pair.0] =
+                format!("shared-root/source-{}", pair.0);
+            problem.source_ancestry[pair.1] =
+                format!("shared-root/source-{}", pair.1);
+            let report = analyze(&problem);
+            assert_eq!(
+                report.source_ancestry_relation,
+                "SHARED_DECLARED_UPSTREAM_ANCESTRY"
+            );
+            assert!(report.no_three_way_hidden_baseline.is_none());
+            assert!(report.hidden_min.is_some());
+            assert!(report.hidden_max.is_some());
+        }
+    }
+
+    #[test]
+    fn incomplete_population_scope_does_not_emit_population_baseline_or_total() {
+        let mut problem = fixture();
+        problem.population_frame_status = "NOT_ESTABLISHED".to_owned();
+        let report = analyze(&problem);
+        assert!(report.population_min.is_none());
+        assert!(report.population_max.is_none());
+        assert!(report.no_three_way_population_baseline.is_none());
+        assert!(report.no_three_way_hidden_baseline.is_none());
+        assert!(report.hidden_min.is_some());
+        assert!(report.hidden_max.is_some());
+    }
+
+    #[test]
+    fn missing_or_duplicate_observed_patterns_are_rejected() {
+        let missing = FIXTURE.replace("101|20\n", "");
+        assert!(parse_input(&missing).is_err());
+        let duplicate = FIXTURE.replace("101|20\n", "101|20\n101|20\n");
+        assert!(parse_input(&duplicate).is_err());
+    }
+
+    #[test]
     fn rational_arithmetic_reduces_and_rejects_overflow() {
         assert_eq!(Rational::new(2, 4).unwrap().display(), "1/2");
         assert_eq!(
