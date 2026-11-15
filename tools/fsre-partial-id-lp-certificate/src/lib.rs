@@ -111,6 +111,14 @@ impl Rational {
         Self::new(numerator, denominator)
     }
 
+    pub fn checked_neg(self) -> Result<Self, LpError> {
+        let numerator = self
+            .numerator
+            .checked_neg()
+            .ok_or_else(|| fail("rational negation overflow"))?;
+        Self::new(numerator, self.denominator)
+    }
+
     pub fn checked_mul(self, other: Self) -> Result<Self, LpError> {
         let numerator = self
             .numerator
@@ -217,6 +225,35 @@ pub struct Analysis {
     pub objective_lower_bound: Option<Rational>,
     pub objective_upper_bound: Option<Rational>,
     pub reduction: ReductionCheck,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExtremumDirection {
+    Minimum,
+    Maximum,
+}
+
+impl ExtremumDirection {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Minimum => "MINIMUM",
+            Self::Maximum => "MAXIMUM",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FiniteWorldValue {
+    pub world_id: String,
+    pub value: Rational,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FiniteWorldExtremum {
+    pub direction: ExtremumDirection,
+    pub value: Rational,
+    pub witness_world_id: String,
+    pub lp_analysis: Analysis,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -666,6 +703,153 @@ fn reduce_identical_columns(model: &LpModel) -> Result<(LpModel, Vec<ColumnClass
     Ok((reduced, classes))
 }
 
+pub fn finite_world_extremum_lp(
+    problem_id: &str,
+    scope_sha256: &str,
+    assumption_set_id: &str,
+    values: &[FiniteWorldValue],
+    direction: ExtremumDirection,
+) -> Result<(LpModel, String), LpError> {
+    if !valid_token(problem_id) || !valid_token(assumption_set_id) {
+        return Err(fail("finite-world problem and assumption IDs must be valid tokens"));
+    }
+    if !valid_sha256(scope_sha256) {
+        return Err(fail("finite-world scope digest must be 64 lowercase hexadecimal characters"));
+    }
+    if values.is_empty() || values.len() > MAX_COLUMNS {
+        return Err(fail(format!("finite-world value count must be in 1..={MAX_COLUMNS}")));
+    }
+
+    let mut sorted = values.to_vec();
+    sorted.sort_by_key(|value| value.world_id.clone());
+    let mut ids = BTreeSet::new();
+    for value in &sorted {
+        if !valid_token(&value.world_id) || !ids.insert(value.world_id.clone()) {
+            return Err(fail(format!("invalid or duplicate finite-world ID {}", value.world_id)));
+        }
+    }
+
+    let transformed = |value: Rational| -> Result<Rational, LpError> {
+        match direction {
+            ExtremumDirection::Maximum => Ok(value),
+            ExtremumDirection::Minimum => value.checked_neg(),
+        }
+    };
+
+    let mut objectives = BTreeMap::<String, Rational>::new();
+    let mut best_world_id = sorted[0].world_id.clone();
+    let mut best_objective = transformed(sorted[0].value)?;
+    for value in &sorted {
+        let objective = transformed(value.value)?;
+        objectives.insert(value.world_id.clone(), objective);
+        if objective.checked_cmp(best_objective)? == Ordering::Greater {
+            best_objective = objective;
+            best_world_id = value.world_id.clone();
+        }
+    }
+
+    let dual_upper = if best_objective.is_nonnegative() {
+        best_objective
+    } else {
+        Rational::zero()
+    };
+    let dual_lower = if best_objective.is_nonnegative() {
+        Rational::zero()
+    } else {
+        best_objective.checked_neg()?
+    };
+
+    let rows = vec![
+        LpRow {
+            id: "mass-upper".to_owned(),
+            rhs: Rational::one(),
+        },
+        LpRow {
+            id: "mass-lower".to_owned(),
+            rhs: Rational::new(-1, 1)?,
+        },
+    ];
+
+    let columns = sorted
+        .iter()
+        .map(|value| LpColumn {
+            id: format!("world-{}", value.world_id),
+            objective: objectives[&value.world_id],
+        })
+        .collect::<Vec<_>>();
+
+    let mut coefficients = BTreeMap::new();
+    let mut primal = BTreeMap::new();
+    for value in &sorted {
+        let column_id = format!("world-{}", value.world_id);
+        coefficients.insert(
+            ("mass-upper".to_owned(), column_id.clone()),
+            Rational::one(),
+        );
+        coefficients.insert(
+            ("mass-lower".to_owned(), column_id.clone()),
+            Rational::new(-1, 1)?,
+        );
+        primal.insert(
+            column_id,
+            if value.world_id == best_world_id {
+                Rational::one()
+            } else {
+                Rational::zero()
+            },
+        );
+    }
+
+    let dual = BTreeMap::from([
+        ("mass-upper".to_owned(), dual_upper),
+        ("mass-lower".to_owned(), dual_lower),
+    ]);
+
+    Ok((
+        LpModel {
+            problem_id: problem_id.to_owned(),
+            scope_sha256: scope_sha256.to_owned(),
+            assumption_set_id: assumption_set_id.to_owned(),
+            rows,
+            columns,
+            coefficients,
+            primal,
+            dual,
+        },
+        best_world_id,
+    ))
+}
+
+pub fn analyze_finite_world_extremum(
+    problem_id: &str,
+    scope_sha256: &str,
+    assumption_set_id: &str,
+    values: &[FiniteWorldValue],
+    direction: ExtremumDirection,
+) -> Result<FiniteWorldExtremum, LpError> {
+    let (model, witness_world_id) = finite_world_extremum_lp(
+        problem_id,
+        scope_sha256,
+        assumption_set_id,
+        values,
+        direction,
+    )?;
+    let lp_analysis = analyze(&model)?;
+    if lp_analysis.optimality_status != "OPTIMALITY_PROVEN_BY_EXACT_PRIMAL_DUAL_EQUALITY" {
+        return Err(fail("finite-world simplex LP did not produce an exact optimality certificate"));
+    }
+    let value = match direction {
+        ExtremumDirection::Maximum => lp_analysis.primal.objective,
+        ExtremumDirection::Minimum => lp_analysis.primal.objective.checked_neg()?,
+    };
+    Ok(FiniteWorldExtremum {
+        direction,
+        value,
+        witness_world_id,
+        lp_analysis,
+    })
+}
+
 pub fn analyze(model: &LpModel) -> Result<Analysis, LpError> {
     let primal = check_primal(model)?;
     let dual = check_dual(model)?;
@@ -1046,6 +1230,119 @@ mod tests {
             original,
             analyze(&parse_input(&section).unwrap()).unwrap().render()
         );
+    }
+
+    #[test]
+    fn finite_world_simplex_lp_matches_exact_enumerated_minimum_and_maximum() {
+        let values = vec![
+            FiniteWorldValue {
+                world_id: "world-a".to_owned(),
+                value: Rational::new(4, 1).unwrap(),
+            },
+            FiniteWorldValue {
+                world_id: "world-b".to_owned(),
+                value: Rational::new(7, 1).unwrap(),
+            },
+            FiniteWorldValue {
+                world_id: "world-c".to_owned(),
+                value: Rational::new(9, 1).unwrap(),
+            },
+        ];
+        let maximum = analyze_finite_world_extremum(
+            "finite-world-action-upper",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "finite-world-set-v1",
+            &values,
+            ExtremumDirection::Maximum,
+        )
+        .unwrap();
+        let minimum = analyze_finite_world_extremum(
+            "finite-world-action-lower",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "finite-world-set-v1",
+            &values,
+            ExtremumDirection::Minimum,
+        )
+        .unwrap();
+
+        assert_eq!(maximum.value.display(), "9");
+        assert_eq!(maximum.witness_world_id, "world-c");
+        assert_eq!(minimum.value.display(), "4");
+        assert_eq!(minimum.witness_world_id, "world-a");
+        assert_eq!(
+            maximum.lp_analysis.optimality_status,
+            "OPTIMALITY_PROVEN_BY_EXACT_PRIMAL_DUAL_EQUALITY"
+        );
+        assert_eq!(
+            minimum.lp_analysis.optimality_status,
+            "OPTIMALITY_PROVEN_BY_EXACT_PRIMAL_DUAL_EQUALITY"
+        );
+    }
+
+    #[test]
+    fn finite_world_simplex_bridge_supports_negative_and_rational_values() {
+        let values = vec![
+            FiniteWorldValue {
+                world_id: "world-a".to_owned(),
+                value: Rational::new(-7, 3).unwrap(),
+            },
+            FiniteWorldValue {
+                world_id: "world-b".to_owned(),
+                value: Rational::new(-1, 2).unwrap(),
+            },
+            FiniteWorldValue {
+                world_id: "world-c".to_owned(),
+                value: Rational::new(-5, 4).unwrap(),
+            },
+        ];
+        let maximum = analyze_finite_world_extremum(
+            "finite-world-negative-upper",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "finite-world-set-v1",
+            &values,
+            ExtremumDirection::Maximum,
+        )
+        .unwrap();
+        let minimum = analyze_finite_world_extremum(
+            "finite-world-negative-lower",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            &values,
+            ExtremumDirection::Minimum,
+        )
+        .unwrap();
+        assert_eq!(maximum.value.display(), "-1/2");
+        assert_eq!(maximum.witness_world_id, "world-b");
+        assert_eq!(minimum.value.display(), "-7/3");
+        assert_eq!(minimum.witness_world_id, "world-a");
+    }
+
+    #[test]
+    fn finite_world_simplex_reduction_merges_only_equal_query_values() {
+        let values = vec![
+            FiniteWorldValue {
+                world_id: "world-a".to_owned(),
+                value: Rational::new(5, 1).unwrap(),
+            },
+            FiniteWorldValue {
+                world_id: "world-b".to_owned(),
+                value: Rational::new(5, 1).unwrap(),
+            },
+            FiniteWorldValue {
+                world_id: "world-c".to_owned(),
+                value: Rational::new(8, 1).unwrap(),
+            },
+        ];
+        let result = analyze_finite_world_extremum(
+            "finite-world-tied-states",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "finite-world-set-v1",
+            &values,
+            ExtremumDirection::Maximum,
+        )
+        .unwrap();
+        assert_eq!(result.lp_analysis.reduction.original_column_count, 3);
+        assert_eq!(result.lp_analysis.reduction.reduced_column_count, 2);
+        assert_eq!(result.value.display(), "8");
     }
 
     #[test]
