@@ -755,7 +755,7 @@ fn parse_where_when(packet: &[u8]) -> Result<Option<SourceElement>, ParseError> 
             }
             Event::Empty(element) => {
                 let name = element.name().as_ref().to_vec();
-                if document_stack.len() == 1 && name.as_slice() == b"WhereWhen" {
+                if document_stack.len() == 1 && xml_local_name(&name) == b"WhereWhen" {
                     if where_when_seen {
                         return Err(ParseError::DuplicateWhereWhen);
                     }
