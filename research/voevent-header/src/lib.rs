@@ -18,6 +18,8 @@ use thiserror::Error;
 
 pub const MAX_PACKET_BYTES: usize = 2 * 1024 * 1024;
 pub const VOEVENT_VERSION: &str = "2.1";
+/// Version of this parser implementation, embedded in every downstream replay receipt.
+pub const PARSER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]

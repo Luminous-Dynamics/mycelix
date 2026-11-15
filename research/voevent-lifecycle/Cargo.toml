@@ -1,0 +1,23 @@
+[workspace]
+members = ["."]
+resolver = "2"
+
+[package]
+name = "voevent-lifecycle-replay"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Parser-bound, receipt-time-bounded VOEvent lifecycle replay"
+license = "AGPL-3.0-or-later"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "voevent-lifecycle-replay"
+path = "src/bin/voevent-lifecycle-replay.rs"
+
+[dependencies]
+mycelix-voevent-header = { path = "../voevent-header", version = "=0.1.0" }
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.145"
