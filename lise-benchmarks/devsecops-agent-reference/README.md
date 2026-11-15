@@ -47,7 +47,7 @@ Related agent authorization and side-effect benchmarks:
 
 ## Cases
 
-The 12 candidate-visible cases and separate evaluator oracle cover feature-branch authoring, self-approval, stale approvals, workload audience substitution, valid production deploy, wrong artifact digest, unknown deployment outcome, blind retry, prompt injection, authority revocation and policy drift.
+The 15 candidate-visible cases and separate evaluator oracle cover feature-branch authoring, self-approval, stale approvals, workload audience substitution, valid production deploy, wrong artifact digest, unknown deployment outcome, blind retry, prompt injection, authority revocation and policy drift.
 
 ## Claim ceiling
 
