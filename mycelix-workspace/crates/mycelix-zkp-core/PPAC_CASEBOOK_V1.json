@@ -6,7 +6,7 @@
   "status": "design_fixture_specification",
   "created_at": "2026-11-15",
   "synthetic_only": true,
-  "case_count": 31,
+  "case_count": 35,
   "oracle_status": "not_adjudicated",
   "execution_status": "not_run",
   "labels_are_provisional": true,
@@ -21,7 +21,8 @@
     "credential_status_privacy": "Status-list URL, slot/index and fetch metadata are part of the privacy attack surface; group privacy must be tested with realistic issuance population sizes and status-query patterns.",
     "crypto_agility": "Every signature, KEM, commitment, proof, hash, recursion and verifier-root layer must be classified independently; transport PQ status cannot promote the whole PPAC profile.",
     "consent_voluntariness": "Authenticate exact consent bytes and key/session, but do not infer comprehension, legal capacity, free choice or absence of coercion from the signature. Human/process evidence and contestability remain separate.",
-    "revocation": "Treat revocation as prospective withdrawal; preserve prior disclosure/effect history and require separate evidence for retention/deletion/onward-use obligations."
+    "revocation": "Treat revocation as prospective withdrawal; preserve prior disclosure/effect history and require separate evidence for retention/deletion/onward-use obligations.",
+    "request_bound_guest": "The separate request-bound guest must bind all declared public request semantics; a valid request digest does not establish issuer signature verification or commitment opening."
   },
   "disposition_vocabulary": [
     "QUALIFIED_CLAIM_CANDIDATE",
@@ -32,7 +33,8 @@
     "HISTORICAL_ONLY",
     "DELIVERY_UNKNOWN_NO_REISSUE",
     "BLOCKED_BY_QUARANTINE",
-    "TYPED_REJECTION_NO_PANIC"
+    "TYPED_REJECTION_NO_PANIC",
+    "REQUEST_BOUND_CANDIDATE"
   ],
   "cases": [
     {
@@ -791,6 +793,99 @@
         "Mycelix retention/privacy policy owner",
         "Xenia #455"
       ]
+    },
+    {
+      "id": "PPAC-SYM-REQ-001",
+      "family": "symthaea-request-binding",
+      "kind": "positive",
+      "base_case": null,
+      "scenario": "The separate Symthaea request-bound guest proves the threshold relation and commits a digest matching the verifier's exact request, schema, predicate, audience, verifier, purpose, policy, challenge and threshold.",
+      "facts": {
+        "guest_image": "dedicated_request_bound_image",
+        "request_digest": "exact_match",
+        "source_reference": "present_but_not_authenticated",
+        "issuer_key_reference": "present_but_not_authorized",
+        "proof": "valid_for_exact_request"
+      },
+      "mutation": null,
+      "expected_gate": "exact_request_binding",
+      "provisional_disposition": "REQUEST_BOUND_CANDIDATE",
+      "invariant": "A positive result establishes only the declared threshold computation and exact request-context binding; source authenticity and commitment opening remain unproved.",
+      "owners": [
+        "Symthaea #12269",
+        "Symthaea PR #12295",
+        "Mycelix #6230"
+      ]
+    },
+    {
+      "id": "PPAC-SYM-REQ-NEG-001",
+      "family": "symthaea-request-binding",
+      "kind": "negative",
+      "base_case": "PPAC-SYM-REQ-001",
+      "scenario": "A verifier changes one request field after proving, including the audience, claim schema, exact predicate, issuer-key reference, purpose, policy, challenge or threshold.",
+      "facts": {
+        "receipt": "valid_for_original_request",
+        "expected_request": "mutated"
+      },
+      "mutation": {
+        "field": "any_request_context_field",
+        "from": "exact",
+        "to": "substituted"
+      },
+      "expected_gate": "host_expected_request_digest_match",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "A valid receipt for another request cannot be accepted for the current verifier decision.",
+      "owners": [
+        "Symthaea PR #12295"
+      ]
+    },
+    {
+      "id": "PPAC-SYM-REQ-NEG-002",
+      "family": "symthaea-request-binding",
+      "kind": "negative",
+      "base_case": "PPAC-SYM-REQ-001",
+      "scenario": "A caller treats the source-statement and issuer-key reference digests as proof that the private balance was issuer-authenticated.",
+      "facts": {
+        "request_binding": "valid",
+        "source_signature_verification": "absent",
+        "commitment_opening": "absent",
+        "issuer_authority": "not_established"
+      },
+      "mutation": {
+        "field": "source_authentication_evidence",
+        "from": "qualified_signature_and_opening",
+        "to": "reference_digest_only"
+      },
+      "expected_gate": "issuer_source_authenticity",
+      "provisional_disposition": "UNSUPPORTED",
+      "invariant": "The request-bound guest includes source and issuer references in a digest but does not authenticate the issuer or link the private balance to that source statement.",
+      "owners": [
+        "Symthaea #12269",
+        "Symthaea PR #12295",
+        "Mycelix #5751"
+      ]
+    },
+    {
+      "id": "PPAC-SYM-REQ-NEG-003",
+      "family": "symthaea-request-binding",
+      "kind": "negative",
+      "base_case": "PPAC-SYM-REQ-001",
+      "scenario": "A legacy receipt or receipt for another guest program is presented to the request-bound verifier.",
+      "facts": {
+        "receipt": "valid_for_other_image_or_legacy_guest",
+        "expected_image": "request_bound_guest_image"
+      },
+      "mutation": {
+        "field": "expected_guest_image_id",
+        "from": "exact_request_bound_image",
+        "to": "legacy_or_wrong_image"
+      },
+      "expected_gate": "risc_zero_expected_image_id",
+      "provisional_disposition": "BLOCKED",
+      "invariant": "The new verifier must accept only receipts for the dedicated request-bound guest image; legacy APIs retain their own guest identity.",
+      "owners": [
+        "Symthaea PR #12295"
+      ]
     }
   ],
   "nonclaims": [
@@ -801,6 +896,7 @@
     "The casebook does not define or implement a global privacy budget or differential-privacy mechanism.",
     "A PQ-capable Xenia session does not make a BBS pairing-based credential or arbitrary ZK backend post-quantum.",
     "The casebook does not prove informed or uncoerced human consent.",
-    "Consent revocation does not demonstrate deletion of data already disclosed to a recipient."
+    "Consent revocation does not demonstrate deletion of data already disclosed to a recipient.",
+    "Request-context binding by the Symthaea request-bound guest is not issuer-source authentication and does not prove that the private balance opens the referenced source statement."
   ]
 }
