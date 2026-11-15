@@ -523,8 +523,10 @@ mod tests {
             .as_array_mut()
             .expect("edges")
             .retain(|edge| {
-                edge["edge_id"] != "E-DIRECT"
-                    && edge["edge_id"] != "E-WORKFLOW-WORKER"
+                !matches!(
+                    edge["edge_id"].as_str(),
+                    Some("E-AGENT-DIRECT" | "E-DIRECT-PROD" | "E-WORKFLOW-WORKER")
+                )
             });
         value["graph"]["edges"]
             .as_array_mut()
