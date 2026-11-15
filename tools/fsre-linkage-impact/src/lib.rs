@@ -792,6 +792,7 @@ mod tests {
              #scope_sha256=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\n\
              #effective_cutoff=10\n\
              #recorded_cutoff=10\n\
+             #service_capacity_limit=100\n\
              #max_records=10\n\
              record_id|namespace|truth_entity_id|predicted_cluster_id|truth_entity_weight|predicted_cluster_weight|effective_at|recorded_at\n\
              r1|PERSON|same-id|same-cluster|10|10|1|1\n\
