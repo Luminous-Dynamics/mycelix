@@ -46,7 +46,7 @@
         "attribution_required": "Watersearch for compilation/method; Johannesburg Water for reported board/notice facts."
       },
       "acquisition": {
-        "api_response_bytes": "not_acquired",
+        "api_response_bytes": "public_response_reviewed_not_pinned",
         "bulk_release_bytes": "not_acquired",
         "original_johannesburg_water_boards_and_images": "not_acquired",
         "content_sha256": null,
@@ -129,7 +129,55 @@
         "A verified service polygon from reported suburb-to-supply labels.",
         "Leak ground truth, non-revenue water, saved water or operator intervention effectiveness.",
         "A hydraulic boundary condition without a separate validated measurement source."
-      ]
+      ],
+      "example_response_review": {
+        "review_status": "public_response_reviewed_not_pinned",
+        "retrieval_date": "2026-11-15",
+        "endpoint": "https://watersearch.co.za/api/v1/supplies/hursthill-2-reservoir",
+        "release_id": "2026-11-15-b7c711ba",
+        "supply_id": "hursthill-2-reservoir",
+        "supply_name": "Hursthill 2 Reservoir",
+        "supply_kind": "reservoir",
+        "systems": [
+          "central",
+          "commando"
+        ],
+        "record_summary": {
+          "first_reported": "2025-03-03",
+          "last_reported": "2026-11-15",
+          "days_reported": 334,
+          "days_bad": 138,
+          "board_count": 573,
+          "board_row_count": 573,
+          "overnight_closure_rows": 29
+        },
+        "year_2026": {
+          "days_bad": 106,
+          "days_reported": 228,
+          "city_median_days_bad": 6.5,
+          "ratio_denominator": "reported_days_only_not_365_calendar_days"
+        },
+        "latest_report": {
+          "board_time": "2026-11-15T09:25:00+02:00",
+          "level": "warned",
+          "on_bypass": true,
+          "source_wording": "Poor pressure/ intermittent supply/ no water may occur in some areas"
+        },
+        "last_ten_outage_summary": {
+          "count": 10,
+          "median_duration_hours_lower_bound": 17,
+          "longest_duration_hours_lower_bound": 64.83333333333333,
+          "censored_count": 1
+        },
+        "interpretation_limits": [
+          "These are fields reported by the Watersearch API for a named reservoir; they are not a household/tap observation.",
+          "The 2026 days_bad value is paired with 228 reported days and must not be annualized to 365 without a missingness model.",
+          "A latest level of warned is a forward-looking warning statement, not an observed no_water/critical day.",
+          "The last-ten-outage duration summary includes a censored lower-bound interval; it is not a fully observed distribution.",
+          "The JSON response was reviewed via the public web interface, but exact response bytes were not downloaded, hashed, or saved as a source fixture."
+        ],
+        "content_sha256": null
+      }
     }
   ],
   "interpretation_rules": [
