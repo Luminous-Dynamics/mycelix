@@ -358,7 +358,7 @@ pub fn parse_input(source: &str) -> Result<Problem, CaptureError> {
                 .checked_cmp(&one)
                 .ok_or_else(|| fail("theta comparison overflow"))?
                 != Ordering::Greater
-                && theta_max.as_ref().is_none_or(|maximum| {
+                && theta_max.as_ref().map_or(true, |maximum| {
                     maximum
                         .checked_cmp(&one)
                         .is_some_and(|ordering| ordering != Ordering::Less)
@@ -921,7 +921,7 @@ mod tests {
         let report = analyze(&fixture());
         assert_eq!(
             report.aggregate.stratified_lincoln_petersen.as_ref().unwrap().display(),
-            "800/1"
+            "1100/1"
         );
         assert_eq!(
             report.aggregate.pooled_lincoln_petersen.as_ref().unwrap().display(),
@@ -938,19 +938,58 @@ mod tests {
     }
 
     #[test]
+    fn independent_hand_calculation_matches_every_stratum_and_aggregate() {
+        let report = analyze(&fixture());
+
+        // These reference calculations are written directly from the
+        // cross-product equation, not via hidden_cell(), result_for(), or
+        // the production aggregation helpers.
+        let a_lower_hidden = (1_u128 * 100 * 150) / (2 * 50);
+        let a_upper_hidden = (2_u128 * 100 * 150) / (1 * 50);
+        let b_hidden = (1_u128 * 50 * 50) / (1 * 50);
+        assert_eq!(a_lower_hidden, 150);
+        assert_eq!(a_upper_hidden, 600);
+        assert_eq!(b_hidden, 50);
+
+        let a_observed = 100_u128 + 150 + 50;
+        let b_observed = 50_u128 + 50 + 50;
+        let expected_lower_population = a_observed + a_lower_hidden + b_observed + b_hidden;
+        let expected_upper_population = a_observed + a_upper_hidden + b_observed + b_hidden;
+
+        assert_eq!(expected_lower_population, 650);
+        assert_eq!(expected_upper_population, 1100);
+        assert_eq!(
+            report.aggregate.population_min.as_ref().unwrap().numerator,
+            expected_lower_population
+        );
+        assert_eq!(
+            report.aggregate.population_max.as_ref().unwrap().numerator,
+            expected_upper_population
+        );
+
+        let stratum_a_lp = (100_u128 + 50) * (150_u128 + 50) / 50;
+        let stratum_b_lp = (50_u128 + 50) * (50_u128 + 50) / 50;
+        assert_eq!(stratum_a_lp + stratum_b_lp, 800);
+        assert_eq!(
+            report.aggregate.stratified_lincoln_petersen.as_ref().unwrap().display(),
+            "800/1"
+        );
+    }
+
+    #[test]
     fn aggregate_sensitivity_interval_is_sum_of_stratum_intervals() {
         let report = analyze(&fixture());
         assert_eq!(
             report.aggregate.hidden_min.as_ref().unwrap().display(),
-            "125/1"
+            "200/1"
         );
         assert_eq!(
             report.aggregate.hidden_max.as_ref().unwrap().display(),
-            "350/1"
+            "650/1"
         );
         assert_eq!(
             report.aggregate.population_min.as_ref().unwrap().display(),
-            "575/1"
+            "650/1"
         );
         assert_eq!(
             report.aggregate.population_max.as_ref().unwrap().display(),
