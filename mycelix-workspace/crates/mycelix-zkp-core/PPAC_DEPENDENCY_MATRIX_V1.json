@@ -583,6 +583,11 @@
       "project": "Xenia",
       "reference": 455,
       "concern": "Consent presentation/process evidence and revocation/retention boundary; do not overclaim comprehension or coercion resistance from cryptographic authentication."
+    },
+    {
+      "project": "Mycelix",
+      "reference": 6245,
+      "concern": "TLSNotary source-provenance and private predicate commitment join remains research-only; exact protocol/commitment/parser/guest compatibility and trust profiles are unqualified."
     }
   ],
   "planned_scenarios": [
@@ -755,6 +760,11 @@
       "id": "PPAC-TLS-NEG-005",
       "class": "negative",
       "theme": "proxy-mode traffic accepted while verifier-to-server network-path assumption is unknown or violated"
+    },
+    {
+      "id": "PPAC-TLS-AMB-001",
+      "class": "ambiguous",
+      "theme": "offline notary signature valid but relying verifier lacks current trusted notary profile/authorization"
     }
   ],
   "fixture_adjudication": "not_adjudicated",
@@ -865,7 +875,7 @@
   "casebook": {
     "file": "PPAC_CASEBOOK_V1.json",
     "version": 1,
-    "case_count": 41,
+    "case_count": 42,
     "status": "design_fixture_specification",
     "oracle_status": "not_adjudicated",
     "execution_status": "not_run",
