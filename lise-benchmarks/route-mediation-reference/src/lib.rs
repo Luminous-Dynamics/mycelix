@@ -675,7 +675,7 @@ mod tests {
         let mut value = fixture();
         let mut nodes = vec![
             json!({"node_id":"agent-entry","kind":"principal_entry"}),
-            json!({"node_id":"production-environment","kind":"protected_effect"})
+            json!({"node_id":"production-environment","kind":"protected_effect"}),
         ];
         let mut edges = Vec::new();
         let mut previous = "agent-entry".to_owned();
