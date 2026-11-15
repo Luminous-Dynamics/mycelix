@@ -133,7 +133,7 @@
     "resource_ref": "production-environment",
     "operation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
     "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-    "graph_sha256": "0c26506d0ca2bcb1d4337f7d9b885532850be62a0b7cb8e275b439ea5e721923",
+    "graph_sha256": "3e21b25ed3afadd9170ccf2d322a32f834dd83a9ff6c13783761ac21f513fc40",
     "completeness_state": "complete_for_scope",
     "query_scope_exact": true,
     "independent_inventory_source": true,
