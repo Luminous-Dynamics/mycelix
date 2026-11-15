@@ -183,6 +183,7 @@ struct Mutation {
 struct Problem {
     analysis_id: String,
     snapshot_id: String,
+    decision_cutoff: u64,
     property: String,
     target_action: String,
     safety_floor: i64,
@@ -468,7 +469,7 @@ fn parse_problem(bytes: &[u8]) -> Result<Problem, VerifyError> {
 
     let analysis_id = required(&metadata, "analysis_id")?.to_owned();
     let snapshot_id = required(&metadata, "input_snapshot_id")?.to_owned();
-    let _cutoff = parse_u64(required(&metadata, "decision_cutoff")?, "decision_cutoff")?;
+    let decision_cutoff = parse_u64(required(&metadata, "decision_cutoff")?, "decision_cutoff")?;
     if !valid_token(&analysis_id) || !valid_token(&snapshot_id) {
         return Err(invalid("invalid analysis or snapshot identifier"));
     }
@@ -659,6 +660,7 @@ fn parse_problem(bytes: &[u8]) -> Result<Problem, VerifyError> {
     let problem = Problem {
         analysis_id,
         snapshot_id,
+        decision_cutoff,
         property,
         target_action,
         safety_floor,
@@ -848,6 +850,22 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
             "report identity, property or complete-search claim does not match input",
         ));
     }
+    if parse_u64(required(&fields, "decision_cutoff")?, "decision_cutoff")?
+        != problem.decision_cutoff
+        || parse_i64(required(&fields, "safety_floor")?, "safety_floor")?
+            != problem.safety_floor
+        || parse_u64(required(&fields, "declared_mutation_count")?, "declared_mutation_count")?
+            != (problem.mutations.len() + problem.blocked_mutations) as u64
+        || parse_u64(required(&fields, "admissible_mutation_count")?, "admissible_mutation_count")?
+            != problem.mutations.len() as u64
+        || parse_u64(required(&fields, "blocked_mutation_count")?, "blocked_mutation_count")?
+            != problem.blocked_mutations as u64
+    {
+        return Err(VerifyError::new(
+            Disposition::MinimumCertificateInvalid,
+            "reported cutoff, service floor or mutation counts differ from bound input",
+        ));
+    }
     if required(&fields, "source_use")? != "ASSERTED_NOT_AUTHENTICATED"
         || required(&fields, "authority")? != "ASSERTED_NOT_AUTHENTICATED"
         || required(&fields, "perturbation_admissibility")? != "ASSERTED_NOT_AUTHENTICATED"
@@ -1021,6 +1039,39 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
             Disposition::WitnessReplayMismatch,
             "report contains no valid witnesses or too many witnesses",
         ));
+    }
+    for index in &reported_indices {
+        if *index >= reported_indices.len()
+            || (0..reported_indices.len()).any(|expected| !reported_indices.contains(&expected))
+        {
+            return Err(VerifyError::new(
+                Disposition::WitnessReplayMismatch,
+                "reported witness indexes must be contiguous from zero",
+            ));
+        }
+        let prefix = format!("witness.{index:04}");
+        for field in [
+            "mutation_ids",
+            "evidence_refs",
+            "total_cost",
+            "failed_property",
+            "baseline.robustly_safe_actions",
+            "baseline.invariant_optimal_set",
+            "baseline.unique_optimum",
+            "baseline.minimax_regret_actions",
+            "mutated.robustly_safe_actions",
+            "mutated.invariant_optimal_set",
+            "mutated.unique_optimum",
+            "mutated.minimax_regret_actions",
+        ] {
+            let key = format!("{prefix}.{field}");
+            if !fields.contains_key(&key) {
+                return Err(VerifyError::new(
+                    Disposition::WitnessReplayMismatch,
+                    format!("witness receipt is missing required field {key}"),
+                ));
+            }
+        }
     }
     if !truncated && reported_indices.len() != expected_witnesses.len() {
         return Err(VerifyError::new(
