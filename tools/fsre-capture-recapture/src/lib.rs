@@ -619,6 +619,7 @@ fn aggregate(problem: &Problem, results: &[StratumResult]) -> AggregateResult {
     let all_independence_points = problem.independence_assumption
         == IndependenceAssumption::Declared
         && problem.linkage_status == LinkageStatus::PerfectLinkageAssumed
+        && problem.source_a_ancestry != problem.source_b_ancestry
         && results
             .iter()
             .all(|result| result.lincoln_petersen.is_some() && result.chapman.is_some());
@@ -691,7 +692,8 @@ pub fn analyze(problem: &Problem) -> Analysis {
 
     let independence_enabled = problem.independence_assumption == IndependenceAssumption::Declared
         && problem.linkage_status == LinkageStatus::PerfectLinkageAssumed
-        && problem.within_stratum_homogeneity == "DECLARED_WITHIN_STRATUM";
+        && problem.within_stratum_homogeneity == "DECLARED_WITHIN_STRATUM"
+        && problem.source_a_ancestry != problem.source_b_ancestry;
     let independence_point_status =
         if problem.independence_assumption == IndependenceAssumption::NotDeclared {
             "NOT_EMITTED_INDEPENDENCE_NOT_DECLARED"
@@ -1115,6 +1117,12 @@ mod tests {
             .results
             .iter()
             .all(|result| result.lincoln_petersen.is_none() && result.chapman.is_none()));
+        assert!(shared.aggregate.stratified_lincoln_petersen.is_none());
+        assert!(shared.aggregate.stratified_chapman.is_none());
+        assert!(shared.aggregate.pooled_lincoln_petersen.is_none());
+        assert!(shared.aggregate.pooled_chapman.is_none());
+        assert!(shared.aggregate.population_min.is_some());
+        assert!(shared.aggregate.population_max.is_some());
     }
 
     #[test]
