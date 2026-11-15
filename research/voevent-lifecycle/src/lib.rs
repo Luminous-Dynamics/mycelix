@@ -158,8 +158,8 @@ pub struct ReceiptCheckpoint {
 pub const MAX_RECEIPT_SEQUENCE: u64 = 1_000_000;
 pub const MAX_VOEVENT_PACKET_BYTES: usize = 2 * 1024 * 1024;
 
-const RECEIPT_DOMAIN: &[u8] = b"MYCELIX:VOEVENT:INGRESS-RECEIPT:V1\\0";
-const RECEIPT_GENESIS_DOMAIN: &[u8] = b"MYCELIX:VOEVENT:INGRESS-GENESIS:V1\\0";
+const RECEIPT_DOMAIN: &[u8] = b"MYCELIX:VOEVENT:INGRESS-RECEIPT:V1\0";
+const RECEIPT_GENESIS_DOMAIN: &[u8] = b"MYCELIX:VOEVENT:INGRESS-GENESIS:V1\0";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ManifestError {
@@ -723,6 +723,9 @@ pub fn replay_receipt_sequence(
         .into_iter()
         .filter(|entry| entry.receipt.sequence <= checkpoint.sequence)
         .collect();
+    if included.iter().any(|entry| entry.receipt.sequence == 0) {
+        return Err(ReceiptChainError::InvalidSequenceZero);
+    }
     included.sort_by_key(|entry| entry.receipt.sequence);
 
     if included.len() as u64 != checkpoint.sequence {
