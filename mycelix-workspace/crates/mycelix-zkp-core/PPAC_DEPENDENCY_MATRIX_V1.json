@@ -374,6 +374,11 @@
       "project": "Xenia",
       "reference": 450,
       "concern": "Independently verifiable, privacy-redacted session evidence."
+    },
+    {
+      "project": "Symthaea",
+      "reference": 12269,
+      "concern": "Issuer-attested, source-bound and verifier-request-bound private balance claim; new issue extending #5842 without widening its relation-refinement theorem."
     }
   ],
   "planned_scenarios": [
@@ -501,6 +506,11 @@
       "project": "Xenia",
       "reference": 450,
       "role": "Independently verifiable redacted session evidence."
+    },
+    {
+      "project": "Symthaea",
+      "reference": 12269,
+      "role": "RISC Zero source-statement, commitment and verifier-request binding extension after the exact balance relation refinement."
     }
   ]
 }
