@@ -167,7 +167,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     }
                 }
                 EntryTypes::RideRequest(r) => {
-                    match validate_declared_author("RideRequest.requester", &r.requester, &action.author) {
+                    match validate_declared_author(
+                        "RideRequest.requester",
+                        &r.requester,
+                        &action.author,
+                    ) {
                         ValidateCallbackResult::Valid => validate_ride_request(r),
                         other => Ok(other),
                     }
@@ -175,7 +179,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::RideMatch(m) => validate_ride_match_proposal(m),
                 EntryTypes::CargoOffer(c) => validate_cargo_offer(c),
                 EntryTypes::RideReview(rev) => {
-                    match validate_declared_author("RideReview.reviewer", &rev.reviewer, &action.author) {
+                    match validate_declared_author(
+                        "RideReview.reviewer",
+                        &rev.reviewer,
+                        &action.author,
+                    ) {
                         ValidateCallbackResult::Valid => validate_ride_review(rev),
                         other => Ok(other),
                     }
