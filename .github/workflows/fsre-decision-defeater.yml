@@ -52,12 +52,12 @@ jobs:
       - name: Format
         run: cargo fmt --manifest-path tools/fsre-decision-defeater-verifier/Cargo.toml -- --check
       - name: Independent verifier tests
-        run: cargo test --locked --offline --manifest-path tools/fsre-decision-defeater-verifier/Cargo.toml
+        run: cargo test --locked --manifest-path tools/fsre-decision-defeater-verifier/Cargo.toml
       - name: Clippy
-        run: cargo clippy --locked --offline --manifest-path tools/fsre-decision-defeater-verifier/Cargo.toml --all-targets -- -D warnings
+        run: cargo clippy --locked --manifest-path tools/fsre-decision-defeater-verifier/Cargo.toml --all-targets -- -D warnings
       - name: Deterministic package verification
         run: |
-          cargo run --quiet --locked --offline --manifest-path tools/fsre-decision-defeater-verifier/Cargo.toml -- verify tools/fsre-decision-defeater-verifier/fixtures/pump-station > /tmp/verify-a.txt
-          cargo run --quiet --locked --offline --manifest-path tools/fsre-decision-defeater-verifier/Cargo.toml -- verify tools/fsre-decision-defeater-verifier/fixtures/pump-station > /tmp/verify-b.txt
+          cargo run --quiet --locked --manifest-path tools/fsre-decision-defeater-verifier/Cargo.toml -- verify tools/fsre-decision-defeater-verifier/fixtures/pump-station > /tmp/verify-a.txt
+          cargo run --quiet --locked --manifest-path tools/fsre-decision-defeater-verifier/Cargo.toml -- verify tools/fsre-decision-defeater-verifier/fixtures/pump-station > /tmp/verify-b.txt
           cmp /tmp/verify-a.txt /tmp/verify-b.txt
           cmp /tmp/verify-a.txt tools/fsre-decision-defeater-verifier/fixtures/pump-station/verification.expected.txt
