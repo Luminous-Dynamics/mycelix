@@ -714,7 +714,7 @@ mod tests {
             .expect("case");
         assert_eq!(
             evaluate_case(case).expect("decision")["reason_code"],
-            "artifact_attestation.subject_or_builder_mismatch"
+            "artifact_attestation.subject_builder_or_invocation_mismatch"
         );
     }
 
