@@ -741,18 +741,10 @@ impl Analysis {
         writeln!(out, "analysis_id={}", self.problem.analysis_id).expect("String write");
         writeln!(out, "source_a_id={}", self.problem.source_a_id).expect("String write");
         writeln!(out, "source_b_id={}", self.problem.source_b_id).expect("String write");
-        writeln!(
-            out,
-            "source_a_ancestry={}",
-            self.problem.source_a_ancestry
-        )
-        .expect("String write");
-        writeln!(
-            out,
-            "source_b_ancestry={}",
-            self.problem.source_b_ancestry
-        )
-        .expect("String write");
+        writeln!(out, "source_a_ancestry={}", self.problem.source_a_ancestry)
+            .expect("String write");
+        writeln!(out, "source_b_ancestry={}", self.problem.source_b_ancestry)
+            .expect("String write");
         writeln!(
             out,
             "source_ancestry_relation={}",
@@ -1049,7 +1041,7 @@ mod tests {
     fn incomplete_strata_universe_withholds_target_population_aggregate() {
         let source = FIXTURE.replace(
             "#strata_universe_status=DECLARED_COMPLETE",
-            "#strata_universe_status=NOT_ESTABLISHED"
+            "#strata_universe_status=NOT_ESTABLISHED",
         );
         let problem = parse_input(&source).unwrap();
         let report = analyze(&problem);
