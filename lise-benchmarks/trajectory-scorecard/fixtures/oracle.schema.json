@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/lise-benchmarks/trajectory-scorecard/fixtures/oracle.schema.json",
+  "title": "Evaluator-only trajectory scorecard oracle",
+  "type": "object",
+  "required": [
+    "suite_id",
+    "episodes"
+  ],
+  "properties": {
+    "suite_id": {
+      "const": "LISE-TRAJECTORY-SCORECARD-v0.1"
+    },
+    "episodes": {
+      "type": "array",
+      "minItems": 7,
+      "items": {
+        "type": "object",
+        "required": [
+          "episode_id",
+          "required_goal_facts",
+          "required_operation_refs"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}
