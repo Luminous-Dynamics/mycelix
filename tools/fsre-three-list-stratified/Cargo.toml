@@ -1,0 +1,16 @@
+[package]
+name = "fsre-three-list-stratified"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+publish = false
+
+[dependencies]
+fsre-three-list-capture = { path = "../fsre-three-list-capture" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "fsre-three-list-stratified"
+path = "src/main.rs"
