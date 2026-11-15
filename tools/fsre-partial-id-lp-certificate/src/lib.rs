@@ -791,12 +791,12 @@ pub fn finite_world_extremum_lp(
     values: &[FiniteWorldValue],
     direction: ExtremumDirection,
 ) -> Result<(LpModel, String), LpError> {
-    if !valid_token(problem_id) || !valid_token(assumption_set_id) {
+    if !valid_token(&problem_id) || !valid_token(&assumption_set_id) {
         return Err(fail(
             "finite-world problem and assumption IDs must be valid tokens",
         ));
     }
-    if !valid_sha256(scope_sha256) {
+    if !valid_sha256(&scope_sha256) {
         return Err(fail(
             "finite-world scope digest must be 64 lowercase hexadecimal characters",
         ));
