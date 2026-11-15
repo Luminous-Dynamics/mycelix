@@ -1,0 +1,651 @@
+{
+  "benchmark_id": "FIN-ACC-EVIDENCE-SMOKE",
+  "dataset_version": "0.1.0",
+  "generated_on": "2026-11-04",
+  "status": "synthetic_smoke_fixtures_not_a_benchmark_result",
+  "profile": {
+    "id": "SYNTH-ZAR-2DP-NOT-A-TAX-PROFILE",
+    "currency": "ZAR",
+    "minor_unit_scale": 2,
+    "amount_encoding": "canonical_nonnegative_decimal_integer_strings",
+    "ledger_sign_convention": "each journal line has exactly one nonzero debit_minor or credit_minor",
+    "tax_scope": "excluded; tax_minor must be zero; no South African tax conclusion is implied",
+    "accounting_policy_id": "SYNTHETIC_ACCRUAL_DEMO_V1",
+    "accounting_policy_revision": "1",
+    "effective_from": "2026-10-01",
+    "notes": "Synthetic training/evaluation fixture only. This profile is not IFRS, IFRS for SMEs, GAAP, SARS guidance or professional accounting advice."
+  },
+  "entities": [
+    {
+      "id": "co-001",
+      "legal_name": "Example Manufacturing One (Synthetic)"
+    },
+    {
+      "id": "co-002",
+      "legal_name": "Example Manufacturing Two (Synthetic)"
+    }
+  ],
+  "counterparties": [
+    {
+      "id": "supplier-001",
+      "legal_name": "Example Raw Materials Supplier (Synthetic)"
+    }
+  ],
+  "account_catalog": [
+    {
+      "id": "1000",
+      "name": "Bank",
+      "class": "asset",
+      "normal_side": "debit"
+    },
+    {
+      "id": "1200",
+      "name": "Inventory",
+      "class": "asset",
+      "normal_side": "debit"
+    },
+    {
+      "id": "2000",
+      "name": "Trade payables",
+      "class": "liability",
+      "normal_side": "credit"
+    },
+    {
+      "id": "3000",
+      "name": "Share capital",
+      "class": "equity",
+      "normal_side": "credit"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "ACC-SYN-0001",
+      "class": "positive_control",
+      "title": "PO, goods receipt, invoice and bank settlement",
+      "purpose": "Prove a fully supported inventory purchase and later settlement can be projected into exact journal entries and independently reconstructed statements.",
+      "opening_trial_balance": [
+        {
+          "account_id": "1000",
+          "debit_minor": "500000",
+          "credit_minor": "0"
+        },
+        {
+          "account_id": "1200",
+          "debit_minor": "0",
+          "credit_minor": "0"
+        },
+        {
+          "account_id": "2000",
+          "debit_minor": "0",
+          "credit_minor": "0"
+        },
+        {
+          "account_id": "3000",
+          "debit_minor": "0",
+          "credit_minor": "500000"
+        }
+      ],
+      "documents": [
+        {
+          "document_id": "PO-001",
+          "document_kind": "purchase_order",
+          "entity_id": "co-001",
+          "counterparty_id": "supplier-001",
+          "currency": "ZAR",
+          "date": "2026-10-02",
+          "fingerprint_sha256": "d248d29e0d8b0a84564479d16d0366f9523e4db0a8e0077738a3db88b09dcd86",
+          "content": {
+            "doc_id": "PO-001",
+            "doc_type": "purchase_order",
+            "entity_id": "co-001",
+            "counterparty_id": "supplier-001",
+            "currency": "ZAR",
+            "issue_date": "2026-10-02",
+            "lines": [
+              {
+                "sku": "RAW-001",
+                "description": "Synthetic raw material",
+                "quantity": "10",
+                "unit_price_minor": "10000",
+                "line_total_minor": "100000"
+              }
+            ],
+            "total_minor": "100000"
+          },
+          "ingestion_id": "ING-PO-001"
+        },
+        {
+          "document_id": "GRN-001",
+          "document_kind": "goods_received_note",
+          "entity_id": "co-001",
+          "counterparty_id": "supplier-001",
+          "currency": "ZAR",
+          "date": "2026-10-05",
+          "fingerprint_sha256": "6182e37fde95549a75df6ecb9f013dd375bc0bf4bd889abce0a792b719ad4889",
+          "content": {
+            "doc_id": "GRN-001",
+            "doc_type": "goods_received_note",
+            "entity_id": "co-001",
+            "counterparty_id": "supplier-001",
+            "currency": "ZAR",
+            "issue_date": "2026-10-05",
+            "lines": [
+              {
+                "sku": "RAW-001",
+                "quantity_received": "10"
+              }
+            ]
+          },
+          "ingestion_id": "ING-GRN-001"
+        },
+        {
+          "document_id": "INV-778",
+          "document_kind": "supplier_invoice",
+          "entity_id": "co-001",
+          "counterparty_id": "supplier-001",
+          "currency": "ZAR",
+          "date": "2026-10-05",
+          "fingerprint_sha256": "4583e29a381535dee363f77e613069a1c6bb51d3c4014ae7c3fffc1ac69b7301",
+          "content": {
+            "doc_id": "INV-778",
+            "doc_type": "supplier_invoice",
+            "entity_id": "co-001",
+            "counterparty_id": "supplier-001",
+            "currency": "ZAR",
+            "issue_date": "2026-10-05",
+            "lines": [
+              {
+                "sku": "RAW-001",
+                "description": "Synthetic raw material",
+                "quantity": "10",
+                "unit_price_minor": "10000",
+                "line_total_minor": "100000"
+              }
+            ],
+            "total_minor": "100000",
+            "tax_minor": "0"
+          },
+          "ingestion_id": "ING-INV-001"
+        },
+        {
+          "document_id": "BANK-LINE-001",
+          "document_kind": "bank_statement_line",
+          "entity_id": "co-001",
+          "counterparty_id": "supplier-001",
+          "currency": "ZAR",
+          "date": "2026-10-12",
+          "fingerprint_sha256": "32f1910d32ef8575ec9841fee08ee635a4368bed7e4f21645b70f1938424d5f3",
+          "content": {
+            "doc_id": "BANK-LINE-001",
+            "doc_type": "bank_statement_line",
+            "entity_id": "co-001",
+            "counterparty_id": "supplier-001",
+            "currency": "ZAR",
+            "issue_date": "2026-10-12",
+            "amount_minor": "100000",
+            "direction": "debit",
+            "reference": "INV-778"
+          },
+          "ingestion_id": "ING-BANK-001"
+        }
+      ],
+      "expected_dispositions": [
+        {
+          "ingestion_id": "ING-INV-001",
+          "disposition": "qualified_for_accounting_projection",
+          "reason_code": "po_grn_invoice_identity_amount_and_quantity_agree"
+        },
+        {
+          "ingestion_id": "ING-BANK-001",
+          "disposition": "qualified_settlement_observation",
+          "reason_code": "bank_debit_matches_open_supplier_liability"
+        }
+      ],
+      "expected_journal": [
+        {
+          "entry_id": "J-INV-778",
+          "effective_date": "2026-10-05",
+          "entity_id": "co-001",
+          "currency_profile_id": "SYNTH-ZAR-2DP-NOT-A-TAX-PROFILE",
+          "policy_id": "SYNTHETIC_ACCRUAL_DEMO_V1",
+          "policy_revision": "1",
+          "source_document_refs": [
+            "PO-001",
+            "GRN-001",
+            "INV-778"
+          ],
+          "lines": [
+            {
+              "account_id": "1200",
+              "debit_minor": "100000",
+              "credit_minor": "0"
+            },
+            {
+              "account_id": "2000",
+              "debit_minor": "0",
+              "credit_minor": "100000"
+            }
+          ]
+        },
+        {
+          "entry_id": "J-PAY-778",
+          "effective_date": "2026-10-12",
+          "entity_id": "co-001",
+          "currency_profile_id": "SYNTH-ZAR-2DP-NOT-A-TAX-PROFILE",
+          "policy_id": "SYNTHETIC_ACCRUAL_DEMO_V1",
+          "policy_revision": "1",
+          "source_document_refs": [
+            "INV-778",
+            "BANK-LINE-001"
+          ],
+          "lines": [
+            {
+              "account_id": "2000",
+              "debit_minor": "100000",
+              "credit_minor": "0"
+            },
+            {
+              "account_id": "1000",
+              "debit_minor": "0",
+              "credit_minor": "100000"
+            }
+          ]
+        }
+      ],
+      "expected_close": {
+        "trial_balance": [
+          {
+            "account_id": "1000",
+            "debit_minor": "400000",
+            "credit_minor": "0"
+          },
+          {
+            "account_id": "1200",
+            "debit_minor": "100000",
+            "credit_minor": "0"
+          },
+          {
+            "account_id": "2000",
+            "debit_minor": "0",
+            "credit_minor": "0"
+          },
+          {
+            "account_id": "3000",
+            "debit_minor": "0",
+            "credit_minor": "500000"
+          }
+        ],
+        "total_debits_minor": "500000",
+        "total_credits_minor": "500000",
+        "statement_totals": {
+          "total_assets_minor": "500000",
+          "total_liabilities_minor": "0",
+          "total_equity_minor": "500000",
+          "net_profit_loss_minor": "0"
+        }
+      }
+    },
+    {
+      "case_id": "ACC-SYN-0002",
+      "class": "idempotency_adversarial",
+      "title": "Exact duplicate invoice ingestion",
+      "purpose": "Prove that ingesting the same supplier invoice twice cannot create a second payable or inventory asset.",
+      "opening_trial_balance": [
+        {
+          "account_id": "1000",
+          "debit_minor": "500000",
+          "credit_minor": "0"
+        },
+        {
+          "account_id": "1200",
+          "debit_minor": "0",
+          "credit_minor": "0"
+        },
+        {
+          "account_id": "2000",
+          "debit_minor": "0",
+          "credit_minor": "0"
+        },
+        {
+          "account_id": "3000",
+          "debit_minor": "0",
+          "credit_minor": "500000"
+        }
+      ],
+      "documents": [
+        {
+          "document_id": "PO-001",
+          "document_kind": "purchase_order",
+          "entity_id": "co-001",
+          "counterparty_id": "supplier-001",
+          "currency": "ZAR",
+          "date": "2026-10-02",
+          "fingerprint_sha256": "d248d29e0d8b0a84564479d16d0366f9523e4db0a8e0077738a3db88b09dcd86",
+          "content": {
+            "doc_id": "PO-001",
+            "doc_type": "purchase_order",
+            "entity_id": "co-001",
+            "counterparty_id": "supplier-001",
+            "currency": "ZAR",
+            "issue_date": "2026-10-02",
+            "lines": [
+              {
+                "sku": "RAW-001",
+                "description": "Synthetic raw material",
+                "quantity": "10",
+                "unit_price_minor": "10000",
+                "line_total_minor": "100000"
+              }
+            ],
+            "total_minor": "100000"
+          },
+          "ingestion_id": "ING-PO-001"
+        },
+        {
+          "document_id": "GRN-001",
+          "document_kind": "goods_received_note",
+          "entity_id": "co-001",
+          "counterparty_id": "supplier-001",
+          "currency": "ZAR",
+          "date": "2026-10-05",
+          "fingerprint_sha256": "6182e37fde95549a75df6ecb9f013dd375bc0bf4bd889abce0a792b719ad4889",
+          "content": {
+            "doc_id": "GRN-001",
+            "doc_type": "goods_received_note",
+            "entity_id": "co-001",
+            "counterparty_id": "supplier-001",
+            "currency": "ZAR",
+            "issue_date": "2026-10-05",
+            "lines": [
+              {
+                "sku": "RAW-001",
+                "quantity_received": "10"
+              }
+            ]
+          },
+          "ingestion_id": "ING-GRN-001"
+        },
+        {
+          "document_id": "INV-778",
+          "document_kind": "supplier_invoice",
+          "entity_id": "co-001",
+          "counterparty_id": "supplier-001",
+          "currency": "ZAR",
+          "date": "2026-10-05",
+          "fingerprint_sha256": "4583e29a381535dee363f77e613069a1c6bb51d3c4014ae7c3fffc1ac69b7301",
+          "content": {
+            "doc_id": "INV-778",
+            "doc_type": "supplier_invoice",
+            "entity_id": "co-001",
+            "counterparty_id": "supplier-001",
+            "currency": "ZAR",
+            "issue_date": "2026-10-05",
+            "lines": [
+              {
+                "sku": "RAW-001",
+                "description": "Synthetic raw material",
+                "quantity": "10",
+                "unit_price_minor": "10000",
+                "line_total_minor": "100000"
+              }
+            ],
+            "total_minor": "100000",
+            "tax_minor": "0"
+          },
+          "ingestion_id": "ING-INV-001"
+        },
+        {
+          "document_id": "INV-778",
+          "document_kind": "supplier_invoice",
+          "entity_id": "co-001",
+          "counterparty_id": "supplier-001",
+          "currency": "ZAR",
+          "date": "2026-10-05",
+          "fingerprint_sha256": "4583e29a381535dee363f77e613069a1c6bb51d3c4014ae7c3fffc1ac69b7301",
+          "content": {
+            "doc_id": "INV-778",
+            "doc_type": "supplier_invoice",
+            "entity_id": "co-001",
+            "counterparty_id": "supplier-001",
+            "currency": "ZAR",
+            "issue_date": "2026-10-05",
+            "lines": [
+              {
+                "sku": "RAW-001",
+                "description": "Synthetic raw material",
+                "quantity": "10",
+                "unit_price_minor": "10000",
+                "line_total_minor": "100000"
+              }
+            ],
+            "total_minor": "100000",
+            "tax_minor": "0"
+          },
+          "ingestion_id": "ING-INV-002"
+        }
+      ],
+      "expected_dispositions": [
+        {
+          "ingestion_id": "ING-INV-001",
+          "disposition": "qualified_for_accounting_projection",
+          "reason_code": "supported_invoice"
+        },
+        {
+          "ingestion_id": "ING-INV-002",
+          "disposition": "duplicate_no_op",
+          "reason_code": "same_document_id_and_fingerprint"
+        }
+      ],
+      "expected_journal": [
+        {
+          "entry_id": "J-INV-778",
+          "effective_date": "2026-10-05",
+          "entity_id": "co-001",
+          "currency_profile_id": "SYNTH-ZAR-2DP-NOT-A-TAX-PROFILE",
+          "policy_id": "SYNTHETIC_ACCRUAL_DEMO_V1",
+          "policy_revision": "1",
+          "source_document_refs": [
+            "PO-001",
+            "GRN-001",
+            "INV-778"
+          ],
+          "lines": [
+            {
+              "account_id": "1200",
+              "debit_minor": "100000",
+              "credit_minor": "0"
+            },
+            {
+              "account_id": "2000",
+              "debit_minor": "0",
+              "credit_minor": "100000"
+            }
+          ]
+        }
+      ],
+      "expected_close": {
+        "trial_balance": [
+          {
+            "account_id": "1000",
+            "debit_minor": "500000",
+            "credit_minor": "0"
+          },
+          {
+            "account_id": "1200",
+            "debit_minor": "100000",
+            "credit_minor": "0"
+          },
+          {
+            "account_id": "2000",
+            "debit_minor": "0",
+            "credit_minor": "100000"
+          },
+          {
+            "account_id": "3000",
+            "debit_minor": "0",
+            "credit_minor": "500000"
+          }
+        ],
+        "total_debits_minor": "600000",
+        "total_credits_minor": "600000",
+        "statement_totals": {
+          "total_assets_minor": "600000",
+          "total_liabilities_minor": "100000",
+          "total_equity_minor": "500000",
+          "net_profit_loss_minor": "0"
+        }
+      }
+    },
+    {
+      "case_id": "ACC-SYN-0003",
+      "class": "entity_boundary_adversarial",
+      "title": "Invoice addressed to the wrong legal entity",
+      "purpose": "Prove that matching supplier, amount, purchase order and goods receipt do not override the legal-entity boundary.",
+      "opening_trial_balance": [
+        {
+          "account_id": "1000",
+          "debit_minor": "500000",
+          "credit_minor": "0"
+        },
+        {
+          "account_id": "1200",
+          "debit_minor": "0",
+          "credit_minor": "0"
+        },
+        {
+          "account_id": "2000",
+          "debit_minor": "0",
+          "credit_minor": "0"
+        },
+        {
+          "account_id": "3000",
+          "debit_minor": "0",
+          "credit_minor": "500000"
+        }
+      ],
+      "documents": [
+        {
+          "document_id": "PO-001",
+          "document_kind": "purchase_order",
+          "entity_id": "co-001",
+          "counterparty_id": "supplier-001",
+          "currency": "ZAR",
+          "date": "2026-10-02",
+          "fingerprint_sha256": "d248d29e0d8b0a84564479d16d0366f9523e4db0a8e0077738a3db88b09dcd86",
+          "content": {
+            "doc_id": "PO-001",
+            "doc_type": "purchase_order",
+            "entity_id": "co-001",
+            "counterparty_id": "supplier-001",
+            "currency": "ZAR",
+            "issue_date": "2026-10-02",
+            "lines": [
+              {
+                "sku": "RAW-001",
+                "description": "Synthetic raw material",
+                "quantity": "10",
+                "unit_price_minor": "10000",
+                "line_total_minor": "100000"
+              }
+            ],
+            "total_minor": "100000"
+          },
+          "ingestion_id": "ING-PO-001"
+        },
+        {
+          "document_id": "GRN-001",
+          "document_kind": "goods_received_note",
+          "entity_id": "co-001",
+          "counterparty_id": "supplier-001",
+          "currency": "ZAR",
+          "date": "2026-10-05",
+          "fingerprint_sha256": "6182e37fde95549a75df6ecb9f013dd375bc0bf4bd889abce0a792b719ad4889",
+          "content": {
+            "doc_id": "GRN-001",
+            "doc_type": "goods_received_note",
+            "entity_id": "co-001",
+            "counterparty_id": "supplier-001",
+            "currency": "ZAR",
+            "issue_date": "2026-10-05",
+            "lines": [
+              {
+                "sku": "RAW-001",
+                "quantity_received": "10"
+              }
+            ]
+          },
+          "ingestion_id": "ING-GRN-001"
+        },
+        {
+          "document_id": "INV-779",
+          "document_kind": "supplier_invoice",
+          "entity_id": "co-002",
+          "counterparty_id": "supplier-001",
+          "currency": "ZAR",
+          "date": "2026-10-05",
+          "fingerprint_sha256": "b2ea9a34e453c98cc1c7add5ab026fea5d0aa5dd85081c823c60f51ee0c83eb2",
+          "content": {
+            "doc_id": "INV-779",
+            "doc_type": "supplier_invoice",
+            "entity_id": "co-002",
+            "counterparty_id": "supplier-001",
+            "currency": "ZAR",
+            "issue_date": "2026-10-05",
+            "lines": [
+              {
+                "sku": "RAW-001",
+                "description": "Synthetic raw material",
+                "quantity": "10",
+                "unit_price_minor": "10000",
+                "line_total_minor": "100000"
+              }
+            ],
+            "total_minor": "100000",
+            "tax_minor": "0"
+          },
+          "ingestion_id": "ING-INV-779"
+        }
+      ],
+      "expected_dispositions": [
+        {
+          "ingestion_id": "ING-INV-779",
+          "disposition": "quarantine",
+          "reason_code": "invoice_entity_differs_from_purchase_order_and_receipt_entity"
+        }
+      ],
+      "expected_journal": [],
+      "expected_close": {
+        "trial_balance": [
+          {
+            "account_id": "1000",
+            "debit_minor": "500000",
+            "credit_minor": "0"
+          },
+          {
+            "account_id": "1200",
+            "debit_minor": "0",
+            "credit_minor": "0"
+          },
+          {
+            "account_id": "2000",
+            "debit_minor": "0",
+            "credit_minor": "0"
+          },
+          {
+            "account_id": "3000",
+            "debit_minor": "0",
+            "credit_minor": "500000"
+          }
+        ],
+        "total_debits_minor": "500000",
+        "total_credits_minor": "500000",
+        "statement_totals": {
+          "total_assets_minor": "500000",
+          "total_liabilities_minor": "0",
+          "total_equity_minor": "500000",
+          "net_profit_loss_minor": "0"
+        }
+      }
+    }
+  ]
+}
