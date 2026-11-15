@@ -135,6 +135,8 @@ Workloads:
 
 Compare only exact matching statements and public inputs. Candidate backends include a qualified RISC Zero guest, a repaired/qualified Winterfell AIR for integrity-only profiles, and any later qualified privacy backend. A current underconstrained HealthRangeAir or structural-only adapter is not a valid performance baseline.
 
+Symthaea PR #12295 adds a separate request-bound balance guest candidate. It may be benchmarked only after its methods build, generated ImageID, native prove/verify path and positive/negative controls are confirmed. Its request digest binds a claim-schema and predicate digest, but source/issuer digests are references only; it is not yet a source-authentic eligibility workload. Keep request-binding cost, issuer-signature verification cost and commitment-opening proof cost as separate measurements.
+
 ### P3 — General verifiable computation
 
 Question: what is the cost of proving a deterministic program rather than a hand-written circuit?
@@ -354,7 +356,7 @@ That claim should not be made until the complete path is implemented and indepen
 - Mycelix #1905: candidate proof options are not a measured production security level.
 - Mycelix #1919: malformed dimensions must not panic the verifier.
 - Mycelix #5751 / #5724: selective disclosure and cross-DID verification/replay must be real and fail closed.
-- Symthaea #5842 / #12269: guest relation refinement and issuer/request binding are separate.
+- Symthaea #5842 / #12269 / PR #12295: exact legacy guest relation, request-context binding, and issuer-source/commitment opening are separate qualification stages.
 - Symthaea PR #7403 / #12274: HDC semantic corrections, exact Binius source identity and witness-hiding qualification are separate.
 - Xenia #359 / #364 / #369 / #435 / #449 / #450 / #455: receipt attestation, live trust, portable replay, session capability, session evidence and human-readable consent presentation remain distinct owners.
 - Mycelix #6219 / #6140 / #6069: reuse existing LISE/effect-observation machinery.
