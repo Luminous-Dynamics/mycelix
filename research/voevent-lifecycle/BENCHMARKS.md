@@ -31,7 +31,7 @@ Hard gates:
 - any later conversion must have a separate transform receipt identifying input/output systems, algorithm/library/version, constants/ephemeris, uncertainty propagation and output digest;
 - historical replay preserves the source-native packet projection even when a new transform is added later.
 
-Current executable controls cover UTC-ICRS-TOPO with TimeInstant and Position2D/errors, TT-FK5-GEO and TDB-ICRS-BARY lexical frame IDs, PositionName, TimeInterval, units/UCDs, an unknown extension, a prefixed WhereWhen subtree and source-tree propagation through replay. Position3D, GPS-specific fixtures, custom TimeFrame/SpaceFrame, contradictory frame references, missing-locator permutations and complete XSD/STC conformance remain unimplemented test cases—not completed support.
+Current executable controls cover UTC-ICRS-TOPO with TimeInstant and Position2D/errors, TT-FK5-GEO and TDB-ICRS-BARY lexical frame IDs, Position3D, PositionName, TimeInterval, units/UCDs, radius and per-axis uncertainty, custom TimeFrame/SpaceFrame subtrees, prefixed WhereWhen elements, an unknown extension, missing temporal locator, observatory vs observation location, and source-tree propagation through replay. GPS is currently present as a preserved TimeFrame test lexeme, not validated as a complete GPS time-coordinate representation. Contradictory frame references, broad missing-locator permutations, schema validation and all solar-system frame families remain unimplemented test cases—not completed support.
 
 Do not score a parser as more capable merely because it converts more fields. A conversion with hidden assumptions is worse than an explicit unsupported state.
 
