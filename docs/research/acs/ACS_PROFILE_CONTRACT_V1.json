@@ -1,0 +1,249 @@
+{
+  "manifest_id": "OWASP-ACS-PROFILE-CONTRACT",
+  "manifest_version": "1.0.0",
+  "retrieved_at": "2026-11-15",
+  "standard": {
+    "name": "OWASP Agent Control Standard",
+    "release": "v0.1.4",
+    "specification_namespace": "v0.1.0",
+    "published_schema_count": 44,
+    "schema_root": "https://genai-security-project.github.io/agent-control-standard/schema/v0.1.0/",
+    "sources": [
+      "https://owaspacs.org/docs/spec/conformance/",
+      "https://owaspacs.org/docs/spec/instrument/specification/",
+      "https://owaspacs.org/docs/topics/faq/"
+    ]
+  },
+  "claim_boundaries": {
+    "profile_handshake_declaration": "self-declared claim; not proof of implementation",
+    "acs_core": "authenticates channel and binds agent to Guardian decisions; does not establish strict policies or a secure deployment",
+    "prompt_injection": "ACS does not prevent prompt injection; it makes actions gateable and visible",
+    "guardian_compromise": "tamper-evidence against a compromised Guardian requires ACS-Crypto and ACS-Audit profiles; ACS-Core HMAC baseline alone is insufficient",
+    "complete_mediation": "hook conformance does not prove every route capable of the protected effect traverses an enforcement point",
+    "effect_observation": "signed hook, tool result, Guardian decision or provider assertion does not itself prove independently observed protected-resource effect",
+    "institutional_authority": "ACS protocol conformance does not establish owner legitimacy, current institutional authority or rights compliance"
+  },
+  "core": {
+    "mandatory": true,
+    "handshake": {
+      "request_method": "handshake/hello",
+      "client_fields": [
+        "profiles_supported"
+      ],
+      "server_fields": [
+        "profiles_accepted"
+      ],
+      "profile_names": [
+        "acs-core",
+        "acs-trace",
+        "acs-inspect",
+        "acs-inspect-dynamic",
+        "acs-provenance",
+        "acs-crypto",
+        "acs-audit"
+      ],
+      "declaration_semantics": "self_declared_not_verified"
+    },
+    "request_envelope": {
+      "wire": "JSON-RPC 2.0 with ACS extensions",
+      "required_fields": [
+        "request_id",
+        "timestamp",
+        "acs_version",
+        "metadata"
+      ],
+      "version_field": "acs_version"
+    },
+    "hooks": {
+      "must_minimum": [
+        "sessionStart",
+        "userMessage_or_agentTrigger",
+        "toolCallRequest",
+        "toolCallResult",
+        "agentResponse",
+        "sessionEnd"
+      ],
+      "conditional_must": [
+        {
+          "hook": "subagentStart",
+          "condition": "client supports and spawns subagents"
+        }
+      ],
+      "should_emit": [
+        "subagentStop"
+      ],
+      "should_when_observable": [
+        "turnStart",
+        "turnEnd",
+        "knowledgeRetrieval",
+        "memoryContextRetrieval",
+        "memoryStore",
+        "preCompact",
+        "postCompact",
+        "skillRegister",
+        "skillLoad",
+        "skillUnload"
+      ],
+      "notes": [
+        "subagentStop is audit-only, not decision-eligible",
+        "skill lifecycle hooks SHOULD be emitted when the AgBOM includes skill components",
+        "evaluate mandatory minimum and additional observable hook coverage as distinct axes"
+      ]
+    },
+    "dispositions": {
+      "must_support": [
+        "allow",
+        "deny",
+        "ask",
+        "defer"
+      ],
+      "should_support": [
+        "modify"
+      ],
+      "modify_supported_behavior": "apply Guardian-modified operation according to normative composition rules",
+      "modify_unsupported_behavior": "Guardian substitutes DENY with reason_codes containing modify_unsupported and emits an audit event"
+    },
+    "session_context": {
+      "chain_hash": "rolling SHA-256",
+      "chain": "append-only ContextEntry sequence",
+      "chain_head": "Guardian publishes chain head in responses for content-bearing steps",
+      "replay_protection": [
+        "request_id UUID",
+        "timestamp"
+      ],
+      "baseline_signature": "HMAC-SHA256 over canonical envelope using HKDF-derived per-session key"
+    },
+    "mcp_wrapping": "specified_in_v0.1"
+  },
+  "optional_profiles": {
+    "acs-trace": {
+      "declaration": "acs-trace",
+      "adds": [
+        "OpenTelemetry or OCSF Trace events per supported step, including decisions and provenance"
+      ],
+      "liSE_check": "trace field coverage and distinction among decision, PEP, dispatch, provider response and observed effect"
+    },
+    "acs-inspect": {
+      "declaration": "acs-inspect",
+      "adds": [
+        "agbom/snapshot",
+        "canonical Agent Bill of Materials serialization"
+      ],
+      "formats": [
+        "CycloneDX",
+        "SPDX",
+        "SWID"
+      ],
+      "liSE_check": "bounded inventory completeness, provenance, freshness and dependency closure"
+    },
+    "acs-inspect-dynamic": {
+      "declaration": "acs-inspect-dynamic",
+      "extends": "acs-inspect",
+      "adds": [
+        "agbom/changed"
+      ],
+      "trigger": "component mutation during session",
+      "liSE_check": "dynamic tools, models, memory stores, skills, knowledge sources and peers are reflected in versioned deltas"
+    },
+    "acs-provenance": {
+      "declaration": "acs-provenance",
+      "adds": [
+        "field-level Provenance objects",
+        "origin",
+        "source_id",
+        "derived_from"
+      ],
+      "trust_field": {
+        "wire_optional": true,
+        "default_practice": "Guardian derives trust from origin and source_id under local policy",
+        "if_populated": "agent_generated trust must be monotonic"
+      },
+      "liSE_check": "source authenticity, authority, competence, purpose and dependency independence remain separate"
+    },
+    "acs-crypto": {
+      "declaration": "acs-crypto",
+      "must_support": [
+        "ML-DSA-65"
+      ],
+      "should_support": [
+        "SLH-DSA-128s"
+      ],
+      "optional_hybrid": [
+        "ML-DSA-65+ECDSA-P256",
+        "ML-DSA-65+RSA-PSS-SHA256"
+      ],
+      "purpose": "asymmetric signatures and external verifiability beyond shared-secret HMAC",
+      "liSE_check": "verify actual signature algorithms, key lifecycle, subject binding, currentness and compromise recovery"
+    },
+    "acs-audit": {
+      "declaration": "acs-audit",
+      "must_fields": [
+        {
+          "field": "request_hash",
+          "on": "every ContextEntry",
+          "algorithm": "SHA-256",
+          "input": "JCS-canonicalized request params"
+        }
+      ],
+      "should_fields": [
+        "timestamp",
+        "provenance_summary"
+      ],
+      "liSE_check": "verify request-content commitment and preserve omissions, forks, genesis and independent ingress coverage"
+    }
+  },
+  "v0_1_boundaries_and_deferred": {
+    "multi_tenancy": {
+      "tenant_id": "reserved optional envelope field",
+      "isolation_rules_in_v0_1": false,
+      "deferred_to": "v0.2",
+      "liSE_treatment": "tenant isolation must be separately owner/deployment-qualified; do not attribute it to ACS-Core"
+    },
+    "a2a": {
+      "namespace": "protocols/A2A/*",
+      "reserved_in_v0_1": true,
+      "normative_wrapping_in_v0_1": false,
+      "deferred_to": "v0.2",
+      "liSE_treatment": "report A2A wrapping as unsupported under v0.1.4; no conformance inference from namespace reservation"
+    },
+    "other_v0_2_items": [
+      "streaming",
+      "ACS-specific batching atomicity/ordering/dependencies",
+      "recursive ASK and quorum",
+      "policy-author attestation profile",
+      "Cedar binding",
+      "AgBOM federation across A2A peers",
+      "sensitivity-tier timeout model"
+    ]
+  },
+  "liSE_adaptation": {
+    "mode": "read_only",
+    "must_not": [
+      "authorize actions",
+      "mint capabilities",
+      "treat profile declaration as verified",
+      "treat hook presence as complete route mediation",
+      "treat toolCallResult as independent effect evidence"
+    ],
+    "outputs": [
+      "profile_claimed",
+      "profile_evidence",
+      "mandatory_hook_coverage",
+      "additional_observable_hook_coverage",
+      "disposition_honoring",
+      "event_capture_completeness",
+      "inventory_completeness",
+      "effect_observation_boundary",
+      "unsupported_or_deferred_features"
+    ],
+    "source_owners": {
+      "effect_interposition": "#6189",
+      "one_shot_consistency": "#6193",
+      "exact_operation_effectuation": "#6136",
+      "observation_provenance": "#6140",
+      "historical_reconstruction": "#6069",
+      "independent_evaluation": "#4835",
+      "authenticated_workflow_benchmark": "#6216"
+    }
+  }
+}
