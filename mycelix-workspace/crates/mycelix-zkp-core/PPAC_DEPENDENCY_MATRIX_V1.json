@@ -496,6 +496,16 @@
       "id": "PPAC-XEN-004",
       "class": "temporal",
       "theme": "daemon restart after durable reservation but before receipt retention; DeliveryUnknown must not mint again"
+    },
+    {
+      "id": "PPAC-PRIV-002",
+      "class": "privacy",
+      "theme": "unapproved adaptive threshold/predicate sequence can infer hidden value despite valid ZK proofs"
+    },
+    {
+      "id": "PPAC-PRIV-003",
+      "class": "ambiguous",
+      "theme": "incomplete query-history or policy frontier must not be treated as a fresh predicate allowance"
     }
   ],
   "fixture_adjudication": "not_adjudicated",
@@ -576,7 +586,7 @@
   "casebook": {
     "file": "PPAC_CASEBOOK_V1.json",
     "version": 1,
-    "case_count": 24,
+    "case_count": 26,
     "status": "design_fixture_specification",
     "oracle_status": "not_adjudicated",
     "execution_status": "not_run",
@@ -593,7 +603,8 @@
       "STARK-security-profile",
       "malformed-proof-verifier-robustness",
       "LISE-historical-and-current-qualification",
-      "independent-effect-observation"
+      "independent-effect-observation",
+      "adaptive-predicate-inference-and-query-history"
     ]
   },
   "benchmark_protocol": {
