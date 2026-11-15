@@ -1,0 +1,15 @@
+#episode_id=water-restoration-v1
+#scope_sha256=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+#budget=12
+#cost_unit=inspection_points
+#max_subsets=100
+#unresolved_obligations=FRAME_COVERAGE,AUTHORITY,HYDRAULIC_SAFETY
+ACQUISITIONS
+acquisition_id|acquisition_type|cost|scope_sha256|authority|rights|safety|physical|schedule|data_access|covers|prerequisites|resource_slot|source_group|source_ref
+authority-review|authority-review|2|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|PASS|PASS|PASS|PASS|PASS|PASS|AUTHORITY|-|-|municipal-board|authority-pack
+blocked-private-data|private-register-export|1|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|PASS|BLOCKED|PASS|PASS|PASS|PASS|AUTHORITY,FRAME_COVERAGE,HYDRAULIC_SAFETY|-|-|admin-register|export-7
+combined-survey|field-survey|7|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|PASS|PASS|PASS|PASS|PASS|PASS|FRAME_COVERAGE,HYDRAULIC_SAFETY|authority-review|crew-b|field-team|survey-11
+frame-survey|population-inspection|4|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|PASS|PASS|PASS|PASS|PASS|PASS|FRAME_COVERAGE|-|crew-a|field-team|survey-10
+joint-audit|integrated-audit|9|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|PASS|PASS|PASS|PASS|PASS|PASS|AUTHORITY,FRAME_COVERAGE,HYDRAULIC_SAFETY|-|-|independent-auditor|audit-9
+pump-test|hydraulic-test|5|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|PASS|PASS|PASS|PASS|PASS|PASS|HYDRAULIC_SAFETY|authority-review|lab-1|test-lab|test-7
+remote-sensor|remote-sensing|1|dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd|PASS|PASS|PASS|UNKNOWN|PASS|PASS|HYDRAULIC_SAFETY|-|crew-c|remote-vendor|sensor-3
