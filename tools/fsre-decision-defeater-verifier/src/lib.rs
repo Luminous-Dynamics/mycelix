@@ -28,6 +28,37 @@ const MAX_INPUT_BYTES: usize = 16 * 1024 * 1024;
 const MAX_REPORT_BYTES: usize = 8 * 1024 * 1024;
 const MAX_EVIDENCE_BYTES: usize = 8 * 1024 * 1024;
 const MAX_PERTURBATIONS: usize = 22;
+const REPORT_FIELDS: &[&str] = &[
+    "analysis_id",
+    "input_snapshot_id",
+    "decision_cutoff",
+    "decision_property",
+    "target_action",
+    "safety_floor",
+    "cost_unit",
+    "search_status",
+    "minimality_status",
+    "declared_mutation_count",
+    "admissible_mutation_count",
+    "blocked_mutation_count",
+    "total_subsets",
+    "evaluated_subsets",
+    "minimum_witness_count",
+    "witnesses_truncated",
+    "robustness_margin",
+    "best_witness_cost_upper_bound",
+    "baseline.robustly_safe_actions",
+    "baseline.invariant_optimal_set",
+    "baseline.unique_optimum",
+    "baseline.minimax_regret_actions",
+    "source_use",
+    "authority",
+    "perturbation_admissibility",
+    "world_set_completeness",
+    "perturbation_universe_completeness",
+    "physical_realizability",
+    "causal_truth",
+];
 const MAX_ROWS: usize = 1_000_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -863,6 +894,11 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
             )));
         }
     }
+    for key in fields.keys() {
+        if !key.starts_with("witness.") && !REPORT_FIELDS.contains(&key.as_str()) {
+            return Err(invalid(format!("unsupported report field {key}")));
+        }
+    }
     if required(&fields, "analysis_id")? != problem.analysis_id
         || required(&fields, "input_snapshot_id")? != problem.snapshot_id
         || required(&fields, "decision_property")? != problem.property
@@ -900,6 +936,10 @@ fn verify_report(problem: &Problem, report_bytes: &[u8]) -> Result<(u64, u128, u
     if required(&fields, "source_use")? != "ASSERTED_NOT_AUTHENTICATED"
         || required(&fields, "authority")? != "ASSERTED_NOT_AUTHENTICATED"
         || required(&fields, "perturbation_admissibility")? != "ASSERTED_NOT_AUTHENTICATED"
+        || required(&fields, "world_set_completeness")?
+            != "DECLARED_ASSERTION_NOT_AUTHENTICATED"
+        || required(&fields, "perturbation_universe_completeness")?
+            != "DECLARED_ASSERTION_NOT_AUTHENTICATED"
         || required(&fields, "causal_truth")? != "NOT_ESTABLISHED"
         || required(&fields, "physical_realizability")? != "NOT_ESTABLISHED"
     {
@@ -1384,6 +1424,37 @@ mod tests {
         rebuild_manifest(&root);
         let error = verify_package(&root).unwrap_err();
         assert_eq!(error.disposition, Disposition::WitnessReplayMismatch);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+
+    #[test]
+    fn unknown_report_fields_are_not_silently_ignored() {
+        let root = temp_copy();
+        let report_path = root.join("report.txt");
+        let mut report = fs::read_to_string(&report_path).unwrap();
+        report.push_str("unsupported_claim=TRUE\n");
+        fs::write(report_path, report).unwrap();
+        rebuild_manifest(&root);
+        let error = verify_package(&root).unwrap_err();
+        assert_eq!(error.disposition, Disposition::SchemaUnsupported);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn missing_completeness_claim_boundary_is_rejected_after_rehash() {
+        let root = temp_copy();
+        let report_path = root.join("report.txt");
+        let report = fs::read_to_string(&report_path)
+            .unwrap()
+            .replace(
+                "world_set_completeness=DECLARED_ASSERTION_NOT_AUTHENTICATED\n",
+                "",
+            );
+        fs::write(report_path, report).unwrap();
+        rebuild_manifest(&root);
+        let error = verify_package(&root).unwrap_err();
+        assert_eq!(error.disposition, Disposition::SchemaUnsupported);
         fs::remove_dir_all(root).unwrap();
     }
 
