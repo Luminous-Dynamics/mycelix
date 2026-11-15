@@ -52,15 +52,22 @@ Reference: https://www.openpolicyagent.org/docs/management-decision-logs
 
 ### Fine-grained authorization formats
 
-OAuth 2.0 Rich Authorization Requests (RFC 9396) standardizes structured \`authorization_details\` in OAuth messages. Its examples can bind action, location/audience, amount, recipient and related transaction details, and it specifies how granted details are made available to resource servers. LISE should interoperate with such authorization objects rather than recreate a token format. Its additional qualification question is whether the grant remained valid across a trajectory and whether every resulting effect was actually bounded and observed.
+OAuth 2.0 Rich Authorization Requests (RFC 9396) standardizes `authorization_details` for fine-grained authorization data. It is an interoperability substrate, not a universal authorization ontology: the semantics of `type` and fields are API-specific, and RFC 9396 explicitly warns that an authorization server should not assume simple object comparison is a safe way to compare arbitrary detail requests. The authorization server and resource server jointly enforce granted consent.
+
+LISE should preserve the provider/API-specific authorization-detail type and schema; bind the AS grant/reference and RS enforcement decision to the exact operation; require provider/owner receipts for actual effects; and qualify attenuation using type-specific semantics rather than generic JSON subset logic.
 
 Reference: https://www.rfc-editor.org/rfc/rfc9396.html
 
-### NIST activity
+### NIST activity — updated September 29, 2026
 
-NIST's February 5, 2026 NCCoE publication is an Initial Public Draft concept paper exploring software and AI-agent identity and authorization; its public-comment deadline was April 2, 2026. It is a project concept and standards-adoption discussion, not a finalized LISE certification target.
+The NIST NCCoE's February concept paper is no longer the whole story. On September 29, 2026, NIST published a summary of comments and said its first implementation use case will be AI-agent identity, authentication and authorization in the software development lifecycle, in collaboration with its Secure Software Development (DevSecOps) project. NIST says it received more than 600 comments and that additional use cases will be scoped later. The project hub is currently soliciting comments on a rolling basis; it is not a finalized certification standard.
 
-Reference: https://csrc.nist.gov/pubs/other/2026/02/05/accelerating-the-adoption-of-software-and-ai-agent/ipd
+This changes our first interoperability target: add a DevSecOps trajectory profile alongside the institutional/property prototype. It should cover issue/PR instructions, repository permissions, CI workflow identity, artifact signing/attestation, deployment environments, secret access, protected branches, human approvals and production deployment. The benchmark should verify that a code agent may propose a patch without implicitly gaining approval to merge, release or deploy it.
+
+References:
+- NIST September 29 update: https://www.nist.gov/news-events/news/2026/09/comments-software-and-agentic-ai-identity-concept-paper
+- NCCoE project hub: https://www.nccoe.nist.gov/projects/software-and-si-agent-identity-and-authorization
+- Concept paper: https://csrc.nist.gov/pubs/other/2026/02/05/accelerating-the-adoption-of-software-and-ai-agent/ipd
 
 ### Workflow and requirements products
 
@@ -219,12 +226,12 @@ Do not claim superiority from a higher synthetic pass percentage. A credible res
 ## 10. Immediate next increments
 
 1. Execute #6212's exact-head checks and fix source defects rather than waiting on unrelated runner queues.
-2. Resolve the upstream IAE timestamp collision: pre-dispatch action time and submit-attempt occurrence both serialize to 10:01:00Z. Add an ordered event sequence or finer-grained/causal timestamp evidence before treating that particular preflight view as a positive permit.
-3. Generate a candidate-blind bridge submission format; keep fixture, candidate submission and evaluator oracle separate.
-4. Add operation-history completeness evidence so production adapters cannot interpret an incomplete history as NeverAttempted.
-5. Add explicit causal route inventory and bypass negative controls.
+2. Resolve the upstream IAE timestamp collision: pre-dispatch action time and submit-attempt occurrence both serialize to 10:01:00Z. Add an ordered event sequence or finer-grained/causal timestamp evidence before treating that particular source view as a positive pre-dispatch permit.
+3. Require explicit operation-history completeness evidence; never infer `NeverAttempted` from incomplete provider logs.
+4. Add explicit causal route inventory and bypass negative controls.
+5. Build a DevSecOps profile as the first external interoperability vertical, reflecting NIST's September 29 update: repository/CI/deployment authority, distinct PR approval, artifact provenance and environment-bound deployment.
 6. Add a real OPA adapter that consumes decision ID, policy path, input digest, bundle revision and trace context, while keeping the protected-effect receipt separate.
-7. Add an OAuth RAR mapping for \`authorization_details\`, preserving the authorization-server/resource-server split.
+7. Add an OAuth RAR adapter preserving API-specific `authorization_details` semantics and the AS/RS enforcement split; do not generic-diff authorization JSON.
 8. Port a balanced subset of AuthorizationBench and SABench task structures with attribution and compatible licenses; do not claim direct leaderboard comparability unless the original task protocol is reproduced.
 
 ## 11. Claim boundary
