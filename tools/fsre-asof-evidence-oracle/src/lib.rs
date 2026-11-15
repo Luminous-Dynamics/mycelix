@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-const COLUMNS: &str = "record_type|record_id|claim_id|scenario_id|observed_at|available_at|valid_from|valid_until|revoked_effective_at|revocation_known_at|status|clock_basis_id|source_owner|source_ref|required_evidence_count|max_observation_age_seconds";
+const COLUMNS: &str = "record_type|record_id|claim_id|scenario_id|observed_at|available_at|valid_from|valid_until|revoked_effective_at|revocation_known_at|status|clock_basis_id|source_owner|source_ref|required_evidence_count|max_observation_age_seconds|supersedes_record_id|supersession_known_at|revision_kind";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReferenceError(pub String);
@@ -33,6 +33,9 @@ struct Observation {
     ends: Option<u64>,
     revoked_at: Option<u64>,
     revocation_learned_at: Option<u64>,
+    supersedes: Option<String>,
+    supersession_learned_at: Option<u64>,
+    revision_kind: Option<String>,
     state: String,
     owner: String,
     reference: String,
@@ -85,9 +88,9 @@ fn check_identifier(text: &str, field: &str, row: usize) -> Result<(), Reference
 
 fn split_row(line: &str, row: usize) -> Result<Vec<&str>, ReferenceError> {
     let fields: Vec<&str> = line.split('|').map(str::trim).collect();
-    if fields.len() != 16 {
+    if fields.len() != 19 {
         return Err(ReferenceError(format!(
-            "row {row}: expected 16 columns, got {}",
+            "row {row}: expected 19 columns, got {}",
             fields.len()
         )));
     }
@@ -158,6 +161,19 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
         let ends = maybe_integer(fields[7], "valid_until", row_number)?;
         let revoked_at = maybe_integer(fields[8], "revoked_effective_at", row_number)?;
         let revocation_learned_at = maybe_integer(fields[9], "revocation_known_at", row_number)?;
+        let supersedes = if fields[16].is_empty() {
+            None
+        } else {
+            check_identifier(fields[16], "supersedes_record_id", row_number)?;
+            Some(fields[16].to_owned())
+        };
+        let supersession_learned_at =
+            maybe_integer(fields[17], "supersession_known_at", row_number)?;
+        let revision_kind = if fields[18].is_empty() {
+            None
+        } else {
+            Some(fields[18].to_owned())
+        };
 
         if clock != "UTC_UNIX_SECONDS_V1" {
             return Err(ReferenceError(format!("row {row_number}: clock basis mismatch")));
@@ -171,6 +187,9 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                     || ends.is_some()
                     || revoked_at.is_some()
                     || revocation_learned_at.is_some()
+                    || supersedes.is_some()
+                    || supersession_learned_at.is_some()
+                    || revision_kind.is_some()
                     || state != "REQUIRED"
                 {
                     return Err(ReferenceError(format!("row {row_number}: malformed claim requirement")));
@@ -245,6 +264,28 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                                 "row {row_number}: revocation known before evidence became available"
                             )));
                         }
+                        match (
+                            supersedes.as_ref(),
+                            supersession_learned_at,
+                            revision_kind.as_deref(),
+                        ) {
+                            (None, None, None) => {}
+                            (Some(_), Some(_), Some(kind))
+                                if matches!(
+                                    kind,
+                                    "MEASUREMENT_CORRECTION"
+                                        | "SOURCE_CORRECTION"
+                                        | "METHODOLOGY_CHANGE"
+                                        | "NEW_SOURCE"
+                                        | "RECLASSIFICATION"
+                                        | "BOUNDARY_CHANGE"
+                                ) => {}
+                            _ => {
+                                return Err(ReferenceError(format!(
+                                    "row {row_number}: invalid evidence supersession declaration"
+                                )));
+                            }
+                        }
                     }
                     _ => return Err(ReferenceError(format!("row {row_number}: unknown evidence state"))),
                 }
@@ -257,6 +298,9 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                     ends,
                     revoked_at,
                     revocation_learned_at,
+                    supersedes,
+                    supersession_learned_at,
+                    revision_kind,
                     state: state.to_owned(),
                     owner: owner.to_owned(),
                     reference: reference.to_owned(),
@@ -295,12 +339,43 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
             return Err(ReferenceError(format!("duplicate requirement {}", claim.key)));
         }
     }
+    let by_key = observations
+        .iter()
+        .map(|item| (item.key.as_str(), item))
+        .collect::<BTreeMap<_, _>>();
+    let mut predecessor_owner = BTreeMap::<String, String>::new();
+    let mut parent_of = BTreeMap::<String, String>::new();
     for item in &observations {
         if !required.contains(&item.requirement) {
             return Err(ReferenceError(format!(
                 "evidence {} has no declared requirement",
                 item.key
             )));
+        }
+        if let Some(parent_key) = &item.supersedes {
+            let parent = by_key.get(parent_key.as_str()).ok_or_else(|| {
+                ReferenceError(format!("evidence {} has missing predecessor {}", item.key, parent_key))
+            })?;
+            if parent.requirement != item.requirement {
+                return Err(ReferenceError(format!("evidence {} supersedes a different requirement", item.key)));
+            }
+            if parent.state != "ASSERTED" || item.state != "ASSERTED" {
+                return Err(ReferenceError(format!("evidence {} uses a non-asserted revision edge", item.key)));
+            }
+            if predecessor_owner.insert(parent_key.clone(), item.key.clone()).is_some() {
+                return Err(ReferenceError(format!("predecessor {} has competing successors", parent_key)));
+            }
+            parent_of.insert(item.key.clone(), parent_key.clone());
+        }
+    }
+    for origin in parent_of.keys() {
+        let mut visited = BTreeSet::new();
+        let mut cursor = Some(origin.as_str());
+        while let Some(node) = cursor {
+            if !visited.insert(node.to_owned()) {
+                return Err(ReferenceError(format!("revision cycle at {node}")));
+            }
+            cursor = parent_of.get(node).map(String::as_str);
         }
     }
 
@@ -327,6 +402,7 @@ enum ResultClass {
     Usable,
     RevocationNotice,
     RetrospectiveRevocation,
+    SupersededAsKnown,
 }
 
 impl ResultClass {
@@ -342,6 +418,7 @@ impl ResultClass {
             Self::Usable => "ADMISSIBLE",
             Self::RevocationNotice => "REVOCATION_PENDING",
             Self::RetrospectiveRevocation => "ADMISSIBLE_WITH_HINDSIGHT_REVOCATION",
+            Self::SupersededAsKnown => "SUPERSEDED_AS_KNOWN",
         }
     }
 
@@ -418,13 +495,27 @@ fn reproduce(replay: &Replay) -> String {
             )
         })
         .collect();
+    let mut superseded_by = BTreeMap::<String, String>::new();
+    let mut revision_history_records = 0_u64;
+    for row in &observations {
+        if let (Some(parent), Some(known_at)) =
+            (&row.supersedes, row.supersession_learned_at)
+        {
+            revision_history_records += 1;
+            if known_at <= replay.cutoff {
+                superseded_by.insert(parent.clone(), row.key.clone());
+            }
+        }
+    }
     let classes: BTreeMap<String, ResultClass> = observations
         .iter()
         .map(|row| {
-            (
-                row.key.clone(),
-                classify(row, replay, ages[&row.requirement]),
-            )
+            let class = if superseded_by.contains_key(&row.key) {
+                ResultClass::SupersededAsKnown
+            } else {
+                classify(row, replay, ages[&row.requirement])
+            };
+            (row.key.clone(), class)
         })
         .collect();
 
@@ -441,7 +532,7 @@ fn reproduce(replay: &Replay) -> String {
     }
 
     let mut report = vec![
-        "report_schema=fsre-asof-evidence-report.v0.1".to_owned(),
+        "report_schema=fsre-asof-evidence-report.v0.2".to_owned(),
         format!("scenario_id={}", replay.scenario),
         format!("evidence_snapshot_id={}", replay.evidence_snapshot),
         format!("decision_at={}", replay.cutoff),
@@ -484,18 +575,22 @@ fn reproduce(replay: &Replay) -> String {
     for row in &observations {
         let state = classes[&row.key];
         report.push(format!(
-            "evidence={}|{}|{}|admissible={}|owner={}|ref={}",
+            "evidence={}|{}|{}|admissible={}|owner={}|ref={}|superseded_by={}|revision_kind={}",
             row.key,
             row.requirement,
             state.text(),
             if state.counts() { "YES" } else { "NO" },
             row.owner,
-            row.reference
+            row.reference,
+            superseded_by.get(&row.key).map(String::as_str).unwrap_or("NONE"),
+            row.revision_kind.as_deref().unwrap_or("ORIGINAL")
         ));
     }
 
     let retrospective_total: u64 = tallies.values().map(|value| value.retrospective).sum();
     report.push(format!("hindsight_revocation_records={retrospective_total}"));
+    report.push(format!("revision_history_records={revision_history_records}"));
+    report.push(format!("superseded_as_known_records={}", superseded_by.len()));
     report.push("replay_semantics=AS_KNOWN_AT_DECISION_CUTOFF".to_owned());
     report.push("future_information_used=NO".to_owned());
     report.push("source_authenticity=NOT_AUTHENTICATED_BY_THIS_TOOL".to_owned());
@@ -639,4 +734,112 @@ mod tests {
             .0
             .contains("duplicated evidence reference"));
     }
+
+    fn revision_row(
+        id: &str,
+        observed: u64,
+        available: u64,
+        valid_from: u64,
+        predecessor: &str,
+        known: u64,
+        revision_kind: &str,
+    ) -> String {
+        format!(
+            "EVIDENCE|{id}|pump_capacity|synthetic-water-shock|{observed}|{available}|{valid_from}|9000|||ASSERTED|UTC_UNIX_SECONDS_V1|operator|synthetic:evidence:{id}|||{predecessor}|{known}|{revision_kind}"
+        )
+    }
+
+    #[test]
+    fn independent_oracle_replays_known_and_late_corrections() {
+        let correction = revision_row(
+            "oracle-revision-1",
+            7000,
+            7100,
+            7000,
+            "e-pump-1",
+            7100,
+            "MEASUREMENT_CORRECTION",
+        );
+        let known = validate_and_report(&format!("{FIXTURE}{correction}\n")).expect("known correction");
+        assert!(known.contains("e-pump-1|pump_capacity|SUPERSEDED_AS_KNOWN|admissible=NO"));
+        assert!(known.contains("oracle-revision-1|pump_capacity|ADMISSIBLE|admissible=YES"));
+        assert!(known.contains("superseded_as_known_records=1"));
+
+        let late = revision_row(
+            "oracle-revision-late",
+            7000,
+            7100,
+            7000,
+            "e-pump-1",
+            7201,
+            "SOURCE_CORRECTION",
+        );
+        let historical = validate_and_report(&format!("{FIXTURE}{late}\n")).expect("late correction");
+        assert!(historical.contains("e-pump-1|pump_capacity|ADMISSIBLE|admissible=YES"));
+        assert!(historical.contains("superseded_as_known_records=0"));
+    }
+
+    #[test]
+    fn independent_oracle_rejects_dangling_fork_and_cycle_edges() {
+        let dangling = revision_row(
+            "oracle-dangling",
+            7000,
+            7100,
+            7000,
+            "missing",
+            7100,
+            "MEASUREMENT_CORRECTION",
+        );
+        assert!(validate_and_report(&format!("{FIXTURE}{dangling}\n"))
+            .unwrap_err()
+            .0
+            .contains("missing predecessor"));
+
+        let first = revision_row(
+            "oracle-rev-a",
+            7000,
+            7100,
+            7000,
+            "e-pump-1",
+            7100,
+            "MEASUREMENT_CORRECTION",
+        );
+        let second = revision_row(
+            "oracle-rev-b",
+            7001,
+            7101,
+            7001,
+            "e-pump-1",
+            7101,
+            "SOURCE_CORRECTION",
+        );
+        assert!(validate_and_report(&format!("{FIXTURE}{first}\n{second}\n"))
+            .unwrap_err()
+            .0
+            .contains("competing successors"));
+
+        let cycle_a = revision_row(
+            "oracle-cycle-a",
+            7000,
+            7100,
+            7000,
+            "oracle-cycle-b",
+            7100,
+            "MEASUREMENT_CORRECTION",
+        );
+        let cycle_b = revision_row(
+            "oracle-cycle-b",
+            7001,
+            7101,
+            7001,
+            "oracle-cycle-a",
+            7101,
+            "SOURCE_CORRECTION",
+        );
+        assert!(validate_and_report(&format!("{FIXTURE}{cycle_a}\n{cycle_b}\n"))
+            .unwrap_err()
+            .0
+            .contains("revision cycle"));
+    }
+
 }
