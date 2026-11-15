@@ -711,13 +711,19 @@ pub fn finite_world_extremum_lp(
     direction: ExtremumDirection,
 ) -> Result<(LpModel, String), LpError> {
     if !valid_token(problem_id) || !valid_token(assumption_set_id) {
-        return Err(fail("finite-world problem and assumption IDs must be valid tokens"));
+        return Err(fail(
+            "finite-world problem and assumption IDs must be valid tokens",
+        ));
     }
     if !valid_sha256(scope_sha256) {
-        return Err(fail("finite-world scope digest must be 64 lowercase hexadecimal characters"));
+        return Err(fail(
+            "finite-world scope digest must be 64 lowercase hexadecimal characters",
+        ));
     }
     if values.is_empty() || values.len() > MAX_COLUMNS {
-        return Err(fail(format!("finite-world value count must be in 1..={MAX_COLUMNS}")));
+        return Err(fail(format!(
+            "finite-world value count must be in 1..={MAX_COLUMNS}"
+        )));
     }
 
     let mut sorted = values.to_vec();
@@ -725,7 +731,10 @@ pub fn finite_world_extremum_lp(
     let mut ids = BTreeSet::new();
     for value in &sorted {
         if !valid_token(&value.world_id) || !ids.insert(value.world_id.clone()) {
-            return Err(fail(format!("invalid or duplicate finite-world ID {}", value.world_id)));
+            return Err(fail(format!(
+                "invalid or duplicate finite-world ID {}",
+                value.world_id
+            )));
         }
     }
 
@@ -836,7 +845,9 @@ pub fn analyze_finite_world_extremum(
     )?;
     let lp_analysis = analyze(&model)?;
     if lp_analysis.optimality_status != "OPTIMALITY_PROVEN_BY_EXACT_PRIMAL_DUAL_EQUALITY" {
-        return Err(fail("finite-world simplex LP did not produce an exact optimality certificate"));
+        return Err(fail(
+            "finite-world simplex LP did not produce an exact optimality certificate",
+        ));
     }
     let value = match direction {
         ExtremumDirection::Maximum => lp_analysis.primal.objective,
