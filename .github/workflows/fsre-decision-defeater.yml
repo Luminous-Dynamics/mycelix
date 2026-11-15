@@ -147,6 +147,7 @@ jobs:
           cmp /tmp/capture-a.txt tools/fsre-capture-recapture/fixtures/dependence-strata.expected.txt
 
   decision-episode:
+    if: hashFiles('tools/fsre-decision-episode/Cargo.toml') != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
