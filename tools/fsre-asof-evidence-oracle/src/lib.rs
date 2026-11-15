@@ -66,9 +66,8 @@ fn identifier(text: &str) -> bool {
 }
 
 fn integer(text: &str, field: &str, row: usize) -> Result<u64, ReferenceError> {
-    text.parse::<u64>().map_err(|error| {
-        ReferenceError(format!("row {row}: bad {field}: {error}"))
-    })
+    text.parse::<u64>()
+        .map_err(|error| ReferenceError(format!("row {row}: bad {field}: {error}")))
 }
 
 fn maybe_integer(text: &str, field: &str, row: usize) -> Result<Option<u64>, ReferenceError> {
@@ -114,15 +113,22 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
         }
         if let Some(comment) = line.strip_prefix('#') {
             if let Some((name, value)) = comment.trim().split_once('=') {
-                if properties.insert(name.trim().to_owned(), value.trim().to_owned()).is_some() {
-                    return Err(ReferenceError(format!("row {row_number}: repeated metadata key")));
+                if properties
+                    .insert(name.trim().to_owned(), value.trim().to_owned())
+                    .is_some()
+                {
+                    return Err(ReferenceError(format!(
+                        "row {row_number}: repeated metadata key"
+                    )));
                 }
             }
             continue;
         }
         if !header {
             if line != COLUMNS {
-                return Err(ReferenceError(format!("row {row_number}: unexpected header")));
+                return Err(ReferenceError(format!(
+                    "row {row_number}: unexpected header"
+                )));
             }
             header = true;
             continue;
@@ -148,10 +154,14 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
             check_identifier(value, field, row_number)?;
         }
         if reference.is_empty() || reference.len() > 512 {
-            return Err(ReferenceError(format!("row {row_number}: bad source reference")));
+            return Err(ReferenceError(format!(
+                "row {row_number}: bad source reference"
+            )));
         }
         if !record_keys.insert(record_id.to_owned()) {
-            return Err(ReferenceError(format!("row {row_number}: reused record ID")));
+            return Err(ReferenceError(format!(
+                "row {row_number}: reused record ID"
+            )));
         }
         row_scenarios.push(scenario.to_owned());
 
@@ -176,7 +186,9 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
         };
 
         if clock != "UTC_UNIX_SECONDS_V1" {
-            return Err(ReferenceError(format!("row {row_number}: clock basis mismatch")));
+            return Err(ReferenceError(format!(
+                "row {row_number}: clock basis mismatch"
+            )));
         }
 
         match kind {
@@ -192,13 +204,18 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                     || revision_kind.is_some()
                     || state != "REQUIRED"
                 {
-                    return Err(ReferenceError(format!("row {row_number}: malformed claim requirement")));
+                    return Err(ReferenceError(format!(
+                        "row {row_number}: malformed claim requirement"
+                    )));
                 }
                 let minimum = integer(fields[14], "required evidence count", row_number)?;
                 if minimum == 0 {
-                    return Err(ReferenceError(format!("row {row_number}: zero required evidence count")));
+                    return Err(ReferenceError(format!(
+                        "row {row_number}: zero required evidence count"
+                    )));
                 }
-                let freshness_limit = maybe_integer(fields[15], "claim freshness limit", row_number)?;
+                let freshness_limit =
+                    maybe_integer(fields[15], "claim freshness limit", row_number)?;
                 requirements.push(Requirement {
                     key: requirement_id.to_owned(),
                     owner: owner.to_owned(),
@@ -209,10 +226,14 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
             }
             "EVIDENCE" => {
                 if !fields[14].is_empty() || !fields[15].is_empty() {
-                    return Err(ReferenceError(format!("row {row_number}: evidence row contains claim policy")));
+                    return Err(ReferenceError(format!(
+                        "row {row_number}: evidence row contains claim policy"
+                    )));
                 }
                 if !reference_keys.insert((requirement_id.to_owned(), reference.to_owned())) {
-                    return Err(ReferenceError(format!("row {row_number}: duplicated evidence reference")));
+                    return Err(ReferenceError(format!(
+                        "row {row_number}: duplicated evidence reference"
+                    )));
                 }
                 match state {
                     "UNKNOWN" => {
@@ -237,13 +258,19 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                     }
                     "ASSERTED" => {
                         let measured = observed.ok_or_else(|| {
-                            ReferenceError(format!("row {row_number}: asserted row has no observation time"))
+                            ReferenceError(format!(
+                                "row {row_number}: asserted row has no observation time"
+                            ))
                         })?;
                         let available = released.ok_or_else(|| {
-                            ReferenceError(format!("row {row_number}: asserted row has no availability time"))
+                            ReferenceError(format!(
+                                "row {row_number}: asserted row has no availability time"
+                            ))
                         })?;
                         let start = begins.ok_or_else(|| {
-                            ReferenceError(format!("row {row_number}: asserted row has no validity start"))
+                            ReferenceError(format!(
+                                "row {row_number}: asserted row has no validity start"
+                            ))
                         })?;
                         if measured > available {
                             return Err(ReferenceError(format!(
@@ -290,7 +317,11 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                             }
                         }
                     }
-                    _ => return Err(ReferenceError(format!("row {row_number}: unknown evidence state"))),
+                    _ => {
+                        return Err(ReferenceError(format!(
+                            "row {row_number}: unknown evidence state"
+                        )))
+                    }
                 }
                 observations.push(Observation {
                     key: record_id.to_owned(),
@@ -309,7 +340,11 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
                     reference: reference.to_owned(),
                 });
             }
-            _ => return Err(ReferenceError(format!("row {row_number}: unrecognised row kind"))),
+            _ => {
+                return Err(ReferenceError(format!(
+                    "row {row_number}: unrecognised row kind"
+                )))
+            }
         }
     }
 
@@ -324,22 +359,33 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
     let scenario = take("scenario_id")?;
     let evidence_snapshot = take("evidence_snapshot_id")?;
     let cutoff = integer(&take("decision_at")?, "decision_at", 0)?;
-    let standard_freshness = integer(&take("max_observation_age_seconds")?, "default freshness", 0)?;
+    let standard_freshness = integer(
+        &take("max_observation_age_seconds")?,
+        "default freshness",
+        0,
+    )?;
     let clock = take("clock_basis_id")?;
     if !identifier(&scenario) || !identifier(&evidence_snapshot) || clock != "UTC_UNIX_SECONDS_V1" {
-        return Err(ReferenceError("unsupported scenario or replay clock".to_owned()));
+        return Err(ReferenceError(
+            "unsupported scenario or replay clock".to_owned(),
+        ));
     }
     if properties.keys().next().is_some() {
         return Err(ReferenceError("unexpected metadata field".to_owned()));
     }
     if row_scenarios.iter().any(|value| value != &scenario) {
-        return Err(ReferenceError("row crosses frozen scenario boundary".to_owned()));
+        return Err(ReferenceError(
+            "row crosses frozen scenario boundary".to_owned(),
+        ));
     }
 
     let mut required = BTreeSet::new();
     for claim in &requirements {
         if !required.insert(claim.key.clone()) {
-            return Err(ReferenceError(format!("duplicate requirement {}", claim.key)));
+            return Err(ReferenceError(format!(
+                "duplicate requirement {}",
+                claim.key
+            )));
         }
     }
     let by_key = observations
@@ -357,16 +403,31 @@ fn parse_replay(text: &str) -> Result<Replay, ReferenceError> {
         }
         if let Some(parent_key) = &item.supersedes {
             let parent = by_key.get(parent_key.as_str()).ok_or_else(|| {
-                ReferenceError(format!("evidence {} has missing predecessor {}", item.key, parent_key))
+                ReferenceError(format!(
+                    "evidence {} has missing predecessor {}",
+                    item.key, parent_key
+                ))
             })?;
             if parent.requirement != item.requirement {
-                return Err(ReferenceError(format!("evidence {} supersedes a different requirement", item.key)));
+                return Err(ReferenceError(format!(
+                    "evidence {} supersedes a different requirement",
+                    item.key
+                )));
             }
             if parent.state != "ASSERTED" || item.state != "ASSERTED" {
-                return Err(ReferenceError(format!("evidence {} uses a non-asserted revision edge", item.key)));
+                return Err(ReferenceError(format!(
+                    "evidence {} uses a non-asserted revision edge",
+                    item.key
+                )));
             }
-            if predecessor_owner.insert(parent_key.clone(), item.key.clone()).is_some() {
-                return Err(ReferenceError(format!("predecessor {} has competing successors", parent_key)));
+            if predecessor_owner
+                .insert(parent_key.clone(), item.key.clone())
+                .is_some()
+            {
+                return Err(ReferenceError(format!(
+                    "predecessor {} has competing successors",
+                    parent_key
+                )));
             }
             parent_of.insert(item.key.clone(), parent_key.clone());
         }
@@ -458,19 +519,13 @@ fn classify(row: &Observation, replay: &Replay, allowed_age: u64) -> ResultClass
     }
 
     match (row.revoked_at, row.revocation_learned_at) {
-        (Some(effective), Some(known))
-            if effective <= replay.cutoff && known <= replay.cutoff =>
-        {
+        (Some(effective), Some(known)) if effective <= replay.cutoff && known <= replay.cutoff => {
             ResultClass::Revoked
         }
-        (Some(effective), Some(known))
-            if effective > replay.cutoff && known <= replay.cutoff =>
-        {
+        (Some(effective), Some(known)) if effective > replay.cutoff && known <= replay.cutoff => {
             ResultClass::RevocationNotice
         }
-        (Some(effective), Some(known))
-            if effective <= replay.cutoff && known > replay.cutoff =>
-        {
+        (Some(effective), Some(known)) if effective <= replay.cutoff && known > replay.cutoff => {
             ResultClass::RetrospectiveRevocation
         }
         _ => ResultClass::Usable,
@@ -501,9 +556,7 @@ fn reproduce(replay: &Replay) -> String {
     let mut superseded_by = BTreeMap::<String, String>::new();
     let mut revision_history_records = 0_u64;
     for row in &observations {
-        if let (Some(parent), Some(known_at)) =
-            (&row.supersedes, row.supersession_learned_at)
-        {
+        if let (Some(parent), Some(known_at)) = (&row.supersedes, row.supersession_learned_at) {
             revision_history_records += 1;
             if known_at <= replay.cutoff {
                 superseded_by.insert(parent.clone(), row.key.clone());
@@ -585,15 +638,25 @@ fn reproduce(replay: &Replay) -> String {
             if state.counts() { "YES" } else { "NO" },
             row.owner,
             row.reference,
-            superseded_by.get(&row.key).map(String::as_str).unwrap_or("NONE"),
+            superseded_by
+                .get(&row.key)
+                .map(String::as_str)
+                .unwrap_or("NONE"),
             row.revision_kind.as_deref().unwrap_or("ORIGINAL")
         ));
     }
 
     let retrospective_total: u64 = tallies.values().map(|value| value.retrospective).sum();
-    report.push(format!("hindsight_revocation_records={retrospective_total}"));
-    report.push(format!("revision_history_records={revision_history_records}"));
-    report.push(format!("superseded_as_known_records={}", superseded_by.len()));
+    report.push(format!(
+        "hindsight_revocation_records={retrospective_total}"
+    ));
+    report.push(format!(
+        "revision_history_records={revision_history_records}"
+    ));
+    report.push(format!(
+        "superseded_as_known_records={}",
+        superseded_by.len()
+    ));
     report.push("replay_semantics=AS_KNOWN_AT_DECISION_CUTOFF".to_owned());
     report.push("future_information_used=NO".to_owned());
     report.push("source_authenticity=NOT_AUTHENTICATED_BY_THIS_TOOL".to_owned());
@@ -609,8 +672,7 @@ pub fn validate_and_report(source: &str) -> Result<String, ReferenceError> {
 mod tests {
     use super::*;
 
-    const FIXTURE: &str =
-        include_str!("../../fsre-asof-evidence/fixtures/synthetic-asof.psv");
+    const FIXTURE: &str = include_str!("../../fsre-asof-evidence/fixtures/synthetic-asof.psv");
 
     #[test]
     fn snapshot_binding_is_required_and_preserved() {
@@ -648,12 +710,7 @@ mod tests {
         }
         let header = rows.remove(0);
         rows.reverse();
-        let reversed = format!(
-            "{}\n{}\n{}\n",
-            metadata.join("\n"),
-            header,
-            rows.join("\n")
-        );
+        let reversed = format!("{}\n{}\n{}\n", metadata.join("\n"), header, rows.join("\n"));
         assert_eq!(
             validate_and_report(FIXTURE).expect("original"),
             validate_and_report(&reversed).expect("reversed")
@@ -763,7 +820,8 @@ mod tests {
             7100,
             "MEASUREMENT_CORRECTION",
         );
-        let known = validate_and_report(&format!("{FIXTURE}{correction}\n")).expect("known correction");
+        let known =
+            validate_and_report(&format!("{FIXTURE}{correction}\n")).expect("known correction");
         assert!(known.contains("e-pump-1|pump_capacity|SUPERSEDED_AS_KNOWN|admissible=NO"));
         assert!(known.contains("oracle-revision-1|pump_capacity|ADMISSIBLE|admissible=YES"));
         assert!(known.contains("superseded_as_known_records=1"));
@@ -777,7 +835,8 @@ mod tests {
             7201,
             "SOURCE_CORRECTION",
         );
-        let historical = validate_and_report(&format!("{FIXTURE}{late}\n")).expect("late correction");
+        let historical =
+            validate_and_report(&format!("{FIXTURE}{late}\n")).expect("late correction");
         assert!(historical.contains("e-pump-1|pump_capacity|ADMISSIBLE|admissible=YES"));
         assert!(historical.contains("superseded_as_known_records=0"));
     }
@@ -816,10 +875,12 @@ mod tests {
             7101,
             "SOURCE_CORRECTION",
         );
-        assert!(validate_and_report(&format!("{FIXTURE}{first}\n{second}\n"))
-            .unwrap_err()
-            .0
-            .contains("competing successors"));
+        assert!(
+            validate_and_report(&format!("{FIXTURE}{first}\n{second}\n"))
+                .unwrap_err()
+                .0
+                .contains("competing successors")
+        );
 
         let cycle_a = revision_row(
             "oracle-cycle-a",
@@ -839,10 +900,11 @@ mod tests {
             7101,
             "SOURCE_CORRECTION",
         );
-        assert!(validate_and_report(&format!("{FIXTURE}{cycle_a}\n{cycle_b}\n"))
-            .unwrap_err()
-            .0
-            .contains("revision cycle"));
+        assert!(
+            validate_and_report(&format!("{FIXTURE}{cycle_a}\n{cycle_b}\n"))
+                .unwrap_err()
+                .0
+                .contains("revision cycle")
+        );
     }
-
 }
