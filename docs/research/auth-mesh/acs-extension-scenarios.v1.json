@@ -1,0 +1,137 @@
+{
+  "corpus_id": "ACS-COMP-EXT-8-v1",
+  "status": "public_development_extension",
+  "disclosure": "Public synthetic scenarios and separate public oracle. Not a hidden or blinded holdout and not official ACS conformance.",
+  "scenario_count": 8,
+  "pair_count": 4,
+  "scenarios": [
+    {
+      "scenario_id": "ACS-EXT-001",
+      "pair_id": "ACS-EXT-M10",
+      "variant": "A",
+      "family": "hook_taxonomy",
+      "contrast": "additional observable memory, retrieval, compaction and skill hooks",
+      "declared_claim": "The client emits all ACS additional hooks for corresponding event surfaces it can observe in the declared host.",
+      "declared_profile": "ACS-Core v0.1.4; hooks negotiated at handshake",
+      "observed_facts": [
+        "Host exposes knowledgeRetrieval, memoryContextRetrieval, memoryStore, preCompact, postCompact, skillRegister, skillLoad and skillUnload event surfaces.",
+        "Client declares support for these hooks in capability negotiation.",
+        "Trace shows corresponding hooks are emitted before or after their defined event boundaries.",
+        "The AgBOM includes skill components and the skill lifecycle hooks are emitted."
+      ],
+      "instruction": "Apply ACS v0.1.4 / specification namespace v0.1.0 normative requirements and SHOULD guidance at the correct strength. A handshake profile declaration is a claim, not evidence that the profile is implemented."
+    },
+    {
+      "scenario_id": "ACS-EXT-002",
+      "pair_id": "ACS-EXT-M10",
+      "variant": "B",
+      "family": "hook_taxonomy",
+      "contrast": "additional observable memory, retrieval, compaction and skill hooks",
+      "declared_claim": "The client emits all ACS additional hooks for corresponding event surfaces it can observe in the declared host.",
+      "declared_profile": "ACS-Core v0.1.4; hooks negotiated at handshake",
+      "observed_facts": [
+        "Host exposes a memoryStore and skillLoad surface.",
+        "Client does not emit memoryStore or skillLoad hooks despite declaring support and exposing those surfaces.",
+        "The AgBOM includes skill components, but no skill lifecycle hooks appear.",
+        "The client still emits mandatory toolCallRequest and toolCallResult hooks."
+      ],
+      "instruction": "Apply ACS v0.1.4 / specification namespace v0.1.0 normative requirements and SHOULD guidance at the correct strength. A handshake profile declaration is a claim, not evidence that the profile is implemented."
+    },
+    {
+      "scenario_id": "ACS-EXT-003",
+      "pair_id": "ACS-EXT-M11",
+      "variant": "A",
+      "family": "profile_attestation",
+      "contrast": "handshake-declared profiles vs implementation evidence",
+      "declared_claim": "The deployment implements ACS-Crypto and ACS-Audit as declared in the handshake.",
+      "declared_profile": "ACS-Core + ACS-Crypto + ACS-Audit v0.1.4",
+      "observed_facts": [
+        "ClientHello declares acs-crypto and acs-audit; ServerHello accepts both.",
+        "Independent conformance tests verify the declared asymmetric algorithm profile on signed messages.",
+        "Every ContextEntry includes the required request_hash over canonical request parameters.",
+        "Profile behavior is bound to the named build and schema version."
+      ],
+      "instruction": "Apply ACS v0.1.4 / specification namespace v0.1.0 normative requirements and SHOULD guidance at the correct strength. A handshake profile declaration is a claim, not evidence that the profile is implemented."
+    },
+    {
+      "scenario_id": "ACS-EXT-004",
+      "pair_id": "ACS-EXT-M11",
+      "variant": "B",
+      "family": "profile_attestation",
+      "contrast": "handshake-declared profiles vs implementation evidence",
+      "declared_claim": "The deployment implements ACS-Crypto and ACS-Audit as declared in the handshake.",
+      "declared_profile": "ACS-Core + ACS-Crypto + ACS-Audit v0.1.4",
+      "observed_facts": [
+        "ClientHello declares acs-crypto and acs-audit; ServerHello accepts both.",
+        "Observed message signatures use only the ACS-Core symmetric HMAC baseline; no ACS-Crypto algorithm behavior is demonstrated.",
+        "ContextEntry records omit request_hash.",
+        "No profile-specific conformance evidence is supplied."
+      ],
+      "instruction": "Apply ACS v0.1.4 / specification namespace v0.1.0 normative requirements and SHOULD guidance at the correct strength. A handshake profile declaration is a claim, not evidence that the profile is implemented."
+    },
+    {
+      "scenario_id": "ACS-EXT-005",
+      "pair_id": "ACS-EXT-M12",
+      "variant": "A",
+      "family": "modify_semantics",
+      "contrast": "modify disposition handling and unsupported clients",
+      "declared_claim": "A MODIFY-incapable client follows the specified Guardian substitution behavior.",
+      "declared_profile": "ACS-Core v0.1.4; client declares MODIFY unsupported",
+      "observed_facts": [
+        "Guardian policy returns a modify disposition for a requested unbounded operation.",
+        "Client is known to be MODIFY-incapable through deployment-defined capability configuration.",
+        "Guardian substitutes DENY with reason_codes containing modify_unsupported and emits the required audit event.",
+        "No original unmodified operation is dispatched."
+      ],
+      "instruction": "Apply ACS v0.1.4 / specification namespace v0.1.0 normative requirements and SHOULD guidance at the correct strength. A handshake profile declaration is a claim, not evidence that the profile is implemented."
+    },
+    {
+      "scenario_id": "ACS-EXT-006",
+      "pair_id": "ACS-EXT-M12",
+      "variant": "B",
+      "family": "modify_semantics",
+      "contrast": "modify disposition handling and unsupported clients",
+      "declared_claim": "A client that declares MODIFY support applies the Guardian's modified operation rather than the original arguments.",
+      "declared_profile": "ACS-Core v0.1.4; client declares MODIFY supported",
+      "observed_facts": [
+        "Guardian returns modify with a narrower argument value and bound request ID.",
+        "Client advertises MODIFY support and receives the modified decision.",
+        "Host ignores the modified arguments and dispatches the original unbounded request.",
+        "Provider trace confirms the original request was executed."
+      ],
+      "instruction": "Apply ACS v0.1.4 / specification namespace v0.1.0 normative requirements and SHOULD guidance at the correct strength. A handshake profile declaration is a claim, not evidence that the profile is implemented."
+    },
+    {
+      "scenario_id": "ACS-EXT-007",
+      "pair_id": "ACS-EXT-M13",
+      "variant": "A",
+      "family": "protocol_interoperability",
+      "contrast": "MCP wrapped vs A2A wrapping scope in v0.1.4",
+      "declared_claim": "The deployment claims only ACS v0.1.4 MCP wrapping and explicitly reports A2A wrapping as outside the current version scope.",
+      "declared_profile": "ACS v0.1.4 / schema namespace v0.1.0",
+      "observed_facts": [
+        "MCP requests are wrapped using the published v0.1 method mapping.",
+        "A2A peer communication is present but is not asserted as ACS-wrapped.",
+        "Deployment reports A2A wrapping as unsupported/deferred under the pinned v0.1.4 profile.",
+        "Claim is limited to supported MCP boundary."
+      ],
+      "instruction": "Apply ACS v0.1.4 / specification namespace v0.1.0 normative requirements and SHOULD guidance at the correct strength. A handshake profile declaration is a claim, not evidence that the profile is implemented."
+    },
+    {
+      "scenario_id": "ACS-EXT-008",
+      "pair_id": "ACS-EXT-M13",
+      "variant": "B",
+      "family": "protocol_interoperability",
+      "contrast": "MCP wrapped vs A2A wrapping scope in v0.1.4",
+      "declared_claim": "The deployment provides normative ACS A2A wrapping under v0.1.4.",
+      "declared_profile": "ACS v0.1.4 / schema namespace v0.1.0",
+      "observed_facts": [
+        "Deployment sends A2A messages between peers.",
+        "v0.1.4 reserves the protocols/A2A namespace but defers the wrapping specification and method mapping to v0.2.",
+        "No v0.1.4 A2A hook mapping or conformance tests exist.",
+        "The claim nevertheless states A2A is ACS-wrapped."
+      ],
+      "instruction": "Apply ACS v0.1.4 / specification namespace v0.1.0 normative requirements and SHOULD guidance at the correct strength. A handshake profile declaration is a claim, not evidence that the profile is implemented."
+    }
+  ]
+}
