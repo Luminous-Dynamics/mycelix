@@ -1,0 +1,82 @@
+schema = "fsre.infrastructure-benchmark-provenance"
+version = "0.1.0"
+benchmark_id = "exeter-hanoi-water-distribution"
+domain = "drinking-water-distribution"
+classification = "medium"
+
+[source]
+publisher = "University of Exeter Centre for Water Systems"
+overview_url = "https://www.exeter.ac.uk/research/centres/cws/resources/benchmarks/"
+pareto_url = "https://www.exeter.ac.uk/research/centres/cws/resources/benchmarks/pareto/"
+input_url = "https://www.exeter.ac.uk/v8media/universityofexeter/emps/research/cws/downloads/hanoi.inp"
+historical_network_reference = "Fujiwara and Khang, Water Resources Research, 1990"
+license_status = "UNVERIFIED_DO_NOT_REHOST"
+raw_artifact_download_status = "NOT_COMPLETED_IN_THIS_REVISION"
+raw_artifact_sha256 = "NOT_COMPUTED"
+raw_artifact_bytes = "NOT_MEASURED"
+web_preview_is_byte_identical = false
+
+[problem]
+acronym = "HAN"
+pipes = 34
+demand_nodes = 31
+reservoirs = 1
+minimum_pressure_head_m = 30.0
+hazens_williams_coefficient = 130
+commercial_pipe_diameter_options = 6
+published_search_space = "2.87e26"
+published_objectives = ["MINIMIZE_TOTAL_CAPITAL_COST", "MAXIMIZE_NETWORK_RESILIENCE"]
+published_reference_archive_status = "BEST_KNOWN_APPROXIMATION_NOT_PROVEN_GLOBAL_FRONT"
+
+[original_method_comparators]
+methods = ["NSGA-II", "EPSILON-MOEA", "EPSILON-NSGAII", "AMALGAM", "BORG"]
+published_method_count = 5
+reproduction_status = "NOT_YET_REPRODUCED"
+reproduction_license_status = "TO_BE_VERIFIED_PER_IMPLEMENTATION"
+
+[simulation_contract]
+hydraulic_engine = "NOT_PINNED"
+hydraulic_engine_version = "NOT_PINNED"
+wntr_version = "NOT_PINNED"
+demand_model = "NOT_PINNED"
+hydraulic_timestep_seconds = "NOT_PINNED"
+quality_timestep_seconds = "NOT_PINNED"
+simulation_duration_seconds = "NOT_PINNED"
+pressure_unit = "METRE_OF_HEAD"
+flow_unit = "TO_BE_VERIFIED_FROM_SOURCE_FILE"
+seed_policy = "FIXED_SEEDS_AND_MULTI_SEED_REPORTING"
+
+[metrics]
+optimizer_objectives = ["CAPITAL_COST", "PUBLISHED_RESILIENCE_INDEX"]
+decision_integrity_metrics = [
+  "FALSE_SAFE_RATE",
+  "FALSE_ABSTENTION_RATE",
+  "SERVICE_FLOOR_VIOLATION_COUNT",
+  "SERVICE_FLOOR_VIOLATION_DURATION",
+  "KNOWN_TRUTH_BOUND_COVERAGE",
+  "POPULATION_DENOMINATOR_BIAS",
+  "IDENTITY_BRIDGE_ERROR_RATE",
+  "SOURCE_DEPENDENCE_SENSITIVITY",
+  "UNCERTAINTY_SET_STABILITY_RADIUS",
+  "ABSTENTION_CORRECTNESS",
+  "INDEPENDENT_VERIFIER_ACCEPTANCE"
+]
+pareto_metrics = [
+  "HYPERVOLUME_WITH_FROZEN_REFERENCE_POINT",
+  "IGD_PLUS_WHEN_REFERENCE_ARCHIVE_IS_DEFINED",
+  "ADDITIVE_EPSILON_INDICATOR",
+  "FEASIBILITY_RATE",
+  "CONSTRAINT_VIOLATION",
+  "NONDOMINATED_ARCHIVE_SIZE",
+  "FUNCTION_EVALUATIONS",
+  "WALL_TIME_SECONDS",
+  "PEAK_MEMORY_BYTES"
+]
+
+[provenance]
+source_page_observed = "2026-11-15"
+source_integrity = "UNVERIFIED"
+source_artifact_rehosted = false
+license_review_required = true
+unit_review_required = true
+independent_known_answer_review_required = true
