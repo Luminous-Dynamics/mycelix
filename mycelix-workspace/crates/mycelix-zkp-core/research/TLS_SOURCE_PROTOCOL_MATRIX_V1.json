@@ -66,6 +66,24 @@
             "proxy implementation and captured traffic"
           ],
           "claim_limit": "Must not inherit MPC-TLS identity privacy or direct connection assumptions."
+        },
+        {
+          "id": "TLSN-MPC-TEE-VERIFIER-V1",
+          "mode": "attested_mpc_tls_verifier",
+          "witness_role": "measured TEE runs verifier during MPC-TLS while prover retains TLS decryption/plaintext",
+          "portability": "attested verifier receipt under TEE vendor/image/TCB trust profile",
+          "privacy_notes": [
+            "enclave sees protocol/ciphertext material but must not receive TLS write/decryption keys or application plaintext",
+            "privacy remains cryptographic and prover-side only if the no-plaintext dataflow invariant is demonstrated"
+          ],
+          "trust_assumptions": [
+            "exact TEE vendor attestation root and current TCB",
+            "measured verifier image",
+            "reproducible source-to-build mapping",
+            "correct TLSNotary verifier code and protocol",
+            "receipt binding to exact session/request/image"
+          ],
+          "claim_limit": "Improves delegated verifier integrity under TEE assumptions without automatically moving plaintext into the enclave; any key/plaintext ingress changes the profile to TEE plaintext processor."
         }
       ],
       "published_baseline": {
@@ -382,7 +400,10 @@
       "domain_scoped_nullifier_generation_and_consume_once",
       "tlsn_release_known_answer_and_range_regression",
       "session_teardown_failure_path",
-      "full_reveal_vs_selective_disclosure_proof_cost"
+      "full_reveal_vs_selective_disclosure_proof_cost",
+      "TEE_quote_and_TCB_verification",
+      "measured_verifier_source_build_reproduction",
+      "attested_verifier_receipt_validation"
     ],
     "measures": [
       "wall_clock",
@@ -408,7 +429,12 @@
       "full_response_disclosure_bytes",
       "sensitive_field_disclosure_count",
       "range_validation_rejection_rate",
-      "session_hang_or_silent_drop_count"
+      "session_hang_or_silent_drop_count",
+      "plaintext_bytes_entering_enclave",
+      "decryption_key_material_entering_enclave",
+      "attestation_quote_verification_latency",
+      "TCB_revocation_requalification_latency",
+      "source_build_correspondence_status"
     ],
     "fairness_rules": [
       "Same exact request and response bytes wherever protocol allows.",
@@ -419,7 +445,8 @@
       "Report all failures and rejected controls; rejecting all inputs is not a valid positive-control pass.",
       "Uniqueness subject must be frozen as account, credential, entitlement, application or person; different subject claims are not interchangeable.",
       "Do not compare full-response-reveal runtime with selective-disclosure runtime without reporting that the verifier receives the whole response in the former.",
-      "Pin exact TLSNotary release/tag/full source commit, crate graph, feature flags, Rust toolchain and target; prerelease Beta.1 remains an integration candidate, not a certified verifier."
+      "Pin exact TLSNotary release/tag/full source commit, crate graph, feature flags, Rust toolchain and target; prerelease Beta.1 remains an integration candidate, not a certified verifier.",
+      "Treat attested MPC-TLS verifier with prover-side plaintext and TEE plaintext processor as different privacy/trust profiles."
     ],
     "prospective_targets": {
       "false_accepts_in_frozen_adversarial_corpus": 0,
@@ -434,7 +461,8 @@
     "privacy_profiles": [
       "FULL_RESPONSE_REVEAL",
       "SELECTIVE_DISCLOSURE",
-      "MIXED_SENSITIVE_DIRECTION"
+      "MIXED_SENSITIVE_DIRECTION",
+      "ATTESTED_WITNESS_PROVER_SIDE_PLAINTEXT"
     ]
   },
   "nonclaims": [
@@ -444,6 +472,7 @@
     "Proof validity does not establish currentness, policy authority, consent or external effect.",
     "Salted-commitment-derived spend tags do not guarantee uniqueness across fresh attestations for the same account.",
     "Application/account-scoped uniqueness does not prove uniqueness of a legal or natural person.",
-    "TLSNotary full-reveal fast path is not selective disclosure: entire traffic direction is disclosed; only the key-derivation ZK proof remains while the ciphertext-to-plaintext proof for that direction is skipped."
+    "TLSNotary full-reveal fast path is not selective disclosure: entire traffic direction is disclosed; only the key-derivation ZK proof remains while the ciphertext-to-plaintext proof for that direction is skipped.",
+    "A TEE verifier can strengthen delegated witness integrity without sacrificing prover-side plaintext confidentiality only if no TLS decryption material or application plaintext enters the enclave."
   ]
 }
