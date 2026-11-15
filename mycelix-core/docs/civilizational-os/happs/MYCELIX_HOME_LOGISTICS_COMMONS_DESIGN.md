@@ -199,6 +199,36 @@ Provides geographic context and site-screening evidence for land, climate, acces
 ### AeroWeft
 Supplies aircraft and carrier configuration envelopes, payload compatibility, charging/dock requirements, mission energy and environmental operating limits; aircraft eligibility is evaluated against the actual configuration and evidence, not a generic product class.
 
+### Mycelix Commons Waste/Circular and Resource-Mesh
+
+The current Commons DNA manifest declares four Waste/Circular zome pairs: `waste_registry`, `waste_collection`, `compost_control`, and `circular_marketplace`. Their existence in a manifest is not proof that the hApp has been successfully WASM-built, packed, installed or operated.
+
+These domains provide a valuable reverse-logistics substrate:
+
+| Existing domain | Logistics role | Boundary against duplication |
+|---|---|---|
+| Waste Registry | Material-stream identity, category and classification evidence | Does not select the carrier or authorize a pickup |
+| Waste Collection | Collection request and collection-run records | Transit owns vehicle assignment, route segments, fleet booking and physical pickup missions |
+| Compost Control | Compost batch records and sensor-derived process observations | Local equipment controllers own actuation and process safety; Holochain stores bounded records, not live control |
+| Circular Marketplace | Secondary-material listings and demand matching | Transit handles the movement of accepted materials; a listing is not proof of custody or quality |
+| Resource-Mesh | Candidate resource availability/matching integration | Reconcile its schema, role and authorization before relying on it as a logistics registry |
+
+The intended lifecycle is:
+
+`HomeOps local discard/return intent → resident-approved minimal collection request → Waste Registry classification → Transit pickup/collection mission → verified facility handoff → reuse, repair, recycling or compost processing → secondary-material listing → Transit delivery to a new user`.
+
+This makes reverse logistics part of the same material-flow network as incoming deliveries. It also creates a path for reusable packaging, repair components, furniture, building materials, tools and locally recoverable feedstocks.
+
+Do not send household pantry contents, room inventories, resident presence or raw home sensor streams to the Commons DHT. A household may publish a narrow request such as “collect one sealed return tote in this time window” without exposing why it was returned or what else is stored in the home.
+
+### Tool Library and Community Calendar: source-only until reconciled
+
+The current `mycelix-commons/Cargo.toml` workspace lists `tool-library` and `community-calendar`, but the current `mycelix-commons/dna/dna.yaml` does not list either as a DNA role. The shared `COMMONS_LOCAL_ZOMES` allowlist also does not list them. Treat them as source/workspace members, not deployable hApp capabilities, until the manifest/router/SDK inventory is reconciled.
+
+Tool Library could eventually support community lending of handling equipment, repair tools, reusable containers and shared appliances. It must not become a second robotics asset registry or override Transit/Civic mission authority. Community Calendar could later coordinate shared hub windows, repair events and collection days, but calendar events are not bookings or vehicle reservations.
+
+This inventory and allowlist drift is explicitly tracked by Mycelix #6269. Do not widen dispatch permissions merely to make an integration demo work.
+
 ## 9. Revival plan for dormant transport
 
 Before extending product functionality:
