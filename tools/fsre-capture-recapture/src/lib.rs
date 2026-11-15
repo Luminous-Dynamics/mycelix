@@ -1048,8 +1048,8 @@ mod tests {
     #[test]
     fn incomplete_strata_universe_withholds_target_population_aggregate() {
         let source = FIXTURE.replace(
-            "#within_stratum_homogeneity=DECLARED_WITHIN_STRATUM",
-            "#within_stratum_homogeneity=DECLARED_WITHIN_STRATUM\n#strata_universe_status=NOT_ESTABLISHED"
+            "#strata_universe_status=DECLARED_COMPLETE",
+            "#strata_universe_status=NOT_ESTABLISHED"
         );
         let problem = parse_input(&source).unwrap();
         let report = analyze(&problem);
