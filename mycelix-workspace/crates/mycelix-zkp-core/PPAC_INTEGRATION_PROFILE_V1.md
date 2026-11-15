@@ -31,6 +31,7 @@ The following are separate propositions:
 | Credential is current | Requested policy is applicable |
 | Operator is authenticated | Human consent to this exact operation |
 | Consent is valid | Unlimited authority for the remainder of a session |
+| A consent receipt is authenticated | Proof of comprehension, legal capacity, free choice or absence of coercion |
 | Session capability is valid | Permission for an arbitrary effect |
 | Action capability is consumed | Effect successfully occurred |
 | Provider acknowledges an action | Independent observation of the external effect |
@@ -47,6 +48,8 @@ No boolean or scalar score may collapse these distinctions. Unsupported, stale, 
 | Xenia | Human/operator/host authentication, consent and session integrity; the Symthaea receipt-attestation bridge (#359, #364, #369) and durable single-use issuance/replay owner (#435) | Institutional policy interpretation or Mycelix domain authority |
 | LISE | Claim applicability, dependency impact, temporal/evidence frontier qualification, targeted invalidation and requalification | A duplicate identity or proof system, global currentness boolean, generic event store or domain authority |
 | Symtropy | Physical/computational model evidence and qualified outcome observations when the effect requires them | Institutional authorization or treating simulation as an independently observed real-world effect |
+
+A signed consent receipt demonstrates that the specified key/operator produced or acknowledged the exact recorded decision under the described session and scope. It cannot cryptographically establish that the participant understood the consequences, had a meaningful alternative, possessed legal capacity, or was free from coercion. Consent presentation must therefore be intelligible, accessible, purpose-specific and contestable; human/process safeguards remain separate qualification evidence. Revocation can stop future access or effect authority, but it cannot make a prior disclosure disappear from a recipient who already received the data. Retention, onward-sharing, deletion and breach remedies require separate enforceable policy and evidence.
 
 The existing Xenia-Symthaea receipt path is especially relevant. Xenia #359 verifies the exact hybrid attestation over canonical Symthaea receipt bytes; #364 binds portable authority to the live Xenia trust boundary; #369 freezes the portable daemon receipt, including receipt UUID/digest, operator/key lineage, typed scope, enrollment/policy version, host fingerprint, nonce and expiry; #435 owns durable single-use issuance/replay semantics. Reuse this owner chain when a Symthaea proof-verification receipt crosses into a relying system. It establishes who attested to the exact Symthaea receipt under a bounded Xenia scope; it does not establish that the underlying claim is true, that Mycelix should admit the evidence, or that a consequential action is authorized.
 
@@ -176,6 +179,8 @@ Required controls:
 - Avoid recording raw health, financial or identity values in ordinary logs.
 - Use privacy classes and encrypted evidence capsules where raw canonical evidence must be retained; redacted summaries must not be convertible into authority-bearing canonical inputs.
 - Do not claim coercion resistance or protection from repeated-query inference without a separate threat model and evidence.
+- Do not treat an authenticated consent signature as proof of comprehension, uncoerced choice or legal capacity. Record the exact explanation/purpose/version shown and preserve challenge/appeal routes; qualify voluntariness through human/process controls outside the signature theorem.
+- Treat revocation as prospective authority withdrawal. Do not claim it retroactively erases previously disclosed data or external copies; deletion, retention and onward-use controls require separate owner-governed evidence.
 
 - Treat the predicate interface itself as a possible disclosure oracle. A verifier that asks whether income is above 50k, then 55k, then 52.5k can narrow a private value even when every individual proof is perfectly zero-knowledge. Domain policy must constrain the allowed predicate family, resolution, purpose, audience and repeated-query pattern; exact Xenia consent must bind the requested operation or a narrowly described request family.
 - Query accounting belongs to the existing domain/PEC policy owners, not a universal ZKP subsystem. Where duplicate or adaptive-query detection needs a subject handle, scope it to the verifier, purpose and policy epoch; avoid a global stable identifier. Keep query history private and expose only the minimum policy decision needed by the requester.
