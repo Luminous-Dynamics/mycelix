@@ -2,7 +2,7 @@
   "schema_version": "mycelix-tlsnotary-ppac-casebook-v1",
   "profile_id": "mycelix:source-session:tlsnotary-ppac:v1",
   "status": "research_only",
-  "case_count": 52,
+  "case_count": 56,
   "oracle_status": "not_adjudicated",
   "execution_status": "not_run",
   "owner_issues": [
@@ -17,7 +17,8 @@
     "symthaea#12301",
     "symthaea#12269",
     "symthaea#12295",
-    "mycelix#6251"
+    "mycelix#6251",
+    "mycelix#6254"
   ],
   "modes": [
     {
@@ -67,6 +68,12 @@
       "witness": "split TEE services with hardware attestation and MPC/TLS proof path",
       "portability": "profile-specific attestation",
       "claim_ceiling": "trust is conditional on the exact TEE vendor chain, image measurement, hardware/configuration and split-service threat model"
+    },
+    {
+      "id": "TLSN-MPC-TEE-VERIFIER-V1",
+      "witness": "measured TEE runs the MPC-TLS verifier while prover keeps TLS decryption/plaintext; enclave receives ciphertext/protocol shares and emits an attested verifier receipt",
+      "portability": "attestation-backed verifier receipt under exact vendor TCB/image/build profile",
+      "claim_ceiling": "integrity of delegated verifier is anchored to measured code/hardware attestation; plaintext privacy remains prover-side only if no decryption key/plaintext enters the enclave"
     }
   ],
   "nonclaims": [
@@ -82,7 +89,9 @@
     "A circuit-friendly attestation signature is not automatically a standard or post-quantum signature.",
     "TLS 1.3 support in one research protocol does not qualify TLS 1.3 support in another TLS-provenance implementation.",
     "A valid TEE quote does not establish source authenticity unless exact measured code, TCB and dataflow roles are qualified.",
-    "A scoped nullifier does not establish person-level uniqueness unless a domain-authorized subject binding connects the relevant accounts/credentials."
+    "A scoped nullifier does not establish person-level uniqueness unless a domain-authorized subject binding connects the relevant accounts/credentials.",
+    "A TEE-attested verifier does not preserve prover-side plaintext privacy if decryption keys or application plaintext enter the enclave.",
+    "A valid TEE quote does not establish reviewed source semantics without source-to-build correspondence and exact TCB qualification."
   ],
   "cases": [
     {
@@ -539,6 +548,51 @@
         "#1175",
         "#1193"
       ]
+    },
+    {
+      "id": "TLSN-TEE-001",
+      "mode": "TLSN-MPC-TEE-VERIFIER-V1",
+      "kind": "positive",
+      "scenario": "Measured enclave participates as MPC-TLS verifier, the prover performs plaintext decryption, no TLS write key or application plaintext enters enclave memory, and a request/session/image-bound attested receipt is emitted.",
+      "expected": "ATTESTED_WITNESS_WITH_PROVER_SIDE_PLAINTEXT",
+      "invariant": "Hardware measurement anchors witness integrity while cryptographic protocol keeps user plaintext outside the enclave.",
+      "owners": [
+        "Mycelix #6254",
+        "Symthaea #12301"
+      ]
+    },
+    {
+      "id": "TLSN-TEE-002",
+      "mode": "TLSN-MPC-TEE-VERIFIER-V1",
+      "kind": "negative",
+      "scenario": "Enclave receives TLS write/decryption key, session token or application plaintext but is labelled as the prover-side-plaintext verifier profile.",
+      "expected": "PROFILE_C_MISLABEL_REJECTED",
+      "invariant": "Any plaintext custody inside enclave changes the privacy trust model and must be classified as TEE plaintext processor.",
+      "owners": [
+        "Mycelix #6254"
+      ]
+    },
+    {
+      "id": "TLSN-TEE-003",
+      "mode": "TLSN-MPC-TEE-VERIFIER-V1",
+      "kind": "negative",
+      "scenario": "Attestation quote is cryptographically valid but TCB version is stale/revoked or measured image does not match the admitted verifier image.",
+      "expected": "BLOCKED",
+      "invariant": "Quote signature validity is distinct from TCB policy, image identity and verifier admission.",
+      "owners": [
+        "Mycelix #6254"
+      ]
+    },
+    {
+      "id": "TLSN-TEE-004",
+      "mode": "TLSN-MPC-TEE-VERIFIER-V1",
+      "kind": "negative",
+      "scenario": "Attestation quote and image measurement match, but no reproducible or reviewed source/build mapping exists for the measured image.",
+      "expected": "UNSUPPORTED_OR_INDETERMINATE",
+      "invariant": "A measurement identifies bytes; it does not establish that those bytes implement the reviewed verifier semantics.",
+      "owners": [
+        "Mycelix #6254"
+      ]
     }
   ],
   "upstream_release_baseline": {
@@ -577,6 +631,11 @@
       "disclosure": "one or more sensitive bytes remain hidden within direction",
       "zk_cost": "full direction ZK path applies; full-reveal fast path unavailable",
       "admission": "must not be benchmarked as full reveal"
+    },
+    {
+      "id": "ATTESTED_WITNESS_PROVER_SIDE_PLAINTEXT",
+      "disclosure": "TEE sees only the protocol inputs/ciphertext needed to act as verifier; plaintext and decryption remain on prover device",
+      "trust": "TEE/vendor/image measurement anchors verifier integrity; cryptographic protocol anchors plaintext confidentiality"
     }
   ]
 }
