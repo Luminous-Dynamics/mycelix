@@ -602,7 +602,8 @@ fn parse_citations(
             }
             Event::End(element) => {
                 let depth = element_stack.len();
-                let name = element.name().as_ref();
+                let qualified_name = element.name();
+                let name = qualified_name.as_ref();
 
                 if let Some(builder) = current_citation.as_ref() {
                     if builder.depth == depth && name == b"EventIVORN" {
@@ -743,13 +744,11 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
                     if author_seen {
                         return Err(ParseError::DuplicateWhoAuthorIvoid);
                     }
-                    author_seen = true;
                     return Err(ParseError::InvalidWhoAuthorIvoid(String::new()));
                 } else if who_depth == Some(element_stack.len()) && name.as_slice() == b"Date" {
                     if date_seen {
                         return Err(ParseError::DuplicateWhoDate);
                     }
-                    date_seen = true;
                     return Err(ParseError::EmptyWhoDate);
                 }
             }
@@ -804,7 +803,8 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
             }
             Event::End(element) => {
                 let depth = element_stack.len();
-                let name = element.name().as_ref();
+                let qualified_name = element.name();
+                let name = qualified_name.as_ref();
 
                 if let Some(builder) = current_author.as_ref() {
                     if builder.depth == depth && name == b"AuthorIVORN" {
