@@ -705,7 +705,7 @@ mod tests {
         let report = analyze(&fixture());
         assert_eq!(report.result.status, "EXACT_COMPLETE_COVER_FOUND");
         assert_eq!(report.result.evaluated_subsets, 32);
-        assert_eq!(report.result.complete_plan_count, 3);
+        assert_eq!(report.result.complete_plan_count, 4);
         assert_eq!(report.result.minimum_cost, Some(9));
         assert_eq!(report.result.minimum_cost_ties.len(), 2);
         assert_eq!(
