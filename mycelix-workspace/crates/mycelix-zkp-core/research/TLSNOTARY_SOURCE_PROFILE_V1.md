@@ -285,6 +285,8 @@ Primary metric: **time-to-qualified-private-decision**, measured from a valid re
 
 The market is not one homogeneous protocol family. Each design moves trust and computation among the prover, verifier, notary/attestor, proxy, TEEs and server. The comparison below is qualitative and based on published/official descriptions; it is not a security audit or matched benchmark.
 
+The machine-readable protocol and benchmark contract is maintained in `TLS_SOURCE_PROTOCOL_MATRIX_V1.json`. It freezes six comparator families, eight profile IDs, role/trust assumptions, reported-but-unmatched baselines, common fixture sizes, measurement stages, fairness rules and prospective acceptance targets. Its status is explicitly `protocol_and_targets_only_not_executed`; no row is a qualification result.
+
 | System / research | Main mechanism | Where trust/computation sits | Important qualification boundary |
 |---|---|---|---|
 | DECO (2019/2020) | Three-party TLS handshake; selective opening and context integrity over TLS data | Prover + verifier jointly participate with server; verifier sees/validates server provenance | Original DECO construction targets TLS 1.2 and requires verifier in-session participation; context integrity and extraction semantics must be bound |
@@ -404,13 +406,13 @@ Benchmark both over the same frozen response, extracted field, predicate, privac
 7. What is the privacy cost of online uniqueness checking, and can the system avoid revealing which application or account was queried?
 8. Does in-circuit verification of a standard PQ signature materially change proving cost relative to a circuit-friendly classical signature? Measure rather than assume.
 
-## 13. Claim ceiling
+## 14. Claim ceiling
 
 A pass establishes only the exact proposition qualified for the selected TLSNotary mode: a value in a specified authenticated transcript commitment was opened and interpreted under a frozen parser/schema/predicate profile, and the private predicate proof used that same value.
 
 It does not establish provider truth, legal account ownership, beneficial ownership, issuer authority for other purposes, completeness of the provider's data, absence of coercion, universal anonymity, currentness beyond the LISE evidence frontier, or authorization for a consequential action.
 
-## 14. Primary references
+## 15. Primary references
 
 - TLSNotary MPC-TLS: https://tlsnotary.org/docs/protocol/mpc-tls/
 - Notarization: https://tlsnotary.org/docs/protocol/notarization/
