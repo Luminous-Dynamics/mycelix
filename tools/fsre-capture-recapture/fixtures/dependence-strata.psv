@@ -4,6 +4,7 @@
 #source_a_ancestry=utility-account-master
 #source_b_ancestry=field-inspection-collection
 #population_frame_status=DECLARED_COMPLETE
+#strata_universe_status=DECLARED_COMPLETE
 #independence_assumption=DECLARED
 #linkage_status=PERFECT_LINKAGE_ASSUMED
 #within_stratum_homogeneity=DECLARED_WITHIN_STRATUM
