@@ -306,6 +306,13 @@ fn history_receipt_covers_query(
         || receipt.get("retention_complete").and_then(Value::as_bool) != Some(true)
         || receipt.get("gap_detected").and_then(Value::as_bool) != Some(false)
         || receipt.get("query_scope_exact").and_then(Value::as_bool) != Some(true)
+        || receipt.get("verification_state").and_then(Value::as_str)
+            != Some("fixture_assertion_not_cryptographically_verified")
+        || receipt.get("issuer_trust").and_then(Value::as_str)
+            != Some("untrusted_synthetic_fixture")
+        || required_str(receipt, "receipt_ref", "history completeness receipt").is_err()
+        || required_str(receipt, "provider_ref", "history completeness receipt").is_err()
+        || required_str(receipt, "source_ref", "history completeness receipt").is_err()
     {
         return false;
     }
