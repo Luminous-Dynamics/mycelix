@@ -9,7 +9,8 @@
     "rule": "No dimension promotes another dimension. Positive action admission requires every use-case-required dimension to be independently satisfied.",
     "unsupported_or_unknown": "must_not_promote_to_positive",
     "historical_evidence": "preserve_at_original_cutoff",
-    "currentness": "owner_qualified_and_dependency_scoped"
+    "currentness": "owner_qualified_and_dependency_scoped",
+    "adaptive_query_policy": "Repeated/adaptive predicates are an information-flow channel; query-sequence admission is domain-policy-owned, purpose/audience scoped, and consent bound. Unknown history or incomplete policy coverage is indeterminate; do not infer a fresh allowance."
   },
   "claims": [
     {
@@ -322,6 +323,28 @@
         "xenia-peer#435"
       ],
       "non_equivalence": "Xenia attestation authenticates who attested to the exact Symthaea receipt; it does not prove the underlying claim, evidence admission, institutional authority or effect."
+    },
+    {
+      "id": "PREDICATE_SEQUENCE_POLICY",
+      "owner": "Mycelix_domain_policy_and_PEC_semantics",
+      "proposition": "The predicate family, resolution, purpose, audience and repeated-query sequence are permitted under the applicable policy and consent scope.",
+      "depends_on": [
+        "pairwise_subject_or_scoped_handle",
+        "verifier_audience",
+        "purpose",
+        "predicate_family",
+        "predicate_resolution",
+        "query_sequence_history",
+        "query_history_coverage",
+        "policy_digest",
+        "policy_epoch",
+        "consent_scope"
+      ],
+      "consumers": [
+        "Symthaea_PEC_planner",
+        "proof_request_admission",
+        "LISE"
+      ]
     }
   ],
   "existing_blockers": [
