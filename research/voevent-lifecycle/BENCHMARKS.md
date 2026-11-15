@@ -17,17 +17,21 @@ A run is not reproducible if any of these are omitted. Freeze the task inputs, s
 
 ## 1A. Domain-native space-time preservation
 
-The VOEvent parser/replay evaluation must extend beyond packet IDs and lifecycle edges. [ASTRO-WHEREWHEN-001](https://github.com/Luminous-Dynamics/mycelix/issues/6209) owns source-native STC extraction. Until that work is implemented, replay must keep event-time fields absent rather than infer UTC/ICRS values from partial XML.
+The VOEvent parser/replay now has an initial source-native WhereWhen extraction slice under [ASTRO-WHEREWHEN-001](https://github.com/Luminous-Dynamics/mycelix/issues/6209). The canonical parser captures the complete \`WhereWhen\` subtree into an ordered source-element tree and the lifecycle replay carries that tree into its visible packet snapshot. It preserves element and attribute order, text, CDATA, character-reference boundaries, prefixed child names, unknown STC extensions, units, UCDs and uncertainty elements. The tree remains bound to the original packet digest.
+
+This is a **source-preserving extraction profile**, not a complete STC model, XSD validator or coordinate transformation engine. It deliberately leaves \`event_time\` absent and does not normalize UTC/TT/GPS/TDB, ICRS/FK5/solar frames, TOPO/GEO/BARY, units or uncertainty. That is safer than a universal RA/Dec/UTC shortcut. See [IVOA VOEvent 2.1 Recommendation §3.4](https://www.ivoa.net/documents/VOEvent/20260429/REC-VOEvent-2.1.html).
 
 Frozen WhereWhen/STC cases should include UTC-ICRS-TOPO, TT-FK5-GEO, GPS and TDB-ICRS-BARY; Position2D, Position3D and PositionName; TimeInstant and TimeInterval; observatory and observation locations; coordinate units, UCDs, axis names, radius and per-axis uncertainties; custom TimeFrame/SpaceFrame definitions; missing locators; contradictory coord_system_id references; XML namespace variation; and unsupported solar-system frames.
 
 Hard gates:
 - zero silent time-scale, reference-frame, reference-position or unit conversion;
-- zero loss of original coordinate/time lexemes, uncertainty, axis semantics or observatory identity;
+- zero loss of original coordinate/time lexemes, element/attribute order, uncertainty, axis semantics or observatory identity in the source tree;
 - no default zero-valued coordinates or timestamps when a locator is absent;
 - unsupported structures remain byte-bound and explicitly unsupported;
 - any later conversion must have a separate transform receipt identifying input/output systems, algorithm/library/version, constants/ephemeris, uncertainty propagation and output digest;
 - historical replay preserves the source-native packet projection even when a new transform is added later.
+
+Current executable controls cover UTC-ICRS-TOPO with TimeInstant and Position2D/errors, TT-FK5-GEO and TDB-ICRS-BARY lexical frame IDs, PositionName, TimeInterval, units/UCDs, an unknown extension, a prefixed WhereWhen subtree and source-tree propagation through replay. Position3D, GPS-specific fixtures, custom TimeFrame/SpaceFrame, contradictory frame references, missing-locator permutations and complete XSD/STC conformance remain unimplemented test cases—not completed support.
 
 Do not score a parser as more capable merely because it converts more fields. A conversion with hidden assumptions is worse than an explicit unsupported state.
 
