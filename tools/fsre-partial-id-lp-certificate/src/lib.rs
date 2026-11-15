@@ -47,8 +47,8 @@ impl Rational {
             (numerator, denominator)
         };
         let divisor = gcd(numerator.unsigned_abs(), denominator as u128);
-        let divisor = i128::try_from(divisor)
-            .map_err(|_| fail("rational reduction divisor overflow"))?;
+        let divisor =
+            i128::try_from(divisor).map_err(|_| fail("rational reduction divisor overflow"))?;
         Ok(Self {
             numerator: numerator / divisor,
             denominator: denominator / divisor,
@@ -352,10 +352,14 @@ pub fn parse_input(source: &str) -> Result<LpModel, LpError> {
     let assumption_set_id = required(&metadata, "assumption_set_id")?.to_owned();
     let objective_sense = required(&metadata, "objective_sense")?;
     if !valid_token(&problem_id) || !valid_token(&assumption_set_id) {
-        return Err(fail("problem_id and assumption_set_id must be valid tokens"));
+        return Err(fail(
+            "problem_id and assumption_set_id must be valid tokens",
+        ));
     }
     if !valid_sha256(&scope_sha256) {
-        return Err(fail("scope_sha256 must be 64 lowercase hexadecimal characters"));
+        return Err(fail(
+            "scope_sha256 must be 64 lowercase hexadecimal characters",
+        ));
     }
     if objective_sense != "MAXIMIZE" {
         return Err(fail("E0 currently supports objective_sense=MAXIMIZE only"));
@@ -393,7 +397,10 @@ pub fn parse_input(source: &str) -> Result<LpModel, LpError> {
     let mut column_ids = BTreeSet::<String>::new();
     for fields in parse_pairs(&column_lines, COLUMNS_HEADER, 2, "COLUMNS")? {
         if !valid_token(&fields[0]) || !column_ids.insert(fields[0].clone()) {
-            return Err(fail(format!("invalid or duplicate column id {}", fields[0])));
+            return Err(fail(format!(
+                "invalid or duplicate column id {}",
+                fields[0]
+            )));
         }
         columns.push(LpColumn {
             id: fields[0].clone(),
@@ -406,12 +413,7 @@ pub fn parse_input(source: &str) -> Result<LpModel, LpError> {
     columns.sort_by_key(|column| column.id.clone());
 
     let mut coefficients = BTreeMap::<(String, String), Rational>::new();
-    for fields in parse_pairs(
-        &coefficient_lines,
-        COEFFICIENTS_HEADER,
-        3,
-        "COEFFICIENTS",
-    )? {
+    for fields in parse_pairs(&coefficient_lines, COEFFICIENTS_HEADER, 3, "COEFFICIENTS")? {
         if !row_ids.contains(&fields[0]) || !column_ids.contains(&fields[1]) {
             return Err(fail(format!(
                 "coefficient references unknown row {} or column {}",
@@ -420,7 +422,9 @@ pub fn parse_input(source: &str) -> Result<LpModel, LpError> {
         }
         let value = Rational::parse(&fields[2], "matrix coefficient")?;
         if value == Rational::zero() {
-            return Err(fail("explicit zero coefficients must be omitted from sparse matrix"));
+            return Err(fail(
+                "explicit zero coefficients must be omitted from sparse matrix",
+            ));
         }
         let key = (fields[0].clone(), fields[1].clone());
         if coefficients.insert(key, value).is_some() {
@@ -434,33 +438,49 @@ pub fn parse_input(source: &str) -> Result<LpModel, LpError> {
     let mut primal = BTreeMap::<String, Rational>::new();
     for fields in parse_pairs(&primal_lines, PRIMAL_HEADER, 2, "PRIMAL")? {
         if !column_ids.contains(&fields[0]) {
-            return Err(fail(format!("primal certificate references unknown column {}", fields[0])));
+            return Err(fail(format!(
+                "primal certificate references unknown column {}",
+                fields[0]
+            )));
         }
         if primal
-            .insert(fields[0].clone(), Rational::parse(&fields[1], "primal value")?)
+            .insert(
+                fields[0].clone(),
+                Rational::parse(&fields[1], "primal value")?,
+            )
             .is_some()
         {
             return Err(fail(format!("duplicate primal value for {}", fields[0])));
         }
     }
     if primal.len() != columns.len() {
-        return Err(fail("primal certificate must provide exactly one value for every column"));
+        return Err(fail(
+            "primal certificate must provide exactly one value for every column",
+        ));
     }
 
     let mut dual = BTreeMap::<String, Rational>::new();
     for fields in parse_pairs(&dual_lines, DUAL_HEADER, 2, "DUAL")? {
         if !row_ids.contains(&fields[0]) {
-            return Err(fail(format!("dual certificate references unknown row {}", fields[0])));
+            return Err(fail(format!(
+                "dual certificate references unknown row {}",
+                fields[0]
+            )));
         }
         if dual
-            .insert(fields[0].clone(), Rational::parse(&fields[1], "dual value")?)
+            .insert(
+                fields[0].clone(),
+                Rational::parse(&fields[1], "dual value")?,
+            )
             .is_some()
         {
             return Err(fail(format!("duplicate dual value for {}", fields[0])));
         }
     }
     if dual.len() != rows.len() {
-        return Err(fail("dual certificate must provide exactly one value for every row"));
+        return Err(fail(
+            "dual certificate must provide exactly one value for every row",
+        ));
     }
 
     Ok(LpModel {
@@ -487,16 +507,21 @@ fn dot<I>(terms: I) -> Result<Rational, LpError>
 where
     I: IntoIterator<Item = (Rational, Rational)>,
 {
-    terms.into_iter().try_fold(Rational::zero(), |sum, (left, right)| {
-        sum.checked_add(left.checked_mul(right)?) 
-    })
+    terms
+        .into_iter()
+        .try_fold(Rational::zero(), |sum, (left, right)| {
+            sum.checked_add(left.checked_mul(right)?)
+        })
 }
 
 fn check_primal(model: &LpModel) -> Result<CertificateCheck, LpError> {
     let objective = dot(model.columns.iter().map(|column| {
         (
             column.objective,
-            *model.primal.get(&column.id).expect("parser checked complete primal"),
+            *model
+                .primal
+                .get(&column.id)
+                .expect("parser checked complete primal"),
         )
     }))?;
     let mut violations = Vec::new();
@@ -534,7 +559,10 @@ fn check_dual(model: &LpModel) -> Result<CertificateCheck, LpError> {
     let objective = dot(model.rows.iter().map(|row| {
         (
             row.rhs,
-            *model.dual.get(&row.id).expect("parser checked complete dual"),
+            *model
+                .dual
+                .get(&row.id)
+                .expect("parser checked complete dual"),
         )
     }))?;
     let mut violations = Vec::new();
@@ -545,12 +573,10 @@ fn check_dual(model: &LpModel) -> Result<CertificateCheck, LpError> {
         }
     }
     for column in &model.columns {
-        let lhs = dot(model.rows.iter().map(|row| {
-            (
-                coefficient(model, &row.id, &column.id),
-                model.dual[&row.id],
-            )
-        }))?;
+        let lhs = dot(model
+            .rows
+            .iter()
+            .map(|row| (coefficient(model, &row.id, &column.id), model.dual[&row.id])))?;
         if lhs.checked_cmp(column.objective)? == Ordering::Less {
             violations.push(format!(
                 "DUAL_CONSTRAINT:{}:lhs={}:rhs={}",
@@ -610,10 +636,12 @@ fn reduce_identical_columns(model: &LpModel) -> Result<(LpModel, Vec<ColumnClass
             .clone();
         reduced_columns.push(representative.clone());
 
-        let aggregated_primal = class.members.iter().try_fold(
-            Rational::zero(),
-            |sum, member| sum.checked_add(model.primal[member]),
-        )?;
+        let aggregated_primal = class
+            .members
+            .iter()
+            .try_fold(Rational::zero(), |sum, member| {
+                sum.checked_add(model.primal[member])
+            })?;
         reduced_primal.insert(representative.id.clone(), aggregated_primal);
 
         for row in &model.rows {
@@ -657,9 +685,13 @@ pub fn analyze(model: &LpModel) -> Result<Analysis, LpError> {
             return false;
         };
         class.members.iter().all(|member| {
-            model.columns.iter().find(|column| column.id == *member).is_some_and(|column| {
-                column_signature(model, column) == column_signature(model, representative)
-            })
+            model
+                .columns
+                .iter()
+                .find(|column| column.id == *member)
+                .is_some_and(|column| {
+                    column_signature(model, column) == column_signature(model, representative)
+                })
         })
     });
 
@@ -668,7 +700,9 @@ pub fn analyze(model: &LpModel) -> Result<Analysis, LpError> {
         || !primal_objective_preserved
         || !coefficient_projection_exact
     {
-        return Err(fail("canonical column reduction failed exact equivalence check"));
+        return Err(fail(
+            "canonical column reduction failed exact equivalence check",
+        ));
     }
 
     let optimality_status = match (primal.feasible, dual.feasible) {
@@ -708,7 +742,9 @@ pub fn analyze(model: &LpModel) -> Result<Analysis, LpError> {
 }
 
 fn optional_rational(value: Option<Rational>) -> String {
-    value.map(Rational::display).unwrap_or_else(|| "NOT_ESTABLISHED".to_owned())
+    value
+        .map(Rational::display)
+        .unwrap_or_else(|| "NOT_ESTABLISHED".to_owned())
 }
 
 impl Analysis {
@@ -718,18 +754,16 @@ impl Analysis {
         writeln!(out, "version=0.1.0").expect("String write");
         writeln!(out, "problem_id={}", self.model.problem_id).expect("String write");
         writeln!(out, "scope_sha256={}", self.model.scope_sha256).expect("String write");
-        writeln!(out, "assumption_set_id={}", self.model.assumption_set_id)
-            .expect("String write");
+        writeln!(out, "assumption_set_id={}", self.model.assumption_set_id).expect("String write");
         writeln!(out, "objective_sense=MAXIMIZE").expect("String write");
         writeln!(out, "row_count={}", self.model.rows.len()).expect("String write");
-        writeln!(out, "original_column_count={}", self.reduction.original_column_count)
-            .expect("String write");
         writeln!(
             out,
-            "nonzero_count={}",
-            self.model.coefficients.len()
+            "original_column_count={}",
+            self.reduction.original_column_count
         )
         .expect("String write");
+        writeln!(out, "nonzero_count={}", self.model.coefficients.len()).expect("String write");
         writeln!(
             out,
             "reduced_column_count={}",
@@ -748,20 +782,31 @@ impl Analysis {
             if self.primal.feasible { "PASS" } else { "FAIL" }
         )
         .expect("String write");
-        writeln!(out, "primal_violation_count={}", self.primal.violation_count)
-            .expect("String write");
-        writeln!(out, "primal_objective_candidate={}", self.primal.objective.display())
-            .expect("String write");
+        writeln!(
+            out,
+            "primal_violation_count={}",
+            self.primal.violation_count
+        )
+        .expect("String write");
+        writeln!(
+            out,
+            "primal_objective_candidate={}",
+            self.primal.objective.display()
+        )
+        .expect("String write");
         writeln!(
             out,
             "dual_feasible={}",
             if self.dual.feasible { "PASS" } else { "FAIL" }
         )
         .expect("String write");
-        writeln!(out, "dual_violation_count={}", self.dual.violation_count)
-            .expect("String write");
-        writeln!(out, "dual_objective_candidate={}", self.dual.objective.display())
-            .expect("String write");
+        writeln!(out, "dual_violation_count={}", self.dual.violation_count).expect("String write");
+        writeln!(
+            out,
+            "dual_objective_candidate={}",
+            self.dual.objective.display()
+        )
+        .expect("String write");
         writeln!(
             out,
             "objective_lower_bound={}",
@@ -774,8 +819,7 @@ impl Analysis {
             optional_rational(self.objective_upper_bound)
         )
         .expect("String write");
-        writeln!(out, "optimality_status={}", self.optimality_status)
-            .expect("String write");
+        writeln!(out, "optimality_status={}", self.optimality_status).expect("String write");
         writeln!(
             out,
             "reduced_primal_objective={}",
@@ -866,8 +910,14 @@ mod tests {
             report.optimality_status,
             "OPTIMALITY_PROVEN_BY_EXACT_PRIMAL_DUAL_EQUALITY"
         );
-        assert_eq!(report.objective_lower_bound, Some(Rational::new(10, 1).unwrap()));
-        assert_eq!(report.objective_upper_bound, Some(Rational::new(10, 1).unwrap()));
+        assert_eq!(
+            report.objective_lower_bound,
+            Some(Rational::new(10, 1).unwrap())
+        );
+        assert_eq!(
+            report.objective_upper_bound,
+            Some(Rational::new(10, 1).unwrap())
+        );
     }
 
     #[test]
@@ -909,10 +959,7 @@ mod tests {
         assert!(report.dual.feasible);
         assert_eq!(report.objective_lower_bound, None);
         assert_eq!(report.objective_upper_bound.unwrap().display(), "10");
-        assert_eq!(
-            report.optimality_status,
-            "DUAL_FEASIBLE_UPPER_BOUND_ONLY"
-        );
+        assert_eq!(report.optimality_status, "DUAL_FEASIBLE_UPPER_BOUND_ONLY");
     }
 
     #[test]
@@ -923,10 +970,7 @@ mod tests {
         assert!(!report.dual.feasible);
         assert_eq!(report.objective_lower_bound.unwrap().display(), "10");
         assert_eq!(report.objective_upper_bound, None);
-        assert_eq!(
-            report.optimality_status,
-            "PRIMAL_FEASIBLE_LOWER_BOUND_ONLY"
-        );
+        assert_eq!(report.optimality_status, "PRIMAL_FEASIBLE_LOWER_BOUND_ONLY");
     }
 
     #[test]
@@ -954,10 +998,7 @@ mod tests {
 
     #[test]
     fn matrix_duplicates_and_dangling_references_are_rejected() {
-        let duplicate = FIXTURE.replace(
-            "y-cap|y|1",
-            "y-cap|y|1\ny-cap|y|1",
-        );
+        let duplicate = FIXTURE.replace("y-cap|y|1", "y-cap|y|1\ny-cap|y|1");
         assert!(parse_input(&duplicate).is_err());
         let dangling = FIXTURE.replace("x-cap|x1|1", "missing-row|x1|1");
         assert!(parse_input(&dangling).is_err());
@@ -1002,7 +1043,10 @@ mod tests {
                 writeln!(section, "{row}").unwrap();
             }
         }
-        assert_eq!(original, analyze(&parse_input(&section).unwrap()).unwrap().render());
+        assert_eq!(
+            original,
+            analyze(&parse_input(&section).unwrap()).unwrap().render()
+        );
     }
 
     #[test]
