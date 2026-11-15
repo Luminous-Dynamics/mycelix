@@ -1183,6 +1183,34 @@ mod tests {
     }
 
     #[test]
+    fn ancestry_paths_parse_and_malformed_paths_fail_closed() {
+        let valid_paths = FIXTURE
+            .replace(
+                "#source_a_ancestry=utility-account-master",
+                "#source_a_ancestry=national-register/utility-account",
+            )
+            .replace(
+                "#source_b_ancestry=field-inspection-collection",
+                "#source_b_ancestry=national-register/inspection-log",
+            );
+        let parsed = parse_input(&valid_paths).unwrap();
+        let report = analyze(&parsed);
+        assert_eq!(
+            report.source_ancestry_relation,
+            "SHARED_DECLARED_UPSTREAM_ANCESTRY"
+        );
+        assert!(report.results.iter().all(|result| {
+            result.lincoln_petersen.is_none() && result.chapman.is_none()
+        }));
+
+        let malformed = FIXTURE.replace(
+            "#source_a_ancestry=utility-account-master",
+            "#source_a_ancestry=national-register//utility-account",
+        );
+        assert!(parse_input(&malformed).is_err());
+    }
+
+    #[test]
     fn independence_estimates_are_not_emitted_when_not_declared_or_linkage_unknown() {
         let mut problem = fixture();
         problem.independence_assumption = IndependenceAssumption::NotDeclared;
