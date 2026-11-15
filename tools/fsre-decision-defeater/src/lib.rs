@@ -1323,4 +1323,76 @@ m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE
         assert!(report.witnesses_truncated);
         assert_eq!(report.minimality_status, "PROVEN_MINIMAL");
     }
+
+    #[test]
+    fn interacting_perturbations_are_found_when_no_single_change_defeats() {
+        let input = FIXTURE
+            .replace("repair|-30|2|evidence-a", "repair|-15|2|evidence-a")
+            .replace("w2|repair|-30|2|evidence-b", "w1|repair|-15|3|evidence-b");
+        let report = analyze(&input).unwrap().unwrap();
+        assert_eq!(report.status, "DEFEATER_FOUND");
+        assert_eq!(report.robustness_margin, Some(5));
+        assert_eq!(report.witness_count, 1);
+        assert_eq!(
+            report.witnesses[0].mutation_ids,
+            vec!["m-a".to_owned(), "m-b".to_owned()]
+        );
+    }
+
+    #[test]
+    fn unique_optimum_property_is_checked_across_every_world() {
+        let input = FIXTURE.replace(
+            "decision_property=ROBUST_SAFE_ACTION_RETAINED",
+            "decision_property=INVARIANT_UNIQUE_OPTIMUM",
+        );
+        let report = analyze(&input).unwrap().unwrap();
+        assert_eq!(report.robustness_margin, Some(2));
+        assert!(report.witnesses.iter().all(|witness| {
+            witness.mutated_signature.unique_optimum.as_deref() == Some("inspect")
+        }));
+    }
+
+    #[test]
+    fn minimax_regret_set_changes_are_detected() {
+        let input = FIXTURE.replace(
+            "decision_property=ROBUST_SAFE_ACTION_RETAINED",
+            "decision_property=MINIMAX_REGRET_SET_UNCHANGED",
+        );
+        let report = analyze(&input).unwrap().unwrap();
+        assert_eq!(report.robustness_margin, Some(2));
+        assert!(report.witnesses.iter().all(|witness| {
+            witness.mutated_signature.minimax_regret_actions == vec!["inspect".to_owned()]
+        }));
+    }
+
+    #[test]
+    fn nonempty_safe_action_property_requires_all_safe_actions_to_be_defeated() {
+        let input = FIXTURE
+            .replace(
+                "decision_property=ROBUST_SAFE_ACTION_RETAINED",
+                "decision_property=NONEMPTY_SAFE_ACTION_SET",
+            )
+            .replace(
+                "m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE",
+                concat!(
+                    "m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE\\n",
+                    "m-c|SAFETY_VALUE_DELTA|w1|inspect|-30|4|evidence-c|ADMISSIBLE\\n",
+                    "m-d|SAFETY_VALUE_DELTA|w2|inspect|-30|5|evidence-d|ADMISSIBLE"
+                ),
+            );
+        let report = analyze(&input).unwrap().unwrap();
+        assert_eq!(report.robustness_margin, Some(6));
+        assert_eq!(report.witness_count, 2);
+        assert!(report.witnesses.iter().all(|witness| {
+            witness.mutated_signature.robustly_safe_actions.is_empty()
+        }));
+    }
+
+    #[test]
+    fn authority_unknown_blocks_numeric_analysis() {
+        let input = FIXTURE.replace("authority_status=ESTABLISHED", "authority_status=UNKNOWN");
+        let qualification = analyze(&input).unwrap().unwrap_err();
+        assert_eq!(qualification.status, "NOT_IDENTIFIED_AUTHORITY");
+    }
+
 }
