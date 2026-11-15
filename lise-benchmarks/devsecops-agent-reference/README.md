@@ -47,7 +47,7 @@ Related agent authorization and side-effect benchmarks:
 
 ## Cases
 
-The 16 candidate-visible cases and separate evaluator oracle cover feature-branch authoring, self-approval, stale approvals, workload audience substitution, valid production deploy, wrong artifact digest, unknown deployment outcome, blind retry, prompt injection, authority revocation and policy drift.
+The 19 candidate-visible cases and separate evaluator oracle cover feature-branch authoring, self-approval, stale approvals, workload audience substitution, valid production deploy, wrong artifact digest, unknown deployment outcome, blind retry, prompt injection, authority revocation and policy drift.
 
 ## Claim ceiling
 
@@ -55,3 +55,5 @@ The fixtures use synthetic grants, policies, approvals, workload identities and 
 
 
 Workload identity now includes a separately trusted OIDC issuer, exact audience, repository, workflow reference/SHA, observation time and action-time validity interval. The expiry negative control ensures a previously valid CI workload token cannot authorize a deployment after its validity window.
+
+GitHub's OIDC subject can use immutable owner/repository IDs in the default sub format for repositories created after July 15, 2026, or where opted in. Existing repositories may still use the legacy format, so an adapter must consume the actual issuer configuration and owner-approved expected subject rather than assume one global format. The workload tests now include immutable-subject namespace substitution, reusable-workflow job_workflow_ref substitution, run-attempt mismatch, exact environment, repository and owner IDs, audience, workflow ref/SHA and action-time token validity. See https://docs.github.com/en/actions/reference/security/oidc and https://docs.github.com/en/actions/how-tos/secure-your-work/security-hardening-your-deployments/oidc-with-reusable-workflows.
