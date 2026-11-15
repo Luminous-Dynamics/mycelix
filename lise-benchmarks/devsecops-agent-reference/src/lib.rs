@@ -468,7 +468,52 @@ mod tests {
         let report = evaluate_bundle(&cases, &oracle);
         assert_eq!(report["conformant"], true);
         assert_eq!(report["case_count"], 19);
-        assert_eq!(report["conformant_case_count"], 16);
+        assert_eq!(report["conformant_case_count"], 19);
+    }
+
+    #[test]
+    fn immutable_subject_rejects_repository_namespace_recycling() {
+        let (cases, _) = bundle();
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-017")
+            .expect("case");
+        assert_eq!(
+            evaluate_case(case).expect("decision")["reason_code"],
+            "workload_identity.binding_mismatch"
+        );
+    }
+
+    #[test]
+    fn reusable_workflow_identity_is_bound_to_the_approved_workflow() {
+        let (cases, _) = bundle();
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-018")
+            .expect("case");
+        assert_eq!(
+            evaluate_case(case).expect("decision")["reason_code"],
+            "workload_identity.binding_mismatch"
+        );
+    }
+
+    #[test]
+    fn workflow_run_attempt_is_bound_to_the_expected_invocation() {
+        let (cases, _) = bundle();
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-019")
+            .expect("case");
+        assert_eq!(
+            evaluate_case(case).expect("decision")["reason_code"],
+            "workload_identity.run_attempt_mismatch"
+        );
     }
 
     #[test]
