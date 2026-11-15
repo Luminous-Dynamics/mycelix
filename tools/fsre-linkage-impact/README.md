@@ -42,3 +42,9 @@ Bridge and fragmentation impacts are not netted against each other. The frozen f
 ## Claim boundary
 
 This is an evaluator for declared benchmark manifests. It does not perform record linkage, verify gold adjudication, establish legal identity, certify source completeness, prove source independence, or authorize a population decision. It measures downstream effects on the declared gold truth.
+
+## Decision-conditioned capacity guard
+
+The manifest includes a declared capacity limit. The evaluator compares whether the gold weighted denominator and the candidate weighted denominator exceed that limit. It reports decision mismatch, false-safe and false-alarm outcomes separately, plus capacity excess under each denominator.
+
+This is a synthetic decision replay for the declared threshold only. It does not prove plant capacity, physical safety, legal authority or intervention necessity.
