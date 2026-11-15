@@ -558,7 +558,8 @@ fn parse_citations(
                     return Err(ParseError::EmptyCitations);
                 }
 
-                if citations_depth == Some(element_stack.len()) && name.as_slice() == b"EventIVORN" {
+                if citations_depth == Some(element_stack.len()) && name.as_slice() == b"EventIVORN"
+                {
                     let (relation, attributes) = parse_citation_attributes(&element)?;
                     return Err(ParseError::InvalidCitationTarget(format!(
                         "empty EventIVORN with relation {relation:?} and {} attributes",
@@ -566,7 +567,8 @@ fn parse_citations(
                     )));
                 }
 
-                if citations_depth == Some(element_stack.len()) && name.as_slice() == b"Description" {
+                if citations_depth == Some(element_stack.len()) && name.as_slice() == b"Description"
+                {
                     if description_seen {
                         return Err(ParseError::DuplicateCitationsDescription);
                     }
@@ -668,7 +670,6 @@ fn parse_citations(
 
     Ok((citations_seen, citations, description))
 }
-
 
 fn parse_source_attributes(element: &BytesStart<'_>) -> Result<Vec<RootAttribute>, ParseError> {
     let mut attributes = Vec::new();
@@ -1067,7 +1068,7 @@ mod tests {
             .find_map(|content| match content {
                 SourceContent::Element { element } if element.name == name => {
                     Some(element.as_ref())
-                },
+                }
                 _ => None,
             })
             .expect("expected source child")
