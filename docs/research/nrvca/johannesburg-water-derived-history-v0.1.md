@@ -56,3 +56,15 @@ Do not double-count Watersearch plus the underlying JW board as independent corr
 - `watersearch-derived-history-negative-controls-v0.1.json`: 12 synthetic lineage/gap/censoring controls.
 
 All twelve negative controls are synthetic. This package does not acquire live or historical source bytes, author a data ingestion service, qualify an actual outage, or authorize service decisions.
+
+
+## Reviewed API example (not pinned or acquired)
+
+A public `/api/v1/supplies/hursthill-2-reservoir` response was inspected on 15 November 2026 under release `2026-11-15-b7c711ba`. The API reported:
+- Hursthill 2 Reservoir; systems `central` and `commando`;
+- board history 3 March 2025–15 November 2026, 334 reported days, 138 days classified as bad (`no_water` or `critical`), 573 board rows and 29 overnight-closure rows;
+- for 2026, 106 bad days out of 228 reported days, against a reported city median of 6.5 bad days;
+- latest board 15 November 2026 09:25 SAST: `warned`, on bypass, with wording that poor pressure/intermittent supply/no water *may* occur;
+- last-ten-outage summary: median at least 17 hours, longest at least 64.833 hours, one censored interval.
+
+These are **Watersearch-derived supply-reporting statistics**, not direct physical measurements. In particular, 106/228 uses reported days as denominator, not 365 calendar days; a `warned` state is not a `no_water`/ `critical` observation; the last-ten duration summary includes a censored lower-bound interval. The response was viewed in the public API page but was not downloaded, hashed or stored as a source fixture (`content_sha256: null`). Do not benchmark against this single example as an annual availability rate or household service result.
