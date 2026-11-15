@@ -232,6 +232,11 @@ fn check_workload_identity(case: &Value) -> Result<Option<Value>, String> {
         ("repository", "repository", request),
         ("workflow_ref", "workflow_ref", request),
         ("workflow_sha", "workflow_sha", request),
+        ("sub", "expected_subject_claim", request),
+        ("repository_id", "expected_repository_id", request),
+        ("repository_owner_id", "expected_owner_id", request),
+        ("job_workflow_ref", "expected_job_workflow_ref", request),
+        ("run_id", "workflow_run_id", request),
     ];
     for (identity_key, expected_key, expected_source) in checks {
         if string(identity, identity_key, "workload identity")?
@@ -241,6 +246,16 @@ fn check_workload_identity(case: &Value) -> Result<Option<Value>, String> {
         }
     }
     let action_at = timestamp(request, "action_at", "request")?;
+    if identity.get("run_attempt").and_then(Value::as_u64)
+        != request.get("expected_run_attempt").and_then(Value::as_u64)
+    {
+        return Ok(Some(deny("workload_identity.run_attempt_mismatch")));
+    }
+    if string(identity, "environment", "workload identity")?
+        != string(request, "environment", "request")?
+    {
+        return Ok(Some(deny("workload_identity.environment_mismatch")));
+    }
     let known_at = timestamp(request, "known_at", "request")?;
     if timestamp(identity, "observed_at", "workload identity")? > known_at {
         return Ok(Some(hold("workload_identity.not_yet_observed", Vec::new())));
@@ -452,7 +467,7 @@ mod tests {
         let (cases, oracle) = bundle();
         let report = evaluate_bundle(&cases, &oracle);
         assert_eq!(report["conformant"], true);
-        assert_eq!(report["case_count"], 16);
+        assert_eq!(report["case_count"], 19);
         assert_eq!(report["conformant_case_count"], 16);
     }
 
