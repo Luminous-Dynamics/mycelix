@@ -12,4 +12,5 @@ combined-survey|field-survey|7|ccccccccccccccccccccccccccccccccccccccccccccccccc
 frame-survey|population-inspection|4|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|PASS|PASS|PASS|PASS|PASS|PASS|FRAME_COVERAGE|-|crew-a|field-team|survey-10
 joint-audit|integrated-audit|9|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|PASS|PASS|PASS|PASS|PASS|PASS|AUTHORITY,FRAME_COVERAGE,HYDRAULIC_SAFETY|-|-|independent-auditor|audit-9
 pump-test|hydraulic-test|5|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|PASS|PASS|PASS|PASS|PASS|PASS|HYDRAULIC_SAFETY|authority-review|lab-1|test-lab|test-7
-remote-sensor|remote-sensing|1|dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd|PASS|PASS|PASS|UNKNOWN|PASS|PASS|HYDRAULIC_SAFETY|-|crew-c|remote-vendor|sensor-3
+remote-sensor|remote-sensing|1|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|PASS|PASS|PASS|UNKNOWN|PASS|PASS|HYDRAULIC_SAFETY|-|crew-c|remote-vendor|sensor-3
+stale-snapshot|source-audit|2|dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd|PASS|PASS|PASS|PASS|PASS|PASS|FRAME_COVERAGE|-|-|legacy-export|stale-1
