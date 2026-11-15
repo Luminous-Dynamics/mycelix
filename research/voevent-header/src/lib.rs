@@ -627,12 +627,9 @@ fn parse_citations(
                 let depth = element_stack.len();
                 let name = element.name().as_ref().to_vec();
 
-                if current_citation
-                    .as_ref()
-                    .is_some_and(|builder| {
-                        builder.depth == depth && name.as_slice() == b"EventIVORN"
-                    })
-                {
+                if current_citation.as_ref().is_some_and(|builder| {
+                    builder.depth == depth && name.as_slice() == b"EventIVORN"
+                }) {
                     let builder = current_citation.take().expect("citation builder exists");
                     let target_ivoid = builder.text;
                     validate_ivoid(&target_ivoid).map_err(ParseError::InvalidCitationTarget)?;
@@ -643,12 +640,9 @@ fn parse_citations(
                     });
                 }
 
-                if current_description
-                    .as_ref()
-                    .is_some_and(|builder| {
-                        builder.depth == depth && name.as_slice() == b"Description"
-                    })
-                {
+                if current_description.as_ref().is_some_and(|builder| {
+                    builder.depth == depth && name.as_slice() == b"Description"
+                }) {
                     let builder = current_description
                         .take()
                         .expect("description builder exists");
@@ -989,12 +983,9 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
                 let depth = element_stack.len();
                 let name = element.name().as_ref().to_vec();
 
-                if current_author
-                    .as_ref()
-                    .is_some_and(|builder| {
-                        builder.depth == depth && name.as_slice() == b"AuthorIVORN"
-                    })
-                {
+                if current_author.as_ref().is_some_and(|builder| {
+                    builder.depth == depth && name.as_slice() == b"AuthorIVORN"
+                }) {
                     let builder = current_author.take().expect("Who author builder exists");
                     validate_ivoid(&builder.text).map_err(ParseError::InvalidWhoAuthorIvoid)?;
                     author_ivoid = Some(builder.text);
