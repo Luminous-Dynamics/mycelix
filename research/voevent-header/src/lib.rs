@@ -519,13 +519,9 @@ fn parse_citations(
                 } else if current_citation
                     .as_ref()
                     .is_some_and(|builder| element_stack.len() >= builder.depth)
-                {
-                    return Err(ParseError::NestedCitationElement(
-                        String::from_utf8_lossy(&name).into_owned(),
-                    ));
-                } else if current_description
-                    .as_ref()
-                    .is_some_and(|builder| element_stack.len() >= builder.depth)
+                    || current_description
+                        .as_ref()
+                        .is_some_and(|builder| element_stack.len() >= builder.depth)
                 {
                     return Err(ParseError::NestedCitationElement(
                         String::from_utf8_lossy(&name).into_owned(),
