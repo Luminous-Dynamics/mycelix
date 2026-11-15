@@ -93,8 +93,6 @@ struct Edge {
     edge_id: String,
     from: String,
     to: String,
-    enabled: bool,
-    effect_capable: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -148,7 +146,9 @@ fn canonical_graph_digest(graph: &Value) -> Result<String, String> {
     Ok(sha256(&bytes))
 }
 
-fn parse_graph(graph: &Value) -> Result<(BTreeSet<String>, Vec<Edge>, Vec<String>, Vec<String>), String> {
+fn parse_graph(
+    graph: &Value,
+) -> Result<(BTreeMap<String, String>, Vec<Edge>, Vec<String>, Vec<String>), String> {
     let raw_nodes = array(graph, "nodes", "graph")?;
     let raw_edges = array(graph, "edges", "graph")?;
     if raw_nodes.is_empty() || raw_nodes.len() > MAX_NODES {
@@ -158,11 +158,11 @@ fn parse_graph(graph: &Value) -> Result<(BTreeSet<String>, Vec<Edge>, Vec<String
         return Err(format!("graph: edge count exceeds {MAX_EDGES}"));
     }
 
-    let mut nodes = BTreeSet::new();
+    let mut nodes = BTreeMap::new();
     for node in raw_nodes {
-        let id = string(node, "node_id", "graph node")?;
-        let _kind = string(node, "kind", "graph node")?;
-        if !nodes.insert(id.to_owned()) {
+        let id = string(node, "node_id", "graph node")?.to_owned();
+        let kind = string(node, "kind", "graph node")?.to_owned();
+        if nodes.insert(id.clone(), kind).is_some() {
             return Err(format!("graph: duplicate node id '{id}'"));
         }
     }
@@ -176,7 +176,7 @@ fn parse_graph(graph: &Value) -> Result<(BTreeSet<String>, Vec<Edge>, Vec<String
         if !edge_ids.insert(edge_id.clone()) {
             return Err(format!("graph: duplicate edge id '{edge_id}'"));
         }
-        if !nodes.contains(&from) || !nodes.contains(&to) {
+        if !nodes.contains_key(&from) || !nodes.contains_key(&to) {
             return Err(format!("graph: edge '{edge_id}' has a dangling endpoint"));
         }
         let enabled = raw
@@ -188,13 +188,7 @@ fn parse_graph(graph: &Value) -> Result<(BTreeSet<String>, Vec<Edge>, Vec<String
             .and_then(Value::as_bool)
             .ok_or_else(|| format!("graph edge '{edge_id}': effect_capable must be boolean"))?;
         if enabled && effect_capable {
-            edges.push(Edge {
-                edge_id,
-                from,
-                to,
-                enabled,
-                effect_capable,
-            });
+            edges.push(Edge { edge_id, from, to });
         }
     }
     edges.sort_by(|a, b| a.edge_id.cmp(&b.edge_id));
@@ -202,12 +196,12 @@ fn parse_graph(graph: &Value) -> Result<(BTreeSet<String>, Vec<Edge>, Vec<String
     let entry_points = parse_string_array(graph, "entry_points", "graph")?;
     let protected = parse_string_array(graph, "protected_effect_nodes", "graph")?;
     for entry in &entry_points {
-        if !nodes.contains(entry) {
+        if !nodes.contains_key(entry) {
             return Err(format!("graph: entry point '{entry}' is not a known node"));
         }
     }
     for target in &protected {
-        if !nodes.contains(target) {
+        if !nodes.contains_key(target) {
             return Err(format!("graph: protected effect node '{target}' is not a known node"));
         }
     }
@@ -270,50 +264,48 @@ fn inventory_receipt_valid(
         && timestamp(receipt, "observed_at", "inventory receipt").is_ok_and(|v| v <= scope.known_at.as_str())
 }
 
-fn enumerate_paths(
-    current: &str,
-    protected: &BTreeSet<String>,
-    adjacency: &BTreeMap<String, Vec<Edge>>,
-    visiting: &mut HashSet<String>,
-    nodes: &mut Vec<String>,
-    edges: &mut Vec<String>,
-    output: &mut Vec<Path>,
-) -> Result<(), String> {
-    if nodes.len() > MAX_PATH_DEPTH {
-        return Err(format!("path depth exceeded {MAX_PATH_DEPTH}"));
-    }
-    if protected.contains(current) {
-        if output.len() >= MAX_PATHS {
-            return Err(format!("path count exceeded {MAX_PATHS}"));
+struct PathEnumerator<'a> {
+    protected: &'a BTreeSet<String>,
+    adjacency: &'a BTreeMap<String, Vec<Edge>>,
+    output: Vec<Path>,
+}
+
+impl PathEnumerator<'_> {
+    fn walk(
+        &mut self,
+        current: &str,
+        visiting: &mut HashSet<String>,
+        nodes: &mut Vec<String>,
+        edges: &mut Vec<String>,
+    ) -> Result<(), String> {
+        if nodes.len() > MAX_PATH_DEPTH {
+            return Err(format!("path depth exceeded {MAX_PATH_DEPTH}"));
         }
-        output.push(Path {
-            nodes: nodes.clone(),
-            edges: edges.clone(),
-        });
-        return Ok(());
-    }
-    if let Some(next) = adjacency.get(current) {
-        for edge in next {
-            if !visiting.insert(edge.to.clone()) {
-                continue;
+        if self.protected.contains(current) {
+            if self.output.len() >= MAX_PATHS {
+                return Err(format!("path count exceeded {MAX_PATHS}"));
             }
-            nodes.push(edge.to.clone());
-            edges.push(edge.edge_id.clone());
-            enumerate_paths(
-                &edge.to,
-                protected,
-                adjacency,
-                visiting,
-                nodes,
-                edges,
-                output,
-            )?;
-            edges.pop();
-            nodes.pop();
-            visiting.remove(&edge.to);
+            self.output.push(Path {
+                nodes: nodes.clone(),
+                edges: edges.clone(),
+            });
+            return Ok(());
         }
+        if let Some(next) = self.adjacency.get(current) {
+            for edge in next {
+                if !visiting.insert(edge.to.clone()) {
+                    continue;
+                }
+                nodes.push(edge.to.clone());
+                edges.push(edge.edge_id.clone());
+                self.walk(&edge.to, visiting, nodes, edges)?;
+                edges.pop();
+                nodes.pop();
+                visiting.remove(&edge.to);
+            }
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 fn matching_mediator(
@@ -372,7 +364,7 @@ pub fn evaluate(fixture: &Value) -> Value {
         let scope = parse_scope(fixture)?;
         let graph = object(fixture, "graph", "fixture")?;
         let graph_digest = canonical_graph_digest(graph)?;
-        let (nodes, edges, entries, protected) = parse_graph(graph)?;
+        let (node_kinds, edges, entries, protected) = parse_graph(graph)?;
 
         let receipt_valid = inventory_receipt_valid(fixture, &graph_digest, &scope);
         if !receipt_valid {
@@ -399,30 +391,24 @@ pub fn evaluate(fixture: &Value) -> Value {
         }
 
         let protected_set: BTreeSet<String> = protected.into_iter().collect();
-        let mut paths = Vec::new();
+        let mut enumerator = PathEnumerator {
+            protected: &protected_set,
+            adjacency: &adjacency,
+            output: Vec::new(),
+        };
         for entry in entries {
             let mut visiting = HashSet::new();
             let mut path_nodes = vec![entry.clone()];
             let mut path_edges = Vec::new();
             visiting.insert(entry.clone());
-            enumerate_paths(
+            enumerator.walk(
                 &entry,
-                &protected_set,
-                &adjacency,
                 &mut visiting,
                 &mut path_nodes,
                 &mut path_edges,
-                &mut paths,
             )?;
         }
-
-        let mut node_kinds = BTreeMap::new();
-        for node in array(graph, "nodes", "graph")? {
-            node_kinds.insert(
-                string(node, "node_id", "graph node")?.to_owned(),
-                string(node, "kind", "graph node")?.to_owned(),
-            );
-        }
+        let paths = enumerator.output;
 
         if paths.is_empty() {
             return Ok(json!({
