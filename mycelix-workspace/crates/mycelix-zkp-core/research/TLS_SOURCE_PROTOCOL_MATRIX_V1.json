@@ -164,7 +164,13 @@
           "tradeoff": "Full-reveal fast path does not apply; direction uses ZK path."
         }
       ],
-      "field_semantic_boundary": "TLSN authenticates selected transcript bytes and their direction/range. Application JSON field meaning is an external parser/schema relation and must be independently bound."
+      "field_semantic_boundary": "TLSN authenticates selected transcript bytes and their direction/range. Application JSON field meaning is an external parser/schema relation and must be independently bound.",
+      "field_selector_candidate": {
+        "owner": "Symthaea #12328",
+        "implementation": "Symthaea PR #12336",
+        "status": "draft_host_side_parser_range_selector_unexecuted",
+        "claim_limit": "Returns an exact raw JSON body-relative token span; a separate qualified HTTP framing/TLSN transcript layer must map and authenticate the span."
+      }
     },
     {
       "id": "DECO",
@@ -407,7 +413,8 @@
       "attested_verifier_receipt_validation",
       "application_field_semantic_binding",
       "json_pointer_and_parser_profile_verification",
-      "response_ordinal_and_direction_binding"
+      "response_ordinal_and_direction_binding",
+      "host_side_field_selector"
     ],
     "measures": [
       "wall_clock",
@@ -443,7 +450,11 @@
       "parser_disagreement_acceptance",
       "context_bytes_disclosed_for_hidden_leaf",
       "json_duplicate_key_rejection",
-      "message_ordinal_or_direction_substitution_acceptance"
+      "message_ordinal_or_direction_substitution_acceptance",
+      "field_selector_cpu_time",
+      "field_selector_peak_memory",
+      "field_selector_byte_span_alignment",
+      "duplicate_key_and_parser_ambiguity_rejection"
     ],
     "fairness_rules": [
       "Same exact request and response bytes wherever protocol allows.",
@@ -457,7 +468,8 @@
       "Pin exact TLSNotary release/tag/full source commit, crate graph, feature flags, Rust toolchain and target; prerelease Beta.1 remains an integration candidate, not a certified verifier.",
       "Treat attested MPC-TLS verifier with prover-side plaintext and TEE plaintext processor as different privacy/trust profiles.",
       "TEE-attested MPC-TLS verifier with no plaintext ingress and TEE plaintext processor are separate privacy classes; measure exactly which key/data each enclave role receives.",
-      "A TLSNotary commitment opening proves bytes/range authenticity, not that the range denotes the intended JSON Pointer; compare parser-in-proof, verifier-checked structural context and attestor extraction separately."
+      "A TLSNotary commitment opening proves bytes/range authenticity, not that the range denotes the intended JSON Pointer; compare parser-in-proof, verifier-checked structural context and attestor extraction separately.",
+      "Host-side JSON field selection is only a body-relative parser result; never count it as TLS transcript range verification or ZK field-semantic proof."
     ],
     "prospective_targets": {
       "false_accepts_in_frozen_adversarial_corpus": 0,
