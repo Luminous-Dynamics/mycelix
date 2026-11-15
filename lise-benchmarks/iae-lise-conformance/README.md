@@ -4,6 +4,10 @@
 
 This closes a specific gap in the IAE v0.2 mapping: IAE owns claim/evidence selection and bitemporal reconstruction; LISE owns exact-operation pre-effect correspondence and preservation of unknown outcomes. The mapping had been documented but not executable.
 
+## Qualification and comparison
+
+See [QUALIFICATION_PROTOCOL.md](./QUALIFICATION_PROTOCOL.md) for the current research baseline, standards boundary, benchmark tiers, scorecard, prospective targets and matched SOTA comparison protocol.
+
 ## What this crate does
 
 It consumes an IAE fixture and submission, maps the approved and pending operation projections into the existing ipb-finality-reference FinalityInput, derives authority and prior-effect states from their effective-time **and** knowledge-time histories, and calls the LISE reference relation.
