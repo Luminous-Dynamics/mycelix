@@ -298,7 +298,9 @@ fn check_artifact_attestation(case: &Value) -> Result<Option<Value>, String> {
             && pair.get("builder_id").and_then(Value::as_str) == Some(builder_id)
     });
     if !pair_trusted {
-        return Ok(Some(deny("artifact_attestation.untrusted_signer_builder_pair")));
+        return Ok(Some(deny(
+            "artifact_attestation.untrusted_signer_builder_pair",
+        )));
     }
 
     if string(attestation, "subject_digest", "artifact attestation")?
@@ -320,11 +322,8 @@ fn check_artifact_attestation(case: &Value) -> Result<Option<Value>, String> {
     }
 
     let required_dependencies = array(request, "required_dependencies", "request")?;
-    let resolved_dependencies = array(
-        attestation,
-        "resolved_dependencies",
-        "artifact attestation",
-    )?;
+    let resolved_dependencies =
+        array(attestation, "resolved_dependencies", "artifact attestation")?;
     for required in required_dependencies {
         let uri = string(required, "uri", "required dependency")?;
         let digest = required
