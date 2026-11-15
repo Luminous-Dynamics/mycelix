@@ -11,6 +11,7 @@ on:
       - 'tools/fsre-worldset-stability/**'
       - 'tools/fsre-capture-recapture/**'
       - 'tools/fsre-decision-episode/**'
+      - 'tools/fsre-assurance-acquisition/**'
   push:
     branches:
       - main
@@ -22,6 +23,7 @@ on:
       - research/fsre-worldset-stability-v0.1
       - research/fsre-capture-recapture-v0.1
       - research/fsre-decision-episode-v0.1
+      - research/fsre-assurance-acquisition-v0.1
     paths:
       - 'tools/fsre-decision-defeater/**'
       - 'research/fsre/DECISION_DEFEATER_ANALYSIS_BENCHMARK_V0_1.md'
@@ -29,6 +31,9 @@ on:
       - 'tools/fsre-decision-defeater-verifier/**'
       - 'tools/fsre-experiment-potency/**'
       - 'tools/fsre-worldset-stability/**'
+      - 'tools/fsre-capture-recapture/**'
+      - 'tools/fsre-decision-episode/**'
+      - 'tools/fsre-assurance-acquisition/**'
 
 permissions:
   contents: read
@@ -166,3 +171,24 @@ jobs:
           cargo run --quiet --locked --offline --manifest-path tools/fsre-decision-episode/Cargo.toml -- tools/fsre-decision-episode/fixtures/complete-episode.psv > /tmp/episode-b.txt
           cmp /tmp/episode-a.txt /tmp/episode-b.txt
           cmp /tmp/episode-a.txt tools/fsre-decision-episode/fixtures/complete-episode.expected.txt
+
+  assurance-acquisition:
+    if: hashFiles('tools/fsre-assurance-acquisition/Cargo.toml') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path tools/fsre-assurance-acquisition/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --locked --offline --manifest-path tools/fsre-assurance-acquisition/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/fsre-assurance-acquisition/Cargo.toml --all-targets -- -D warnings
+      - name: Deterministic E0 golden
+        run: |
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-assurance-acquisition/Cargo.toml -- tools/fsre-assurance-acquisition/fixtures/water-obligations.psv > /tmp/acquisition-a.txt
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-assurance-acquisition/Cargo.toml -- tools/fsre-assurance-acquisition/fixtures/water-obligations.psv > /tmp/acquisition-b.txt
+          cmp /tmp/acquisition-a.txt /tmp/acquisition-b.txt
+          cmp /tmp/acquisition-a.txt tools/fsre-assurance-acquisition/fixtures/water-obligations.expected.txt
