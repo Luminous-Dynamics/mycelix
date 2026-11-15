@@ -40,7 +40,7 @@ Mutation header:
 
     mutation_id|mutation_kind|world_id|action_id|delta|cost|evidence_ref|admissibility
 
-Supported mutation kinds are `DECISION_VALUE_DELTA` and `SAFETY_VALUE_DELTA`. Multiple deltas to the same cell compose additively with checked wide-integer arithmetic. Mutation IDs are unique and canonicalized lexically before enumeration.
+Supported mutation kinds are `DECISION_VALUE_DELTA` and `SAFETY_VALUE_DELTA`. Multiple deltas to the same cell compose additively using wide-integer accumulation; the v0.1 mutation cap bounds the maximum accumulated value. Mutation IDs are unique and canonicalized lexically before enumeration.
 
 Required metadata:
 
