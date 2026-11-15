@@ -44,13 +44,17 @@ jobs:
           workspaces: mycelix-commons
 
       - name: Format transport integrity crate
-        run: cargo fmt --manifest-path mycelix-commons/Cargo.toml --package transport_sharing_integrity -- --check
+        working-directory: mycelix-commons
+        run: cargo fmt --package transport_sharing_integrity -- --check
 
       - name: Run transport integrity unit tests
-        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p transport_sharing_integrity --all-targets
+        working-directory: mycelix-commons
+        run: cargo test -p transport_sharing_integrity --all-targets
 
       - name: Clippy transport integrity crate
-        run: cargo clippy --manifest-path mycelix-commons/Cargo.toml -p transport_sharing_integrity --all-targets -- -D warnings
+        working-directory: mycelix-commons
+        run: cargo clippy -p transport_sharing_integrity --all-targets -- -D warnings
 
-      - name: Check WASM target
-        run: cargo check --manifest-path mycelix-commons/Cargo.toml -p transport_sharing_integrity --target wasm32-unknown-unknown
+      - name: Check WASM target with Commons custom getrandom backend
+        working-directory: mycelix-commons
+        run: cargo check -p transport_sharing_integrity --target wasm32-unknown-unknown
