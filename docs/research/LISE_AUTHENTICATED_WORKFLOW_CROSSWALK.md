@@ -194,3 +194,83 @@ Performance targets must be measured only after semantics are matched. Report p5
 This crosswalk is literature and benchmark design work. It does not reproduce MACAW, independently verify its reported results, prove any product secure/insecure, or establish production deployment safety. It does not claim that LISE outperforms any comparator.
 
 A future LISE result may claim only the exact properties tested under named source versions, trust assumptions, scenario corpus, evaluator, route inventory, provider profile and observation boundary. Production and external replication remain separate qualifications.
+
+## 11. OWASP Agent Control Standard (ACS) — a first-class interoperability comparator
+
+Official sources:
+- ACS overview: https://genai.owasp.org/resource/agent-control-standard-acs/
+- Specification and current release: https://owaspacs.org/
+- Normative wire-format overview: https://owaspacs.org/docs/acs/
+- FAQ and claim boundaries: https://owaspacs.org/docs/topics/faq/
+- Source repository: https://github.com/GenAI-Security-Project/agent-control-standard
+
+As of 15 November 2026, the project site lists release v0.1.4, specification namespace v0.1.0 and 44 published schemas. The project describes ACS as a wire-format specification for an observed agent to send runtime hooks to a separate Guardian, receive an action disposition, and retain an observable audit trail. The project describes a v0.2.0 target of March 2027; pin the exact schema/release used for any conformance claim.
+
+### What ACS specifies
+
+ACS-Core includes:
+- a capability-negotiation handshake and JSON-RPC envelope;
+- a minimum hook set including session start, user message or agent trigger, tool-call request/result, agent response and session end, plus sub-agent start where applicable;
+- runtime dispositions: allow, deny, ask and defer as mandatory, with modify recommended;
+- session context and rolling SHA-256 chain hash;
+- optional immutable intent;
+- replay protection and a baseline HMAC-SHA256 signature;
+- decision-honoring requirements and a declared liveness mechanism;
+- wrapped MCP when sessions involve MCP.
+
+Optional profiles include:
+- **Trace:** OpenTelemetry semantic conventions and OCSF event mapping.
+- **Inspect / Inspect-Dynamic:** agent bill of materials (AgBOM), snapshots and changes using CycloneDX, SPDX and SWID derivations.
+- **Provenance:** field-level origin/source/derived-from references and an optional trust field with monotonicity semantics.
+- **Crypto:** crypto-agile signatures and key algorithms.
+- **Audit:** request hashes that commit context-chain entries to request content.
+
+### Explicit claim boundary
+
+ACS documentation says ACS-Core authenticates the channel and binds the agent to Guardian decisions, but does not by itself make a deployment secure or its policies strict. The project says tamper-evidence against a compromised Guardian requires the Crypto and Audit profiles rather than Core alone. Its FAQ also distinguishes runtime gateability/observability from preventing prompt injection itself.
+
+LISE must therefore assess ACS conformance without promoting it to claims it does not make:
+- Hook presence does not establish that every effect-capable route is instrumented.
+- An observed-agent hook does not establish resource-side enforcement against a compromised host/application.
+- Guardian authentication does not establish that the Guardian's policy is legitimate, current or complete.
+- A rolling hash chain does not establish that all relevant events entered the chain.
+- An AgBOM snapshot does not prove dependency completeness or effective control independence.
+- A provenance field does not establish source competence, authority or truth.
+- A signed audit event does not establish an independently observed provider/physical effect.
+- An allow disposition is not proof of actual execution; ask or defer must not be coerced into permission by the host.
+
+### LISE-to-ACS composition
+
+| ACS element | LISE qualification question |
+|---|---|
+| ACS-Core hook coverage | Are all effect-capable tool, data, memory, sub-agent and alternate routes represented, and is the inventory complete? |
+| Guardian decision and disposition | Is the decision bound to current owner authority, exact operation digest, purpose, resource, actor and authority epoch? |
+| Session context and replay protection | Are session, tenant, key epoch, bitemporal knowledge and delegation lineages preserved across reconnect, failover and restore? |
+| Trace / OCSF / OpenTelemetry | Do traces distinguish policy decision, PEP enforcement, dispatch, provider acknowledgement, protected-state effect and independent observation? |
+| Inspect / AgBOM | Are models, MCP/A2A peers, tools, knowledge sources and memory stores complete, current and dependency-aware? |
+| Provenance | Does source provenance preserve origin and transformations without confusing authenticity with competence, consent or authority? |
+| Crypto / Audit | Are registry/key lifecycle, Guardian compromise, key rotation, hash-chain genesis, omissions, forks and request-content binding independently challenged? |
+
+ACS should be an explicit comparator arm in #6216, not a competing LISE wire format. A read-only adapter should consume ACS schemas/events and report unsupported hooks/profiles rather than inventing missing values. Where a Guardian has only Core, report Crypto/Audit/Inspect/Trace properties as unsupported or unqualified—not as inherited guarantees.
+
+### First ACS-specific challenge panel
+
+Add ACS-focused cases to the #6216 development panel for:
+1. Missing effect-capable hook or unwrapped MCP path.
+2. Ask / defer incorrectly treated as allow.
+3. Host ignores a valid deny.
+4. Guardian session/key replay across tenants.
+5. Guardian compromise with Core but without Crypto/Audit profiles.
+6. Hash-chain genesis controlled by untrusted host.
+7. Chain is internally valid but drops a hook event.
+8. AgBOM omits a dynamic tool or memory store.
+9. Provenance trust field increases on a derived artifact.
+10. A signed Guardian approval is stale against owner authority epoch.
+11. Tool-call result is present but no protected-resource effect is observed.
+12. Agent/Guardian implementation reports conformance to a profile it does not implement.
+
+### Industry position
+
+ACS fills a useful interoperability gap around hook-based runtime control, trace, inspection and provenance. LISE should build a read-only conformance/evidence adapter rather than reimplement the protocol. The differentiation remains owner-authorized exact-effect assurance, temporal authority reconstruction, complete mediation evidence, independent effect observation, trust-dependency qualification and remedies.
+
+The ACS project describes an AGT Guardian interoperability objective; where its public conformance harness and reference implementation are available, use that as an additional matched implementation baseline. Do not infer production enforcement or universal prompt-injection prevention from a schema/conformance pass.
