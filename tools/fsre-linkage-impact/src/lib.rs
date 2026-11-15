@@ -200,8 +200,10 @@ pub fn parse_input(source: &str) -> Result<Problem, LinkageImpactError> {
     let scope_sha256 = required("scope_sha256")?.to_owned();
     let effective_cutoff = parse_u64(required("effective_cutoff")?, "effective_cutoff")?;
     let recorded_cutoff = parse_u64(required("recorded_cutoff")?, "recorded_cutoff")?;
-    let service_capacity_limit =
-        parse_u64(required("service_capacity_limit")?, "service_capacity_limit")?;
+    let service_capacity_limit = parse_u64(
+        required("service_capacity_limit")?,
+        "service_capacity_limit",
+    )?;
     let max_records = parse_u64(required("max_records")?, "max_records")?;
 
     if !valid_token(&benchmark_id) {
@@ -471,24 +473,22 @@ pub fn analyze(problem: &Problem) -> Result<Report, LinkageImpactError> {
     let capacity_limit = u128::from(problem.service_capacity_limit);
     let truth_capacity_exceeded = truth_population_weight > capacity_limit;
     let predicted_capacity_exceeded = predicted_population_weight > capacity_limit;
-    let capacity_decision_mismatch_count =
-        if truth_capacity_exceeded != predicted_capacity_exceeded {
-            1
-        } else {
-            0
-        };
-    let false_safe_decision_count =
-        if truth_capacity_exceeded && !predicted_capacity_exceeded {
-            1
-        } else {
-            0
-        };
-    let false_alarm_decision_count =
-        if !truth_capacity_exceeded && predicted_capacity_exceeded {
-            1
-        } else {
-            0
-        };
+    let capacity_decision_mismatch_count = if truth_capacity_exceeded != predicted_capacity_exceeded
+    {
+        1
+    } else {
+        0
+    };
+    let false_safe_decision_count = if truth_capacity_exceeded && !predicted_capacity_exceeded {
+        1
+    } else {
+        0
+    };
+    let false_alarm_decision_count = if !truth_capacity_exceeded && predicted_capacity_exceeded {
+        1
+    } else {
+        0
+    };
     let truth_capacity_excess = truth_population_weight.saturating_sub(capacity_limit);
     let predicted_capacity_excess = predicted_population_weight.saturating_sub(capacity_limit);
 
@@ -777,7 +777,8 @@ mod tests {
 
     #[test]
     fn exact_capacity_boundary_does_not_trigger_exceedance() {
-        let boundary = FIXTURE.replace("#service_capacity_limit=220", "#service_capacity_limit=230");
+        let boundary =
+            FIXTURE.replace("#service_capacity_limit=220", "#service_capacity_limit=230");
         let report = analyze(&parse_input(&boundary).unwrap()).unwrap();
         assert!(!report.truth_capacity_exceeded);
         assert!(!report.predicted_capacity_exceeded);
