@@ -110,6 +110,7 @@ pub struct Problem {
     pub source_a_ancestry: String,
     pub source_b_ancestry: String,
     pub population_frame_status: String,
+    pub strata_universe_status: String,
     pub independence_assumption: IndependenceAssumption,
     pub linkage_status: LinkageStatus,
     pub within_stratum_homogeneity: String,
@@ -250,6 +251,7 @@ pub fn parse_input(source: &str) -> Result<Problem, CaptureError> {
                     | "source_a_ancestry"
                     | "source_b_ancestry"
                     | "population_frame_status"
+                    | "strata_universe_status"
                     | "independence_assumption"
                     | "linkage_status"
                     | "within_stratum_homogeneity"
@@ -302,6 +304,11 @@ pub fn parse_input(source: &str) -> Result<Problem, CaptureError> {
         "DECLARED_COMPLETE" => "DECLARED_COMPLETE".to_owned(),
         "NOT_ESTABLISHED" | "DECLARED_INCOMPLETE" => "NOT_ESTABLISHED".to_owned(),
         value => return Err(fail(format!("unknown population_frame_status {value}"))),
+    };
+    let strata_universe_status = match required("strata_universe_status")? {
+        "DECLARED_COMPLETE" => "DECLARED_COMPLETE".to_owned(),
+        "NOT_ESTABLISHED" | "DECLARED_INCOMPLETE" => "NOT_ESTABLISHED".to_owned(),
+        value => return Err(fail(format!("unknown strata_universe_status {value}"))),
     };
     let independence_assumption = parse_independence(required("independence_assumption")?)?;
     let linkage_status = parse_linkage(required("linkage_status")?)?;
@@ -393,6 +400,7 @@ pub fn parse_input(source: &str) -> Result<Problem, CaptureError> {
         source_a_ancestry,
         source_b_ancestry,
         population_frame_status,
+        strata_universe_status,
         independence_assumption,
         linkage_status,
         within_stratum_homogeneity,
@@ -562,6 +570,19 @@ where
 }
 
 fn aggregate(problem: &Problem, results: &[StratumResult]) -> AggregateResult {
+    if problem.strata_universe_status != "DECLARED_COMPLETE" {
+        return AggregateResult {
+            status: "AGGREGATE_NOT_ESTABLISHED_STRATA_UNIVERSE_INCOMPLETE".to_owned(),
+            hidden_min: None,
+            hidden_max: None,
+            population_min: None,
+            population_max: None,
+            stratified_lincoln_petersen: None,
+            stratified_chapman: None,
+            pooled_lincoln_petersen: None,
+            pooled_chapman: None,
+        };
+    }
     if results
         .iter()
         .any(|result| result.population_min.is_none())
@@ -752,6 +773,12 @@ impl Analysis {
         .expect("String write");
         writeln!(
             out,
+            "strata_universe_status={}",
+            self.problem.strata_universe_status
+        )
+        .expect("String write");
+        writeln!(
+            out,
             "independence_assumption={}",
             match self.problem.independence_assumption {
                 IndependenceAssumption::Declared => "DECLARED_NOT_AUTHENTICATED",
@@ -874,6 +901,8 @@ impl Analysis {
         out.push_str("independence_point_estimates=CONDITIONAL_BASELINES_ONLY_NOT_CONFIDENCE_INTERVALS\n");
         out.push_str("source_independence=NOT_ESTABLISHED_BY_ANCESTRY_LABELS\n");
         out.push_str("frame_completeness=CALLER_DECLARED_NOT_AUTHENTICATED\n");
+        out.push_str("strata_universe_completeness=CALLER_DECLARED_NOT_AUTHENTICATED\n");
+        out.push_str("population_estimand_scope=DECLARED_FRAME_AND_DECLARED_STRATA_ONLY\n");
         out.push_str("causal_truth=NOT_ESTABLISHED\n");
         out
     }
@@ -998,6 +1027,24 @@ mod tests {
             report.aggregate.population_max.as_ref().unwrap().display(),
             "1100/1"
         );
+    }
+
+    #[test]
+    fn incomplete_strata_universe_withholds_target_population_aggregate() {
+        let source = FIXTURE.replace(
+            "#within_stratum_homogeneity=DECLARED_WITHIN_STRATUM",
+            "#within_stratum_homogeneity=DECLARED_WITHIN_STRATUM\\n#strata_universe_status=NOT_ESTABLISHED"
+        );
+        let problem = parse_input(&source).unwrap();
+        let report = analyze(&problem);
+        assert_eq!(
+            report.aggregate.status,
+            "AGGREGATE_NOT_ESTABLISHED_STRATA_UNIVERSE_INCOMPLETE"
+        );
+        assert!(report.aggregate.population_min.is_none());
+        assert!(report.render().contains(
+            "population_estimand_scope=DECLARED_FRAME_AND_DECLARED_STRATA_ONLY"
+        ));
     }
 
     #[test]
