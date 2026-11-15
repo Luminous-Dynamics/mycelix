@@ -11,8 +11,8 @@ use std::error::Error;
 use std::fmt;
 
 use mycelix_voevent_header::{
-    parse_packet as parse_voevent_packet, CitationRelation as SourceCitationRelation,
-    PacketRole as SourcePacketRole,
+    CitationRelation as SourceCitationRelation, PacketRole as SourcePacketRole,
+    parse_packet as parse_voevent_packet,
 };
 use serde::{Deserialize, Serialize};
 
@@ -122,8 +122,13 @@ pub struct ReplayManifest {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ManifestError {
-    EmptyOrOversizedPacket { packet_index: usize },
-    PacketParse { packet_index: usize, message: String },
+    EmptyOrOversizedPacket {
+        packet_index: usize,
+    },
+    PacketParse {
+        packet_index: usize,
+        message: String,
+    },
     Replay(ReplayError),
 }
 
@@ -133,8 +138,14 @@ impl fmt::Display for ManifestError {
             Self::EmptyOrOversizedPacket { packet_index } => {
                 write!(f, "source packet {packet_index} is empty or exceeds 2 MiB")
             }
-            Self::PacketParse { packet_index, message } => {
-                write!(f, "source packet {packet_index} rejected by VOEvent parser: {message}")
+            Self::PacketParse {
+                packet_index,
+                message,
+            } => {
+                write!(
+                    f,
+                    "source packet {packet_index} rejected by VOEvent parser: {message}"
+                )
             }
             Self::Replay(error) => write!(f, "lifecycle replay rejected: {error}"),
         }
@@ -157,12 +168,11 @@ fn packet_from_source(
         return Err(ManifestError::EmptyOrOversizedPacket { packet_index });
     }
 
-    let parsed = parse_voevent_packet(raw_packet_bytes).map_err(|error| {
-        ManifestError::PacketParse {
+    let parsed =
+        parse_voevent_packet(raw_packet_bytes).map_err(|error| ManifestError::PacketParse {
             packet_index,
             message: error.to_string(),
-        }
-    })?;
+        })?;
 
     let parsed_header = parsed.header;
     let parsed_who = parsed.who;
@@ -335,14 +345,22 @@ pub enum ReplayError {
 impl fmt::Display for ReplayError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::EmptyPacketId { received_at_unix_ms } => {
-                write!(f, "packet at receipt time {received_at_unix_ms} has an empty identifier")
+            Self::EmptyPacketId {
+                received_at_unix_ms,
+            } => {
+                write!(
+                    f,
+                    "packet at receipt time {received_at_unix_ms} has an empty identifier"
+                )
             }
             Self::EmptyPublisher { packet_id } => {
                 write!(f, "packet {packet_id:?} has an empty publisher identifier")
             }
             Self::DuplicatePacketId { packet_id } => {
-                write!(f, "duplicate packet identifier in the as-of view: {packet_id:?}")
+                write!(
+                    f,
+                    "duplicate packet identifier in the as-of view: {packet_id:?}"
+                )
             }
             Self::EmptyCitationTarget { packet_id } => {
                 write!(f, "packet {packet_id:?} contains an empty citation target")
@@ -359,10 +377,7 @@ impl Error for ReplayError {}
 /// event time are copied verbatim and never used to make a packet visible earlier.
 /// Validation is cutoff-scoped, so malformed future packets cannot poison a past view.
 /// The output labels this time basis as unattested.
-pub fn replay_as_of(
-    packets: &[Packet],
-    cutoff_unix_ms: u64,
-) -> Result<Replay, ReplayError> {
+pub fn replay_as_of(packets: &[Packet], cutoff_unix_ms: u64) -> Result<Replay, ReplayError> {
     let mut visible: Vec<&Packet> = packets
         .iter()
         .filter(|packet| packet.received_at_unix_ms <= cutoff_unix_ms)
@@ -454,10 +469,7 @@ pub fn replay_as_of(
                 asserting_role_was_implicit: packet.role_was_implicit,
                 asserting_packet_sha256: packet.packet_sha256.clone(),
                 cited_packet_id: citation.target_id.clone(),
-                cited_packet_sha256: visible_digests
-                    .get(&citation.target_id)
-                    .cloned()
-                    .flatten(),
+                cited_packet_sha256: visible_digests.get(&citation.target_id).cloned().flatten(),
                 relation: citation.relation,
                 citation_attributes: citation.attributes.clone(),
                 asserting_publisher: packet.publisher.clone(),
@@ -509,11 +521,7 @@ pub fn replay_as_of(
     })
 }
 
-fn has_path(
-    graph: &BTreeMap<String, BTreeSet<String>>,
-    start: &str,
-    goal: &str,
-) -> bool {
+fn has_path(graph: &BTreeMap<String, BTreeSet<String>>, start: &str, goal: &str) -> bool {
     let mut pending = vec![start.to_owned()];
     let mut visited = BTreeSet::new();
 
@@ -556,18 +564,23 @@ mod tests {
         who: Option<(&str, &str)>,
         citations: &[(&str, &str)],
     ) -> String {
-        let role_attr = role.map(|value| format!(" role=\"{value}\"")).unwrap_or_default();
+        let role_attr = role
+            .map(|value| format!(" role=\"{value}\""))
+            .unwrap_or_default();
         let who_xml = who
-            .map(|(author, date)| format!(
-                "<Who><AuthorIVORN>{author}</AuthorIVORN><Date>{date}</Date></Who>"
-            ))
+            .map(|(author, date)| {
+                format!("<Who><AuthorIVORN>{author}</AuthorIVORN><Date>{date}</Date></Who>")
+            })
             .unwrap_or_default();
         let citation_xml = if citations.is_empty() {
             String::new()
         } else {
-            let edges = citations.iter().map(|(relation, target)| format!(
-                "<EventIVORN cite=\"{relation}\">{target}</EventIVORN>"
-            )).collect::<String>();
+            let edges = citations
+                .iter()
+                .map(|(relation, target)| {
+                    format!("<EventIVORN cite=\"{relation}\">{target}</EventIVORN>")
+                })
+                .collect::<String>();
             format!("<Citations>{edges}</Citations>")
         };
         format!(
@@ -632,10 +645,7 @@ mod tests {
 
         let manifest = ReplayManifest {
             cutoff_unix_ms: 200,
-            packets: vec![
-                received(100, original),
-                received(300, correction),
-            ],
+            packets: vec![received(100, original), received(300, correction)],
         };
         let before = replay_manifest(manifest.clone()).expect("historical replay");
         assert_eq!(before.visible_packets.len(), 1);
@@ -664,10 +674,9 @@ mod tests {
 
     #[test]
     fn checked_in_source_packet_fixture_replays_without_a_metadata_projection() {
-        let manifest: ReplayManifest = serde_json::from_str(include_str!(
-            "../tests/fixtures/source-packet-thread.json"
-        ))
-        .expect("raw source packet fixture");
+        let manifest: ReplayManifest =
+            serde_json::from_str(include_str!("../tests/fixtures/source-packet-thread.json"))
+                .expect("raw source packet fixture");
         let historical = replay_manifest(manifest.clone()).expect("historical fixture replay");
         assert_eq!(historical.visible_packets.len(), 1);
         assert!(historical.edges.is_empty());
@@ -679,7 +688,10 @@ mod tests {
         assert_eq!(complete.edges.len(), 1);
         assert_eq!(complete.edges[0].relation, CitationRelation::Supersedes);
         assert!(complete.visible_packets.iter().all(|packet| {
-            packet.packet_sha256.as_ref().is_some_and(|digest| digest.len() == 64)
+            packet
+                .packet_sha256
+                .as_ref()
+                .is_some_and(|digest| digest.len() == 64)
         }));
     }
 
@@ -705,10 +717,14 @@ mod tests {
             attribute.name == "publisher-note" && attribute.value == "retained"
         }));
         assert_eq!(replay.unresolved_citations.len(), 1);
-        assert!(replay.unresolved_citations[0]
-            .citation_attributes
-            .iter()
-            .any(|attribute| attribute.name == "publisher-note" && attribute.value == "retained"));
+        assert!(
+            replay.unresolved_citations[0]
+                .citation_attributes
+                .iter()
+                .any(
+                    |attribute| attribute.name == "publisher-note" && attribute.value == "retained"
+                )
+        );
     }
 
     #[test]
@@ -798,10 +814,9 @@ mod tests {
         let original = packet("ivo://survey/a#event-1", "ivo://survey/a", 10);
         let mut correction = packet("ivo://survey/b#event-2", "ivo://survey/b", 30);
         correction.published_at = Some("2026-11-14T09:00:00Z".to_owned());
-        correction.citations.push(citation(
-            &original.id,
-            CitationRelation::Supersedes,
-        ));
+        correction
+            .citations
+            .push(citation(&original.id, CitationRelation::Supersedes));
 
         let history = vec![original, correction];
         let earlier = replay_as_of(&history, 20).expect("earlier replay");
@@ -854,9 +869,10 @@ mod tests {
     #[test]
     fn unresolved_reference_resolves_only_when_target_is_received() {
         let mut citing = packet("ivo://survey/b#followup", "ivo://survey/b", 20);
-        citing
-            .citations
-            .push(citation("ivo://survey/a#earlier", CitationRelation::Followup));
+        citing.citations.push(citation(
+            "ivo://survey/a#earlier",
+            CitationRelation::Followup,
+        ));
         let mut target = packet("ivo://survey/a#earlier", "ivo://survey/a", 50);
         target.published_at = Some("2026-11-14T08:00:00Z".to_owned());
 
@@ -908,10 +924,12 @@ mod tests {
 
         let replay = replay_as_of(&[a, b], 20).expect("replay");
         assert_eq!(replay.edges.len(), 2);
-        assert!(replay.diagnostics.iter().any(|diagnostic| matches!(
-            diagnostic,
-            ReplayDiagnostic::SupersessionCycle { .. }
-        )));
+        assert!(
+            replay
+                .diagnostics
+                .iter()
+                .any(|diagnostic| matches!(diagnostic, ReplayDiagnostic::SupersessionCycle { .. }))
+        );
     }
 
     #[test]
@@ -927,17 +945,19 @@ mod tests {
         let replay = replay_as_of(&[source], 10).expect("replay");
         let visible = &replay.visible_packets[0];
         assert_eq!(
-            visible.event_time.as_ref().expect("event time").scale.as_deref(),
+            visible
+                .event_time
+                .as_ref()
+                .expect("event time")
+                .scale
+                .as_deref(),
             Some("TT")
         );
         assert_eq!(
             visible.event_time.as_ref().expect("event time").value,
             "2026-11-14T12:00:00.000"
         );
-        assert_eq!(
-            visible.published_at.as_deref(),
-            Some("2026-11-14T11:58:00")
-        );
+        assert_eq!(visible.published_at.as_deref(), Some("2026-11-14T11:58:00"));
     }
 
     #[test]
@@ -945,8 +965,10 @@ mod tests {
         let a = packet("ivo://survey/a#1", "ivo://survey/a", 10);
         let b = packet("ivo://survey/b#1", "ivo://survey/b", 10);
         let mut c = packet("ivo://survey/c#1", "ivo://survey/c", 20);
-        c.citations.push(citation(&a.id, CitationRelation::Followup));
-        c.citations.push(citation(&b.id, CitationRelation::Retraction));
+        c.citations
+            .push(citation(&a.id, CitationRelation::Followup));
+        c.citations
+            .push(citation(&b.id, CitationRelation::Retraction));
 
         let left = replay_as_of(&[a.clone(), b.clone(), c.clone()], 20).expect("left");
         let right = replay_as_of(&[c, b, a], 20).expect("right");
@@ -978,7 +1000,6 @@ mod tests {
         assert_eq!(state.retracted_by, vec!["ivo://review/c#notice"]);
     }
 
-
     #[test]
     fn lifecycle_edges_carry_exact_packet_digest_bindings_when_available() {
         let mut original = packet("ivo://survey/a#event", "ivo://survey/a", 10);
@@ -994,10 +1015,7 @@ mod tests {
             replay.edges[0].asserting_packet_sha256,
             Some("a".repeat(64))
         );
-        assert_eq!(
-            replay.edges[0].cited_packet_sha256,
-            Some("b".repeat(64))
-        );
+        assert_eq!(replay.edges[0].cited_packet_sha256, Some("b".repeat(64)));
     }
 
     #[test]
@@ -1009,9 +1027,11 @@ mod tests {
 
         let replay = replay_as_of(&[source], 10).expect("replay");
         assert_eq!(replay.edges.len(), 1);
-        assert!(replay.diagnostics.iter().any(|diagnostic| matches!(
-            diagnostic,
-            ReplayDiagnostic::SelfReference { .. }
-        )));
+        assert!(
+            replay
+                .diagnostics
+                .iter()
+                .any(|diagnostic| matches!(diagnostic, ReplayDiagnostic::SelfReference { .. }))
+        );
     }
 }
