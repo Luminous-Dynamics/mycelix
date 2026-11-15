@@ -33,13 +33,14 @@
     "family": {
       "enum": [
         "hook_coverage",
-        "disposition_semantics",
-        "liveness",
-        "session_integrity",
-        "guardian_tamper",
+        "decision_honoring",
+        "ask_defer_semantics",
+        "defer_liveness",
+        "context_chain",
+        "guardian_tamper_evidence",
         "agent_inventory",
-        "provenance",
-        "effect_observation"
+        "provenance_monotonicity",
+        "effect_evidence"
       ]
     },
     "contrast": {
