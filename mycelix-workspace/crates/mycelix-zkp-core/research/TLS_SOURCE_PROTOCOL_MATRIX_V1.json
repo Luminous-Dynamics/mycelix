@@ -170,6 +170,35 @@
         "implementation": "Symthaea PR #12336",
         "status": "draft_host_side_parser_range_selector_unexecuted",
         "claim_limit": "Returns an exact raw JSON body-relative token span; a separate qualified HTTP framing/TLSN transcript layer must map and authenticate the span."
+      },
+      "verified_commitment_api_blocker": {
+        "owner": "Symthaea #12373",
+        "pinned_release_commit": "40a069565a2eaecbb5e691dbc634be20e8498daf",
+        "finding": "Presentation::verify returns authenticated PartialTranscript but the transcript commitment list on Attestation::Body is only available through pub(crate) accessors; an external source-bound guest cannot select the exact signed commitment record using the public API.",
+        "required_resolution": "Expose typed verified transcript commitment metadata or a selected-field certificate via a first-class upstream API. Do not mirror internal serialization, field IDs or Merkle/domain-separation code."
+      },
+      "risc0_composition": {
+        "owner": "Symthaea #12301",
+        "design_study": "Symthaea research-tools/tlsn-field-binding-selector/TLSN_RISC0_COMPOSITION_V1.md",
+        "status": "architecture_only_not_built",
+        "preferred_guest_dependency_scope": [
+          "tlsn-attestation verification",
+          "tlsn-core typed transcript/hash types"
+        ],
+        "excluded_dependencies": [
+          "live tlsn prover/verifier protocol",
+          "MPZ MPC/garbling/OT stack"
+        ],
+        "feasibility_gates": [
+          "RISC Zero guest std support is experimental",
+          "Beta.1 attestation/core use std APIs",
+          "no-getrandom verification path must be demonstrated",
+          "guest ELF/memory/cycles and proof size must be measured"
+        ],
+        "alternatives": [
+          "full Presentation verification inside a dedicated RISC Zero guest",
+          "minimal selected-field certificate with authenticated Merkle inclusion proofs"
+        ]
       }
     },
     {
@@ -414,7 +443,10 @@
       "application_field_semantic_binding",
       "json_pointer_and_parser_profile_verification",
       "response_ordinal_and_direction_binding",
-      "host_side_field_selector"
+      "host_side_field_selector",
+      "tlsn_presentation_verification_inside_risc0_guest",
+      "minimal_selected_field_certificate_verification",
+      "guest_image_build_and_dependency_closure"
     ],
     "measures": [
       "wall_clock",
@@ -454,7 +486,14 @@
       "field_selector_cpu_time",
       "field_selector_peak_memory",
       "field_selector_byte_span_alignment",
-      "duplicate_key_and_parser_ambiguity_rejection"
+      "duplicate_key_and_parser_ambiguity_rejection",
+      "risc0_guest_elf_bytes",
+      "risc0_guest_cycle_count",
+      "risc0_guest_memory_high_water_bytes",
+      "risc0_receipt_bytes",
+      "risc0_prove_p50_p95_p99",
+      "risc0_verify_p50_p95_p99",
+      "attested_commitment_api_proof_bytes"
     ],
     "fairness_rules": [
       "Same exact request and response bytes wherever protocol allows.",
@@ -469,7 +508,9 @@
       "Treat attested MPC-TLS verifier with prover-side plaintext and TEE plaintext processor as different privacy/trust profiles.",
       "TEE-attested MPC-TLS verifier with no plaintext ingress and TEE plaintext processor are separate privacy classes; measure exactly which key/data each enclave role receives.",
       "A TLSNotary commitment opening proves bytes/range authenticity, not that the range denotes the intended JSON Pointer; compare parser-in-proof, verifier-checked structural context and attestor extraction separately.",
-      "Host-side JSON field selection is only a body-relative parser result; never count it as TLS transcript range verification or ZK field-semantic proof."
+      "Host-side JSON field selection is only a body-relative parser result; never count it as TLS transcript range verification or ZK field-semantic proof.",
+      "Do not compare local STARK predicate time with end-to-end TLSNotary source proof; report TLS/MPC session, notary attestation, field extraction, guest proving and verification as separate stages.",
+      "RISC Zero guest verification must check the expected notary key and server identity/profile inside the admitted trust boundary; host-supplied verified booleans are not accepted."
     ],
     "prospective_targets": {
       "false_accepts_in_frozen_adversarial_corpus": 0,
@@ -483,7 +524,9 @@
       "wrong_json_pointer_acceptance": 0,
       "parser_disagreement_acceptance": 0,
       "message_ordinal_or_direction_substitution_acceptance": 0,
-      "positive_field_semantic_controls": "100% of valid frozen JSON field/path fixtures accepted"
+      "positive_field_semantic_controls": "100% of valid frozen JSON field/path fixtures accepted",
+      "minimal_selected_field_certificate_guest_cycles": "at least 20% fewer than full Presentation verification with identical authenticated fields, privacy and trust assumptions; unmeasured target only",
+      "minimal_selected_field_certificate_receipt_bytes": "at least 20% smaller than full Presentation verification with identical claim and trust assumptions; unmeasured target only"
     },
     "status": "protocol_and_targets_only_not_executed",
     "privacy_profiles": [
