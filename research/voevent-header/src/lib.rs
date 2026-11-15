@@ -714,6 +714,12 @@ fn append_source_element(parent: &mut SourceElement, child: SourceElement) {
         .push(SourceContent::Element { element: Box::new(child) });
 }
 
+fn xml_local_name(name: &[u8]) -> &[u8] {
+    name.rsplit(|byte| *byte == b':')
+        .next()
+        .unwrap_or(name)
+}
+
 /// Extracts the complete WhereWhen XML subtree without imposing a universal
 /// coordinate model. Frame IDs, units, values, uncertainties, named targets,
 /// observatory location, TimeInterval and unknown STC extensions are retained
@@ -735,7 +741,7 @@ fn parse_where_when(packet: &[u8]) -> Result<Option<SourceElement>, ParseError> 
         match event {
             Event::Start(element) => {
                 let name = element.name().as_ref().to_vec();
-                if document_stack.len() == 1 && name.as_slice() == b"WhereWhen" {
+                if document_stack.len() == 1 && xml_local_name(&name) == b"WhereWhen" {
                     if where_when_seen {
                         return Err(ParseError::DuplicateWhereWhen);
                     }
@@ -812,7 +818,7 @@ fn parse_where_when(packet: &[u8]) -> Result<Option<SourceElement>, ParseError> 
                         if let Some(parent) = source_stack.last_mut() {
                             append_source_element(parent, child);
                         }
-                    } else if name == b"WhereWhen" {
+                    } else if xml_local_name(name) == b"WhereWhen" {
                         where_when = source_stack.pop();
                         where_when_active = false;
                     }
@@ -1217,6 +1223,35 @@ mod tests {
         let custom = child_element(coords, "CustomSTC");
         assert_eq!(attribute(custom, "ext"), "keep");
         assert_eq!(direct_text(custom), "source-native");
+    }
+
+    #[test]
+    fn recognizes_prefixed_where_when_children_without_stripping_prefixes() {
+        let bytes = packet_with_body(
+            r#"<v:WhereWhen xmlns:v="urn:ivoa:stc">
+                <v:ObsDataLocation>
+                    <v:ObservationLocation>
+                        <v:AstroCoords coord_system_id="TT-FK5-GEO">
+                            <v:Time unit="s"><v:TimeInstant><v:ISOTime>2026-11-15T08:00:00</v:ISOTime></v:TimeInstant></v:Time>
+                        </v:AstroCoords>
+                    </v:ObservationLocation>
+                </v:ObsDataLocation>
+            </v:WhereWhen>"#,
+        );
+        let parsed = parse_packet(&bytes).expect("prefixed WhereWhen");
+        let where_when = parsed.where_when.expect("prefixed WhereWhen subtree");
+        assert_eq!(where_when.name, "v:WhereWhen");
+        let data = child_element(&where_when, "v:ObsDataLocation");
+        let observation = child_element(data, "v:ObservationLocation");
+        let coords = child_element(observation, "v:AstroCoords");
+        assert_eq!(attribute(coords, "coord_system_id"), "TT-FK5-GEO");
+        assert_eq!(
+            direct_text(child_element(
+                child_element(child_element(coords, "v:Time"), "v:TimeInstant"),
+                "v:ISOTime"
+            )),
+            "2026-11-15T08:00:00"
+        );
     }
 
     #[test]
