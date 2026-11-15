@@ -783,19 +783,18 @@ mod tests {
         }));
 
         let mut conflict = fixture();
-        let auth_slot = conflict
+        let auth = conflict
             .acquisitions
-            .iter()
+            .iter_mut()
             .find(|item| item.id == "authority-review")
-            .unwrap()
-            .resource_slot
-            .clone();
+            .unwrap();
+        auth.resource_slot = "crew-x".to_owned();
         conflict
             .acquisitions
             .iter_mut()
             .find(|item| item.id == "pump-test")
             .unwrap()
-            .resource_slot = auth_slot;
+            .resource_slot = "crew-x".to_owned();
         let conflict_report = analyze(&conflict);
         assert!(!conflict_report.result.minimum_cost_ties.iter().any(|plan| {
             plan.acquisition_ids.contains(&"pump-test".to_owned())
@@ -871,9 +870,9 @@ mod tests {
         assert_eq!(report.scope_mismatch_count, 1);
 
         let broken = FIXTURE.replace(
-            "combined-survey|field-survey|7|",
-            "combined-survey|field-survey|7|",
+            "combined-survey|field-survey|7|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|PASS|PASS|PASS|PASS|PASS|PASS|FRAME_COVERAGE,HYDRAULIC_SAFETY|authority-review|crew-b",
+            "combined-survey|field-survey|7|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|PASS|PASS|PASS|PASS|PASS|PASS|FRAME_COVERAGE,HYDRAULIC_SAFETY|missing-prerequisite|crew-b",
         );
-        assert!(parse_input(&broken).is_ok());
+        assert!(parse_input(&broken).is_err());
     }
 }
