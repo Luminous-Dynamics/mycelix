@@ -46,6 +46,27 @@ pub struct RootAttribute {
     pub value: String,
 }
 
+/// One decoded XML content item inside a source-preserving subtree.
+///
+/// The original packet bytes and digest remain authoritative; this tree keeps
+/// element order, attribute order, text, CDATA and character-reference
+/// boundaries useful to downstream domain-specific qualification.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum SourceContent {
+    Element { element: Box<SourceElement> },
+    Text { value: String },
+    CData { value: String },
+    CharacterReference { lexical: String, decoded: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SourceElement {
+    pub name: String,
+    pub attributes: Vec<RootAttribute>,
+    pub content: Vec<SourceContent>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct VoEventHeader {
     /// Exact source-native value of the VOEvent XML ivorn attribute.
@@ -95,6 +116,8 @@ pub struct VoEventPacket {
     pub header: VoEventHeader,
     /// Curation fields are source assertions, not authenticated publisher identity.
     pub who: WhoMetadata,
+    /// Source-preserving WhereWhen subtree; no coordinate/time normalization is performed.
+    pub where_when: Option<SourceElement>,
     /// Absence is meaningful: a packet without Citations announces a new event.
     pub citations_present: bool,
     pub citations: Vec<VoEventCitation>,
@@ -160,6 +183,8 @@ pub enum ParseError {
     InvalidCitationCharacterReference(String),
     #[error("a VOEvent packet contains more than one Who element")]
     DuplicateWho,
+    #[error("a VOEvent packet contains more than one WhereWhen element")]
+    DuplicateWhereWhen,
     #[error("Who contains more than one AuthorIVORN element")]
     DuplicateWhoAuthorIvoid,
     #[error("Who contains more than one Date element")]
@@ -653,6 +678,162 @@ fn parse_citations(
 }
 
 
+fn parse_source_attributes(
+    element: &BytesStart<'_>,
+) -> Result<Vec<RootAttribute>, ParseError> {
+    let mut attributes = Vec::new();
+    for attribute in element.attributes().with_checks(true) {
+        let attribute =
+            attribute.map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+        let name = std::str::from_utf8(attribute.key.as_ref())
+            .map_err(|_| ParseError::MalformedXml("non-UTF-8 attribute name".to_owned()))?
+            .to_owned();
+        let value = attribute
+            .unescape_value()
+            .map_err(|error| ParseError::MalformedXml(error.to_string()))?
+            .into_owned();
+        attributes.push(RootAttribute { name, value });
+    }
+    Ok(attributes)
+}
+
+fn source_element(element: &BytesStart<'_>) -> Result<SourceElement, ParseError> {
+    let name = std::str::from_utf8(element.name().as_ref())
+        .map_err(|_| ParseError::MalformedXml("non-UTF-8 element name".to_owned()))?
+        .to_owned();
+    Ok(SourceElement {
+        name,
+        attributes: parse_source_attributes(element)?,
+        content: Vec::new(),
+    })
+}
+
+fn append_source_element(parent: &mut SourceElement, child: SourceElement) {
+    parent
+        .content
+        .push(SourceContent::Element { element: Box::new(child) });
+}
+
+/// Extracts the complete WhereWhen XML subtree without imposing a universal
+/// coordinate model. Frame IDs, units, values, uncertainties, named targets,
+/// observatory location, TimeInterval and unknown STC extensions are retained
+/// as ordered source elements for later domain-specific qualification.
+fn parse_where_when(packet: &[u8]) -> Result<Option<SourceElement>, ParseError> {
+    let mut reader = Reader::from_reader(Cursor::new(packet));
+    let mut buffer = Vec::new();
+    let mut document_stack: Vec<Vec<u8>> = Vec::new();
+    let mut source_stack: Vec<SourceElement> = Vec::new();
+    let mut where_when: Option<SourceElement> = None;
+    let mut where_when_seen = false;
+    let mut where_when_active = false;
+
+    loop {
+        let event = reader
+            .read_event_into(&mut buffer)
+            .map_err(|error| ParseError::MalformedXml(error.to_string()))?;
+
+        match event {
+            Event::Start(element) => {
+                let name = element.name().as_ref().to_vec();
+                if document_stack.len() == 1 && name.as_slice() == b"WhereWhen" {
+                    if where_when_seen {
+                        return Err(ParseError::DuplicateWhereWhen);
+                    }
+                    where_when_seen = true;
+                    where_when_active = true;
+                    source_stack.push(source_element(&element)?);
+                } else if where_when_active {
+                    source_stack.push(source_element(&element)?);
+                }
+                document_stack.push(name);
+            }
+            Event::Empty(element) => {
+                let name = element.name().as_ref().to_vec();
+                if document_stack.len() == 1 && name.as_slice() == b"WhereWhen" {
+                    if where_when_seen {
+                        return Err(ParseError::DuplicateWhereWhen);
+                    }
+                    where_when_seen = true;
+                    where_when = Some(source_element(&element)?);
+                } else if where_when_active {
+                    let child = source_element(&element)?;
+                    let parent = source_stack.last_mut().ok_or_else(|| {
+                        ParseError::MalformedXml(
+                            "WhereWhen subtree has no active parent element".to_owned(),
+                        )
+                    })?;
+                    append_source_element(parent, child);
+                }
+            }
+            Event::Text(text) if where_when_active => {
+                let value = text
+                    .decode()
+                    .map_err(|error| ParseError::MalformedXml(error.to_string()))?
+                    .into_owned();
+                if let Some(parent) = source_stack.last_mut() {
+                    parent.content.push(SourceContent::Text { value });
+                }
+            }
+            Event::CData(text) if where_when_active => {
+                let value = text
+                    .decode()
+                    .map_err(|error| ParseError::MalformedXml(error.to_string()))?
+                    .into_owned();
+                if let Some(parent) = source_stack.last_mut() {
+                    parent.content.push(SourceContent::CData { value });
+                }
+            }
+            Event::GeneralRef(reference) if where_when_active => {
+                let raw = reference.as_ref();
+                let lexical = std::str::from_utf8(raw)
+                    .map_err(|_| {
+                        ParseError::InvalidCitationCharacterReference(
+                            "non-UTF-8 source character reference".to_owned(),
+                        )
+                    })?
+                    .to_owned();
+                let decoded = decode_citation_reference(raw)?.to_string();
+                if let Some(parent) = source_stack.last_mut() {
+                    parent.content.push(SourceContent::CharacterReference {
+                        lexical,
+                        decoded,
+                    });
+                }
+            }
+            Event::End(element) => {
+                let name = element.name().as_ref();
+                if where_when_active {
+                    if source_stack.len() > 1 {
+                        let child = source_stack.pop().ok_or_else(|| {
+                            ParseError::MalformedXml(
+                                "WhereWhen source stack underflow".to_owned(),
+                            )
+                        })?;
+                        if let Some(parent) = source_stack.last_mut() {
+                            append_source_element(parent, child);
+                        }
+                    } else if name == b"WhereWhen" {
+                        where_when = source_stack.pop();
+                        where_when_active = false;
+                    }
+                }
+                document_stack.pop();
+            }
+            Event::DocType(_) => return Err(ParseError::DoctypeNotAllowed),
+            Event::Eof => break,
+            _ => {}
+        }
+
+        buffer.clear();
+    }
+
+    if where_when_active || !source_stack.is_empty() {
+        return Err(ParseError::IncompleteDocument);
+    }
+
+    Ok(where_when)
+}
+
 #[derive(Debug)]
 struct WhoTextBuilder {
     depth: usize,
@@ -860,10 +1041,12 @@ fn parse_who(packet: &[u8]) -> Result<WhoMetadata, ParseError> {
 pub fn parse_packet(packet: &[u8]) -> Result<VoEventPacket, ParseError> {
     let header = parse_header(packet)?;
     let who = parse_who(packet)?;
+    let where_when = parse_where_when(packet)?;
     let (citations_present, citations, citations_description) = parse_citations(packet)?;
     Ok(VoEventPacket {
         header,
         who,
+        where_when,
         citations_present,
         citations,
         citations_description,
