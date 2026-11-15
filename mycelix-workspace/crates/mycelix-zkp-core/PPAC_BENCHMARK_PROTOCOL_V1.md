@@ -356,7 +356,7 @@ That claim should not be made until the complete path is implemented and indepen
 - Mycelix #5751 / #5724: selective disclosure and cross-DID verification/replay must be real and fail closed.
 - Symthaea #5842 / #12269: guest relation refinement and issuer/request binding are separate.
 - Symthaea PR #7403 / #12274: HDC semantic corrections, exact Binius source identity and witness-hiding qualification are separate.
-- Xenia #359 / #364 / #369 / #435 / #449 / #450: receipt attestation, live trust, portable replay, session capability and session evidence remain distinct owners.
+- Xenia #359 / #364 / #369 / #435 / #449 / #450 / #455: receipt attestation, live trust, portable replay, session capability, session evidence and human-readable consent presentation remain distinct owners.
 - Mycelix #6219 / #6140 / #6069: reuse existing LISE/effect-observation machinery.
 
 This protocol creates no result by itself. All figures are external references with their stated workload limits. No proof-system, privacy property, standards conformance, institutional authority or deployment claim is established by writing this plan.
