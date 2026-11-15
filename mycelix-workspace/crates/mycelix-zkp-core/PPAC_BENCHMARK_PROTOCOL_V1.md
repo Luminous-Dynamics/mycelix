@@ -81,6 +81,23 @@ Sources:
 
 Do not rank the systems above as a universal fastest-to-slowest list. The benchmark panel is evidence that modern zkVM verification can be in the tens of milliseconds for specific workloads, with compressed proof sizes commonly in the hundreds of KiB to MiB range. It is not a PPAC target without a matched guest and security policy.
 
+### TLSNotary Beta 1 source-provenance context (not a zkVM ranking)
+
+TLSNotary published its Beta 1 performance report on 14 November 2026 for a 1 KiB HTTP request and 2 KiB response. Its reported completion times are seconds, not milliseconds:
+
+| Mode | Cable native | Fiber native | Mobile 5G native | Cable WASM | Fiber WASM | Mobile 5G WASM |
+|---|---:|---:|---:|---:|---:|---:|
+| MPC-TLS | 13.35 s | 3.43 s | 9.63 s | 14.15 s | 4.17 s | 10.45 s |
+| Proxy | 1.30 s | 0.83 s | 1.29 s | 1.57 s | 1.12 s | 1.55 s |
+
+The vendor reports 10 measured samples per point plus 3 warmups, Azure Standard_F8als_v6, AMD EPYC 9004, 8 vCPU/16 GB RAM, Debian 12, and network profiles of cable 20 Mbps/20 ms, fiber 100 Mbps/15 ms and mobile 5G 30 Mbps/30 ms. The post reports 30.08 MB total MPC traffic per default run and 0.60 MB verifier-to-prover traffic; the MPC path uses materially more interaction than proxy mode. Source: https://tlsnotary.org/blog/beta1-performance-next-steps/
+
+These are vendor-reported source-session benchmarks, not Mycelix measurements and not comparable to RISC Zero guest proving or zkVM receipt verification. MPC-TLS and proxy mode also have different security assumptions, so their times must never be combined into one interchangeable backend result. In particular, proxy mode's lower latency comes with a verifier-to-server network-path assumption; use MPC-TLS where that stronger source-session model is required.
+
+TLSNotary's commit-strategy documentation describes custom-range, HTTP-object and per-byte commitment strategies. HTTP-object commitments are the default flexibility/size trade-off; the Session Header attestation is constant-sized in the number of committed ranges, while the associated Secret/Merkle artifact grows linearly. The documentation reports approximately 250 bytes added to the Secret artifact per additional committed range under its default BLAKE3 profile. Re-measure this against the exact release and commitment strategy used. Source: https://tlsnotary.org/docs/protocol/commit_strategy/
+
+Current TLSNotary documentation describes TLS 1.2 support; its Beta 1 post identifies TLS 1.3 as the next-release priority. The benchmark must pin the exact version/protocol and must not infer TLS 1.3 capability from roadmap language. Sources: https://tlsnotary.org/docs/faq/ and https://tlsnotary.org/blog/beta1-performance-next-steps/
+
 ### Proof-system capability boundaries
 
 | System/profile | Appropriate comparison | Privacy status to preserve |
@@ -134,6 +151,21 @@ Workloads:
 - same value represented under different units/encodings.
 
 Compare only exact matching statements and public inputs. Candidate backends include a qualified RISC Zero guest, a repaired/qualified Winterfell AIR for integrity-only profiles, and any later qualified privacy backend. A current underconstrained HealthRangeAir or structural-only adapter is not a valid performance baseline.
+
+### Optional authenticated HTTP source provenance
+
+Mycelix issue #6245 evaluates TLSNotary as an optional source-session adapter for the exact-origin and response-commitment owners #2640/#2821. Benchmark it as a separate acquisition/provenance stage, not as a new ZK backend.
+
+The workload must time and report separately:
+- MPC-TLS preprocessing and live handshake/session;
+- optional notary Session Header issuance and offline verification;
+- selected HTTP-object/range commitment and Secret artifact size;
+- selective disclosure and exact server identity/certificate verification;
+- application parser and schema/predicate-profile processing;
+- the ZK proof that the same hidden value opens the exact transcript commitment;
+- final predicate proving/verification and end-to-end time-to-trustworthy-decision.
+
+A TLSNotary transcript commitment is not yet demonstrated to be directly consumable by the Symthaea RISC Zero guest. Evaluate the exact commitment-opening relation and its cryptographic assumptions before claiming the private witness is source-bound. The TLSNotary FAQ describes transcript hash commitments and composition with general-purpose ZK, but that is a research starting point rather than an implemented Mycelix join. Source: https://tlsnotary.org/docs/faq/
 
 Symthaea PR #12295 adds a separate request-bound balance guest candidate. It may be benchmarked only after its methods build, generated ImageID, native prove/verify path and positive/negative controls are confirmed. Its request digest binds a claim-schema and predicate digest, but source/issuer digests are references only; it is not yet a source-authentic eligibility workload. Keep request-binding cost, issuer-signature verification cost and commitment-opening proof cost as separate measurements.
 
@@ -357,6 +389,7 @@ That claim should not be made until the complete path is implemented and indepen
 - Mycelix #1919: malformed dimensions must not panic the verifier.
 - Mycelix #5751 / #5724: selective disclosure and cross-DID verification/replay must be real and fail closed.
 - Symthaea #5842 / #12269 / PR #12295: exact legacy guest relation, request-context binding, and issuer-source/commitment opening are separate qualification stages.
+- Mycelix #2640 / #2641 / #6245 and #2821: exact HTTP capture, acquisition security, TLSNotary session provenance and provider-specific source receipt must be composed; TLS origin is not provider truth or account ownership.
 - Symthaea PR #7403 / #12274: HDC semantic corrections, exact Binius source identity and witness-hiding qualification are separate.
 - Xenia #359 / #364 / #369 / #435 / #449 / #450 / #455: receipt attestation, live trust, portable replay, session capability, session evidence and human-readable consent presentation remain distinct owners.
 - Mycelix #6219 / #6140 / #6069: reuse existing LISE/effect-observation machinery.
