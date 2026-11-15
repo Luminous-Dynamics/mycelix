@@ -32,8 +32,8 @@ fn run() -> Result<(), String> {
 
     let manifest: ReplayManifest = serde_json::from_slice(&bytes)
         .map_err(|error| format!("invalid receipt manifest JSON: {error}"))?;
-    let replay = replay_manifest(manifest)
-        .map_err(|error| format!("lifecycle replay rejected: {error}"))?;
+    let replay =
+        replay_manifest(manifest).map_err(|error| format!("lifecycle replay rejected: {error}"))?;
 
     let output = serde_json::to_string_pretty(&replay)
         .map_err(|error| format!("cannot serialize replay output: {error}"))?;
