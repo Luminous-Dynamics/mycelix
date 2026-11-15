@@ -105,6 +105,8 @@ Every episode freezes and hashes:
 - all discovered tool routes and enforcement points;
 - operation ID, canonical operation digest, action digest and idempotency key;
 - event timestamps, clock provenance, effective time and observed/knowledge time;
+- causal ordering evidence when an effect event and a decision share the same timestamp precision;
+- an event with occurred_at at/before action time but observed_at after the knowledge cutoff is UNKNOWN prior effect, not NeverAttempted;
 - provider contract and retry guarantees;
 - actual write/effect trace and independent observation;
 - dataset split, model/harness/build/prompt/tool schema, compute budget and adjudication version.
@@ -217,12 +219,13 @@ Do not claim superiority from a higher synthetic pass percentage. A credible res
 ## 10. Immediate next increments
 
 1. Execute #6212's exact-head checks and fix source defects rather than waiting on unrelated runner queues.
-2. Generate a candidate-blind bridge submission format; keep fixture, candidate submission and evaluator oracle separate.
-3. Add operation-history completeness evidence so production adapters cannot interpret an incomplete history as NeverAttempted.
-4. Add explicit causal route inventory and bypass negative controls.
-5. Add a real OPA adapter that consumes decision ID, policy path, input digest, bundle revision and trace context, while keeping the protected-effect receipt separate.
-6. Add an OAuth RAR mapping for \`authorization_details\`, preserving the authorization-server/resource-server split.
-7. Port a balanced subset of AuthorizationBench and SABench task structures with attribution and compatible licenses; do not claim direct leaderboard comparability unless the original task protocol is reproduced.
+2. Resolve the upstream IAE timestamp collision: pre-dispatch action time and submit-attempt occurrence both serialize to 10:01:00Z. Add an ordered event sequence or finer-grained/causal timestamp evidence before treating that particular preflight view as a positive permit.
+3. Generate a candidate-blind bridge submission format; keep fixture, candidate submission and evaluator oracle separate.
+4. Add operation-history completeness evidence so production adapters cannot interpret an incomplete history as NeverAttempted.
+5. Add explicit causal route inventory and bypass negative controls.
+6. Add a real OPA adapter that consumes decision ID, policy path, input digest, bundle revision and trace context, while keeping the protected-effect receipt separate.
+7. Add an OAuth RAR mapping for \`authorization_details\`, preserving the authorization-server/resource-server split.
+8. Port a balanced subset of AuthorizationBench and SABench task structures with attribution and compatible licenses; do not claim direct leaderboard comparability unless the original task protocol is reproduced.
 
 ## 11. Claim boundary
 
