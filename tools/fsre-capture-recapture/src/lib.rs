@@ -174,6 +174,27 @@ fn valid_token(value: &str) -> bool {
         })
 }
 
+fn valid_ancestry_path(value: &str) -> bool {
+    value == "UNKNOWN"
+        || (!value.is_empty()
+            && value
+                .split('/')
+                .all(|segment| !segment.is_empty() && valid_token(segment) && !segment.contains('/')))
+}
+
+fn source_ancestry_relation(source_a: &str, source_b: &str) -> &'static str {
+    if source_a == "UNKNOWN" || source_b == "UNKNOWN" {
+        return "UPSTREAM_ANCESTRY_UNKNOWN_INDEPENDENCE_WITHHELD";
+    }
+    let a_segments = source_a.split('/').collect::<BTreeSet<_>>();
+    let b_segments = source_b.split('/').collect::<BTreeSet<_>>();
+    if !a_segments.is_disjoint(&b_segments) {
+        "SHARED_DECLARED_UPSTREAM_ANCESTRY"
+    } else {
+        "DISTINCT_DECLARED_ANCESTRY_INDEPENDENCE_NOT_ESTABLISHED"
+    }
+}
+
 fn parse_u64(value: &str, name: &str) -> Result<u64, CaptureError> {
     value
         .parse::<u64>()
@@ -290,8 +311,13 @@ pub fn parse_input(source: &str) -> Result<Problem, CaptureError> {
         (&source_a_ancestry, "source_a_ancestry"),
         (&source_b_ancestry, "source_b_ancestry"),
     ] {
-        if !valid_token(value) {
-            return Err(fail(format!("{name} must be a valid token")));
+        let valid = if name == "source_a_ancestry" || name == "source_b_ancestry" {
+            valid_ancestry_path(value)
+        } else {
+            valid_token(value)
+        };
+        if !valid {
+            return Err(fail(format!("{name} must be a valid token or slash-separated ancestry path")));
         }
     }
     if source_a_id == source_b_id {
@@ -619,7 +645,10 @@ fn aggregate(problem: &Problem, results: &[StratumResult]) -> AggregateResult {
     let all_independence_points = problem.independence_assumption
         == IndependenceAssumption::Declared
         && problem.linkage_status == LinkageStatus::PerfectLinkageAssumed
-        && problem.source_a_ancestry != problem.source_b_ancestry
+        && source_ancestry_relation(
+            &problem.source_a_ancestry,
+            &problem.source_b_ancestry,
+        ) == "DISTINCT_DECLARED_ANCESTRY_INDEPENDENCE_NOT_ESTABLISHED"
         && results
             .iter()
             .all(|result| result.lincoln_petersen.is_some() && result.chapman.is_some());
@@ -683,17 +712,16 @@ fn pooled_stratum(strata: &[Stratum]) -> Option<Stratum> {
 }
 
 pub fn analyze(problem: &Problem) -> Analysis {
-    let source_ancestry_relation = if problem.source_a_ancestry == problem.source_b_ancestry {
-        "SHARED_DECLARED_UPSTREAM_ANCESTRY"
-    } else {
-        "DISTINCT_DECLARED_ANCESTRY_INDEPENDENCE_NOT_ESTABLISHED"
-    }
-    .to_owned();
+    let ancestry_relation = source_ancestry_relation(
+        &problem.source_a_ancestry,
+        &problem.source_b_ancestry,
+    );
+    let source_ancestry_relation = ancestry_relation.to_owned();
 
     let independence_enabled = problem.independence_assumption == IndependenceAssumption::Declared
         && problem.linkage_status == LinkageStatus::PerfectLinkageAssumed
         && problem.within_stratum_homogeneity == "DECLARED_WITHIN_STRATUM"
-        && problem.source_a_ancestry != problem.source_b_ancestry;
+        && ancestry_relation == "DISTINCT_DECLARED_ANCESTRY_INDEPENDENCE_NOT_ESTABLISHED";
     let independence_point_status =
         if problem.independence_assumption == IndependenceAssumption::NotDeclared {
             "NOT_EMITTED_INDEPENDENCE_NOT_DECLARED"
@@ -701,7 +729,9 @@ pub fn analyze(problem: &Problem) -> Analysis {
             "NOT_EMITTED_LINKAGE_NOT_ASSUMED_PERFECT"
         } else if problem.within_stratum_homogeneity != "DECLARED_WITHIN_STRATUM" {
             "NOT_EMITTED_WITHIN_STRATUM_HOMOGENEITY_NOT_DECLARED"
-        } else if problem.source_a_ancestry == problem.source_b_ancestry {
+        } else if ancestry_relation == "UPSTREAM_ANCESTRY_UNKNOWN_INDEPENDENCE_WITHHELD" {
+            "NOT_EMITTED_UPSTREAM_ANCESTRY_UNKNOWN"
+        } else if ancestry_relation == "SHARED_DECLARED_UPSTREAM_ANCESTRY" {
             "NOT_EMITTED_SHARED_UPSTREAM_ANCESTRY_DEPENDENCE_RISK"
         } else {
             "CONDITIONAL_ESTIMATES_EMITTED_INDEPENDENCE_ASSUMPTION_NOT_AUTHENTICATED"
@@ -1123,6 +1153,33 @@ mod tests {
         assert!(shared.aggregate.pooled_chapman.is_none());
         assert!(shared.aggregate.population_min.is_some());
         assert!(shared.aggregate.population_max.is_some());
+
+        problem.source_a_ancestry = "registry-a/census-2022".to_owned();
+        problem.source_b_ancestry = "registry-b/census-2022".to_owned();
+        let shared_parent = analyze(&problem);
+        assert_eq!(
+            shared_parent.source_ancestry_relation,
+            "SHARED_DECLARED_UPSTREAM_ANCESTRY"
+        );
+        assert!(shared_parent.results.iter().all(|result| {
+            result.lincoln_petersen.is_none() && result.chapman.is_none()
+        }));
+        assert!(shared_parent.aggregate.stratified_lincoln_petersen.is_none());
+        assert!(shared_parent.aggregate.pooled_chapman.is_none());
+
+        problem.source_a_ancestry = "UNKNOWN".to_owned();
+        let unknown = analyze(&problem);
+        assert_eq!(
+            unknown.source_ancestry_relation,
+            "UPSTREAM_ANCESTRY_UNKNOWN_INDEPENDENCE_WITHHELD"
+        );
+        assert!(unknown.results.iter().all(|result| {
+            result.lincoln_petersen.is_none() && result.chapman.is_none()
+        }));
+        assert_eq!(
+            unknown.independence_point_status,
+            "NOT_EMITTED_UPSTREAM_ANCESTRY_UNKNOWN"
+        );
     }
 
     #[test]
