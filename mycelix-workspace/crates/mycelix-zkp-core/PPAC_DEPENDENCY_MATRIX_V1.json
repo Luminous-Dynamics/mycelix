@@ -345,6 +345,52 @@
         "proof_request_admission",
         "LISE"
       ]
+    },
+    {
+      "id": "CREDENTIAL_STATUS_LOOKUP_PRIVACY",
+      "owner": "Mycelix_credential_status_owner_and_PEC_policy",
+      "proposition": "Credential status validation does not reveal an unauthorized correlation between holder, verifier, issuer and interaction time.",
+      "depends_on": [
+        "status_list_profile",
+        "status_list_url_or_identifier",
+        "status_slot_or_index",
+        "list_group_size",
+        "holder_cache_state",
+        "fetch_timing",
+        "network_metadata",
+        "verifier_audience",
+        "privacy_profile"
+      ],
+      "consumers": [
+        "credential_verifier",
+        "LISE",
+        "privacy_qualification"
+      ]
+    },
+    {
+      "id": "END_TO_END_CRYPTO_AGILITY_PROFILE",
+      "owner": "Mycelix_cryptographic_profile_owner",
+      "proposition": "Each cryptographic layer meets the exact policy-required algorithm and security profile without downgrade or cross-layer capability inheritance.",
+      "depends_on": [
+        "issuer_signature_suite",
+        "holder_presentation_suite",
+        "commitment_scheme",
+        "proof_system",
+        "proof_recursion_or_compression",
+        "hash_function",
+        "session_kem",
+        "session_signature",
+        "verifier_root_profile",
+        "algorithm_versions",
+        "downgrade_policy",
+        "policy_requirement"
+      ],
+      "consumers": [
+        "credential_verifier",
+        "Xenia",
+        "LISE",
+        "institutional_policy"
+      ]
     }
   ],
   "existing_blockers": [
@@ -529,6 +575,21 @@
       "id": "PPAC-PRIV-003",
       "class": "ambiguous",
       "theme": "incomplete query-history or policy frontier must not be treated as a fresh predicate allowance"
+    },
+    {
+      "id": "PPAC-REV-PRIV-001",
+      "class": "privacy",
+      "theme": "credential-specific status URL/global status index exposes holder-verifier-time correlation"
+    },
+    {
+      "id": "PPAC-PQ-001",
+      "class": "negative",
+      "theme": "pairing-based BBS credential is incorrectly labelled post-quantum because Xenia session uses ML-DSA/ML-KEM"
+    },
+    {
+      "id": "PPAC-PQ-002",
+      "class": "negative",
+      "theme": "classical-only downgrade or mixed non-enrolled hybrid key lineage under a PQ-required policy"
     }
   ],
   "fixture_adjudication": "not_adjudicated",
@@ -609,7 +670,7 @@
   "casebook": {
     "file": "PPAC_CASEBOOK_V1.json",
     "version": 1,
-    "case_count": 26,
+    "case_count": 29,
     "status": "design_fixture_specification",
     "oracle_status": "not_adjudicated",
     "execution_status": "not_run",
@@ -627,7 +688,9 @@
       "malformed-proof-verifier-robustness",
       "LISE-historical-and-current-qualification",
       "independent-effect-observation",
-      "adaptive-predicate-inference-and-query-history"
+      "adaptive-predicate-inference-and-query-history",
+      "credential-status-lookup-correlation",
+      "end-to-end-cryptographic-agility-and-downgrade-resistance"
     ]
   },
   "benchmark_protocol": {
