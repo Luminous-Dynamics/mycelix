@@ -1,0 +1,56 @@
+name: Transport-sharing integrity qualification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - "mycelix-commons/zomes/transport-sharing/integrity/**"
+      - ".github/workflows/transport-sharing-integrity-qualification.yml"
+  push:
+    branches:
+      - "research/transport-create-author-binding-v0-1"
+    paths:
+      - "mycelix-commons/zomes/transport-sharing/integrity/**"
+      - ".github/workflows/transport-sharing-integrity-qualification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: transport-sharing-integrity-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  integrity:
+    name: Transport-sharing integrity tests and WASM check
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy, rustfmt
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-commons
+
+      - name: Format transport integrity crate
+        run: cargo fmt --manifest-path mycelix-commons/Cargo.toml --package transport_sharing_integrity -- --check
+
+      - name: Run transport integrity unit tests
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p transport_sharing_integrity --all-targets
+
+      - name: Clippy transport integrity crate
+        run: cargo clippy --manifest-path mycelix-commons/Cargo.toml -p transport_sharing_integrity --all-targets -- -D warnings
+
+      - name: Check WASM target
+        run: cargo check --manifest-path mycelix-commons/Cargo.toml -p transport_sharing_integrity --target wasm32-unknown-unknown
