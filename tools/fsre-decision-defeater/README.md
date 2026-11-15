@@ -63,7 +63,7 @@ Admissibility is not a cost: `BLOCKED` mutations are excluded and counted; any `
 - `DEFEATER_FOUND` with `PROVEN_MINIMAL`: complete exhaustive search found the minimum declared mutation cost.
 - `NO_DEFEATER_FOUND_IN_DECLARED_UNIVERSE`: complete exhaustive search found no defeater in this finite declared universe.
 - `SEARCH_LIMIT_EXCEEDED`: search incomplete; any returned witness is only `WITNESS_ONLY`, with its cost an upper bound, not a proven margin.
-- `NOT_IDENTIFIED_PERTURBATION_UNIVERSE`, `BLOCKED_SOURCE_USE`, `BLOCKED_AUTHORITY`, `UNSUPPORTED_MUTATION`: no numeric margin.
+- `BLOCKED_SOURCE_USE`, `BLOCKED_AUTHORITY`, `NOT_IDENTIFIED_SOURCE_USE`, `NOT_IDENTIFIED_AUTHORITY`, `NOT_IDENTIFIED_WORLD_SET`, `NOT_IDENTIFIED_PERTURBATION_UNIVERSE`, `UNSUPPORTED_MUTATION`: no numeric margin.
 - A finite negative search is never represented as universal robustness.
 
 The engine stores every minimum-cost witness up to the declared cap, reports the total tie count and marks truncation explicitly. It does not convert timeout, unsupported mutation or unknown admissibility into a negative search result.
