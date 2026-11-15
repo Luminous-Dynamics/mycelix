@@ -281,13 +281,95 @@ Primary metric: **time-to-qualified-private-decision**, measured from a valid re
 - External provider truth, account ownership, institutional authorization and effect execution remain separate claims.
 - Native proof execution, independent reproduction and runtime qualification are separately evidenced.
 
-## 12. Claim ceiling
+## 12. Scribe as a peer-reviewed industry/research comparator
+
+**Scribe: Private Web2-to-Web3 eligibility proofs for decentralized applications with transparent STARKs**, published 2 September 2026 in *Peer-to-Peer Networking and Applications* (volume 19, article 133), is a particularly relevant comparator:
+https://doi.org/10.1007/s12083-026-02246-2
+
+Scribe is not just a TLSNotary wrapper. It composes:
+- client-to-Web2 TLS provenance using a DECO/TLSNotary-style workflow;
+- an attestation node that extracts a field and signs a salted commitment binding application ID, server ID, extraction rule, data and salt;
+- a Winterfell transparent STARK that verifies the circuit-friendly attestation, recomputes the commitment and proves a policy predicate without revealing the value;
+- an application-scoped spend tag/nullifier;
+- an off-chain aggregator maintaining a Merkle-indexed set of spent tags;
+- a Falcon-signed root publication to an on-chain anchor.
+
+### Reported results and how to compare them
+
+The paper reports Apple M4 Pro / 24 GB measurements. Its STARK policy benchmark repeats one threshold check from 1 to 256 times:
+
+| Measurement | Reported range/result |
+|---|---:|
+| STARK proving | 6 ms to 346 ms |
+| STARK verification | 0.4 ms to 9.7 ms |
+| STARK proof size | 32.1 KB to 77.8 KB |
+| TLSNotary workflow proving | 856 ms average |
+| TLSNotary workflow verification | 749 ms average |
+| Aggregator amortized processing | 1.10 ms/user at batch 1; about 0.31 ms/user at batches 128–1024 |
+| Root-only publication | about 1.50M gas/batch; paper reports 2,929 gas/user at batch 512 |
+
+The STARK benchmark used 10 runs per configuration; aggregator batches 10 runs; gas five runs. These are useful research baselines, not high-confidence tail-latency estimates, production service levels or direct comparisons to the TLSNotary Beta.1 measurements above. The paper's TLSNotary workflow timings are from a separate experiment and should not be mixed with its STARK timings or TLSNotary Beta.1's network-profile benchmark.
+
+The policy circuit is a relatively narrow threshold-style workload. It does not have the same cost as proving TLS transcript openings, JSON parsing, exact field selection, issuer authority, LISE currentness, Xenia consent and a complete institutional decision. Benchmark each component and the full chain separately.
+
+### What Scribe does not solve for us
+
+**1. Attestation-node honesty remains a trust assumption.** Scribe states that an attestation node could sign without executing a valid provenance session and that this misbehavior is not cryptographically detectable by the base construction. Threshold signing, TEE, staking/reputation and collateral are suggested mitigations, but none is part of the basic trustless theorem. A threshold committee only helps if node independence, key distribution, quorum corruption and common-mode risks are measured.
+
+**2. Salted commitment does not automatically give account-level uniqueness.** Scribe derives the application spend tag from the salted commitment. The paper explicitly notes that the same Web2 account can request attestations with different salts and obtain different spend tags. Therefore the spent-tag set prevents reuse of the same tag, not necessarily multiple claims by the same account. The desired uniqueness subject must be defined by the domain: account, legal person, credential, benefit entitlement, election, institution or campaign are not interchangeable. Do not solve this by publishing a stable global identifier. Instead investigate a privacy-preserving, issuer-authorized, purpose-scoped subject nullifier with explicit recovery, revocation and sybil assumptions.
+
+**3. Attestation signature needs its own cryptographic qualification.** The paper's prototype describes a Rescue-based circuit-friendly signature and an elliptic-curve alternative. Its security theorem assumes an EUF-CMA-secure signature primitive; the prototype construction must not be treated as a standard signature scheme merely because it is circuit-friendly. Pin the exact construction, encoding, key lifecycle, domain separation, multi-message security and chosen-message security. Require independent cryptographic review before admission.
+
+**4. Falcon only protects the aggregator's root authorization.** A Falcon signature on a new root authenticates the signing key; it does not prove that the root correctly includes every previously accepted spend tag, that the aggregator did not equivocate, or that the update is append-only. Require a verifiable state transition/consistency proof, externally auditable inclusion/receipt log, equivocation detection and explicit censorship/fallback semantics. A malicious aggregator holding its signing key can otherwise authorize an incorrect root.
+
+**5. Post-quantum qualification is layer-specific.** Falcon at root publication does not make TLS, the attestation signature, hash/commitment construction, notary trust, STARK parameters, or the entire protocol post-quantum secure. Record every cryptographic layer and its security profile separately.
+
+**6. Proof zero-knowledge is not network anonymity.** Scribe's proof-privacy analysis does not eliminate timing, traffic volume, network metadata, server identity or repeated-query leakage. Keep those in the end-to-end privacy model.
+
+### Two architectures to benchmark against each other
+
+**A. Transcript-proof-native (higher-assurance research target)**
+
+~~~text
+TLSNotary session / delegated notary attests exact transcript commitment
+ -> Symthaea verifies selected HTTP-object/range opening
+ -> deterministic parser + claim schema are bound to exact bytes
+ -> private predicate is evaluated over the same parsed value
+~~~
+
+This reduces reliance on an external attestation node's field-extraction code, but increases the cost and complexity of commitment opening and parsing inside the proof.
+
+**B. Attestor-extracted value (Scribe-style baseline)**
+
+~~~text
+TLS provenance verifier + extraction profile
+ -> attestation node signs commitment to (app, server, rule, value, salt)
+ -> STARK/RISC Zero verifies signature + commitment + predicate
+ -> application-scoped nullifier is checked against an authenticated spent set
+~~~
+
+This can be faster and easier to integrate, but explicitly trusts the attestation node's extraction procedure. A threshold/committee variant is a separate research profile, not an automatic upgrade.
+
+Benchmark both over the same frozen response, extracted field, predicate, privacy target, hardware and adversary assumptions. The end-to-end result must include source session, attestation/commitment, proof, verification, replay/uniqueness check and currentness qualification.
+
+### Additional research questions
+
+1. Can the subject-nullifier be derived from a credential-bound secret or issuer-scoped pseudonym without creating a global cross-application correlation handle?
+2. Can a verifier prove entitlement uniqueness without learning the underlying stable account ID?
+3. What happens when a credential rotates, the issuer changes key, an account is recovered, two accounts merge, or the participant contests an account-linkage assertion?
+4. Can multiple independent provenance witnesses sign the same canonical transcript commitment, and what precisely constitutes independence?
+5. Can the aggregator expose a consistency proof between old and new spent-tag roots, not merely a signed new root?
+6. Can Mycelix's existing append-only/effect/reconciliation owners provide the state-transition evidence without creating a second ledger?
+7. What is the privacy cost of online uniqueness checking, and can the system avoid revealing which application or account was queried?
+8. Does in-circuit verification of a standard PQ signature materially change proving cost relative to a circuit-friendly classical signature? Measure rather than assume.
+
+## 13. Claim ceiling
 
 A pass establishes only the exact proposition qualified for the selected TLSNotary mode: a value in a specified authenticated transcript commitment was opened and interpreted under a frozen parser/schema/predicate profile, and the private predicate proof used that same value.
 
 It does not establish provider truth, legal account ownership, beneficial ownership, issuer authority for other purposes, completeness of the provider's data, absence of coercion, universal anonymity, currentness beyond the LISE evidence frontier, or authorization for a consequential action.
 
-## 13. Primary references
+## 14. Primary references
 
 - TLSNotary MPC-TLS: https://tlsnotary.org/docs/protocol/mpc-tls/
 - Notarization: https://tlsnotary.org/docs/protocol/notarization/
@@ -299,3 +381,4 @@ It does not establish provider truth, legal account ownership, beneficial owners
 - FAQ / TLS version and QuickSilver composition: https://tlsnotary.org/docs/faq/
 - Public verifiability and notary trust model: https://tlsnotary.org/blog/2026/06/17/public-verifiability/
 - Beta.1 performance (14 November 2026): https://tlsnotary.org/blog/beta1-performance-next-steps/
+- Scribe (2026): https://doi.org/10.1007/s12083-026-02246-2
