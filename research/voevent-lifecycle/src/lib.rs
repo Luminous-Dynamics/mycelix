@@ -685,7 +685,7 @@ mod tests {
 
     #[test]
     fn source_attributes_and_citation_description_survive_lifecycle_replay() {
-        let raw = "<VOEvent ivorn=\\"ivo://survey.example/event?attrs\\" version=\\"2.1\\" custom=\\"root-preserved\\"><Citations><EventIVORN cite=\\"followup\\" publisher-note=\\"retained\\">ivo://survey.example/previous</EventIVORN><Description> Preserve this source text. </Description></Citations></VOEvent>";
+        let raw = r#"<VOEvent ivorn="ivo://survey.example/event?attrs" version="2.1" custom="root-preserved"><Citations><EventIVORN cite="followup" publisher-note="retained">ivo://survey.example/previous</EventIVORN><Description> Preserve this source text. </Description></Citations></VOEvent>"#;
         let replay = replay_manifest(ReplayManifest {
             cutoff_unix_ms: 1,
             packets: vec![received(1, raw.to_owned())],
