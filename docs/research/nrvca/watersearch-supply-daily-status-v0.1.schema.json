@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/nrvca/watersearch-supply-daily-status-v0.1.schema.json",
+  "title": "Watersearch Supply Daily Status Row v0.1",
+  "description": "Raw operator-reported status and compiler-derived gap fields are kept separate. This is not tap measurement.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "release_id",
+    "supply_id",
+    "supply_name",
+    "sast_day",
+    "jw_reported_level",
+    "normalized_level",
+    "report_count",
+    "no_report",
+    "bypass_reported",
+    "source_report_refs",
+    "evidence_class",
+    "tap_measurement"
+  ],
+  "properties": {
+    "release_id": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}-[a-f0-9]{8}$"
+    },
+    "supply_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "supply_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sast_day": {
+      "type": "string",
+      "format": "date"
+    },
+    "jw_reported_level": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "normalized_level": {
+      "enum": [
+        "adequate",
+        "fair",
+        "pressure",
+        "low",
+        "no_water",
+        "critical",
+        "no_report",
+        "unknown"
+      ]
+    },
+    "report_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "no_report": {
+      "type": "boolean"
+    },
+    "bypass_reported": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "source_report_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "evidence_class": {
+      "const": "third_party_derived_operator_report"
+    },
+    "tap_measurement": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "no_report": {
+            "const": true
+          }
+        },
+        "required": [
+          "no_report"
+        ]
+      },
+      "then": {
+        "properties": {
+          "normalized_level": {
+            "const": "no_report"
+          },
+          "report_count": {
+            "const": 0
+          },
+          "jw_reported_level": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "no_report": {
+            "const": false
+          }
+        },
+        "required": [
+          "no_report"
+        ]
+      },
+      "then": {
+        "properties": {
+          "normalized_level": {
+            "not": {
+              "const": "no_report"
+            }
+          },
+          "report_count": {
+            "minimum": 1
+          }
+        }
+      }
+    }
+  ]
+}
