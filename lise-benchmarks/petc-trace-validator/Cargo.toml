@@ -1,0 +1,11 @@
+[package]
+name = "petc-trace-validator"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Independent structural and event-semantic validator for Protected Effect Trace Contract v0.1."
+
+[dependencies]
+serde_json = "=1.0.145"
+sha2 = "=0.10.9"
