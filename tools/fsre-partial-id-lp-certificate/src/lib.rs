@@ -1358,6 +1358,113 @@ mod tests {
     }
 
     #[test]
+    fn finite_world_simplex_bridge_matches_exhaustive_enumerator_for_small_integer_domains() {
+        let scope = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+        let alphabet = [-2_i128, -1, 0, 1, 2];
+
+        for world_count in 1..=4_usize {
+            let case_count = 5_u32.pow(world_count as u32);
+            for case_index in 0..case_count {
+                let mut code = case_index;
+                let mut values = Vec::with_capacity(world_count);
+                let mut expected_min = i128::MAX;
+                let mut expected_max = i128::MIN;
+
+                for world_index in 0..world_count {
+                    let value = alphabet[(code % 5) as usize];
+                    code /= 5;
+                    expected_min = expected_min.min(value);
+                    expected_max = expected_max.max(value);
+                    values.push(FiniteWorldValue {
+                        world_id: format!("world-{world_index:02}"),
+                        value: Rational::new(value, 1).unwrap(),
+                    });
+                }
+
+                let suffix = format!("{world_count}-{case_index}");
+                let minimum = analyze_finite_world_extremum(
+                    &format!("enumerated-min-{suffix}"),
+                    scope,
+                    "finite-world-exhaustive-v1",
+                    &values,
+                    ExtremumDirection::Minimum,
+                )
+                .unwrap();
+                let maximum = analyze_finite_world_extremum(
+                    &format!("enumerated-max-{suffix}"),
+                    scope,
+                    "finite-world-exhaustive-v1",
+                    &values,
+                    ExtremumDirection::Maximum,
+                )
+                .unwrap();
+
+                assert_eq!(minimum.value.numerator, expected_min);
+                assert_eq!(minimum.value.denominator, 1);
+                assert_eq!(maximum.value.numerator, expected_max);
+                assert_eq!(maximum.value.denominator, 1);
+                assert_eq!(
+                    minimum.lp_analysis.optimality_status,
+                    "OPTIMALITY_PROVEN_BY_EXACT_PRIMAL_DUAL_EQUALITY"
+                );
+                assert_eq!(
+                    maximum.lp_analysis.optimality_status,
+                    "OPTIMALITY_PROVEN_BY_EXACT_PRIMAL_DUAL_EQUALITY"
+                );
+                assert_eq!(
+                    minimum.lp_analysis.primal.objective,
+                    minimum.lp_analysis.dual.objective
+                );
+                assert_eq!(
+                    maximum.lp_analysis.primal.objective,
+                    maximum.lp_analysis.dual.objective
+                );
+                assert!(values.iter().any(|value| {
+                    value.world_id == minimum.witness_world_id && value.value.numerator == expected_min
+                }));
+                assert!(values.iter().any(|value| {
+                    value.world_id == maximum.witness_world_id && value.value.numerator == expected_max
+                }));
+            }
+        }
+    }
+
+    #[test]
+    fn finite_world_bridge_rejects_duplicate_world_ids_and_invalid_scope() {
+        let duplicate_ids = vec![
+            FiniteWorldValue {
+                world_id: "world-a".to_owned(),
+                value: Rational::new(1, 1).unwrap(),
+            },
+            FiniteWorldValue {
+                world_id: "world-a".to_owned(),
+                value: Rational::new(2, 1).unwrap(),
+            },
+        ];
+        assert!(finite_world_extremum_lp(
+            "duplicate-world-test",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "finite-world-set-v1",
+            &duplicate_ids,
+            ExtremumDirection::Maximum,
+        )
+        .is_err());
+
+        let values = vec![FiniteWorldValue {
+            world_id: "world-a".to_owned(),
+            value: Rational::new(1, 1).unwrap(),
+        }];
+        assert!(finite_world_extremum_lp(
+            "invalid-scope-test",
+            "not-a-digest",
+            "finite-world-set-v1",
+            &values,
+            ExtremumDirection::Maximum,
+        )
+        .is_err());
+    }
+
+    #[test]
     fn rational_overflow_fails_closed() {
         let large = Rational::new(i128::MAX, 1).unwrap();
         assert!(large.checked_mul(large).is_err());
