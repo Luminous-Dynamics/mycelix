@@ -193,7 +193,7 @@
               "event_id": "E04-EMAIL",
               "sequence": 3,
               "kind": "effect",
-              "operation_ref": "reschedule-meeting",
+              "operation_ref": "send-invitation",
               "logical_operation_id": "LOG-reschedule-meeting",
               "idempotency_key": "IDEM-reschedule-meeting",
               "attempt": 1,
