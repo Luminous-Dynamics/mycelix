@@ -28,7 +28,8 @@
         "COMPLETE",
         "BYPASS",
         "INCOMPLETE",
-        "NOT_TESTED"
+        "NOT_TESTED",
+        "UNKNOWN"
       ]
     },
     "disposition_honored": {
@@ -88,7 +89,8 @@
         "PARTIAL",
         "UNKNOWN",
         "NO_DISPATCH",
-        "NOT_APPLICABLE"
+        "NOT_APPLICABLE",
+        "NOT_TESTED"
       ]
     },
     "protocol_conformance": {
@@ -106,6 +108,7 @@
         "NARROWER_SUPPORT_ONLY",
         "UNSUPPORTED_EVIDENCE",
         "CONTRADICTED_BY_OBSERVATION",
+        "CONTRADICTED",
         "INDETERMINATE",
         "NOT_CLAIMED"
       ]
