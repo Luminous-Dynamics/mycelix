@@ -920,6 +920,7 @@ mod tests {
              #source_a_ancestry=source-a-lineage\n\
              #source_b_ancestry=source-b-lineage\n\
              #population_frame_status=DECLARED_COMPLETE\n\
+             #strata_universe_status=DECLARED_COMPLETE\n\
              #independence_assumption=NOT_DECLARED\n\
              #linkage_status=PERFECT_LINKAGE_ASSUMED\n\
              #within_stratum_homogeneity=DECLARED_WITHIN_STRATUM\n\
