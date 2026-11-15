@@ -708,7 +708,16 @@ mod tests {
     fn missing_required_claim_fails_closed() {
         let source = FIXTURE
             .lines()
-            .filter(|line| !line.starts_with("c-source|"))
+             .map(|line| {
+                if line.starts_with("c-source|") {
+                    line.replace(
+                        "SOURCE_DEPENDENCY_AUDIT_QUALIFIED",
+                        "REALIZED_SERVICE_OUTCOME_OBSERVED",
+                    )
+                } else {
+                    line.to_owned()
+                }
+            })
             .collect::<Vec<_>>()
             .join("\n");
         let problem = parse_input(&source).unwrap();
@@ -765,6 +774,32 @@ mod tests {
             report.scope_mismatches,
             vec!["TEMPORAL_IDENTITY_REPLAY_QUALIFIED"]
         );
+    }
+
+    #[test]
+    fn scope_digest_mismatch_is_detected_even_when_scope_id_matches() {
+        let source = FIXTURE.replace(
+            "c-identity|TEMPORAL_IDENTITY_REPLAY_QUALIFIED|QUALIFIED_WITHIN_SCOPE|decision-scope-v1|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "c-identity|TEMPORAL_IDENTITY_REPLAY_QUALIFIED|QUALIFIED_WITHIN_SCOPE|decision-scope-v1|dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        );
+        let report = analyze(&parse_input(&source).unwrap());
+        assert_eq!(
+            report.terminal_status,
+            "INPUT_OR_SCOPE_INCONSISTENCY"
+        );
+        assert_eq!(
+            report.scope_mismatches,
+            vec!["TEMPORAL_IDENTITY_REPLAY_QUALIFIED"]
+        );
+    }
+
+    #[test]
+    fn artifact_id_cannot_be_reused_for_a_different_digest() {
+        let source = FIXTURE.replace(
+            "c-identity|TEMPORAL_IDENTITY_REPLAY_QUALIFIED|QUALIFIED_WITHIN_SCOPE|decision-scope-v1|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|artifact-identity|2222222222222222222222222222222222222222222222222222222222222222",
+            "c-identity|TEMPORAL_IDENTITY_REPLAY_QUALIFIED|QUALIFIED_WITHIN_SCOPE|decision-scope-v1|cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|artifact-frame|2222222222222222222222222222222222222222222222222222222222222222",
+        );
+        assert!(parse_input(&source).is_err());
     }
 
     #[test]
