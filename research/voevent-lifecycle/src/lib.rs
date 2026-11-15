@@ -622,6 +622,95 @@ mod tests {
         );
     }
 
+    fn find_source_child<'a>(parent: &'a SourceElement, name: &str) -> &'a SourceElement {
+        parent
+            .content
+            .iter()
+            .find_map(|content| match content {
+                mycelix_voevent_header::SourceContent::Element { element }
+                    if element.name == name => Some(element.as_ref()),
+                _ => None,
+            })
+            .expect("expected source child")
+    }
+
+    fn source_direct_text<'a>(element: &'a SourceElement) -> &'a str {
+        element
+            .content
+            .iter()
+            .find_map(|content| match content {
+                mycelix_voevent_header::SourceContent::Text { value } => Some(value.as_str()),
+                _ => None,
+            })
+            .expect("expected source text")
+    }
+
+    #[test]
+    fn where_when_stc_tree_survives_packet_replay_without_normalization() {
+        let raw_packet_xml = r#"<VOEvent ivorn="ivo://survey.example/stc?one" version="2.1">
+            <WhereWhen>
+                <ObsDataLocation>
+                    <ObservatoryLocation id="GEOSURFACE"/>
+                    <ObservationLocation>
+                        <AstroCoordSystem id="TDB-ICRS-BARY"/>
+                        <AstroCoords coord_system_id="TDB-ICRS-BARY">
+                            <Time unit="d">
+                                <TimeInstant><ISOTime>2026-11-15T08:00:00.000</ISOTime></TimeInstant>
+                                <Error>0.0001</Error>
+                            </Time>
+                            <Position2D unit="deg">
+                                <Value2>
+                                    <C1 pos_unit="deg">148.88821</C1>
+                                    <C2 pos_unit="deg">69.06529</C2>
+                                </Value2>
+                                <Error2Radius pos_unit="arcsec">0.03</Error2Radius>
+                            </Position2D>
+                            <PositionName>named-source</PositionName>
+                        </AstroCoords>
+                    </ObservationLocation>
+                </ObsDataLocation>
+            </WhereWhen>
+        </VOEvent>"#.to_owned();
+
+        let replay = replay_manifest(ReplayManifest {
+            cutoff_unix_ms: 100,
+            packets: vec![received(100, raw_packet_xml)],
+        })
+        .expect("source-native STC replay");
+        let visible = &replay.visible_packets[0];
+        let where_when = visible.where_when.as_ref().expect("WhereWhen in replay");
+        let obs_data = find_source_child(where_when, "ObsDataLocation");
+        let observation = find_source_child(obs_data, "ObservationLocation");
+        let system = find_source_child(observation, "AstroCoordSystem");
+        assert_eq!(
+            system.attributes[0].value,
+            "TDB-ICRS-BARY"
+        );
+        let coords = find_source_child(observation, "AstroCoords");
+        let time = find_source_child(coords, "Time");
+        assert_eq!(time.attributes[0].value, "d");
+        let instant = find_source_child(
+            find_source_child(time, "TimeInstant"),
+            "ISOTime",
+        );
+        assert_eq!(
+            source_direct_text(instant),
+            "2026-11-15T08:00:00.000"
+        );
+        let position = find_source_child(coords, "Position2D");
+        let error = find_source_child(position, "Error2Radius");
+        assert_eq!(error.attributes[0].value, "arcsec");
+        assert_eq!(source_direct_text(error), "0.03");
+
+        // The lifecycle layer deliberately does not promote source coordinates
+        // into a normalized event_time or claim their physical qualification.
+        assert_eq!(visible.event_time, None);
+        let output = serde_json::to_string(visible).expect("serialize replay snapshot");
+        assert!(output.contains("TDB-ICRS-BARY"));
+        assert!(output.contains("2026-11-15T08:00:00.000"));
+        assert!(output.contains("arcsec"));
+    }
+
     #[test]
     fn source_native_manifest_parses_exact_xml_and_preserves_receipt_time() {
         let original = source_packet(
