@@ -99,6 +99,24 @@
       "expected_decision": "DENY",
       "expected_reason_code": "workload_identity.expired",
       "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-017",
+      "expected_decision": "DENY",
+      "expected_reason_code": "workload_identity.binding_mismatch",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-018",
+      "expected_decision": "DENY",
+      "expected_reason_code": "workload_identity.binding_mismatch",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-019",
+      "expected_decision": "DENY",
+      "expected_reason_code": "workload_identity.run_attempt_mismatch",
+      "expected_violations": []
     }
   ]
 }
