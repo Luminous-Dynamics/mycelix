@@ -873,12 +873,12 @@ mod tests {
         );
         assert_eq!(report.unknown_candidate_count, 1);
         assert_eq!(report.blocked_candidate_count, 1);
-        assert!(report.render().contains(
-            "candidate_state_labels=CALLER_ASSERTED_NOT_AUTHENTICATED"
-        ));
-        assert!(report.render().contains(
-            "candidate.omitted-a.evidence_ref=evidence-a"
-        ));
+        assert!(report
+            .render()
+            .contains("candidate_state_labels=CALLER_ASSERTED_NOT_AUTHENTICATED"));
+        assert!(report
+            .render()
+            .contains("candidate.omitted-a.evidence_ref=evidence-a"));
     }
 
     #[test]
