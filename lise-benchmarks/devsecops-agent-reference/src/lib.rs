@@ -285,23 +285,28 @@ fn check_artifact_attestation(case: &Value) -> Result<Option<Value>, String> {
     let Some(attestation) = case.get("artifact_attestation").filter(|v| v.is_object()) else {
         return Ok(Some(deny("artifact_attestation.missing")));
     };
-    if string(attestation, "state", "artifact attestation")? != "verified"
-        || attestation.get("signer_trusted").and_then(Value::as_bool) != Some(true)
-    {
+    if string(attestation, "state", "artifact attestation")? != "verified" {
         return Ok(Some(deny("artifact_attestation.not_verified")));
     }
+
+    let policy = case.get("policy").ok_or("case: missing policy")?;
+    let signer_id = string(attestation, "signer_id", "artifact attestation")?;
+    let builder_id = string(attestation, "builder_id", "artifact attestation")?;
+    let trusted_pairs = array(policy, "trusted_signer_builder_pairs", "policy")?;
+    let pair_trusted = trusted_pairs.iter().any(|pair| {
+        pair.get("signer_id").and_then(Value::as_str) == Some(signer_id)
+            && pair.get("builder_id").and_then(Value::as_str) == Some(builder_id)
+    });
+    if !pair_trusted {
+        return Ok(Some(deny("artifact_attestation.untrusted_signer_builder_pair")));
+    }
+
     if string(attestation, "subject_digest", "artifact attestation")?
         != string(request, "artifact_digest", "request")?
         || string(attestation, "commit_sha", "artifact attestation")?
             != string(request, "current_head_sha", "request")?
         || string(attestation, "predicate_type", "artifact attestation")?
             != "https://slsa.dev/provenance/v1"
-        || !contains_string(
-            case.get("policy").ok_or("case: missing policy")?,
-            "trusted_builder_ids",
-            string(attestation, "builder_id", "artifact attestation")?,
-            "policy",
-        )?
         || string(attestation, "workflow_ref", "artifact attestation")?
             != string(request, "workflow_ref", "request")?
         || string(attestation, "workflow_sha", "artifact attestation")?
@@ -310,9 +315,32 @@ fn check_artifact_attestation(case: &Value) -> Result<Option<Value>, String> {
             != string(request, "workflow_run_id", "request")?
     {
         return Ok(Some(deny(
-            "artifact_attestation.subject_or_builder_mismatch",
+            "artifact_attestation.subject_builder_or_invocation_mismatch",
         )));
     }
+
+    let required_dependencies = array(request, "required_dependencies", "request")?;
+    let resolved_dependencies = array(
+        attestation,
+        "resolved_dependencies",
+        "artifact attestation",
+    )?;
+    for required in required_dependencies {
+        let uri = string(required, "uri", "required dependency")?;
+        let digest = required
+            .get("digest")
+            .ok_or("required dependency: missing digest")?;
+        let resolved = resolved_dependencies.iter().any(|candidate| {
+            candidate.get("uri").and_then(Value::as_str) == Some(uri)
+                && candidate.get("digest") == Some(digest)
+        });
+        if !resolved {
+            return Ok(Some(deny(
+                "artifact_attestation.dependency_missing_or_mismatched",
+            )));
+        }
+    }
+
     let known_at = timestamp(request, "known_at", "request")?;
     if timestamp(attestation, "observed_at", "artifact attestation")? > known_at {
         return Ok(Some(hold(
@@ -643,6 +671,36 @@ mod tests {
         assert_eq!(
             evaluate_case(case).expect("decision")["decision"],
             "ALLOW_SCOPED"
+        );
+    }
+
+    #[test]
+    fn artifact_attestation_requires_an_exact_trusted_signer_builder_pair() {
+        let (cases, _) = bundle();
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-020")
+            .expect("case");
+        assert_eq!(
+            evaluate_case(case).expect("decision")["reason_code"],
+            "artifact_attestation.untrusted_signer_builder_pair"
+        );
+    }
+
+    #[test]
+    fn artifact_attestation_requires_exact_resolved_dependency_digests() {
+        let (cases, _) = bundle();
+        let case = cases["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|c| c["case_id"] == "DOPS-021")
+            .expect("case");
+        assert_eq!(
+            evaluate_case(case).expect("decision")["reason_code"],
+            "artifact_attestation.dependency_missing_or_mismatched"
         );
     }
 
