@@ -92,13 +92,6 @@ impl MutationKind {
             _ => None,
         }
     }
-
-    fn label(self) -> &'static str {
-        match self {
-            Self::DecisionValueDelta => "DECISION_VALUE_DELTA",
-            Self::SafetyValueDelta => "SAFETY_VALUE_DELTA",
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -158,6 +151,7 @@ impl DecisionSignature {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DefeaterWitness {
     pub mutation_ids: Vec<String>,
+    pub evidence_refs: Vec<String>,
     pub total_cost: u128,
     pub baseline_signature: DecisionSignature,
     pub mutated_signature: DecisionSignature,
@@ -169,6 +163,7 @@ pub struct ReplayReport {
     pub analysis_id: String,
     pub property: String,
     pub selected_mutation_ids: Vec<String>,
+    pub selected_evidence_refs: Vec<String>,
     pub total_cost: u128,
     pub is_defeater: bool,
     pub baseline_signature: DecisionSignature,
@@ -184,6 +179,12 @@ impl ReplayReport {
             out,
             "selected_mutation_ids={}",
             self.selected_mutation_ids.join(",")
+        )
+        .expect("String write");
+        writeln!(
+            out,
+            "selected_evidence_refs={}",
+            self.selected_evidence_refs.join(",")
         )
         .expect("String write");
         writeln!(out, "total_cost={}", self.total_cost).expect("String write");
@@ -277,6 +278,8 @@ impl DefeaterReport {
         for (index, witness) in self.witnesses.iter().enumerate() {
             let prefix = format!("witness.{index:04}");
             writeln!(out, "{prefix}.mutation_ids={}", witness.mutation_ids.join(","))
+                .expect("String write");
+            writeln!(out, "{prefix}.evidence_refs={}", witness.evidence_refs.join(","))
                 .expect("String write");
             writeln!(out, "{prefix}.total_cost={}", witness.total_cost)
                 .expect("String write");
@@ -644,10 +647,12 @@ fn apply_mask(
     BTreeMap<(String, String), (i128, i128)>,
     u128,
     Vec<String>,
+    Vec<String>,
 ) {
     let mut deltas = BTreeMap::<(String, String), (i128, i128)>::new();
     let mut total_cost = 0_u128;
     let mut mutation_ids = Vec::new();
+    let mut evidence_refs = Vec::new();
 
     for (index, mutation) in mutations.iter().enumerate() {
         if mask & (1_u64 << index) == 0 {
@@ -661,9 +666,10 @@ fn apply_mask(
         }
         total_cost += u128::from(mutation.cost);
         mutation_ids.push(mutation.id.clone());
+        evidence_refs.push(mutation.evidence_ref.clone());
     }
 
-    (deltas, total_cost, mutation_ids)
+    (deltas, total_cost, mutation_ids, evidence_refs)
 }
 
 fn parse_problem(
@@ -987,7 +993,8 @@ pub fn analyze(source: &str) -> Result<Result<DefeaterReport, Qualification>, De
 
     for mask in 0..search_limit {
         evaluated_subsets += 1;
-        let (deltas, total_cost, mutation_ids) = apply_mask(&problem.mutations, mask);
+        let (deltas, total_cost, mutation_ids, evidence_refs) =
+            apply_mask(&problem.mutations, mask);
         let signature = compute_signature(
             &problem.worlds,
             &problem.actions,
@@ -1024,6 +1031,7 @@ pub fn analyze(source: &str) -> Result<Result<DefeaterReport, Qualification>, De
         if witnesses.len() < problem.max_witnesses {
             witnesses.push(DefeaterWitness {
                 mutation_ids,
+                evidence_refs,
                 total_cost,
                 baseline_signature: problem.baseline_signature.clone(),
                 mutated_signature: signature,
@@ -1098,6 +1106,7 @@ pub fn replay_witness(
     let mut deltas = BTreeMap::<(String, String), (i128, i128)>::new();
     let mut total_cost = 0_u128;
     let mut canonical_ids = Vec::new();
+    let mut selected_evidence_refs = Vec::new();
 
     for id in &requested {
         let mutation = problem
@@ -1113,8 +1122,10 @@ pub fn replay_witness(
         }
         total_cost += u128::from(mutation.cost);
         canonical_ids.push(mutation.id.clone());
+        selected_evidence_refs.push(mutation.evidence_ref.clone());
     }
     canonical_ids.sort();
+    selected_evidence_refs.sort();
 
     let replayed_signature = compute_signature(
         &problem.worlds,
@@ -1134,6 +1145,7 @@ pub fn replay_witness(
         analysis_id: problem.analysis_id,
         property: problem.property.label().to_owned(),
         selected_mutation_ids: canonical_ids,
+        selected_evidence_refs,
         total_cost,
         is_defeater,
         baseline_signature: problem.baseline_signature,
@@ -1182,8 +1194,8 @@ m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE
         assert_eq!(report.robustness_margin, Some(2));
         assert_eq!(report.witness_count, 2);
         assert_eq!(report.witnesses.len(), 2);
-        assert_eq!(report.witnesses[0].mutation_ids, vec!["m-a"]);
-        assert_eq!(report.witnesses[1].mutation_ids, vec!["m-b"]);
+        assert_eq!(report.witnesses[0].mutation_ids, vec!["m-a".to_owned()]);
+        assert_eq!(report.witnesses[1].mutation_ids, vec!["m-b".to_owned()]);
     }
 
     #[test]
@@ -1282,7 +1294,7 @@ m-noop|DECISION_VALUE_DELTA|w1|inspect|0|1|evidence-noop|ADMISSIBLE
 
     #[test]
     fn baseline_property_must_already_hold() {
-        let input = FIXTURE.replace("#target_action=repair", "#target_action=inspect");
+        let input = FIXTURE.replace("#safety_floor=60", "#safety_floor=81");
         assert!(analyze(&input).is_err());
     }
 
