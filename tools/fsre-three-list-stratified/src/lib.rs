@@ -1029,6 +1029,20 @@ mod tests {
     }
 
     #[test]
+    fn empty_in_memory_strata_problem_fails_closed_without_panicking() {
+        let mut problem = fixture();
+        problem.strata.clear();
+        let report = analyze(&problem);
+        assert_eq!(
+            report.aggregate_status,
+            "AGGREGATE_NOT_ESTABLISHED_NO_STRATA"
+        );
+        assert!(report.target_population_min.is_none());
+        assert!(report.target_population_max.is_none());
+        assert!(report.pooled_cross_product_ratio_diagnostic.is_none());
+    }
+
+    #[test]
     fn rational_aggregate_overflow_is_not_silently_accepted() {
         let maximum = Rational::integer(u128::MAX);
         assert!(maximum.checked_add(Rational::one()).is_none());
