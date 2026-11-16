@@ -1,0 +1,9 @@
+[package]
+name = "neurotwin-policy-value"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+license = "AGPL-3.0-or-later"
+description = "Aggregate-only AIPW evaluation reference for fixed policies in two-arm randomized trials"
+
+[workspace]
