@@ -34,7 +34,7 @@ The candidate-minus-comparator standard error uses paired per-observation influe
 The input is a strict tab-separated file. The header must match exactly:
 
 ```text
-observation_key  assigned_arm  p_arm_a  p_arm_b  outcome  policy_candidate  policy_comparator  mu_arm_a  mu_arm_b
+observation_key<TAB>assigned_arm<TAB>p_arm_a<TAB>p_arm_b<TAB>outcome<TAB>policy_candidate<TAB>policy_comparator<TAB>mu_arm_a<TAB>mu_arm_b
 ```
 
 Columns are tab-delimited, not space-delimited. Values:
