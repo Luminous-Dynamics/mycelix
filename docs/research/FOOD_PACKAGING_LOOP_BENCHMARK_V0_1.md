@@ -179,3 +179,27 @@ No single packaging type is the default winner. The correct outcome may differ f
 ## 12. Nonclaims
 
 This document does not establish food safety, shelf-life extension, reduced food waste, improved consumer acceptance, reuse adoption, lower lifecycle impact, cost savings or legal compliance. Such claims require matched physical evidence and appropriate independent review.
+
+
+## 13. Plasma-pretreated ingredient traceability adapter
+
+For a food-treatment event such as plasma conditioning, retain the identity and process history of the ingredient transformation without treating the ledger entry as scientific validation.
+
+The adapter should link, where applicable:
+
+- source product and ingredient-lot ID, including parent/child references for lot splits, blends and transformations;
+- treatment profile identity and exact revision, process-run ID and Symtropy trial-manifest reference/digest;
+- process modality and process stage, equipment identity/revision and responsible facility;
+- measured/allocated process energy, treatment duration and chemistry/assay evidence references, each with an explicit evidence class and system boundary;
+- input mass, accepted output mass, rejected mass and process yield when measured;
+- package/container identity and exact design/material revision when the treatment occurs in-package or the resulting ingredient is packed;
+- independent food-quality, microbiology, chemistry, migration and safety-review records, each scoped to the exact product, lot, process profile, method and jurisdiction.
+
+A treatment event marked completed means only that the event was recorded as completed. It does not mean the process is safe, effective, shelf-stable, nutritionally improved, or approved for a specific claim. Store claim attestations separately from treatment events, with issuer, method, source evidence, scope, uncertainty, expiry and correction/supersession links.
+
+Unknown energy, incomplete assays and missing storage intervals remain unknown; do not coerce them to zero or to a positive claim. Use Mycelix for product/lot/custody lineage, Symtropy for physical process accounting and trial qualification, and Symthaea for source-grounded evidence appraisal. Avoid consumer identity or household purchase history unless a strictly necessary, consented use case is established.
+
+Related work:
+- Symtropy [PFB-1 system-boundary benchmark](https://github.com/Luminous-Dynamics/symtropy/blob/research/plasma-food-qualification-v0-1-20261116/docs/research/PLASMA_FOOD_SYSTEM_BOUNDARY_BENCHMARK_V0_1.md)
+- Symtropy [PFB-ORACLE-001 #5683](https://github.com/Luminous-Dynamics/symtropy/issues/5683)
+- Symtropy [PLASMA-FOOD-QUAL-001 #5658](https://github.com/Luminous-Dynamics/symtropy/issues/5658)
