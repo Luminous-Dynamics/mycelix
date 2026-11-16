@@ -194,8 +194,8 @@ fn read_first_column(reader: &mut impl BufRead) -> std::io::Result<Option<Vec<u8
             return Ok(Some(field));
         }
 
-        let tab = available.iter().position(|byte| *byte == b'\\t');
-        let newline = available.iter().position(|byte| *byte == b'\\n');
+        let tab = available.iter().position(|byte| *byte == b'\t');
+        let newline = available.iter().position(|byte| *byte == b'\n');
         let delimiter = match (tab, newline) {
             (Some(tab), Some(newline)) => Some((tab.min(newline), tab < newline)),
             (Some(tab), None) => Some((tab, true)),
@@ -239,7 +239,7 @@ fn discard_to_line_end(reader: &mut impl BufRead) -> std::io::Result<()> {
         if available.is_empty() {
             return Ok(());
         }
-        if let Some(newline) = available.iter().position(|byte| *byte == b'\\n') {
+        if let Some(newline) = available.iter().position(|byte| *byte == b'\n') {
             reader.consume(newline + 1);
             return Ok(());
         }
@@ -249,7 +249,7 @@ fn discard_to_line_end(reader: &mut impl BufRead) -> std::io::Result<()> {
 }
 
 fn trim_line_ending(value: &mut Vec<u8>) {
-    if value.last() == Some(&b'\\r') {
+    if value.last() == Some(&b'\r') {
         value.pop();
     }
 }
