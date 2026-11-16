@@ -39,6 +39,7 @@
         "inspected",
         "wash_started",
         "wash_completed",
+        "food_treatment_completed",
         "released_for_use",
         "repaired",
         "retired",
@@ -232,6 +233,67 @@
         "string",
         "null"
       ]
+    },
+    "treatment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "treatment_profile_ref",
+        "process_run_ref",
+        "process_family",
+        "equipment_ref",
+        "process_manifest_ref",
+        "parameters_evidence_refs",
+        "claim_ceiling"
+      ],
+      "properties": {
+        "treatment_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "process_run_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "process_family": {
+          "enum": [
+            "cold_atmospheric_plasma",
+            "plasma_activated_water",
+            "thermal_plasma",
+            "other"
+          ]
+        },
+        "equipment_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "process_manifest_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parameters_evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outcome_assay_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "energy_accounting_receipt_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Optional reference to a completed Symtropy PFB-1 accounting receipt. A missing receipt is not zero energy."
+        },
+        "claim_ceiling": {
+          "const": "Treatment recorded only; no safety, shelf-life, efficacy, or quality claim implied."
+        }
+      }
     }
   },
   "allOf": [
@@ -297,6 +359,47 @@
         "required": [
           "wash_result"
         ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "food_treatment_completed"
+          }
+        },
+        "required": [
+          "event_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "product_lot_ref",
+          "treatment"
+        ],
+        "properties": {
+          "product_lot_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "treatment": {
+            "type": "object",
+            "required": [
+              "treatment_profile_ref",
+              "process_run_ref",
+              "process_family",
+              "equipment_ref",
+              "process_manifest_ref",
+              "parameters_evidence_refs",
+              "claim_ceiling"
+            ],
+            "properties": {
+              "claim_ceiling": {
+                "const": "Treatment recorded only; no safety, shelf-life, efficacy, or quality claim implied."
+              }
+            }
+          }
+        }
       }
     }
   ]
