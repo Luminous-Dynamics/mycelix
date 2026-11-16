@@ -9,6 +9,7 @@ NeuroTwin investigates whether longitudinal, multimodal and network-aware models
 ## Programme documents
 
 - [MDD cross-trial benchmark protocol v0.2](MDD_CROSS_TRIAL_BENCHMARK_PROTOCOL_V0_2.md) — published baselines, trial directions, model ladder, prospective translation criteria and benchmark targets.
+- [Clinical evidence landscape and SOTA comparison v0.1](CLINICAL_EVIDENCE_AND_SOTA_COMPARISON_V0_1.md) — current comparator results, TRIPOD+AI / PROBAST+AI standards, and a staged benchmark ladder.
 - [Mycelix governance and integration contract v0.1](MYCELIX_GOVERNANCE_INTEGRATION_V0_1.md) — how the work composes Personal, Identity, Health, DeSci and federated-learning boundaries without creating parallel patient or consent authorities.
 - [Aggregate evaluation receipt schema v0.1](schemas/evaluation-receipt-v0.1.schema.json) — versioned, aggregate-only evidence for a research run.
 - [Synthetic receipt fixture](fixtures/synthetic-evaluation-receipt-v0.1.json) — deliberately synthetic contract example; not a study result.
