@@ -19,7 +19,10 @@ case "$mode" in
   *) echo "mode must be normal or small" >&2; exit 2 ;;
 esac
 
-rm -rf "$target"
+if [[ -e "$target" || -L "$target" ]]; then
+  echo "target must not already exist" >&2
+  exit 2
+fi
 mkdir -p "$target"
 printf '{}\n' > "$target/dataset_description.json"
 printf 'participant_id\tage\n' > "$target/participants.tsv"
