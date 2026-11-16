@@ -17,14 +17,15 @@ A public repository, LLC, DID, consent object, dataset hash or successful softwa
 The Brain-CODE access workflow is a promising primary route for the published cross-trial reproduction:
 
 - Create an account and request the relevant Controlled Data Release through the Study Dashboard.
+- Brain-CODE's current REB FAQ says external researchers must have an affiliation with an accredited academic institution, think tank, company or other research organization; local, national and international researchers may apply. This means an academic affiliation is not the only possible route, but the provider must accept the applicant organization and the named Study Investigator.
 - The Study Investigator is asked for project title/description, anticipated brain-health impact, the full REB/IRB proposal and approval/exemption documentation, dissemination plan, CV, special considerations and a signed Data Use Agreement.
-- Access is limited to the approved analysis and users who have signed the required terms.
+- Access is limited to the approved analysis and named users who have signed the required terms. The approved REB protocol must explicitly mention use of the requested Brain-CODE dataset; amendments may be required.
 - Analyses use a Brain-CODE Workspace; multifactor authentication is required.
-- The request is reviewed by the Brain-CODE Data Access Committee and Steering Committee. Current timelines and technical/workspace limits must be reconfirmed with the provider at the time of application.
+- The request is reviewed by the Brain-CODE Data Access Committee and Informatics Steering Committee. Current timelines and technical/workspace limits must be reconfirmed with the provider at the time of application.
 
 The Brain-CODE workspace guidance recommends RStudio Web for clinical-only analysis and an approved Windows remote desktop where other tools are required; imaging or omics workflows require a separate hardware discussion. Workspace provisioning and dataset access are separate approvals.
 
-**Consequence:** do not plan to download raw CAN-BIND MRI/EEG into a developer laptop, public GitHub Actions runner, public DHT or IPFS. The source institution's current policy and approved workspace determine the permitted execution path.
+**Consequence:** Luminous Dynamics may be able to apply as a company/research organization if Brain-CODE accepts its status and the project has the required local REB/IRB review. This is an eligibility question to confirm directly—not an assumed right of access. Do not plan to download raw CAN-BIND MRI/EEG into a developer laptop, public GitHub Actions runner, public DHT or IPFS. The source institution's current policy and approved workspace determine the permitted execution path.
 
 ### EMBARC — NIMH Data Archive
 
