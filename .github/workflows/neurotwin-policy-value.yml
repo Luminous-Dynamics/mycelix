@@ -53,6 +53,7 @@ jobs:
             echo "row-level key leaked into aggregate output"
             exit 1
           fi
+          jq -e '.schema_version == "neurotwin-policy-value-report-v0.1" and .n >= 20 and (.candidate_minus_comparator | has("dr_value_difference"))' "$RUNNER_TEMP/neurotwin-policy-value.json" >/dev/null
 
       - name: Verify small-cohort suppression
         run: |
