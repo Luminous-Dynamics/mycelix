@@ -58,6 +58,17 @@ Stanford's current PMH/BRAINnet catalogue describes the wider iSPOT-D collection
 
 Its three randomized arms also justify a separate multi-arm policy-value evaluator. Do not force iSPOT-D into the two-arm reference tool or discard an arm to create a convenient comparator. See [data-access and partnership readiness](DATA_ACCESS_AND_PARTNERSHIP_READINESS_V0_1.md).
 
+### New domain-level meta-analytic evidence (September 2026)
+
+McCurry et al., *Biological Psychiatry* (online ahead of print, 9 September 2026), DOI [10.1016/j.biopsych.2026.06.027](https://doi.org/10.1016/j.biopsych.2026.06.027), performed activation-likelihood estimation across 46 experiments and 996 unique participants with MDD. It reported:
+- A domain-general right anterior insula (rAI) activation cluster associated with poor treatment outcome.
+- For negatively valenced emotion-processing tasks, convergence in rAI and subgenual anterior cingulate cortex.
+- No significant convergence across resting-state metabolic studies or among studies reporting biomarkers of positive treatment outcomes.
+
+This updates the scientific hypothesis space: NeuroTwin should not assume that pretreatment resting-state dACC connectivity is a universal neural signature. It should test domain-specific and task-specific neural features, including salience-network / rAI and negative-emotion processing, only when the modality and task are present in the relevant cohort.
+
+This meta-analysis is **not** an individual-level predictive model, an independent cross-trial validation, or evidence that the rAI feature improves treatment assignment. Coordinate-based ALE convergence is a different evidence type from prediction performance. Treat it as a feature-prior / preregistered hypothesis source, then evaluate incremental value against the clinical-only, week-2 clinical, and published dACC baselines on held-out participants.
+
 ## 2. Industry comparison: compare capabilities, not slogans
 
 Clinical prediction and precision-psychiatry programmes generally combine clinical features with candidate biomarkers and evaluate them in development or trial cohorts. The public literature above shows that high retrospective discrimination is achievable in selected samples, while cross-trial performance and prospective treatment assignment remain harder.
