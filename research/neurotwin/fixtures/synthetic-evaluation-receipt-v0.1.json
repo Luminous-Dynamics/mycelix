@@ -1,0 +1,71 @@
+{
+  "schema_version": "neurotwin-evaluation-receipt-v0.1",
+  "receipt_id": "synthetic-demo-001",
+  "synthetic_only": true,
+  "study": {
+    "study_id": "synthetic-mdd-contract-study",
+    "protocol_version": "0.1.0",
+    "protocol_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "dataset_provider": "synthetic-fixture",
+    "dataset_release_id": "synthetic-release-2026-01",
+    "analysis_scope_ref": "synthetic-scope-only"
+  },
+  "authorization": {
+    "ethics_status": "not_applicable_for_synthetic",
+    "ethics_reference_redacted": null,
+    "dua_status": "not_required_for_synthetic",
+    "scope_verified": true,
+    "compute_location": "local_synthetic_only"
+  },
+  "run": {
+    "code_commit": "0123456789abcdef0123456789abcdef01234567",
+    "environment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "preprocessing_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "split_manifest_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "started_at": "2026-01-01T12:00:00Z",
+    "completed_at": "2026-01-01T12:00:01Z",
+    "execution_mode": "local_synthetic"
+  },
+  "cohort": {
+    "population": "major_depressive_disorder",
+    "n_total": 120,
+    "small_cell_suppression_applied": true,
+    "suppression_threshold": 10,
+    "site_count": 3
+  },
+  "task": {
+    "claim_type": "prognosis",
+    "endpoint": "synthetic_8_week_response",
+    "prediction_time": "synthetic_baseline",
+    "validation_design": "synthetic_contract_test",
+    "direction": "synthetic_site_a_to_site_b"
+  },
+  "model": {
+    "model_id": "synthetic-clinical-baseline",
+    "model_family": "synthetic-logistic-regression",
+    "configuration_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "metrics": [
+    {
+      "name": "auroc",
+      "value": 0.71,
+      "unit": "dimensionless",
+      "confidence_interval": {
+        "level": 0.95,
+        "lower": 0.62,
+        "upper": 0.79
+      }
+    },
+    {
+      "name": "brier_score",
+      "value": 0.19,
+      "unit": "dimensionless",
+      "confidence_interval": null
+    }
+  ],
+  "limitations": [
+    "Entire receipt and all metric values are synthetic placeholders.",
+    "This fixture does not represent EMBARC, CAN-BIND, SMART-D, a real participant cohort or an empirical NeuroTwin model.",
+    "Schema conformance does not verify research authorization, source truth, statistical correctness or clinical utility."
+  ]
+}
