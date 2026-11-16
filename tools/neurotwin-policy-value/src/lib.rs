@@ -1,3 +1,5 @@
+pub mod multi_arm;
+
 //! Aggregate-only evaluation of a fixed two-arm treatment policy in randomized data.
 //!
 //! This reference does not train policies or verify that supplied predictions are
