@@ -46,3 +46,15 @@ The fixture bundle contains only synthetic data. The expected outcomes identify 
 - Changed semantics, required fields or evidence classes require a new major schema version.
 - Preserve the original canonical evidence payload and provide a deterministic migration test.
 - Schema validation never upgrades declared evidence into measured, assayed or independently attested evidence.
+
+
+## Food treatment / plasma lineage adapter
+
+PackCycleEvidenceV1 supports a `food_treatment_completed` event for a declared food-lot transformation. It requires a treatment profile, process-run ID, process family, equipment reference and process-manifest reference. The claim ceiling is fixed in the schema: recording a treatment does not imply efficacy, food safety, shelf-life extension or quality improvement.
+
+An optional `energy_accounting_receipt_ref` can reference Symtropy's existing deterministic PFB-1 oracle:
+- [PFB-ORACLE-001 #5683](https://github.com/Luminous-Dynamics/symtropy/issues/5683)
+- [Isolated Rust oracle source](https://github.com/Luminous-Dynamics/symtropy/tree/research/plasma-food-qualification-v0-1-20261116/research/plasma-food-oracle)
+- [PFB-1 system-boundary benchmark](https://github.com/Luminous-Dynamics/symtropy/blob/research/plasma-food-qualification-v0-1-20261116/docs/research/PLASMA_FOOD_SYSTEM_BOUNDARY_BENCHMARK_V0_1.md)
+
+The oracle reports wall-plug electrical energy for explicit boundaries and returns incomplete rather than zero when a required term is unknown. Mycelix only stores references to the process and accounting evidence; it does not duplicate the oracle or certify the process.
