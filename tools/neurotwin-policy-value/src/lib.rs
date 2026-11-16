@@ -107,7 +107,9 @@ pub fn parse_tsv(input: &str) -> Result<Vec<Observation>, String> {
 
         let key = fields[0];
         if !valid_observation_key(key) {
-            return Err(format!("invalid opaque observation key on line {line_number}"));
+            return Err(format!(
+                "invalid opaque observation key on line {line_number}"
+            ));
         }
         if !keys.insert(key.to_string()) {
             return Err(format!("duplicate observation key on line {line_number}"));
@@ -163,7 +165,10 @@ pub fn evaluate(observations: &[Observation]) -> Result<AggregateReport, String>
     let mut keys = HashSet::new();
     for (index, row) in rows.iter().enumerate() {
         if !valid_observation_key(&row.observation_key) {
-            return Err(format!("invalid opaque observation key at row {}", index + 1));
+            return Err(format!(
+                "invalid opaque observation key at row {}",
+                index + 1
+            ));
         }
         if !keys.insert(row.observation_key.clone()) {
             return Err(format!("duplicate observation key at row {}", index + 1));
@@ -192,7 +197,9 @@ pub fn evaluate(observations: &[Observation]) -> Result<AggregateReport, String>
             || !candidate_ipw.is_finite()
             || !comparator_ipw.is_finite()
         {
-            return Err("non-finite estimator contribution; inspect propensity support".to_string());
+            return Err(
+                "non-finite estimator contribution; inspect propensity support".to_string(),
+            );
         }
 
         if row.assigned_arm == row.policy_candidate {
@@ -492,16 +499,22 @@ fn validate_observation(row: &Observation, line: usize) -> Result<(), String> {
         || row.p_arm_a >= 1.0
         || row.p_arm_b >= 1.0
     {
-        return Err(format!("positivity violation in assignment probabilities at line {line}"));
+        return Err(format!(
+            "positivity violation in assignment probabilities at line {line}"
+        ));
     }
     if (row.p_arm_a + row.p_arm_b - 1.0).abs() > PROBABILITY_TOLERANCE {
-        return Err(format!("assignment probabilities do not sum to one at line {line}"));
+        return Err(format!(
+            "assignment probabilities do not sum to one at line {line}"
+        ));
     }
     if !row.outcome.is_finite() || !row.mu_arm_a.is_finite() || !row.mu_arm_b.is_finite() {
         return Err(format!("non-finite outcome or prediction at line {line}"));
     }
     if !(1.0 / row.p_arm_a).is_finite() || !(1.0 / row.p_arm_b).is_finite() {
-        return Err(format!("inverse assignment probability overflow at line {line}"));
+        return Err(format!(
+            "inverse assignment probability overflow at line {line}"
+        ));
     }
     Ok(())
 }
