@@ -1,5 +1,6 @@
 use std::env;
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::process;
 
 use neurotwin_transport_audit::{DEFAULT_MIN_REPORT_N, evaluate, parse_tsv, render_json};
@@ -22,7 +23,13 @@ fn run() -> Result<(), String> {
         return Err("overall cohort is below the built-in reporting minimum".to_string());
     }
     let report = evaluate(&rows)?;
-    fs::write(&args[1], render_json(&report))
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&args[1])
+        .map_err(|_| "output path must be new and writable; existing files are never overwritten".to_string())?;
+    output
+        .write_all(render_json(&report).as_bytes())
         .map_err(|_| "could not write aggregate transport report".to_string())?;
     eprintln!("aggregate transport report written; row-level data were not emitted");
     Ok(())
