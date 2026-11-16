@@ -1,0 +1,303 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/food/PackCycleEvidenceV1.schema.json",
+  "title": "PackCycleEvidenceV1",
+  "description": "A single packaging lifecycle event payload intended to reference the canonical Mycelix event/receipt system; not a parallel ledger and not proof of hygiene or food safety.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "subject_ref",
+    "design_ref",
+    "occurred_at",
+    "actor_ref",
+    "evidence_class",
+    "idempotency_key"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128
+    },
+    "event_type": {
+      "enum": [
+        "manufactured",
+        "filled",
+        "sealed",
+        "dispatched",
+        "transferred",
+        "received",
+        "opened",
+        "refilled",
+        "returned",
+        "inspected",
+        "wash_started",
+        "wash_completed",
+        "released_for_use",
+        "repaired",
+        "retired",
+        "disposed"
+      ]
+    },
+    "subject_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Canonical Mycelix container-unit or batch reference; do not mint a parallel identity."
+    },
+    "design_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "product_lot_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "received_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "actor_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "custody_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "location_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Use coarse-grained or access-controlled reference; avoid public household address."
+    },
+    "quantity": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "unit"
+      ],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unit": {
+          "enum": [
+            "g",
+            "kg",
+            "ml",
+            "l",
+            "count"
+          ]
+        }
+      }
+    },
+    "evidence_class": {
+      "enum": [
+        "declared",
+        "measured",
+        "modelled",
+        "simulated",
+        "independently_attested"
+      ]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "instrument_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "calibration_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "predecessor_event_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 256
+    },
+    "wash_result": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "unknown",
+            "pass",
+            "fail",
+            "not_applicable"
+          ]
+        },
+        "method_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cycle_parameters_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "residual_or_hygiene_assay_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "inspection_result": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "unknown",
+            "pass",
+            "fail"
+          ]
+        },
+        "inspection_method_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inspector_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "release_authority_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "correction_of_event_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "released_for_use"
+          }
+        },
+        "required": [
+          "event_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "wash_result",
+          "inspection_result",
+          "release_authority_ref"
+        ],
+        "properties": {
+          "wash_result": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "const": "pass"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "inspection_result": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "const": "pass"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "release_authority_ref": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "wash_completed"
+          }
+        },
+        "required": [
+          "event_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "wash_result"
+        ]
+      }
+    }
+  ]
+}
