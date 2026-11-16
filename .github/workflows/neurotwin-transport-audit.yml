@@ -47,7 +47,7 @@ jobs:
         run: |
           cargo run --manifest-path tools/neurotwin-transport-audit/Cargo.toml --locked -- \
             tools/neurotwin-transport-audit/fixtures/synthetic-predictions.tsv "$RUNNER_TEMP/transport-report.json"
-          jq -e '.schema_version == "neurotwin-transport-report-v0.1" and .n == 40 and (.overall.auroc > 0.9) and (.domains | length == 2)' "$RUNNER_TEMP/transport-report.json" >/dev/null
+          jq -e '.schema_version == "neurotwin-transport-report-v0.1" and .auprc_method == "non_interpolated_average_precision_tie_grouped" and .n == 40 and (.overall.auroc > 0.9) and (.domains | length == 2)' "$RUNNER_TEMP/transport-report.json" >/dev/null
           if grep -Fq "synthetic-key-" "$RUNNER_TEMP/transport-report.json"; then
             echo "row key leaked into aggregate report"
             exit 1
