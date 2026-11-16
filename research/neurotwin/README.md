@@ -11,6 +11,7 @@ NeuroTwin investigates whether longitudinal, multimodal and network-aware models
 - [MDD cross-trial benchmark protocol v0.2](MDD_CROSS_TRIAL_BENCHMARK_PROTOCOL_V0_2.md) — published baselines, trial directions, model ladder, prospective translation criteria and benchmark targets.
 - [Clinical evidence landscape and SOTA comparison v0.1](CLINICAL_EVIDENCE_AND_SOTA_COMPARISON_V0_1.md) — current comparator results, TRIPOD+AI / PROBAST+AI standards, and a staged benchmark ladder.
 - [JAMA cross-trial reproduction checklist v0.1](JAMA_CROSS_TRIAL_REPRODUCTION_CHECKLIST_V0_1.md) — exact cohort overlap, outcome timing, published AUC/BA table, preprocessing and reproduction controls.
+- [Controlled-data access readiness checklist v0.1](DATA_ACCESS_READINESS_CHECKLIST_V0_1.md) — current Brain-CODE / NIMH prerequisites, institutional PI pathway and controlled-compute constraints.
 - [Data-access and partnership readiness v0.1](DATA_ACCESS_AND_PARTNERSHIP_READINESS_V0_1.md) — current Brain-CODE, NIMH NDA and Stanford BRAINnet access requirements; independent-trial candidates and institutional partnership plan.
 - [Mycelix governance and integration contract v0.1](MYCELIX_GOVERNANCE_INTEGRATION_V0_1.md) — how the work composes Personal, Identity, Health, DeSci and federated-learning boundaries without creating parallel patient or consent authorities.
 - [Aggregate evaluation receipt schema v0.1](schemas/evaluation-receipt-v0.1.schema.json) — versioned, aggregate-only evidence for a research run.
