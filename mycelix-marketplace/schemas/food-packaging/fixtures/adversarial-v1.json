@@ -153,6 +153,99 @@
         "release_authority_ref": null,
         "correction_of_event_ref": null
       }
+    },
+    {
+      "case_id": "valid-treatment-event-without-implicit-food-claim",
+      "expected_schema_valid": true,
+      "expected_domain_validity": "treatment_event_only_no_claim",
+      "payload": {
+        "schema_version": "1.0.0",
+        "event_id": "evt-fixture-0005",
+        "event_type": "food_treatment_completed",
+        "subject_ref": "mycelix:container-unit:synthetic-05",
+        "design_ref": "mycelix:pack-design:dry-grain-pack:v1",
+        "product_lot_ref": "mycelix:food-lot:synthetic-rice-05",
+        "occurred_at": "2026-11-16T14:00:00+02:00",
+        "received_at": null,
+        "actor_ref": "mycelix:facility:synthetic",
+        "custody_ref": null,
+        "location_ref": "region:ZA-GP-JHB",
+        "quantity": {
+          "value": 10,
+          "unit": "kg"
+        },
+        "evidence_class": "declared",
+        "evidence_refs": [
+          "fixture:synthetic-process-record"
+        ],
+        "instrument_ref": null,
+        "calibration_ref": null,
+        "predecessor_event_ref": null,
+        "idempotency_key": "fixture-treatment-0005",
+        "wash_result": null,
+        "inspection_result": null,
+        "release_authority_ref": null,
+        "correction_of_event_ref": null,
+        "treatment": {
+          "treatment_profile_ref": "profile:synthetic-cold-plasma-rice-v1",
+          "process_run_ref": "run:synthetic-rice-0005",
+          "process_family": "cold_atmospheric_plasma",
+          "equipment_ref": "equipment:synthetic-plasma-reactor",
+          "process_manifest_ref": "manifest:synthetic-pfb1-run-0005",
+          "parameters_evidence_refs": [
+            "evidence:synthetic-process-parameters"
+          ],
+          "outcome_assay_refs": [],
+          "energy_accounting_receipt_ref": null,
+          "claim_ceiling": "Treatment recorded only; no safety, shelf-life, efficacy, or quality claim implied."
+        }
+      }
+    },
+    {
+      "case_id": "reject-treatment-event-without-process-run-reference",
+      "expected_schema_valid": false,
+      "expected_domain_validity": "reject",
+      "payload": {
+        "schema_version": "1.0.0",
+        "event_id": "evt-fixture-0006",
+        "event_type": "food_treatment_completed",
+        "subject_ref": "mycelix:container-unit:synthetic-05",
+        "design_ref": "mycelix:pack-design:dry-grain-pack:v1",
+        "product_lot_ref": "mycelix:food-lot:synthetic-rice-05",
+        "occurred_at": "2026-11-16T14:00:00+02:00",
+        "received_at": null,
+        "actor_ref": "mycelix:facility:synthetic",
+        "custody_ref": null,
+        "location_ref": "region:ZA-GP-JHB",
+        "quantity": {
+          "value": 10,
+          "unit": "kg"
+        },
+        "evidence_class": "declared",
+        "evidence_refs": [
+          "fixture:synthetic-process-record"
+        ],
+        "instrument_ref": null,
+        "calibration_ref": null,
+        "predecessor_event_ref": null,
+        "idempotency_key": "fixture-treatment-0006",
+        "wash_result": null,
+        "inspection_result": null,
+        "release_authority_ref": null,
+        "correction_of_event_ref": null,
+        "treatment": {
+          "treatment_profile_ref": "profile:synthetic-cold-plasma-rice-v1",
+          "process_family": "cold_atmospheric_plasma",
+          "equipment_ref": "equipment:synthetic-plasma-reactor",
+          "process_manifest_ref": "manifest:synthetic-pfb1-run-0005",
+          "parameters_evidence_refs": [
+            "evidence:synthetic-process-parameters"
+          ],
+          "outcome_assay_refs": [],
+          "energy_accounting_receipt_ref": null,
+          "claim_ceiling": "Treatment recorded only; no safety, shelf-life, efficacy, or quality claim implied."
+        }
+      }
     }
   ]
 }
