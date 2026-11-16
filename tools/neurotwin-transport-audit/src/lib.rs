@@ -182,6 +182,7 @@ pub fn render_json(report: &TransportReport) -> String {
         "  \"minimum_report_n\": {},\n",
         DEFAULT_MIN_REPORT_N
     ));
+    output.push_str("  \"auprc_method\": \"non_interpolated_average_precision_tie_grouped\",\n");
     output.push_str("  \"overall\": ");
     render_metrics(&mut output, &report.metrics, 2);
     output.push_str(",\n  \"selective_curve\": [");
