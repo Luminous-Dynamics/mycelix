@@ -56,7 +56,7 @@ Use serial identity only where per-container tracking creates real value; otherw
 ### 3.3 PackCycleEvidenceV1
 
 - pack/container ID and food product-lot ID;
-- event kind: manufacture, fill, seal, dispatch, transfer, receipt, open, refill, return, inspect, wash, release, repair, retire or dispose;
+- event kind: manufacture, fill, seal, dispatch, transfer, receipt, open, refill, treatment, return, inspect, wash, release, repair, retire or dispose;
 - event timestamp, actor/equipment reference, location precision policy and event ordering;
 - food mass and unit; tare/gross mass when actually measured;
 - measured storage/transport temperature and missing intervals where relevant;
@@ -64,6 +64,19 @@ Use serial identity only where per-container tracking creates real value; otherw
 - instrument/method, calibration, uncertainty, source digest and evidence class;
 - schema revision, rights, retention and disclosure policy;
 - append-only correction/supersession link.
+
+### 3.4 Optional food-treatment event
+
+A food treatment (including a proposed cold-plasma, plasma-activated-water or other process) is recorded as a typed transformation event, not as a generic quality badge. Reference:
+- exact treatment profile and revision;
+- product-lot ID, container / package design revision and treatment run ID;
+- technology / process family and named claim scope;
+- equipment identity, process record, measurement and assay evidence references;
+- treatment time, energy, media / gas and other process parameters where measured;
+- post-treatment food-quality, food-contact, package-integrity and safety-evaluation records where applicable;
+- evidence class, uncertainty, reviewer / issuer, scope, expiry and correction lineage.
+
+Symtropy's [PLASMA-FOOD-QUAL-001 #5658](https://github.com/Luminous-Dynamics/symtropy/issues/5658) is the current research qualification owner. This schema link does not declare plasma treatment validated. Mycelix records the event and claim evidence; it does not certify a microbiological result, shelf life, ingredient safety or cooking-performance improvement.
 
 Keep measured, modelled, simulated, declared and independently attested evidence distinct. A digital record can preserve provenance and correction history; it cannot prove that an inspection, sensor or laboratory method was correct.
 
