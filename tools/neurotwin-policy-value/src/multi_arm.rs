@@ -386,7 +386,7 @@ fn validate_observation(row: &Observation, k: usize, line: usize) -> Result<(), 
         if !(1.0 / *p).is_finite() {
             return Err(format!("inverse probability overflow at line {line}"));
         }
-        sum += p;
+        sum += *p;
     }
     if (sum - 1.0).abs() > TOLERANCE {
         return Err(format!("assignment probabilities do not sum to one at line {line}"));
@@ -502,6 +502,13 @@ mod tests {
             assert_eq!(report.n, k);
             assert!((report.candidate.value - report.comparator.value).abs() < 1e-12);
         }
+    }
+
+    #[test]
+    fn eight_arm_protocol_is_supported() {
+        let report = evaluate(&parse_tsv(&generated_tsv(8)).unwrap()).unwrap();
+        assert_eq!(report.arms.len(), 8);
+        assert_eq!(report.n, 8);
     }
 
     #[test]
