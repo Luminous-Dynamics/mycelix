@@ -101,13 +101,19 @@ pub fn audit_dataset(dataset_root: &Path) -> Result<IntakeAudit, String> {
 
                 audit.counts.participant_ids_without_subject_directory =
                     table.ids.difference(&subject_names).count();
-                audit.counts.subject_directories_missing_from_participant_table =
+                audit
+                    .counts
+                    .subject_directories_missing_from_participant_table =
                     subject_names.difference(&table.ids).count();
 
                 if audit.counts.participant_ids_without_subject_directory > 0 {
                     audit.finding("participant_ids_without_subject_directory");
                 }
-                if audit.counts.subject_directories_missing_from_participant_table > 0 {
+                if audit
+                    .counts
+                    .subject_directories_missing_from_participant_table
+                    > 0
+                {
                     audit.finding("subject_directories_missing_from_participant_table");
                 }
             }
@@ -142,7 +148,8 @@ fn read_participants(path: &Path) -> Result<ParticipantsTable, &'static str> {
 
     let file = File::open(path).map_err(|_| "participants_tsv_unreadable")?;
     let mut reader = BufReader::new(file);
-    let mut header = read_first_column(&mut reader).map_err(|_| "participants_tsv_unreadable")?
+    let mut header = read_first_column(&mut reader)
+        .map_err(|_| "participants_tsv_unreadable")?
         .ok_or("participants_id_column_missing")?;
     if header.starts_with(&[0xEF, 0xBB, 0xBF]) {
         header.drain(..3);
@@ -264,7 +271,8 @@ fn scan_subjects(
     audit: &mut IntakeAudit,
     subject_names: &mut BTreeSet<String>,
 ) -> Result<(), String> {
-    let entries = fs::read_dir(root).map_err(|_| "dataset root could not be enumerated".to_string())?;
+    let entries =
+        fs::read_dir(root).map_err(|_| "dataset root could not be enumerated".to_string())?;
 
     for entry in entries {
         let entry = entry.map_err(|_| "dataset root could not be enumerated".to_string())?;
@@ -606,7 +614,11 @@ mod tests {
         let audit = audit_dataset(&dataset.path).unwrap();
         assert!(audit.scan_complete);
         assert!(!audit.participants_tsv_present);
-        assert!(audit.finding_codes.contains("participants_tsv_missing_warning"));
+        assert!(
+            audit
+                .finding_codes
+                .contains("participants_tsv_missing_warning")
+        );
     }
 
     #[test]
@@ -624,12 +636,19 @@ mod tests {
     fn wrong_participant_header_makes_audit_incomplete() {
         let dataset = TempDataset::new();
         dataset.add_subjects_and_table(21);
-        fs::write(dataset.path.join("participants.tsv"), "subject_id\tage\nsub-s001\t30\n")
-            .unwrap();
+        fs::write(
+            dataset.path.join("participants.tsv"),
+            "subject_id\tage\nsub-s001\t30\n",
+        )
+        .unwrap();
 
         let audit = audit_dataset(&dataset.path).unwrap();
         assert!(!audit.scan_complete);
-        assert!(audit.finding_codes.contains("participants_id_column_missing"));
+        assert!(
+            audit
+                .finding_codes
+                .contains("participants_id_column_missing")
+        );
         assert!(render_json(&audit, DEFAULT_MIN_REPORT_N).contains("\"aggregate_counts\": null"));
     }
 
@@ -661,9 +680,22 @@ mod tests {
 
         let audit = audit_dataset(&dataset.path).unwrap();
         assert_eq!(audit.counts.participant_ids_without_subject_directory, 1);
-        assert_eq!(audit.counts.subject_directories_missing_from_participant_table, 1);
-        assert!(audit.finding_codes.contains("participant_ids_without_subject_directory"));
-        assert!(audit.finding_codes.contains("subject_directories_missing_from_participant_table"));
+        assert_eq!(
+            audit
+                .counts
+                .subject_directories_missing_from_participant_table,
+            1
+        );
+        assert!(
+            audit
+                .finding_codes
+                .contains("participant_ids_without_subject_directory")
+        );
+        assert!(
+            audit
+                .finding_codes
+                .contains("subject_directories_missing_from_participant_table")
+        );
     }
 
     #[test]
