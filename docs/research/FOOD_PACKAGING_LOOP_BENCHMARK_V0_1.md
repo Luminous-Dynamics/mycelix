@@ -203,3 +203,18 @@ Related work:
 - Symtropy [PFB-1 system-boundary benchmark](https://github.com/Luminous-Dynamics/symtropy/blob/research/plasma-food-qualification-v0-1-20261116/docs/research/PLASMA_FOOD_SYSTEM_BOUNDARY_BENCHMARK_V0_1.md)
 - Symtropy [PFB-ORACLE-001 #5683](https://github.com/Luminous-Dynamics/symtropy/issues/5683)
 - Symtropy [PLASMA-FOOD-QUAL-001 #5658](https://github.com/Luminous-Dynamics/symtropy/issues/5658)
+
+
+## 14. South African EPR and market-compliance register
+
+The DFFE describes South Africa's Extended Producer Responsibility Regulations, 2020 as a framework for identified waste streams including paper and packaging, electrical/electronic equipment and lighting. This is a current compliance-screening item for packaging and appliance manufacturers, but the applicable producer definition, packaging/material category, scheme membership, reporting and fee obligations must be resolved against the current gazetted instruments and the actual business role. Do not infer a specific obligation from a generic packaging label.
+
+Sources:
+- DFFE, [Registration in terms of the EPR Regulations, 2020](https://www.dffe.gov.za/registration-terms-regulations-regarding-extended-producer-responsibility-2020).
+- South African Department of Health, [Food Control regulations and R638 listing](https://www.health.gov.za/food-control-regulations/).
+- South African Government, [R638 of 22 June 2018](https://www.gov.za/documents/notices/foodstuffs-cosmetics-and-disinfectants-act-regulations-general-hygiene-0).
+- Packaging SA, [EPR regulations and gazette amendment index](https://www.packagingsa.co.za/epr-regulations/). Use the source as an index; verify legal text and consolidated current amendments in the Gazette.
+
+For kitchen equipment entering the South African market, the NRCS current compulsory-specification register and product-specific conformity route are separate from packaging EPR. Food-contact hygiene, electrical safety, measuring instruments used in trade, and packaging EPR are distinct compliance workstreams.
+
+No legal-compliance opinion or completed EPR determination is asserted here.
