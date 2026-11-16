@@ -628,6 +628,27 @@ mod tests {
     }
 
     #[test]
+    fn a_policy_without_observed_randomized_support_is_rejected() {
+        let mut rows = hand_computable_rows();
+        for row in &mut rows {
+            row.assigned_arm = Arm::A;
+            row.policy_candidate = Arm::B;
+            row.policy_comparator = Arm::A;
+        }
+        assert!(evaluate(&rows).is_err());
+    }
+
+    #[test]
+    fn committed_synthetic_fixture_parses_and_emits_aggregate_only() {
+        let fixture = include_str!("../fixtures/synthetic-randomized-trial.tsv");
+        let rows = parse_tsv(fixture).unwrap();
+        assert!(rows.len() >= DEFAULT_MIN_REPORT_N);
+        let output = render_json(&evaluate(&rows).unwrap());
+        assert!(!output.contains("synthetic-observation-"));
+        assert!(output.contains("candidate_minus_comparator"));
+    }
+
+    #[test]
     fn tsv_parser_requires_exact_header_and_rejects_duplicates() {
         let header = EXPECTED_HEADER;
         let good = format!(
