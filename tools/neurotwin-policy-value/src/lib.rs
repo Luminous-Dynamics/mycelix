@@ -5,6 +5,8 @@
 
 use std::collections::HashSet;
 
+pub mod finite_sample;
+
 pub const DEFAULT_MIN_REPORT_N: usize = 20;
 const PROBABILITY_TOLERANCE: f64 = 1.0e-9;
 const NORMAL_95_Z: f64 = 1.959_963_984_540_054;
