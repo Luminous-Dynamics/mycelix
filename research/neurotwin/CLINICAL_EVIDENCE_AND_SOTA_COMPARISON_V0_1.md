@@ -24,6 +24,7 @@ The defensible NeuroTwin strategy is therefore **not to chase the highest report
 | Zhukovsky et al., Nature Mental Health (2026), SMART-D | Biomarker development from EMBARC, then small prospective randomized sertraline/bupropion study; 47 participants had ≥1 week, 41 completed 8 weeks | Development/LOOCV marker AUCs 0.66–0.86. Consistent vs inconsistent assignment: MADRS trajectory interaction F(1, 38.18)=0.03, P=0.87; response 61.5% vs 66.7%, P=0.72. Marker-count groups differed in MADRS trajectory (P=0.029), but their response-rate difference was not significant (Fisher P=0.45). | A necessary prospective translation comparator; it shows why marker status and actual treatment assignment must be analysed as different questions. | Definitive evidence that biomarker guidance works or does not work: the prospective sample was small and underpowered for many effects. |
 | Esmaeilian et al., umbrella review (2026) | 14 systematic reviews/meta-analyses; 17,855 people with MDD; multiple imaging modalities and treatments | Some multimodal models reported AUC >0.85, but methodological quality of the review-level evidence was low to very low; most studies lacked external validation. | A broad map of candidate neuroimaging features and a warning about the quality of the literature. | A directly comparable benchmark result or a validated treatment-selection rule. |
 | Takahashi et al., Digital Twin Brain (2026) | Connectome-conditioned model / task-specific behavioural predictions | Strong task-specific BOLD/behaviour prediction in its own setting. | An architecture and mechanistic-modelling comparator. | Direct comparison to MDD antidepressant-response AUC or randomized treatment-policy value. |
+| Rajpurkar et al., iSPOT-D (2020) | 518 adults across 3 randomized active antidepressant arms; five-fold CV symptom-level EEG/clinical prediction | C-index ≥0.80 for 12 of 21 symptom-improvement targets; highest 0.963 for loss of insight. | A large multi-arm EEG prognostic benchmark and candidate independent trial for separate external validation. | The reported C-index task is not 50% response AUROC, not cross-trial evaluation, and not treatment-policy value. |
 
 **Interpretation rule:** an AUC from one study is not ranked against another unless population, endpoint, prediction time, modality availability, inclusion, split, tuning, and evaluation design are aligned. A high internal/LOOCV result cannot be used as external-validation evidence.
 
@@ -48,6 +49,14 @@ These details make the reproduction protocol stricter:
 3. Reproduce both the clinical-only baseline and dACC increment; do not compare Symthaea only with the imaging-enhanced version.
 4. Reproduce scale mapping, endpoint timing, missing week-8 substitutions and trial-arm definitions exactly.
 5. Bind feature selection, regularization and harmonization to training-only data in each evaluation direction.
+
+### iSPOT-D as a candidate third trial — keep the task boundaries clear
+
+iSPOT-D randomized participants with MDD to escitalopram, sertraline or venlafaxine. The 2020 prespecified secondary analysis used 518 participants (162 escitalopram, 176 sertraline, 180 venlafaxine) and five-fold cross-validation to predict change in individual HRSD-21 symptoms from baseline clinical and EEG features. The model achieved C-index values of at least 0.80 for 12 of 21 symptom-level targets; the maximum reported value of 0.963 was for loss of insight. These values are **not** response AUROCs and should not be ranked directly against the JAMA cross-trial outcome-response results.
+
+Stanford's current PMH/BRAINnet catalogue describes the wider iSPOT-D collection as 1,008 clinical MDD participants and 336 matched controls, with MRI available for approximately 20% of clinical participants and controls. The catalogue currently says data-sharing requests are temporarily limited and that access is for non-commercial research or PMH Corporate Member special projects. That makes iSPOT-D an attractive *conditional* external-validation candidate, but it is not an accessible public download and direct eligibility for a commercial LLC must be confirmed with Stanford in writing.
+
+Its three randomized arms also justify a separate multi-arm policy-value evaluator. Do not force iSPOT-D into the two-arm reference tool or discard an arm to create a convenient comparator. See [data-access and partnership readiness](DATA_ACCESS_AND_PARTNERSHIP_READINESS_V0_1.md).
 
 ## 2. Industry comparison: compare capabilities, not slogans
 
@@ -174,6 +183,7 @@ No single AUC threshold can stand in for these gates. A model with AUC 0.90 on a
 - Prospective biomarker-guided trial: [Nature Mental Health 2026](https://doi.org/10.1038/s44220-026-00671-z).
 - Umbrella review: [Psychiatry and Clinical Neurosciences 2026](https://doi.org/10.1111/pcn.70053).
 - Digital Twin Brain comparator: [Bioengineering & Translational Medicine / BME Frontiers 2026](https://doi.org/10.34133/bmef.0231).
+- iSPOT-D symptom-level EEG model: [JAMA Network Open 2020](https://doi.org/10.1001/jamanetworkopen.2020.6653); Stanford PMH/BRAINnet data catalogue: https://www.stanfordpmhw.com/datasets.
 - TRIPOD+AI: [BMJ 2024](https://doi.org/10.1136/bmj-2023-078378).
 - PROBAST+AI: [BMJ 2025](https://doi.org/10.1136/bmj-2024-082505).
 - External validation: [BMJ 2024](https://doi.org/10.1136/bmj-2023-074820).
