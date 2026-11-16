@@ -153,6 +153,16 @@ Predefine which demographic/site strata can be analysed lawfully and with adequa
 
 The project should not claim to “beat SOTA” by exceeding an AUC reported in another task, population or validation design. The stronger target is to outperform the best matched comparator across trials, remain calibrated under shift, abstain safely outside support, and demonstrate treatment-policy value prospectively.
 
+### Domain-specific neural hypotheses are not universal features
+
+A 2026 activation-likelihood meta-analysis of 46 experiments and 996 unique participants reported domain-general right anterior insula activation associated with poor outcomes and convergence in right anterior insula / subgenual ACC for negative-emotion processing. It did not find significant convergence in resting-state metabolic studies or among studies reporting biomarkers of positive outcomes (McCurry et al., *Biological Psychiatry*, 2026, DOI [10.1016/j.biopsych.2026.06.027](https://doi.org/10.1016/j.biopsych.2026.06.027)).
+
+This creates a testable but unvalidated extension:
+- where task-based emotion paradigms exist, prespecify a salience-network / anterior-insula feature family and a negative-emotion task feature family;
+- where only resting-state data exist, do not impute or infer task-related signals;
+- compare these feature families against the same clinical-only, week-2 clinical and dACC baselines with identical held-out subjects and splits;
+- treat ALE-derived regions as priors for hypothesis formation, not proof that an individual-level classifier will generalize or improve treatment selection.
+
 ## 9. Paradigm-shift hypotheses
 
 1. **Static response label → longitudinal state trajectory.** Model symptom, sleep, behaviour and network changes as time-indexed evidence, while strictly separating prediction times.
@@ -199,6 +209,7 @@ It must not include participant identifiers, row-level features, predictions, ra
 - Zhukovsky P, et al. Cross-trial prediction of antidepressant response. *JAMA Network Open* (2025). [10.1001/jamanetworkopen.2025.1310](https://doi.org/10.1001/jamanetworkopen.2025.1310).
 - Zhukovsky P, et al. A precision medicine trial of bupropion and sertraline using biomarker-guided sequential multiple-assignment design. *Nature Mental Health* (2026). [10.1038/s44220-026-00671-z](https://doi.org/10.1038/s44220-026-00671-z).
 - Esmaeilian M, et al. Predictive neuroimaging biomarkers of MDD treatment response: an umbrella review (2026). [10.1111/pcn.70053](https://doi.org/10.1111/pcn.70053).
+- McCurry et al. Domain-derived neuroimaging biomarkers in MDD (2026). [10.1016/j.biopsych.2026.06.027](https://doi.org/10.1016/j.biopsych.2026.06.027).
 - Takahashi et al. Digital Twin Brain (2026). [10.34133/bmef.0231](https://doi.org/10.34133/bmef.0231).
 - Ruhrberg Estévez et al. Causal inference and digital twins: a roadmap for the future of clinical trials. *npj Digital Medicine* (2026).
 - Brain-CODE Data Access Request process: https://indocconsortium.atlassian.net/wiki/spaces/JSDNXT/pages/2001895483/Data+Access+Request+Form+FAQ
