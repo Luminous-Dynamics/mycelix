@@ -82,7 +82,9 @@ pub struct Report {
 /// probability:<arm>..., prediction:<arm>...
 pub fn parse_tsv(input: &str) -> Result<Dataset, String> {
     let mut lines = input.lines();
-    let header = lines.next().ok_or_else(|| "input is empty".to_string())?
+    let header = lines
+        .next()
+        .ok_or_else(|| "input is empty".to_string())?
         .trim_end_matches('\r');
     let columns: Vec<&str> = header.split('\t').collect();
     if columns.len() < PREFIX.len() + 2 * MIN_ARMS
@@ -98,7 +100,8 @@ pub fn parse_tsv(input: &str) -> Result<Dataset, String> {
     let mut arms = Vec::with_capacity(k);
     let mut seen_arms = HashSet::new();
     for column in &columns[PREFIX.len()..PREFIX.len() + k] {
-        let arm = column.strip_prefix("probability:")
+        let arm = column
+            .strip_prefix("probability:")
             .ok_or_else(|| "probability columns must precede prediction columns".to_string())?;
         if !valid_arm(arm) || !seen_arms.insert(arm.to_string()) {
             return Err("arm keys must be unique ASCII letters, digits, '_' or '-'".to_string());
@@ -106,7 +109,8 @@ pub fn parse_tsv(input: &str) -> Result<Dataset, String> {
         arms.push(arm.to_string());
     }
     for (index, column) in columns[PREFIX.len() + k..].iter().enumerate() {
-        let arm = column.strip_prefix("prediction:")
+        let arm = column
+            .strip_prefix("prediction:")
             .ok_or_else(|| "expected prediction:<arm> columns".to_string())?;
         if arm != arms[index] {
             return Err("prediction arm order must match probability arm order".to_string());
@@ -126,7 +130,9 @@ pub fn parse_tsv(input: &str) -> Result<Dataset, String> {
             return Err(format!("wrong column count at line {line_number}"));
         }
         if !valid_key(fields[0]) || !seen_keys.insert(fields[0].to_string()) {
-            return Err(format!("invalid or duplicate observation key at line {line_number}"));
+            return Err(format!(
+                "invalid or duplicate observation key at line {line_number}"
+            ));
         }
 
         let assigned_arm = find_arm(&arms, fields[1])
@@ -140,12 +146,16 @@ pub fn parse_tsv(input: &str) -> Result<Dataset, String> {
         let mut predictions = Vec::with_capacity(k);
         for index in 0..k {
             probabilities.push(parse_finite(
-                fields[PREFIX.len() + index], "assignment probability", line_number
+                fields[PREFIX.len() + index],
+                "assignment probability",
+                line_number,
             )?);
         }
         for index in 0..k {
             predictions.push(parse_finite(
-                fields[PREFIX.len() + k + index], "arm prediction", line_number
+                fields[PREFIX.len() + k + index],
+                "arm prediction",
+                line_number,
             )?);
         }
 
@@ -173,7 +183,9 @@ pub fn parse_tsv(input: &str) -> Result<Dataset, String> {
 pub fn evaluate(dataset: &Dataset) -> Result<Report, String> {
     let k = dataset.arms.len();
     if !(MIN_ARMS..=MAX_ARMS).contains(&k) {
-        return Err(format!("arm count must be between {MIN_ARMS} and {MAX_ARMS}"));
+        return Err(format!(
+            "arm count must be between {MIN_ARMS} and {MAX_ARMS}"
+        ));
     }
     if dataset.observations.len() < 2 {
         return Err("at least two independent observations are required".to_string());
@@ -190,7 +202,10 @@ pub fn evaluate(dataset: &Dataset) -> Result<Report, String> {
     let mut key_set = HashSet::new();
     for (index, row) in rows.iter().enumerate() {
         if !valid_key(&row.observation_key) || !key_set.insert(row.observation_key.clone()) {
-            return Err(format!("invalid or duplicate observation key at row {}", index + 1));
+            return Err(format!(
+                "invalid or duplicate observation key at row {}",
+                index + 1
+            ));
         }
         validate_observation(row, k, index + 1)?;
     }
@@ -201,14 +216,18 @@ pub fn evaluate(dataset: &Dataset) -> Result<Report, String> {
     let mut comparator_ipw = Vec::with_capacity(rows.len());
     let mut candidate_weights = Vec::new();
     let mut comparator_weights = Vec::new();
-    let mut support: Vec<ArmSupport> = dataset.arms.iter().map(|arm| ArmSupport {
-        arm: arm.clone(),
-        randomized_assignments: 0,
-        candidate_policy_selections: 0,
-        candidate_observed_matches: 0,
-        comparator_policy_selections: 0,
-        comparator_observed_matches: 0,
-    }).collect();
+    let mut support: Vec<ArmSupport> = dataset
+        .arms
+        .iter()
+        .map(|arm| ArmSupport {
+            arm: arm.clone(),
+            randomized_assignments: 0,
+            candidate_policy_selections: 0,
+            candidate_observed_matches: 0,
+            comparator_policy_selections: 0,
+            comparator_observed_matches: 0,
+        })
+        .collect();
 
     for row in &rows {
         support[row.assigned_arm].randomized_assignments += 1;
@@ -220,8 +239,14 @@ pub fn evaluate(dataset: &Dataset) -> Result<Report, String> {
         let candidate_ipw_score = ipw_score(row, row.candidate_arm);
         let comparator_ipw_score = ipw_score(row, row.comparator_arm);
         if [
-            candidate_score, comparator_score, candidate_ipw_score, comparator_ipw_score
-        ].iter().any(|v| !v.is_finite()) {
+            candidate_score,
+            comparator_score,
+            candidate_ipw_score,
+            comparator_ipw_score,
+        ]
+        .iter()
+        .any(|v| !v.is_finite())
+        {
             return Err("non-finite estimator contribution".to_string());
         }
 
@@ -256,8 +281,11 @@ pub fn evaluate(dataset: &Dataset) -> Result<Report, String> {
 
     let candidate = summarize_policy(&candidate_scores, &candidate_ipw, &candidate_weights)?;
     let comparator = summarize_policy(&comparator_scores, &comparator_ipw, &comparator_weights)?;
-    let paired: Vec<f64> = candidate_scores.iter().zip(&comparator_scores)
-        .map(|(a, b)| a - b).collect();
+    let paired: Vec<f64> = candidate_scores
+        .iter()
+        .zip(&comparator_scores)
+        .map(|(a, b)| a - b)
+        .collect();
     let difference_mean = mean(&paired)?;
     let difference_se = se(&paired, difference_mean)?;
     let difference = Difference {
@@ -267,9 +295,14 @@ pub fn evaluate(dataset: &Dataset) -> Result<Report, String> {
         ci95_upper: difference_mean + Z95 * difference_se,
     };
     if [
-        difference.value_difference, difference.paired_standard_error,
-        difference.ci95_lower, difference.ci95_upper
-    ].iter().any(|v| !v.is_finite()) {
+        difference.value_difference,
+        difference.paired_standard_error,
+        difference.ci95_lower,
+        difference.ci95_upper,
+    ]
+    .iter()
+    .any(|v| !v.is_finite())
+    {
         return Err("non-finite paired policy difference".to_string());
     }
 
@@ -301,7 +334,9 @@ pub fn render_json(report: &Report) -> String {
     out.push_str("  \"schema_version\": \"neurotwin-multiarm-policy-value-report-v0.1\",\n");
     out.push_str(&format!("  \"n\": {},\n", report.n));
     out.push_str("  \"estimator\": \"augmented_inverse_probability_weighted\",\n");
-    out.push_str("  \"uncertainty\": \"empirical_influence_function_normal_approximation_95pct\",\n");
+    out.push_str(
+        "  \"uncertainty\": \"empirical_influence_function_normal_approximation_95pct\",\n",
+    );
     out.push_str("  \"arms\": [");
     for (index, arm) in report.arms.iter().enumerate() {
         if index > 0 {
@@ -362,14 +397,26 @@ pub fn render_json(report: &Report) -> String {
 fn render_policy(x: &PolicyEstimate) -> String {
     format!(
         "{{\"value\":{},\"standard_error\":{},\"ci95_lower\":{},\"ci95_upper\":{},\"ipw_value\":{},\"matched_count\":{},\"observed_match_rate\":{},\"effective_sample_size\":{},\"maximum_inverse_probability_weight\":{}}}",
-        number(x.value), number(x.standard_error), number(x.ci95_lower), number(x.ci95_upper),
-        number(x.ipw_value), x.matched_count, number(x.observed_match_rate),
-        number(x.effective_sample_size), number(x.maximum_inverse_probability_weight)
+        number(x.value),
+        number(x.standard_error),
+        number(x.ci95_lower),
+        number(x.ci95_upper),
+        number(x.ipw_value),
+        x.matched_count,
+        number(x.observed_match_rate),
+        number(x.effective_sample_size),
+        number(x.maximum_inverse_probability_weight)
     )
 }
 
-fn summarize_policy(scores: &[f64], ipw: &[f64], weights: &[f64]) -> Result<PolicyEstimate, String> {
-    if weights.is_empty() { return Err("policy has no observed randomized assignment support".to_string()); }
+fn summarize_policy(
+    scores: &[f64],
+    ipw: &[f64],
+    weights: &[f64],
+) -> Result<PolicyEstimate, String> {
+    if weights.is_empty() {
+        return Err("policy has no observed randomized assignment support".to_string());
+    }
     let value = mean(scores)?;
     let standard_error = se(scores, value)?;
     let ipw_value = mean(ipw)?;
@@ -386,9 +433,18 @@ fn summarize_policy(scores: &[f64], ipw: &[f64], weights: &[f64]) -> Result<Poli
         maximum_inverse_probability_weight: max_weight,
     };
     if [
-        result.value, result.standard_error, result.ci95_lower, result.ci95_upper,
-        result.ipw_value, result.observed_match_rate, result.effective_sample_size, result.maximum_inverse_probability_weight
-    ].iter().any(|v| !v.is_finite()) {
+        result.value,
+        result.standard_error,
+        result.ci95_lower,
+        result.ci95_upper,
+        result.ipw_value,
+        result.observed_match_rate,
+        result.effective_sample_size,
+        result.maximum_inverse_probability_weight,
+    ]
+    .iter()
+    .any(|v| !v.is_finite())
+    {
         return Err("non-finite policy summary".to_string());
     }
     Ok(result)
@@ -397,20 +453,32 @@ fn summarize_policy(scores: &[f64], ipw: &[f64], weights: &[f64]) -> Result<Poli
 fn dr_score(row: &Observation, policy_arm: usize) -> f64 {
     let mu_policy = row.predictions[policy_arm];
     if row.assigned_arm == policy_arm {
-        mu_policy + (row.outcome - row.predictions[row.assigned_arm]) / row.probabilities[row.assigned_arm]
-    } else { mu_policy }
+        mu_policy
+            + (row.outcome - row.predictions[row.assigned_arm])
+                / row.probabilities[row.assigned_arm]
+    } else {
+        mu_policy
+    }
 }
 
 fn ipw_score(row: &Observation, policy_arm: usize) -> f64 {
     if row.assigned_arm == policy_arm {
         row.outcome / row.probabilities[row.assigned_arm]
-    } else { 0.0 }
+    } else {
+        0.0
+    }
 }
 
 fn validate_observation(row: &Observation, k: usize, line: usize) -> Result<(), String> {
-    if row.assigned_arm >= k || row.candidate_arm >= k || row.comparator_arm >= k
-        || row.probabilities.len() != k || row.predictions.len() != k {
-        return Err(format!("arm index or vector length mismatch at line {line}"));
+    if row.assigned_arm >= k
+        || row.candidate_arm >= k
+        || row.comparator_arm >= k
+        || row.probabilities.len() != k
+        || row.predictions.len() != k
+    {
+        return Err(format!(
+            "arm index or vector length mismatch at line {line}"
+        ));
     }
     let mut sum = 0.0;
     for p in &row.probabilities {
@@ -423,7 +491,9 @@ fn validate_observation(row: &Observation, k: usize, line: usize) -> Result<(), 
         sum += *p;
     }
     if (sum - 1.0).abs() > TOLERANCE {
-        return Err(format!("assignment probabilities do not sum to one at line {line}"));
+        return Err(format!(
+            "assignment probabilities do not sum to one at line {line}"
+        ));
     }
     if !row.outcome.is_finite() || row.predictions.iter().any(|v| !v.is_finite()) {
         return Err(format!("non-finite outcome or prediction at line {line}"));
@@ -432,8 +502,14 @@ fn validate_observation(row: &Observation, k: usize, line: usize) -> Result<(), 
 }
 
 fn parse_finite(value: &str, field: &str, line: usize) -> Result<f64, String> {
-    let value = value.parse::<f64>().map_err(|_| format!("invalid {field} at line {line}"))?;
-    if value.is_finite() { Ok(value) } else { Err(format!("non-finite {field} at line {line}")) }
+    let value = value
+        .parse::<f64>()
+        .map_err(|_| format!("invalid {field} at line {line}"))?;
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err(format!("non-finite {field} at line {line}"))
+    }
 }
 
 fn find_arm(arms: &[String], value: &str) -> Option<usize> {
@@ -441,17 +517,25 @@ fn find_arm(arms: &[String], value: &str) -> Option<usize> {
 }
 
 fn valid_arm(value: &str) -> bool {
-    !value.is_empty() && value.len() <= 64
-        && value.bytes().all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b))
+    !value.is_empty()
+        && value.len() <= 64
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b))
 }
 
 fn valid_key(value: &str) -> bool {
-    !value.is_empty() && value.len() <= 128
-        && value.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.:".contains(&b))
+    !value.is_empty()
+        && value.len() <= 128
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"-_.:".contains(&b))
 }
 
 fn mean(values: &[f64]) -> Result<f64, String> {
-    if values.is_empty() { return Err("cannot summarize empty values".to_string()); }
+    if values.is_empty() {
+        return Err("cannot summarize empty values".to_string());
+    }
     let mut sum = 0.0;
     let mut compensation = 0.0;
     for value in values {
@@ -461,28 +545,52 @@ fn mean(values: &[f64]) -> Result<f64, String> {
         sum = t;
     }
     let result = sum / values.len() as f64;
-    if result.is_finite() { Ok(result) } else { Err("non-finite mean".to_string()) }
+    if result.is_finite() {
+        Ok(result)
+    } else {
+        Err("non-finite mean".to_string())
+    }
 }
 
 fn se(values: &[f64], avg: f64) -> Result<f64, String> {
-    if values.len() < 2 { return Err("at least two values are required for uncertainty".to_string()); }
+    if values.len() < 2 {
+        return Err("at least two values are required for uncertainty".to_string());
+    }
     let ss: f64 = values.iter().map(|v| (*v - avg).powi(2)).sum();
     let result = (ss / (values.len() - 1) as f64 / values.len() as f64).sqrt();
-    if result.is_finite() { Ok(result) } else { Err("non-finite standard error".to_string()) }
+    if result.is_finite() {
+        Ok(result)
+    } else {
+        Err("non-finite standard error".to_string())
+    }
 }
 
 fn weight_diagnostics(weights: &[f64]) -> (f64, f64) {
-    if weights.is_empty() { return (0.0, 0.0); }
+    if weights.is_empty() {
+        return (0.0, 0.0);
+    }
     let max = weights.iter().copied().fold(0.0_f64, f64::max);
-    if max <= 0.0 || !max.is_finite() { return (0.0, 0.0); }
+    if max <= 0.0 || !max.is_finite() {
+        return (0.0, 0.0);
+    }
     let sum: f64 = weights.iter().map(|w| w / max).sum();
     let squares: f64 = weights.iter().map(|w| (w / max).powi(2)).sum();
-    (if squares > 0.0 { sum * sum / squares } else { 0.0 }, max)
+    (
+        if squares > 0.0 {
+            sum * sum / squares
+        } else {
+            0.0
+        },
+        max,
+    )
 }
 
 fn number(value: f64) -> String {
-    if value.abs() < 0.000_000_000_000_5 { "0.000000000000".to_string() }
-    else { format!("{value:.12}") }
+    if value.abs() < 0.000_000_000_000_5 {
+        "0.000000000000".to_string()
+    } else {
+        format!("{value:.12}")
+    }
 }
 
 #[cfg(test)]
@@ -506,8 +614,11 @@ mod tests {
         for i in 0..k {
             let p = format!("{:.12}", 1.0 / k as f64);
             let mut row = vec![
-                format!("obs-{i}"), arms[i].clone(), (i as f64 + 2.0).to_string(),
-                arms[i].clone(), arms[i].clone(),
+                format!("obs-{i}"),
+                arms[i].clone(),
+                (i as f64 + 2.0).to_string(),
+                arms[i].clone(),
+                arms[i].clone(),
             ];
             row.extend((0..k).map(|_| p.clone()));
             row.extend((0..k).map(|j| (j as f64 + 1.0).to_string()));
@@ -563,8 +674,18 @@ mod tests {
     fn invalid_registry_unknown_arm_and_bad_probabilities_are_rejected() {
         assert!(parse_tsv(&hand_input().replace("probability:C", "probability:B")).is_err());
         assert!(parse_tsv(&hand_input().replace("\\tA\\tC\\t0.5", "\\tA\\tD\\t0.5")).is_err());
-        assert!(parse_tsv(&hand_input().replace("\\t0.5\\t0.25\\t0.25\\t10", "\\t0\\t0.25\\t0.75\\t10")).is_err());
-        assert!(parse_tsv(&hand_input().replace("\\t0.5\\t0.25\\t0.25\\t10", "\\t0.5\\t0.5\\t0.25\\t10")).is_err());
+        assert!(
+            parse_tsv(
+                &hand_input().replace("\\t0.5\\t0.25\\t0.25\\t10", "\\t0\\t0.25\\t0.75\\t10")
+            )
+            .is_err()
+        );
+        assert!(
+            parse_tsv(
+                &hand_input().replace("\\t0.5\\t0.25\\t0.25\\t10", "\\t0.5\\t0.5\\t0.25\\t10")
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -592,7 +713,11 @@ mod tests {
         let mut observations = Vec::with_capacity(n);
         let mut truth_candidate = 0.0;
         let mut truth_comparator = 0.0;
-        let arms = vec!["escitalopram".into(), "sertraline".into(), "venlafaxine".into()];
+        let arms = vec![
+            "escitalopram".into(),
+            "sertraline".into(),
+            "venlafaxine".into(),
+        ];
 
         for i in 0..n {
             let x = ((i * 37 % 997) as f64 / 996.0) * 2.0 - 1.0;
@@ -602,17 +727,30 @@ mod tests {
                 0.7 - 0.35 * x + 0.20 * (phase * 0.73).cos(),
                 0.45 + 0.15 * x - 0.10 * (phase * 0.51).sin(),
             ];
-            let candidate = if x < -0.3 { 0 } else if x < 0.3 { 1 } else { 2 };
+            let candidate = if x < -0.3 {
+                0
+            } else if x < 0.3 {
+                1
+            } else {
+                2
+            };
             let comparator = 1;
             truth_candidate += y[candidate];
             truth_comparator += y[comparator];
 
             let pa = 0.2 + 0.1 * (i % 3) as f64;
             let probs = vec![pa, 0.35, 1.0 - pa - 0.35];
-            state = state.wrapping_mul(6_364_136_223_846_793_005)
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
                 .wrapping_add(1_442_695_040_888_963_407);
             let draw = (state >> 11) as f64 / ((1_u64 << 53) as f64);
-            let assigned = if draw < probs[0] { 0 } else if draw < probs[0] + probs[1] { 1 } else { 2 };
+            let assigned = if draw < probs[0] {
+                0
+            } else if draw < probs[0] + probs[1] {
+                1
+            } else {
+                2
+            };
             let predictions = vec![y[0] + 0.25, y[1] - 0.15, y[2] + 0.20];
             observations.push(Observation {
                 observation_key: format!("sim-{i:05}"),
@@ -630,7 +768,11 @@ mod tests {
         let report = evaluate(&Dataset { arms, observations }).unwrap();
         assert!((report.candidate.value - truth_candidate).abs() < 0.06);
         assert!((report.comparator.value - truth_comparator).abs() < 0.06);
-        assert!((report.candidate_minus_comparator.value_difference
-            - (truth_candidate - truth_comparator)).abs() < 0.06);
+        assert!(
+            (report.candidate_minus_comparator.value_difference
+                - (truth_candidate - truth_comparator))
+                .abs()
+                < 0.06
+        );
     }
 }
