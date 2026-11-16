@@ -82,7 +82,9 @@ pub fn parse_tsv(input: &str) -> Result<Vec<Observation>, String> {
             return Err(format!("invalid local key or domain on line {line_number}"));
         }
         if !keys.insert(fields[0].to_string()) {
-            return Err(format!("duplicate local observation key on line {line_number}"));
+            return Err(format!(
+                "duplicate local observation key on line {line_number}"
+            ));
         }
         let outcome = match fields[2] {
             "0" => false,
@@ -125,7 +127,10 @@ pub fn evaluate(observations: &[Observation]) -> Result<TransportReport, String>
             return Err(format!("invalid local key or domain at row {}", index + 1));
         }
         if !keys.insert(row.observation_key.clone()) {
-            return Err(format!("duplicate local observation key at row {}", index + 1));
+            return Err(format!(
+                "duplicate local observation key at row {}",
+                index + 1
+            ));
         }
         validate_observation(row, index + 1)?;
     }
@@ -134,7 +139,10 @@ pub fn evaluate(observations: &[Observation]) -> Result<TransportReport, String>
     let selective_curve = calculate_selective_curve(&rows);
     let mut groups: BTreeMap<String, Vec<Observation>> = BTreeMap::new();
     for row in &rows {
-        groups.entry(row.domain.clone()).or_default().push(row.clone());
+        groups
+            .entry(row.domain.clone())
+            .or_default()
+            .push(row.clone());
     }
 
     let mut domains = Vec::with_capacity(groups.len());
@@ -203,8 +211,15 @@ pub fn render_json(report: &TransportReport) -> String {
         output.push_str(&format!(
             "\"domain_index\": {}, \"status\": \"{}\", \"n\": {}, \"metrics\": ",
             domain.domain_index,
-            if domain.suppressed { "suppressed" } else { "reported" },
-            domain.n.map(|value| value.to_string()).unwrap_or_else(|| "null".to_string())
+            if domain.suppressed {
+                "suppressed"
+            } else {
+                "reported"
+            },
+            domain
+                .n
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "null".to_string())
         ));
         if let Some(metrics) = &domain.metrics {
             render_metrics(&mut output, metrics, 6);
@@ -223,7 +238,9 @@ pub fn render_json(report: &TransportReport) -> String {
     output.push_str("\n    \"Support scores are not clinical certainty; abstention is not safe until independently validated.\",");
     output.push_str("\n    \"AUROC/AUPRC are undefined for single-class cohorts or domains.\",");
     output.push_str("\n    \"Domain indices are local ordinal labels and do not establish independent external validation.\",");
-    output.push_str("\n    \"This report is not a treatment recommendation or proof of clinical utility.\"");
+    output.push_str(
+        "\n    \"This report is not a treatment recommendation or proof of clinical utility.\"",
+    );
     output.push_str("\n  ]\n}\n");
     output
 }
@@ -275,7 +292,8 @@ fn calculate_auroc(rows: &[Observation], positives: usize, negatives: usize) -> 
     }
     let mut sorted: Vec<&Observation> = rows.iter().collect();
     sorted.sort_by(|left, right| {
-        left.predicted_probability.total_cmp(&right.predicted_probability)
+        left.predicted_probability
+            .total_cmp(&right.predicted_probability)
     });
     let mut positive_rank_sum = 0.0;
     let mut start = 0usize;
@@ -303,7 +321,9 @@ fn calculate_auprc(rows: &[Observation], positives: usize) -> Option<f64> {
     }
     let mut sorted: Vec<&Observation> = rows.iter().collect();
     sorted.sort_by(|left, right| {
-        right.predicted_probability.total_cmp(&left.predicted_probability)
+        right
+            .predicted_probability
+            .total_cmp(&left.predicted_probability)
     });
     let mut true_positives = 0usize;
     let mut false_positives = 0usize;
@@ -368,7 +388,8 @@ fn fit_calibration(rows: &[Observation]) -> (Option<f64>, Option<f64>) {
         if !delta0.is_finite() || !delta1.is_finite() {
             return (None, None);
         }
-        let scale = 1.0_f64.min(5.0 / delta0.abs().max(1.0))
+        let scale = 1.0_f64
+            .min(5.0 / delta0.abs().max(1.0))
             .min(5.0 / delta1.abs().max(1.0));
         intercept = (intercept + scale * delta0).clamp(-35.0, 35.0);
         slope = (slope + scale * delta1).clamp(-35.0, 35.0);
@@ -386,8 +407,8 @@ fn calculate_selective_curve(rows: &[Observation]) -> Vec<SelectivePoint> {
     sorted.sort_by(|left, right| right.support_score.total_cmp(&left.support_score));
     let mut points = Vec::new();
     for requested_coverage in TARGET_COVERAGES {
-        let target_count = ((requested_coverage * sorted.len() as f64).ceil() as usize)
-            .clamp(1, sorted.len());
+        let target_count =
+            ((requested_coverage * sorted.len() as f64).ceil() as usize).clamp(1, sorted.len());
         let threshold = sorted[target_count - 1].support_score;
         // Retain all ties at the cut-off; no row-order/key tie-break is used.
         let retained: Vec<&Observation> = sorted
@@ -422,13 +443,34 @@ fn calculate_selective_curve(rows: &[Observation]) -> Vec<SelectivePoint> {
 fn render_metrics(output: &mut String, metrics: &Metrics, indent: usize) {
     let pad = " ".repeat(indent);
     output.push_str("{\n");
-    output.push_str(&format!("{pad}  \"auroc\": {},\n", option_number(metrics.auroc)));
-    output.push_str(&format!("{pad}  \"auprc\": {},\n", option_number(metrics.auprc)));
-    output.push_str(&format!("{pad}  \"brier_score\": {},\n", json_number(metrics.brier_score)));
-    output.push_str(&format!("{pad}  \"log_loss\": {},\n", json_number(metrics.log_loss)));
-    output.push_str(&format!("{pad}  \"calibration_intercept\": {},\n", option_number(metrics.calibration_intercept)));
-    output.push_str(&format!("{pad}  \"calibration_slope\": {},\n", option_number(metrics.calibration_slope)));
-    output.push_str(&format!("{pad}  \"observed_to_expected_ratio\": {}\n", option_number(metrics.observed_to_expected_ratio)));
+    output.push_str(&format!(
+        "{pad}  \"auroc\": {},\n",
+        option_number(metrics.auroc)
+    ));
+    output.push_str(&format!(
+        "{pad}  \"auprc\": {},\n",
+        option_number(metrics.auprc)
+    ));
+    output.push_str(&format!(
+        "{pad}  \"brier_score\": {},\n",
+        json_number(metrics.brier_score)
+    ));
+    output.push_str(&format!(
+        "{pad}  \"log_loss\": {},\n",
+        json_number(metrics.log_loss)
+    ));
+    output.push_str(&format!(
+        "{pad}  \"calibration_intercept\": {},\n",
+        option_number(metrics.calibration_intercept)
+    ));
+    output.push_str(&format!(
+        "{pad}  \"calibration_slope\": {},\n",
+        option_number(metrics.calibration_slope)
+    ));
+    output.push_str(&format!(
+        "{pad}  \"observed_to_expected_ratio\": {}\n",
+        option_number(metrics.observed_to_expected_ratio)
+    ));
     output.push_str(&format!("{pad}}}"));
 }
 
@@ -445,9 +487,7 @@ fn json_number(value: f64) -> String {
 }
 
 fn validate_observation(row: &Observation, line: usize) -> Result<(), String> {
-    if !row.predicted_probability.is_finite()
-        || !(0.0..=1.0).contains(&row.predicted_probability)
-    {
+    if !row.predicted_probability.is_finite() || !(0.0..=1.0).contains(&row.predicted_probability) {
         return Err(format!("predicted probability outside [0,1] at row {line}"));
     }
     if !row.support_score.is_finite() || !(0.0..=1.0).contains(&row.support_score) {
@@ -511,23 +551,51 @@ mod tests {
                 } else {
                     0.10 + index as f64 * 0.03
                 };
-                row(&format!("perfect-{index:02}"), "trial-a", outcome, p, 1.0 - index as f64 * 0.04)
+                row(
+                    &format!("perfect-{index:02}"),
+                    "trial-a",
+                    outcome,
+                    p,
+                    1.0 - index as f64 * 0.04,
+                )
             })
             .collect()
     }
 
     fn mixed_rows() -> Vec<Observation> {
         let values = [
-            (false, 0.10), (false, 0.20), (false, 0.30), (false, 0.40), (false, 0.45),
-            (false, 0.49), (false, 0.51), (false, 0.55), (false, 0.60), (false, 0.80),
-            (true, 0.20), (true, 0.30), (true, 0.40), (true, 0.45), (true, 0.49),
-            (true, 0.51), (true, 0.70), (true, 0.75), (true, 0.90), (true, 0.99),
+            (false, 0.10),
+            (false, 0.20),
+            (false, 0.30),
+            (false, 0.40),
+            (false, 0.45),
+            (false, 0.49),
+            (false, 0.51),
+            (false, 0.55),
+            (false, 0.60),
+            (false, 0.80),
+            (true, 0.20),
+            (true, 0.30),
+            (true, 0.40),
+            (true, 0.45),
+            (true, 0.49),
+            (true, 0.51),
+            (true, 0.70),
+            (true, 0.75),
+            (true, 0.90),
+            (true, 0.99),
         ];
         values
             .iter()
             .enumerate()
             .map(|(index, (outcome, p))| {
-                row(&format!("mixed-{index:02}"), "trial-a", *outcome, *p, 1.0 - index as f64 * 0.04)
+                row(
+                    &format!("mixed-{index:02}"),
+                    "trial-a",
+                    *outcome,
+                    *p,
+                    1.0 - index as f64 * 0.04,
+                )
             })
             .collect()
     }
@@ -582,10 +650,20 @@ mod tests {
     fn small_domains_are_suppressed_without_their_denominators() {
         let mut rows = perfect_rows();
         rows.extend((0..3).map(|index| {
-            row(&format!("small-{index}"), "sensitive-small-site", index == 0, 0.4, 0.5)
+            row(
+                &format!("small-{index}"),
+                "sensitive-small-site",
+                index == 0,
+                0.4,
+                0.5,
+            )
         }));
         let report = evaluate(&rows).unwrap();
-        let small = report.domains.iter().find(|domain| domain.suppressed).unwrap();
+        let small = report
+            .domains
+            .iter()
+            .find(|domain| domain.suppressed)
+            .unwrap();
         assert!(small.n.is_none());
         assert!(small.metrics.is_none());
         assert!(!render_json(&report).contains("sensitive-small-site"));
