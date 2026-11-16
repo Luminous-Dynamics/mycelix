@@ -14,7 +14,7 @@ Clinical external-validation guidance calls for discrimination, calibration acro
 ## Metrics
 
 - AUROC: tie-aware ranking discrimination; undefined if a domain has one outcome class.
-- AUPRC: average precision with equal-score groups handled together; undefined if there are no positive outcomes.
+- AUPRC: tie-grouped, non-interpolated average precision (step-wise precision weighted by recall increments); undefined if there are no positive outcomes. This convention differs from trapezoidal PR-area integration and must be named when comparing published metrics.
 - Brier score and log loss: proper scoring rules that reflect probability quality.
 - Calibration intercept and slope: logistic calibration regression for evaluation only. The tool does not fit or apply a correction. A non-identifiable or non-convergent fit is reported as null.
 - Observed-to-expected event ratio.
