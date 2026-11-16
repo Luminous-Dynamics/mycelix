@@ -4,7 +4,7 @@
 //! known row-specific assignment probabilities, fixed policies/predictions, bounded
 //! fully observed outcomes, and no interference. Other designs are rejected.
 
-use crate::{Arm, Observation, DEFAULT_MIN_REPORT_N};
+use crate::{Arm, DEFAULT_MIN_REPORT_N, Observation};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RandomizationDesign {
@@ -146,16 +146,12 @@ pub fn evaluate_finite_sample(
             ));
         }
 
-        minimum_assignment_probability = minimum_assignment_probability
-            .min(row.p_arm_a.min(row.p_arm_b));
-        maximum_inverse_assignment_probability = maximum_inverse_assignment_probability
-            .max((1.0 / row.p_arm_a).max(1.0 / row.p_arm_b));
+        minimum_assignment_probability =
+            minimum_assignment_probability.min(row.p_arm_a.min(row.p_arm_b));
+        maximum_inverse_assignment_probability =
+            maximum_inverse_assignment_probability.max((1.0 / row.p_arm_a).max(1.0 / row.p_arm_b));
 
-        let (lower, upper) = row_contrast_bounds(
-            row,
-            outcome_lower_bound,
-            outcome_upper_bound,
-        );
+        let (lower, upper) = row_contrast_bounds(row, outcome_lower_bound, outcome_upper_bound);
         let range = upper - lower;
         if !lower.is_finite() || !upper.is_finite() || !range.is_finite() || range < 0.0 {
             return Err("non-finite row-wise contribution range".to_string());
@@ -169,9 +165,8 @@ pub fn evaluate_finite_sample(
     // Hoeffding's inequality for independent, not necessarily identically distributed,
     // bounded row contributions: P(|mean - E mean| >= r) <= delta.
     let n_float = n as f64;
-    let radius = (sum_squared_row_ranges * (2.0 / confidence_delta).ln()
-        / (2.0 * n_float * n_float))
-        .sqrt();
+    let radius =
+        (sum_squared_row_ranges * (2.0 / confidence_delta).ln() / (2.0 * n_float * n_float)).sqrt();
     if !radius.is_finite() {
         return Err("finite-sample confidence radius is not finite".to_string());
     }
@@ -232,10 +227,8 @@ fn row_contrast_bounds(
     // the paired contrast contains -(Y - mu_comparator) / e_comparator.
     let candidate_min = (outcome_lower_bound - candidate_prediction) / candidate_probability;
     let candidate_max = (outcome_upper_bound - candidate_prediction) / candidate_probability;
-    let comparator_min =
-        (comparator_prediction - outcome_upper_bound) / comparator_probability;
-    let comparator_max =
-        (comparator_prediction - outcome_lower_bound) / comparator_probability;
+    let comparator_min = (comparator_prediction - outcome_upper_bound) / comparator_probability;
+    let comparator_max = (comparator_prediction - outcome_lower_bound) / comparator_probability;
 
     (
         baseline + candidate_min.min(comparator_min),
@@ -357,9 +350,7 @@ mod tests {
             RandomizationDesign::ClusterRandomized,
             RandomizationDesign::RepeatedOrAdaptive,
         ] {
-            assert!(
-                evaluate_finite_sample(&fixture_rows(), design, 0.0, 1.0, 0.05).is_err()
-            );
+            assert!(evaluate_finite_sample(&fixture_rows(), design, 0.0, 1.0, 0.05).is_err());
         }
     }
 
@@ -394,22 +385,26 @@ mod tests {
     #[test]
     fn invalid_bounds_and_confidence_delta_are_rejected() {
         let rows = fixture_rows();
-        assert!(evaluate_finite_sample(
-            &rows,
-            RandomizationDesign::IndependentBernoulliParticipant,
-            1.0,
-            0.0,
-            0.05,
-        )
-        .is_err());
-        assert!(evaluate_finite_sample(
-            &rows,
-            RandomizationDesign::IndependentBernoulliParticipant,
-            0.0,
-            1.0,
-            1.0,
-        )
-        .is_err());
+        assert!(
+            evaluate_finite_sample(
+                &rows,
+                RandomizationDesign::IndependentBernoulliParticipant,
+                1.0,
+                0.0,
+                0.05,
+            )
+            .is_err()
+        );
+        assert!(
+            evaluate_finite_sample(
+                &rows,
+                RandomizationDesign::IndependentBernoulliParticipant,
+                0.0,
+                1.0,
+                1.0,
+            )
+            .is_err()
+        );
     }
 
     #[test]
