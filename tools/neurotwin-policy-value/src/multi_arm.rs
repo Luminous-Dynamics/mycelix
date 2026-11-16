@@ -597,11 +597,11 @@ fn number(value: f64) -> String {
 mod tests {
     use super::*;
 
-    const HEADER: &str = "observation_key\\tassigned_arm\\toutcome\\tpolicy_candidate\\tpolicy_comparator\\tprobability:A\\tprobability:B\\tprobability:C\\tprediction:A\\tprediction:B\\tprediction:C";
+    const HEADER: &str = "observation_key\tassigned_arm\toutcome\tpolicy_candidate\tpolicy_comparator\tprobability:A\tprobability:B\tprobability:C\tprediction:A\tprediction:B\tprediction:C";
 
     fn hand_input() -> String {
         format!(
-            "{HEADER}\\nobs-1\\tA\\t12\\tA\\tC\\t0.5\\t0.25\\t0.25\\t10\\t8\\t6\\nobs-2\\tB\\t7\\tA\\tB\\t0.25\\t0.5\\t0.25\\t10\\t8\\t6\\nobs-3\\tC\\t9\\tC\\tC\\t0.2\\t0.3\\t0.5\\t10\\t8\\t6\\n"
+            "{HEADER}\nobs-1\tA\t12\tA\tC\t0.5\t0.25\t0.25\t10\t8\t6\nobs-2\tB\t7\tA\tB\t0.25\t0.5\t0.25\t10\t8\t6\nobs-3\tC\t9\tC\tC\t0.2\t0.3\t0.5\t10\t8\t6\n"
         )
     }
 
@@ -610,7 +610,7 @@ mod tests {
         let mut header: Vec<String> = PREFIX.iter().map(|v| v.to_string()).collect();
         header.extend(arms.iter().map(|a| format!("probability:{a}")));
         header.extend(arms.iter().map(|a| format!("prediction:{a}")));
-        let mut lines = vec![header.join("\\t")];
+        let mut lines = vec![header.join("\t")];
         for i in 0..k {
             let p = format!("{:.12}", 1.0 / k as f64);
             let mut row = vec![
@@ -622,9 +622,9 @@ mod tests {
             ];
             row.extend((0..k).map(|_| p.clone()));
             row.extend((0..k).map(|j| (j as f64 + 1.0).to_string()));
-            lines.push(row.join("\\t"));
+            lines.push(row.join("\t"));
         }
-        lines.join("\\n") + "\\n"
+        lines.join("\n") + "\n"
     }
 
     #[test]
@@ -673,16 +673,16 @@ mod tests {
     #[test]
     fn invalid_registry_unknown_arm_and_bad_probabilities_are_rejected() {
         assert!(parse_tsv(&hand_input().replace("probability:C", "probability:B")).is_err());
-        assert!(parse_tsv(&hand_input().replace("\\tA\\tC\\t0.5", "\\tA\\tD\\t0.5")).is_err());
+        assert!(parse_tsv(&hand_input().replace("\tA\tC\t0.5", "\tA\tD\t0.5")).is_err());
         assert!(
             parse_tsv(
-                &hand_input().replace("\\t0.5\\t0.25\\t0.25\\t10", "\\t0\\t0.25\\t0.75\\t10")
+                &hand_input().replace("\t0.5\t0.25\t0.25\t10", "\t0\t0.25\t0.75\t10")
             )
             .is_err()
         );
         assert!(
             parse_tsv(
-                &hand_input().replace("\\t0.5\\t0.25\\t0.25\\t10", "\\t0.5\\t0.5\\t0.25\\t10")
+                &hand_input().replace("\t0.5\t0.25\t0.25\t10", "\t0.5\t0.5\t0.25\t10")
             )
             .is_err()
         );
@@ -691,7 +691,7 @@ mod tests {
     #[test]
     fn policy_arm_without_observed_support_is_rejected() {
         let input = format!(
-            "{HEADER}\\nobs-1\\tA\\t10\\tC\\tA\\t0.5\\t0.25\\t0.25\\t8\\t7\\t6\\nobs-2\\tB\\t8\\tC\\tB\\t0.25\\t0.5\\t0.25\\t8\\t7\\t6\\n"
+            "{HEADER}\nobs-1\tA\t10\tC\tA\t0.5\t0.25\t0.25\t8\t7\t6\nobs-2\tB\t8\tC\tB\t0.25\t0.5\t0.25\t8\t7\t6\n"
         );
         assert!(evaluate(&parse_tsv(&input).unwrap()).is_err());
     }
