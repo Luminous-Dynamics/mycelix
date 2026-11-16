@@ -310,9 +310,9 @@ mod tests {
         assert!((lower + 1.0).abs() < 1.0e-12);
         assert!((upper - 1.0).abs() < 1.0e-12);
         let candidate_assignment_score = (0.4 - 0.6) + (0.7 - 0.4) / 0.5;
-        let comparator_assignment_score = (0.4 - 0.6) - (0.4 - 0.6) / 0.5;
+        let comparator_assignment_score = (0.4 - 0.6) - (0.7 - 0.6) / 0.5;
         assert!((candidate_assignment_score - 0.4).abs() < 1.0e-12);
-        assert!((comparator_assignment_score - 0.2).abs() < 1.0e-12);
+        assert!((comparator_assignment_score + 0.4).abs() < 1.0e-12);
         assert!(candidate_assignment_score >= lower && candidate_assignment_score <= upper);
         assert!(comparator_assignment_score >= lower && comparator_assignment_score <= upper);
     }
