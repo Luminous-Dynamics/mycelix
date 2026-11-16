@@ -7,6 +7,11 @@ if [[ $# -lt 1 || $# -gt 2 ]]; then
 fi
 
 target="$1"
+tmp_root="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
+case "$target" in
+  "$tmp_root"/*) ;;
+  *) echo "target must be a child of the temporary directory" >&2; exit 2 ;;
+esac
 mode="${2:-normal}"
 case "$mode" in
   normal) count=21 ;;
