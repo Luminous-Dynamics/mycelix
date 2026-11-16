@@ -1,9 +1,9 @@
-pub mod multi_arm;
-
 //! Aggregate-only evaluation of a fixed two-arm treatment policy in randomized data.
 //!
 //! This reference does not train policies or verify that supplied predictions are
 //! out-of-fold. Those properties must be established by the frozen upstream protocol.
+
+pub mod multi_arm;
 
 use std::collections::HashSet;
 
