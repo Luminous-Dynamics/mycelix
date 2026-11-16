@@ -3,9 +3,7 @@ use std::fs;
 use std::io::Write;
 use std::process;
 
-use neurotwin_policy_value::finite_sample::{
-    evaluate_finite_sample, RandomizationDesign,
-};
+use neurotwin_policy_value::finite_sample::{RandomizationDesign, evaluate_finite_sample};
 use neurotwin_policy_value::{DEFAULT_MIN_REPORT_N, parse_tsv};
 
 fn parse_finite(value: &str, label: &str) -> Result<f64, String> {
@@ -97,7 +95,9 @@ fn run() -> Result<(), String> {
         .write(true)
         .create_new(true)
         .open(&args[1])
-        .map_err(|_| "could not create aggregate output; existing files are never overwritten".to_string())?;
+        .map_err(|_| {
+            "could not create aggregate output; existing files are never overwritten".to_string()
+        })?;
     file.write_all(output.as_bytes())
         .map_err(|_| "could not write aggregate JSON output".to_string())?;
 
