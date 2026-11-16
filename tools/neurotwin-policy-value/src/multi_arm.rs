@@ -7,6 +7,7 @@ use std::collections::HashSet;
 pub const MIN_ARMS: usize = 2;
 pub const MAX_ARMS: usize = 8;
 pub const DEFAULT_MIN_REPORT_N: usize = 20;
+pub const SMALL_CELL_SUPPRESSION_THRESHOLD: usize = 5;
 const TOLERANCE: f64 = 1.0e-9;
 const Z95: f64 = 1.959_963_984_540_054;
 const PREFIX: [&str; 5] = [
@@ -42,7 +43,8 @@ pub struct PolicyEstimate {
     pub ci95_upper: f64,
     pub ipw_value: f64,
     pub matched_count: usize,
-    pub coverage: f64,
+    /// Fraction of rows where observed randomized arm matched the policy choice.
+    pub observed_match_rate: f64,
     pub effective_sample_size: f64,
     pub maximum_inverse_probability_weight: f64,
 }
@@ -327,9 +329,9 @@ pub fn render_json(report: &Report) -> String {
 
 fn render_policy(x: &PolicyEstimate) -> String {
     format!(
-        "{{\"value\":{},\"standard_error\":{},\"ci95_lower\":{},\"ci95_upper\":{},\"ipw_value\":{},\"matched_count\":{},\"coverage\":{},\"effective_sample_size\":{},\"maximum_inverse_probability_weight\":{}}}",
+        "{{\"value\":{},\"standard_error\":{},\"ci95_lower\":{},\"ci95_upper\":{},\"ipw_value\":{},\"matched_count\":{},\"observed_match_rate\":{},\"effective_sample_size\":{},\"maximum_inverse_probability_weight\":{}}}",
         number(x.value), number(x.standard_error), number(x.ci95_lower), number(x.ci95_upper),
-        number(x.ipw_value), x.matched_count, number(x.coverage),
+        number(x.ipw_value), x.matched_count, number(x.observed_match_rate),
         number(x.effective_sample_size), number(x.maximum_inverse_probability_weight)
     )
 }
@@ -347,13 +349,13 @@ fn summarize_policy(scores: &[f64], ipw: &[f64], weights: &[f64]) -> Result<Poli
         ci95_upper: value + Z95 * standard_error,
         ipw_value,
         matched_count: weights.len(),
-        coverage: weights.len() as f64 / scores.len() as f64,
+        observed_match_rate: weights.len() as f64 / scores.len() as f64,
         effective_sample_size: ess,
         maximum_inverse_probability_weight: max_weight,
     };
     if [
         result.value, result.standard_error, result.ci95_lower, result.ci95_upper,
-        result.ipw_value, result.coverage, result.effective_sample_size, result.maximum_inverse_probability_weight
+        result.ipw_value, result.observed_match_rate, result.effective_sample_size, result.maximum_inverse_probability_weight
     ].iter().any(|v| !v.is_finite()) {
         return Err("non-finite policy summary".to_string());
     }
@@ -492,6 +494,15 @@ mod tests {
         assert!((report.candidate_minus_comparator.value_difference - 4.0).abs() < 1e-12);
         assert_eq!(report.candidate.matched_count, 2);
         assert_eq!(report.comparator.matched_count, 2);
+    }
+
+    #[test]
+    fn per_arm_support_counts_are_suppressed_when_any_cell_is_small() {
+        let report = evaluate(&parse_tsv(&hand_input()).unwrap()).unwrap();
+        let output = render_json(&report);
+        assert!(output.contains("\\"arm_support_suppressed\\": true"));
+        assert!(output.contains("\\"arm_support\\": null"));
+        assert!(!output.contains("randomized_assignments"));
     }
 
     #[test]
