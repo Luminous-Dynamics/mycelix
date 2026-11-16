@@ -10,7 +10,7 @@ The field's central gap is no longer simply finding a high-performing depression
 
 The current evidence makes this distinction concrete:
 
-- The 2025 EMBARC/CAN-BIND cross-trial study reported AUC 0.62–0.67 for its best clinical + dACC models across three train/test directions in 363 participants.
+- The 2025 EMBARC/CAN-BIND cross-trial study reported AUC 0.62–0.67 for its best baseline clinical + dACC models across the main cross-trial directions in 363 unique participants. It also reported that baseline clinical-only models were around AUC 0.58–0.61, while early-treatment clinical models using week-2 change reached AUC 0.66–0.73 in SSRI out-of-trial comparisons.
 - The 2026 SMART-D prospective study reported retrospectively trained marker AUCs of 0.66–0.86, but its preregistered biomarker-consistent versus inconsistent assignment comparison did not show a significant treatment-outcome difference. A separate comparison of marker-load groups did show differences. Those are not the same estimand.
 - A 2026 umbrella review included 14 reviews/meta-analyses and 17,855 people with MDD. It described some multimodal studies with AUC above 0.85, while judging the overall evidence quality low to very low and noting that most models lacked external validation.
 
@@ -20,12 +20,34 @@ The defensible NeuroTwin strategy is therefore **not to chase the highest report
 
 | Evidence | Population / design | Reported result | What it supports | What it does not establish |
 |---|---|---|---|---|
-| Zhukovsky et al., JAMA Network Open (2025) | 363 participants from EMBARC (225) and CAN-BIND-1 (138); retrospective cross-trial prognostic evaluation | Best clinical + dACC AUC: 0.62 CAN-BIND→EMBARC stage 1; 0.67 CAN-BIND→EMBARC stage 2; 0.66 EMBARC stage 1→CAN-BIND. Week-2 clinical severity improved generalization. | A real, explicit cross-trial baseline and evidence that early clinical trajectory can matter more than adding complexity alone. | A prospective treatment-selection effect, a universal biomarker, or clinical utility. |
+| Zhukovsky et al., JAMA Network Open (2025) | 363 unique participants from EMBARC (225) and CAN-BIND-1 (138); retrospective cross-trial prognostic evaluation | Baseline clinical-only out-of-trial AUC around 0.58–0.61; adding dACC yielded roughly 0.61–0.68, with highlighted directions 0.62, 0.67 and 0.66. Week-2 clinical models reached 0.66–0.73 in SSRI out-of-trial comparisons. | A real, explicit cross-trial baseline and evidence that early clinical trajectory can matter at least as much as baseline imaging additions. | A prospective treatment-selection effect, a universal biomarker, or clinical utility. |
 | Zhukovsky et al., Nature Mental Health (2026), SMART-D | Biomarker development from EMBARC, then small prospective randomized sertraline/bupropion study; 47 participants had ≥1 week, 41 completed 8 weeks | Development/LOOCV marker AUCs 0.66–0.86. Preregistered consistent vs inconsistent drug assignment: MADRS trajectory interaction F(1, 38.18)=0.03, P=0.87; response 61.5% vs 66.7%, P=0.72. Marker-load group differences were reported separately. | A necessary prospective translation comparator; it shows why marker status and actual treatment assignment must be analysed as different questions. | Definitive evidence that biomarker guidance works or does not work: the prospective sample was small and underpowered for many effects. |
 | Esmaeilian et al., umbrella review (2026) | 14 systematic reviews/meta-analyses; 17,855 people with MDD; multiple imaging modalities and treatments | Some multimodal models reported AUC >0.85, but methodological quality of the review-level evidence was low to very low; most studies lacked external validation. | A broad map of candidate neuroimaging features and a warning about the quality of the literature. | A directly comparable benchmark result or a validated treatment-selection rule. |
 | Takahashi et al., Digital Twin Brain (2026) | Connectome-conditioned model / task-specific behavioural predictions | Strong task-specific BOLD/behaviour prediction in its own setting. | An architecture and mechanistic-modelling comparator. | Direct comparison to MDD antidepressant-response AUC or randomized treatment-policy value. |
 
 **Interpretation rule:** an AUC from one study is not ranked against another unless population, endpoint, prediction time, modality availability, inclusion, split, tuning, and evaluation design are aligned. A high internal/LOOCV result cannot be used as external-validation evidence.
+
+### JAMA cohort and endpoint details that must be reproduced
+
+The published analytic populations need to be represented as a participant-flow graph, not simply added as independent groups:
+
+- CAN-BIND-1 escitalopram: 138 participants.
+- EMBARC stage-1 sertraline: 110 participants with complete data.
+- EMBARC stage-1 placebo: 115 participants.
+- EMBARC stage-2 sertraline: 60 participants, who are a **subset of the stage-1 placebo participants** who did not respond to placebo and then received sertraline.
+
+The headline 363 is 225 EMBARC participants plus 138 CAN-BIND-1 participants. It is not 110 + 115 + 60 + 138 independent participants. The stage-2 subgroup is reused to study a later treatment stage and cannot be counted as a new independent cohort.
+
+The primary response definition is a 50% or greater reduction in depression severity. EMBARC uses HDRS and CAN-BIND uses a validated MADRS-to-HDRS mapping. The CAN-BIND week-8 outcome uses the closest week-6 assessment when week-8 data were unavailable. This endpoint harmonization and its assumptions must be reproduced explicitly; it must not be silently replaced by a single common scale or timepoint.
+
+The paper compared five baseline predictor sets (clinical, clinical + global functional connectivity, clinical + dACC connectivity, clinical + rACC connectivity, and clinical + cortical thickness) and analogous early-treatment sets using week-2 change instead of baseline depression severity. It evaluated 10 machine-learning models in two training scenarios. Its cross-trial bootstrapping used a smaller predictor set of 52 clinical and dACC variables selected after regularization in CAN-BIND-1. The paper reports that early-treatment models performed best overall. A ComBat sensitivity analysis reduced out-of-trial performance slightly without changing the overall pattern.
+
+These details make the reproduction protocol stricter:
+1. Preserve subject-level overlap and stage progression; no participant may appear as independent training and testing evidence.
+2. Keep baseline-only and week-2 prediction times as distinct tasks.
+3. Reproduce both the clinical-only baseline and dACC increment; do not compare Symthaea only with the imaging-enhanced version.
+4. Reproduce scale mapping, endpoint timing, missing week-8 substitutions and trial-arm definitions exactly.
+5. Bind feature selection, regularization and harmonization to training-only data in each evaluation direction.
 
 ## 2. Industry comparison: compare capabilities, not slogans
 
