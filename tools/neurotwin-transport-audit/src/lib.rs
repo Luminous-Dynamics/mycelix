@@ -726,9 +726,7 @@ mod tests {
     fn report_names_its_precision_recall_integration_convention() {
         let report = evaluate(&perfect_rows()).unwrap();
         let output = render_json(&report);
-        assert!(output.contains(
-            "non_interpolated_average_precision_tie_grouped"
-        ));
+        assert!(output.contains("non_interpolated_average_precision_tie_grouped"));
     }
 
     #[test]
