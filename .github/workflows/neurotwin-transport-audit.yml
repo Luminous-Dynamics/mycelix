@@ -1,0 +1,58 @@
+name: NeuroTwin Transportability Audit
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "tools/neurotwin-transport-audit/**"
+      - ".github/workflows/neurotwin-transport-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-head:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact head
+        if: github.event_name == 'pull_request'
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/neurotwin-transport-audit/Cargo.toml -- --check
+
+      - name: Run unit tests
+        run: cargo test --manifest-path tools/neurotwin-transport-audit/Cargo.toml --locked
+
+      - name: Run strict Clippy
+        run: cargo clippy --manifest-path tools/neurotwin-transport-audit/Cargo.toml --all-targets --locked -- -D warnings
+
+      - name: Exercise aggregate-only CLI
+        run: |
+          cargo run --manifest-path tools/neurotwin-transport-audit/Cargo.toml --locked -- \
+            tools/neurotwin-transport-audit/fixtures/synthetic-predictions.tsv "$RUNNER_TEMP/transport-report.json"
+          jq -e '.schema_version == "neurotwin-transport-report-v0.1" and .n == 40 and (.overall.auroc > 0.9) and (.domains | length == 2)' "$RUNNER_TEMP/transport-report.json" >/dev/null
+          if grep -Fq "synthetic-key-" "$RUNNER_TEMP/transport-report.json"; then
+            echo "row key leaked into aggregate report"
+            exit 1
+          fi
+          if grep -Fq "fixture-cohort-" "$RUNNER_TEMP/transport-report.json"; then
+            echo "domain label leaked into aggregate report"
+            exit 1
+          fi
