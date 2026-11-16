@@ -33,7 +33,8 @@ fn run() -> Result<(), String> {
     let args: Vec<String> = env::args().skip(1).collect();
     if args.len() < 2 || args.len() > 3 {
         return Err(
-            "usage: neurotwin-intake-audit DATASET_ROOT OUTPUT.json [MIN_SUBJECT_COUNT]".to_string(),
+            "usage: neurotwin-intake-audit DATASET_ROOT OUTPUT.json [MIN_SUBJECT_COUNT]"
+                .to_string(),
         );
     }
 
@@ -51,8 +52,8 @@ fn run() -> Result<(), String> {
     }
 
     let dataset_root = Path::new(&args[0]);
-    let canonical_root = fs::canonicalize(dataset_root)
-        .map_err(|_| "dataset root is unavailable".to_string())?;
+    let canonical_root =
+        fs::canonicalize(dataset_root).map_err(|_| "dataset root is unavailable".to_string())?;
     let output = output_path_outside_dataset(&canonical_root, Path::new(&args[1]))?;
 
     // Pass the original root so audit_dataset can reject a symlink root.
