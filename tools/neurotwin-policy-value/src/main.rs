@@ -2,9 +2,7 @@ use std::env;
 use std::fs;
 use std::process;
 
-use neurotwin_policy_value::{
-    DEFAULT_MIN_REPORT_N, evaluate, parse_tsv, render_json,
-};
+use neurotwin_policy_value::{DEFAULT_MIN_REPORT_N, evaluate, parse_tsv, render_json};
 
 fn run() -> Result<(), String> {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -44,8 +42,7 @@ fn run() -> Result<(), String> {
 
     let report = evaluate(&observations)?;
     let output = render_json(&report);
-    fs::write(&args[1], output)
-        .map_err(|_| "could not write aggregate JSON output".to_string())?;
+    fs::write(&args[1], output).map_err(|_| "could not write aggregate JSON output".to_string())?;
 
     eprintln!(
         "aggregate report written for {} observations; row-level data were not emitted",
