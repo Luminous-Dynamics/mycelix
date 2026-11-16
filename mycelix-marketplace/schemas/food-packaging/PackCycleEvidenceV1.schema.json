@@ -1,0 +1,406 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/food/PackCycleEvidenceV1.schema.json",
+  "title": "PackCycleEvidenceV1",
+  "description": "A single packaging lifecycle event payload intended to reference the canonical Mycelix event/receipt system; not a parallel ledger and not proof of hygiene or food safety.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "subject_ref",
+    "design_ref",
+    "occurred_at",
+    "actor_ref",
+    "evidence_class",
+    "idempotency_key"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128
+    },
+    "event_type": {
+      "enum": [
+        "manufactured",
+        "filled",
+        "sealed",
+        "dispatched",
+        "transferred",
+        "received",
+        "opened",
+        "refilled",
+        "returned",
+        "inspected",
+        "wash_started",
+        "wash_completed",
+        "food_treatment_completed",
+        "released_for_use",
+        "repaired",
+        "retired",
+        "disposed"
+      ]
+    },
+    "subject_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Canonical Mycelix container-unit or batch reference; do not mint a parallel identity."
+    },
+    "design_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "product_lot_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "received_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "actor_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "custody_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "location_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Use coarse-grained or access-controlled reference; avoid public household address."
+    },
+    "quantity": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "unit"
+      ],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unit": {
+          "enum": [
+            "g",
+            "kg",
+            "ml",
+            "l",
+            "count"
+          ]
+        }
+      }
+    },
+    "evidence_class": {
+      "enum": [
+        "declared",
+        "measured",
+        "modelled",
+        "simulated",
+        "independently_attested"
+      ]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "instrument_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "calibration_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "predecessor_event_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 256
+    },
+    "wash_result": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "unknown",
+            "pass",
+            "fail",
+            "not_applicable"
+          ]
+        },
+        "method_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cycle_parameters_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "residual_or_hygiene_assay_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "inspection_result": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "unknown",
+            "pass",
+            "fail"
+          ]
+        },
+        "inspection_method_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inspector_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "release_authority_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "correction_of_event_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "treatment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "treatment_profile_ref",
+        "process_run_ref",
+        "process_family",
+        "equipment_ref",
+        "process_manifest_ref",
+        "parameters_evidence_refs",
+        "claim_ceiling"
+      ],
+      "properties": {
+        "treatment_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "process_run_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "process_family": {
+          "enum": [
+            "cold_atmospheric_plasma",
+            "plasma_activated_water",
+            "thermal_plasma",
+            "other"
+          ]
+        },
+        "equipment_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "process_manifest_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parameters_evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outcome_assay_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "energy_accounting_receipt_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Optional reference to a completed Symtropy PFB-1 accounting receipt. A missing receipt is not zero energy."
+        },
+        "claim_ceiling": {
+          "const": "Treatment recorded only; no safety, shelf-life, efficacy, or quality claim implied."
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "released_for_use"
+          }
+        },
+        "required": [
+          "event_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "wash_result",
+          "inspection_result",
+          "release_authority_ref"
+        ],
+        "properties": {
+          "wash_result": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "const": "pass"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "inspection_result": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "const": "pass"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "release_authority_ref": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "wash_completed"
+          }
+        },
+        "required": [
+          "event_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "wash_result"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "food_treatment_completed"
+          }
+        },
+        "required": [
+          "event_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "product_lot_ref",
+          "treatment"
+        ],
+        "properties": {
+          "product_lot_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "treatment": {
+            "type": "object",
+            "required": [
+              "treatment_profile_ref",
+              "process_run_ref",
+              "process_family",
+              "equipment_ref",
+              "process_manifest_ref",
+              "parameters_evidence_refs",
+              "claim_ceiling"
+            ],
+            "properties": {
+              "claim_ceiling": {
+                "const": "Treatment recorded only; no safety, shelf-life, efficacy, or quality claim implied."
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
