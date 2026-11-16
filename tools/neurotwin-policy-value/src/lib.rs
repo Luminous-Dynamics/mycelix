@@ -210,6 +210,12 @@ pub fn evaluate(observations: &[Observation]) -> Result<AggregateReport, String>
         comparator_ipw_scores.push(comparator_ipw);
     }
 
+    if candidate_matches == 0 || comparator_matches == 0 {
+        return Err(
+            "one or both policies have no observed randomized assignment support".to_string(),
+        );
+    }
+
     let candidate = summarize_policy(
         &candidate_scores,
         &candidate_ipw_scores,
