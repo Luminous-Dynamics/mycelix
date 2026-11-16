@@ -64,3 +64,24 @@ jobs:
             exit 1
           fi
           test ! -e "$RUNNER_TEMP/suppressed.json"
+
+      - name: Exercise aggregate-only multi-arm CLI
+        run: |
+          cargo run --manifest-path tools/neurotwin-policy-value/Cargo.toml --locked --bin neurotwin-multiarm-policy-value -- \
+            tools/neurotwin-policy-value/fixtures/synthetic-three-arm.tsv \
+            "$RUNNER_TEMP/neurotwin-multiarm-policy-value.json"
+          jq -e '.schema_version == "neurotwin-multiarm-policy-value-report-v0.1" and .n == 24 and (.arms | length) == 3 and .arm_support_suppressed == false and .arm_support_suppression_threshold == 5 and (.arm_support | length) == 3' "$RUNNER_TEMP/neurotwin-multiarm-policy-value.json" >/dev/null
+          if grep -Fq "synthetic-row-" "$RUNNER_TEMP/neurotwin-multiarm-policy-value.json"; then
+            echo "row-level key leaked into multi-arm aggregate output"
+            exit 1
+          fi
+
+      - name: Verify multi-arm small-cohort suppression
+        run: |
+          head -n 4 tools/neurotwin-policy-value/fixtures/synthetic-three-arm.tsv > "$RUNNER_TEMP/multiarm-small.tsv"
+          if cargo run --manifest-path tools/neurotwin-policy-value/Cargo.toml --locked --bin neurotwin-multiarm-policy-value -- \
+            "$RUNNER_TEMP/multiarm-small.tsv" "$RUNNER_TEMP/multiarm-suppressed.json"; then
+            echo "multi-arm small-cohort run unexpectedly succeeded"
+            exit 1
+          fi
+          test ! -e "$RUNNER_TEMP/multiarm-suppressed.json"
