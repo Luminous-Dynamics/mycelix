@@ -1,0 +1,91 @@
+name: NeuroTwin Finite-Sample Policy Inference
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "tools/neurotwin-policy-value/**"
+      - ".github/workflows/neurotwin-policy-value-finite-sample.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-head:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact head
+        if: github.event_name == 'pull_request'
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/neurotwin-policy-value/Cargo.toml -- --check
+
+      - name: Run unit tests
+        run: cargo test --manifest-path tools/neurotwin-policy-value/Cargo.toml --locked
+
+      - name: Run strict Clippy
+        run: cargo clippy --manifest-path tools/neurotwin-policy-value/Cargo.toml --all-targets --locked -- -D warnings
+
+      - name: Exercise finite-sample CLI and schema
+        run: |
+          cargo run --manifest-path tools/neurotwin-policy-value/Cargo.toml --locked --bin neurotwin-policy-value-finite-sample -- \
+            tools/neurotwin-policy-value/fixtures/synthetic-randomized-trial.tsv \
+            "$RUNNER_TEMP/finite-sample-report.json" \
+            --randomization-unit participant \
+            --assignment-mechanism independent_bernoulli \
+            --outcome-bounds 0,20 0.05
+          jq -e '.schema_version == "neurotwin-policy-finite-sample-report-v0.1" and .n >= 20 and .randomization_unit == "participant" and .assignment_mechanism == "independent_bernoulli" and .finite_sample_interval.method == "two_sided_hoeffding_design_based" and .finite_sample_interval.radius >= 0' "$RUNNER_TEMP/finite-sample-report.json" >/dev/null
+          if grep -Fq "synthetic-observation-" "$RUNNER_TEMP/finite-sample-report.json"; then
+            echo "row-level key leaked into finite-sample output"
+            exit 1
+          fi
+
+      - name: Reject unsupported assignment design
+        run: |
+          if cargo run --manifest-path tools/neurotwin-policy-value/Cargo.toml --locked --bin neurotwin-policy-value-finite-sample -- \
+            tools/neurotwin-policy-value/fixtures/synthetic-randomized-trial.tsv \
+            "$RUNNER_TEMP/unsupported.json" \
+            --randomization-unit participant \
+            --assignment-mechanism blocked_permuted_blocks \
+            --outcome-bounds 0,20; then
+            echo "unsupported blocked design unexpectedly succeeded"
+            exit 1
+          fi
+          test ! -e "$RUNNER_TEMP/unsupported.json"
+
+      - name: Verify small-cohort suppression and output immutability
+        run: |
+          head -n 4 tools/neurotwin-policy-value/fixtures/synthetic-randomized-trial.tsv > "$RUNNER_TEMP/small.tsv"
+          if cargo run --manifest-path tools/neurotwin-policy-value/Cargo.toml --locked --bin neurotwin-policy-value-finite-sample -- \
+            "$RUNNER_TEMP/small.tsv" "$RUNNER_TEMP/small.json" \
+            --randomization-unit participant --assignment-mechanism independent_bernoulli --outcome-bounds 0,20; then
+            echo "small cohort unexpectedly succeeded"
+            exit 1
+          fi
+          test ! -e "$RUNNER_TEMP/small.json"
+          printf 'immutable\n' > "$RUNNER_TEMP/existing.json"
+          if cargo run --manifest-path tools/neurotwin-policy-value/Cargo.toml --locked --bin neurotwin-policy-value-finite-sample -- \
+            tools/neurotwin-policy-value/fixtures/synthetic-randomized-trial.tsv \
+            "$RUNNER_TEMP/existing.json" \
+            --randomization-unit participant --assignment-mechanism independent_bernoulli --outcome-bounds 0,20; then
+            echo "existing output was unexpectedly overwritten"
+            exit 1
+          fi
+          test "$(cat "$RUNNER_TEMP/existing.json")" = "immutable"

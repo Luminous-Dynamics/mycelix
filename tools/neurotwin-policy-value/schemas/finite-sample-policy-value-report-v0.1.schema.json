@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/tools/neurotwin-policy-value/schemas/finite-sample-policy-value-report-v0.1.schema.json",
+  "title": "NeuroTwin Finite-Sample Randomized Policy Value Report v0.1",
+  "description": "Aggregate-only design-based finite-sample interval for a paired two-arm AIPW policy contrast under independent participant-level Bernoulli randomization.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "n",
+    "estimand",
+    "estimator",
+    "randomization_unit",
+    "assignment_mechanism",
+    "outcome_bounds",
+    "confidence_delta",
+    "confidence_level",
+    "point_estimate",
+    "finite_sample_interval",
+    "exploratory_normal_approximation_95",
+    "randomization_diagnostics",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "neurotwin-policy-finite-sample-report-v0.1" },
+    "n": { "type": "integer", "minimum": 20 },
+    "estimand": { "const": "finite_sample_average_candidate_minus_comparator_policy_value" },
+    "estimator": { "const": "paired_augmented_inverse_probability_weighted_difference" },
+    "randomization_unit": { "const": "participant" },
+    "assignment_mechanism": { "const": "independent_bernoulli" },
+    "outcome_bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lower", "upper"],
+      "properties": {
+        "lower": { "type": "number" },
+        "upper": { "type": "number" }
+      }
+    },
+    "confidence_delta": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "confidence_level": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "point_estimate": { "type": "number" },
+    "finite_sample_interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "lower", "upper", "radius", "sum_squared_row_ranges"],
+      "properties": {
+        "method": { "const": "two_sided_hoeffding_design_based" },
+        "lower": { "type": "number" },
+        "upper": { "type": "number" },
+        "radius": { "type": "number", "minimum": 0 },
+        "sum_squared_row_ranges": { "type": "number", "minimum": 0 }
+      }
+    },
+    "exploratory_normal_approximation_95": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lower", "upper"],
+      "properties": {
+        "lower": { "type": "number" },
+        "upper": { "type": "number" }
+      }
+    },
+    "randomization_diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_assignment_probability", "maximum_inverse_assignment_probability"],
+      "properties": {
+        "minimum_assignment_probability": { "type": "number", "exclusiveMinimum": 0, "maximum": 0.5 },
+        "maximum_inverse_assignment_probability": { "type": "number", "minimum": 2 }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 3, "maxLength": 512 }
+    }
+  }
+}
