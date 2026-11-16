@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/tools/neurotwin-transport-audit/schemas/transport-report-v0.1.schema.json",
+  "title": "NeuroTwin Aggregate Transport Report v0.1",
+  "description": "Aggregate-only calibration, transportability and selective prediction report. Contains no record keys or original domain labels.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "n", "minimum_report_n", "overall", "selective_curve", "domains", "limitations"],
+  "properties": {
+    "schema_version": { "const": "neurotwin-transport-report-v0.1" },
+    "n": { "type": "integer", "minimum": 20 },
+    "minimum_report_n": { "const": 20 },
+    "overall": { "$ref": "#/$defs/metrics" },
+    "selective_curve": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requested_coverage", "actual_coverage", "brier_score"],
+        "properties": {
+          "requested_coverage": { "type": "number", "minimum": 0.5, "maximum": 1 },
+          "actual_coverage": { "type": ["number", "null"], "minimum": 0.5, "maximum": 1 },
+          "brier_score": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "domains": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["domain_index", "status", "n", "metrics"],
+        "properties": {
+          "domain_index": { "type": "integer", "minimum": 1 },
+          "status": { "enum": ["reported", "suppressed"] },
+          "n": { "type": ["integer", "null"], "minimum": 20 },
+          "metrics": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/metrics" }] }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 3, "maxLength": 512 }
+    }
+  },
+  "$defs": {
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["auroc", "auprc", "brier_score", "log_loss", "calibration_intercept", "calibration_slope", "observed_to_expected_ratio"],
+      "properties": {
+        "auroc": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "auprc": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "brier_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "log_loss": { "type": "number", "minimum": 0 },
+        "calibration_intercept": { "type": ["number", "null"] },
+        "calibration_slope": { "type": ["number", "null"] },
+        "observed_to_expected_ratio": { "type": ["number", "null"], "minimum": 0 }
+      }
+    }
+  }
+}
