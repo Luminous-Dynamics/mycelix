@@ -75,3 +75,13 @@ jobs:
             echo "row-level key leaked into multi-arm aggregate output"
             exit 1
           fi
+
+      - name: Verify multi-arm small-cohort suppression
+        run: |
+          head -n 4 tools/neurotwin-policy-value/fixtures/synthetic-three-arm.tsv > "$RUNNER_TEMP/multiarm-small.tsv"
+          if cargo run --manifest-path tools/neurotwin-policy-value/Cargo.toml --locked --bin neurotwin-multiarm-policy-value -- \
+            "$RUNNER_TEMP/multiarm-small.tsv" "$RUNNER_TEMP/multiarm-suppressed.json"; then
+            echo "multi-arm small-cohort run unexpectedly succeeded"
+            exit 1
+          fi
+          test ! -e "$RUNNER_TEMP/multiarm-suppressed.json"
