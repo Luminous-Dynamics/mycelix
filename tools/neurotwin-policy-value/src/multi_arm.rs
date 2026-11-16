@@ -297,12 +297,12 @@ pub fn render_json(report: &Report) -> String {
     });
 
     let mut out = String::new();
-    out.push_str("{\\n");
-    out.push_str("  \\"schema_version\\": \\"neurotwin-multiarm-policy-value-report-v0.1\\",\\n");
-    out.push_str(&format!("  \\"n\\": {},\\n", report.n));
-    out.push_str("  \\"estimator\\": \\"augmented_inverse_probability_weighted\\",\\n");
-    out.push_str("  \\"uncertainty\\": \\"empirical_influence_function_normal_approximation_95pct\\",\\n");
-    out.push_str("  \\"arms\\": [");
+    out.push_str("{\n");
+    out.push_str("  \"schema_version\": \"neurotwin-multiarm-policy-value-report-v0.1\",\n");
+    out.push_str(&format!("  \"n\": {},\n", report.n));
+    out.push_str("  \"estimator\": \"augmented_inverse_probability_weighted\",\n");
+    out.push_str("  \"uncertainty\": \"empirical_influence_function_normal_approximation_95pct\",\n");
+    out.push_str("  \"arms\": [");
     for (index, arm) in report.arms.iter().enumerate() {
         if index > 0 {
             out.push_str(", ");
@@ -311,32 +311,32 @@ pub fn render_json(report: &Report) -> String {
         out.push_str(arm);
         out.push('"');
     }
-    out.push_str("],\\n  \\"candidate_policy\\": ");
+    out.push_str("],\n  \"candidate_policy\": ");
     out.push_str(&render_policy(&report.candidate));
-    out.push_str(",\\n  \\"comparator_policy\\": ");
+    out.push_str(",\n  \"comparator_policy\": ");
     out.push_str(&render_policy(&report.comparator));
-    out.push_str(",\\n  \\"candidate_minus_comparator\\": {");
+    out.push_str(",\n  \"candidate_minus_comparator\": {");
     out.push_str(&format!(
-        "\\n    \\"value_difference\\": {},\\n    \\"paired_standard_error\\": {},\\n    \\"ci95_lower\\": {},\\n    \\"ci95_upper\\": {}\\n  }},\\n",
+        "\n    \"value_difference\": {},\n    \"paired_standard_error\": {},\n    \"ci95_lower\": {},\n    \"ci95_upper\": {}\n  }},\n",
         number(report.candidate_minus_comparator.value_difference),
         number(report.candidate_minus_comparator.paired_standard_error),
         number(report.candidate_minus_comparator.ci95_lower),
         number(report.candidate_minus_comparator.ci95_upper)
     ));
     out.push_str(&format!(
-        "  \\"arm_support_suppressed\\": {},\\n  \\"arm_support_suppression_threshold\\": {},\\n",
+        "  \"arm_support_suppressed\": {},\n  \"arm_support_suppression_threshold\": {},\n",
         suppress_arm_support, SMALL_CELL_SUPPRESSION_THRESHOLD
     ));
     if suppress_arm_support {
-        out.push_str("  \\"arm_support\\": null,\\n");
+        out.push_str("  \"arm_support\": null,\n");
     } else {
-        out.push_str("  \\"arm_support\\": [");
+        out.push_str("  \"arm_support\": [");
         for (index, item) in report.arm_support.iter().enumerate() {
             if index > 0 {
                 out.push_str(",");
             }
             out.push_str(&format!(
-                "{{\\\"arm\\\":\\\"{}\\\",\\\"randomized_assignments\\\":{},\\\"candidate_policy_selections\\\":{},\\\"candidate_observed_matches\\\":{},\\\"comparator_policy_selections\\\":{},\\\"comparator_observed_matches\\\":{}}}",
+                "{{\"arm\":\"{}\",\"randomized_assignments\":{},\"candidate_policy_selections\":{},\"candidate_observed_matches\":{},\"comparator_policy_selections\":{},\"comparator_observed_matches\":{}}}",
                 item.arm,
                 item.randomized_assignments,
                 item.candidate_policy_selections,
@@ -345,17 +345,17 @@ pub fn render_json(report: &Report) -> String {
                 item.comparator_observed_matches
             ));
         }
-        out.push_str("],\\n");
+        out.push_str("],\n");
     }
-    out.push_str("  \\"limitations\\": [\\n");
-    out.push_str("    \\"Policies and arm-specific outcome predictions must be frozen and generated out-of-fold or on independent training data.\\",\\n");
-    out.push_str("    \\"Randomization probabilities must come from the trial protocol; they are not inferred from observed arm frequencies.\\",\\n");
-    out.push_str("    \\"Per-arm support counts are withheld if any nonzero cell is below the suppression threshold.\\",\\n");
-    out.push_str("    \\"One independent observation per randomized participant and a fully observed prespecified outcome are required.\\",\\n");
-    out.push_str("    \\"Normal-approximation intervals are exploratory and may be unreliable in small samples.\\",\\n");
-    out.push_str("    \\"This report is not a treatment recommendation, clinical validation or proof of patient benefit.\\"\\n");
-    out.push_str("  ]\\n");
-    out.push_str("}\\n");
+    out.push_str("  \"limitations\": [\n");
+    out.push_str("    \"Policies and arm-specific outcome predictions must be frozen and generated out-of-fold or on independent training data.\",\n");
+    out.push_str("    \"Randomization probabilities must come from the trial protocol; they are not inferred from observed arm frequencies.\",\n");
+    out.push_str("    \"Per-arm support counts are withheld if any nonzero cell is below the suppression threshold.\",\n");
+    out.push_str("    \"One independent observation per randomized participant and a fully observed prespecified outcome are required.\",\n");
+    out.push_str("    \"Normal-approximation intervals are exploratory and may be unreliable in small samples.\",\n");
+    out.push_str("    \"This report is not a treatment recommendation, clinical validation or proof of patient benefit.\"\n");
+    out.push_str("  ]\n");
+    out.push_str("}\n");
     out
 }
 
@@ -532,8 +532,8 @@ mod tests {
     fn per_arm_support_counts_are_suppressed_when_any_cell_is_small() {
         let report = evaluate(&parse_tsv(&hand_input()).unwrap()).unwrap();
         let output = render_json(&report);
-        assert!(output.contains("\\"arm_support_suppressed\\": true"));
-        assert!(output.contains("\\"arm_support\\": null"));
+        assert!(output.contains("\"arm_support_suppressed\": true"));
+        assert!(output.contains("\"arm_support\": null"));
         assert!(!output.contains("randomized_assignments"));
     }
 
