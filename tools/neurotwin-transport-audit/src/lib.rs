@@ -723,6 +723,15 @@ mod tests {
     }
 
     #[test]
+    fn report_names_its_precision_recall_integration_convention() {
+        let report = evaluate(&perfect_rows()).unwrap();
+        let output = render_json(&report);
+        assert!(output.contains(
+            "non_interpolated_average_precision_tie_grouped"
+        ));
+    }
+
+    #[test]
     fn small_domains_are_suppressed_without_their_denominators() {
         let mut rows = perfect_rows();
         rows.extend((0..3).map(|index| {
