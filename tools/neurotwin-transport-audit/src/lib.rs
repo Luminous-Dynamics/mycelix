@@ -648,25 +648,38 @@ mod tests {
         let metrics = calculate_metrics(&rows).unwrap();
         let intercept = metrics.calibration_intercept.unwrap();
         let slope = metrics.calibration_slope.unwrap();
-        assert!((intercept - 0.6).abs() < 0.04, "intercept recovered as {intercept}");
+        assert!(
+            (intercept - 0.6).abs() < 0.04,
+            "intercept recovered as {intercept}"
+        );
         assert!((slope - 0.8).abs() < 0.04, "slope recovered as {slope}");
     }
 
     #[test]
     fn prevalence_shift_preserves_auc_but_changes_precision_recall() {
         let negative_scores = [
-            0.10, 0.15, 0.20, 0.25, 0.30,
-            0.12, 0.17, 0.22, 0.27, 0.32,
-            0.14, 0.19, 0.24, 0.29, 0.34,
-            0.16, 0.21, 0.26, 0.31, 0.36,
+            0.10, 0.15, 0.20, 0.25, 0.30, 0.12, 0.17, 0.22, 0.27, 0.32, 0.14, 0.19, 0.24, 0.29,
+            0.34, 0.16, 0.21, 0.26, 0.31, 0.36,
         ];
         let positive_scores = [0.20, 0.30, 0.40, 0.50, 0.60];
         let mut common = Vec::new();
         let mut rare = Vec::new();
 
         for (index, score) in negative_scores.iter().enumerate() {
-            common.push(row(&format!("common-neg-{index}"), "common", false, *score, 0.8));
-            rare.push(row(&format!("rare-neg-{index}"), "rare", false, *score, 0.8));
+            common.push(row(
+                &format!("common-neg-{index}"),
+                "common",
+                false,
+                *score,
+                0.8,
+            ));
+            rare.push(row(
+                &format!("rare-neg-{index}"),
+                "rare",
+                false,
+                *score,
+                0.8,
+            ));
         }
         for (index, score) in positive_scores.iter().enumerate() {
             for repeat in 0..4 {
@@ -683,9 +696,7 @@ mod tests {
 
         let common_metrics = calculate_metrics(&common).unwrap();
         let rare_metrics = calculate_metrics(&rare).unwrap();
-        assert!(
-            (common_metrics.auroc.unwrap() - rare_metrics.auroc.unwrap()).abs() < 1.0e-12
-        );
+        assert!((common_metrics.auroc.unwrap() - rare_metrics.auroc.unwrap()).abs() < 1.0e-12);
         assert!(common_metrics.auprc.unwrap() > rare_metrics.auprc.unwrap());
     }
 
