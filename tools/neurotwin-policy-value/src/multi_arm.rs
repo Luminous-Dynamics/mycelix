@@ -675,16 +675,12 @@ mod tests {
         assert!(parse_tsv(&hand_input().replace("probability:C", "probability:B")).is_err());
         assert!(parse_tsv(&hand_input().replace("\tA\tC\t0.5", "\tA\tD\t0.5")).is_err());
         assert!(
-            parse_tsv(
-                &hand_input().replace("\t0.5\t0.25\t0.25\t10", "\t0\t0.25\t0.75\t10")
-            )
-            .is_err()
+            parse_tsv(&hand_input().replace("\t0.5\t0.25\t0.25\t10", "\t0\t0.25\t0.75\t10"))
+                .is_err()
         );
         assert!(
-            parse_tsv(
-                &hand_input().replace("\t0.5\t0.25\t0.25\t10", "\t0.5\t0.5\t0.25\t10")
-            )
-            .is_err()
+            parse_tsv(&hand_input().replace("\t0.5\t0.25\t0.25\t10", "\t0.5\t0.5\t0.25\t10"))
+                .is_err()
         );
     }
 
