@@ -284,46 +284,78 @@ pub fn evaluate(dataset: &Dataset) -> Result<Report, String> {
 }
 
 pub fn render_json(report: &Report) -> String {
+    let suppress_arm_support = report.arm_support.iter().any(|item| {
+        [
+            item.randomized_assignments,
+            item.candidate_policy_selections,
+            item.candidate_observed_matches,
+            item.comparator_policy_selections,
+            item.comparator_observed_matches,
+        ]
+        .iter()
+        .any(|count| *count > 0 && *count < SMALL_CELL_SUPPRESSION_THRESHOLD)
+    });
+
     let mut out = String::new();
-    out.push_str("{\n");
-    out.push_str("  \"schema_version\": \"neurotwin-multiarm-policy-value-report-v0.1\",\n");
-    out.push_str(&format!("  \"n\": {},\n", report.n));
-    out.push_str("  \"estimator\": \"augmented_inverse_probability_weighted\",\n");
-    out.push_str("  \"uncertainty\": \"empirical_influence_function_normal_approximation_95pct\",\n");
-    out.push_str("  \"arms\": [");
-    for (i, arm) in report.arms.iter().enumerate() {
-        if i > 0 { out.push_str(", "); }
-        out.push('"'); out.push_str(arm); out.push('"');
+    out.push_str("{\\n");
+    out.push_str("  \\"schema_version\\": \\"neurotwin-multiarm-policy-value-report-v0.1\\",\\n");
+    out.push_str(&format!("  \\"n\\": {},\\n", report.n));
+    out.push_str("  \\"estimator\\": \\"augmented_inverse_probability_weighted\\",\\n");
+    out.push_str("  \\"uncertainty\\": \\"empirical_influence_function_normal_approximation_95pct\\",\\n");
+    out.push_str("  \\"arms\\": [");
+    for (index, arm) in report.arms.iter().enumerate() {
+        if index > 0 {
+            out.push_str(", ");
+        }
+        out.push('"');
+        out.push_str(arm);
+        out.push('"');
     }
-    out.push_str("],\n  \"candidate_policy\": ");
+    out.push_str("],\\n  \\"candidate_policy\\": ");
     out.push_str(&render_policy(&report.candidate));
-    out.push_str(",\n  \"comparator_policy\": ");
+    out.push_str(",\\n  \\"comparator_policy\\": ");
     out.push_str(&render_policy(&report.comparator));
-    out.push_str(",\n  \"candidate_minus_comparator\": ");
+    out.push_str(",\\n  \\"candidate_minus_comparator\\": {");
     out.push_str(&format!(
-        "{{\"value_difference\": {}, \"paired_standard_error\": {}, \"ci95_lower\": {}, \"ci95_upper\": {}}}",
+        "\\n    \\"value_difference\\": {},\\n    \\"paired_standard_error\\": {},\\n    \\"ci95_lower\\": {},\\n    \\"ci95_upper\\": {}\\n  }},\\n",
         number(report.candidate_minus_comparator.value_difference),
         number(report.candidate_minus_comparator.paired_standard_error),
         number(report.candidate_minus_comparator.ci95_lower),
         number(report.candidate_minus_comparator.ci95_upper)
     ));
-    out.push_str(",\n  \"arm_support\": [");
-    for (i, item) in report.arm_support.iter().enumerate() {
-        if i > 0 { out.push_str(","); }
-        out.push_str(&format!(
-            "{{\"arm\":\"{}\",\"randomized_assignments\":{},\"candidate_policy_selections\":{},\"candidate_observed_matches\":{},\"comparator_policy_selections\":{},\"comparator_observed_matches\":{}}}",
-            item.arm, item.randomized_assignments, item.candidate_policy_selections,
-            item.candidate_observed_matches, item.comparator_policy_selections,
-            item.comparator_observed_matches
-        ));
+    out.push_str(&format!(
+        "  \\"arm_support_suppressed\\": {},\\n  \\"arm_support_suppression_threshold\\": {},\\n",
+        suppress_arm_support, SMALL_CELL_SUPPRESSION_THRESHOLD
+    ));
+    if suppress_arm_support {
+        out.push_str("  \\"arm_support\\": null,\\n");
+    } else {
+        out.push_str("  \\"arm_support\\": [");
+        for (index, item) in report.arm_support.iter().enumerate() {
+            if index > 0 {
+                out.push_str(",");
+            }
+            out.push_str(&format!(
+                "{{\\\"arm\\\":\\\"{}\\\",\\\"randomized_assignments\\\":{},\\\"candidate_policy_selections\\\":{},\\\"candidate_observed_matches\\\":{},\\\"comparator_policy_selections\\\":{},\\\"comparator_observed_matches\\\":{}}}",
+                item.arm,
+                item.randomized_assignments,
+                item.candidate_policy_selections,
+                item.candidate_observed_matches,
+                item.comparator_policy_selections,
+                item.comparator_observed_matches
+            ));
+        }
+        out.push_str("],\\n");
     }
-    out.push_str("],\n  \"limitations\": [");
-    out.push_str("\"Policies and arm-specific outcome predictions must be frozen and generated out-of-fold or on independent training data.\",");
-    out.push_str("\"Randomization probabilities must come from the trial protocol; they are not inferred from observed arm frequencies.\",");
-    out.push_str("\"One independent observation per randomized participant and a fully observed prespecified outcome are required.\",");
-    out.push_str("\"Normal-approximation intervals are exploratory and may be unreliable in small samples.\",");
-    out.push_str("\"This report is not a treatment recommendation, clinical validation or proof of patient benefit.\"]\n");
-    out.push_str("}\n");
+    out.push_str("  \\"limitations\\": [\\n");
+    out.push_str("    \\"Policies and arm-specific outcome predictions must be frozen and generated out-of-fold or on independent training data.\\",\\n");
+    out.push_str("    \\"Randomization probabilities must come from the trial protocol; they are not inferred from observed arm frequencies.\\",\\n");
+    out.push_str("    \\"Per-arm support counts are withheld if any nonzero cell is below the suppression threshold.\\",\\n");
+    out.push_str("    \\"One independent observation per randomized participant and a fully observed prespecified outcome are required.\\",\\n");
+    out.push_str("    \\"Normal-approximation intervals are exploratory and may be unreliable in small samples.\\",\\n");
+    out.push_str("    \\"This report is not a treatment recommendation, clinical validation or proof of patient benefit.\\"\\n");
+    out.push_str("  ]\\n");
+    out.push_str("}\\n");
     out
 }
 
