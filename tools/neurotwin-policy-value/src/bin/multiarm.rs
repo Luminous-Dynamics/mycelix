@@ -2,9 +2,7 @@ use std::env;
 use std::fs;
 use std::process;
 
-use neurotwin_policy_value::multi_arm::{
-    DEFAULT_MIN_REPORT_N, evaluate, parse_tsv, render_json,
-};
+use neurotwin_policy_value::multi_arm::{DEFAULT_MIN_REPORT_N, evaluate, parse_tsv, render_json};
 
 fn run() -> Result<(), String> {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -16,7 +14,8 @@ fn run() -> Result<(), String> {
     }
 
     let minimum_report_n = if let Some(value) = args.get(2) {
-        value.parse::<usize>()
+        value
+            .parse::<usize>()
             .map_err(|_| "MIN_REPORT_N must be a positive integer".to_string())?
     } else {
         DEFAULT_MIN_REPORT_N
