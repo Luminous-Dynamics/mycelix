@@ -1,0 +1,77 @@
+name: NeuroTwin BIDS Intake Audit
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "tools/neurotwin-intake-audit/**"
+      - ".github/workflows/neurotwin-intake-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-head:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact head
+        if: github.event_name == 'pull_request'
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/neurotwin-intake-audit/Cargo.toml -- --check
+
+      - name: Run unit tests
+        run: cargo test --manifest-path tools/neurotwin-intake-audit/Cargo.toml --locked
+
+      - name: Run strict Clippy
+        run: cargo clippy --manifest-path tools/neurotwin-intake-audit/Cargo.toml --all-targets --locked -- -D warnings
+
+      - name: Create normal synthetic fixture
+        run: bash tools/neurotwin-intake-audit/scripts/create-synthetic-fixture.sh "$RUNNER_TEMP/neurotwin-bids-normal"
+
+      - name: Exercise aggregate-only intake CLI
+        run: |
+          cargo run --manifest-path tools/neurotwin-intake-audit/Cargo.toml --locked -- \
+            "$RUNNER_TEMP/neurotwin-bids-normal" "$RUNNER_TEMP/intake-receipt.json"
+          jq -e '.schema_version == "neurotwin-bids-intake-receipt-v0.1" and .status == "complete" and .aggregate_counts.subject_directories == 21 and .official_bids_validator_required == true' "$RUNNER_TEMP/intake-receipt.json" >/dev/null
+          if grep -Fq "sub-s001" "$RUNNER_TEMP/intake-receipt.json"; then
+            echo "participant identifier leaked into intake receipt"
+            exit 1
+          fi
+          if grep -Fq "SYNTHETIC_ONLY_NOT_NIFTI" "$RUNNER_TEMP/intake-receipt.json"; then
+            echo "modality file contents leaked into intake receipt"
+            exit 1
+          fi
+
+      - name: Verify output is kept outside dataset root
+        run: |
+          if cargo run --manifest-path tools/neurotwin-intake-audit/Cargo.toml --locked -- \
+            "$RUNNER_TEMP/neurotwin-bids-normal" "$RUNNER_TEMP/neurotwin-bids-normal/receipt.json"; then
+            echo "receipt was unexpectedly written into the dataset"
+            exit 1
+          fi
+          test ! -e "$RUNNER_TEMP/neurotwin-bids-normal/receipt.json"
+
+      - name: Verify small-cohort suppression
+        run: |
+          bash tools/neurotwin-intake-audit/scripts/create-synthetic-fixture.sh "$RUNNER_TEMP/neurotwin-bids-small" small
+          cargo run --manifest-path tools/neurotwin-intake-audit/Cargo.toml --locked -- \
+            "$RUNNER_TEMP/neurotwin-bids-small" "$RUNNER_TEMP/intake-small.json"
+          jq -e '.status == "suppressed" and .aggregate_counts == null' "$RUNNER_TEMP/intake-small.json" >/dev/null
