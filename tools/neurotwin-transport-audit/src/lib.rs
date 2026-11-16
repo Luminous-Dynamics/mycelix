@@ -626,6 +626,70 @@ mod tests {
     }
 
     #[test]
+    fn calibration_fit_recovers_known_intercept_and_slope_under_synthetic_shift() {
+        let mut rows = Vec::with_capacity(50_000);
+        let mut state = 0x7a31_8d2f_6c45_b901_u64;
+        for index in 0..50_000 {
+            let p = 0.02 + 0.96 * index as f64 / 49_999.0;
+            let true_probability = sigmoid(0.6 + 0.8 * logit(p));
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            let draw = (state >> 11) as f64 / ((1_u64 << 53) as f64);
+            rows.push(row(
+                &format!("cal-{index:05}"),
+                "calibration-sim",
+                draw < true_probability,
+                p,
+                0.8,
+            ));
+        }
+
+        let metrics = calculate_metrics(&rows).unwrap();
+        let intercept = metrics.calibration_intercept.unwrap();
+        let slope = metrics.calibration_slope.unwrap();
+        assert!((intercept - 0.6).abs() < 0.04, "intercept recovered as {intercept}");
+        assert!((slope - 0.8).abs() < 0.04, "slope recovered as {slope}");
+    }
+
+    #[test]
+    fn prevalence_shift_preserves_auc_but_changes_precision_recall() {
+        let negative_scores = [
+            0.10, 0.15, 0.20, 0.25, 0.30,
+            0.12, 0.17, 0.22, 0.27, 0.32,
+            0.14, 0.19, 0.24, 0.29, 0.34,
+            0.16, 0.21, 0.26, 0.31, 0.36,
+        ];
+        let positive_scores = [0.20, 0.30, 0.40, 0.50, 0.60];
+        let mut common = Vec::new();
+        let mut rare = Vec::new();
+
+        for (index, score) in negative_scores.iter().enumerate() {
+            common.push(row(&format!("common-neg-{index}"), "common", false, *score, 0.8));
+            rare.push(row(&format!("rare-neg-{index}"), "rare", false, *score, 0.8));
+        }
+        for (index, score) in positive_scores.iter().enumerate() {
+            for repeat in 0..4 {
+                common.push(row(
+                    &format!("common-pos-{index}-{repeat}"),
+                    "common",
+                    true,
+                    *score,
+                    0.8,
+                ));
+            }
+            rare.push(row(&format!("rare-pos-{index}"), "rare", true, *score, 0.8));
+        }
+
+        let common_metrics = calculate_metrics(&common).unwrap();
+        let rare_metrics = calculate_metrics(&rare).unwrap();
+        assert!(
+            (common_metrics.auroc.unwrap() - rare_metrics.auroc.unwrap()).abs() < 1.0e-12
+        );
+        assert!(common_metrics.auprc.unwrap() > rare_metrics.auprc.unwrap());
+    }
+
+    #[test]
     fn single_class_domain_has_undefined_discrimination_and_calibration() {
         let rows: Vec<Observation> = (0..20)
             .map(|index| row(&format!("neg-{index}"), "all-negative", false, 0.2, 0.5))
