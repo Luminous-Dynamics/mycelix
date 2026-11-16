@@ -6,7 +6,8 @@
 //! official BIDS Validator.
 
 use std::collections::BTreeSet;
-use std::fs;
+use std::fs::{self, File};
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 pub const DEFAULT_MIN_REPORT_N: usize = 20;
@@ -139,12 +140,14 @@ fn read_participants(path: &Path) -> Result<ParticipantsTable, &'static str> {
         return Err("participants_tsv_unreadable");
     }
 
-    let contents = fs::read_to_string(path).map_err(|_| "participants_tsv_unreadable")?;
-    let mut lines = contents.lines();
-    let header = lines.next().ok_or("participants_id_column_missing")?;
-    let header = header.strip_prefix('\u{feff}').unwrap_or(header);
-    let first_column = header.trim_end_matches('\r').split('\t').next().unwrap_or("");
-    if first_column != "participant_id" {
+    let file = File::open(path).map_err(|_| "participants_tsv_unreadable")?;
+    let mut reader = BufReader::new(file);
+    let mut header = read_first_column(&mut reader).map_err(|_| "participants_tsv_unreadable")?
+        .ok_or("participants_id_column_missing")?;
+    if header.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        header.drain(..3);
+    }
+    if header.as_slice() != b"participant_id" {
         return Err("participants_id_column_missing");
     }
 
@@ -155,13 +158,14 @@ fn read_participants(path: &Path) -> Result<ParticipantsTable, &'static str> {
         invalid_rows: 0,
     };
 
-    for raw_line in lines {
-        let line = raw_line.trim_end_matches('\r');
-        if line.is_empty() {
+    while let Some(value) =
+        read_first_column(&mut reader).map_err(|_| "participants_tsv_unreadable")?
+    {
+        if value.is_empty() {
             continue;
         }
         table.rows += 1;
-        let value = line.split('\t').next().unwrap_or("");
+        let value = std::str::from_utf8(&value).unwrap_or("");
         if !valid_subject_name(value) {
             table.invalid_rows += 1;
             continue;
@@ -174,6 +178,81 @@ fn read_participants(path: &Path) -> Result<ParticipantsTable, &'static str> {
     Ok(table)
 }
 
+/// Read only the first TSV field. Remaining columns are discarded in-place
+/// through BufRead::consume and are never materialized as strings or parsed.
+fn read_first_column(reader: &mut impl BufRead) -> std::io::Result<Option<Vec<u8>>> {
+    const MAX_ID_BYTES: usize = 128;
+    let mut field = Vec::new();
+
+    loop {
+        let available = reader.fill_buf()?;
+        if available.is_empty() {
+            if field.is_empty() {
+                return Ok(None);
+            }
+            trim_line_ending(&mut field);
+            return Ok(Some(field));
+        }
+
+        let tab = available.iter().position(|byte| *byte == b'\\t');
+        let newline = available.iter().position(|byte| *byte == b'\\n');
+        let delimiter = match (tab, newline) {
+            (Some(tab), Some(newline)) => Some((tab.min(newline), tab < newline)),
+            (Some(tab), None) => Some((tab, true)),
+            (None, Some(newline)) => Some((newline, false)),
+            (None, None) => None,
+        };
+
+        if let Some((position, is_tab)) = delimiter {
+            if field.len() + position > MAX_ID_BYTES {
+                reader.consume(position + 1);
+                if is_tab {
+                    discard_to_line_end(reader)?;
+                }
+                return Ok(Some(Vec::new()));
+            }
+            field.extend_from_slice(&available[..position]);
+            reader.consume(position + 1);
+            if is_tab {
+                discard_to_line_end(reader)?;
+            }
+            trim_line_ending(&mut field);
+            return Ok(Some(field));
+        }
+
+        if field.len() + available.len() > MAX_ID_BYTES {
+            let length = available.len();
+            reader.consume(length);
+            discard_to_line_end(reader)?;
+            return Ok(Some(Vec::new()));
+        }
+
+        let length = available.len();
+        field.extend_from_slice(available);
+        reader.consume(length);
+    }
+}
+
+fn discard_to_line_end(reader: &mut impl BufRead) -> std::io::Result<()> {
+    loop {
+        let available = reader.fill_buf()?;
+        if available.is_empty() {
+            return Ok(());
+        }
+        if let Some(newline) = available.iter().position(|byte| *byte == b'\\n') {
+            reader.consume(newline + 1);
+            return Ok(());
+        }
+        let length = available.len();
+        reader.consume(length);
+    }
+}
+
+fn trim_line_ending(value: &mut Vec<u8>) {
+    if value.last() == Some(&b'\\r') {
+        value.pop();
+    }
+}
 fn is_regular_non_symlink_file(path: &Path) -> bool {
     fs::symlink_metadata(path)
         .map(|metadata| metadata.is_file() && !metadata.file_type().is_symlink())
@@ -326,6 +405,7 @@ fn valid_label(value: &str) -> bool {
 /// Render aggregate-only JSON. Counts are withheld if the cohort is below the
 /// minimum denominator or if any required filesystem/table scan was incomplete.
 pub fn render_json(audit: &IntakeAudit, minimum_subject_count: usize) -> String {
+    let minimum_subject_count = minimum_subject_count.max(DEFAULT_MIN_REPORT_N);
     let suppressed = audit.counts.subject_directories < minimum_subject_count;
     let status = if !audit.scan_complete {
         "incomplete"
@@ -643,6 +723,29 @@ mod tests {
         assert_eq!(audit.counts.subject_directories, 21);
         assert_eq!(audit.counts.symlink_entries_skipped, 1);
         assert!(audit.finding_codes.contains("symlink_entries_skipped"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlink_root_is_rejected() {
+        use std::os::unix::fs::symlink;
+
+        let dataset = TempDataset::new();
+        let external = TempDataset::new();
+        external.add_subject("s001");
+        let link = dataset.path.join("root-link");
+        symlink(&external.path, &link).unwrap();
+        assert!(audit_dataset(&link).is_err());
+    }
+
+    #[test]
+    fn library_renderer_cannot_lower_the_default_suppression_floor() {
+        let dataset = TempDataset::new();
+        dataset.add_subjects_and_table(3);
+        let audit = audit_dataset(&dataset.path).unwrap();
+        let receipt = render_json(&audit, 1);
+        assert!(receipt.contains("\\"status\\": \\"suppressed\\""));
+        assert!(receipt.contains("\\"aggregate_counts\\": null"));
     }
 
     #[test]
