@@ -8,7 +8,7 @@ This isolated Rust tool inventories BIDS-like subject/session structure, compare
 ## What it reads
 
 - Presence and file type of dataset_description.json; its contents are not parsed.
-- Presence and first TSV column of participants.tsv; participant IDs are read locally only to check uniqueness and correspondence with subject directories.
+- Presence and first TSV column of participants.tsv; participant IDs are streamed locally only to check uniqueness and correspondence with subject directories. Other TSV columns are discarded without being parsed or retained.
 - Directory names and file metadata under recognized modality folders: anat, func, dwi, fmap, eeg, meg, ieeg, beh, perf, pet, micr and motion.
 
 It **does not open MRI, EEG, MEG, PET, NIfTI, EDF or other modality payload contents**. It does not hash any file.
