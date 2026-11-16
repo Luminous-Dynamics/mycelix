@@ -20,10 +20,10 @@ fn output_path_outside_dataset(root: &Path, output: &Path) -> Result<PathBuf, St
     if destination.starts_with(root) {
         return Err("aggregate receipt must be written outside the dataset directory".to_string());
     }
-    if let Ok(metadata) = fs::symlink_metadata(&destination) {
-        if metadata.file_type().is_symlink() || !metadata.is_file() {
-            return Err("output destination must be a regular file path".to_string());
-        }
+    if let Ok(metadata) = fs::symlink_metadata(&destination)
+        && (metadata.file_type().is_symlink() || !metadata.is_file())
+    {
+        return Err("output destination must be a regular file path".to_string());
     }
 
     Ok(destination)
