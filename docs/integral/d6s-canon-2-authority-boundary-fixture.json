@@ -1,0 +1,77 @@
+{
+  "schema_version": "d6s-canon-2-authority-boundary-fixture/1",
+  "status": "ReferenceModelOnly",
+  "corpus_id": "COS-CONF-001",
+  "mutations": [
+    {
+      "id": "planned_input_is_not_consumption",
+      "test_id": "COS-N-002",
+      "expected_without_binding": "Rejected",
+      "expected_with_binding": "Accepted",
+      "binding": "plan_consumption"
+    },
+    {
+      "id": "scheduled_operation_is_not_observed_work",
+      "expected_without_binding": "Rejected",
+      "expected_with_binding": "NotAutomaticallyPromoted",
+      "binding": "explicit_observed_work_event"
+    },
+    {
+      "id": "finding_is_not_source_observation",
+      "test_id": "COS-N-010",
+      "expected_without_binding": "Rejected",
+      "expected_with_binding": "Accepted",
+      "binding": "source_observation_created"
+    },
+    {
+      "id": "recommendation_needs_authorization_and_effect",
+      "test_id": "COS-N-014",
+      "expected_without_binding": "Unauthorized",
+      "expected_authorization_only": "Unauthorized",
+      "expected_with_authorization_and_effect": "Accepted",
+      "binding": "recommendation_authorized_and_effect_recorded"
+    },
+    {
+      "id": "unknown_delivery_is_not_failure",
+      "test_id": "UNSPECIFIED-DELIVERY-OUTCOME",
+      "expected_without_binding": "Unknown",
+      "expected_with_binding": "RequiresExplicitEvidence",
+      "binding": "explicit_outcome_receipt"
+    },
+    {
+      "id": "foreign_origin_survives_recognition",
+      "test_id": "COS-N-013",
+      "expected_without_binding": "Rejected",
+      "expected_with_binding": "Accepted",
+      "binding": "foreign_recognition",
+      "expected_origin": "Foreign(node-b)"
+    },
+    {
+      "id": "qualification_does_not_prove_physical_work",
+      "test_id": "COS-N-012",
+      "expected_without_binding": "Rejected",
+      "expected_with_binding": "Accepted",
+      "binding": "physical_work_binding"
+    },
+    {
+      "id": "later_success_preserves_failure_history",
+      "expected_after_later_success": "Preserved",
+      "binding": "append_only_failure_history"
+    },
+    {
+      "id": "availability_requires_temporal_binding",
+      "test_id": "COS-N-004",
+      "expected_without_binding": "Rejected",
+      "expected_with_binding": "Accepted",
+      "binding": "requirement_availability"
+    },
+    {
+      "id": "single_success_is_not_general_capability",
+      "test_id": "COS-N-007",
+      "expected_without_binding": "Rejected",
+      "expected_with_binding": "Accepted",
+      "binding": "general_capability_evidence"
+    }
+  ],
+  "claim_ceiling": "Fixture expectations cover semantic authority/provenance boundaries in the reference model only. They do not prove runtime authorization, physical execution, factory safety, or Integral implementation."
+}
