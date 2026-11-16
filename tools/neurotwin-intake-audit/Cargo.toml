@@ -1,0 +1,9 @@
+[package]
+name = "neurotwin-intake-audit"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+license = "AGPL-3.0-or-later"
+description = "Local-only aggregate BIDS cohort metadata intake audit"
+
+[workspace]
