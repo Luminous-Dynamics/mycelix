@@ -1,0 +1,158 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Synthetic adversarial validation fixtures only; no live food, containers or cleaning events.",
+  "cases": [
+    {
+      "case_id": "valid-dry-staple-return-cycle-event",
+      "expected_schema_valid": true,
+      "expected_domain_validity": "conditional_on_referenced_evidence",
+      "payload": {
+        "schema_version": "1.0.0",
+        "event_id": "evt-fixture-0001",
+        "event_type": "returned",
+        "subject_ref": "mycelix:container-unit:fixture-01",
+        "design_ref": "mycelix:pack-design:dry-tote:v1",
+        "product_lot_ref": "mycelix:food-lot:fixture-42",
+        "occurred_at": "2026-11-16T10:00:00+02:00",
+        "received_at": "2026-11-16T10:00:03+02:00",
+        "actor_ref": "mycelix:actor:cooperative",
+        "custody_ref": "mycelix:custody:fixture",
+        "location_ref": "region:ZA-GP-JHB",
+        "quantity": {
+          "value": 8,
+          "unit": "kg"
+        },
+        "evidence_class": "measured",
+        "evidence_refs": [
+          "evidence:weighed-return:fixture"
+        ],
+        "instrument_ref": "instrument:scale:fixture",
+        "calibration_ref": "calibration:scale:fixture",
+        "predecessor_event_ref": "event:dispatch:fixture",
+        "idempotency_key": "fixture-return-container-01-0001",
+        "wash_result": null,
+        "inspection_result": null,
+        "release_authority_ref": null,
+        "correction_of_event_ref": null
+      }
+    },
+    {
+      "case_id": "reject-release-when-cleaning-state-unknown",
+      "expected_schema_valid": false,
+      "expected_domain_validity": "reject",
+      "payload": {
+        "schema_version": "1.0.0",
+        "event_id": "evt-fixture-0002",
+        "event_type": "released_for_use",
+        "subject_ref": "mycelix:container-unit:fixture-02",
+        "design_ref": "mycelix:pack-design:ready-meal:v1",
+        "product_lot_ref": null,
+        "occurred_at": "2026-11-16T10:00:00+02:00",
+        "received_at": null,
+        "actor_ref": "mycelix:actor:unknown",
+        "custody_ref": null,
+        "location_ref": null,
+        "quantity": null,
+        "evidence_class": "declared",
+        "evidence_refs": [],
+        "instrument_ref": null,
+        "calibration_ref": null,
+        "predecessor_event_ref": null,
+        "idempotency_key": "fixture-release-0002",
+        "wash_result": {
+          "state": "unknown",
+          "method_ref": null,
+          "cycle_parameters_ref": null,
+          "residual_or_hygiene_assay_ref": null
+        },
+        "inspection_result": {
+          "state": "pass",
+          "inspection_method_ref": "method:visual-only",
+          "inspector_ref": "actor:fixture"
+        },
+        "release_authority_ref": null,
+        "correction_of_event_ref": null
+      }
+    },
+    {
+      "case_id": "reject-pressure-use-without-qualification-reference",
+      "expected_schema_valid": false,
+      "expected_domain_validity": "reject",
+      "payload": {
+        "schema_version": "1.0.0",
+        "design_id": "fixture-pressure-container",
+        "revision": 1,
+        "format_class": "reusable_return",
+        "intended_food_categories": [
+          "ready_to_eat"
+        ],
+        "material": {
+          "material_id": "PP-unspecified",
+          "grade": null,
+          "composition_summary": "unspecified polymer",
+          "food_contact_status": "not_assessed",
+          "food_contact_evidence_refs": []
+        },
+        "capacity": {
+          "nominal_value": 1,
+          "usable_value": 0.9,
+          "unit": "l",
+          "tare_mass_g": 80
+        },
+        "use_temperature_c": {
+          "minimum": 0,
+          "maximum": 100
+        },
+        "pressure_use": true,
+        "food_contact_assessment": {
+          "status": "not_assessed",
+          "assessed_scope": "none",
+          "assessor_ref": null,
+          "valid_until": null,
+          "evidence_refs": []
+        },
+        "cleaning_profile": {
+          "method_reference": "unknown",
+          "inspection_required": true,
+          "max_service_cycles": null,
+          "repair_instructions_ref": null,
+          "retirement_criteria_ref": null
+        },
+        "design_rights_ref": null,
+        "evidence_refs": [],
+        "declared_unknowns": [
+          "No pressure or migration qualification"
+        ]
+      }
+    },
+    {
+      "case_id": "reject-out-of-order-event-by-stateful-verifier",
+      "expected_schema_valid": true,
+      "expected_domain_validity": "reject_by_sequence_verifier",
+      "payload": {
+        "schema_version": "1.0.0",
+        "event_id": "evt-fixture-0004",
+        "event_type": "received",
+        "subject_ref": "mycelix:container-unit:fixture-04",
+        "design_ref": "mycelix:pack-design:dry-tote:v1",
+        "product_lot_ref": null,
+        "occurred_at": "2026-11-16T09:00:00+02:00",
+        "received_at": null,
+        "actor_ref": "mycelix:actor:cooperative",
+        "custody_ref": null,
+        "location_ref": "region:ZA-GP-JHB",
+        "quantity": null,
+        "evidence_class": "declared",
+        "evidence_refs": [],
+        "instrument_ref": null,
+        "calibration_ref": null,
+        "predecessor_event_ref": "event:return-after-11am",
+        "idempotency_key": "fixture-out-of-order-0004",
+        "wash_result": null,
+        "inspection_result": null,
+        "release_authority_ref": null,
+        "correction_of_event_ref": null
+      }
+    }
+  ]
+}
