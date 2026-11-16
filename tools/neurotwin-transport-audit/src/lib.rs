@@ -256,7 +256,7 @@ fn calculate_metrics(rows: &[Observation]) -> Result<Metrics, String> {
     let mut log_loss_sum = 0.0;
     let mut expected = 0.0;
     for row in rows {
-        let y = (if row.outcome { 1.0 } else { 0.0 });
+        let y = if row.outcome { 1.0 } else { 0.0 };
         let p = row.predicted_probability;
         let clipped = p.clamp(LOG_EPSILON, 1.0 - LOG_EPSILON);
         let error = p - y;
@@ -371,7 +371,7 @@ fn fit_calibration(rows: &[Observation]) -> (Option<f64>, Option<f64>) {
         for row in rows {
             let x = logit(row.predicted_probability);
             let fitted = sigmoid((intercept + slope * x).clamp(-35.0, 35.0));
-            let y = (if row.outcome { 1.0 } else { 0.0 });
+            let y = if row.outcome { 1.0 } else { 0.0 };
             let residual = y - fitted;
             let weight = (fitted * (1.0 - fitted)).max(1.0e-12);
             g0 += residual;
