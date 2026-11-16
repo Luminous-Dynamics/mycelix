@@ -79,7 +79,7 @@ This is a reference calculation, not an ITE learner or treatment recommendation.
 
 The `multi_arm` module and `neurotwin-multiarm-policy-value` binary generalize the same estimator to 2–8 randomized treatment arms. The input header declares the arm registry and supplies row-specific randomization probabilities and arm-specific predictions. Probability and prediction arm order must match exactly.
 
-The evaluator reports candidate/comparator AIPW policy values, paired difference and uncertainty, plus assignment and policy-selection support per arm. It rejects unknown arms, duplicate keys, missing arm fields, non-finite values, positivity violations, probabilities that do not sum to one, and policies that choose an arm with no observed randomized match in the evaluation sample.
+The evaluator reports candidate/comparator AIPW policy values, paired difference and uncertainty, plus assignment and policy-selection support per arm. It rejects unknown arms, duplicate keys, missing arm fields, non-finite values, positivity violations, probabilities that do not sum to one, and policies that choose an arm with no observed randomized match in the evaluation sample. The report calls the policy match frequency `observed_match_rate` (not selective-prediction coverage). It suppresses the entire per-arm support table if any nonzero cell is below five, even when the total cohort exceeds the default 20-person floor; the threshold is conservative and may be raised by provider policy.
 
 ```bash
 cargo run --locked --bin neurotwin-multiarm-policy-value -- \
