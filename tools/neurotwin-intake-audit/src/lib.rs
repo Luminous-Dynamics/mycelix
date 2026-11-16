@@ -744,8 +744,8 @@ mod tests {
         dataset.add_subjects_and_table(3);
         let audit = audit_dataset(&dataset.path).unwrap();
         let receipt = render_json(&audit, 1);
-        assert!(receipt.contains("\\"status\\": \\"suppressed\\""));
-        assert!(receipt.contains("\\"aggregate_counts\\": null"));
+        assert!(receipt.contains("\"status\": \"suppressed\""));
+        assert!(receipt.contains("\"aggregate_counts\": null"));
     }
 
     #[test]
