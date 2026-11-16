@@ -80,6 +80,10 @@ Symtropy's [PLASMA-FOOD-QUAL-001 #5658](https://github.com/Luminous-Dynamics/sym
 
 Keep measured, modelled, simulated, declared and independently attested evidence distinct. A digital record can preserve provenance and correction history; it cannot prove that an inspection, sensor or laboratory method was correct.
 
+
+
+The proposed `food_treatment_completed` event is implemented in the V1 PackCycleEvidence schema at `mycelix-marketplace/schemas/food-packaging/PackCycleEvidenceV1.schema.json`. It requires a lot reference, treatment profile, process-run reference, equipment reference, process manifest and a fixed no-implicit-claim ceiling. An optional energy receipt reference links to Symtropy PFB-ORACLE-001 #5683. This is event lineage, not a treatment-efficacy, food-safety or shelf-life claim.
+
 ## 4. Lifecycle functional unit and comparison
 
 Primary functional unit:
