@@ -77,10 +77,10 @@ The programme should reproduce the published symptom-specific task separately if
 
 The initial collaboration should include:
 
-1. **Institutional PI / study investigator:** eligible to sponsor the data request, supervise research staff and accept institutional accountability.
+1. **Eligible Study Investigator / PI:** an accountable investigator affiliated with an organization accepted by the data provider. For Brain-CODE this may be an accredited academic institution, think tank, company or other research organization; for NIMH NDA it must satisfy the stricter institutional eRA Commons / PI / FWA requirements.
 2. **Clinical MDD investigator:** confirms intended use, eligibility, outcomes, safety framing and clinically meaningful evaluation.
 3. **Biostatistician / causal-inference lead:** prespecifies estimands, power, randomization analysis, missingness, policy-value evaluation and uncertainty.
-4. **Data custodian / research-compliance and information-security contact:** ensures DUA, controlled workspace, retention, export, incident and disclosure terms are met.
+4. **Data custodian / research-compliance and information-security contact:** ensures REB/IRB review, DUA, controlled workspace, retention, export, incident and disclosure terms are met.
 5. **Patient / lived-experience partner:** shapes relevant outcomes, acceptable burdens, harms and communication.
 
 Luminous Dynamics can contribute reproducible infrastructure, Rust reference tools, protocol and evidence receipts. It must not describe itself as the data custodian, clinical provider, PI institution or sponsor unless that status is formally established.
