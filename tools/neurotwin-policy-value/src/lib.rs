@@ -587,6 +587,75 @@ mod tests {
     }
 
     #[test]
+    fn randomized_simulation_recovers_fixed_policy_value_with_misspecified_outcome_models() {
+        // Deterministic synthetic randomized trial. Assignment probabilities vary
+        // by observation; outcome predictions intentionally carry fixed bias.
+        // The known assignment mechanism should correct this bias in expectation.
+        let n = 5_000usize;
+        let mut state = 0x4d59_5df4_d0f3_3173_u64;
+        let mut observations = Vec::with_capacity(n);
+        let mut candidate_truth = 0.0;
+        let mut comparator_truth = 0.0;
+
+        for index in 0..n {
+            let x = ((index * 37 % 997) as f64 / 996.0) * 2.0 - 1.0;
+            let phase = index as f64 * 0.017;
+            let y_a = 1.2 + 0.7 * x + 0.25 * phase.sin();
+            let y_b = 0.7 - 0.35 * x + 0.20 * (phase * 0.73).cos();
+            let candidate = if x >= 0.0 { Arm::A } else { Arm::B };
+            let comparator = Arm::A;
+
+            candidate_truth += if candidate == Arm::A { y_a } else { y_b };
+            comparator_truth += y_a;
+
+            let p_arm_a = 0.2 + 0.6 * index as f64 / (n - 1) as f64;
+            let p_arm_b = 1.0 - p_arm_a;
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            let draw = (state >> 11) as f64 / ((1_u64 << 53) as f64);
+            let assigned_arm = if draw < p_arm_a { Arm::A } else { Arm::B };
+            let outcome = if assigned_arm == Arm::A { y_a } else { y_b };
+
+            observations.push(Observation {
+                observation_key: format!("sim-{index:05}"),
+                assigned_arm,
+                p_arm_a,
+                p_arm_b,
+                outcome,
+                policy_candidate: candidate,
+                policy_comparator: comparator,
+                mu_arm_a: y_a + 0.30,
+                mu_arm_b: y_b - 0.25,
+            });
+        }
+
+        candidate_truth /= n as f64;
+        comparator_truth /= n as f64;
+
+        let report = evaluate(&observations).unwrap();
+        assert!(
+            (report.candidate.dr_value - candidate_truth).abs() < 0.08,
+            "candidate estimate {} should be near synthetic policy value {}",
+            report.candidate.dr_value,
+            candidate_truth
+        );
+        assert!(
+            (report.comparator.dr_value - comparator_truth).abs() < 0.08,
+            "comparator estimate {} should be near synthetic policy value {}",
+            report.comparator.dr_value,
+            comparator_truth
+        );
+        assert!(
+            (report.candidate_minus_comparator.dr_value_difference
+                - (candidate_truth - comparator_truth))
+                .abs()
+                < 0.08,
+            "paired policy difference should recover the known synthetic contrast"
+        );
+    }
+
+    #[test]
     fn output_contains_aggregates_but_not_observation_keys() {
         let report = evaluate(&hand_computable_rows()).unwrap();
         let output = render_json(&report);
