@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/tools/neurotwin-intake-audit/schemas/intake-receipt-v0.1.schema.json",
+  "title": "NeuroTwin Aggregate BIDS Intake Receipt v0.1",
+  "description": "Local-only aggregate metadata receipt. Contains no paths, participant IDs, subject labels, session labels or file names.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "official_bids_validator_required",
+    "raw_modality_contents_read",
+    "participant_identifiers_emitted",
+    "dataset_description_present",
+    "participants_tsv_present",
+    "minimum_subject_count",
+    "finding_codes",
+    "aggregate_counts"
+  ],
+  "properties": {
+    "schema_version": { "const": "neurotwin-bids-intake-receipt-v0.1" },
+    "status": { "enum": ["complete", "suppressed", "incomplete"] },
+    "official_bids_validator_required": { "const": true },
+    "raw_modality_contents_read": { "const": false },
+    "participant_identifiers_emitted": { "const": false },
+    "dataset_description_present": { "type": "boolean" },
+    "participants_tsv_present": { "type": "boolean" },
+    "minimum_subject_count": { "type": "integer", "minimum": 20 },
+    "finding_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "dataset_description_missing",
+          "participants_tsv_missing_warning",
+          "participants_tsv_unreadable",
+          "participants_id_column_missing",
+          "invalid_subject_directory_name",
+          "invalid_session_directory_name",
+          "invalid_participant_id",
+          "duplicate_participant_id",
+          "participant_ids_without_subject_directory",
+          "subject_directories_missing_from_participant_table",
+          "no_subject_directories",
+          "symlink_entries_skipped"
+        ]
+      }
+    },
+    "aggregate_counts": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/aggregate_counts" }
+      ]
+    }
+  },
+  "$defs": {
+    "aggregate_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_directories",
+        "session_directories",
+        "participant_table_rows",
+        "participant_table_unique_valid_ids",
+        "participant_table_duplicate_rows",
+        "participant_table_invalid_id_rows",
+        "participant_ids_without_subject_directory",
+        "subject_directories_missing_from_participant_table",
+        "symlink_entries_skipped",
+        "modality_file_counts"
+      ],
+      "properties": {
+        "subject_directories": { "type": "integer", "minimum": 20 },
+        "session_directories": { "type": "integer", "minimum": 0 },
+        "participant_table_rows": { "type": "integer", "minimum": 0 },
+        "participant_table_unique_valid_ids": { "type": "integer", "minimum": 0 },
+        "participant_table_duplicate_rows": { "type": "integer", "minimum": 0 },
+        "participant_table_invalid_id_rows": { "type": "integer", "minimum": 0 },
+        "participant_ids_without_subject_directory": { "type": "integer", "minimum": 0 },
+        "subject_directories_missing_from_participant_table": { "type": "integer", "minimum": 0 },
+        "symlink_entries_skipped": { "type": "integer", "minimum": 0 },
+        "modality_file_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["anat", "func", "dwi", "fmap", "eeg", "meg", "ieeg", "beh", "perf", "pet", "micr", "motion"],
+          "properties": {
+            "anat": { "type": "integer", "minimum": 0 },
+            "func": { "type": "integer", "minimum": 0 },
+            "dwi": { "type": "integer", "minimum": 0 },
+            "fmap": { "type": "integer", "minimum": 0 },
+            "eeg": { "type": "integer", "minimum": 0 },
+            "meg": { "type": "integer", "minimum": 0 },
+            "ieeg": { "type": "integer", "minimum": 0 },
+            "beh": { "type": "integer", "minimum": 0 },
+            "perf": { "type": "integer", "minimum": 0 },
+            "pet": { "type": "integer", "minimum": 0 },
+            "micr": { "type": "integer", "minimum": 0 },
+            "motion": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    }
+  }
+}
