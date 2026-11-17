@@ -28,12 +28,32 @@ const SOURCE_MANIFEST_JSON: &str = include_str!(concat!(
 
 /// A category of SPARQL query with metadata for composing sentences.
 #[derive(serde::Serialize)]
+struct QueryResponseEvidence {
+    origin: String,
+    authority: String,
+    remote_peer: String,
+    authorized_addresses: Vec<String>,
+    status: u16,
+    response_body_bytes: usize,
+    response_body_limit_bytes: usize,
+    response_body_sha256: String,
+    elapsed_ms: u64,
+    policy_version: String,
+}
+
+struct WikidataQueryResponse {
+    bindings: Vec<serde_json::Value>,
+    evidence: QueryResponseEvidence,
+}
+
+#[derive(serde::Serialize)]
 struct QueryRunProvenance {
     query_id: String,
     sha256: String,
     succeeded: bool,
     result_rows: usize,
     claims_generated: usize,
+    response: Option<QueryResponseEvidence>,
 }
 
 struct QuerySpec {
@@ -64,9 +84,9 @@ fn main() {
         eprintln!("Fetching: {} ...", spec.name);
         let query_sha256 = hex::encode(Sha256::digest(spec.sparql.as_bytes()));
         match fetch_query(&runtime, &client, spec.name, spec.sparql) {
-            Ok(results) => {
+            Ok(result) => {
                 let mut count = 0;
-                for binding in &results {
+                for binding in &result.bindings {
                     if let Some(sentence) = (spec.compose)(binding) {
                         let key = sentence.to_lowercase();
                         // Dedup on first 60 chars to collapse multi-field variants
@@ -96,8 +116,9 @@ fn main() {
                     query_id: spec.name.to_owned(),
                     sha256: query_sha256,
                     succeeded: true,
-                    result_rows: results.len(),
+                    result_rows: result.bindings.len(),
                     claims_generated: count,
+                    response: Some(result.evidence),
                 });
             }
             Err(e) => {
@@ -108,6 +129,7 @@ fn main() {
                     succeeded: false,
                     result_rows: 0,
                     claims_generated: 0,
+                    response: None,
                 });
             }
         }
@@ -245,7 +267,7 @@ fn fetch_query(
     client: &PublicEgressClient,
     query_id: &str,
     sparql: &str,
-) -> Result<Vec<serde_json::Value>, String> {
+) -> Result<WikidataQueryResponse, String> {
     let max_retries = 3;
     for attempt in 0..max_retries {
         let mut url = Url::parse(ENDPOINT).expect("static Wikidata endpoint is valid");
@@ -304,13 +326,30 @@ fn fetch_query(
             ));
         }
 
+        let receipt = &response.receipt;
+        let evidence = QueryResponseEvidence {
+            origin: receipt.origin.clone(),
+            authority: receipt.authority.to_owned(),
+            remote_peer: receipt.remote_peer.to_string(),
+            authorized_addresses: receipt
+                .authorized_addresses
+                .iter()
+                .map(ToString::to_string)
+                .collect(),
+            status: receipt.status,
+            response_body_bytes: receipt.response_body_bytes,
+            response_body_limit_bytes: receipt.response_body_limit_bytes,
+            response_body_sha256: hex::encode(Sha256::digest(response.body.as_slice())),
+            elapsed_ms: receipt.elapsed.as_millis() as u64,
+            policy_version: receipt.policy_version.to_owned(),
+        };
         let body: serde_json::Value = serde_json::from_slice(&response.body)
             .map_err(|error| format!("JSON parse error: {}", error))?;
         let bindings = body["results"]["bindings"]
             .as_array()
             .ok_or("No results.bindings array")?
             .clone();
-        return Ok(bindings);
+        return Ok(WikidataQueryResponse { bindings, evidence });
     }
     Err("Exhausted retries".to_string())
 }
