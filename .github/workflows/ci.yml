@@ -446,6 +446,7 @@ jobs:
             fi
           }
           require_source '.redirect(reqwest::redirect::Policy::none())' "$egress"
+          require_source 'reqwest = { version = "=0.13.5"' mycelix-prism/prism-egress/Cargo.toml
           require_source '.no_proxy()' "$egress"
           # Reqwest 0.12.23+ retries protocol NACKs by default. The transport
           # must leave all retry policy decisions to Prism's capability layer.
