@@ -1,0 +1,942 @@
+{
+  "corpus_version": "0.1",
+  "synthetic": true,
+  "as_of": "2026-11-14T00:00:00Z",
+  "cases": [
+    {
+      "scenario_id": "S6-001",
+      "case_family": "healthy_multi_claim_baseline",
+      "description": "Current source records support distinct claim dimensions for one land asset; produce a scoped read-only view.",
+      "profile_ref": "PROFILE-SYNTHETIC-A",
+      "assets": [
+        {
+          "asset_ref": "LAND-001",
+          "asset_class": "land_building",
+          "owning_entity_ref": "ENTITY-A"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "SRC-TITLE-001",
+          "record_family": "registry_extract",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "title"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "title",
+              "declared_disposition": "supported_within_scope",
+              "value": "ENTITY-A",
+              "scope": "registered holder for LAND-001"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        },
+        {
+          "source_id": "SRC-CUSTODY-001",
+          "record_family": "facility_custody_register",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "custody"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "custody",
+              "declared_disposition": "supported_within_scope",
+              "value": "Estate Facilities Unit",
+              "scope": "custodial responsibility only"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        },
+        {
+          "source_id": "SRC-COND-001",
+          "record_family": "inspection_report",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "condition"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "condition",
+              "declared_disposition": "supported_within_scope",
+              "value": "inspection grade B",
+              "scope": "visual inspection on stated date"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACT-REVIEWER-A",
+        "entity_ref": "ENTITY-A",
+        "declared_capabilities": [
+          "read_claim_projection"
+        ]
+      },
+      "request": {
+        "action": "produce_scoped_claim_snapshot",
+        "asset_ref": "LAND-001",
+        "claim_dimension": null,
+        "requested_value": null
+      },
+      "context": [
+        "Synthetic current records.",
+        "No transfer, title amendment or legal determination is requested."
+      ],
+      "temporal_queries": []
+    },
+    {
+      "scenario_id": "S6-002",
+      "case_family": "custody_is_not_title",
+      "description": "A museum custody record is misused as proof that the museum owns a work.",
+      "profile_ref": "PROFILE-SYNTHETIC-A",
+      "assets": [
+        {
+          "asset_ref": "ART-001",
+          "asset_class": "art_heritage",
+          "owning_entity_ref": "ENTITY-A"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "SRC-MUSEUM-001",
+          "record_family": "museum_custody_receipt",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "custody"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "custody",
+              "declared_disposition": "supported_within_scope",
+              "value": "MUSEUM-X",
+              "scope": "physical custody under loan agreement"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACT-REVIEWER-A",
+        "entity_ref": "ENTITY-A",
+        "declared_capabilities": [
+          "read_claim_projection"
+        ]
+      },
+      "request": {
+        "action": "declare_title_holder",
+        "asset_ref": "ART-001",
+        "claim_dimension": "title",
+        "requested_value": "MUSEUM-X"
+      },
+      "context": [
+        "No title record is supplied.",
+        "Custody competence is limited to physical custody."
+      ],
+      "temporal_queries": []
+    },
+    {
+      "scenario_id": "S6-003",
+      "case_family": "stale_valuation",
+      "description": "A historical indicative valuation is presented as a current portfolio value.",
+      "profile_ref": "PROFILE-SYNTHETIC-A",
+      "assets": [
+        {
+          "asset_ref": "ART-002",
+          "asset_class": "art_heritage",
+          "owning_entity_ref": "ENTITY-A"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "SRC-VALUATION-001",
+          "record_family": "indicative_valuation",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "valuation"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2024-04-01T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "valuation",
+              "declared_disposition": "historical_only",
+              "value": "USD 850000",
+              "scope": "indicative estimate, not a current appraisal"
+            }
+          ],
+          "effective_from": "2024-04-01T00:00:00Z",
+          "effective_through": "2024-04-02T00:00:00Z"
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACT-ANALYST-A",
+        "entity_ref": "ENTITY-A",
+        "declared_capabilities": [
+          "read_claim_projection"
+        ]
+      },
+      "request": {
+        "action": "publish_current_valuation",
+        "asset_ref": "ART-002",
+        "claim_dimension": "valuation",
+        "requested_value": "USD 850000"
+      },
+      "context": [
+        "Source is outside configured freshness window.",
+        "Valuation is not evidence of title or coverage."
+      ],
+      "temporal_queries": []
+    },
+    {
+      "scenario_id": "S6-004",
+      "case_family": "unknown_transfer_outcome",
+      "description": "A custody handover request times out after dispatch may have occurred; a blind retry could duplicate the physical transfer.",
+      "profile_ref": "PROFILE-SYNTHETIC-A",
+      "assets": [
+        {
+          "asset_ref": "EQUIP-001",
+          "asset_class": "specialist_equipment",
+          "owning_entity_ref": "ENTITY-A"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "SRC-HANDOVER-001",
+          "record_family": "handover_gateway_receipt",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "transfer_observation"
+          ],
+          "availability": "partial",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "transfer_observation",
+              "declared_disposition": "indeterminate",
+              "value": "request accepted by gateway; physical receipt unknown",
+              "scope": "outcome after timeout"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACT-OPERATOR-A",
+        "entity_ref": "ENTITY-A",
+        "declared_capabilities": [
+          "request_handover"
+        ]
+      },
+      "request": {
+        "action": "retry_handover",
+        "asset_ref": "EQUIP-001",
+        "claim_dimension": null,
+        "requested_value": null
+      },
+      "context": [
+        "A stable operation key exists.",
+        "Timeout does not establish success or failure."
+      ],
+      "temporal_queries": []
+    },
+    {
+      "scenario_id": "S6-005",
+      "case_family": "unresolved_encumbrance",
+      "description": "Title is supported, but the encumbrance search is unavailable while disposal is proposed.",
+      "profile_ref": "PROFILE-SYNTHETIC-A",
+      "assets": [
+        {
+          "asset_ref": "BUILDING-001",
+          "asset_class": "land_building",
+          "owning_entity_ref": "ENTITY-A"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "SRC-TITLE-005",
+          "record_family": "registry_extract",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "title"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "title",
+              "declared_disposition": "supported_within_scope",
+              "value": "ENTITY-A",
+              "scope": "registered holder for BUILDING-001"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        },
+        {
+          "source_id": "SRC-LIEN-005",
+          "record_family": "encumbrance_search",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "encumbrance"
+          ],
+          "availability": "unavailable",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "encumbrance",
+              "declared_disposition": "unavailable",
+              "value": "no current response",
+              "scope": "registry endpoint unavailable"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACT-DISPOSAL-A",
+        "entity_ref": "ENTITY-A",
+        "declared_capabilities": [
+          "propose_disposal",
+          "execute_disposal"
+        ]
+      },
+      "request": {
+        "action": "execute_disposal",
+        "asset_ref": "BUILDING-001",
+        "claim_dimension": null,
+        "requested_value": null
+      },
+      "context": [
+        "Unavailable evidence is not evidence of no lien.",
+        "Title and permission to dispose are separate claims."
+      ],
+      "temporal_queries": []
+    },
+    {
+      "scenario_id": "S6-006",
+      "case_family": "rights_restriction",
+      "description": "A loan agreement permits custody but prohibits public display and reproduction; a publication request is raised.",
+      "profile_ref": "PROFILE-SYNTHETIC-A",
+      "assets": [
+        {
+          "asset_ref": "ART-003",
+          "asset_class": "art_heritage",
+          "owning_entity_ref": "ENTITY-A"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "SRC-LOAN-006",
+          "record_family": "collection_loan_agreement",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "custody",
+            "rights"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "custody",
+              "declared_disposition": "supported_within_scope",
+              "value": "MUSEUM-Y",
+              "scope": "temporary custody for conservation"
+            },
+            {
+              "dimension": "rights",
+              "declared_disposition": "supported_within_scope",
+              "value": "no public display or reproduction",
+              "scope": "loan restriction applies through 2027-06-30"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACT-COMMS-A",
+        "entity_ref": "ENTITY-A",
+        "declared_capabilities": [
+          "request_publication"
+        ]
+      },
+      "request": {
+        "action": "publish_public_image",
+        "asset_ref": "ART-003",
+        "claim_dimension": "rights",
+        "requested_value": "public display and reproduction"
+      },
+      "context": [
+        "Physical availability does not imply permission to publish."
+      ],
+      "temporal_queries": []
+    },
+    {
+      "scenario_id": "S6-007",
+      "case_family": "insurance_status_unknown",
+      "description": "An insurance schedule lists an asset but current policy validity and insured-party match are not confirmed.",
+      "profile_ref": "PROFILE-SYNTHETIC-A",
+      "assets": [
+        {
+          "asset_ref": "VEHICLE-001",
+          "asset_class": "vehicle",
+          "owning_entity_ref": "ENTITY-A"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "SRC-SCHEDULE-007",
+          "record_family": "insurance_schedule",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "scheduled_asset"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "scheduled_asset",
+              "declared_disposition": "supported_within_scope",
+              "value": "VEHICLE-001 listed",
+              "scope": "schedule listing only"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        },
+        {
+          "source_id": "SRC-COVERAGE-007",
+          "record_family": "insurer_coverage_confirmation",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "insurance_coverage"
+          ],
+          "availability": "unavailable",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "insurance_coverage",
+              "declared_disposition": "unavailable",
+              "value": "no current confirmation returned",
+              "scope": "insurer confirmation endpoint unavailable"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACT-RISK-A",
+        "entity_ref": "ENTITY-A",
+        "declared_capabilities": [
+          "read_risk_projection"
+        ]
+      },
+      "request": {
+        "action": "assert_current_insurance_coverage",
+        "asset_ref": "VEHICLE-001",
+        "claim_dimension": "insurance_coverage",
+        "requested_value": "currently insured"
+      },
+      "context": [
+        "A schedule listing is not proof of current coverage."
+      ],
+      "temporal_queries": []
+    },
+    {
+      "scenario_id": "S6-008",
+      "case_family": "provenance_dispute",
+      "description": "Two credible lineage records conflict; preserve the disagreement instead of choosing one silently.",
+      "profile_ref": "PROFILE-SYNTHETIC-A",
+      "assets": [
+        {
+          "asset_ref": "ART-004",
+          "asset_class": "art_heritage",
+          "owning_entity_ref": "ENTITY-A"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "SRC-PROV-008A",
+          "record_family": "archive_catalogue",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "provenance"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "provenance",
+              "declared_disposition": "contested",
+              "value": "collection lineage A",
+              "scope": "historical ownership sequence"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        },
+        {
+          "source_id": "SRC-PROV-008B",
+          "record_family": "dealer_archive",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "provenance"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "provenance",
+              "declared_disposition": "contested",
+              "value": "collection lineage B",
+              "scope": "conflicting historical ownership sequence"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACT-CURATOR-A",
+        "entity_ref": "ENTITY-A",
+        "declared_capabilities": [
+          "read_claim_projection"
+        ]
+      },
+      "request": {
+        "action": "declare_uncontested_authenticity",
+        "asset_ref": "ART-004",
+        "claim_dimension": "provenance",
+        "requested_value": "lineage A proven"
+      },
+      "context": [
+        "Neither source is universally authoritative.",
+        "Preserve both lineages and the disagreement record."
+      ],
+      "temporal_queries": []
+    },
+    {
+      "scenario_id": "S6-009",
+      "case_family": "partial_source_outage",
+      "description": "The title registry is unavailable while an independent condition report remains current.",
+      "profile_ref": "PROFILE-SYNTHETIC-A",
+      "assets": [
+        {
+          "asset_ref": "LAND-002",
+          "asset_class": "land_building",
+          "owning_entity_ref": "ENTITY-A"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "SRC-TITLE-009",
+          "record_family": "registry_extract",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "title"
+          ],
+          "availability": "unavailable",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "title",
+              "declared_disposition": "unavailable",
+              "value": "no current response",
+              "scope": "registry outage"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        },
+        {
+          "source_id": "SRC-COND-009",
+          "record_family": "inspection_report",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "condition"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "condition",
+              "declared_disposition": "supported_within_scope",
+              "value": "condition grade A",
+              "scope": "recent visual inspection"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACT-REVIEWER-B",
+        "entity_ref": "ENTITY-A",
+        "declared_capabilities": [
+          "read_claim_projection"
+        ]
+      },
+      "request": {
+        "action": "produce_partial_claim_snapshot",
+        "asset_ref": "LAND-002",
+        "claim_dimension": null,
+        "requested_value": null
+      },
+      "context": [
+        "One source outage must not erase unrelated current evidence.",
+        "Unavailable title evidence is not evidence of no title."
+      ],
+      "temporal_queries": []
+    },
+    {
+      "scenario_id": "S6-010",
+      "case_family": "cross_entity_authority",
+      "description": "A council role has authority over ENTITY-A but requests a sale of an asset held by ENTITY-B.",
+      "profile_ref": "PROFILE-SYNTHETIC-A",
+      "assets": [
+        {
+          "asset_ref": "VESSEL-001",
+          "asset_class": "vessel",
+          "owning_entity_ref": "ENTITY-B"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "SRC-MANDATE-010",
+          "record_family": "delegation_register",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "operational_authority"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "operational_authority",
+              "declared_disposition": "supported_within_scope",
+              "value": "ACT-COUNCIL-A may approve budgets for ENTITY-A",
+              "scope": "does not include disposition of ENTITY-B assets"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACT-COUNCIL-A",
+        "entity_ref": "ENTITY-A",
+        "declared_capabilities": [
+          "approve_budget"
+        ]
+      },
+      "request": {
+        "action": "sell_asset",
+        "asset_ref": "VESSEL-001",
+        "claim_dimension": null,
+        "requested_value": null
+      },
+      "context": [
+        "No delegation from ENTITY-B is supplied.",
+        "Seniority is not a substitute for entity-scoped authority."
+      ],
+      "temporal_queries": []
+    },
+    {
+      "scenario_id": "S6-011",
+      "case_family": "succession_authority_gap",
+      "description": "A key custodian becomes unavailable; a proposed successor has no competent appointment evidence.",
+      "profile_ref": "PROFILE-SYNTHETIC-A",
+      "assets": [
+        {
+          "asset_ref": "COLLECTION-001",
+          "asset_class": "art_heritage",
+          "owning_entity_ref": "ENTITY-A"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "SRC-ROLE-011",
+          "record_family": "role_and_appointment_register",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "operational_authority"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "operational_authority",
+              "declared_disposition": "indeterminate",
+              "value": "successor proposed but not appointed",
+              "scope": "appointment instrument unavailable"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACT-SUCCESSOR-PROPOSED",
+        "entity_ref": "ENTITY-A",
+        "declared_capabilities": [
+          "request_transfer"
+        ]
+      },
+      "request": {
+        "action": "execute_collection_transfer",
+        "asset_ref": "COLLECTION-001",
+        "claim_dimension": null,
+        "requested_value": null
+      },
+      "context": [
+        "Prior office-holder unavailability does not confer successor authority.",
+        "Use safe stop and established recovery process."
+      ],
+      "temporal_queries": []
+    },
+    {
+      "scenario_id": "S6-012",
+      "case_family": "common_cause_dependency",
+      "description": "Two properties rely on one water and energy installation; one fault creates correlated service risk.",
+      "profile_ref": "PROFILE-SYNTHETIC-A",
+      "assets": [
+        {
+          "asset_ref": "PROPERTY-A",
+          "asset_class": "land_building",
+          "owning_entity_ref": "ENTITY-A"
+        },
+        {
+          "asset_ref": "PROPERTY-B",
+          "asset_class": "land_building",
+          "owning_entity_ref": "ENTITY-A"
+        },
+        {
+          "asset_ref": "PLANT-001",
+          "asset_class": "shared_infrastructure",
+          "owning_entity_ref": "ENTITY-A"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "SRC-DEPENDENCY-012",
+          "record_family": "infrastructure_topology",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "operational_dependency"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "operational_dependency",
+              "declared_disposition": "supported_within_scope",
+              "value": "PROPERTY-A and PROPERTY-B depend on PLANT-001",
+              "scope": "shared water and energy installation"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACT-RESILIENCE-A",
+        "entity_ref": "ENTITY-A",
+        "declared_capabilities": [
+          "read_dependency_projection"
+        ]
+      },
+      "request": {
+        "action": "assess_portfolio_service_resilience",
+        "asset_ref": "PLANT-001",
+        "claim_dimension": null,
+        "requested_value": null
+      },
+      "context": [
+        "Do not count the shared installation as two independent dependencies.",
+        "Analysis only; no automatic intervention."
+      ],
+      "temporal_queries": []
+    },
+    {
+      "scenario_id": "S6-013",
+      "case_family": "correction_and_as_of_reconstruction",
+      "description": "A later correction supersedes a prior title record; reconstruct earlier decision-time and current views.",
+      "profile_ref": "PROFILE-SYNTHETIC-A",
+      "assets": [
+        {
+          "asset_ref": "LAND-003",
+          "asset_class": "land_building",
+          "owning_entity_ref": "ENTITY-A"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "SRC-TITLE-013A",
+          "record_family": "registry_extract",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "title"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2025-01-01T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "title",
+              "declared_disposition": "historical_only",
+              "value": "ENTITY-C",
+              "scope": "record known at earlier decision time"
+            }
+          ],
+          "effective_from": "2024-01-01T00:00:00Z",
+          "effective_through": "2025-01-15T00:00:00Z"
+        },
+        {
+          "source_id": "SRC-TITLE-013B",
+          "record_family": "registry_correction",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "title"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2025-02-01T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "title",
+              "declared_disposition": "supported_within_scope",
+              "value": "ENTITY-A",
+              "scope": "correction effective after earlier decision"
+            }
+          ],
+          "effective_from": "2024-12-15T00:00:00Z",
+          "effective_through": null
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACT-AUDITOR-A",
+        "entity_ref": "ENTITY-A",
+        "declared_capabilities": [
+          "read_as_of_history"
+        ]
+      },
+      "request": {
+        "action": "reconstruct_prior_and_current_claim_views",
+        "asset_ref": "LAND-003",
+        "claim_dimension": null,
+        "requested_value": null
+      },
+      "context": [
+        "Later correction must not rewrite earlier decision-time evidence.",
+        "Record both effective time and observed/known-at time."
+      ],
+      "temporal_queries": [
+        {
+          "view": "prior_decision",
+          "effective_at": "2025-01-10T00:00:00Z",
+          "known_at": "2025-01-10T00:00:00Z"
+        },
+        {
+          "view": "current",
+          "effective_at": "2026-11-14T00:00:00Z",
+          "known_at": "2026-11-14T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "scenario_id": "S6-014",
+      "case_family": "duplicate_identity_collision",
+      "description": "Two similar artefacts share a near-identical inventory number; fuzzy matching suggests a merge.",
+      "profile_ref": "PROFILE-SYNTHETIC-A",
+      "assets": [
+        {
+          "asset_ref": "ART-005-A",
+          "asset_class": "art_heritage",
+          "owning_entity_ref": "ENTITY-A"
+        },
+        {
+          "asset_ref": "ART-005-B",
+          "asset_class": "art_heritage",
+          "owning_entity_ref": "ENTITY-A"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "SRC-CATALOGUE-014",
+          "record_family": "collection_catalogue",
+          "authority_profile_ref": "PROFILE-SYNTHETIC-A",
+          "competent_for": [
+            "object_identity"
+          ],
+          "availability": "current",
+          "evidence_state": "declared_synthetic",
+          "observed_at": "2026-11-14T00:00:00Z",
+          "claims": [
+            {
+              "dimension": "object_identity",
+              "declared_disposition": "partial",
+              "value": "ART-005-A and ART-005-B have similar catalogue labels",
+              "scope": "distinct serial and conservation marks unresolved"
+            }
+          ],
+          "effective_from": "2025-01-01T00:00:00Z",
+          "effective_through": null
+        }
+      ],
+      "actor": {
+        "actor_ref": "ACT-COLLECTION-ADMIN-A",
+        "entity_ref": "ENTITY-A",
+        "declared_capabilities": [
+          "edit_collection_identity"
+        ]
+      },
+      "request": {
+        "action": "merge_asset_identities",
+        "asset_ref": "ART-005-A",
+        "claim_dimension": "object_identity",
+        "requested_value": "ART-005-B"
+      },
+      "context": [
+        "Similarity is not identity proof.",
+        "Keep distinct records until competent reconciliation resolves the collision."
+      ],
+      "temporal_queries": []
+    }
+  ]
+}

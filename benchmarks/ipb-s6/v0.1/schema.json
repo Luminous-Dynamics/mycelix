@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/benchmarks/ipb-s6/v0.1/schema.json",
+  "title": "IPB-S6 synthetic scenario corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "corpus_version",
+    "synthetic",
+    "as_of",
+    "cases"
+  ],
+  "properties": {
+    "corpus_version": {
+      "const": "0.1"
+    },
+    "synthetic": {
+      "const": true
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset_ref",
+        "asset_class",
+        "owning_entity_ref"
+      ],
+      "properties": {
+        "asset_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "asset_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owning_entity_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "declared_disposition",
+        "value",
+        "scope"
+      ],
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "minLength": 1
+        },
+        "declared_disposition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "record_family",
+        "authority_profile_ref",
+        "competent_for",
+        "availability",
+        "evidence_state",
+        "observed_at",
+        "effective_from",
+        "effective_through",
+        "claims"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "record_family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "competent_for": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "availability": {
+          "enum": [
+            "current",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "evidence_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "effective_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "effective_through": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "claims": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/claim"
+          }
+        }
+      }
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor_ref",
+        "entity_ref",
+        "declared_capabilities"
+      ],
+      "properties": {
+        "actor_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "declared_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "asset_ref",
+        "claim_dimension",
+        "requested_value"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "asset_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_dimension": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requested_value": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "temporalQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "view",
+        "effective_at",
+        "known_at"
+      ],
+      "properties": {
+        "view": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effective_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "known_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "case_family",
+        "description",
+        "profile_ref",
+        "assets",
+        "sources",
+        "actor",
+        "request",
+        "context",
+        "temporal_queries"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^S6-[0-9]{3}$"
+        },
+        "case_family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/asset"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source"
+          }
+        },
+        "actor": {
+          "$ref": "#/$defs/actor"
+        },
+        "request": {
+          "$ref": "#/$defs/request"
+        },
+        "context": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "temporal_queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/temporalQuery"
+          }
+        }
+      }
+    }
+  }
+}

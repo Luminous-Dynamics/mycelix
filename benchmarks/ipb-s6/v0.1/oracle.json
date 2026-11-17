@@ -1,0 +1,272 @@
+{
+  "corpus_version": "0.1",
+  "synthetic": true,
+  "as_of": "2026-11-14T00:00:00Z",
+  "status": "development_oracle_not_independently_adjudicated",
+  "claim_ceiling": "Synthetic workflow reference expectations only; not legal findings, title opinions, insurance determinations, valuation opinions or evidence of real-world system performance.",
+  "cases": [
+    {
+      "scenario_id": "S6-001",
+      "action_outcome": "ALLOW_SCOPED",
+      "expected_claim_dispositions": [
+        {
+          "asset_ref": "LAND-001",
+          "dimension": "title",
+          "disposition": "supported_within_scope"
+        },
+        {
+          "asset_ref": "LAND-001",
+          "dimension": "custody",
+          "disposition": "supported_within_scope"
+        },
+        {
+          "asset_ref": "LAND-001",
+          "dimension": "condition",
+          "disposition": "supported_within_scope"
+        }
+      ],
+      "prohibited_inferences": [],
+      "side_effect_expectation": "no_mutation"
+    },
+    {
+      "scenario_id": "S6-002",
+      "action_outcome": "BLOCK",
+      "expected_claim_dispositions": [
+        {
+          "asset_ref": "ART-001",
+          "dimension": "custody",
+          "disposition": "supported_within_scope"
+        },
+        {
+          "asset_ref": "ART-001",
+          "dimension": "title",
+          "disposition": "indeterminate"
+        }
+      ],
+      "prohibited_inferences": [
+        "custody_implies_title",
+        "custodian_is_owner"
+      ],
+      "side_effect_expectation": "no_mutation"
+    },
+    {
+      "scenario_id": "S6-003",
+      "action_outcome": "BLOCK",
+      "expected_claim_dispositions": [
+        {
+          "asset_ref": "ART-002",
+          "dimension": "valuation",
+          "disposition": "stale"
+        },
+        {
+          "asset_ref": "ART-002",
+          "dimension": "title",
+          "disposition": "not_evaluated"
+        }
+      ],
+      "prohibited_inferences": [
+        "historical_valuation_is_current",
+        "valuation_implies_title"
+      ],
+      "side_effect_expectation": "no_mutation"
+    },
+    {
+      "scenario_id": "S6-004",
+      "action_outcome": "HOLD_FOR_RECONCILIATION",
+      "expected_claim_dispositions": [
+        {
+          "asset_ref": "EQUIP-001",
+          "dimension": "transfer_observation",
+          "disposition": "indeterminate"
+        }
+      ],
+      "prohibited_inferences": [
+        "timeout_means_failure",
+        "timeout_means_success"
+      ],
+      "side_effect_expectation": "no_retry_until_reconciled"
+    },
+    {
+      "scenario_id": "S6-005",
+      "action_outcome": "BLOCK",
+      "expected_claim_dispositions": [
+        {
+          "asset_ref": "BUILDING-001",
+          "dimension": "title",
+          "disposition": "supported_within_scope"
+        },
+        {
+          "asset_ref": "BUILDING-001",
+          "dimension": "encumbrance",
+          "disposition": "unavailable"
+        }
+      ],
+      "prohibited_inferences": [
+        "title_implies_unencumbered",
+        "unavailable_means_no_lien"
+      ],
+      "side_effect_expectation": "no_disposal"
+    },
+    {
+      "scenario_id": "S6-006",
+      "action_outcome": "BLOCK",
+      "expected_claim_dispositions": [
+        {
+          "asset_ref": "ART-003",
+          "dimension": "custody",
+          "disposition": "supported_within_scope"
+        },
+        {
+          "asset_ref": "ART-003",
+          "dimension": "rights",
+          "disposition": "supported_within_scope"
+        }
+      ],
+      "prohibited_inferences": [
+        "custody_implies_publication_rights",
+        "physical_access_implies_permission"
+      ],
+      "side_effect_expectation": "no_publication"
+    },
+    {
+      "scenario_id": "S6-007",
+      "action_outcome": "ALLOW_PARTIAL",
+      "expected_claim_dispositions": [
+        {
+          "asset_ref": "VEHICLE-001",
+          "dimension": "scheduled_asset",
+          "disposition": "supported_within_scope"
+        },
+        {
+          "asset_ref": "VEHICLE-001",
+          "dimension": "insurance_coverage",
+          "disposition": "indeterminate"
+        }
+      ],
+      "prohibited_inferences": [
+        "schedule_implies_current_coverage"
+      ],
+      "side_effect_expectation": "no_coverage_assertion"
+    },
+    {
+      "scenario_id": "S6-008",
+      "action_outcome": "BLOCK",
+      "expected_claim_dispositions": [
+        {
+          "asset_ref": "ART-004",
+          "dimension": "provenance",
+          "disposition": "contested"
+        }
+      ],
+      "prohibited_inferences": [
+        "one_lineage_is_proven_without_adjudication"
+      ],
+      "side_effect_expectation": "preserve_competing_claims"
+    },
+    {
+      "scenario_id": "S6-009",
+      "action_outcome": "ALLOW_PARTIAL",
+      "expected_claim_dispositions": [
+        {
+          "asset_ref": "LAND-002",
+          "dimension": "title",
+          "disposition": "unavailable"
+        },
+        {
+          "asset_ref": "LAND-002",
+          "dimension": "condition",
+          "disposition": "supported_within_scope"
+        }
+      ],
+      "prohibited_inferences": [
+        "unavailable_title_means_no_title"
+      ],
+      "side_effect_expectation": "preserve_independent_claims"
+    },
+    {
+      "scenario_id": "S6-010",
+      "action_outcome": "BLOCK",
+      "expected_claim_dispositions": [
+        {
+          "asset_ref": "VESSEL-001",
+          "dimension": "operational_authority",
+          "disposition": "out_of_scope"
+        }
+      ],
+      "prohibited_inferences": [
+        "entity_a_mandate_applies_to_entity_b"
+      ],
+      "side_effect_expectation": "no_sale"
+    },
+    {
+      "scenario_id": "S6-011",
+      "action_outcome": "BLOCK",
+      "expected_claim_dispositions": [
+        {
+          "asset_ref": "COLLECTION-001",
+          "dimension": "operational_authority",
+          "disposition": "indeterminate"
+        }
+      ],
+      "prohibited_inferences": [
+        "role_vacancy_confers_successor_authority"
+      ],
+      "side_effect_expectation": "safe_stop"
+    },
+    {
+      "scenario_id": "S6-012",
+      "action_outcome": "ALLOW_SCOPED",
+      "expected_claim_dispositions": [
+        {
+          "asset_ref": "PLANT-001",
+          "dimension": "operational_dependency",
+          "disposition": "supported_within_scope"
+        }
+      ],
+      "prohibited_inferences": [
+        "shared_plant_is_two_independent_dependencies"
+      ],
+      "side_effect_expectation": "analysis_only"
+    },
+    {
+      "scenario_id": "S6-013",
+      "action_outcome": "ALLOW_SCOPED",
+      "expected_claim_dispositions": [
+        {
+          "asset_ref": "LAND-003",
+          "dimension": "title_at_prior_time",
+          "disposition": "historical_only"
+        },
+        {
+          "asset_ref": "LAND-003",
+          "dimension": "title_current",
+          "disposition": "supported_within_scope"
+        }
+      ],
+      "prohibited_inferences": [
+        "correction_rewrites_prior_knowledge"
+      ],
+      "side_effect_expectation": "preserve_bitemporal_history"
+    },
+    {
+      "scenario_id": "S6-014",
+      "action_outcome": "BLOCK",
+      "expected_claim_dispositions": [
+        {
+          "asset_ref": "ART-005-A",
+          "dimension": "object_identity",
+          "disposition": "partial"
+        },
+        {
+          "asset_ref": "ART-005-B",
+          "dimension": "object_identity",
+          "disposition": "partial"
+        }
+      ],
+      "prohibited_inferences": [
+        "similar_catalogue_id_proves_same_object"
+      ],
+      "side_effect_expectation": "no_merge"
+    }
+  ]
+}

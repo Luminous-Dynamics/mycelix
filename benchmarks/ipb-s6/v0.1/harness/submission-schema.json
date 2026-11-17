@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IPB-S6 system submission v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "system_id",
+    "submission_id",
+    "build_sha",
+    "configuration_sha256",
+    "adjudicator_ref",
+    "results"
+  ],
+  "properties": {
+    "system_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "submission_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "build_sha": {
+      "type": "string",
+      "minLength": 1
+    },
+    "configuration_sha256": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adjudicator_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "action_outcome",
+          "claim_dispositions",
+          "adjudicated_prohibited_inferences",
+          "side_effects"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^S6-[0-9]{3}$"
+          },
+          "action_outcome": {
+            "enum": [
+              "ALLOW_SCOPED",
+              "ALLOW_PARTIAL",
+              "BLOCK",
+              "HOLD_FOR_RECONCILIATION"
+            ]
+          },
+          "claim_dispositions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "asset_ref",
+                "dimension",
+                "disposition"
+              ],
+              "properties": {
+                "asset_ref": {
+                  "type": "string"
+                },
+                "dimension": {
+                  "type": "string"
+                },
+                "disposition": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "adjudicated_prohibited_inferences": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "side_effects": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mutation_count",
+              "retry_count",
+              "unauthorized_mutations",
+              "historical_records_rewritten"
+            ],
+            "properties": {
+              "mutation_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "retry_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unauthorized_mutations": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "historical_records_rewritten": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
