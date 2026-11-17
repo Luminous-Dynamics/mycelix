@@ -411,7 +411,7 @@ fn validate_container_transition_fields(
     previous: Option<&ContainerCycleEvent>,
     current: &ContainerCycleEvent,
 ) -> ValidateCallbackResult {
-    let valid = match (previous.map(|event| &event.event_kind), &current.event_kind) {
+    let valid = match (previous.map(|event| event.event_kind.clone()), &current.event_kind) {
         (None, ContainerEventKind::Washed) => current.condition == ContainerCondition::NeedsCleaning,
         (Some(ContainerEventKind::Emptied | ContainerEventKind::Returned | ContainerEventKind::Damaged | ContainerEventKind::Lost), ContainerEventKind::Washed) => current.condition == ContainerCondition::NeedsCleaning,
         (Some(ContainerEventKind::Washed), ContainerEventKind::Sanitized) => current.condition == ContainerCondition::Serviceable,
@@ -684,6 +684,64 @@ mod tests {
         }
     }
 
+    fn container_evidence(source: &str) -> ContainerEvidenceRef {
+        ContainerEvidenceRef {
+            source_ref: source.into(),
+            method_ref: None,
+            calibration_ref: None,
+            evidence_class: ContainerEvidenceClass::Declared,
+        }
+    }
+
+    fn valid_container() -> ReusableContainer {
+        ReusableContainer {
+            id: "container-za-001".into(),
+            material: ContainerMaterial::BorosilicateGlass,
+            capacity_ml: 1_000,
+            temperature_min_millic: Some(-20_000),
+            temperature_max_millic: Some(100_000),
+            closure_type: "screw-top".into(),
+            food_contact_qualification_ref: "qualification:food-contact-glass".into(),
+            cleaning_protocol_ref: "protocol:container-cleaning-v1".into(),
+            manufacturer_reuse_cycle_limit: Some(500),
+            compatible_product_refs: vec!["product:dry-goods".into()],
+            registered_at: 1_700_000_000,
+            steward: fake_agent(),
+            evidence: container_evidence("source:container-spec"),
+        }
+    }
+
+    fn lifecycle_event(
+        kind: ContainerEventKind,
+        condition: ContainerCondition,
+        sequence_number: u64,
+    ) -> ContainerCycleEvent {
+        let sanitation = matches!(kind, ContainerEventKind::Washed | ContainerEventKind::Sanitized)
+            .then(|| ContainerSanitationObservation {
+                protocol_ref: "protocol:wash-v1".into(),
+                wash_water_temp_millic: Some(60_000),
+                sanitizer_ref: Some("sanitizer:declared".into()),
+                sanitizer_concentration_mg_l: Some(100),
+                exposure_time_ms: Some(30_000),
+                observation_ref: "observation:synthetic".into(),
+                evidence: container_evidence("source:synthetic-sanitization"),
+            });
+        ContainerCycleEvent {
+            container_hash: ActionHash::from_raw_36(vec![1; 36]),
+            previous_event_hash: (sequence_number > 0)
+                .then(|| ActionHash::from_raw_36(vec![2; 36])),
+            sequence_number,
+            event_kind: kind,
+            occurred_at: 1_700_000_000 + sequence_number,
+            product_lot_ref: None,
+            preservation_batch_hash: None,
+            location_ref: None,
+            condition,
+            sanitation,
+            evidence: container_evidence("source:synthetic-event"),
+        }
+    }
+
     fn assert_valid(result: ExternResult<ValidateCallbackResult>) {
         match result {
             Ok(ValidateCallbackResult::Valid) => {}
@@ -708,6 +766,104 @@ mod tests {
             other => panic!("Expected Invalid, got {other:?}"),
         }
     }
+
+    #[test]
+    fn reusable_container_declared_fixture_is_valid() {
+        assert_valid(validate_reusable_container(valid_container()));
+    }
+
+    #[test]
+    fn reusable_container_rejects_zero_capacity_and_reversed_temperature() {
+        let mut container = valid_container();
+        container.capacity_ml = 0;
+        assert_invalid(
+            validate_reusable_container(container),
+            "Container capacity_ml must be positive",
+        );
+
+        let mut container = valid_container();
+        container.temperature_min_millic = Some(90_000);
+        container.temperature_max_millic = Some(10_000);
+        assert_invalid(
+            validate_reusable_container(container),
+            "Temperature minimum cannot exceed maximum",
+        );
+    }
+
+    #[test]
+    fn measured_container_evidence_requires_calibration() {
+        let mut container = valid_container();
+        container.evidence.evidence_class = ContainerEvidenceClass::Measured;
+        assert_invalid(
+            validate_reusable_container(container),
+            "Measured evidence requires a calibration reference",
+        );
+    }
+
+    #[test]
+    fn initial_container_cycle_must_be_washed_and_marked_needs_cleaning() {
+        let washed = lifecycle_event(
+            ContainerEventKind::Washed,
+            ContainerCondition::NeedsCleaning,
+            0,
+        );
+        assert!(matches!(
+            validate_container_transition_fields(None, &washed),
+            ValidateCallbackResult::Valid
+        ));
+
+        let invalid = lifecycle_event(
+            ContainerEventKind::Filled,
+            ContainerCondition::Serviceable,
+            0,
+        );
+        assert!(matches!(
+            validate_container_transition_fields(None, &invalid),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn container_cycle_requires_wash_sanitize_inspect_before_fill() {
+        let washed = lifecycle_event(ContainerEventKind::Washed, ContainerCondition::NeedsCleaning, 0);
+        let sanitized = lifecycle_event(ContainerEventKind::Sanitized, ContainerCondition::Serviceable, 1);
+        let inspected = lifecycle_event(ContainerEventKind::Inspected, ContainerCondition::Serviceable, 2);
+        let filled = lifecycle_event(ContainerEventKind::Filled, ContainerCondition::Serviceable, 3);
+
+        assert!(matches!(validate_container_transition_fields(None, &washed), ValidateCallbackResult::Valid));
+        assert!(matches!(validate_container_transition_fields(Some(&washed), &sanitized), ValidateCallbackResult::Valid));
+        assert!(matches!(validate_container_transition_fields(Some(&sanitized), &inspected), ValidateCallbackResult::Valid));
+        assert!(matches!(validate_container_transition_fields(Some(&inspected), &filled), ValidateCallbackResult::Valid));
+
+        let premature_fill = lifecycle_event(ContainerEventKind::Filled, ContainerCondition::Serviceable, 2);
+        assert!(matches!(
+            validate_container_transition_fields(Some(&sanitized), &premature_fill),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn container_cycle_requires_seal_dispatch_receive_empty_before_return() {
+        let filled = lifecycle_event(ContainerEventKind::Filled, ContainerCondition::Serviceable, 0);
+        let sealed = lifecycle_event(ContainerEventKind::Sealed, ContainerCondition::Serviceable, 1);
+        let dispatched = lifecycle_event(ContainerEventKind::Dispatched, ContainerCondition::Serviceable, 2);
+        let received = lifecycle_event(ContainerEventKind::Received, ContainerCondition::Serviceable, 3);
+        let emptied = lifecycle_event(ContainerEventKind::Emptied, ContainerCondition::NeedsCleaning, 4);
+        let returned = lifecycle_event(ContainerEventKind::Returned, ContainerCondition::NeedsCleaning, 5);
+
+        assert!(matches!(validate_container_transition_fields(Some(&filled), &sealed), ValidateCallbackResult::Valid));
+        assert!(matches!(validate_container_transition_fields(Some(&sealed), &dispatched), ValidateCallbackResult::Valid));
+        assert!(matches!(validate_container_transition_fields(Some(&dispatched), &received), ValidateCallbackResult::Valid));
+        assert!(matches!(validate_container_transition_fields(Some(&received), &emptied), ValidateCallbackResult::Valid));
+        assert!(matches!(validate_container_transition_fields(Some(&emptied), &returned), ValidateCallbackResult::Valid));
+
+        let skipped_seal = lifecycle_event(ContainerEventKind::Dispatched, ContainerCondition::Serviceable, 2);
+        assert!(matches!(
+            validate_container_transition_fields(Some(&filled), &skipped_seal),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
 
     // ── Serde roundtrip tests ───────────────────────────────────────────
 
