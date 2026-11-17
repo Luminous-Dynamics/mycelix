@@ -1465,7 +1465,7 @@ mod tests {
             first_address.port()
         );
         let capability = client
-            .authorize(&Method::GET, &first_url, HeaderMap::new(), Vec::new())
+            .authorize(Method::GET, &first_url, HeaderMap::new(), Vec::new())
             .await
             .unwrap();
 
@@ -1477,8 +1477,14 @@ mod tests {
         assert_eq!(response.receipt.redirect_hops.len(), 1);
 
         let hop = &response.receipt.redirect_hops[0];
-        assert_eq!(hop.from_origin, format!("http://prism-redirect.test:{}", first_address.port()));
-        assert_eq!(hop.to_origin, format!("http://prism-redirect.test:{}", second_address.port()));
+        assert_eq!(
+            hop.from_origin,
+            format!("http://prism-redirect.test:{}", first_address.port())
+        );
+        assert_eq!(
+            hop.to_origin,
+            format!("http://prism-redirect.test:{}", second_address.port())
+        );
         assert_eq!(hop.status, StatusCode::FOUND.as_u16());
         assert_eq!(hop.remote_peer, first_address);
         assert_eq!(hop.target_addresses, vec![second_address]);
