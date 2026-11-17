@@ -286,7 +286,7 @@ impl EgressResolver for SystemEgressResolver {
             tokio::task::spawn_blocking(move || {
                 let _permit = permit;
                 std::net::ToSocketAddrs::to_socket_addrs(&(host.as_str(), port))
-                    .map(|addresses| addresses.collect())
+                    .map(collect_unique_addresses_bounded)
             })
             .await
             .map_err(|error| io::Error::other(format!("DNS worker failed: {error}")))?
@@ -860,6 +860,22 @@ fn validate_url_policy(url: &Url) -> Result<(), EgressError> {
         }
     }
     Ok(())
+}
+
+fn collect_unique_addresses_bounded(
+    addresses: impl IntoIterator<Item = SocketAddr>,
+) -> Vec<SocketAddr> {
+    let mut unique = HashSet::new();
+    for address in addresses {
+        unique.insert(address);
+        // 33 unique entries are sufficient to prove the policy limit is
+        // exceeded. Continue through duplicates until then; never truncate a
+        // potentially unsafe answer set to 32 and accidentally accept it.
+        if unique.len() > MAX_DNS_ANSWER_ADDRESSES {
+            break;
+        }
+    }
+    unique.into_iter().collect()
 }
 
 async fn resolve_and_authorize(
@@ -1461,6 +1477,26 @@ mod tests {
 
     fn socket_addresses(values: &[&str]) -> Vec<SocketAddr> {
         values.iter().map(|value| value.parse().unwrap()).collect()
+    }
+
+    #[test]
+    fn system_resolver_collection_deduplicates_but_keeps_overflow_sentinel() {
+        let duplicate = "93.184.216.34:443".parse().unwrap();
+        let mut inputs = vec![duplicate; 100];
+        inputs.extend(
+            (1..=MAX_DNS_ANSWER_ADDRESSES + 1).map(|last| {
+                SocketAddr::new(
+                    IpAddr::V4(Ipv4Addr::new(93, 184, 217, last as u8)),
+                    443,
+                )
+            }),
+        );
+        let collected = collect_unique_addresses_bounded(inputs);
+        assert_eq!(collected.len(), MAX_DNS_ANSWER_ADDRESSES + 1);
+        assert!(matches!(
+            validate_address_set(&collected),
+            Err(EgressError::DnsAnswerSetTooLarge)
+        ));
     }
 
     #[test]
