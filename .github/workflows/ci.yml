@@ -20,9 +20,11 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Detect which clusters changed
+  # Detect changed clusters for all PRs, including drafts. This lets a draft
+  # PR run only the affected package matrix (for example, test-prism) without
+  # enabling unrelated cluster jobs. Global formatting and ci-pass remain
+  # gated on ready-for-review PRs below.
   changes:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     outputs:
       commons: ${{ steps.filter.outputs.commons }}
