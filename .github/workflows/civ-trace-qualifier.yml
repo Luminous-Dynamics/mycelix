@@ -1,0 +1,54 @@
+name: CIV-TRACE-001 Qualifier
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "research/civ-trace-001/**"
+      - ".github/workflows/civ-trace-qualifier.yml"
+  push:
+    branches: [main]
+    paths:
+      - "research/civ-trace-001/**"
+      - ".github/workflows/civ-trace-qualifier.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ-trace-qualifier-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact triggering revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Set up Rust 1.96.0
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path research/civ-trace-001/qualifier/Cargo.toml --check
+      - name: Unit and negative-control tests
+        run: cargo test --manifest-path research/civ-trace-001/qualifier/Cargo.toml
+      - name: Qualify temporal reconstruction and remedy corpus
+        run: |
+          cargo run --manifest-path research/civ-trace-001/qualifier/Cargo.toml -- \
+            research/civ-trace-001/CIV_TRACE_FIXTURES_V0_2.json \
+            research/civ-trace-001/CIV_TRACE_FIXTURES_V0_2.schema.json
+
+      - name: Strict Clippy
+        run: cargo clippy --all-targets --manifest-path research/civ-trace-001/qualifier/Cargo.toml -- -D warnings
+      - name: Assert exact PR subject and clean tracked source
+        run: |
+          if [ -n "${{ github.event.pull_request.head.sha }}" ]; then
+            test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          fi
+          test -z "$(git status --porcelain --untracked-files=no)"
