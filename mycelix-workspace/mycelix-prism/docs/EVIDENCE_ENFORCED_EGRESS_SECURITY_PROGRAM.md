@@ -258,7 +258,7 @@ The `prism-egress` source and integration corpus include tests for 47 versioned 
 - HTTP/1 response rejection when the server exceeds the transport-level 128-header limit;
 - URL scheme, port, credentials, local hostname, body, header, capability expiry, HTTPS requirements, provider-origin/header allowlists, and duplicate credential headers.
 
-No passing test result is claimed. The PR remains a draft. Draft PRs now execute the changed-path `test-prism` job; the latest observed run failed at Cargo workspace metadata before formatting/tests because `mycelix-prism/docs` was not excluded. That workspace omission has been fixed, but the corrected head has not yet produced an observed workflow run and has not been compiled or tested locally.
+No passing test result is claimed. The PR remains a draft. Run #14615 reached `test-prism` and failed before rustfmt/tests because Cargo metadata treated `mycelix-prism/docs` as a workspace member; commit `0875ef4e26906952d569874b9f05c45ea99ac5c1` adds the missing explicit exclusion. Follow-up run #14621 was observed queued on head `d625d8efc39b516e521e5e044e98c11df3063ba3` (the changed-path detector had not started at the last status check). No exact-head formatting, build, test, or clippy result is yet established. CI evidence must always be tied to the exact branch head; an older run is not evidence for a newer commit.
 
 ## Research and benchmark plan: evidence before SOTA claims
 
@@ -291,6 +291,16 @@ Use a matched baseline matrix rather than one convenient comparator:
 5. **Cloud egress controls:** where feasible, a reproducible AWS-style profile combining DNS hostname controls, security-group egress restrictions, and network firewall inspection.
 
 Publish exact versions/configurations, hardware, resolver and cache settings, TLS mode, response-size distribution, pool behavior, and concurrency profile. Compare both cold DNS and warm cache, and distinguish cache refresh from connection-pool reuse.
+
+**Required adversarial benchmark dimensions (not optional “edge-case” polish):**
+- DNS: A-only, AAAA-only, dual-stack, CNAME chains, changing TTLs, split-horizon answers, empty/NXDOMAIN/SERVFAIL, timeout, oversized answer sets, mixed public/prohibited sets, and a rebinding schedule that changes answers between authorization and attempted connect.
+- Redirects: same hostname with a different port, cross-host, relative targets, duplicate/malformed Location, userinfo, private/loopback/link-local/metadata targets, HTTPS downgrade, redirect loops, 5-hop and 6-hop boundaries, and cancellation while the next hop is resolving. Capture every attempted socket, not only the final URL.
+- TLS: valid certificate for the original DNS name while connecting to a pinned test IP; wrong-name, expired, untrusted and alternate-SNI certificates must fail closed. Record the certificate identity/SNI decision without storing credentials or payloads.
+- HTTP/parser: HTTP/1 and HTTP/2, header count and header bytes, chunked transfer, absent/false Content-Length, gzip/brotli expansion, slow-drip, reset mid-body, malformed status/header blocks, and response-size boundary at limit minus one, limit and limit plus one.
+- Lifecycle: cancellation during DNS, queue wait, connect, redirect reauthorization and body streaming; deadline exhaustion at each state; capability reuse attempts; injected transport retry; caller retries must generate a new capability and a distinct receipt.
+- Differential controls: run each exploit against the secure Reqwest baseline, Prism, Envoy, and the forced-egress profile. Each scenario must include a positive control, a deliberately weakened negative control, raw socket capture and a machine-readable expected outcome.
+
+For the Envoy profile, record the cache contents and selected upstream peer before and after TTL refresh. In particular, test the documented behavior when a resolved_address_filter removes every answer: Envoy treats the lookup as a resolution failure and retains a prior cached host/address. That is a cache-state semantic to measure, not automatically a vulnerability or a security pass. A stale but previously permitted peer must be distinguished from a newly prohibited peer; test both connection reuse and fresh upstream connection cases. For Istio, a gateway-only profile is an intentionally insecure negative control; the secure comparison must additionally prove the workload cannot reach arbitrary egress when sidecar capture/gateway routing is bypassed.
 
 Measure p50/p95/p99 added latency and per-redirect-hop cost; DNS lookup count, A/AAAA answer-set size and cache freshness; TLS handshakes; safe connection-pool hit ratio; throughput at 1/10/50/64/100 concurrent requests; queue wait/rejection rate; CPU per MiB; peak RSS; bytes delivered by the transport before cancellation versus bytes appended/returned; and public-destination false-positive rate. The current client-per-capability design intentionally gives up pooling. Do not compare its warm-path latency to Envoy's reusable connection cache and present the result as an apples-to-apples SOTA result.
 
