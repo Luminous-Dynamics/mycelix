@@ -685,6 +685,10 @@ fn build_pinned_client(
     let mut builder = Client::builder()
         .user_agent("Prism/0.4 (Luminous Dynamics; https://luminousdynamics.io)")
         .redirect(reqwest::redirect::Policy::none())
+        // Reqwest 0.12.23+ retries protocol NACKs by default. Keep retry
+        // decisions inside Prism so every attempt is visible, bounded, and
+        // authorized by the same capability state machine.
+        .retry(reqwest::retry::never())
         .no_proxy()
         .http2_max_header_list_size(64 * 1024)
         .connect_timeout(connect_timeout)
