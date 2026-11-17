@@ -410,6 +410,163 @@ pub fn calculate_container_lifecycle_impact(
 }
 
 
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SingleUsePackagingBaselineV1 {
+    pub baseline_ref: String,
+    /// Must match the reusable report's factor set, geography and year.
+    pub factor_set_ref: String,
+    pub geography: String,
+    pub reference_year: u32,
+    /// Exact packaging units per accepted serving (numerator / denominator).
+    pub packaging_units_numerator: u64,
+    pub packaging_units_denominator: u64,
+    pub packaging_mass_g_per_unit: u64,
+    pub transported_mass_g_per_unit: u64,
+    pub distribution_distance_m_per_unit: u64,
+    pub distribution_mode: ContainerTransportMode,
+    pub embodied_impact_mg_co2e_per_unit: u64,
+    pub end_of_life_impact_mg_co2e_per_unit: u64,
+    pub evidence: ContainerEvidenceRef,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum PackagingComparisonOutcomeV1 {
+    ReusableLower,
+    SingleUseLower,
+    Equal,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PackagingComparisonReportV1 {
+    pub functional_unit: String,
+    pub factor_set_ref: String,
+    pub geography: String,
+    pub reference_year: u32,
+    pub reusable_packaging_mg_co2e_per_accepted_serving: (u64, u64),
+    pub single_use_packaging_mg_co2e_per_accepted_serving: (u64, u64),
+    pub single_use_packaging_mass_g_per_accepted_serving: (u64, u64),
+    pub outcome: PackagingComparisonOutcomeV1,
+    pub limitations: Vec<String>,
+}
+
+/// Compare a reusable lifecycle report and single-use packaging reference using
+/// the same accepted-serving functional unit and the same regional/year factor
+/// set. The outcome compares packaging boundary only; it is not a product LCA.
+pub fn compare_reusable_packaging_to_single_use(
+    reusable: &ContainerLifecycleImpactReportV1,
+    single_use: &SingleUsePackagingBaselineV1,
+    factors: &ContainerLifecycleImpactFactorsV1,
+) -> Result<PackagingComparisonReportV1, ContainerImpactErrorV1> {
+    validate_container_impact_factors(factors)?;
+    if single_use.baseline_ref.trim().is_empty()
+        || single_use.factor_set_ref.trim().is_empty()
+        || single_use.geography.trim().is_empty()
+        || single_use.reference_year == 0
+        || single_use.packaging_units_numerator == 0
+        || single_use.packaging_units_denominator == 0
+        || single_use.packaging_mass_g_per_unit == 0
+        || single_use.transported_mass_g_per_unit == 0
+        || single_use.evidence.source_ref.trim().is_empty()
+    {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::MissingFactorProvenance,
+            details: vec!["single-use comparator provenance, functional unit, mass and evidence are required".into()],
+        });
+    }
+    if single_use.factor_set_ref != reusable.factor_set_ref
+        || single_use.factor_set_ref != factors.factor_set_ref
+        || single_use.geography != reusable.geography
+        || single_use.geography != factors.geography
+        || single_use.reference_year != reusable.reference_year
+        || single_use.reference_year != factors.reference_year
+    {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::MissingFactorProvenance,
+            details: vec!["reusable and single-use comparison must share the same factor set, geography and reference year".into()],
+        });
+    }
+    let transport_factor = factors
+        .transport_factors
+        .iter()
+        .find(|factor| factor.mode == single_use.distribution_mode)
+        .ok_or(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::MissingTransportFactor,
+            details: vec![format!(
+                "no impact factor supplied for single-use transport mode {:?}",
+                single_use.distribution_mode
+            )],
+        })?;
+    let transport_impact = impact_ceil_div(
+        impact_mul(&[
+            u128::from(single_use.transported_mass_g_per_unit),
+            u128::from(single_use.distribution_distance_m_per_unit),
+            u128::from(transport_factor.mg_co2e_per_tonne_km),
+        ])?,
+        1_000_000_000,
+    )?;
+    let per_unit = [
+        u128::from(single_use.embodied_impact_mg_co2e_per_unit),
+        transport_impact,
+        u128::from(single_use.end_of_life_impact_mg_co2e_per_unit),
+    ]
+    .into_iter()
+    .try_fold(0_u128, |sum, value| {
+        sum.checked_add(value).ok_or(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+            details: vec!["single-use packaging impact aggregation overflow".into()],
+        })
+    })?;
+    let single_use_numerator = impact_mul(&[
+        per_unit,
+        u128::from(single_use.packaging_units_numerator),
+    ])?;
+    let single_use_denominator = u128::from(single_use.packaging_units_denominator);
+    let reusable_left = impact_mul(&[
+        u128::from(reusable.total_packaging_mg_co2e),
+        single_use_denominator,
+    ])?;
+    let single_use_right = impact_mul(&[
+        single_use_numerator,
+        u128::from(reusable.accepted_servings),
+    ])?;
+    let outcome = match reusable_left.cmp(&single_use_right) {
+        std::cmp::Ordering::Less => PackagingComparisonOutcomeV1::ReusableLower,
+        std::cmp::Ordering::Greater => PackagingComparisonOutcomeV1::SingleUseLower,
+        std::cmp::Ordering::Equal => PackagingComparisonOutcomeV1::Equal,
+    };
+    Ok(PackagingComparisonReportV1 {
+        functional_unit: "one accepted serving".into(),
+        factor_set_ref: factors.factor_set_ref.clone(),
+        geography: factors.geography.clone(),
+        reference_year: factors.reference_year,
+        reusable_packaging_mg_co2e_per_accepted_serving: (
+            reusable.total_packaging_mg_co2e,
+            reusable.accepted_servings,
+        ),
+        single_use_packaging_mg_co2e_per_accepted_serving: (
+            impact_u64(single_use_numerator, "single-use impact numerator")?,
+            impact_u64(single_use_denominator, "single-use impact denominator")?,
+        ),
+        single_use_packaging_mass_g_per_accepted_serving: (
+            single_use.packaging_mass_g_per_unit
+                .checked_mul(single_use.packaging_units_numerator)
+                .ok_or(ContainerImpactErrorV1 {
+                    code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+                    details: vec!["single-use packaging mass numerator overflow".into()],
+                })?,
+            single_use.packaging_units_denominator,
+        ),
+        outcome,
+        limitations: vec![
+            "Packaging boundary only; food production and preparation impacts are excluded".into(),
+            "All factor inputs must describe the same geography, reference year and functional unit".into(),
+            "No environmental advantage is implied outside the supplied lifecycle scope".into(),
+        ],
+    })
+}
+
+
 /// Register a reusable container in the existing food-preservation registry.
 #[hdk_extern]
 pub fn register_reusable_container(container: ReusableContainer) -> ExternResult<Record> {
