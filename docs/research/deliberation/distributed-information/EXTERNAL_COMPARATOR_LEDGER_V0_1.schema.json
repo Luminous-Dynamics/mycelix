@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/delib-dist-info-external-comparator-ledger-v0.1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ledger_id",
+    "version",
+    "status",
+    "comparisons",
+    "cross_benchmark_rules",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "ledger_id": {
+      "const": "DELIB-DIST-INFO-EXTERNAL-COMPARATORS-001"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "metadata_only_no_external_payloads_ingested"
+    },
+    "comparisons": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "venue",
+          "paper_url",
+          "benchmark_role",
+          "intake_state",
+          "current_use"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "venue": {
+            "type": "string"
+          },
+          "paper_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "benchmark_role": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "intake_state": {
+            "type": "string"
+          },
+          "current_use": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "cross_benchmark_rules": {
+      "type": "array",
+      "minItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "claim_ceiling": {
+      "const": "metadata comparison only; no external payload downloaded, no external benchmark reproduced, and no superiority claim established"
+    }
+  }
+}

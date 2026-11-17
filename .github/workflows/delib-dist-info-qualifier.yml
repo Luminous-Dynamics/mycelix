@@ -1,0 +1,65 @@
+name: DELIB-DIST-INFO Qualifier
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/research/deliberation/distributed-information/**"
+      - ".github/workflows/delib-dist-info-qualifier.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/research/deliberation/distributed-information/**"
+      - ".github/workflows/delib-dist-info-qualifier.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run distributed evidence qualifier tests
+        run: cargo test --manifest-path docs/research/deliberation/distributed-information/qualifier/Cargo.toml
+      - name: Validate evidence and metadata intake manifests
+        run: |
+          cargo run --manifest-path docs/research/deliberation/distributed-information/qualifier/Cargo.toml -- \
+            docs/research/deliberation/distributed-information/DIST_INFO_PROTOCOL_V0_1.json \
+            docs/research/deliberation/distributed-information/DIST_INFO_PROTOCOL_V0_1.schema.json \
+            docs/research/deliberation/distributed-information/DIST_INFO_FIXTURES_V0_1.json \
+            docs/research/deliberation/distributed-information/DIST_INFO_FIXTURES_V0_1.schema.json \
+            docs/research/deliberation/distributed-information/GROUPMEMBENCH_METADATA_INTAKE_V0_1.json \
+            docs/research/deliberation/distributed-information/GROUPMEMBENCH_METADATA_INTAKE_V0_1.schema.json
+      - name: Run read-only adapter contract tests
+        run: cargo test --manifest-path docs/research/deliberation/distributed-information/groupmembench-adapter/Cargo.toml
+  verify-groupmembench-payload:
+    name: Verify pinned GroupMemBench payload (read-only)
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Mycelix exact PR revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned synthetic GroupMemBench release
+        uses: actions/checkout@v4
+        with:
+          repository: UCSB-NLP-Chang/GroupMemBench
+          ref: 461f00c3e8a1a4a3a2ed5814b729014502c4702f
+          path: external/GroupMemBench
+          persist-credentials: false
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Verify exact pinned Git object identities without writing upstream files
+        run: cargo run --manifest-path docs/research/deliberation/distributed-information/groupmembench-adapter/Cargo.toml -- docs/research/deliberation/distributed-information/GROUPMEMBENCH_METADATA_INTAKE_V0_1.json external/GroupMemBench --bm25-probe

@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/groupmembench-metadata-intake-v0.1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "intake_id",
+    "version",
+    "status",
+    "source",
+    "benchmark",
+    "artifact_summary",
+    "files",
+    "custody",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "intake_id": {
+      "const": "GROUPMEMBENCH-METADATA-INTAKE-001"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "metadata_only_read_only_adapter_candidate"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "repository",
+        "pinned_commit",
+        "repository_code_license",
+        "dataset_license_declared_in_readme",
+        "licensing_scope"
+      ]
+    },
+    "benchmark": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "paper_url",
+        "domains",
+        "question_types",
+        "question_counts_by_domain",
+        "total_questions",
+        "baseline_types"
+      ]
+    },
+    "artifact_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_selected_files",
+        "conversation_data_files",
+        "conversation_data_bytes",
+        "question_files",
+        "question_bytes",
+        "metadata_files",
+        "git_tree_truncated"
+      ],
+      "properties": {
+        "total_selected_files": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "conversation_data_files": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "conversation_data_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "question_files": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "question_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "metadata_files": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "git_tree_truncated": {
+          "const": false
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 30,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "git_blob_sha",
+          "size_bytes"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "git_blob_sha": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "custody": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "payload_downloaded",
+        "payload_committed",
+        "adapter_executed",
+        "candidate_hidden_labels_or_answers",
+        "permitted_next_step",
+        "required_adapter_controls"
+      ]
+    },
+    "claim_ceiling": {
+      "const": "metadata and rights declaration audit only; no upstream payload copied, no baseline run, no model result and no superiority claim"
+    }
+  }
+}
