@@ -137,7 +137,7 @@ impl PrismClient {
             }
             bytes.extend_from_slice(&chunk);
         }
-        let html = String::from_utf8_lossy(&bytes).into_owned();
+        let html = decode_http_text(&bytes, content_type.as_deref());
 
         // Parse HTML into DOM
         let dom = prism_dom::parse_html(&html);
@@ -157,6 +157,24 @@ impl PrismClient {
             metadata,
         })
     }
+}
+
+fn decode_http_text(bytes: &[u8], content_type: Option<&str>) -> String {
+    let charset = content_type.and_then(|content_type| {
+        content_type.split(';').skip(1).find_map(|parameter| {
+            let (name, value) = parameter.trim().split_once('=')?;
+            if name.trim().eq_ignore_ascii_case("charset") {
+                Some(value.trim().trim_matches('"').trim_matches('\''))
+            } else {
+                None
+            }
+        })
+    });
+    let encoding = charset
+        .and_then(|label| encoding_rs::Encoding::for_label(label.as_bytes()))
+        .unwrap_or(encoding_rs::UTF_8);
+    let (decoded, _, _) = encoding.decode(bytes);
+    decoded.into_owned()
 }
 
 fn validate_navigation_url(raw: &str) -> Result<Url, FetchError> {
@@ -182,6 +200,15 @@ impl Default for PrismClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bounded_navigation_preserves_declared_legacy_charsets() {
+        assert_eq!(
+            decode_http_text(&[0xE9], Some("text/html; charset=windows-1252")),
+            "é"
+        );
+        assert_eq!(decode_http_text(b"hello", None), "hello");
+    }
 
     #[test]
     fn navigation_policy_allows_explicit_local_navigation_but_only_http_schemes() {
