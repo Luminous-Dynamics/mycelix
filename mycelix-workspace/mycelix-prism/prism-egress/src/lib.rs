@@ -19,6 +19,7 @@
 
 use reqwest::header::HeaderMap;
 use reqwest::{Client, Method, StatusCode};
+use std::collections::HashSet;
 use std::future::Future;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -32,6 +33,7 @@ use url::{Host, Url};
 const MAX_CONCURRENT_EGRESS_REQUESTS: usize = 64;
 const MAX_CONCURRENT_DNS_LOOKUPS: usize = 16;
 const MAX_DNS_ANSWER_ADDRESSES: usize = 32;
+const MAX_PUBLIC_WEB_REDIRECT_HOPS: usize = 5;
 const DNS_QUEUE_TIMEOUT: Duration = Duration::from_secs(2);
 const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_secs(5);
 const REQUEST_HEADER_OVERHEAD_ALLOWANCE: usize = 512;
@@ -147,6 +149,16 @@ pub enum EgressError {
     ProviderCredentialMissing,
     #[error("HTTP transport failed: {0}")]
     Http(#[from] reqwest::Error),
+    #[error("total egress execution deadline expired")]
+    ExecutionTimeout,
+    #[error("public-web redirect limit exceeded")]
+    RedirectLimitExceeded,
+    #[error("public-web redirect location is invalid")]
+    InvalidRedirectLocation,
+    #[error("public-web redirect chain contains a loop")]
+    RedirectLoop,
+    #[error("HTTPS-to-HTTP redirect downgrade is not permitted")]
+    RedirectSchemeDowngrade,
 }
 
 /// Typed outbound authority. Provider variants are intentionally fixed to
@@ -217,6 +229,15 @@ pub struct EgressResponse {
 }
 
 #[derive(Clone, Debug)]
+pub struct RedirectHopReceipt {
+    pub from_origin: String,
+    pub to_origin: String,
+    pub status: u16,
+    pub remote_peer: SocketAddr,
+    pub target_addresses: Vec<SocketAddr>,
+}
+
+#[derive(Clone, Debug)]
 pub struct EgressReceipt {
     /// Scheme + authority only. Path, query, credentials, and response content
     /// are deliberately excluded from the receipt.
@@ -230,6 +251,7 @@ pub struct EgressReceipt {
     pub elapsed: Duration,
     pub policy_version: &'static str,
     pub authority: &'static str,
+    pub redirect_hops: Vec<RedirectHopReceipt>,
 }
 
 /// Resolver interface makes DNS policy deterministic under test. Implementations
@@ -413,108 +435,184 @@ impl PublicEgressClient {
     }
 
     /// Consume one authorization and execute the exact request it contains.
+    /// PublicWeb redirects are followed manually: every hop receives a fresh
+    /// DNS authorization and pinned connection. Provider scopes never follow.
     pub async fn execute(
         &self,
         capability: EgressCapability,
     ) -> Result<EgressResponse, EgressError> {
-        if std::time::Instant::now() >= capability.expires_at {
-            return Err(EgressError::CapabilityExpired);
-        }
+        let total_timeout = capability.request_timeout;
+        tokio::time::timeout(total_timeout, self.execute_redirect_chain(capability))
+            .await
+            .map_err(|_| EgressError::ExecutionTimeout)?
+    }
 
-        let origin = format!("{}://{}", capability.url.scheme(), capability.host);
-        let authority = capability.authority.label();
-        let authorized_addresses = capability.addresses.clone();
-        let method_name = capability.method.as_str().to_owned();
-        let request_body_bytes = capability.body.len();
+    async fn execute_redirect_chain(
+        &self,
+        capability: EgressCapability,
+    ) -> Result<EgressResponse, EgressError> {
         let started = std::time::Instant::now();
-        // Reserve authority-specific capacity before the shared total budget.
-        // A burst of generic web reads cannot occupy Brave/Perplexity slots.
-        let _authority_permit: SemaphorePermit<'static> = tokio::time::timeout(
-            Duration::from_secs(2),
-            capability.authority.admission_semaphore().acquire(),
-        )
-        .await
-        .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
-        .map_err(|_| EgressError::ConcurrencyUnavailable)?;
-        let _permit: SemaphorePermit<'static> = tokio::time::timeout(
-            Duration::from_secs(2),
-            EGRESS_SEMAPHORE.acquire(),
-        )
-        .await
-        .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
-        .map_err(|_| EgressError::ConcurrencyUnavailable)?;
+        let mut capability = capability;
+        let mut visited_urls = HashSet::new();
+        visited_urls.insert(capability.url.as_str().to_owned());
+        let mut redirect_hops = Vec::new();
 
-        // Queueing consumes capability lifetime. Re-check after admission so
-        // an expired authorization cannot connect merely because it waited.
-        if std::time::Instant::now() >= capability.expires_at {
-            return Err(EgressError::CapabilityExpired);
-        }
+        for redirect_count in 0..=MAX_PUBLIC_WEB_REDIRECT_HOPS {
+            if std::time::Instant::now() >= capability.expires_at {
+                return Err(EgressError::CapabilityExpired);
+            }
 
-        let client = build_pinned_client(
-            &capability.host,
-            &capability.addresses,
-            capability.is_domain,
-            capability.connect_timeout,
-            capability.request_timeout,
-        )?;
+            let origin = format!("{}://{}", capability.url.scheme(), capability.host);
+            let authority = capability.authority.label();
+            let authorized_addresses = capability.addresses.clone();
+            let method_name = capability.method.as_str().to_owned();
+            let request_body_bytes = capability.body.len();
 
-        let response = client
-            .request(capability.method, capability.url)
-            .headers(capability.headers)
-            .body(capability.body)
-            .send()
-            .await?;
+            // Reserve authority-specific capacity before the shared total budget.
+            // A burst of generic web reads cannot occupy Brave/Perplexity slots.
+            let _authority_permit: SemaphorePermit<'static> = tokio::time::timeout(
+                Duration::from_secs(2),
+                capability.authority.admission_semaphore().acquire(),
+            )
+            .await
+            .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
+            .map_err(|_| EgressError::ConcurrencyUnavailable)?;
+            let _permit: SemaphorePermit<'static> = tokio::time::timeout(
+                Duration::from_secs(2),
+                EGRESS_SEMAPHORE.acquire(),
+            )
+            .await
+            .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
+            .map_err(|_| EgressError::ConcurrencyUnavailable)?;
 
-        let remote_peer = validate_connected_peer(
-            &capability.addresses,
-            response.remote_addr(),
-        )?;
+            // Queueing consumes capability lifetime. Re-check after admission
+            // so an expired authorization cannot connect merely because it waited.
+            if std::time::Instant::now() >= capability.expires_at {
+                return Err(EgressError::CapabilityExpired);
+            }
 
-        if response
-            .content_length()
-            .is_some_and(|length| length > capability.max_response_body_bytes as u64)
-        {
-            return Err(EgressError::ResponseBodyTooLarge);
-        }
+            let client = build_pinned_client(
+                &capability.host,
+                &capability.addresses,
+                capability.is_domain,
+                capability.connect_timeout,
+                capability.request_timeout,
+            )?;
 
-        let status = response.status();
-        let response_headers = response.headers().clone();
-        if response_header_bytes(&response_headers) > 64 * 1024
-            || response_headers.len() > 128
-        {
-            return Err(EgressError::ResponseHeadersTooLarge);
-        }
-        let mut response = response;
-        let mut collected = Vec::new();
+            let response = client
+                .request(capability.method.clone(), capability.url.clone())
+                .headers(capability.headers.clone())
+                .body(capability.body.clone())
+                .send()
+                .await?;
 
-        while let Some(chunk) = response.chunk().await? {
-            if collected.len().saturating_add(chunk.len())
-                > capability.max_response_body_bytes
+            let remote_peer =
+                validate_connected_peer(&capability.addresses, response.remote_addr())?;
+            let status = response.status();
+            let response_headers = response.headers().clone();
+            if response_header_bytes(&response_headers) > 64 * 1024
+                || response_headers.len() > 128
+            {
+                return Err(EgressError::ResponseHeadersTooLarge);
+            }
+
+            if capability.authority == EgressAuthority::PublicWeb
+                && is_followable_redirect(status)
+            {
+                if let Some(location) = response_headers.get(reqwest::header::LOCATION) {
+                    if redirect_count >= MAX_PUBLIC_WEB_REDIRECT_HOPS {
+                        return Err(EgressError::RedirectLimitExceeded);
+                    }
+                    let location = location
+                        .to_str()
+                        .map_err(|_| EgressError::InvalidRedirectLocation)?;
+                    let next_url = capability
+                        .url
+                        .join(location)
+                        .map_err(|_| EgressError::InvalidRedirectLocation)?;
+
+                    if capability.url.scheme() == "https" && next_url.scheme() == "http" {
+                        return Err(EgressError::RedirectSchemeDowngrade);
+                    }
+
+                    // Redirects carry no user headers or bodies in PublicWeb
+                    // scope. Re-authorization validates URL syntax, scheme,
+                    // port, credentials, DNS answers, and the next socket set.
+                    let next_capability = self
+                        .authorize_with_authority(
+                            EgressAuthority::PublicWeb,
+                            Method::GET,
+                            next_url.as_str(),
+                            HeaderMap::new(),
+                            Vec::new(),
+                        )
+                        .await?;
+                    let next_url_key = next_capability.url.as_str().to_owned();
+                    if !visited_urls.insert(next_url_key) {
+                        return Err(EgressError::RedirectLoop);
+                    }
+
+                    let to_origin = format!(
+                        "{}://{}",
+                        next_capability.url.scheme(),
+                        next_capability.host
+                    );
+                    redirect_hops.push(RedirectHopReceipt {
+                        from_origin: origin,
+                        to_origin,
+                        status: status.as_u16(),
+                        remote_peer,
+                        target_addresses: next_capability.addresses.clone(),
+                    });
+
+                    // Drop the redirect response without consuming its body.
+                    drop(response);
+                    capability = next_capability;
+                    continue;
+                }
+            }
+
+            if response
+                .content_length()
+                .is_some_and(|length| length > capability.max_response_body_bytes as u64)
             {
                 return Err(EgressError::ResponseBodyTooLarge);
             }
-            collected.extend_from_slice(&chunk);
+
+            let mut response = response;
+            let mut collected = Vec::new();
+            while let Some(chunk) = response.chunk().await? {
+                if collected.len().saturating_add(chunk.len())
+                    > capability.max_response_body_bytes
+                {
+                    return Err(EgressError::ResponseBodyTooLarge);
+                }
+                collected.extend_from_slice(&chunk);
+            }
+
+            let receipt = EgressReceipt {
+                origin,
+                method: method_name,
+                authorized_addresses,
+                remote_peer,
+                status: status.as_u16(),
+                request_body_bytes,
+                response_body_bytes: collected.len(),
+                elapsed: started.elapsed(),
+                policy_version: capability.policy_version,
+                authority,
+                redirect_hops,
+            };
+
+            return Ok(EgressResponse {
+                status,
+                headers: response_headers,
+                body: collected,
+                receipt,
+            });
         }
 
-        let receipt = EgressReceipt {
-            origin,
-            method: method_name,
-            authorized_addresses,
-            remote_peer,
-            status: status.as_u16(),
-            request_body_bytes,
-            response_body_bytes: collected.len(),
-            elapsed: started.elapsed(),
-            policy_version: capability.policy_version,
-            authority,
-        };
-
-        Ok(EgressResponse {
-            status,
-            headers: response_headers,
-            body: collected,
-            receipt,
-        })
+        Err(EgressError::RedirectLimitExceeded)
     }
 
     /// Execute a request under a reviewed provider authority.
@@ -675,6 +773,17 @@ fn validate_request_headers(headers: &HeaderMap) -> Result<(), EgressError> {
         }
     }
     Ok(())
+}
+
+fn is_followable_redirect(status: StatusCode) -> bool {
+    matches!(
+        status,
+        StatusCode::MOVED_PERMANENTLY
+            | StatusCode::FOUND
+            | StatusCode::SEE_OTHER
+            | StatusCode::TEMPORARY_REDIRECT
+            | StatusCode::PERMANENT_REDIRECT
+    )
 }
 
 fn validate_connected_peer(
