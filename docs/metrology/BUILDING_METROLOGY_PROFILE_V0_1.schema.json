@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/metrology/BUILDING_METROLOGY_PROFILE_V0_1.schema.json",
+  "title": "Mycelix Building Metrology Profile v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "classification",
+    "claim_ceiling",
+    "owner",
+    "owner_issue",
+    "channels",
+    "evidence_classes",
+    "admission_states",
+    "non_authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.building-metrology-profile/0.1"
+    },
+    "profile_id": {
+      "const": "MYC-BUILD-METROLOGY-PROFILE-V0.1"
+    },
+    "classification": {
+      "const": "synthetic_measurement_requirements_only"
+    },
+    "claim_ceiling": {
+      "const": "instrument_profile_schema_and_synthetic_admission_logic_only"
+    },
+    "owner": {
+      "const": "Mycelix"
+    },
+    "owner_issue": {
+      "const": "https://github.com/Luminous-Dynamics/mycelix/issues/6025"
+    },
+    "channels": {
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "items": {
+        "$ref": "#/$defs/channel"
+      }
+    },
+    "evidence_classes": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "provider_assertion",
+          "documented_capability",
+          "calibration_record",
+          "independent_check",
+          "measured_observation",
+          "assay_result"
+        ]
+      }
+    },
+    "admission_states": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "AdmittedForDeclaredMeasurementProfile",
+          "AdmittedWithDeclaredLimitations",
+          "MoreEvidenceRequired",
+          "NotComparable",
+          "RejectedForDeclaredPurpose",
+          "ExpiredOrInvalidated"
+        ]
+      }
+    },
+    "non_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instrument_admission_grants_building_approval",
+        "instrument_admission_grants_safety_approval",
+        "instrument_admission_grants_device_control",
+        "instrument_admission_proves_physical_outcome"
+      ],
+      "properties": {
+        "instrument_admission_grants_building_approval": {
+          "const": false
+        },
+        "instrument_admission_grants_safety_approval": {
+          "const": false
+        },
+        "instrument_admission_grants_device_control": {
+          "const": false
+        },
+        "instrument_admission_proves_physical_outcome": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "channel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "measurand_id",
+        "quantity_kind",
+        "unit",
+        "raw_or_derived",
+        "data_purpose",
+        "status",
+        "local_read_only_required",
+        "calibration_or_reference_check_required",
+        "installation_record_required",
+        "uncertainty_budget_required",
+        "response_time_required",
+        "synchronized_timebase_required",
+        "method_identity_required",
+        "independent_assay_required",
+        "acceptance_tolerances",
+        "physical_thresholds"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "measurand_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "raw_or_derived": {
+          "enum": [
+            "raw",
+            "derived"
+          ]
+        },
+        "data_purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "const": "REQUIREMENTS_ONLY"
+        },
+        "local_read_only_required": {
+          "const": true
+        },
+        "calibration_or_reference_check_required": {
+          "const": true
+        },
+        "installation_record_required": {
+          "const": true
+        },
+        "uncertainty_budget_required": {
+          "const": true
+        },
+        "response_time_required": {
+          "const": true
+        },
+        "synchronized_timebase_required": {
+          "const": true
+        },
+        "method_identity_required": {
+          "const": true
+        },
+        "independent_assay_required": {
+          "type": "boolean"
+        },
+        "acceptance_tolerances": {
+          "const": "NOT_SET_BY_THIS_PROFILE"
+        },
+        "physical_thresholds": {
+          "const": "NOT_SET_BY_THIS_PROFILE"
+        }
+      }
+    }
+  }
+}
