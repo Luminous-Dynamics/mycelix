@@ -158,6 +158,24 @@ pub enum ExecutionDecision {
     AuthorizedExecution,
 }
 
+/// Typed inputs for issuing a delegation.
+///
+/// Delegation identity is derived from canonical immutable content; callers
+/// cannot choose or override the resulting DelegationId.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DelegationGrantSpec {
+    pub relationship_id: RelationshipId,
+    pub principal: PrincipalRef,
+    pub delegate: PrincipalRef,
+    pub action: ActionScope,
+    pub resource: ResourceScope,
+    pub mode: DelegationMode,
+    pub granted_at: i64,
+    pub expires_at: Option<i64>,
+    pub authority_epoch: AuthorityEpoch,
+    pub parent: Option<DelegationId>,
+}
+
 /// Addressable validation dependencies for delegated authority.
 ///
 /// The context is deliberately supplied by the caller instead of being fetched
@@ -204,21 +222,20 @@ impl Delegation {
     /// This is the safe default. Use `grant_with_subdelegation` only when
     /// the principal explicitly intends the delegate to attenuate and issue
     /// child delegations.
-    pub fn grant(
-        id: DelegationId,
-        relationship_id: RelationshipId,
-        principal: PrincipalRef,
-        delegate: PrincipalRef,
-        action: ActionScope,
-        resource: ResourceScope,
-        mode: DelegationMode,
-        granted_at: i64,
-        expires_at: Option<i64>,
-        authority_epoch: AuthorityEpoch,
-        parent: Option<DelegationId>,
+    pub fn grant(spec: DelegationGrantSpec) -> Result<Self, DelegationError> {
+        Self::grant_with_subdelegation(spec, false)
+    }
+
+    /// Create a delegation with an explicit subdelegation decision.
+    ///
+    /// A true value is immutable authority content and is included in the
+    /// content-bound DelegationId. A child may still delegate only when this
+    /// flag is true on every parent edge and every child remains attenuated.
+    pub fn grant_with_subdelegation(
+        spec: DelegationGrantSpec,
+        subdelegation_allowed: bool,
     ) -> Result<Self, DelegationError> {
-        Self::grant_with_subdelegation(
-            id,
+        let DelegationGrantSpec {
             relationship_id,
             principal,
             delegate,
@@ -229,37 +246,15 @@ impl Delegation {
             expires_at,
             authority_epoch,
             parent,
-            false,
-        )
-    }
+        } = spec;
 
-    /// Create a delegation with an explicit subdelegation decision.
-    ///
-    /// A true value is immutable authority content and is included in the
-    /// content-bound DelegationId. A child may still delegate only when this
-    /// flag is true on every parent edge and every child remains attenuated.
-    #[allow(clippy::too_many_arguments)]
-    pub fn grant_with_subdelegation(
-        _id: DelegationId,
-        relationship_id: RelationshipId,
-        principal: PrincipalRef,
-        delegate: PrincipalRef,
-        action: ActionScope,
-        resource: ResourceScope,
-        mode: DelegationMode,
-        granted_at: i64,
-        expires_at: Option<i64>,
-        authority_epoch: AuthorityEpoch,
-        parent: Option<DelegationId>,
-        subdelegation_allowed: bool,
-    ) -> Result<Self, DelegationError> {
         if principal == delegate {
             return Err(DelegationError::SelfDelegation);
         }
-        if let Some(expiry) = expires_at {
-            if expiry < granted_at {
-                return Err(DelegationError::InvalidExpiry);
-            }
+        if let Some(expiry) = expires_at
+            && expiry < granted_at
+        {
+            return Err(DelegationError::InvalidExpiry);
         }
         let event = DelegationEvent {
             kind: DelegationEventKind::Grant,
@@ -489,10 +484,10 @@ impl Delegation {
         if request.requested_at < self.granted_at {
             return Err(DelegationError::NotYetEffective);
         }
-        if let Some(expiry) = self.expires_at {
-            if request.requested_at >= expiry {
-                return Err(DelegationError::Expired);
-            }
+        if let Some(expiry) = self.expires_at
+            && request.requested_at >= expiry
+        {
+            return Err(DelegationError::Expired);
         }
         if request.authority_epoch != self.authority_epoch {
             return Err(DelegationError::StaleAuthorityEpoch);
@@ -723,19 +718,18 @@ mod tests {
 
     fn delegation(mode: DelegationMode) -> Delegation {
         let relationship = RelationshipId::derive("test", b"relationship");
-        Delegation::grant(
-            DelegationId::derive(relationship, b"delegation"),
-            relationship,
-            p("alice"),
-            p("agent"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            mode,
-            100,
-            Some(200),
-            4,
-            None,
-        )
+        Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("alice"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: mode,
+            granted_at: 100,
+            expires_at: Some(200),
+            authority_epoch: 4,
+            parent: None,
+        })
         .unwrap()
     }
 
@@ -831,19 +825,18 @@ mod tests {
     fn missing_parent_is_not_caller_assertable() {
         let relationship = RelationshipId::derive("test", b"relationship");
         let parent = DelegationId::derive(relationship, b"parent");
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
-            relationship,
-            p("alice"),
-            p("agent"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            100,
-            None,
-            4,
-            Some(parent),
-        )
+        let child = Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("alice"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 100,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: Some(parent),
+        })
         .unwrap();
         assert_eq!(
             child.authorize(&request(DelegationMode::Execute, 150, 4), &context(&[])),
@@ -854,35 +847,33 @@ mod tests {
     #[test]
     fn subdelegation_is_denied_by_default_and_requires_explicit_parent_opt_in() {
         let relationship = RelationshipId::derive("test", b"subdelegation-default");
-        let parent = Delegation::grant(
-            DelegationId::derive(relationship, b"parent"),
-            relationship,
-            p("alice"),
-            p("broker"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            100,
-            None,
-            4,
-            None,
-        )
+        let parent = Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("alice"),
+            delegate: p("broker"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 100,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: None,
+        })
         .unwrap();
         assert!(!parent.subdelegation_allowed);
 
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
-            relationship,
-            p("broker"),
-            p("agent"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            150,
-            None,
-            4,
-            Some(parent.id),
-        )
+        let child = Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("broker"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 150,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: Some(parent.id),
+        })
         .unwrap();
         let request = ExecutionRequest {
             principal: p("broker"),
@@ -913,33 +904,33 @@ mod tests {
     fn valid_parent_chain_authorizes() {
         let relationship = RelationshipId::derive("test", b"chain");
         let parent = Delegation::grant_with_subdelegation(
-            DelegationId::derive(relationship, b"parent"),
-            relationship,
-            p("alice"),
-            p("broker"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            100,
-            Some(300),
-            4,
-            None,
+            DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("alice"),
+            delegate: p("broker"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 100,
+            expires_at: Some(300),
+            authority_epoch: 4,
+            parent: None,
+        },
             true,
         )
         .unwrap();
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
-            relationship,
-            p("broker"),
-            p("agent"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            150,
-            Some(250),
-            4,
-            Some(parent.id),
-        )
+        let child = Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("broker"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 150,
+            expires_at: Some(250),
+            authority_epoch: 4,
+            parent: Some(parent.id),
+        })
         .unwrap();
         let req = ExecutionRequest {
             principal: p("broker"),
@@ -960,33 +951,33 @@ mod tests {
     fn tampered_parent_content_is_rejected_before_parent_scope_evaluation() {
         let relationship = RelationshipId::derive("test", b"parent-identity");
         let parent = Delegation::grant_with_subdelegation(
-            DelegationId::derive(relationship, b"parent"),
-            relationship,
-            p("alice"),
-            p("broker"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            100,
-            None,
-            4,
-            None,
+            DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("alice"),
+            delegate: p("broker"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 100,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: None,
+        },
             true,
         )
         .unwrap();
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
-            relationship,
-            p("broker"),
-            p("agent"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            150,
-            None,
-            4,
-            Some(parent.id),
-        )
+        let child = Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("broker"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 150,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: Some(parent.id),
+        })
         .unwrap();
         let request = ExecutionRequest {
             principal: p("broker"),
@@ -1018,35 +1009,35 @@ mod tests {
     fn revoked_parent_blocks_child() {
         let relationship = RelationshipId::derive("test", b"revoked-parent");
         let mut parent = Delegation::grant_with_subdelegation(
-            DelegationId::derive(relationship, b"parent"),
-            relationship,
-            p("alice"),
-            p("broker"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            100,
-            None,
-            4,
-            None,
+            DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("alice"),
+            delegate: p("broker"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 100,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: None,
+        },
             true,
         )
         .unwrap();
         let parent_id = parent.id;
         parent.revoke(&p("alice"), 160, 4).unwrap();
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
-            relationship,
-            p("broker"),
-            p("agent"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            150,
-            None,
-            4,
-            Some(parent_id),
-        )
+        let child = Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("broker"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 150,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: Some(parent_id),
+        })
         .unwrap();
         assert_eq!(
             child.authorize(
@@ -1068,48 +1059,47 @@ mod tests {
     #[test]
     fn every_ancestor_must_explicitly_allow_the_next_delegation_edge() {
         let relationship = RelationshipId::derive("test", b"ancestor-subdelegation");
-        let root = Delegation::grant(
-            DelegationId::derive(relationship, b"root"),
-            relationship,
-            p("alice"),
-            p("broker"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            100,
-            None,
-            4,
-            None,
-        )
+        let root = Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("alice"),
+            delegate: p("broker"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 100,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: None,
+        })
         .unwrap();
         let middle = Delegation::grant_with_subdelegation(
-            DelegationId::derive(relationship, b"middle"),
-            relationship,
-            p("broker"),
-            p("agent"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            150,
-            None,
-            4,
-            Some(root.id),
+            DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("broker"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 150,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: Some(root.id),
+        },
             true,
         )
         .unwrap();
-        let leaf = Delegation::grant(
-            DelegationId::derive(relationship, b"leaf"),
-            relationship,
-            p("agent"),
-            p("worker"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Propose,
-            175,
-            None,
-            4,
-            Some(middle.id),
-        )
+        let leaf = Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("agent"),
+            delegate: p("worker"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Propose,
+            granted_at: 175,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: Some(middle.id),
+        })
         .unwrap();
         let request = ExecutionRequest {
             principal: p("agent"),
@@ -1134,33 +1124,33 @@ mod tests {
     fn same_scope_child_without_a_narrower_mode_or_validity_window_is_rejected() {
         let relationship = RelationshipId::derive("test", b"strict-attenuation");
         let parent = Delegation::grant_with_subdelegation(
-            DelegationId::derive(relationship, b"parent"),
-            relationship,
-            p("alice"),
-            p("broker"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            100,
-            None,
-            4,
-            None,
+            DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("alice"),
+            delegate: p("broker"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 100,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: None,
+        },
             true,
         )
         .unwrap();
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
-            relationship,
-            p("broker"),
-            p("agent"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            100,
-            None,
-            4,
-            Some(parent.id),
-        )
+        let child = Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("broker"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 100,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: Some(parent.id),
+        })
         .unwrap();
         let request = ExecutionRequest {
             principal: p("broker"),
@@ -1187,33 +1177,33 @@ mod tests {
     fn propose_child_is_narrower_than_execute_parent() {
         let relationship = RelationshipId::derive("test", b"mode-attenuation");
         let parent = Delegation::grant_with_subdelegation(
-            DelegationId::derive(relationship, b"parent"),
-            relationship,
-            p("alice"),
-            p("broker"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            100,
-            None,
-            4,
-            None,
+            DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("alice"),
+            delegate: p("broker"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 100,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: None,
+        },
             true,
         )
         .unwrap();
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
-            relationship,
-            p("broker"),
-            p("agent"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Propose,
-            100,
-            None,
-            4,
-            Some(parent.id),
-        )
+        let child = Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("broker"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Propose,
+            granted_at: 100,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: Some(parent.id),
+        })
         .unwrap();
         let request = ExecutionRequest {
             principal: p("broker"),
@@ -1234,33 +1224,33 @@ mod tests {
     fn parent_scope_and_epoch_escalation_fail_closed() {
         let relationship = RelationshipId::derive("test", b"scope");
         let parent = Delegation::grant_with_subdelegation(
-            DelegationId::derive(relationship, b"parent"),
-            relationship,
-            p("alice"),
-            p("broker"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Propose,
-            100,
-            Some(300),
-            4,
-            None,
+            DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("alice"),
+            delegate: p("broker"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Propose,
+            granted_at: 100,
+            expires_at: Some(300),
+            authority_epoch: 4,
+            parent: None,
+        },
             true,
         )
         .unwrap();
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
-            relationship,
-            p("broker"),
-            p("agent"),
-            ActionScope::named("delete-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            150,
-            None,
-            4,
-            Some(parent.id),
-        )
+        let child = Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("broker"),
+            delegate: p("agent"),
+            action: ActionScope::named("delete-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 150,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: Some(parent.id),
+        })
         .unwrap();
         let req = ExecutionRequest {
             principal: p("broker"),
@@ -1281,33 +1271,33 @@ mod tests {
     fn parent_epoch_mismatch_fails_closed() {
         let relationship = RelationshipId::derive("test", b"epoch");
         let parent = Delegation::grant_with_subdelegation(
-            DelegationId::derive(relationship, b"parent"),
-            relationship,
-            p("alice"),
-            p("broker"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            100,
-            None,
-            4,
-            None,
+            DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("alice"),
+            delegate: p("broker"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 100,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: None,
+        },
             true,
         )
         .unwrap();
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
-            relationship,
-            p("broker"),
-            p("agent"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            150,
-            None,
-            5,
-            Some(parent.id),
-        )
+        let child = Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("broker"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 150,
+            expires_at: None,
+            authority_epoch: 5,
+            parent: Some(parent.id),
+        })
         .unwrap();
         let req = ExecutionRequest {
             principal: p("broker"),
@@ -1329,19 +1319,18 @@ mod tests {
         let relationship = RelationshipId::derive("test", b"cycle");
         let a_id = DelegationId::derive(relationship, b"a");
         let b_id = DelegationId::derive(relationship, b"b");
-        let a = Delegation::grant(
-            a_id,
-            relationship,
-            p("root"),
-            p("broker"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            100,
-            None,
-            4,
-            Some(b_id),
-        )
+        let a = Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("root"),
+            delegate: p("broker"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 100,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: Some(b_id),
+        })
         .unwrap();
         let req = ExecutionRequest {
             principal: p("root"),
@@ -1372,33 +1361,33 @@ mod tests {
     fn child_cannot_outlive_parent() {
         let relationship = RelationshipId::derive("test", b"expiry");
         let parent = Delegation::grant_with_subdelegation(
-            DelegationId::derive(relationship, b"parent"),
-            relationship,
-            p("alice"),
-            p("broker"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            100,
-            Some(200),
-            4,
-            None,
+            DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("alice"),
+            delegate: p("broker"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 100,
+            expires_at: Some(200),
+            authority_epoch: 4,
+            parent: None,
+        },
             true,
         )
         .unwrap();
-        let child = Delegation::grant(
-            DelegationId::derive(relationship, b"child"),
-            relationship,
-            p("broker"),
-            p("agent"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            150,
-            Some(250),
-            4,
-            Some(parent.id),
-        )
+        let child = Delegation::grant(DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("broker"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 150,
+            expires_at: Some(250),
+            authority_epoch: 4,
+            parent: Some(parent.id),
+        })
         .unwrap();
         let req = ExecutionRequest {
             principal: p("broker"),
@@ -1432,17 +1421,18 @@ mod tests {
     fn subdelegation_opt_in_is_bound_into_content_identity() {
         let relationship = RelationshipId::derive("test", b"subdelegation-identity");
         let mut delegation = Delegation::grant_with_subdelegation(
-            DelegationId::derive(relationship, b"delegation"),
-            relationship,
-            p("alice"),
-            p("broker"),
-            ActionScope::named("create-opportunity").unwrap(),
-            ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute,
-            100,
-            None,
-            4,
-            None,
+            DelegationGrantSpec {
+            relationship_id: relationship,
+            principal: p("alice"),
+            delegate: p("broker"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            granted_at: 100,
+            expires_at: None,
+            authority_epoch: 4,
+            parent: None,
+        },
             true,
         )
         .unwrap();
