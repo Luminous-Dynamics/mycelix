@@ -1,0 +1,51 @@
+{
+  "schema_version": "0.1.0",
+  "observation_id": "SYN-OBS-FAIL-001",
+  "evidence_class": "synthetic_only",
+  "evidence_ceiling": "synthetic_observation_semantics_only_no_physical_claim",
+  "observation_type": "laboratory_sample",
+  "subject": {
+    "source_id": "SYN-WATER-SOURCE-01",
+    "sample_point_id": "SYN-SAMPLE-POINT-01",
+    "intended_use": "synthetic_test_only"
+  },
+  "sample": {
+    "valid_time_utc": "2026-11-12T10:00:00Z",
+    "acquired_time_utc": "2026-11-12T11:00:00Z",
+    "sampler_id": "SYN-SAMPLER-01",
+    "chain_of_custody_status": "qualified",
+    "collection_method_id": "SYN-COLLECTION-METHOD",
+    "collection_method_revision": "0.1"
+  },
+  "measurements": [
+    {
+      "analyte_id": "marker_alpha",
+      "value": 1.3,
+      "unit": "synthetic-unit/L",
+      "qualifier": "measured",
+      "absolute_uncertainty": 0.05,
+      "detection_limit": 0.01,
+      "method_profile_id": "SYN-METHOD-ALPHA",
+      "method_profile_revision": "0.1",
+      "instrument_ref": "SYN-INSTRUMENT-ALPHA",
+      "calibration_state": "qualified",
+      "condition_applicability": "within_envelope"
+    },
+    {
+      "analyte_id": "marker_beta",
+      "value": 0.5,
+      "unit": "synthetic-unit/L",
+      "qualifier": "measured",
+      "absolute_uncertainty": 0.1,
+      "detection_limit": 0.01,
+      "method_profile_id": "SYN-METHOD-BETA",
+      "method_profile_revision": "0.1",
+      "instrument_ref": "SYN-INSTRUMENT-BETA",
+      "calibration_state": "qualified",
+      "condition_applicability": "within_envelope"
+    }
+  ],
+  "notes": [
+    "All analytes, units, values and evidence references are fictional test data; they are not drinking-water standards or measurements."
+  ]
+}
