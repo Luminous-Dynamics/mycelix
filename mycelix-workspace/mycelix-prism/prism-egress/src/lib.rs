@@ -513,6 +513,13 @@ fn validate_authority_scope(
                     return Err(EgressError::AuthorityHeaderViolation(name.as_str().to_owned()));
                 }
             }
+            let token_count = headers.get_all("x-subscription-token").iter().count();
+            let accept_count = headers.get_all(reqwest::header::ACCEPT).iter().count();
+            if token_count > 1 || accept_count > 1 {
+                return Err(EgressError::AuthorityHeaderViolation(
+                    "duplicate Brave provider header".to_owned(),
+                ));
+            }
             let token = headers
                 .get("x-subscription-token")
                 .and_then(|value| value.to_str().ok())
@@ -533,6 +540,19 @@ fn validate_authority_scope(
                 if !matches!(name.as_str(), "authorization" | "content-type") {
                     return Err(EgressError::AuthorityHeaderViolation(name.as_str().to_owned()));
                 }
+            }
+            let authorization_count = headers
+                .get_all(reqwest::header::AUTHORIZATION)
+                .iter()
+                .count();
+            let content_type_count = headers
+                .get_all(reqwest::header::CONTENT_TYPE)
+                .iter()
+                .count();
+            if authorization_count > 1 || content_type_count > 1 {
+                return Err(EgressError::AuthorityHeaderViolation(
+                    "duplicate Perplexity provider header".to_owned(),
+                ));
             }
             let authorization = headers
                 .get(reqwest::header::AUTHORIZATION)
@@ -1080,6 +1100,51 @@ mod tests {
                 &[],
             ),
             Err(EgressError::AuthorityScopeViolation)
+        ));
+    }
+
+    #[test]
+    fn provider_authorities_reject_duplicate_credential_headers() {
+        let brave_url =
+            Url::parse("https://api.search.brave.com/res/v1/web/search").unwrap();
+        let mut brave_headers = HeaderMap::new();
+        brave_headers.insert("X-Subscription-Token", "secret".parse().unwrap());
+        brave_headers.append("X-Subscription-Token", "second".parse().unwrap());
+        assert!(matches!(
+            validate_authority_scope(
+                EgressAuthority::BraveSearch,
+                &brave_url,
+                &Method::GET,
+                &brave_headers,
+                &[],
+            ),
+            Err(EgressError::AuthorityHeaderViolation(_))
+        ));
+
+        let perplexity_url =
+            Url::parse("https://api.perplexity.ai/chat/completions").unwrap();
+        let mut perplexity_headers = HeaderMap::new();
+        perplexity_headers.insert(
+            reqwest::header::AUTHORIZATION,
+            "Bearer secret".parse().unwrap(),
+        );
+        perplexity_headers.append(
+            reqwest::header::AUTHORIZATION,
+            "Bearer second".parse().unwrap(),
+        );
+        perplexity_headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            "application/json".parse().unwrap(),
+        );
+        assert!(matches!(
+            validate_authority_scope(
+                EgressAuthority::Perplexity,
+                &perplexity_url,
+                &Method::POST,
+                &perplexity_headers,
+                b"{}",
+            ),
+            Err(EgressError::AuthorityHeaderViolation(_))
         ));
     }
 
