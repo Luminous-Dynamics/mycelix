@@ -987,6 +987,9 @@ fn validate_url_policy_with_test_port(
             || normalized.ends_with(".localhost")
             || normalized.ends_with(".local")
             || normalized.ends_with(".internal")
+            // IANA Special-Use Domain: home.arpa is scoped to the local homenet.
+            || normalized == "home.arpa"
+            || normalized.ends_with(".home.arpa")
             || normalized == "metadata.google.internal"
         {
             return Err(EgressError::BlockedHost);
@@ -1928,6 +1931,9 @@ mod tests {
             "http://svc.internal/",
             "http://metadata.google.internal/",
             "http://metadata.google.internal./",
+            "http://home.arpa/",
+            "http://router.home.arpa/",
+            "http://printer.home.arpa./",
         ] {
             assert!(matches!(
                 validate_url_policy(&Url::parse(raw).unwrap()),
