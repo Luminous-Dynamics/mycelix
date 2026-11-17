@@ -367,7 +367,10 @@ fn reconcile_event_chain(
     let mut previous_time = 0_u64;
 
     for (index, event) in ordered.iter().enumerate() {
-        if !ids.insert(event.event_id.as_str()) || !sequences.insert(event.sequence_number) {
+        if !nonempty(&event.event_id)
+            || !ids.insert(event.event_id.as_str())
+            || !sequences.insert(event.sequence_number)
+        {
             issue(issues, FoodLotReconciliationIssueCodeV1::DuplicateEvent);
         }
         if u64::try_from(index).map_or(true, |expected| event.sequence_number != expected) {
@@ -675,7 +678,7 @@ fn report_from_with_tip(
     receipt: Option<&FoodLotHouseholdReceiptV1>,
     available: Option<FoodLotQuantityV1>,
     event_tip: Option<String>,
-    mut issues: BTreeSet<FoodLotReconciliationIssueCodeV1>,
+    issues: BTreeSet<FoodLotReconciliationIssueCodeV1>,
     refs: BTreeSet<String>,
 ) -> FoodLotReconciliationReportV1 {
     let disposition = if issues.iter().any(|code| is_conflict(*code)) {
