@@ -85,7 +85,7 @@ pub struct StorageUnit {
 }
 
 
- // REUSABLE FOOD CONTAINERS AND APPEND-ONLY LIFECYCLE
+// REUSABLE FOOD CONTAINERS AND APPEND-ONLY LIFECYCLE
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ContainerMaterial {
@@ -297,7 +297,8 @@ fn validate_container_link(
                 || tag.0 != event.sequence_number.to_be_bytes().to_vec()
             {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "ContainerToCycleEvents link must bind the matching container and sequence tag".into(),
+                    "ContainerToCycleEvents link must bind the matching container and sequence tag"
+                        .into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
@@ -348,7 +349,8 @@ fn validate_container_link(
                 || !tag.0.is_empty()
             {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "ContainerEventToNext must bind the exact parent event and next sequence".into(),
+                    "ContainerEventToNext must bind the exact parent event and next sequence"
+                        .into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
@@ -373,8 +375,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::PreservationBatch(b) => validate_batch(b),
                 EntryTypes::PreservationMethod(m) => validate_method(m),
                 EntryTypes::StorageUnit(s) => validate_storage(s),
-                EntryTypes::ReusableContainer(container) => validate_reusable_container(container, &action.author),
-                EntryTypes::ContainerCycleEvent(event) => validate_container_cycle_event(event, &action.author),
+                EntryTypes::ReusableContainer(container) => {
+                    validate_reusable_container(container, &action.author)
+                }
+                EntryTypes::ContainerCycleEvent(event) => {
+                    validate_container_cycle_event(event, &action.author)
+                }
             },
             OpEntry::UpdateEntry {
                 app_entry: EntryTypes::PreservationBatch(b),
@@ -384,7 +390,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 app_entry: EntryTypes::ReusableContainer(_),
                 ..
             } => Ok(ValidateCallbackResult::Invalid(
-                "Reusable container registration records are immutable; use lifecycle events".into(),
+                "Reusable container registration records are immutable; use lifecycle events"
+                    .into(),
             )),
             OpEntry::UpdateEntry {
                 app_entry: EntryTypes::ContainerCycleEvent(_),
@@ -526,23 +533,45 @@ fn validate_container_evidence(
     evidence: &ContainerEvidenceRef,
 ) -> ExternResult<ValidateCallbackResult> {
     if evidence.source_ref.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid("Container evidence source_ref cannot be empty".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container evidence source_ref cannot be empty".into(),
+        ));
     }
-    if evidence.method_ref.as_deref().is_some_and(|value| value.trim().is_empty())
-        || evidence.calibration_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+    if evidence
+        .method_ref
+        .as_deref()
+        .is_some_and(|value| value.trim().is_empty())
+        || evidence
+            .calibration_ref
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
     {
-        return Ok(ValidateCallbackResult::Invalid("Optional evidence references cannot be empty".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Optional evidence references cannot be empty".into(),
+        ));
     }
     if evidence.evidence_class == ContainerEvidenceClass::Measured
-        && evidence.calibration_ref.as_deref().is_none_or(|value| value.trim().is_empty())
+        && evidence
+            .calibration_ref
+            .as_deref()
+            .is_none_or(|value| value.trim().is_empty())
     {
-        return Ok(ValidateCallbackResult::Invalid("Measured evidence requires a calibration reference".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Measured evidence requires a calibration reference".into(),
+        ));
     }
-    if matches!(evidence.evidence_class,
-        ContainerEvidenceClass::IndependentlyAssayed | ContainerEvidenceClass::IndependentlyQualified)
-        && evidence.method_ref.as_deref().is_none_or(|value| value.trim().is_empty())
+    if matches!(
+        evidence.evidence_class,
+        ContainerEvidenceClass::IndependentlyAssayed
+            | ContainerEvidenceClass::IndependentlyQualified
+    ) && evidence
+        .method_ref
+        .as_deref()
+        .is_none_or(|value| value.trim().is_empty())
     {
-        return Ok(ValidateCallbackResult::Invalid("Independent assay/qualification requires a method reference".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Independent assay/qualification requires a method reference".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -552,7 +581,9 @@ fn validate_reusable_container(
     author: &AgentPubKey,
 ) -> ExternResult<ValidateCallbackResult> {
     if container.id.trim().is_empty() || container.id.len() > 128 {
-        return Ok(ValidateCallbackResult::Invalid("Container ID must be non-empty and at most 128 characters".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container ID must be non-empty and at most 128 characters".into(),
+        ));
     }
     if &container.steward != author {
         return Ok(ValidateCallbackResult::Invalid(
@@ -560,33 +591,54 @@ fn validate_reusable_container(
         ));
     }
     if container.registered_at == 0 {
-        return Ok(ValidateCallbackResult::Invalid("Container registered_at must be positive Unix time".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container registered_at must be positive Unix time".into(),
+        ));
     }
     if container.capacity_ml == 0 {
-        return Ok(ValidateCallbackResult::Invalid("Container capacity_ml must be positive".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container capacity_ml must be positive".into(),
+        ));
     }
     if container.closure_type.trim().is_empty()
         || container.closure_type.len() > 128
         || container.food_contact_qualification_ref.trim().is_empty()
         || container.cleaning_protocol_ref.trim().is_empty()
     {
-        return Ok(ValidateCallbackResult::Invalid("Closure, food-contact and cleaning references are required".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Closure, food-contact and cleaning references are required".into(),
+        ));
     }
-    if container.temperature_min_millic.is_some_and(|minimum|
-        container.temperature_max_millic.is_some_and(|maximum| minimum > maximum))
-    {
-        return Ok(ValidateCallbackResult::Invalid("Temperature minimum cannot exceed maximum".into()));
+    if container.temperature_min_millic.is_some_and(|minimum| {
+        container
+            .temperature_max_millic
+            .is_some_and(|maximum| minimum > maximum)
+    }) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Temperature minimum cannot exceed maximum".into(),
+        ));
     }
     if container.manufacturer_reuse_cycle_limit == Some(0) {
-        return Ok(ValidateCallbackResult::Invalid("Manufacturer reuse cycle limit must be positive when supplied".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Manufacturer reuse cycle limit must be positive when supplied".into(),
+        ));
     }
     if container.compatible_product_refs.len() > 128
-        || container.compatible_product_refs.iter().any(|value| value.trim().is_empty())
+        || container
+            .compatible_product_refs
+            .iter()
+            .any(|value| value.trim().is_empty())
     {
-        return Ok(ValidateCallbackResult::Invalid("Compatible product refs must be non-empty and at most 128 entries".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Compatible product refs must be non-empty and at most 128 entries".into(),
+        ));
     }
     let mut product_refs = BTreeSet::new();
-    if container.compatible_product_refs.iter().any(|value| !product_refs.insert(value.as_str())) {
+    if container
+        .compatible_product_refs
+        .iter()
+        .any(|value| !product_refs.insert(value.as_str()))
+    {
         return Ok(ValidateCallbackResult::Invalid(
             "Compatible product refs must be unique".into(),
         ));
@@ -598,23 +650,69 @@ fn validate_container_transition_fields(
     previous: Option<&ContainerCycleEvent>,
     current: &ContainerCycleEvent,
 ) -> ValidateCallbackResult {
-    let valid = match (previous.map(|event| event.event_kind.clone()), &current.event_kind) {
-        (None, ContainerEventKind::Washed) => current.condition == ContainerCondition::NeedsCleaning,
-        (Some(ContainerEventKind::Emptied | ContainerEventKind::Returned), ContainerEventKind::Washed) => current.condition == ContainerCondition::NeedsCleaning,
-        (Some(ContainerEventKind::Washed), ContainerEventKind::Sanitized) => current.condition == ContainerCondition::Serviceable,
+    let valid = match (
+        previous.map(|event| event.event_kind.clone()),
+        &current.event_kind,
+    ) {
+        (None, ContainerEventKind::Washed) => {
+            current.condition == ContainerCondition::NeedsCleaning
+        }
+        (
+            Some(ContainerEventKind::Emptied | ContainerEventKind::Returned),
+            ContainerEventKind::Washed,
+        ) => current.condition == ContainerCondition::NeedsCleaning,
+        (Some(ContainerEventKind::Washed), ContainerEventKind::Sanitized) => {
+            current.condition == ContainerCondition::Serviceable
+        }
         (Some(ContainerEventKind::Sanitized), ContainerEventKind::Inspected) => matches!(
             current.condition,
             ContainerCondition::Serviceable | ContainerCondition::FailedInspection
         ),
-        (Some(ContainerEventKind::Inspected), ContainerEventKind::Filled) => previous.is_some_and(|event| event.condition == ContainerCondition::Serviceable) && current.condition == ContainerCondition::Serviceable,
-        (Some(ContainerEventKind::Filled), ContainerEventKind::Sealed) => current.condition == ContainerCondition::Serviceable,
-        (Some(ContainerEventKind::Sealed), ContainerEventKind::Dispatched) => current.condition == ContainerCondition::Serviceable,
-        (Some(ContainerEventKind::Dispatched), ContainerEventKind::Received) => current.condition == ContainerCondition::Serviceable,
-        (Some(ContainerEventKind::Received), ContainerEventKind::Emptied) => current.condition == ContainerCondition::NeedsCleaning,
-        (Some(ContainerEventKind::Emptied), ContainerEventKind::Returned) => current.condition == ContainerCondition::NeedsCleaning,
-        (Some(previous_kind), ContainerEventKind::Retired) if !matches!(previous_kind, ContainerEventKind::Retired | ContainerEventKind::Lost) => current.condition == ContainerCondition::Retired,
-        (Some(previous_kind), ContainerEventKind::Lost) if !matches!(previous_kind, ContainerEventKind::Retired | ContainerEventKind::Lost) => current.condition == ContainerCondition::Lost,
-        (Some(previous_kind), ContainerEventKind::Damaged) if !matches!(previous_kind, ContainerEventKind::Retired | ContainerEventKind::Lost | ContainerEventKind::Damaged) => current.condition == ContainerCondition::Damaged,
+        (Some(ContainerEventKind::Inspected), ContainerEventKind::Filled) => {
+            previous.is_some_and(|event| event.condition == ContainerCondition::Serviceable)
+                && current.condition == ContainerCondition::Serviceable
+        }
+        (Some(ContainerEventKind::Filled), ContainerEventKind::Sealed) => {
+            current.condition == ContainerCondition::Serviceable
+        }
+        (Some(ContainerEventKind::Sealed), ContainerEventKind::Dispatched) => {
+            current.condition == ContainerCondition::Serviceable
+        }
+        (Some(ContainerEventKind::Dispatched), ContainerEventKind::Received) => {
+            current.condition == ContainerCondition::Serviceable
+        }
+        (Some(ContainerEventKind::Received), ContainerEventKind::Emptied) => {
+            current.condition == ContainerCondition::NeedsCleaning
+        }
+        (Some(ContainerEventKind::Emptied), ContainerEventKind::Returned) => {
+            current.condition == ContainerCondition::NeedsCleaning
+        }
+        (Some(previous_kind), ContainerEventKind::Retired)
+            if !matches!(
+                previous_kind,
+                ContainerEventKind::Retired | ContainerEventKind::Lost
+            ) =>
+        {
+            current.condition == ContainerCondition::Retired
+        }
+        (Some(previous_kind), ContainerEventKind::Lost)
+            if !matches!(
+                previous_kind,
+                ContainerEventKind::Retired | ContainerEventKind::Lost
+            ) =>
+        {
+            current.condition == ContainerCondition::Lost
+        }
+        (Some(previous_kind), ContainerEventKind::Damaged)
+            if !matches!(
+                previous_kind,
+                ContainerEventKind::Retired
+                    | ContainerEventKind::Lost
+                    | ContainerEventKind::Damaged
+            ) =>
+        {
+            current.condition == ContainerCondition::Damaged
+        }
         _ => false,
     };
     if valid {
@@ -634,19 +732,34 @@ fn validate_container_cycle_event(
     author: &AgentPubKey,
 ) -> ExternResult<ValidateCallbackResult> {
     if event.occurred_at == 0 {
-        return Ok(ValidateCallbackResult::Invalid("Container event time must be positive".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container event time must be positive".into(),
+        ));
     }
-    if event.product_ref.as_deref().is_some_and(|value| value.trim().is_empty())
-        || event.product_lot_ref.as_deref().is_some_and(|value| value.trim().is_empty())
-        || event.location_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+    if event
+        .product_ref
+        .as_deref()
+        .is_some_and(|value| value.trim().is_empty())
+        || event
+            .product_lot_ref
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
+        || event
+            .location_ref
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
     {
-        return Ok(ValidateCallbackResult::Invalid("Optional lot/location refs must be non-empty when supplied".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Optional lot/location refs must be non-empty when supplied".into(),
+        ));
     }
     if event.event_kind == ContainerEventKind::Filled
         && event.product_lot_ref.is_none()
         && event.preservation_batch_hash.is_none()
     {
-        return Ok(ValidateCallbackResult::Invalid("Filled event must reference a product lot or preservation batch".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Filled event must reference a product lot or preservation batch".into(),
+        ));
     }
     if let Some(batch_hash) = event.preservation_batch_hash.as_ref() {
         let batch_record = must_get_valid_record(batch_hash.clone())?;
@@ -655,25 +768,45 @@ fn validate_container_cycle_event(
             .to_app_option()
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
             .ok_or(wasm_error!(WasmErrorInner::Guest(
-                "Container event preservation_batch_hash does not reference a PreservationBatch".into()
+                "Container event preservation_batch_hash does not reference a PreservationBatch"
+                    .into()
             )))?;
     }
-    if matches!(&event.event_kind, ContainerEventKind::Washed | ContainerEventKind::Sanitized) {
+    if matches!(
+        &event.event_kind,
+        ContainerEventKind::Washed | ContainerEventKind::Sanitized
+    ) {
         let Some(observation) = event.sanitation.as_ref() else {
-            return Ok(ValidateCallbackResult::Invalid("Washed/Sanitized events require a sanitation observation".into()));
+            return Ok(ValidateCallbackResult::Invalid(
+                "Washed/Sanitized events require a sanitation observation".into(),
+            ));
         };
-        if observation.protocol_ref.trim().is_empty() || observation.observation_ref.trim().is_empty() {
-            return Ok(ValidateCallbackResult::Invalid("Sanitation protocol and observation refs must be non-empty".into()));
+        if observation.protocol_ref.trim().is_empty()
+            || observation.observation_ref.trim().is_empty()
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Sanitation protocol and observation refs must be non-empty".into(),
+            ));
         }
-        if observation.sanitizer_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+        if observation
+            .sanitizer_ref
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
             || observation.exposure_time_ms == Some(0)
             || observation.sanitizer_concentration_mg_l == Some(0)
         {
-            return Ok(ValidateCallbackResult::Invalid("Sanitation optional refs must be non-empty and exposure time positive".into()));
+            return Ok(ValidateCallbackResult::Invalid(
+                "Sanitation optional refs must be non-empty and exposure time positive".into(),
+            ));
         }
         if event.event_kind == ContainerEventKind::Sanitized
-            && (observation.sanitizer_ref.as_deref().is_none_or(|value| value.trim().is_empty())
-                || observation.sanitizer_concentration_mg_l.is_none_or(|value| value == 0)
+            && (observation
+                .sanitizer_ref
+                .as_deref()
+                .is_none_or(|value| value.trim().is_empty())
+                || observation
+                    .sanitizer_concentration_mg_l
+                    .is_none_or(|value| value == 0)
                 || observation.exposure_time_ms.is_none_or(|value| value == 0))
         {
             return Ok(ValidateCallbackResult::Invalid(
@@ -685,20 +818,30 @@ fn validate_container_cycle_event(
             invalid @ ValidateCallbackResult::Invalid(_) => return Ok(invalid),
         }
     } else if event.sanitation.is_some() {
-        return Ok(ValidateCallbackResult::Invalid("Sanitation observation is only valid on Washed/Sanitized events".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Sanitation observation is only valid on Washed/Sanitized events".into(),
+        ));
     }
 
     if event.sequence_number == 0 && event.previous_event_hash.is_some() {
-        return Ok(ValidateCallbackResult::Invalid("Root container event must not have a previous event".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Root container event must not have a previous event".into(),
+        ));
     }
     if event.sequence_number > 0 && event.previous_event_hash.is_none() {
-        return Ok(ValidateCallbackResult::Invalid("Non-root container event requires a previous event".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Non-root container event requires a previous event".into(),
+        ));
     }
 
     let container_record = must_get_valid_record(event.container_hash.clone())?;
-    let container: ReusableContainer = container_record.entry().to_app_option()
+    let container: ReusableContainer = container_record
+        .entry()
+        .to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Container reference is not a ReusableContainer entry".into())))?;
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Container reference is not a ReusableContainer entry".into()
+        )))?;
     if &container.steward != author {
         return Ok(ValidateCallbackResult::Invalid(
             "Only the registered container steward may append lifecycle events".into(),
@@ -707,7 +850,10 @@ fn validate_container_cycle_event(
     if event.event_kind == ContainerEventKind::Filled
         && !container.compatible_product_refs.is_empty()
         && event.product_ref.as_deref().is_none_or(|product_ref| {
-            !container.compatible_product_refs.iter().any(|allowed| allowed == product_ref)
+            !container
+                .compatible_product_refs
+                .iter()
+                .any(|allowed| allowed == product_ref)
         })
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -717,17 +863,27 @@ fn validate_container_cycle_event(
 
     if let Some(previous_hash) = event.previous_event_hash.as_ref() {
         let previous_record = must_get_valid_record(previous_hash.clone())?;
-        let previous: ContainerCycleEvent = previous_record.entry().to_app_option()
+        let previous: ContainerCycleEvent = previous_record
+            .entry()
+            .to_app_option()
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-            .ok_or(wasm_error!(WasmErrorInner::Guest("Previous event is not a ContainerCycleEvent entry".into())))?;
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Previous event is not a ContainerCycleEvent entry".into()
+            )))?;
         if previous.container_hash != event.container_hash {
-            return Ok(ValidateCallbackResult::Invalid("Previous event belongs to another container".into()));
+            return Ok(ValidateCallbackResult::Invalid(
+                "Previous event belongs to another container".into(),
+            ));
         }
         if previous.sequence_number.checked_add(1) != Some(event.sequence_number) {
-            return Ok(ValidateCallbackResult::Invalid("Event sequence must be exactly previous sequence + 1".into()));
+            return Ok(ValidateCallbackResult::Invalid(
+                "Event sequence must be exactly previous sequence + 1".into(),
+            ));
         }
         if event.occurred_at < previous.occurred_at {
-            return Ok(ValidateCallbackResult::Invalid("Event time cannot precede parent event time".into()));
+            return Ok(ValidateCallbackResult::Invalid(
+                "Event time cannot precede parent event time".into(),
+            ));
         }
         match validate_container_transition_fields(Some(&previous), &event) {
             ValidateCallbackResult::Valid => {}
@@ -943,16 +1099,19 @@ mod tests {
         condition: ContainerCondition,
         sequence_number: u64,
     ) -> ContainerCycleEvent {
-        let sanitation = matches!(&kind, ContainerEventKind::Washed | ContainerEventKind::Sanitized)
-            .then(|| ContainerSanitationObservation {
-                protocol_ref: "protocol:wash-v1".into(),
-                wash_water_temp_millic: Some(60_000),
-                sanitizer_ref: Some("sanitizer:declared".into()),
-                sanitizer_concentration_mg_l: Some(100),
-                exposure_time_ms: Some(30_000),
-                observation_ref: "observation:synthetic".into(),
-                evidence: container_evidence("source:synthetic-sanitization"),
-            });
+        let sanitation = matches!(
+            &kind,
+            ContainerEventKind::Washed | ContainerEventKind::Sanitized
+        )
+        .then(|| ContainerSanitationObservation {
+            protocol_ref: "protocol:wash-v1".into(),
+            wash_water_temp_millic: Some(60_000),
+            sanitizer_ref: Some("sanitizer:declared".into()),
+            sanitizer_concentration_mg_l: Some(100),
+            exposure_time_ms: Some(30_000),
+            observation_ref: "observation:synthetic".into(),
+            evidence: container_evidence("source:synthetic-sanitization"),
+        });
         ContainerCycleEvent {
             container_hash: ActionHash::from_raw_36(vec![1; 36]),
             previous_event_hash: (sequence_number > 0)
@@ -1058,17 +1217,49 @@ mod tests {
 
     #[test]
     fn container_cycle_requires_wash_sanitize_inspect_before_fill() {
-        let washed = lifecycle_event(ContainerEventKind::Washed, ContainerCondition::NeedsCleaning, 0);
-        let sanitized = lifecycle_event(ContainerEventKind::Sanitized, ContainerCondition::Serviceable, 1);
-        let inspected = lifecycle_event(ContainerEventKind::Inspected, ContainerCondition::Serviceable, 2);
-        let filled = lifecycle_event(ContainerEventKind::Filled, ContainerCondition::Serviceable, 3);
+        let washed = lifecycle_event(
+            ContainerEventKind::Washed,
+            ContainerCondition::NeedsCleaning,
+            0,
+        );
+        let sanitized = lifecycle_event(
+            ContainerEventKind::Sanitized,
+            ContainerCondition::Serviceable,
+            1,
+        );
+        let inspected = lifecycle_event(
+            ContainerEventKind::Inspected,
+            ContainerCondition::Serviceable,
+            2,
+        );
+        let filled = lifecycle_event(
+            ContainerEventKind::Filled,
+            ContainerCondition::Serviceable,
+            3,
+        );
 
-        assert!(matches!(validate_container_transition_fields(None, &washed), ValidateCallbackResult::Valid));
-        assert!(matches!(validate_container_transition_fields(Some(&washed), &sanitized), ValidateCallbackResult::Valid));
-        assert!(matches!(validate_container_transition_fields(Some(&sanitized), &inspected), ValidateCallbackResult::Valid));
-        assert!(matches!(validate_container_transition_fields(Some(&inspected), &filled), ValidateCallbackResult::Valid));
+        assert!(matches!(
+            validate_container_transition_fields(None, &washed),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&washed), &sanitized),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&sanitized), &inspected),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&inspected), &filled),
+            ValidateCallbackResult::Valid
+        ));
 
-        let premature_fill = lifecycle_event(ContainerEventKind::Filled, ContainerCondition::Serviceable, 2);
+        let premature_fill = lifecycle_event(
+            ContainerEventKind::Filled,
+            ContainerCondition::Serviceable,
+            2,
+        );
         assert!(matches!(
             validate_container_transition_fields(Some(&sanitized), &premature_fill),
             ValidateCallbackResult::Invalid(_)
@@ -1101,11 +1292,7 @@ mod tests {
             ValidateCallbackResult::Invalid(_)
         ));
 
-        let damaged = lifecycle_event(
-            ContainerEventKind::Damaged,
-            ContainerCondition::Damaged,
-            3,
-        );
+        let damaged = lifecycle_event(ContainerEventKind::Damaged, ContainerCondition::Damaged, 3);
         let washed = lifecycle_event(
             ContainerEventKind::Washed,
             ContainerCondition::NeedsCleaning,
@@ -1119,20 +1306,63 @@ mod tests {
 
     #[test]
     fn container_cycle_requires_seal_dispatch_receive_empty_before_return() {
-        let filled = lifecycle_event(ContainerEventKind::Filled, ContainerCondition::Serviceable, 0);
-        let sealed = lifecycle_event(ContainerEventKind::Sealed, ContainerCondition::Serviceable, 1);
-        let dispatched = lifecycle_event(ContainerEventKind::Dispatched, ContainerCondition::Serviceable, 2);
-        let received = lifecycle_event(ContainerEventKind::Received, ContainerCondition::Serviceable, 3);
-        let emptied = lifecycle_event(ContainerEventKind::Emptied, ContainerCondition::NeedsCleaning, 4);
-        let returned = lifecycle_event(ContainerEventKind::Returned, ContainerCondition::NeedsCleaning, 5);
+        let filled = lifecycle_event(
+            ContainerEventKind::Filled,
+            ContainerCondition::Serviceable,
+            0,
+        );
+        let sealed = lifecycle_event(
+            ContainerEventKind::Sealed,
+            ContainerCondition::Serviceable,
+            1,
+        );
+        let dispatched = lifecycle_event(
+            ContainerEventKind::Dispatched,
+            ContainerCondition::Serviceable,
+            2,
+        );
+        let received = lifecycle_event(
+            ContainerEventKind::Received,
+            ContainerCondition::Serviceable,
+            3,
+        );
+        let emptied = lifecycle_event(
+            ContainerEventKind::Emptied,
+            ContainerCondition::NeedsCleaning,
+            4,
+        );
+        let returned = lifecycle_event(
+            ContainerEventKind::Returned,
+            ContainerCondition::NeedsCleaning,
+            5,
+        );
 
-        assert!(matches!(validate_container_transition_fields(Some(&filled), &sealed), ValidateCallbackResult::Valid));
-        assert!(matches!(validate_container_transition_fields(Some(&sealed), &dispatched), ValidateCallbackResult::Valid));
-        assert!(matches!(validate_container_transition_fields(Some(&dispatched), &received), ValidateCallbackResult::Valid));
-        assert!(matches!(validate_container_transition_fields(Some(&received), &emptied), ValidateCallbackResult::Valid));
-        assert!(matches!(validate_container_transition_fields(Some(&emptied), &returned), ValidateCallbackResult::Valid));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&filled), &sealed),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&sealed), &dispatched),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&dispatched), &received),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&received), &emptied),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&emptied), &returned),
+            ValidateCallbackResult::Valid
+        ));
 
-        let skipped_seal = lifecycle_event(ContainerEventKind::Dispatched, ContainerCondition::Serviceable, 2);
+        let skipped_seal = lifecycle_event(
+            ContainerEventKind::Dispatched,
+            ContainerCondition::Serviceable,
+            2,
+        );
         assert!(matches!(
             validate_container_transition_fields(Some(&filled), &skipped_seal),
             ValidateCallbackResult::Invalid(_)
