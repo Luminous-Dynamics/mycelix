@@ -464,6 +464,102 @@
           "transported_mass_g"
         ]
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "const": "Filled"
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "accepted_servings"
+        ],
+        "anyOf": [
+          {
+            "properties": {
+              "filled_mass_g": {
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "properties": {
+              "filled_volume_ml": {
+                "type": "integer"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "enum": [
+              "Dispatched",
+              "Returned"
+            ]
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "transport_distance_m": {
+            "type": "integer"
+          },
+          "transport_mode": {
+            "type": "string"
+          },
+          "transported_mass_g": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "const": "Retired"
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "end_of_life_route_ref": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "transport_distance_m": {
+            "type": "integer"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "transport_mode",
+          "transported_mass_g"
+        ]
+      }
     }
   ],
   "$defs": {
