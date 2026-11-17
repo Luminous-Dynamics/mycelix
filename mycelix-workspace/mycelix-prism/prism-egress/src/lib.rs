@@ -1202,10 +1202,12 @@ mod tests {
     }
 
     #[test]
-    fn provider_authorities_never_follow_redirects() {
+    fn only_public_web_authority_may_follow_redirects() {
         assert!(authority_may_follow_redirect(EgressAuthority::PublicWeb));
         assert!(!authority_may_follow_redirect(EgressAuthority::BraveSearch));
         assert!(!authority_may_follow_redirect(EgressAuthority::Perplexity));
+        assert!(!authority_may_follow_redirect(EgressAuthority::WikipediaSummary));
+        assert!(!authority_may_follow_redirect(EgressAuthority::WikidataSparql));
     }
 
     #[tokio::test]
@@ -1766,6 +1768,14 @@ mod tests {
                 .available_permits(),
             MAX_WIKIDATA_REQUESTS
         );
+        assert_eq!(
+            MAX_PUBLIC_WEB_REQUESTS
+                + MAX_BRAVE_REQUESTS
+                + MAX_PERPLEXITY_REQUESTS
+                + MAX_WIKIPEDIA_REQUESTS
+                + MAX_WIKIDATA_REQUESTS,
+            MAX_CONCURRENT_EGRESS_REQUESTS
+        );
         assert!(!std::ptr::eq(
             EgressAuthority::PublicWeb.admission_semaphore(),
             EgressAuthority::BraveSearch.admission_semaphore(),
@@ -1807,6 +1817,20 @@ mod tests {
             validate_authority_scope(
                 EgressAuthority::WikipediaSummary,
                 &wikipedia_attacker,
+                &Method::GET,
+                &HeaderMap::new(),
+                &[],
+            ),
+            Err(EgressError::AuthorityScopeViolation)
+        ));
+        let wikipedia_nested = Url::parse(
+            "https://en.wikipedia.org/api/rest_v1/page/summary/Quantum_mechanics/other",
+        )
+        .unwrap();
+        assert!(matches!(
+            validate_authority_scope(
+                EgressAuthority::WikipediaSummary,
+                &wikipedia_nested,
                 &Method::GET,
                 &HeaderMap::new(),
                 &[],
