@@ -19,7 +19,11 @@
 
 use reqwest::header::HeaderMap;
 use reqwest::{Client, Method, StatusCode};
+use std::future::Future;
+use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::pin::Pin;
+use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
 use url::{Host, Url};
@@ -136,16 +140,70 @@ pub struct EgressReceipt {
     pub policy_version: &'static str,
 }
 
-/// Public-web-only HTTP client. It creates a fresh, DNS-pinned reqwest client
-/// for each consumed capability to prevent cross-request connection-pool reuse.
-#[derive(Clone, Debug, Default)]
+/// Resolver interface makes DNS policy deterministic under test. Implementations
+/// must return the complete A and AAAA answer set, not only the first address.
+pub trait EgressResolver: Send + Sync {
+    fn resolve<'a>(
+        &'a self,
+        host: &'a str,
+        port: u16,
+    ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>>;
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SystemEgressResolver;
+
+impl EgressResolver for SystemEgressResolver {
+    fn resolve<'a>(
+        &'a self,
+        host: &'a str,
+        port: u16,
+    ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
+        Box::pin(async move {
+            tokio::net::lookup_host((host, port))
+                .await
+                .map(|addresses| addresses.collect())
+        })
+    }
+}
+
+/// Public-web-only HTTP client. Each consumed capability receives a fresh,
+/// DNS-pinned reqwest client to prevent cross-request pool reuse.
+#[derive(Clone)]
 pub struct PublicEgressClient {
     limits: EgressLimits,
+    resolver: Arc<dyn EgressResolver>,
+}
+
+impl std::fmt::Debug for PublicEgressClient {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PublicEgressClient")
+            .field("limits", &self.limits)
+            .field("resolver", &"EgressResolver")
+            .finish()
+    }
+}
+
+impl Default for PublicEgressClient {
+    fn default() -> Self {
+        Self::new(EgressLimits::default())
+    }
 }
 
 impl PublicEgressClient {
     pub fn new(limits: EgressLimits) -> Self {
-        Self { limits }
+        Self::with_resolver(limits, SystemEgressResolver)
+    }
+
+    pub fn with_resolver<R>(limits: EgressLimits, resolver: R) -> Self
+    where
+        R: EgressResolver + 'static,
+    {
+        Self {
+            limits,
+            resolver: Arc::new(resolver),
+        }
     }
 
     pub fn limits(&self) -> &EgressLimits {
@@ -186,7 +244,7 @@ impl PublicEgressClient {
 
         let host = url.host_str().ok_or(EgressError::MissingHost)?.to_owned();
         let port = url.port_or_known_default().ok_or(EgressError::PortNotPermitted)?;
-        let (addresses, is_domain) = resolve_and_authorize(&url, port).await?;
+        let (addresses, is_domain) = resolve_and_authorize(&url, port, self.resolver.as_ref()).await?;
 
         Ok(EgressCapability {
             url,
@@ -360,19 +418,21 @@ fn validate_url_policy(url: &Url) -> Result<(), EgressError> {
 async fn resolve_and_authorize(
     url: &Url,
     port: u16,
+    resolver: &dyn EgressResolver,
 ) -> Result<(Vec<SocketAddr>, bool), EgressError> {
     let host = url.host().ok_or(EgressError::MissingHost)?;
     let (mut addresses, is_domain) = match host {
         Host::Ipv4(address) => (vec![SocketAddr::new(IpAddr::V4(address), port)], false),
         Host::Ipv6(address) => (vec![SocketAddr::new(IpAddr::V6(address), port)], false),
         Host::Domain(domain) => {
-            let resolved = tokio::net::lookup_host((domain, port))
+            let resolved = resolver
+                .resolve(domain, port)
                 .await
                 .map_err(|source| EgressError::DnsResolution {
                     host: domain.to_owned(),
                     source,
                 })?;
-            (resolved.collect::<Vec<_>>(), true)
+            (resolved, true)
         }
     };
 
@@ -674,6 +734,59 @@ mod tests {
                 Err(EgressError::BlockedHost)
             ), "expected blocked host: {raw}");
         }
+    }
+
+    #[derive(Clone)]
+    struct StaticResolver {
+        answers: Vec<SocketAddr>,
+        calls: Arc<std::sync::atomic::AtomicUsize>,
+    }
+
+    impl EgressResolver for StaticResolver {
+        fn resolve<'a>(
+            &'a self,
+            _host: &'a str,
+            _port: u16,
+        ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
+            self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let answers = self.answers.clone();
+            Box::pin(async move { Ok(answers) })
+        }
+    }
+
+    fn socket_addresses(values: &[&str]) -> Vec<SocketAddr> {
+        values.iter().map(|value| value.parse().unwrap()).collect()
+    }
+
+    #[tokio::test]
+    async fn injected_resolver_rejects_mixed_public_and_private_answers() {
+        let resolver = StaticResolver {
+            answers: socket_addresses(&["93.184.216.34:443", "10.0.0.8:443"]),
+            calls: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        };
+        let client = PublicEgressClient::with_resolver(EgressLimits::default(), resolver.clone());
+        let result = client
+            .authorize(Method::GET, "https://mixed.example/", HeaderMap::new(), Vec::new())
+            .await;
+        assert!(matches!(result, Err(EgressError::AddressNotPermitted(_))));
+        assert_eq!(resolver.calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn injected_resolver_snapshot_is_taken_exactly_once_for_authorization() {
+        let resolver = StaticResolver {
+            answers: socket_addresses(&["93.184.216.34:443", "2606:4700:4700::1111:443"]),
+            calls: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        };
+        let client = PublicEgressClient::with_resolver(EgressLimits::default(), resolver.clone());
+        let capability = client
+            .authorize(Method::GET, "https://snapshot.example/", HeaderMap::new(), Vec::new())
+            .await
+            .unwrap();
+        assert_eq!(resolver.calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(capability.addresses.len(), 2);
+        assert!(capability.addresses.iter().any(|address| address.ip() == ip("93.184.216.34")));
+        assert!(capability.addresses.iter().any(|address| address.ip() == ip("2606:4700:4700::1111")));
     }
 
     #[tokio::test]
