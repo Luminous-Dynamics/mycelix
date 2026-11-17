@@ -161,8 +161,10 @@ A new native-only `prism-egress` crate now provides:
 - An injectable `EgressResolver` interface and a system resolver implementation. Tests can supply deterministic complete answer sets without relying on public DNS.
 - All-answer-set classification: the request is denied if any returned IPv4 or IPv6 address is outside the conservative public-unicast policy. Mixed public/private answers fail closed.
 - A per-request Reqwest client using `resolve_to_addrs` for the validated address set, retaining the URL hostname for HTTP authority and TLS verification. The exact Reqwest 0.12 API is documented to override hostname resolution for the specified address set. See the upstream ClientBuilder documentation.
+- A DNS admission budget separate from HTTP execution: 16 concurrent lookups, two-second queue wait, five-second lookup timeout, and a 32-address maximum answer set. A larger answer set is rejected rather than truncated.
 - Automatic redirects and ambient proxy discovery disabled. A 3xx is returned to the caller; it is not followed. The next increment must add explicit per-hop reauthorization rather than re-enable automatic redirects.
-- A non-cloneable, in-memory, one-use `EgressCapability` that binds the exact URL, method, outbound headers, body, resolved address set, expiry, response budget, timeouts, and policy version. Execution consumes the capability. This is a Rust ownership boundary, not a cryptographically signed or remotely transferable token.
+- A non-cloneable, in-memory, one-use `EgressCapability` that binds the exact URL, typed authority, method, outbound headers, body, resolved address set, expiry, response budget, timeouts, and policy version. Execution consumes the capability. This is a Rust ownership boundary, not a cryptographically signed or remotely transferable token.
+- `PublicWeb` authority is unauthenticated, bodyless GET only. `BraveSearch` authority is bound to the exact Brave API host/path and a restricted header set. `Perplexity` authority is bound to its exact host/path, POST method, bearer authorization, JSON content type, and restricted header set. Duplicate credential headers are rejected.
 - Five-second authorization lifetime; 8 KiB URL limit; 16 KiB total request-header budget (including a 512-byte allowance for transport-generated fields); 2 MiB request-body limit; 10 MiB response-body limit; 64 KiB / 128-entry accepted response-header budget; 5-second connect timeout; 30-second total request timeout.
 - DNS work is separately bounded to 16 concurrent lookups, a two-second queue wait, five-second lookup timeout, and at most 32 returned addresses per hostname.
 - Typed authority scopes restrict generic public-web access to bodyless, headerless GET. Brave Search credentials can only be sent to api.search.brave.com/res/v1/web/search with its approved header set. Perplexity bearer credentials can only be sent to api.perplexity.ai/chat/completions with its approved header set and POST method. The authority is stored in the one-use capability and execution receipt.
@@ -198,13 +200,13 @@ These are regression corpora, not yet a full performance benchmark or independen
 
 ### Adversarial tests added (not yet executed)
 
-The `prism-egress` source includes tests for:
+The `prism-egress` source and integration corpus include tests for:
 - representative public IPv4/IPv6 addresses and special-purpose, private, transition, multicast, documentation, and benchmarking ranges;
 - mixed public/private DNS answer rejection and empty answer sets;
 - deterministic injected-resolver snapshots and exactly one resolver call during authorization;
 - actual Reqwest destination pinning to a local test listener while preserving the original Host authority;
 - redirect responses being returned without following a metadata-service Location;
-- URL scheme, port, credentials, local hostname, body, header, capability expiry, and HTTPS requirements.
+- URL scheme, port, credentials, local hostname, body, header, capability expiry, HTTPS requirements, provider-origin/header allowlists, and duplicate credential headers.
 
 No passing test result is claimed. The PR remains a draft; the workflow's `pull_request` gate skips draft PRs, and the latest branch head has not been built or tested in a runner or local checkout.
 
@@ -243,6 +245,10 @@ Initial performance goals are hypotheses to validate, not current results:
 
 
 Industry comparison: AWS's published egress patterns recommend composing DNS-layer domain filtering, network-layer inspection, and least-privilege security-group egress rather than relying on one mechanism. Prism's typed application authority and per-request destination pinning operate at a different layer. The target deployment should pair Prism with network egress controls (for example, deny-all-except security-group rules and DNS firewalling); neither layer substitutes for the other. AWS documentation also calls out that security groups do not filter Route 53 Resolver DNS traffic, which is why DNS-layer policy must be designed separately.
+
+
+
+Industry comparison: Envoy's dynamic forward proxy offers a mature general-purpose HTTP forward-proxy mechanism, but Envoy documentation warns that deployments with untrusted clients or destinations can become confused-deputy vulnerabilities. Istio's egress-gateway model provides a centralized policy and telemetry point, but Istio explicitly notes that configuring a gateway alone does not securely force all traffic through it; deployment-level routing and node isolation are still required. Kubernetes NetworkPolicy provides additive L3/L4 egress controls, but a default-deny policy also blocks DNS unless DNS egress is separately allowed. These systems are valuable complementary layers. Prism's narrower differentiation is request-level typed authority plus DNS-answer validation and socket-destination pinning inside the application transport.
 
 #### Paradigm shifts worth pursuing
 
