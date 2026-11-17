@@ -11,11 +11,12 @@
 //!
 //! WASM app requests: GET /proxy?url=https://example.com
 
-use axum::{Router, extract::Query, http::StatusCode, response::IntoResponse, routing::get};
+use axum::{Router, extract::{DefaultBodyLimit, Query}, http::StatusCode, response::IntoResponse, routing::get};
 use prism_common::ssrf::validate_proxy_url;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 const MAX_RESPONSE_SIZE: usize = 10 * 1024 * 1024; // 10MB
+const MAX_REQUEST_BODY_SIZE: usize = 2 * 1024 * 1024; // 2 MiB
 
 // SSRF validation (`validate_proxy_url` / `is_private_ipv4`) lives in
 // `prism_common::ssrf` so `prism-proxy` and `prism-serve` share a single
@@ -280,6 +281,7 @@ async fn main() {
         .route("/api/perplexity", axum::routing::post(perplexity_handler))
         .route("/health", get(health))
         .layer(cors)
+        .layer(DefaultBodyLimit::max(MAX_REQUEST_BODY_SIZE))
         .layer(tower::limit::ConcurrencyLimitLayer::new(50));
 
     let addr = "127.0.0.1:8131";
