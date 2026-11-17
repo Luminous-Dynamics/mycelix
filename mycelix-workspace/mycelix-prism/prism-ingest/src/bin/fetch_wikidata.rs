@@ -21,6 +21,10 @@ const MAX_WIKIDATA_ERROR_BYTES: u64 = 64 * 1024;
 const ENDPOINT: &str = "https://query.wikidata.org/sparql";
 const SOURCE_MANIFEST_ID: &str = "luminous.prism.ingest.sources";
 const SOURCE_MANIFEST_VERSION: &str = "2026-11-17.1";
+const SOURCE_MANIFEST_JSON: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/sources/manifest.json"
+));
 
 /// A category of SPARQL query with metadata for composing sentences.
 struct QuerySpec {
@@ -44,11 +48,13 @@ fn main() {
         .expect("Tokio runtime");
 
     let mut all_claims: Vec<(String, &[&str], String)> = Vec::new();
+    let mut query_digests: Vec<(String, String)> = Vec::new();
     let mut seen = HashSet::new();
 
     for spec in &queries {
         eprintln!("Fetching: {} ...", spec.name);
         let query_sha256 = hex::encode(Sha256::digest(spec.sparql.as_bytes()));
+        query_digests.push((spec.name.to_owned(), query_sha256.clone()));
         match fetch_query(&runtime, &client, spec.name, spec.sparql) {
             Ok(results) => {
                 let mut count = 0;
@@ -163,10 +169,47 @@ fn main() {
     let mut file = std::fs::File::create(&out_path).expect("Failed to create output file");
     file.write_all(output.as_bytes())
         .expect("Failed to write output");
+
+    let query_digest_records = query_digests
+        .iter()
+        .map(|(query_id, sha256)| {
+            serde_json::json!({
+                "query_id": query_id,
+                "sha256": sha256,
+            })
+        })
+        .collect::<Vec<_>>();
+    let provenance = serde_json::json!({
+        "schema_version": "1.0.0",
+        "manifest_id": SOURCE_MANIFEST_ID,
+        "manifest_version": SOURCE_MANIFEST_VERSION,
+        "manifest_sha256": hex::encode(Sha256::digest(SOURCE_MANIFEST_JSON.as_bytes())),
+        "source_id": "wikidata-public-sparql",
+        "authority": "WikidataSparql",
+        "egress_policy": "prism-public-egress-v1",
+        "endpoint": ENDPOINT,
+        "query_digest_algorithm": "SHA-256",
+        "query_digests": query_digest_records,
+        "success_body_limit_bytes": MAX_WIKIDATA_RESPONSE_BYTES,
+        "error_body_limit_bytes": MAX_WIKIDATA_ERROR_BYTES,
+        "timeout_seconds": 90,
+        "claims_generated": all_claims.len(),
+        "query_count": query_digests.len(),
+        "output_path": out_path.display().to_string(),
+        "output_sha256": hex::encode(Sha256::digest(output.as_bytes())),
+    });
+    let provenance_json =
+        serde_json::to_string_pretty(&provenance).expect("provenance serialization");
+    let provenance_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join("wikidata_claims.provenance.json");
+    std::fs::write(&provenance_path, provenance_json).expect("Failed to write provenance");
+
     eprintln!(
-        "Wrote {} claims to {}",
+        "Wrote {} claims to {} with provenance {}",
         all_claims.len(),
-        out_path.display()
+        out_path.display(),
+        provenance_path.display()
     );
 }
 
@@ -301,6 +344,11 @@ mod source_manifest_tests {
         assert_eq!(wikidata["success_body_limit_bytes"].as_u64(), Some(MAX_WIKIDATA_RESPONSE_BYTES));
         assert_eq!(wikidata["error_body_limit_bytes"].as_u64(), Some(MAX_WIKIDATA_ERROR_BYTES));
         assert_eq!(wikidata["redirects"].as_str(), Some("deny"));
+        assert_eq!(wikidata["query_digest_algorithm"].as_str(), Some("SHA-256"));
+        assert_eq!(
+            wikidata["query_ids"].as_array().map(Vec::len),
+            Some(build_queries().len())
+        );
     }
 }
 
