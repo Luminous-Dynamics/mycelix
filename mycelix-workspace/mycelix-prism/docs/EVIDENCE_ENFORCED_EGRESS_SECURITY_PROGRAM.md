@@ -161,6 +161,18 @@ Compare against OWASP guidance, reverse proxies/egress gateways, and cloud netwo
 4. Can a model-based state machine generate redirect/DNS interleavings and verify that no transition reaches an unauthorized peer?
 5. Can the same policy model be consumed by Rust clients, desktop navigation, and deployment firewall generation while preserving distinct trust contexts?
 
+## Interim implementation ledger (branch: security/prism-evidence-enforced-egress-v1)
+
+The current draft branch includes the following bounded, fail-closed controls in addition to the design programme:
+
+- `prism-proxy` and `prism-serve` disable automatic redirects until a per-hop authorization state machine exists.
+- Both clients disable ambient system proxy discovery; any future proxy must be an explicitly configured and reviewed trust boundary.
+- All four upstream response paths in each binary consume response chunks incrementally and stop before exceeding the 10 MiB response budget.
+- Both servers explicitly cap inbound request bodies at 2 MiB.
+- The Symthaea Unix-socket response frame is capped at 64 KiB and must be newline-terminated.
+- Missing, null, or malformed Symthaea `safe` metadata maps to `false`; focused unit tests cover missing/malformed and explicit boolean values.
+
+These changes are source edits only until the exact branch head is compiled and tested. The current environment has not produced passing Cargo, formatting, clippy, or adversarial runtime evidence. Do not interpret the presence of unit tests as evidence that they have passed.
 ## Source references
 
 - OWASP SSRF Prevention Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html
