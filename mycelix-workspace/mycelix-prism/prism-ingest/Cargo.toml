@@ -7,6 +7,9 @@ description = "Pure Rust data ingestion pipeline for Prism search"
 
 [dependencies]
 prism-common = { path = "../prism-common" }
+prism-egress = { path = "../prism-egress", optional = true }
+tokio = { workspace = true, optional = true }
+url = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
@@ -22,9 +25,4 @@ name = "build_corpus"
 required-features = ["fetch"]
 
 [features]
-fetch = ["dep:reqwest"]
-
-[dependencies.reqwest]
-version = "0.12"
-features = ["blocking", "json", "gzip"]
-optional = true
+fetch = ["dep:prism-egress", "dep:tokio", "dep:url"]
