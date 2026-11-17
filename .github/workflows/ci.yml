@@ -454,6 +454,8 @@ jobs:
           require_source 'response.remote_addr()' "$egress"
           require_source '.http2_max_header_list_size(64 * 1024)' "$egress"
           require_source 'MAX_PUBLIC_WEB_REDIRECT_HOPS: usize = 5' "$egress"
+          require_source 'AmbiguousRedirectLocation' "$egress"
+          require_source 'duplicate_location_headers_are_rejected_before_a_second_hop' "$egress"
           require_source 'self.authorize_with_authority(' "$egress"
           require_source 'redirect_hops.push(RedirectHopReceipt' "$egress"
           require_source 'EgressAuthority::WikipediaSummary' "$egress"
