@@ -50,10 +50,15 @@ fn validate_container_event_chain(
             return Err("Container history contains an event for another container".into());
         }
         if !seen_sequences.insert(event.sequence_number) {
-            return Err("Container lifecycle conflict: duplicate sequence number; reconciliation required".into());
+            return Err(
+                "Container lifecycle conflict: duplicate sequence number; reconciliation required"
+                    .into(),
+            );
         }
         if event.sequence_number != index as u64 {
-            return Err("Container lifecycle conflict: sequence gap; reconciliation required".into());
+            return Err(
+                "Container lifecycle conflict: sequence gap; reconciliation required".into(),
+            );
         }
         if event.previous_event_hash != expected_parent {
             return Err("Container lifecycle conflict: event parent does not match the unique preceding event".into());
@@ -119,7 +124,9 @@ pub fn register_reusable_container(container: ReusableContainer) -> ExternResult
         }
     }
     let action_hash = create_entry(&EntryTypes::ReusableContainer(container))?;
-    create_entry(&EntryTypes::Anchor(Anchor("all_reusable_containers".into())))?;
+    create_entry(&EntryTypes::Anchor(Anchor(
+        "all_reusable_containers".into(),
+    )))?;
     create_link(
         anchor_hash("all_reusable_containers")?,
         action_hash.clone(),
@@ -139,7 +146,10 @@ pub fn get_reusable_container(container_hash: ActionHash) -> ExternResult<Option
 #[hdk_extern]
 pub fn get_all_reusable_containers(_: ()) -> ExternResult<Vec<Record>> {
     let links = get_links(
-        LinkQuery::try_new(anchor_hash("all_reusable_containers")?, LinkTypes::AllReusableContainers)?,
+        LinkQuery::try_new(
+            anchor_hash("all_reusable_containers")?,
+            LinkTypes::AllReusableContainers,
+        )?,
         GetStrategy::default(),
     )?;
     records_from_links(links)
@@ -154,8 +164,9 @@ pub fn record_container_cycle_event(event: ContainerCycleEvent) -> ExternResult<
         &civic_requirement_basic(),
         "record_container_cycle_event",
     )?;
-    let container_record = get(event.container_hash.clone(), GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Container not found".into())))?;
+    let container_record = get(event.container_hash.clone(), GetOptions::default())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest("Container not found".into())),
+    )?;
     let container: ReusableContainer = container_record
         .entry()
         .to_app_option()
@@ -182,7 +193,10 @@ pub fn record_container_cycle_event(event: ContainerCycleEvent) -> ExternResult<
     if event.event_kind == ContainerEventKind::Filled {
         if !container.compatible_product_refs.is_empty()
             && event.product_ref.as_deref().is_none_or(|product_ref| {
-                !container.compatible_product_refs.iter().any(|allowed| allowed == product_ref)
+                !container
+                    .compatible_product_refs
+                    .iter()
+                    .any(|allowed| allowed == product_ref)
             })
         {
             return Err(wasm_error!(WasmErrorInner::Guest(
@@ -190,7 +204,10 @@ pub fn record_container_cycle_event(event: ContainerCycleEvent) -> ExternResult<
             )));
         }
         let fills = derived_fill_cycle_count(&history);
-        if container.manufacturer_reuse_cycle_limit.is_some_and(|limit| fills >= u64::from(limit)) {
+        if container
+            .manufacturer_reuse_cycle_limit
+            .is_some_and(|limit| fills >= u64::from(limit))
+        {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Manufacturer reuse-cycle limit reached; container cannot be filled again".into()
             )));
@@ -432,7 +449,10 @@ mod tests {
         assert_eq!(bundle.container.id, "fixture:container-za-001");
         assert_eq!(bundle.container.capacity_ml, 1_000);
         assert_eq!(bundle.container.manufacturer_reuse_cycle_limit, Some(500));
-        assert_eq!(bundle.container.material, ContainerMaterial::BorosilicateGlass);
+        assert_eq!(
+            bundle.container.material,
+            ContainerMaterial::BorosilicateGlass
+        );
 
         let container_hash = sample_container_hash();
         let mut records = Vec::new();
@@ -442,7 +462,9 @@ mod tests {
             assert_eq!(fixture.sequence_number, index as u64);
             assert_eq!(
                 fixture.previous_event_hash,
-                index.checked_sub(1).map(|previous| format!("uhCEkSyntheticEventHash{previous}"))
+                index
+                    .checked_sub(1)
+                    .map(|previous| format!("uhCEkSyntheticEventHash{previous}"))
             );
             let action_hash = ActionHash::from_raw_36(vec![(index as u8).wrapping_add(20); 36]);
             let event = ContainerCycleEvent {
@@ -508,11 +530,11 @@ mod tests {
         let (h0, e0) = sample_cycle_event(0, None, ContainerEventKind::Washed);
         let (h1, e1) = sample_cycle_event(1, Some(h0.clone()), ContainerEventKind::Sanitized);
         let (h2, e2) = sample_cycle_event(2, Some(h1.clone()), ContainerEventKind::Inspected);
-        let checked = validate_container_event_chain(&sample_container_hash(), vec![
-            (h2, e2),
-            (h0, e0),
-            (h1, e1),
-        ]).unwrap();
+        let checked = validate_container_event_chain(
+            &sample_container_hash(),
+            vec![(h2, e2), (h0, e0), (h1, e1)],
+        )
+        .unwrap();
         assert_eq!(checked.len(), 3);
         assert_eq!(checked[2].1.sequence_number, 2);
     }
@@ -522,11 +544,15 @@ mod tests {
         let (h0, e0) = sample_cycle_event(0, None, ContainerEventKind::Washed);
         let (h1a, e1a) = sample_cycle_event(1, Some(h0.clone()), ContainerEventKind::Sanitized);
         let (h1b, e1b) = sample_cycle_event(1, Some(h0), ContainerEventKind::Sanitized);
-        let error = validate_container_event_chain(&sample_container_hash(), vec![
-            (h1a, e1a),
-            (h1b, e1b),
-            (ActionHash::from_raw_36(vec![1; 36]), e0),
-        ]).unwrap_err();
+        let error = validate_container_event_chain(
+            &sample_container_hash(),
+            vec![
+                (h1a, e1a),
+                (h1b, e1b),
+                (ActionHash::from_raw_36(vec![1; 36]), e0),
+            ],
+        )
+        .unwrap_err();
         assert!(error.contains("duplicate sequence"));
     }
 
@@ -534,20 +560,28 @@ mod tests {
     fn container_history_rejects_gaps_and_wrong_parent() {
         let (h0, e0) = sample_cycle_event(0, None, ContainerEventKind::Washed);
         let (h2, e2) = sample_cycle_event(2, Some(h0.clone()), ContainerEventKind::Inspected);
-        assert!(validate_container_event_chain(&sample_container_hash(), vec![
-            (h0.clone(), e0.clone()),
-            (h2, e2),
-        ]).unwrap_err().contains("sequence gap"));
+        assert!(
+            validate_container_event_chain(
+                &sample_container_hash(),
+                vec![(h0.clone(), e0.clone()), (h2, e2),]
+            )
+            .unwrap_err()
+            .contains("sequence gap")
+        );
 
         let (wrong_parent_hash, wrong_parent_event) = sample_cycle_event(
             1,
             Some(ActionHash::from_raw_36(vec![99; 36])),
             ContainerEventKind::Sanitized,
         );
-        assert!(validate_container_event_chain(&sample_container_hash(), vec![
-            (h0, e0),
-            (wrong_parent_hash, wrong_parent_event),
-        ]).unwrap_err().contains("parent"));
+        assert!(
+            validate_container_event_chain(
+                &sample_container_hash(),
+                vec![(h0, e0), (wrong_parent_hash, wrong_parent_event),]
+            )
+            .unwrap_err()
+            .contains("parent")
+        );
     }
 
     #[test]
@@ -556,9 +590,11 @@ mod tests {
         let (h1, e1) = sample_cycle_event(1, Some(h0.clone()), ContainerEventKind::Filled);
         let (h2, e2) = sample_cycle_event(2, Some(h1.clone()), ContainerEventKind::Emptied);
         let (h3, e3) = sample_cycle_event(3, Some(h2.clone()), ContainerEventKind::Filled);
-        let history = validate_container_event_chain(&sample_container_hash(), vec![
-            (h0,e0),(h1,e1),(h2,e2),(h3,e3)
-        ]).unwrap();
+        let history = validate_container_event_chain(
+            &sample_container_hash(),
+            vec![(h0, e0), (h1, e1), (h2, e2), (h3, e3)],
+        )
+        .unwrap();
         assert_eq!(derived_fill_cycle_count(&history), 2);
     }
 
