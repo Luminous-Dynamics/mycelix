@@ -306,7 +306,9 @@ impl PublicEgressClient {
 
         let mut url = Url::parse(raw_url)?;
         validate_url_policy(&url)?;
-        if url.scheme() == "http" && (method != Method::GET || !headers.is_empty() || !body.is_empty()) {
+        if url.scheme() == "http"
+            && (method != Method::GET || !headers.is_empty() || !body.is_empty())
+        {
             return Err(EgressError::RequestRequiresTls);
         }
         validate_authority_scope(authority, &url, &method, &headers, &body)?;
@@ -1058,13 +1060,25 @@ mod tests {
 
         let attacker = Url::parse("https://attacker.example/res/v1/web/search").unwrap();
         assert!(matches!(
-            validate_authority_scope(EgressAuthority::BraveSearch, &attacker, &Method::GET, &headers, &[]),
+            validate_authority_scope(
+                EgressAuthority::BraveSearch,
+                &attacker,
+                &Method::GET,
+                &headers,
+                &[],
+            ),
             Err(EgressError::AuthorityScopeViolation)
         ));
 
         let wrong_path = Url::parse("https://api.search.brave.com/other").unwrap();
         assert!(matches!(
-            validate_authority_scope(EgressAuthority::BraveSearch, &wrong_path, &Method::GET, &headers, &[]),
+            validate_authority_scope(
+                EgressAuthority::BraveSearch,
+                &wrong_path,
+                &Method::GET,
+                &headers,
+                &[],
+            ),
             Err(EgressError::AuthorityScopeViolation)
         ));
     }
@@ -1085,14 +1099,26 @@ mod tests {
 
         let attacker = Url::parse("https://attacker.example/chat/completions").unwrap();
         assert!(matches!(
-            validate_authority_scope(EgressAuthority::Perplexity, &attacker, &Method::POST, &headers, b"{}"),
+            validate_authority_scope(
+                EgressAuthority::Perplexity,
+                &attacker,
+                &Method::POST,
+                &headers,
+                b"{}",
+            ),
             Err(EgressError::AuthorityScopeViolation)
         ));
 
         let mut extra = headers.clone();
         extra.insert("x-forwarded-host", "attacker.example".parse().unwrap());
         assert!(matches!(
-            validate_authority_scope(EgressAuthority::Perplexity, &url, &Method::POST, &extra, b"{}"),
+            validate_authority_scope(
+                EgressAuthority::Perplexity,
+                &url,
+                &Method::POST,
+                &extra,
+                b"{}",
+            ),
             Err(EgressError::AuthorityHeaderViolation(_))
         ));
     }
