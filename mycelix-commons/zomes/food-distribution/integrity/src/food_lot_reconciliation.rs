@@ -10,7 +10,7 @@
 //! returns a read-only reconciliation report. It is not a food-safety check.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 pub const FOOD_LOT_RECONCILIATION_SCHEMA_VERSION: u32 = 1;
 pub const FOOD_LOT_RECONCILIATION_CLAIM_CEILING: &str =
@@ -152,6 +152,7 @@ pub enum FoodLotReconciliationIssueCodeV1 {
     UnsupportedExactConversion,
     InsufficientQuantity,
     InvalidQuantityRecord,
+    InvalidClaimCeiling,
     MissingEventQuantity,
 }
 
@@ -161,8 +162,8 @@ pub struct FoodLotReconciliationReportV1 {
     pub reconciliation_id: String,
     pub ingredient_id: String,
     pub product_ref: String,
-    pub product_lot_ref: String,
-    pub lot_revision: u32,
+    pub product_lot_ref: Option<String>,
+    pub lot_revision: Option<u32>,
     pub receipt_id: Option<String>,
     pub as_of: u64,
     pub disposition: FoodLotReconciliationDispositionV1,
@@ -238,9 +239,11 @@ fn base_to_quantity(base_kind: QuantityBase, value: u128) -> Result<FoodLotQuant
         QuantityBase::VolumeNanolitres => ("volume", "mL", 6),
         QuantityBase::Count => ("count", "count", 0),
     };
+    let exact_value = u64::try_from(value)
+        .map_err(|_| FoodLotReconciliationIssueCodeV1::UnsupportedExactConversion)?;
     Ok(FoodLotQuantityV1 {
         dimension: dimension.to_owned(),
-        value: value as u64,
+        value: exact_value,
         decimal_places,
         unit: unit.to_owned(),
     })
@@ -367,7 +370,7 @@ fn reconcile_event_chain(
         if !ids.insert(event.event_id.as_str()) || !sequences.insert(event.sequence_number) {
             issue(issues, FoodLotReconciliationIssueCodeV1::DuplicateEvent);
         }
-        if event.sequence_number != index as u64 {
+        if u64::try_from(index).map_or(true, |expected| event.sequence_number != expected) {
             issue(issues, FoodLotReconciliationIssueCodeV1::EventSequenceGap);
         }
         if event.receipt_id != receipt_id {
@@ -441,13 +444,13 @@ fn reconcile_child_splits(
             continue;
         };
         evidence_ref(&child.evidence, evidence_refs, issues);
-        total_split = total_split
-            .checked_add(split_value)
-            .ok_or(())
-            .unwrap_or_else(|_| {
+        total_split = match total_split.checked_add(split_value) {
+            Some(sum) if sum <= JSON_SAFE_MAX => sum,
+            _ => {
                 issue(issues, FoodLotReconciliationIssueCodeV1::InvalidSplitBalance);
-                total_split
-            });
+                return None;
+            }
+        };
     }
     Some(total_split)
 }
@@ -646,7 +649,10 @@ fn report_from_with_tip(
     }
     let disposition = if issues.iter().any(|code| is_conflict(*code)) {
         FoodLotReconciliationDispositionV1::Conflicted
-    } else if !issues.is_empty() {
+    } else if issues
+        .iter()
+        .any(|code| *code != FoodLotReconciliationIssueCodeV1::InsufficientQuantity)
+    {
         FoodLotReconciliationDispositionV1::Indeterminate
     } else {
         FoodLotReconciliationDispositionV1::Resolved
@@ -669,14 +675,18 @@ fn report_from_with_tip(
         reconciliation_id: request.reconciliation_id.clone(),
         ingredient_id: request.ingredient_id.clone(),
         product_ref: lot.map(|value| value.product_ref.clone()).unwrap_or_else(|| request.expected_product_ref.clone()),
-        product_lot_ref: lot.map(|value| value.lot_ref.clone()).unwrap_or_default(),
-        lot_revision: lot.map(|value| value.revision).unwrap_or(0),
+        product_lot_ref: lot.map(|value| value.lot_ref.clone()),
+        lot_revision: lot.map(|value| value.revision),
         receipt_id: receipt.map(|value| value.receipt_id.clone()),
         as_of: request.as_of,
         disposition,
         recipe_planning_eligibility: eligibility,
         required_quantity: request.required_quantity.clone(),
-        available_quantity: available,
+        available_quantity: if disposition == FoodLotReconciliationDispositionV1::Resolved {
+            available
+        } else {
+            None
+        },
         event_chain_tip: event_tip,
         issue_codes,
         evidence_refs: refs.into_iter().collect(),
