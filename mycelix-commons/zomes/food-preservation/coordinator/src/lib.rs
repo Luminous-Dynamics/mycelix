@@ -953,27 +953,33 @@ mod tests {
         }
     }
 
-    fn synthetic_lca_factors() -> ContainerLifecycleImpactFactorsV1 {
-        ContainerLifecycleImpactFactorsV1 {
-            schema_version: 1,
-            factor_set_ref: "fixture:za-impact-factors-2026".into(),
-            geography: "ZA-fixture-only".into(),
-            reference_year: 2026,
-            electricity_mg_co2e_per_wh: 100,
-            water_mg_co2e_per_litre: 10,
-            detergent_mg_co2e_per_gram: 1_000,
-            end_of_life_mg_co2e_per_container: 100,
-            transport_factors: vec![ContainerTransportImpactFactorV1 {
-                mode: ContainerTransportMode::Bicycle,
-                mg_co2e_per_tonne_km: 100_000,
-            }],
-            evidence: ContainerEvidenceRef {
-                source_ref: "fixture:impact-factor-source".into(),
-                method_ref: Some("method:synthetic-factor-set".into()),
-                calibration_ref: None,
-                evidence_class: ContainerEvidenceClass::Simulated,
-            },
-        }
+    #[derive(Deserialize)]
+    struct ContainerImpactFixtureBundle {
+        impact_factors: ContainerLifecycleImpactFactorsV1,
+        expected_impact: ContainerImpactExpectedV1,
+    }
+
+    #[derive(Deserialize)]
+    struct ContainerImpactExpectedV1 {
+        accepted_servings: u64,
+        fill_events: u64,
+        embodied_packaging_mg_co2e: u64,
+        washing_electricity_mg_co2e: u64,
+        washing_water_mg_co2e: u64,
+        detergent_mg_co2e: u64,
+        logistics_mg_co2e: u64,
+        end_of_life_mg_co2e: u64,
+        total_packaging_mg_co2e: u64,
+        mg_co2e_per_accepted_serving: (u64, u64),
+        wash_water_ml_per_accepted_serving: (u64, u64),
+        wash_energy_wh_per_accepted_serving: (u64, u64),
+    }
+
+    fn synthetic_lca_fixture() -> ContainerImpactFixtureBundle {
+        serde_json::from_str(include_str!(
+            "../../integrity/schemas/fixtures/container-impact-factors-v1.json"
+        ))
+        .expect("packaging impact factor fixture must deserialize")
     }
 
     fn synthetic_lca_history() -> Vec<(ActionHash, ContainerCycleEvent)> {
@@ -1019,7 +1025,8 @@ mod tests {
         let container = synthetic_lca_container();
         let container_hash = sample_container_hash();
         let history = synthetic_lca_history();
-        let factors = synthetic_lca_factors();
+        let impact_fixture = synthetic_lca_fixture();
+        let factors = impact_fixture.impact_factors;
         let report = calculate_container_lifecycle_impact(
             &container,
             &container_hash,
@@ -1028,18 +1035,19 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(report.fill_events, 1);
-        assert_eq!(report.accepted_servings, 4);
-        assert_eq!(report.embodied_packaging_mg_co2e, 25_000);
-        assert_eq!(report.washing_electricity_mg_co2e, 12_000);
-        assert_eq!(report.washing_water_mg_co2e, 80);
-        assert_eq!(report.detergent_mg_co2e, 40_000);
-        assert_eq!(report.logistics_mg_co2e, 2_200);
-        assert_eq!(report.end_of_life_mg_co2e, 100);
-        assert_eq!(report.total_packaging_mg_co2e, 79_380);
-        assert_eq!(report.mg_co2e_per_accepted_serving, (79_380, 4));
-        assert_eq!(report.wash_water_ml_per_accepted_serving, (8_000, 4));
-        assert_eq!(report.wash_energy_wh_per_accepted_serving, (120, 4));
+        let expected = impact_fixture.expected_impact;
+        assert_eq!(report.fill_events, expected.fill_events);
+        assert_eq!(report.accepted_servings, expected.accepted_servings);
+        assert_eq!(report.embodied_packaging_mg_co2e, expected.embodied_packaging_mg_co2e);
+        assert_eq!(report.washing_electricity_mg_co2e, expected.washing_electricity_mg_co2e);
+        assert_eq!(report.washing_water_mg_co2e, expected.washing_water_mg_co2e);
+        assert_eq!(report.detergent_mg_co2e, expected.detergent_mg_co2e);
+        assert_eq!(report.logistics_mg_co2e, expected.logistics_mg_co2e);
+        assert_eq!(report.end_of_life_mg_co2e, expected.end_of_life_mg_co2e);
+        assert_eq!(report.total_packaging_mg_co2e, expected.total_packaging_mg_co2e);
+        assert_eq!(report.mg_co2e_per_accepted_serving, expected.mg_co2e_per_accepted_serving);
+        assert_eq!(report.wash_water_ml_per_accepted_serving, expected.wash_water_ml_per_accepted_serving);
+        assert_eq!(report.wash_energy_wh_per_accepted_serving, expected.wash_energy_wh_per_accepted_serving);
     }
 
     #[test]
@@ -1057,7 +1065,7 @@ mod tests {
             &container,
             &container_hash,
             &history,
-            &synthetic_lca_factors(),
+            &synthetic_lca_fixture().impact_factors,
         )
         .unwrap_err();
         assert_eq!(
