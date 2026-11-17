@@ -28,6 +28,19 @@ integrity:
     min_mycel_for_bridge: 0.3      # Minimum MYCEL to mint/redeem SAP
     max_vault_daily_pct: 0.05      # Max 5% of vault per day per member
 
+    # FIN-SAFE-011 collateral issuance authority.
+    # Shipped fail-closed: no price/custody attestation can authorize issuance
+    # until a deliberate DNA modifier supplies a fully validated trust root.
+    collateral_settlement_auth:
+      enabled: false
+      root: ~
+
+    # FIN-SAFE-014 owner-authored SAP V2 claim journal.
+    # Shipped disabled/non-canonical. Enabling requires an explicit DNA/network
+    # decision after the account protocol and its upstream provenance stack qualify.
+    sap_account_v2:
+      enabled: false
+
   zomes:
     - name: payments_integrity
       path: ../target/wasm32-unknown-unknown/release/payments_integrity.wasm
@@ -35,6 +48,14 @@ integrity:
       path: ../target/wasm32-unknown-unknown/release/treasury_integrity.wasm
     - name: finance_bridge_integrity
       path: ../target/wasm32-unknown-unknown/release/finance_bridge_integrity.wasm
+    - name: collateral_deposit_v2_integrity
+      path: ../target/wasm32-unknown-unknown/release/collateral_deposit_v2_integrity.wasm
+    - name: collateral_settlement_auth_integrity
+      path: ../target/wasm32-unknown-unknown/release/collateral_settlement_auth_integrity.wasm
+    - name: collateral_issuance_v2_integrity
+      path: ../target/wasm32-unknown-unknown/release/collateral_issuance_v2_integrity.wasm
+    - name: sap_account_v2_integrity
+      path: ../target/wasm32-unknown-unknown/release/sap_account_v2_integrity.wasm
     - name: staking_integrity
       path: ../target/wasm32-unknown-unknown/release/staking_integrity.wasm
     - name: tend_integrity
@@ -63,6 +84,24 @@ coordinator:
       path: ../target/wasm32-unknown-unknown/release/finance_bridge.wasm
       dependencies:
         - name: finance_bridge_integrity
+    - name: collateral_deposit_v2
+      path: ../target/wasm32-unknown-unknown/release/collateral_deposit_v2.wasm
+      dependencies:
+        - name: collateral_deposit_v2_integrity
+    - name: collateral_settlement_auth
+      path: ../target/wasm32-unknown-unknown/release/collateral_settlement_auth.wasm
+      dependencies:
+        - name: collateral_settlement_auth_integrity
+        - name: collateral_deposit_v2_integrity
+    - name: collateral_issuance_v2
+      path: ../target/wasm32-unknown-unknown/release/collateral_issuance_v2.wasm
+      dependencies:
+        - name: collateral_issuance_v2_integrity
+    - name: sap_account_v2
+      path: ../target/wasm32-unknown-unknown/release/sap_account_v2.wasm
+      dependencies:
+        - name: sap_account_v2_integrity
+        - name: collateral_issuance_v2_integrity
     - name: staking
       path: ../target/wasm32-unknown-unknown/release/staking_coordinator.wasm
       dependencies:

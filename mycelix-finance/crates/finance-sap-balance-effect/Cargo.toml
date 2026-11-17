@@ -1,0 +1,17 @@
+[package]
+name = "finance-sap-balance-effect"
+version = "0.2.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Owner-authored predecessor-bound SAP balance effect and fork-conflict theorems"
+
+[lib]
+path = "src/author_bound.rs"
+
+[dependencies]
+serde = { workspace = true }
+finance-collateral-issuance-persistence = { path = "../finance-collateral-issuance-persistence" }
+mycelix_finance_types = { path = "../../types" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
