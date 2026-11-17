@@ -17,8 +17,9 @@
 //! This crate is intentionally native-only. Do not add it as a dependency of
 //! prism-common, which is also consumed by WASM targets.
 
-use reqwest::header::HeaderMap;
-use reqwest::{Client, Method, StatusCode};
+pub use reqwest::header::HeaderMap;
+pub use reqwest::Method;
+use reqwest::{Client, StatusCode};
 use std::collections::HashSet;
 use std::future::Future;
 use std::io;
