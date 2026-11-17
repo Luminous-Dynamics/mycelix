@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/lise-benchmarks/opa-effect-binding-reference/fixtures/opa-effect-fixture.schema.json",
+  "title": "Synthetic OPA decision log and independent effect observation fixture",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suite_id",
+    "synthetic",
+    "evaluation_known_at",
+    "intent",
+    "opa_decision_log",
+    "collection_receipt",
+    "effect_observation"
+  ],
+  "properties": {
+    "suite_id": {
+      "const": "LISE-OPA-EFFECT-BINDING-v0.1"
+    },
+    "synthetic": {
+      "const": true
+    },
+    "evaluation_known_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "intent": {
+      "type": "object",
+      "required": [
+        "principal_ref",
+        "action",
+        "purpose",
+        "resource_ref",
+        "operation_digest",
+        "policy_digest",
+        "policy_path",
+        "expected_bundle_name",
+        "expected_bundle_revision"
+      ]
+    },
+    "opa_decision_log": {
+      "type": "object",
+      "required": [
+        "decision_id",
+        "trace_id",
+        "span_id",
+        "path",
+        "query",
+        "input",
+        "result",
+        "timestamp",
+        "bundles",
+        "erased",
+        "masked"
+      ]
+    },
+    "collection_receipt": {
+      "type": "object",
+      "required": [
+        "receipt_ref",
+        "source_kind",
+        "decision_id",
+        "trace_id",
+        "input_sha256",
+        "bundle_revision",
+        "source_identity",
+        "adapter_digest",
+        "observed_at",
+        "completeness_state",
+        "signature_state",
+        "trust_state"
+      ]
+    },
+    "effect_observation": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}

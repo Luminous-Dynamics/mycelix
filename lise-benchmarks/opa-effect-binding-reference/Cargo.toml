@@ -1,0 +1,11 @@
+[package]
+name = "lise-opa-effect-binding-reference"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Independent OPA decision receipt and external effect binding reference evaluator."
+
+[dependencies]
+serde_json = "1"
+sha2 = "0.10"
