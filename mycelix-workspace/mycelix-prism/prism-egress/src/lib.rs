@@ -79,6 +79,8 @@ pub enum EgressError {
     MethodNotPermitted,
     #[error("request headers exceed the configured byte limit")]
     RequestHeadersTooLarge,
+    #[error("request contains a transport-controlled header: {0}")]
+    ForbiddenHeader(String),
     #[error("request body exceeds the configured byte limit")]
     RequestBodyTooLarge,
     #[error("response body exceeds the configured byte limit")]
@@ -101,6 +103,12 @@ pub struct EgressCapability {
     addresses: Vec<SocketAddr>,
     is_domain: bool,
     expires_at: std::time::Instant,
+    max_request_header_bytes: usize,
+    max_request_body_bytes: usize,
+    max_response_body_bytes: usize,
+    connect_timeout: Duration,
+    request_timeout: Duration,
+    policy_version: &'static str,
 }
 
 /// A bounded response plus a privacy-minimized execution receipt.
@@ -173,6 +181,12 @@ impl PublicEgressClient {
             addresses,
             is_domain,
             expires_at: std::time::Instant::now() + self.limits.capability_ttl,
+            max_request_header_bytes: self.limits.max_request_header_bytes,
+            max_request_body_bytes: self.limits.max_request_body_bytes,
+            max_response_body_bytes: self.limits.max_response_body_bytes,
+            connect_timeout: self.limits.connect_timeout,
+            request_timeout: self.limits.request_timeout,
+            policy_version: capability.policy_version,
         })
     }
 
@@ -186,10 +200,11 @@ impl PublicEgressClient {
         if std::time::Instant::now() > capability.expires_at {
             return Err(EgressError::CapabilityExpired);
         }
-        if body.len() > self.limits.max_request_body_bytes {
+        if body.len() > capability.max_request_body_bytes {
             return Err(EgressError::RequestBodyTooLarge);
         }
-        if request_header_bytes(&headers) > self.limits.max_request_header_bytes {
+        validate_request_headers(&headers)?;
+        if request_header_bytes(&headers) > capability.max_request_header_bytes {
             return Err(EgressError::RequestHeadersTooLarge);
         }
 
@@ -203,7 +218,8 @@ impl PublicEgressClient {
             &capability.host,
             &capability.addresses,
             capability.is_domain,
-            &self.limits,
+            capability.connect_timeout,
+            capability.request_timeout,
         )?;
 
         let response = client
@@ -220,7 +236,7 @@ impl PublicEgressClient {
 
         while let Some(chunk) = response.chunk().await? {
             if collected.len().saturating_add(chunk.len())
-                > self.limits.max_response_body_bytes
+                > capability.max_response_body_bytes
             {
                 return Err(EgressError::ResponseBodyTooLarge);
             }
@@ -264,7 +280,8 @@ fn build_pinned_client(
     host: &str,
     addresses: &[SocketAddr],
     is_domain: bool,
-    limits: &EgressLimits,
+    connect_timeout: Duration,
+    request_timeout: Duration,
 ) -> Result<Client, EgressError> {
     // Each request gets a fresh pool. The URL retains the original hostname
     // for Host/SNI/certificate checks while this explicit resolver override
@@ -273,12 +290,32 @@ fn build_pinned_client(
         .user_agent("Prism/0.4 (capability-bound egress)")
         .redirect(reqwest::redirect::Policy::none())
         .no_proxy()
-        .connect_timeout(limits.connect_timeout)
-        .timeout(limits.request_timeout);
+        .connect_timeout(connect_timeout)
+        .timeout(request_timeout);
     if is_domain {
         builder = builder.resolve_to_addrs(host, addresses);
     }
     Ok(builder.build()?)
+}
+
+fn validate_request_headers(headers: &HeaderMap) -> Result<(), EgressError> {
+    const FORBIDDEN: &[&str] = &[
+        "host",
+        "connection",
+        "content-length",
+        "transfer-encoding",
+        "proxy-authorization",
+        "proxy-connection",
+        "te",
+        "trailer",
+        "upgrade",
+    ];
+    for name in headers.keys() {
+        if FORBIDDEN.contains(&name.as_str()) || name.as_str().starts_with("proxy-") {
+            return Err(EgressError::ForbiddenHeader(name.as_str().to_owned()));
+        }
+    }
+    Ok(())
 }
 
 fn request_header_bytes(headers: &HeaderMap) -> usize {
@@ -453,7 +490,13 @@ mod tests {
     fn reqwest_client_builder_accepts_a_pinned_domain_address_set() {
         let addresses = ["93.184.216.34:443".parse().unwrap()];
         validate_address_set(&addresses).unwrap();
-        assert!(build_pinned_client("example.com", &addresses, true, &EgressLimits::default()).is_ok());
+        assert!(build_pinned_client(
+            "example.com",
+            &addresses,
+            true,
+            Duration::from_secs(5),
+            Duration::from_secs(30),
+        ).is_ok());
     }
 
     #[test]
@@ -564,6 +607,18 @@ mod tests {
             validate_url_policy(&Url::parse("https://user:secret@example.com").unwrap()),
             Err(EgressError::CredentialsNotPermitted)
         ));
+    }
+
+    #[test]
+    fn rejects_headers_that_can_override_transport_authority() {
+        for name in ["host", "content-length", "transfer-encoding", "proxy-authorization", "connection"] {
+            let mut headers = HeaderMap::new();
+            headers.insert(name, "attacker-controlled");
+            assert!(matches!(
+                validate_request_headers(&headers),
+                Err(EgressError::ForbiddenHeader(_))
+            ), "expected forbidden header: {name}");
+        }
     }
 
     #[test]
