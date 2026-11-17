@@ -493,7 +493,7 @@ impl PublicEgressClient {
                 return Err(EgressError::CapabilityExpired);
             }
 
-            let origin = format!("{}://{}", capability.url.scheme(), capability.host);
+            let origin = sanitized_origin(&capability.url);
             let authority = capability.authority.label();
             let authorized_addresses = capability.addresses.clone();
             let method_name = capability.method.as_str().to_owned();
@@ -582,11 +582,7 @@ impl PublicEgressClient {
                         )
                         .await?;
 
-                    let to_origin = format!(
-                        "{}://{}",
-                        next_capability.url.scheme(),
-                        next_capability.host
-                    );
+                    let to_origin = sanitized_origin(&next_capability.url);
                     redirect_hops.push(RedirectHopReceipt {
                         from_origin: origin,
                         to_origin,
@@ -845,6 +841,16 @@ fn validate_request_headers(headers: &HeaderMap) -> Result<(), EgressError> {
         }
     }
     Ok(())
+}
+
+fn sanitized_origin(url: &Url) -> String {
+    let scheme = url.scheme();
+    match url.host() {
+        Some(Host::Domain(host)) => format!("{scheme}://{host}"),
+        Some(Host::Ipv4(address)) => format!("{scheme}://{address}"),
+        Some(Host::Ipv6(address)) => format!("{scheme}://[{address}]"),
+        None => format!("{scheme}://<missing-host>"),
+    }
 }
 
 fn resolve_public_redirect_target(
@@ -1146,6 +1152,17 @@ mod tests {
                 break;
             }
         }
+    }
+
+    #[test]
+    fn receipt_origin_serialization_brackets_ipv6_and_omits_paths_and_queries() {
+        let ipv6 = Url::parse("https://[2606:4700:4700::1111]/secret/path?q=private").unwrap();
+        assert_eq!(
+            sanitized_origin(&ipv6),
+            "https://[2606:4700:4700::1111]"
+        );
+        let domain = Url::parse("https://example.com:443/secret?q=private").unwrap();
+        assert_eq!(sanitized_origin(&domain), "https://example.com");
     }
 
     #[test]
