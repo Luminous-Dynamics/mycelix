@@ -7,7 +7,7 @@
 //! eliminating the need for a separate proxy service and port.
 
 use axum::Router;
-use axum::extract::{Query, State};
+use axum::extract::{DefaultBodyLimit, Query, State};
 use axum::http::StatusCode;
 use axum::http::header::HeaderValue;
 use axum::response::IntoResponse;
@@ -22,6 +22,7 @@ use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::SetResponseHeaderLayer;
 
 const MAX_RESPONSE_SIZE: usize = 10 * 1024 * 1024; // 10MB
+const MAX_REQUEST_BODY_SIZE: usize = 2 * 1024 * 1024; // 2 MiB
 const MAX_SYMTHAEA_RESPONSE_LINE_BYTES: usize = 64 * 1024;
 
 // ═══════════════════════════════════════════════════════════════
@@ -463,6 +464,8 @@ fn build_app(dist_path: &str, symthaea_cfg: Option<Arc<SymthaeaConfig>>) -> Rout
         .route("/api/perplexity", post(perplexity_handler))
         .route("/health", get(health))
         .merge(symthaea_route)
+        // Explicit cap for request-body extractors (not just upstream responses).
+        .layer(DefaultBodyLimit::max(MAX_REQUEST_BODY_SIZE))
         // Static files with SPA fallback
         .fallback_service(ServeDir::new(dist_path).not_found_service(fallback))
         .layer(CompressionLayer::new())
