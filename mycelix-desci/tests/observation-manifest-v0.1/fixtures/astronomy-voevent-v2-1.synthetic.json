@@ -1,0 +1,54 @@
+{
+  "profile": "mycelix-observation-manifest/0.1",
+  "schema_version": "0.1.0",
+  "observation_id": "urn:mycelix:fixture:astro:0001",
+  "received_at": {"value": "2026-11-14T10:00:00Z", "encoding": "iso8601", "time_scale": "UTC"},
+  "source": {
+    "system_id": "ivoa-voevent-fixture",
+    "record_id": "ivo://example.invalid/fixture#event-0001",
+    "schema_id": "https://www.ivoa.net/documents/VOEvent/20260429/REC-VOEvent-2.1.html",
+    "schema_version": "2.1",
+    "issuer": "did:example:synthetic-voevent-publisher",
+    "published_at": {"value": "2026-11-14T09:59:00Z", "encoding": "iso8601", "time_scale": "UTC"},
+    "authentication": {"status": "not_assessed"}
+  },
+  "phenomenon": {
+    "property_id": "ivo://ivoa.net/ucd#phot.mag",
+    "event_time": {
+      "value": "2026-10-01T05:20:00Z",
+      "encoding": "iso8601",
+      "time_scale": "UTC",
+      "uncertainty": {"value": 0.1, "unit": "s", "semantics": "standard_deviation"}
+    }
+  },
+  "instrument": {
+    "platform_id": "fixture-observatory",
+    "instrument_id": "fixture-camera",
+    "configuration_ref": "urn:fixture:camera-config:1",
+    "calibration": {"state": "unknown"}
+  },
+  "artifact": {
+    "locator": "urn:sha256:966d2743073f2397f341eac2ed171b375f33717456e1fa0eafefff93e7bceb1d",
+    "media_type": "text/plain; charset=utf-8",
+    "byte_length": 40,
+    "digest": {"algorithm": "sha256", "value": "966d2743073f2397f341eac2ed171b375f33717456e1fa0eafefff93e7bceb1d"}
+  },
+  "domain_profile": {
+    "profile_id": "urn:mycelix:domain:astronomy:voevent-2.1",
+    "profile_version": "0.1",
+    "native_semantics_ref": "urn:mycelix:profile:astronomy:voevent-2.1:0.1"
+  },
+  "quality": {
+    "disposition": "unknown",
+    "missingness": "not_assessed",
+    "flags": ["synthetic_fixture_only", "voevent_role_must_be_preserved"]
+  },
+  "rights": {
+    "owner": "synthetic-fixture-author",
+    "license": "fixture-only",
+    "access_disposition": "controlled",
+    "permitted_purposes": ["contract_validation"],
+    "restrictions": ["synthetic_fixture_only", "not_a_real_astronomical_observation"]
+  },
+  "lineage": {"derived_from": [], "corrects": [], "supersedes": []}
+}

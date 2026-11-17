@@ -1,0 +1,51 @@
+{
+  "profile": "mycelix-observation-manifest/0.1",
+  "schema_version": "0.1.0",
+  "observation_id": "urn:mycelix:fixture:ocean:0001",
+  "received_at": {"value": "2026-11-14T10:00:00Z", "encoding": "iso8601", "time_scale": "UTC"},
+  "source": {
+    "system_id": "ooi-erddap-fixture",
+    "record_id": "fixture-array/deployment-001/ctd-001",
+    "schema_id": "https://oceanobservatories.org/erddap-server/",
+    "schema_version": "fixture-profile-0.1",
+    "issuer": "did:example:synthetic-ocean-source",
+    "published_at": {"value": "2026-11-14T09:59:00Z", "encoding": "iso8601", "time_scale": "UTC"},
+    "authentication": {"status": "not_assessed"}
+  },
+  "phenomenon": {
+    "property_id": "http://vocab.nerc.ac.uk/collection/P01/current/TEMPPR01/",
+    "event_time": {"value": "2026-08-01T12:00:00Z", "encoding": "iso8601", "time_scale": "UTC"}
+  },
+  "instrument": {
+    "platform_id": "fixture-ocean-platform",
+    "instrument_id": "fixture-ctd",
+    "sensor_id": "fixture-temp-channel",
+    "deployment_id": "fixture-deployment-001",
+    "configuration_ref": "urn:fixture:ctd-config:1",
+    "calibration": {"state": "unknown"}
+  },
+  "artifact": {
+    "locator": "urn:sha256:c4b1200f9538f4251121570803fc42a6d6ce7e1b49c10b2f857a76f6a46b3b2e",
+    "media_type": "text/plain; charset=utf-8",
+    "byte_length": 36,
+    "digest": {"algorithm": "sha256", "value": "c4b1200f9538f4251121570803fc42a6d6ce7e1b49c10b2f857a76f6a46b3b2e"}
+  },
+  "domain_profile": {
+    "profile_id": "urn:mycelix:domain:ocean:ooi-erddap",
+    "profile_version": "0.1",
+    "native_semantics_ref": "urn:mycelix:profile:ocean:ooi-erddap:0.1"
+  },
+  "quality": {
+    "disposition": "unknown",
+    "missingness": "not_assessed",
+    "flags": ["synthetic_fixture_only", "qc_semantics_not_evaluated"]
+  },
+  "rights": {
+    "owner": "synthetic-fixture-author",
+    "license": "fixture-only",
+    "access_disposition": "controlled",
+    "permitted_purposes": ["contract_validation"],
+    "restrictions": ["synthetic_fixture_only", "not_real_ocean_telemetry"]
+  },
+  "lineage": {"derived_from": [], "corrects": [], "supersedes": []}
+}
