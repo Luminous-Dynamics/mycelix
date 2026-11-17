@@ -9,7 +9,10 @@
 
 use std::collections::HashSet;
 use std::fmt::Write as FmtWrite;
-use std::io::Write;
+use std::io::{Read, Write};
+
+const MAX_WIKIDATA_RESPONSE_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_WIKIDATA_ERROR_BYTES: u64 = 64 * 1024;
 
 const ENDPOINT: &str = "https://query.wikidata.org/sparql";
 
@@ -26,6 +29,8 @@ fn main() {
     let queries = build_queries();
     let client = reqwest::blocking::Client::builder()
         .user_agent("PrismIngest/0.1 (https://luminousdynamics.org; tristan.stoltz@evolvingresonantcocreationism.com)")
+        .redirect(reqwest::redirect::Policy::none())
+        .no_proxy()
         .timeout(std::time::Duration::from_secs(90))
         .build()
         .expect("Failed to build HTTP client");
@@ -190,15 +195,34 @@ fn fetch_query(
         }
 
         if !resp.status().is_success() {
+            let status = resp.status();
+            let mut bounded = resp.take(MAX_WIKIDATA_ERROR_BYTES + 1);
+            let mut error_body = Vec::new();
+            bounded
+                .read_to_end(&mut error_body)
+                .map_err(|e| format!("HTTP {status}; bounded error-body read failed: {e}"))?;
+            if error_body.len() as u64 > MAX_WIKIDATA_ERROR_BYTES {
+                return Err(format!("HTTP {status}; error body exceeded the diagnostic limit"));
+            }
             return Err(format!(
                 "HTTP {}: {}",
-                resp.status(),
-                resp.text().unwrap_or_default()
+                status,
+                String::from_utf8_lossy(&error_body)
             ));
         }
 
-        let body: serde_json::Value = resp
-            .json()
+        let mut bounded = resp.take(MAX_WIKIDATA_RESPONSE_BYTES + 1);
+        let mut response_bytes = Vec::new();
+        bounded
+            .read_to_end(&mut response_bytes)
+            .map_err(|e| format!("bounded response read failed: {e}"))?;
+        if response_bytes.len() as u64 > MAX_WIKIDATA_RESPONSE_BYTES {
+            return Err(format!(
+                "Wikidata response exceeded {} bytes",
+                MAX_WIKIDATA_RESPONSE_BYTES
+            ));
+        }
+        let body: serde_json::Value = serde_json::from_slice(&response_bytes)
             .map_err(|e| format!("JSON parse error: {}", e))?;
         let bindings = body["results"]["bindings"]
             .as_array()
