@@ -59,6 +59,8 @@ pub enum EgressError {
     UnsupportedScheme,
     #[error("URL credentials are not permitted")]
     CredentialsNotPermitted,
+    #[error("local or metadata hostnames are not permitted")]
+    BlockedHost,
     #[error("only HTTP port 80 and HTTPS port 443 are permitted")]
     PortNotPermitted,
     #[error("URL has no host")]
@@ -285,8 +287,17 @@ fn validate_url_policy(url: &Url) -> Result<(), EgressError> {
     if !url.username().is_empty() || url.password().is_some() {
         return Err(EgressError::CredentialsNotPermitted);
     }
-    if url.host().is_none() {
-        return Err(EgressError::MissingHost);
+    let host = url.host().ok_or(EgressError::MissingHost)?;
+    if let Host::Domain(domain) = host {
+        let normalized = domain.trim_end_matches('.').to_ascii_lowercase();
+        if normalized == "localhost"
+            || normalized.ends_with(".localhost")
+            || normalized.ends_with(".local")
+            || normalized.ends_with(".internal")
+            || normalized == "metadata.google.internal"
+        {
+            return Err(EgressError::BlockedHost);
+        }
     }
     Ok(())
 }
@@ -489,6 +500,42 @@ mod tests {
             validate_url_policy(&Url::parse("file:///etc/passwd").unwrap()),
             Err(EgressError::UnsupportedScheme)
         ));
+    }
+
+    #[test]
+    fn blocks_local_and_metadata_hostnames_before_dns() {
+        for raw in [
+            "http://localhost/",
+            "http://printer.local/",
+            "http://svc.internal/",
+            "http://metadata.google.internal/",
+            "http://metadata.google.internal./",
+        ] {
+            assert!(matches!(
+                validate_url_policy(&Url::parse(raw).unwrap()),
+                Err(EgressError::BlockedHost)
+            ), "expected blocked host: {raw}");
+        }
+    }
+
+    #[tokio::test]
+    async fn rejects_private_ip_literals_before_transport() {
+        let client = PublicEgressClient::default();
+        let result = client.authorize(Method::GET, "http://127.0.0.1/");
+        assert!(matches!(
+            result.await,
+            Err(EgressError::AddressNotPermitted(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn expires_capabilities_before_execution_when_ttl_is_zero() {
+        let mut limits = EgressLimits::default();
+        limits.capability_ttl = Duration::ZERO;
+        let client = PublicEgressClient::new(limits);
+        let capability = client.authorize(Method::GET, "https://1.1.1.1/").await.unwrap();
+        let result = client.execute(capability, HeaderMap::new(), Vec::new()).await;
+        assert!(matches!(result, Err(EgressError::CapabilityExpired)));
     }
 
     #[test]
