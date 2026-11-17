@@ -872,6 +872,67 @@ mod tests {
     }
 
     #[test]
+    fn every_ancestor_must_explicitly_allow_the_next_delegation_edge() {
+        let relationship = RelationshipId::derive("test", b"ancestor-subdelegation");
+        let root = Delegation::grant(
+            DelegationId::derive(relationship, b"root"),
+            relationship,
+            p("alice"),
+            p("broker"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Execute,
+            100,
+            None,
+            4,
+            None,
+        ).unwrap();
+        let middle = Delegation::grant_with_subdelegation(
+            DelegationId::derive(relationship, b"middle"),
+            relationship,
+            p("broker"),
+            p("agent"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Execute,
+            150,
+            None,
+            4,
+            Some(root.id),
+            true,
+        ).unwrap();
+        let leaf = Delegation::grant(
+            DelegationId::derive(relationship, b"leaf"),
+            relationship,
+            p("agent"),
+            p("worker"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Propose,
+            175,
+            None,
+            4,
+            Some(middle.id),
+        ).unwrap();
+        let request = ExecutionRequest {
+            principal: p("agent"),
+            delegate: p("worker"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Propose,
+            requested_at: 200,
+            authority_epoch: 4,
+        };
+        let context = context(&[root, middle]);
+        assert_eq!(
+            leaf.authorize(&request, &context),
+            Err(DelegationError::SubdelegationNotAllowed {
+                id: context.delegations[0].id
+            })
+        );
+    }
+
+    #[test]
     fn same_scope_child_without_a_narrower_mode_or_validity_window_is_rejected() {
         let relationship = RelationshipId::derive("test", b"strict-attenuation");
         let parent = Delegation::grant_with_subdelegation(
