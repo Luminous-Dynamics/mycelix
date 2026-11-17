@@ -29,10 +29,10 @@ use std::time::Duration;
 use thiserror::Error;
 use url::{Host, Url};
 
-#[derive(Clone, Debug)]
 const MAX_CONCURRENT_EGRESS_REQUESTS: usize = 64;
 static EGRESS_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_CONCURRENT_EGRESS_REQUESTS);
 
+#[derive(Clone, Debug)]
 pub struct EgressLimits {
     pub max_url_bytes: usize,
     pub max_request_header_bytes: usize,
@@ -293,6 +293,12 @@ impl PublicEgressClient {
         .await
         .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
         .map_err(|_| EgressError::ConcurrencyUnavailable)?;
+
+        // Queueing consumes capability lifetime. Re-check after admission so
+        // an expired authorization cannot connect merely because it waited.
+        if std::time::Instant::now() >= capability.expires_at {
+            return Err(EgressError::CapabilityExpired);
+        }
 
         let client = build_pinned_client(
             &capability.host,
