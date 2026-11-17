@@ -95,7 +95,7 @@ impl PrismClient {
     /// Fetch one user-initiated navigation target and parse its bounded body.
     pub async fn fetch(&self, url: &str) -> Result<FetchedPage, FetchError> {
         let parsed_url = validate_navigation_url(url)?;
-        log::info!("Fetching user navigation: {}", parsed_url);
+        log::info!("Fetching user navigation host={}", parsed_url.host_str().unwrap_or("<missing>"));
 
         let response = self.client.get(parsed_url).send().await?;
 
