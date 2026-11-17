@@ -1,0 +1,29 @@
+# IPB-S6 v0.2 Rust submission evaluator
+
+## Run
+
+```sh
+cargo test --manifest-path benchmarks/ipb-s6/v0.2/harness/Cargo.toml
+cargo run --manifest-path benchmarks/ipb-s6/v0.2/harness/Cargo.toml -- \
+  benchmarks/ipb-s6/v0.2/cases.json \
+  benchmarks/ipb-s6/v0.2/oracle.json \
+  submission.json
+```
+
+## Submission semantics
+
+A system submits one result per scenario: action disposition, authorization disposition, claim disposition, execution state, mutation/retry telemetry, reattempt permission, source-independence classification and reason codes.
+
+The harness checks exact case coverage and duplicate identifiers, then reports the dimensions independently. It highlights critical false clears, unauthorised acceptance, blind retries after UNKNOWN, mutation overruns, common-cause false independence, and false claim promotion.
+
+## Limits
+
+The harness compares declared output with a synthetic development oracle. It does not verify cryptographic proofs, trust roots, remote source bytes, production operation receipts or legal authority. Passing it is not a production safety claim or an independently adjudicated result.
+
+
+The blind-retry detector examines the full operation history. A later `RECONCILED_SUCCESS` does not erase the fact that a prior `UNKNOWN` interval existed; any retry or reattempt permission during that interval is flagged. This is covered by a regression unit test.
+
+
+## Reproducibility receipt
+
+The evaluator report includes SHA-256 digests for the exact corpus file, oracle file, submitted result file and evaluator executable. Preserve this receipt with the system build SHA and configuration digest when publishing results. A digest establishes file identity, not the correctness or truth of its contents.

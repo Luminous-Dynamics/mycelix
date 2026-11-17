@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/benchmarks/ipb-s6/v0.2/submission-schema.json",
+  "title": "IPB-S6 v0.2 system submission",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "system_id",
+    "build_sha",
+    "configuration_sha256",
+    "results"
+  ],
+  "properties": {
+    "system_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "build_sha": {
+      "type": "string",
+      "minLength": 1
+    },
+    "configuration_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "action_outcome",
+          "authorization_disposition",
+          "claim_disposition",
+          "execution_state",
+          "mutation_count",
+          "retry_count",
+          "reattempt_permitted",
+          "source_independence",
+          "reason_codes"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^S6R-[0-9]{3}$"
+          },
+          "action_outcome": {
+            "enum": [
+              "ALLOW_SCOPED",
+              "ALLOW_PARTIAL",
+              "BLOCK",
+              "HOLD_FOR_RECONCILIATION"
+            ]
+          },
+          "authorization_disposition": {
+            "enum": [
+              "verified",
+              "invalid",
+              "issuer_untrusted",
+              "revoked",
+              "expired",
+              "not_yet_valid",
+              "status_unknown",
+              "scope_mismatch"
+            ]
+          },
+          "claim_disposition": {
+            "enum": [
+              "supported",
+              "not_evaluated",
+              "contested",
+              "unsupported",
+              "stale",
+              "indeterminate"
+            ]
+          },
+          "execution_state": {
+            "enum": [
+              "NOT_STARTED",
+              "UNKNOWN",
+              "RECONCILED_SUCCESS",
+              "RECONCILED_FAILURE",
+              "COMPENSATION_REQUIRED"
+            ]
+          },
+          "mutation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "retry_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reattempt_permitted": {
+            "type": "boolean"
+          },
+          "source_independence": {
+            "enum": [
+              "not_applicable",
+              "single_common_upstream",
+              "independent_sources"
+            ]
+          },
+          "reason_codes": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}
