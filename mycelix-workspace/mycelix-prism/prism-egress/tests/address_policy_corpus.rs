@@ -66,7 +66,13 @@ fn versioned_dns_answer_set_corpus_enforces_all_or_nothing_policy() {
             .expect("addresses array");
         let addresses = values
             .iter()
-            .map(|value| value.as_str().expect("socket address").parse().expect("valid socket address"))
+            .map(|value| {
+                value
+                    .as_str()
+                    .expect("socket address")
+                    .parse()
+                    .expect("valid socket address")
+            })
             .collect::<Vec<std::net::SocketAddr>>();
         let actual = prism_egress::validate_address_set(&addresses).is_ok();
         assert_eq!(actual, expected, "DNS answer-set case {id}");
