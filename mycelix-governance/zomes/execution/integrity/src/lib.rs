@@ -111,11 +111,12 @@ pub fn is_post_sunset(genesis_epoch_us: i64, now_us: i64) -> bool {
     (now_us - genesis_epoch_us) > STRATEGIC_OVERRIDE_SUNSET_US
 }
 
-/// Compute the adaptive override threshold based on failed attempts.
+/// Compute the proposed v0.26 adaptive override threshold profile.
 ///
-/// Thermodynamic metaphor: each failed attempt lowers the energy barrier,
-/// making it progressively easier for the community to overcome the veto.
-/// The floor at 67% ensures the barrier never disappears entirely.
+/// This helper is not called by the current resolve_override coordinator, which
+/// applies the fixed 0.67 threshold. The 0.67 -> 0.62 -> 0.60 schedule is a draft
+/// participation-insurance policy and must not be treated as active runtime behavior
+/// until the amendment, quorum rule and retry procedure are formally adopted.
 pub fn adaptive_override_threshold(failed_attempts: u32) -> f64 {
     let decay = failed_attempts as f64 * OVERRIDE_THRESHOLD_DECAY_PER_ATTEMPT;
     (VETO_OVERRIDE_THRESHOLD - decay).max(OVERRIDE_THRESHOLD_FLOOR)
@@ -231,7 +232,7 @@ pub struct VetoOverrideResult {
     pub override_votes_against: f64,
     /// Total eligible voters at resolution time
     pub total_eligible_voters: u64,
-    /// Override threshold (always 0.80)
+    /// Threshold recorded for this resolution; current runtime uses the fixed 0.67 constant.
     pub override_threshold: f64,
     /// Whether the override succeeded
     pub override_succeeded: bool,
@@ -407,7 +408,8 @@ pub fn check_create_override_result(result: &VetoOverrideResult) -> Result<(), S
     if result.timelock_id.is_empty() {
         return Err("Timelock ID is required for override result".into());
     }
-    // Threshold must be exactly 0.80 — hardcoded, not configurable
+    // Match the active fixed runtime threshold. The adaptive schedule below is not
+    // a runtime policy until its constitutional amendment and quorum semantics are adopted.
     if (result.override_threshold - VETO_OVERRIDE_THRESHOLD).abs() > f64::EPSILON {
         return Err(format!(
             "Override threshold must be exactly {}, got {}",
@@ -940,7 +942,7 @@ mod tests {
     // ---- Veto override result tests ----
 
     #[test]
-    fn test_override_result_threshold_must_be_080() {
+    fn test_override_result_threshold_must_match_fixed_runtime_constant() {
         let result = VetoOverrideResult {
             id: "or-1".into(),
             veto_id: "v-1".into(),
@@ -1046,11 +1048,11 @@ mod tests {
     }
 
     #[test]
-    fn test_adaptive_threshold_never_below_two_thirds() {
+    fn test_adaptive_threshold_never_below_configured_floor() {
         for attempts in 0..1000 {
             assert!(
                 adaptive_override_threshold(attempts) >= OVERRIDE_THRESHOLD_FLOOR,
-                "Threshold must never go below 2/3 supermajority"
+                "Draft schedule must never go below its configured 60% floor"
             );
         }
     }
