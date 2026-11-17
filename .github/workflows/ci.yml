@@ -469,8 +469,15 @@ jobs:
           require_source 'EgressAuthority::WikidataSparql' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
           require_source 'SOURCE_MANIFEST_VERSION' mycelix-prism/prism-ingest/src/bin/build_corpus.rs
           require_source 'SOURCE_MANIFEST_VERSION' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
+          require_source 'SOURCE_MANIFEST_JSON' mycelix-prism/prism-ingest/src/bin/build_corpus.rs
+          require_source 'SOURCE_MANIFEST_JSON' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
+          require_source 'Sha256::digest' mycelix-prism/prism-ingest/src/bin/build_corpus.rs
+          require_source 'Sha256::digest' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
+          require_source 'output_sha256' mycelix-prism/prism-ingest/src/bin/build_corpus.rs
+          require_source 'output_sha256' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
           require_source 'wikipedia-extracts.provenance.json' mycelix-prism/prism-ingest/src/bin/build_corpus.rs
           require_source 'wikidata_claims.provenance.json' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
+          require_source 'query_sha256' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
           for hosted in mycelix-prism/prism-proxy/src/main.rs mycelix-prism/prism-serve/src/main.rs; do
             if grep -Eq 'reqwest::Client::builder|Policy::limited|Policy::custom' "$hosted"; then
               echo "Hosted service must not create an independent or auto-redirecting Reqwest client: $hosted"
