@@ -11,6 +11,7 @@ on:
       - main
       - feat/ros-005-parent-chain-hardening
       - research/ros005-model-ci-v0.2
+      - research/ros005-model-ci-v0.4
     paths:
       - "crates/mycelix-core-types/Cargo.toml"
       - "crates/mycelix-core-types/src/**"
@@ -21,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ros005-delegation-model-v0.2-${{ github.ref }}
+  group: ros005-delegation-model-v0.4-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -41,7 +42,7 @@ jobs:
         run: rustfmt --edition 2024 --check --config skip_children=true crates/mycelix-core-types/src/delegation.rs crates/mycelix-core-types/src/lib.rs
 
       - name: Unit and adversarial tests
-        run: cargo test --manifest-path crates/mycelix-core-types/Cargo.toml
+        run: cargo test --all-targets --manifest-path crates/mycelix-core-types/Cargo.toml
 
       - name: Clippy
         run: cargo clippy --manifest-path crates/mycelix-core-types/Cargo.toml --all-targets -- -D warnings
