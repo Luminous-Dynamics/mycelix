@@ -8,11 +8,11 @@
 //! Output: prism-ingest/src/wikidata_claims.rs
 
 use prism_egress::{EgressAuthority, EgressLimits, HeaderMap, Method, PublicEgressClient};
+use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::fmt::Write as FmtWrite;
 use std::io::Write;
 use std::time::Duration;
-use sha2::{Digest, Sha256};
 use url::Url;
 
 const MAX_WIKIDATA_RESPONSE_BYTES: u64 = 16 * 1024 * 1024;
@@ -102,10 +102,8 @@ fn main() {
                         };
                         let dedup_key = key[..end].to_string();
                         if key.len() > 20 && seen.insert(dedup_key) {
-                            let source = format!(
-                                "Wikidata query={} sha256={}",
-                                spec.name, query_sha256
-                            );
+                            let source =
+                                format!("Wikidata query={} sha256={}", spec.name, query_sha256);
                             all_claims.push((sentence, spec.tags, source));
                             count += 1;
                         }
@@ -155,11 +153,14 @@ fn main() {
     writeln!(
         output,
         "//! Source manifest: {}@{}",
-        SOURCE_MANIFEST_ID,
-        SOURCE_MANIFEST_VERSION
+        SOURCE_MANIFEST_ID, SOURCE_MANIFEST_VERSION
     )
     .unwrap();
-    writeln!(output, "//! Each source carries its exact SPARQL SHA-256 query digest.").unwrap();
+    writeln!(
+        output,
+        "//! Each source carries its exact SPARQL SHA-256 query digest."
+    )
+    .unwrap();
     writeln!(output, "//! Generated: {}", chrono_now()).unwrap();
     writeln!(output).unwrap();
     writeln!(output, "use crate::RawClaim;").unwrap();
@@ -370,10 +371,7 @@ mod source_manifest_tests {
         )))
         .expect("source manifest must be valid JSON");
 
-        assert_eq!(
-            manifest["manifest_id"].as_str(),
-            Some(SOURCE_MANIFEST_ID)
-        );
+        assert_eq!(manifest["manifest_id"].as_str(), Some(SOURCE_MANIFEST_ID));
         assert_eq!(
             manifest["manifest_version"].as_str(),
             Some(SOURCE_MANIFEST_VERSION)
