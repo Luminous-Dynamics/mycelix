@@ -83,7 +83,7 @@ impl EgressLimits {
             max_response_body_bytes: self.max_response_body_bytes.min(16 * 1024 * 1024),
             max_error_response_body_bytes: self.max_error_response_body_bytes.min(64 * 1024),
             connect_timeout: self.connect_timeout.min(Duration::from_secs(5)),
-            request_timeout: self.request_timeout.min(Duration::from_secs(30)),
+            request_timeout: self.request_timeout.min(Duration::from_secs(90)),
             capability_ttl: self.capability_ttl.min(Duration::from_secs(5)),
         }
     }
@@ -684,7 +684,7 @@ fn build_pinned_client(
     // for Host/SNI/certificate checks while this explicit resolver override
     // constrains socket destinations to the authorized set.
     let mut builder = Client::builder()
-        .user_agent("Prism/0.4 (capability-bound egress)")
+        .user_agent("Prism/0.4 (Luminous Dynamics; https://luminousdynamics.io)")
         .redirect(reqwest::redirect::Policy::none())
         .no_proxy()
         .http1_max_headers(128)
@@ -1252,6 +1252,7 @@ mod tests {
         assert_eq!(response.receipt.remote_peer, address);
         assert_eq!(response.receipt.authority, "public-web");
         assert_eq!(response.receipt.authorized_addresses, vec![address]);
+        assert_eq!(response.receipt.response_body_limit_bytes, 16);
         server.await.unwrap();
     }
 
@@ -1709,7 +1710,7 @@ mod tests {
         assert_eq!(limits.max_response_body_bytes, 16 * 1024 * 1024);
         assert_eq!(limits.max_error_response_body_bytes, 64 * 1024);
         assert_eq!(limits.connect_timeout, Duration::from_secs(5));
-        assert_eq!(limits.request_timeout, Duration::from_secs(30));
+        assert_eq!(limits.request_timeout, Duration::from_secs(90));
         assert_eq!(limits.capability_ttl, Duration::from_secs(5));
     }
 
