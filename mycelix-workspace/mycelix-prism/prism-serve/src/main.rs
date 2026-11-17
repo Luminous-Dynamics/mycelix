@@ -38,7 +38,11 @@ const MAX_RESPONSE_SIZE: usize = 10 * 1024 * 1024; // 10MB
 fn build_client(user_agent: &str, timeout_secs: u64) -> reqwest::Client {
     reqwest::Client::builder()
         .user_agent(user_agent)
-        .redirect(reqwest::redirect::Policy::limited(5))
+        .redirect(reqwest::redirect::Policy::none())
+        // Never let ambient HTTP(S)_PROXY environment variables route around
+        // the destination policy. An explicit trusted egress proxy can be
+        // configured as a separately reviewed transport in a later increment.
+        .no_proxy()
         .timeout(std::time::Duration::from_secs(timeout_secs))
         .build()
         .expect("HTTP client TLS init failed")
