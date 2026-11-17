@@ -47,6 +47,17 @@ The policy must be explicit in types (for example `EgressContext::HostedProxy`, 
 8. **Receipts are evidence, not authority:** emit a structured receipt containing policy version, context, normalized origin, resolved address set, selected peer address where observable, redirect chain, byte counts, decision, and reason. Do not log credentials, sensitive query values, or response bodies.
 9. **Defense in depth:** production deployment also blocks internal/control-plane ranges at the network layer. Application checks are not a substitute for egress firewalling or isolation.
 
+## Interim hardening already applied on the feature branch
+
+The first runtime increment is deliberately fail-closed while the full transport is built:
+
+- `prism-proxy` and `prism-serve` incrementally read response chunks and stop before appending a chunk that would exceed the 10 MiB budget. This bounds accumulated response memory; it is not a streaming-to-client implementation.
+- All four upstream response paths in each binary use the bounded reader (generic proxy, DuckDuckGo, Brave, Perplexity).
+- Automatic redirects are disabled in both binaries. Redirect responses are returned rather than followed; this temporarily sacrifices transparent redirect support to avoid following an unvalidated Location.
+- Ambient system proxy discovery is disabled in both binaries with `no_proxy()`. A future explicitly configured egress proxy must be treated as a trusted network hop and included in the policy model.
+
+These changes are not the completed SSRF boundary. DNS resolution/pinning, per-hop redirect support, deterministic tests, and the other network clients remain open. The workflow status reported for an implementation commit was `skipped`, not passed.
+
 ## Implementation sequence
 
 ### E0 — inventory and baseline
@@ -157,3 +168,14 @@ Compare against OWASP guidance, reverse proxies/egress gateways, and cloud netwo
 - reqwest redirect behavior: https://docs.rs/reqwest/latest/reqwest/
 
 These references inform the design; they do not constitute verification of Prism's implementation.
+
+
+## Current external references
+
+- OWASP SSRF Prevention Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html — explicitly warns about unsafe redirects and DNS rebinding; recommends validating resolved addresses and ensuring the client connects to the validated address.
+- IANA IPv4 Special-Purpose Address Registry: https://www.iana.org/assignments/iana-ipv4-special-registry — authoritative address-block attributes include destination validity and global reachability.
+- IANA IPv6 Special-Purpose Address Registry: https://www.iana.org/assignments/iana-ipv6-special-registry — equivalent IPv6 registry.
+- Reqwest ClientBuilder: https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html — documents `resolve_to_addrs`, redirect policy, and custom DNS resolver support.
+- Reqwest overview: https://docs.rs/reqwest/latest/reqwest/ — documents automatic redirect defaults and system proxy environment behavior.
+
+Registry data must be versioned or generated reproducibly. Do not fetch IANA data at runtime to make security decisions; updates should be reviewed, pinned, and covered by regression tests.
