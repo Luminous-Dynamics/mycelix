@@ -158,13 +158,36 @@ pub enum LinkTypes {
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::RideOffer(o) => validate_ride_offer(o),
-                EntryTypes::RideRequest(r) => validate_ride_request(r),
-                EntryTypes::RideMatch(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::RideOffer(o) => {
+                    match validate_declared_author("RideOffer.driver", &o.driver, &action.author) {
+                        ValidateCallbackResult::Valid => validate_ride_offer(o),
+                        other => Ok(other),
+                    }
+                }
+                EntryTypes::RideRequest(r) => {
+                    match validate_declared_author(
+                        "RideRequest.requester",
+                        &r.requester,
+                        &action.author,
+                    ) {
+                        ValidateCallbackResult::Valid => validate_ride_request(r),
+                        other => Ok(other),
+                    }
+                }
+                EntryTypes::RideMatch(m) => validate_ride_match_proposal(m),
                 EntryTypes::CargoOffer(c) => validate_cargo_offer(c),
-                EntryTypes::RideReview(rev) => validate_ride_review(rev),
+                EntryTypes::RideReview(rev) => {
+                    match validate_declared_author(
+                        "RideReview.reviewer",
+                        &rev.reviewer,
+                        &action.author,
+                    ) {
+                        ValidateCallbackResult::Valid => validate_ride_review(rev),
+                        other => Ok(other),
+                    }
+                }
             },
             OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
                 EntryTypes::RideOffer(o) => validate_ride_offer(o),
@@ -280,6 +303,32 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ))
         }
     }
+}
+
+/// Bind a client-declared identity field to the actual Holochain create author.
+fn validate_declared_author(
+    field_name: &str,
+    declared: &AgentPubKey,
+    action_author: &AgentPubKey,
+) -> ValidateCallbackResult {
+    if declared == action_author {
+        ValidateCallbackResult::Valid
+    } else {
+        ValidateCallbackResult::Invalid(format!(
+            "{field_name} must match the Holochain create action author"
+        ))
+    }
+}
+
+/// A match is only a proposal at creation time. A counterparty response must be
+/// authored independently; pre-confirmed match records are never accepted.
+fn validate_ride_match_proposal(m: RideMatch) -> ExternResult<ValidateCallbackResult> {
+    if m.status != MatchStatus::Pending || m.confirmed_at.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "RideMatch creation must be Pending with no confirmed_at timestamp".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_ride_offer(o: RideOffer) -> ExternResult<ValidateCallbackResult> {
@@ -568,6 +617,78 @@ mod tests {
         let json = serde_json::to_string(&c).unwrap();
         let back: CargoOffer = serde_json::from_str(&json).unwrap();
         assert_eq!(back, c);
+    }
+
+    // ── Create-author binding and match proposal invariants ───────────────
+
+    #[test]
+    fn declared_author_binding_accepts_matching_agent() {
+        let agent = fake_agent();
+        assert!(matches!(
+            validate_declared_author("RideOffer.driver", &agent, &agent),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn forged_driver_identity_is_rejected() {
+        let declared = fake_agent();
+        let actual = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        match validate_declared_author("RideOffer.driver", &declared, &actual) {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("RideOffer.driver"));
+            }
+            other => panic!("Expected forged driver identity rejection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn forged_requester_identity_is_rejected() {
+        let declared = fake_agent();
+        let actual = AgentPubKey::from_raw_36(vec![2u8; 36]);
+        match validate_declared_author("RideRequest.requester", &declared, &actual) {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("RideRequest.requester"));
+            }
+            other => panic!("Expected forged requester identity rejection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn forged_reviewer_identity_is_rejected() {
+        let declared = fake_agent();
+        let actual = AgentPubKey::from_raw_36(vec![3u8; 36]);
+        match validate_declared_author("RideReview.reviewer", &declared, &actual) {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("RideReview.reviewer"));
+            }
+            other => panic!("Expected forged reviewer identity rejection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ride_match_proposal_must_start_pending() {
+        let proposal = RideMatch {
+            offer_hash: fake_action_hash(),
+            request_hash: fake_action_hash(),
+            confirmed_at: None,
+            status: MatchStatus::Pending,
+        };
+        assert_valid(validate_ride_match_proposal(proposal));
+    }
+
+    #[test]
+    fn preconfirmed_ride_match_proposal_is_rejected() {
+        let proposal = RideMatch {
+            offer_hash: fake_action_hash(),
+            request_hash: fake_action_hash(),
+            confirmed_at: Some(1_700_001_000),
+            status: MatchStatus::Confirmed,
+        };
+        assert_invalid(
+            validate_ride_match_proposal(proposal),
+            "must be Pending with no confirmed_at",
+        );
     }
 
     // ── validate_ride_offer: seats_available ────────────────────────────
