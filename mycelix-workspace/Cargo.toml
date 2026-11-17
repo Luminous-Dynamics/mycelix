@@ -11,6 +11,8 @@ exclude = [
     "mycelix-core/libs/identity-client",
     "mycelix-music/apps/api-rust",
     "mycelix-prism/mocks",
+    # Documentation is not a Cargo package, but the broad Prism member glob matches it.
+    "mycelix-prism/docs",
     "mycelix-core/zomes/bridge",
     "mycelix-core/zomes/federated_learning",
     "crates/mycelix-fl",
