@@ -81,6 +81,8 @@ pub enum EgressError {
     RequestHeadersTooLarge,
     #[error("request contains a transport-controlled header: {0}")]
     ForbiddenHeader(String),
+    #[error("custom request headers require HTTPS")]
+    HeadersRequireTls,
     #[error("request body exceeds the configured byte limit")]
     RequestBodyTooLarge,
     #[error("response body exceeds the configured byte limit")]
@@ -105,8 +107,6 @@ pub struct EgressCapability {
     addresses: Vec<SocketAddr>,
     is_domain: bool,
     expires_at: std::time::Instant,
-    max_request_header_bytes: usize,
-    max_request_body_bytes: usize,
     max_response_body_bytes: usize,
     connect_timeout: Duration,
     request_timeout: Duration,
@@ -177,6 +177,9 @@ impl PublicEgressClient {
 
         let mut url = Url::parse(raw_url)?;
         validate_url_policy(&url)?;
+        if url.scheme() == "http" && !headers.is_empty() {
+            return Err(EgressError::HeadersRequireTls);
+        }
         // URL fragments are client-side state and must not affect the
         // authorization identity or be sent as part of the HTTP request.
         url.set_fragment(None);
@@ -194,8 +197,6 @@ impl PublicEgressClient {
             addresses,
             is_domain,
             expires_at: std::time::Instant::now() + self.limits.capability_ttl,
-            max_request_header_bytes: self.limits.max_request_header_bytes,
-            max_request_body_bytes: self.limits.max_request_body_bytes,
             max_response_body_bytes: self.limits.max_response_body_bytes,
             connect_timeout: self.limits.connect_timeout,
             request_timeout: self.limits.request_timeout,
@@ -583,6 +584,54 @@ mod tests {
                 Err(EgressError::BlockedHost)
             ), "expected blocked host: {raw}");
         }
+    }
+
+    #[tokio::test]
+    async fn capability_binds_the_exact_headers_and_body() {
+        let client = PublicEgressClient::default();
+        let mut headers = HeaderMap::new();
+        headers.insert(reqwest::header::ACCEPT, "application/json".parse().unwrap());
+        let capability = client
+            .authorize(
+                Method::POST,
+                "https://1.1.1.1/resource",
+                headers.clone(),
+                b"exact-payload".to_vec(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(capability.url.as_str(), "https://1.1.1.1/resource");
+        assert_eq!(capability.method, Method::POST);
+        assert_eq!(capability.headers, headers);
+        assert_eq!(capability.body, b"exact-payload");
+    }
+
+    #[tokio::test]
+    async fn rejects_oversized_request_body_before_dns_lookup() {
+        let mut limits = EgressLimits::default();
+        limits.max_request_body_bytes = 1;
+        let client = PublicEgressClient::new(limits);
+        let result = client
+            .authorize(
+                Method::POST,
+                "https://this-name-should-not-be-resolved.invalid/",
+                HeaderMap::new(),
+                vec![1, 2],
+            )
+            .await;
+        assert!(matches!(result, Err(EgressError::RequestBodyTooLarge)));
+    }
+
+    #[tokio::test]
+    async fn requires_tls_for_custom_outbound_headers() {
+        let client = PublicEgressClient::default();
+        let mut headers = HeaderMap::new();
+        headers.insert("x-api-token", "secret".parse().unwrap());
+        let result = client
+            .authorize(Method::GET, "http://93.184.216.34/", headers, Vec::new())
+            .await;
+        assert!(matches!(result, Err(EgressError::HeadersRequireTls)));
     }
 
     #[tokio::test]
