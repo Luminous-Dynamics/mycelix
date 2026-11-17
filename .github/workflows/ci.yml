@@ -460,6 +460,11 @@ jobs:
             require_source 'EgressAuthority::BraveSearch' "$hosted"
             require_source 'EgressAuthority::Perplexity' "$hosted"
             require_source 'PublicEgressClient::default()' "$hosted"
+            require_source 'fn log_egress_receipt(' "$hosted"
+            require_source 'log_egress_receipt("proxy"' "$hosted"
+            require_source 'log_egress_receipt("DuckDuckGo"' "$hosted"
+            require_source 'log_egress_receipt("Brave"' "$hosted"
+            require_source 'log_egress_receipt("Perplexity"' "$hosted"
           done
       - name: Build prism-ui for wasm32 (Trunk target)
         run: cd mycelix-workspace/mycelix-prism/prism-ui && cargo build --target wasm32-unknown-unknown
