@@ -686,7 +686,6 @@ fn build_pinned_client(
         .user_agent("Prism/0.4 (Luminous Dynamics; https://luminousdynamics.io)")
         .redirect(reqwest::redirect::Policy::none())
         .no_proxy()
-        .http1_max_headers(128)
         .http2_max_header_list_size(64 * 1024)
         .connect_timeout(connect_timeout)
         .timeout(request_timeout);
