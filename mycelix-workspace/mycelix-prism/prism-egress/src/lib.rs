@@ -1391,7 +1391,7 @@ mod tests {
             read_test_request(&mut stream).await;
             stream
                 .write_all(
-                    b"HTTP/1.1 200 OK\\r\\nContent-Encoding: gzip\\r\\nContent-Length: 44\\r\\nConnection: close\\r\\n\\r\\n",
+                    b"HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Length: 44\r\nConnection: close\r\n\r\n",
                 )
                 .await
                 .unwrap();
