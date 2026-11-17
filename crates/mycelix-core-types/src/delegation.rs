@@ -724,7 +724,7 @@ mod tests {
             delegate: p("agent"),
             action: ActionScope::named("create-opportunity").unwrap(),
             resource: ResourceScope::named("acme:opportunity:7").unwrap(),
-            mode: mode,
+            mode,
             granted_at: 100,
             expires_at: Some(200),
             authority_epoch: 4,
@@ -1317,7 +1317,6 @@ mod tests {
     #[test]
     fn forged_parent_cycle_cannot_pass_identity_binding() {
         let relationship = RelationshipId::derive("test", b"cycle");
-        let a_id = DelegationId::derive(relationship, b"a");
         let b_id = DelegationId::derive(relationship, b"b");
         let a = Delegation::grant(DelegationGrantSpec {
             relationship_id: relationship,
