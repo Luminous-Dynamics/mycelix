@@ -502,18 +502,45 @@ mod tests {
     ) -> (ActionHash, ContainerCycleEvent) {
         let container_hash = sample_container_hash();
         let hash = ActionHash::from_raw_36(vec![(sequence_number as u8).wrapping_add(20); 36]);
+        let is_filled = event_kind == ContainerEventKind::Filled;
         let event = ContainerCycleEvent {
             container_hash,
             previous_event_hash,
             sequence_number,
             event_kind,
             occurred_at: 1_700_000_000 + sequence_number,
-            product_ref: None,
-            product_lot_ref: None,
+            product_ref: is_filled.then(|| "product:fixture".into()),
+            product_lot_ref: is_filled.then(|| "lot:fixture-001".into()),
+            accepted_servings: is_filled.then_some(4),
+            filled_mass_g: is_filled.then_some(1_000),
+            filled_volume_ml: None,
+            transport_distance_m: None,
+            transport_mode: None,
+            end_of_life_route_ref: None,
             preservation_batch_hash: None,
             location_ref: None,
             condition: ContainerCondition::Unknown,
-            sanitation: None,
+            sanitation: matches!(
+                &event_kind,
+                ContainerEventKind::Washed | ContainerEventKind::Sanitized
+            )
+            .then(|| ContainerSanitationObservation {
+                protocol_ref: "protocol:fixture".into(),
+                wash_water_temp_millic: Some(60_000),
+                sanitizer_ref: Some("sanitizer:fixture".into()),
+                sanitizer_concentration_mg_l: Some(100),
+                exposure_time_ms: Some(30_000),
+                wash_water_ml: Some(2_000),
+                wash_energy_wh: Some(30),
+                detergent_mass_mg: Some(10_000),
+                observation_ref: "observation:fixture".into(),
+                evidence: ContainerEvidenceRef {
+                    source_ref: "fixture:sanitation".into(),
+                    method_ref: None,
+                    calibration_ref: None,
+                    evidence_class: ContainerEvidenceClass::Declared,
+                },
+            }),
             evidence: ContainerEvidenceRef {
                 source_ref: "fixture:event".into(),
                 method_ref: None,
