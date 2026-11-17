@@ -1361,9 +1361,10 @@ mod tests {
     #[test]
     fn duplicate_context_ids_are_rejected() {
         let d = delegation(DelegationMode::Execute);
+        let expected_id = d.id;
         assert!(matches!(
             DelegationContext::from_slice(&[d.clone(), d]),
-            Err(DelegationError::DuplicateDelegationId { id }) if id == d.id
+            Err(DelegationError::DuplicateDelegationId { id }) if id == expected_id
         ));
     }
 
