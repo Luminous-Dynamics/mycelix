@@ -417,7 +417,7 @@ jobs:
       - name: Enforce Prism direct HTTP client inventory
         run: |
           cd mycelix-workspace
-          unexpected=$(grep -R -nE 'reqwest::(blocking::)?(Client::builder|Client::new|get\\()' mycelix-prism --include='*.rs' \
+          unexpected=$(grep -R -nE 'reqwest::(blocking::)?(Client::builder|Client::new|get\()' mycelix-prism --include='*.rs' \
             | grep -Ev 'mycelix-prism/(prism-egress/src/|prism-net/src/|prism-tauri/src/|prism-ingest/src/bin/)' || true)
           if [ -n "$unexpected" ]; then
             echo "Unclassified direct HTTP client detected:"
