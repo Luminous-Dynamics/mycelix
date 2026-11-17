@@ -165,10 +165,16 @@ impl<'a> DelegationContext<'a> {
     }
 
     fn get(&self, id: DelegationId) -> Result<&Delegation, DelegationError> {
-        self.delegations
+        let delegation = self
+            .delegations
             .iter()
             .find(|delegation| delegation.id == id)
-            .ok_or(DelegationError::MissingParent { id })
+            .ok_or(DelegationError::MissingParent { id })?;
+        // A child binds the parent ID into its immutable authority content,
+        // so each retrieved parent must prove that its own ID still matches
+        // its content before any parent scope/status is trusted.
+        delegation.validate_identity()?;
+        Ok(delegation)
     }
 }
 
@@ -668,6 +674,49 @@ mod tests {
         };
         assert_eq!(child.authorize(&req, &context(&[parent])),
             Ok(ExecutionDecision::AuthorizedExecution));
+    }
+
+    #[test]
+    fn tampered_parent_content_is_rejected_before_parent_scope_evaluation() {
+        let relationship = RelationshipId::derive("test", b"parent-identity");
+        let parent = Delegation::grant(
+            DelegationId::derive(relationship, b"parent"),
+            relationship, p("alice"), p("broker"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Execute, 100, None, 4, None,
+        ).unwrap();
+        let child = Delegation::grant(
+            DelegationId::derive(relationship, b"child"),
+            relationship, p("broker"), p("agent"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Execute, 150, None, 4, Some(parent.id),
+        ).unwrap();
+        let request = ExecutionRequest {
+            principal: p("broker"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            requested_at: 200,
+            authority_epoch: 4,
+        };
+
+        let mut tampered_parent = parent;
+        // Preserve the address while changing immutable scope content.
+        tampered_parent.resource =
+            ResourceScope::named("acme:opportunity:8").unwrap();
+
+        let context = context(&[tampered_parent]);
+        assert_eq!(
+            child.authorize(&request, &context),
+            Err(DelegationError::IdentityMismatch)
+        );
+        assert_eq!(
+            child.validate_parent_chain_structure(&context),
+            Err(DelegationError::IdentityMismatch)
+        );
     }
 
     #[test]
