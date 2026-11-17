@@ -460,6 +460,7 @@ jobs:
           require_source 'EgressAuthority::WikidataSparql' "$egress"
           require_source 'max_error_response_body_bytes' "$egress"
           require_source 'response_body_limit_bytes' "$egress"
+          require_source 'gzip_decompression_is_subject_to_the_response_body_budget' "$egress"
           for ingestion in \
             mycelix-prism/prism-ingest/src/bin/build_corpus.rs \
             mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs; do
