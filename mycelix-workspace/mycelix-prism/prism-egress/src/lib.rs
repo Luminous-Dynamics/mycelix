@@ -652,6 +652,8 @@ fn build_pinned_client(
         .user_agent("Prism/0.4 (capability-bound egress)")
         .redirect(reqwest::redirect::Policy::none())
         .no_proxy()
+        .http1_max_headers(128)
+        .http2_max_header_list_size(64 * 1024)
         .connect_timeout(connect_timeout)
         .timeout(request_timeout);
     if is_domain {
