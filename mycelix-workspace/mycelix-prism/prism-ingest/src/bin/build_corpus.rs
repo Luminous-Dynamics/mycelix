@@ -481,7 +481,10 @@ fn main() {
                 Ok(response) => {
                     let receipt = response.receipt;
                     eprintln!(
-                        "  EGRESS authority={} origin={} peer={} status={} bytes={}/{} elapsed_ms={}",
+                        concat!(
+                            "  EGRESS authority={} origin={} peer={} status={} ",
+                            "bytes={}/{} elapsed_ms={}"
+                        ),
                         receipt.authority,
                         receipt.origin,
                         receipt.remote_peer,
