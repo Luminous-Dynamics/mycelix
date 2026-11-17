@@ -9,11 +9,220 @@ use hdk::prelude::*;
 use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::records_from_links;
+use std::collections::BTreeSet;
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
     hash_entry(&EntryTypes::Anchor(anchor))
 }
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ContainerLifecycleSummary {
+    pub container_hash: ActionHash,
+    /// Derived from validated Filled events. This is never stored as a counter.
+    pub derived_fill_cycle_count: u64,
+    pub latest_event_hash: Option<ActionHash>,
+    pub latest_sequence_number: Option<u64>,
+    pub latest_condition: Option<ContainerCondition>,
+}
+
+fn container_history_records(container_hash: ActionHash) -> ExternResult<Vec<Record>> {
+    let links = get_links(
+        LinkQuery::try_new(container_hash, LinkTypes::ContainerToCycleEvents)?,
+        GetStrategy::default(),
+    )?;
+    records_from_links(links)
+}
+
+/// Load and verify the complete linked history. A duplicated sequence,
+/// missing link, fork or broken parent pointer returns an error instead of
+/// guessing which branch is authoritative.
+fn verified_container_history(
+    container_hash: ActionHash,
+) -> ExternResult<Vec<(ActionHash, ContainerCycleEvent)>> {
+    let records = container_history_records(container_hash.clone())?;
+    let mut events = Vec::with_capacity(records.len());
+    for record in records {
+        let action_hash = record.action_address().clone();
+        let event: ContainerCycleEvent = record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Container history link points to a non-event record".into()
+            )))?;
+        if event.container_hash != container_hash {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Container history contains an event for another container".into()
+            )));
+        }
+        events.push((action_hash, event));
+    }
+    events.sort_by_key(|(_, event)| event.sequence_number);
+
+    let mut expected_parent: Option<ActionHash> = None;
+    let mut seen_sequences = BTreeSet::new();
+    for (index, (action_hash, event)) in events.iter().enumerate() {
+        if !seen_sequences.insert(event.sequence_number) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Container lifecycle conflict: duplicate sequence number; reconciliation required".into()
+            )));
+        }
+        if event.sequence_number != index as u64 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Container lifecycle conflict: sequence gap; reconciliation required".into()
+            )));
+        }
+        if event.previous_event_hash != expected_parent {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Container lifecycle conflict: event parent does not match the unique preceding event".into()
+            )));
+        }
+        expected_parent = Some(action_hash.clone());
+    }
+    Ok(events)
+}
+
+fn derived_fill_cycle_count(events: &[(ActionHash, ContainerCycleEvent)]) -> u64 {
+    events
+        .iter()
+        .filter(|(_, event)| event.event_kind == ContainerEventKind::Filled)
+        .count() as u64
+}
+
+/// Register a reusable container in the existing food-preservation registry.
+#[hdk_extern]
+pub fn register_reusable_container(container: ReusableContainer) -> ExternResult<Record> {
+    mycelix_zome_helpers::require_civic(
+        "commons_bridge",
+        &civic_requirement_basic(),
+        "register_reusable_container",
+    )?;
+    let agent = agent_info()?.agent_initial_pubkey;
+    if container.steward != agent {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the declared container steward may register the container".into()
+        )));
+    }
+    let action_hash = create_entry(&EntryTypes::ReusableContainer(container))?;
+    create_entry(&EntryTypes::Anchor(Anchor("all_reusable_containers".into())))?;
+    create_link(
+        anchor_hash("all_reusable_containers")?,
+        action_hash.clone(),
+        LinkTypes::AllReusableContainers,
+        (),
+    )?;
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Could not find created reusable container".into()
+    )))
+}
+
+#[hdk_extern]
+pub fn get_reusable_container(container_hash: ActionHash) -> ExternResult<Option<Record>> {
+    get(container_hash, GetOptions::default())
+}
+
+#[hdk_extern]
+pub fn get_all_reusable_containers(_: ()) -> ExternResult<Vec<Record>> {
+    let links = get_links(
+        LinkQuery::try_new(anchor_hash("all_reusable_containers")?, LinkTypes::AllReusableContainers)?,
+        GetStrategy::default(),
+    )?;
+    records_from_links(links)
+}
+
+/// Append one lifecycle event. The event must extend the unique current head;
+/// a fork or incomplete history blocks mutation until it is reconciled.
+#[hdk_extern]
+pub fn record_container_cycle_event(event: ContainerCycleEvent) -> ExternResult<Record> {
+    mycelix_zome_helpers::require_civic(
+        "commons_bridge",
+        &civic_requirement_basic(),
+        "record_container_cycle_event",
+    )?;
+    let container_record = get(event.container_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Container not found".into())))?;
+    let container: ReusableContainer = container_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Container reference is not a ReusableContainer entry".into()
+        )))?;
+    let agent = agent_info()?.agent_initial_pubkey;
+    if container.steward != agent {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the container steward may append lifecycle events".into()
+        )));
+    }
+
+    let history = verified_container_history(event.container_hash.clone())?;
+    let expected_sequence = history.len() as u64;
+    let expected_parent = history.last().map(|(hash, _)| hash.clone());
+    if event.sequence_number != expected_sequence || event.previous_event_hash != expected_parent {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Container event does not extend the unique current head; reload and reconcile before retrying".into()
+        )));
+    }
+
+    if event.event_kind == ContainerEventKind::Filled {
+        let fills = derived_fill_cycle_count(&history);
+        if container.manufacturer_reuse_cycle_limit.is_some_and(|limit| fills >= u64::from(limit)) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Manufacturer reuse-cycle limit reached; container cannot be filled again".into()
+            )));
+        }
+    }
+
+    let action_hash = create_entry(&EntryTypes::ContainerCycleEvent(event.clone()))?;
+    create_link(
+        event.container_hash.clone(),
+        action_hash.clone(),
+        LinkTypes::ContainerToCycleEvents,
+        event.sequence_number.to_be_bytes().to_vec().into(),
+    )?;
+    if let Some(previous_hash) = event.previous_event_hash {
+        create_link(
+            previous_hash,
+            action_hash.clone(),
+            LinkTypes::ContainerEventToNext,
+            (),
+        )?;
+    }
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Could not find created container lifecycle event".into()
+    )))
+}
+
+#[hdk_extern]
+pub fn get_container_cycle_history(container_hash: ActionHash) -> ExternResult<Vec<Record>> {
+    let history = verified_container_history(container_hash)?;
+    history
+        .into_iter()
+        .map(|(action_hash, _)| {
+            get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Container lifecycle event disappeared during history retrieval".into()
+            )))
+        })
+        .collect()
+}
+
+#[hdk_extern]
+pub fn get_container_lifecycle_summary(
+    container_hash: ActionHash,
+) -> ExternResult<ContainerLifecycleSummary> {
+    let history = verified_container_history(container_hash.clone())?;
+    let latest = history.last();
+    Ok(ContainerLifecycleSummary {
+        container_hash,
+        derived_fill_cycle_count: derived_fill_cycle_count(&history),
+        latest_event_hash: latest.map(|(hash, _)| hash.clone()),
+        latest_sequence_number: latest.map(|(_, event)| event.sequence_number),
+        latest_condition: latest.map(|(_, event)| event.condition.clone()),
+    })
+}
+
 
 // ============================================================================
 // BATCH MANAGEMENT
