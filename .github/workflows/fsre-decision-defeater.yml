@@ -10,6 +10,8 @@ on:
       - 'tools/fsre-experiment-potency/**'
       - 'tools/fsre-worldset-stability/**'
       - 'tools/fsre-capture-recapture/**'
+      - 'tools/fsre-three-list-capture/**'
+      - 'tools/fsre-decision-episode/**'
   push:
     branches:
       - main
@@ -20,6 +22,8 @@ on:
       - research/fsre-experiment-potency-v0.1-stack4
       - research/fsre-worldset-stability-v0.1
       - research/fsre-capture-recapture-v0.1
+      - research/fsre-three-list-capture-v0.1
+      - research/fsre-decision-episode-v0.1
     paths:
       - 'tools/fsre-decision-defeater/**'
       - 'research/fsre/DECISION_DEFEATER_ANALYSIS_BENCHMARK_V0_1.md'
@@ -144,3 +148,44 @@ jobs:
           cargo run --quiet --locked --offline --manifest-path tools/fsre-capture-recapture/Cargo.toml -- tools/fsre-capture-recapture/fixtures/dependence-strata.psv > /tmp/capture-b.txt
           cmp /tmp/capture-a.txt /tmp/capture-b.txt
           cmp /tmp/capture-a.txt tools/fsre-capture-recapture/fixtures/dependence-strata.expected.txt
+
+  decision-episode:
+    if: hashFiles('tools/fsre-decision-episode/Cargo.toml') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path tools/fsre-decision-episode/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --locked --offline --manifest-path tools/fsre-decision-episode/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/fsre-decision-episode/Cargo.toml --all-targets -- -D warnings
+      - name: Deterministic E0 golden
+        run: |
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-decision-episode/Cargo.toml -- tools/fsre-decision-episode/fixtures/complete-episode.psv > /tmp/episode-a.txt
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-decision-episode/Cargo.toml -- tools/fsre-decision-episode/fixtures/complete-episode.psv > /tmp/episode-b.txt
+          cmp /tmp/episode-a.txt /tmp/episode-b.txt
+          cmp /tmp/episode-a.txt tools/fsre-decision-episode/fixtures/complete-episode.expected.txt
+
+  three-list-capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path tools/fsre-three-list-capture/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --locked --offline --manifest-path tools/fsre-three-list-capture/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/fsre-three-list-capture/Cargo.toml --all-targets -- -D warnings
+      - name: Deterministic CLI golden replay
+        run: |
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-three-list-capture/Cargo.toml -- tools/fsre-three-list-capture/fixtures/known-answer.psv > /tmp/three-list-a.txt
+          cargo run --quiet --locked --offline --manifest-path tools/fsre-three-list-capture/Cargo.toml -- tools/fsre-three-list-capture/fixtures/known-answer.psv > /tmp/three-list-b.txt
+          cmp /tmp/three-list-a.txt /tmp/three-list-b.txt
+          cmp /tmp/three-list-a.txt tools/fsre-three-list-capture/fixtures/known-answer.expected.txt

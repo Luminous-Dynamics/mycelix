@@ -1,0 +1,14 @@
+#analysis_id=two-register-dependence-strata-v1
+#source_a_id=utility-register-a
+#source_b_id=inspection-register-b
+#source_a_ancestry=utility-account-master
+#source_b_ancestry=field-inspection-collection
+#population_frame_status=DECLARED_COMPLETE
+#strata_universe_status=DECLARED_COMPLETE
+#independence_assumption=DECLARED
+#linkage_status=PERFECT_LINKAGE_ASSUMED
+#within_stratum_homogeneity=DECLARED_WITHIN_STRATUM
+#max_strata=16
+stratum_id|a_only|b_only|both|theta_min_num|theta_min_den|theta_max_num|theta_max_den
+stratum-a|100|150|50|1|2|2|1
+stratum-b|50|50|50|1|1|1|1

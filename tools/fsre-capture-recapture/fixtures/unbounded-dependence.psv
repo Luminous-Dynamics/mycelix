@@ -1,0 +1,13 @@
+#analysis_id=unbounded-two-register-dependence-v1
+#source_a_id=register-a
+#source_b_id=register-b
+#source_a_ancestry=shared-admin-core
+#source_b_ancestry=shared-admin-core
+#population_frame_status=NOT_ESTABLISHED
+#strata_universe_status=DECLARED_COMPLETE
+#independence_assumption=NOT_DECLARED
+#linkage_status=NOT_ESTABLISHED
+#within_stratum_homogeneity=NOT_ESTABLISHED
+#max_strata=16
+stratum_id|a_only|b_only|both|theta_min_num|theta_min_den|theta_max_num|theta_max_den
+whole-population|180|280|120|0|1|UNBOUNDED|1
