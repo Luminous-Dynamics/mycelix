@@ -50,6 +50,7 @@ pub struct EgressLimits {
     pub max_request_header_bytes: usize,
     pub max_request_body_bytes: usize,
     pub max_response_body_bytes: usize,
+    pub max_error_response_body_bytes: usize,
     pub connect_timeout: Duration,
     pub request_timeout: Duration,
     pub capability_ttl: Duration,
@@ -62,6 +63,7 @@ impl Default for EgressLimits {
             max_request_header_bytes: 16 * 1024,
             max_request_body_bytes: 2 * 1024 * 1024,
             max_response_body_bytes: 10 * 1024 * 1024,
+            max_error_response_body_bytes: 64 * 1024,
             connect_timeout: Duration::from_secs(5),
             request_timeout: Duration::from_secs(30),
             capability_ttl: Duration::from_secs(5),
@@ -77,7 +79,8 @@ impl EgressLimits {
             max_url_bytes: self.max_url_bytes.min(8 * 1024),
             max_request_header_bytes: self.max_request_header_bytes.min(16 * 1024),
             max_request_body_bytes: self.max_request_body_bytes.min(2 * 1024 * 1024),
-            max_response_body_bytes: self.max_response_body_bytes.min(10 * 1024 * 1024),
+            max_response_body_bytes: self.max_response_body_bytes.min(16 * 1024 * 1024),
+            max_error_response_body_bytes: self.max_error_response_body_bytes.min(64 * 1024),
             connect_timeout: self.connect_timeout.min(Duration::from_secs(5)),
             request_timeout: self.request_timeout.min(Duration::from_secs(30)),
             capability_ttl: self.capability_ttl.min(Duration::from_secs(5)),
@@ -171,14 +174,22 @@ pub enum EgressAuthority {
     BraveSearch,
     /// Perplexity API: api.perplexity.ai/chat/completions.
     Perplexity,
+    /// Wikipedia REST page-summary endpoint; GET only.
+    WikipediaSummary,
+    /// Wikidata SPARQL endpoint with constrained query parameters; GET only.
+    WikidataSparql,
 }
 
 const MAX_PUBLIC_WEB_REQUESTS: usize = 56;
 const MAX_BRAVE_REQUESTS: usize = 4;
 const MAX_PERPLEXITY_REQUESTS: usize = 4;
+const MAX_WIKIPEDIA_REQUESTS: usize = 2;
+const MAX_WIKIDATA_REQUESTS: usize = 2;
 static PUBLIC_WEB_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_PUBLIC_WEB_REQUESTS);
 static BRAVE_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_BRAVE_REQUESTS);
 static PERPLEXITY_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_PERPLEXITY_REQUESTS);
+static WIKIPEDIA_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_WIKIPEDIA_REQUESTS);
+static WIKIDATA_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_WIKIDATA_REQUESTS);
 
 impl EgressAuthority {
     fn label(self) -> &'static str {
@@ -186,6 +197,8 @@ impl EgressAuthority {
             Self::PublicWeb => "public-web",
             Self::BraveSearch => "brave-search",
             Self::Perplexity => "perplexity",
+            Self::WikipediaSummary => "wikipedia-summary",
+            Self::WikidataSparql => "wikidata-sparql",
         }
     }
 
@@ -194,6 +207,8 @@ impl EgressAuthority {
             Self::PublicWeb => &PUBLIC_WEB_SEMAPHORE,
             Self::BraveSearch => &BRAVE_SEMAPHORE,
             Self::Perplexity => &PERPLEXITY_SEMAPHORE,
+            Self::WikipediaSummary => &WIKIPEDIA_SEMAPHORE,
+            Self::WikidataSparql => &WIKIDATA_SEMAPHORE,
         }
     }
 }
@@ -214,6 +229,7 @@ pub struct EgressCapability {
     is_domain: bool,
     expires_at: std::time::Instant,
     max_response_body_bytes: usize,
+    max_error_response_body_bytes: usize,
     connect_timeout: Duration,
     request_timeout: Duration,
     policy_version: &'static str,
@@ -248,6 +264,7 @@ pub struct EgressReceipt {
     pub status: u16,
     pub request_body_bytes: usize,
     pub response_body_bytes: usize,
+    pub response_body_limit_bytes: usize,
     pub elapsed: Duration,
     pub policy_version: &'static str,
     pub authority: &'static str,
@@ -440,6 +457,7 @@ impl PublicEgressClient {
             is_domain,
             expires_at: std::time::Instant::now() + self.limits.capability_ttl,
             max_response_body_bytes: self.limits.max_response_body_bytes,
+            max_error_response_body_bytes: self.limits.max_error_response_body_bytes,
             connect_timeout: self.limits.connect_timeout,
             request_timeout: self.limits.request_timeout,
             policy_version: "prism-public-egress-v1",
@@ -578,9 +596,14 @@ impl PublicEgressClient {
                 }
             }
 
+            let response_body_limit_bytes = if status.is_success() {
+                capability.max_response_body_bytes
+            } else {
+                capability.max_error_response_body_bytes
+            };
             if response
                 .content_length()
-                .is_some_and(|length| length > capability.max_response_body_bytes as u64)
+                .is_some_and(|length| length > response_body_limit_bytes as u64)
             {
                 return Err(EgressError::ResponseBodyTooLarge);
             }
@@ -588,9 +611,7 @@ impl PublicEgressClient {
             let mut response = response;
             let mut collected = Vec::new();
             while let Some(chunk) = response.chunk().await? {
-                if collected.len().saturating_add(chunk.len())
-                    > capability.max_response_body_bytes
-                {
+                if collected.len().saturating_add(chunk.len()) > response_body_limit_bytes {
                     return Err(EgressError::ResponseBodyTooLarge);
                 }
                 collected.extend_from_slice(&chunk);
@@ -604,6 +625,7 @@ impl PublicEgressClient {
                 status: status.as_u16(),
                 request_body_bytes,
                 response_body_bytes: collected.len(),
+                response_body_limit_bytes,
                 elapsed: started.elapsed(),
                 policy_version: capability.policy_version,
                 authority,
@@ -718,6 +740,42 @@ fn validate_authority_scope(
                 .filter(|value| !value.trim().is_empty());
             if token.is_none() {
                 return Err(EgressError::ProviderCredentialMissing);
+            }
+        }
+        EgressAuthority::WikipediaSummary => {
+            if !is_https
+                || host != "en.wikipedia.org"
+                || !path.starts_with("/api/rest_v1/page/summary/")
+                || path.len() <= "/api/rest_v1/page/summary/".len()
+                || url.query().is_some()
+                || *method != Method::GET
+                || !headers.is_empty()
+                || !body.is_empty()
+            {
+                return Err(EgressError::AuthorityScopeViolation);
+            }
+        }
+        EgressAuthority::WikidataSparql => {
+            if !is_https
+                || host != "query.wikidata.org"
+                || path != "/sparql"
+                || *method != Method::GET
+                || !headers.is_empty()
+                || !body.is_empty()
+            {
+                return Err(EgressError::AuthorityScopeViolation);
+            }
+            let pairs = url.query_pairs().collect::<Vec<_>>();
+            let query_values = pairs
+                .iter()
+                .filter(|(name, value)| name == "query" && !value.trim().is_empty())
+                .count();
+            let format_values = pairs
+                .iter()
+                .filter(|(name, value)| name == "format" && value == "json")
+                .count();
+            if pairs.len() != 2 || query_values != 1 || format_values != 1 {
+                return Err(EgressError::AuthorityScopeViolation);
             }
         }
         EgressAuthority::Perplexity => {
@@ -1603,6 +1661,7 @@ mod tests {
             max_request_header_bytes: usize::MAX,
             max_request_body_bytes: usize::MAX,
             max_response_body_bytes: usize::MAX,
+            max_error_response_body_bytes: usize::MAX,
             connect_timeout: Duration::MAX,
             request_timeout: Duration::MAX,
             capability_ttl: Duration::MAX,
@@ -1613,7 +1672,8 @@ mod tests {
         assert_eq!(limits.max_url_bytes, 8 * 1024);
         assert_eq!(limits.max_request_header_bytes, 16 * 1024);
         assert_eq!(limits.max_request_body_bytes, 2 * 1024 * 1024);
-        assert_eq!(limits.max_response_body_bytes, 10 * 1024 * 1024);
+        assert_eq!(limits.max_response_body_bytes, 16 * 1024 * 1024);
+        assert_eq!(limits.max_error_response_body_bytes, 64 * 1024);
         assert_eq!(limits.connect_timeout, Duration::from_secs(5));
         assert_eq!(limits.request_timeout, Duration::from_secs(30));
         assert_eq!(limits.capability_ttl, Duration::from_secs(5));
@@ -1646,6 +1706,65 @@ mod tests {
         assert!(!std::ptr::eq(
             EgressAuthority::PublicWeb.admission_semaphore(),
             EgressAuthority::Perplexity.admission_semaphore(),
+        ));
+    }
+
+    #[test]
+    fn fixed_source_authorities_are_bound_to_exact_hosts_paths_and_query_shapes() {
+        let wikipedia = Url::parse(
+            "https://en.wikipedia.org/api/rest_v1/page/summary/Quantum_mechanics",
+        )
+        .unwrap();
+        assert!(validate_authority_scope(
+            EgressAuthority::WikipediaSummary,
+            &wikipedia,
+            &Method::GET,
+            &HeaderMap::new(),
+            &[],
+        )
+        .is_ok());
+
+        let wikipedia_attacker = Url::parse(
+            "https://attacker.example/api/rest_v1/page/summary/Quantum_mechanics",
+        )
+        .unwrap();
+        assert!(matches!(
+            validate_authority_scope(
+                EgressAuthority::WikipediaSummary,
+                &wikipedia_attacker,
+                &Method::GET,
+                &HeaderMap::new(),
+                &[],
+            ),
+            Err(EgressError::AuthorityScopeViolation)
+        ));
+
+        let wikidata = Url::parse(
+            "https://query.wikidata.org/sparql?query=SELECT%20%2A%20WHERE%20%7B%7D&format=json",
+        )
+        .unwrap();
+        assert!(validate_authority_scope(
+            EgressAuthority::WikidataSparql,
+            &wikidata,
+            &Method::GET,
+            &HeaderMap::new(),
+            &[],
+        )
+        .is_ok());
+
+        let wikidata_extra = Url::parse(
+            "https://query.wikidata.org/sparql?query=SELECT%20%2A%20WHERE%20%7B%7D&format=json&redirect=https://attacker.example",
+        )
+        .unwrap();
+        assert!(matches!(
+            validate_authority_scope(
+                EgressAuthority::WikidataSparql,
+                &wikidata_extra,
+                &Method::GET,
+                &HeaderMap::new(),
+                &[],
+            ),
+            Err(EgressError::AuthorityScopeViolation)
         ));
     }
 
