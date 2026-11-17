@@ -1,0 +1,34 @@
+name: LISE temporal institution reference
+
+on:
+  pull_request:
+    paths:
+      - "lise-benchmarks/temporal-institution-reference/**"
+  push:
+    branches:
+      - "research/lise-temporal-institution-model-v0.1"
+    paths:
+      - "lise-benchmarks/temporal-institution-reference/**"
+
+permissions:
+  contents: read
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lise-benchmarks/temporal-institution-reference
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+      - name: Formatting
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test --all-targets
+      - name: Check
+        run: cargo check --all-targets

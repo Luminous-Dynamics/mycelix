@@ -1,0 +1,119 @@
+{
+  "schema_version": "lise.temporal-institution-scenarios.v0.1",
+  "suite_id": "LISE-TEMPORAL-001",
+  "status": "synthetic-development-seed",
+  "case_count": 12,
+  "cases": [
+    {
+      "id": "T01",
+      "title": "Initial institution with complete declared inventory",
+      "actions": []
+    },
+    {
+      "id": "T02",
+      "title": "Founder becomes unavailable while high-impact authority remains enabled",
+      "actions": [
+        "founder_unavailable"
+      ]
+    },
+    {
+      "id": "T03",
+      "title": "Safe read-only degraded recovery after verified trigger and session fencing",
+      "actions": [
+        "founder_unavailable",
+        "verify_recovery_trigger",
+        "fence_old_sessions",
+        "disable_high_impact",
+        "restore_degraded_read_only"
+      ]
+    },
+    {
+      "id": "T04",
+      "title": "Degraded service restored without fencing old sessions",
+      "actions": [
+        "founder_unavailable",
+        "verify_recovery_trigger",
+        "disable_high_impact",
+        "restore_degraded_read_only"
+      ]
+    },
+    {
+      "id": "T05",
+      "title": "Old administrator privilege restored after constitution epoch changes",
+      "actions": [
+        "change_constitution",
+        "restore_old_administrator"
+      ]
+    },
+    {
+      "id": "T06",
+      "title": "High-impact capability enabled before recovery quorum",
+      "actions": [
+        "founder_unavailable",
+        "verify_recovery_trigger",
+        "fence_old_sessions",
+        "enable_high_impact"
+      ]
+    },
+    {
+      "id": "T07",
+      "title": "High-impact capability restored after quorum, fencing and credential revalidation",
+      "actions": [
+        "founder_unavailable",
+        "verify_recovery_trigger",
+        "reach_recovery_quorum",
+        "fence_old_sessions",
+        "change_constitution",
+        "revalidate_credentials",
+        "enable_high_impact"
+      ]
+    },
+    {
+      "id": "T08",
+      "title": "Emergency authority remains active after its expiry",
+      "actions": [
+        "grant_emergency_authority",
+        "advance_time",
+        "advance_time"
+      ]
+    },
+    {
+      "id": "T09",
+      "title": "One coalition captures appointments, treasury, credentials and oversight",
+      "actions": [
+        "capture_appointments",
+        "capture_treasury",
+        "capture_credentials",
+        "capture_oversight"
+      ]
+    },
+    {
+      "id": "T10",
+      "title": "Attempt to restore independent oversight without supplying authority evidence",
+      "actions": [
+        "capture_treasury",
+        "capture_oversight",
+        "restore_independent_oversight"
+      ]
+    },
+    {
+      "id": "T11",
+      "title": "Control inventory is explicitly incomplete",
+      "actions": [
+        "mark_inventory_incomplete"
+      ]
+    },
+    {
+      "id": "T12",
+      "title": "Recovery quorum is reached but credentials are not revalidated for the new epoch",
+      "actions": [
+        "founder_unavailable",
+        "verify_recovery_trigger",
+        "reach_recovery_quorum",
+        "fence_old_sessions",
+        "change_constitution",
+        "enable_high_impact"
+      ]
+    }
+  ]
+}

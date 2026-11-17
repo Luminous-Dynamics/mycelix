@@ -1,0 +1,12 @@
+[package]
+name = "lise-temporal-institution-reference"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Finite-state temporal reference model for institutional capture and authority-preserving recovery"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]

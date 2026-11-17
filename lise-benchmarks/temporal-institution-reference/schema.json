@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LISE temporal institution trace suite and oracle",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/scenarioSuite"
+    },
+    {
+      "$ref": "#/$defs/oracleSuite"
+    }
+  ],
+  "$defs": {
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "actions"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^T[0-9]{2}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "capture_appointments",
+              "capture_agenda",
+              "capture_treasury",
+              "capture_credentials",
+              "capture_execution",
+              "capture_oversight",
+              "mark_inventory_incomplete",
+              "restore_independent_oversight",
+              "founder_unavailable",
+              "verify_recovery_trigger",
+              "reach_recovery_quorum",
+              "fence_old_sessions",
+              "restore_degraded_read_only",
+              "restore_old_administrator",
+              "change_constitution",
+              "revalidate_credentials",
+              "enable_high_impact",
+              "disable_high_impact",
+              "advance_time",
+              "grant_emergency_authority",
+              "revoke_emergency_authority"
+            ]
+          }
+        }
+      }
+    },
+    "oracleRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "expected_disposition",
+        "reason_code"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^T[0-9]{2}$"
+        },
+        "expected_disposition": {
+          "enum": [
+            "permit",
+            "deny",
+            "hold",
+            "indeterminate",
+            "challenge_required"
+          ]
+        },
+        "reason_code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]+$"
+        }
+      }
+    },
+    "scenarioSuite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "suite_id",
+        "status",
+        "case_count",
+        "cases"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "lise.temporal-institution-scenarios.v0.1"
+        },
+        "suite_id": {
+          "const": "LISE-TEMPORAL-001"
+        },
+        "status": {
+          "const": "synthetic-development-seed"
+        },
+        "case_count": {
+          "type": "integer",
+          "const": 12
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "items": {
+            "$ref": "#/$defs/scenario"
+          }
+        }
+      }
+    },
+    "oracleSuite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "suite_id",
+        "status",
+        "case_count",
+        "rows"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "lise.temporal-institution-oracle.v0.1"
+        },
+        "suite_id": {
+          "const": "LISE-TEMPORAL-001"
+        },
+        "status": {
+          "const": "reference-oracle-pending-independent-review"
+        },
+        "case_count": {
+          "type": "integer",
+          "const": 12
+        },
+        "rows": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "items": {
+            "$ref": "#/$defs/oracleRow"
+          }
+        }
+      }
+    }
+  }
+}
