@@ -111,6 +111,8 @@ pub enum EgressError {
     DnsAnswerSetTooLarge,
     #[error("DNS lookup exceeded its time limit")]
     DnsResolutionTimeout,
+    #[error("DNS authorization capacity was not acquired for a hostname lookup")]
+    DnsCapacityUnavailable,
     #[error("destination address is not permitted: {0}")]
     AddressNotPermitted(SocketAddr),
     #[error("only GET and POST methods are permitted")]
@@ -372,14 +374,20 @@ impl PublicEgressClient {
         let host = url.host_str().ok_or(EgressError::MissingHost)?.to_owned();
         let port = url.port_or_known_default().ok_or(EgressError::PortNotPermitted)?;
 
-        // Bound resolver fan-out independently from HTTP execution capacity.
-        let dns_permit = tokio::time::timeout(
-            DNS_QUEUE_TIMEOUT,
-            dns_semaphore().clone().acquire_owned(),
-        )
-        .await
-        .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
-        .map_err(|_| EgressError::ConcurrencyUnavailable)?;
+        // Bound hostname resolution independently from HTTP execution.
+        // Numeric IP literals do not consume DNS capacity.
+        let dns_permit = match url.host().ok_or(EgressError::MissingHost)? {
+            Host::Domain(_) => Some(
+                tokio::time::timeout(
+                    DNS_QUEUE_TIMEOUT,
+                    dns_semaphore().clone().acquire_owned(),
+                )
+                .await
+                .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
+                .map_err(|_| EgressError::ConcurrencyUnavailable)?,
+            ),
+            Host::Ipv4(_) | Host::Ipv6(_) => None,
+        };
         let (addresses, is_domain) = tokio::time::timeout(
             DNS_LOOKUP_TIMEOUT,
             resolve_and_authorize(&url, port, self.resolver.as_ref(), dns_permit),
@@ -727,15 +735,16 @@ async fn resolve_and_authorize(
     url: &Url,
     port: u16,
     resolver: &dyn EgressResolver,
-    dns_permit: OwnedSemaphorePermit,
+    dns_permit: Option<OwnedSemaphorePermit>,
 ) -> Result<(Vec<SocketAddr>, bool), EgressError> {
     let host = url.host().ok_or(EgressError::MissingHost)?;
     let (mut addresses, is_domain) = match host {
         Host::Ipv4(address) => (vec![SocketAddr::new(IpAddr::V4(address), port)], false),
         Host::Ipv6(address) => (vec![SocketAddr::new(IpAddr::V6(address), port)], false),
         Host::Domain(domain) => {
+            let permit = dns_permit.ok_or(EgressError::DnsCapacityUnavailable)?;
             let resolved = resolver
-                .resolve(domain, port, dns_permit)
+                .resolve(domain, port, permit)
                 .await
                 .map_err(|source| EgressError::DnsResolution {
                     host: domain.to_owned(),
