@@ -471,6 +471,11 @@ fn reconcile_child_splits(
             }
         };
     }
+    for child in child_receipts {
+        if !seen_child_ids.contains(child.receipt_id.as_str()) {
+            issue(issues, FoodLotReconciliationIssueCodeV1::InvalidSplitBalance);
+        }
+    }
     Some(total_split)
 }
 
@@ -839,6 +844,51 @@ mod tests {
             decimal_places: 6,
             unit: "mg".to_owned(),
         }));
+    }
+
+    #[test]
+    fn missing_lot_returns_nullable_identity_and_indeterminate_status() {
+        let mut request = request();
+        request.lot = None;
+        let report = reconcile_food_lot(&request);
+        assert_eq!(report.disposition, FoodLotReconciliationDispositionV1::Indeterminate);
+        assert_eq!(report.recipe_planning_eligibility, FoodLotPlanningEligibilityV1::Unknown);
+        assert_eq!(report.product_lot_ref, None);
+        assert_eq!(report.lot_revision, None);
+    }
+
+    #[test]
+    fn orphan_child_receipt_is_a_split_history_conflict() {
+        let mut request = request();
+        let mut child = request.receipt.as_ref().unwrap().clone();
+        child.receipt_id = "receipt:orphan-child".to_owned();
+        request.child_receipts.push(child);
+        let report = reconcile_food_lot(&request);
+        assert_eq!(report.disposition, FoodLotReconciliationDispositionV1::Conflicted);
+        assert!(report.issue_codes.contains(&FoodLotReconciliationIssueCodeV1::InvalidSplitBalance));
+    }
+
+    #[test]
+    fn request_report_and_fixture_contracts_are_versioned() {
+        let request_schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../schemas/FoodLotReconciliationRequestV1.schema.json"
+        )).expect("request schema must parse");
+        let report_schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../schemas/FoodLotReconciliationReportV1.schema.json"
+        )).expect("report schema must parse");
+        let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+            "../schemas/fixtures/food-lot-reconciliation-v1.json"
+        )).expect("fixture manifest must parse");
+        assert_eq!(request_schema["$schema"], "https://json-schema.org/draft/2020-12/schema");
+        assert_eq!(report_schema["$schema"], "https://json-schema.org/draft/2020-12/schema");
+        let cases = fixtures["cases"].as_array().expect("cases array");
+        let ids: BTreeSet<&str> = cases
+            .iter()
+            .map(|case| case["case_id"].as_str().expect("case id"))
+            .collect();
+        assert_eq!(ids.len(), cases.len());
+        assert!(cases.len() >= 19);
+        assert!(report_schema["properties"]["product_lot_ref"]["type"].as_array().is_some());
     }
 
     #[test]
