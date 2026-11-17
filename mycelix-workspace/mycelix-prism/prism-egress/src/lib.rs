@@ -1373,6 +1373,46 @@ mod tests {
         server.await.unwrap();
     }
 
+    #[tokio::test]
+    async fn gzip_decompression_is_subject_to_the_response_body_budget() {
+        use tokio::io::AsyncWriteExt;
+
+        // 44 compressed bytes expand to 8 KiB. The configured response budget
+        // is 1 KiB, so the decoded stream must be rejected even though the
+        // wire Content-Length is far below the limit.
+        const GZIP_BOMB: [u8; 44] = [
+            31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 237, 193, 1, 13, 0, 0, 0, 194, 160, 108, 239, 95,
+            202, 28, 110, 64, 1, 0, 0, 0, 0, 0, 0, 0, 239, 6, 204, 59, 37, 50, 0, 32, 0, 0,
+        ];
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            read_test_request(&mut stream).await;
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\\r\\nContent-Encoding: gzip\\r\\nContent-Length: 44\\r\\nConnection: close\\r\\n\\r\\n",
+                )
+                .await
+                .unwrap();
+            stream.write_all(&GZIP_BOMB).await.unwrap();
+        });
+
+        let client = PublicEgressClient::default();
+        let url = Url::parse(&format!(
+            "http://response-cap-test.invalid:{}/",
+            address.port()
+        ))
+        .unwrap();
+        let capability = test_capability(url, address, 1024);
+        let result = client.execute(capability).await;
+        assert!(
+            matches!(result, Err(EgressError::ResponseBodyTooLarge)),
+            "decoded 8 KiB response must exceed the 1 KiB cap: {result:?}"
+        );
+        server.await.unwrap();
+    }
+
     #[test]
     fn peer_attestation_requires_the_actual_socket_peer_in_the_authorized_set() {
         let authorized = [
