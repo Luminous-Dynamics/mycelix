@@ -100,6 +100,8 @@ pub struct EgressCapability {
     url: Url,
     host: String,
     method: Method,
+    headers: HeaderMap,
+    body: Vec<u8>,
     addresses: Vec<SocketAddr>,
     is_domain: bool,
     expires_at: std::time::Instant,
@@ -156,12 +158,21 @@ impl PublicEgressClient {
         &self,
         method: Method,
         raw_url: &str,
+        headers: HeaderMap,
+        body: Vec<u8>,
     ) -> Result<EgressCapability, EgressError> {
         if raw_url.len() > self.limits.max_url_bytes {
             return Err(EgressError::UrlTooLarge);
         }
         if method != Method::GET && method != Method::POST {
             return Err(EgressError::MethodNotPermitted);
+        }
+        if body.len() > self.limits.max_request_body_bytes {
+            return Err(EgressError::RequestBodyTooLarge);
+        }
+        validate_request_headers(&headers)?;
+        if request_header_bytes(&headers) > self.limits.max_request_header_bytes {
+            return Err(EgressError::RequestHeadersTooLarge);
         }
 
         let mut url = Url::parse(raw_url)?;
@@ -178,6 +189,8 @@ impl PublicEgressClient {
             url,
             host,
             method,
+            headers,
+            body,
             addresses,
             is_domain,
             expires_at: std::time::Instant::now() + self.limits.capability_ttl,
@@ -190,28 +203,19 @@ impl PublicEgressClient {
         })
     }
 
-    /// Consume one authorization and perform the exact bounded request.
+    /// Consume one authorization and execute the exact request it contains.
     pub async fn execute(
         &self,
         capability: EgressCapability,
-        headers: HeaderMap,
-        body: Vec<u8>,
     ) -> Result<EgressResponse, EgressError> {
-        if std::time::Instant::now() > capability.expires_at {
+        if std::time::Instant::now() >= capability.expires_at {
             return Err(EgressError::CapabilityExpired);
-        }
-        if body.len() > capability.max_request_body_bytes {
-            return Err(EgressError::RequestBodyTooLarge);
-        }
-        validate_request_headers(&headers)?;
-        if request_header_bytes(&headers) > capability.max_request_header_bytes {
-            return Err(EgressError::RequestHeadersTooLarge);
         }
 
         let origin = format!("{}://{}", capability.url.scheme(), capability.host);
         let authorized_addresses = capability.addresses.clone();
         let method_name = capability.method.as_str().to_owned();
-        let request_body_bytes = body.len();
+        let request_body_bytes = capability.body.len();
         let started = std::time::Instant::now();
 
         let client = build_pinned_client(
@@ -224,8 +228,8 @@ impl PublicEgressClient {
 
         let response = client
             .request(capability.method, capability.url)
-            .headers(headers)
-            .body(body)
+            .headers(capability.headers)
+            .body(capability.body)
             .send()
             .await?;
 
@@ -271,8 +275,8 @@ impl PublicEgressClient {
         headers: HeaderMap,
         body: Vec<u8>,
     ) -> Result<EgressResponse, EgressError> {
-        let capability = self.authorize(method, raw_url).await?;
-        self.execute(capability, headers, body).await
+        let capability = self.authorize(method, raw_url, headers, body).await?;
+        self.execute(capability).await
     }
 }
 
@@ -584,7 +588,7 @@ mod tests {
     #[tokio::test]
     async fn rejects_private_ip_literals_before_transport() {
         let client = PublicEgressClient::default();
-        let result = client.authorize(Method::GET, "http://127.0.0.1/");
+        let result = client.authorize(Method::GET, "http://127.0.0.1/", HeaderMap::new(), Vec::new());
         assert!(matches!(
             result.await,
             Err(EgressError::AddressNotPermitted(_))
@@ -596,8 +600,8 @@ mod tests {
         let mut limits = EgressLimits::default();
         limits.capability_ttl = Duration::ZERO;
         let client = PublicEgressClient::new(limits);
-        let capability = client.authorize(Method::GET, "https://1.1.1.1/").await.unwrap();
-        let result = client.execute(capability, HeaderMap::new(), Vec::new()).await;
+        let capability = client.authorize(Method::GET, "https://1.1.1.1/", HeaderMap::new(), Vec::new()).await.unwrap();
+        let result = client.execute(capability).await;
         assert!(matches!(result, Err(EgressError::CapabilityExpired)));
     }
 
