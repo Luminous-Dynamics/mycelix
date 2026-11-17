@@ -332,6 +332,11 @@ impl EgressResolver for SystemEgressResolver {
 pub struct PublicEgressClient {
     limits: EgressLimits,
     resolver: Arc<dyn EgressResolver>,
+    // Test-only exception so the real authorization -> pinned socket -> peer
+    // receipt path can be exercised against loopback listeners. This field
+    // does not exist in non-test builds and is never externally configurable.
+    #[cfg(test)]
+    allow_test_destinations: bool,
 }
 
 impl std::fmt::Debug for PublicEgressClient {
@@ -362,7 +367,19 @@ impl PublicEgressClient {
         Self {
             limits: limits.bounded(),
             resolver: Arc::new(resolver),
+            #[cfg(test)]
+            allow_test_destinations: false,
         }
+    }
+
+    #[cfg(test)]
+    fn with_test_resolver<R>(limits: EgressLimits, resolver: R) -> Self
+    where
+        R: EgressResolver + 'static,
+    {
+        let mut client = Self::with_resolver(limits, resolver);
+        client.allow_test_destinations = true;
+        client
     }
 
     pub fn limits(&self) -> &EgressLimits {
@@ -414,7 +431,11 @@ impl PublicEgressClient {
         }
 
         let mut url = Url::parse(raw_url)?;
-        validate_url_policy(&url)?;
+        #[cfg(test)]
+        let allow_test_destinations = self.allow_test_destinations;
+        #[cfg(not(test))]
+        let allow_test_destinations = false;
+        validate_url_policy_with_test_port(&url, allow_test_destinations)?;
         if url.scheme() == "http"
             && (method != Method::GET || !headers.is_empty() || !body.is_empty())
         {
@@ -444,7 +465,13 @@ impl PublicEgressClient {
         };
         let (addresses, is_domain) = tokio::time::timeout(
             DNS_LOOKUP_TIMEOUT,
-            resolve_and_authorize(&url, port, self.resolver.as_ref(), dns_permit),
+            resolve_and_authorize(
+                &url,
+                port,
+                self.resolver.as_ref(),
+                dns_permit,
+                allow_test_destinations,
+            ),
         )
         .await
         .map_err(|_| EgressError::DnsResolutionTimeout)??;
@@ -934,9 +961,17 @@ fn request_header_bytes(headers: &HeaderMap) -> usize {
 }
 
 fn validate_url_policy(url: &Url) -> Result<(), EgressError> {
+    validate_url_policy_with_test_port(url, false)
+}
+
+fn validate_url_policy_with_test_port(
+    url: &Url,
+    allow_test_port: bool,
+) -> Result<(), EgressError> {
     match url.scheme() {
         "http" if url.port_or_known_default() == Some(80) => {}
         "https" if url.port_or_known_default() == Some(443) => {}
+        "http" | "https" if allow_test_port && url.port().is_some() => {}
         "http" | "https" => return Err(EgressError::PortNotPermitted),
         _ => return Err(EgressError::UnsupportedScheme),
     }
@@ -979,6 +1014,7 @@ async fn resolve_and_authorize(
     port: u16,
     resolver: &dyn EgressResolver,
     dns_permit: Option<OwnedSemaphorePermit>,
+    allow_test_destinations: bool,
 ) -> Result<(Vec<SocketAddr>, bool), EgressError> {
     let host = url.host().ok_or(EgressError::MissingHost)?;
     let (mut addresses, is_domain) = match host {
@@ -1004,7 +1040,9 @@ async fn resolve_and_authorize(
     }
     addresses.sort_unstable();
     addresses.dedup();
-    validate_address_set(&addresses)?;
+    if !allow_test_destinations {
+        validate_address_set(&addresses)?;
+    }
     Ok((addresses, is_domain))
 }
 
@@ -1287,6 +1325,61 @@ mod tests {
         let result = client.execute(capability).await;
         assert!(matches!(result, Err(EgressError::BlockedHost)));
         server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn authorize_pins_resolver_snapshot_through_socket_peer_receipt() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, peer) = listener.accept().await.unwrap();
+            let request = read_test_request(&mut stream).await;
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\nConnection: close\\r\\n\\r\\nok",
+                )
+                .await
+                .unwrap();
+            (peer, request)
+        });
+
+        let resolver = StaticResolver {
+            answers: vec![address],
+            calls: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        };
+        let client =
+            PublicEgressClient::with_test_resolver(EgressLimits::default(), resolver.clone());
+        let raw_url = format!("http://prism-e2e.test:{}/probe", address.port());
+
+        // This is the public authorization API, with only the destination
+        // classification/port exception enabled by a cfg(test)-only field.
+        let capability = client
+            .authorize(Method::GET, &raw_url, HeaderMap::new(), Vec::new())
+            .await
+            .unwrap();
+        assert_eq!(capability.addresses, vec![address]);
+
+        // Execution must use the exact injected DNS snapshot, connect to that
+        // socket, preserve the original hostname in Host, and attest the peer.
+        let response = client.execute(capability).await.unwrap();
+        assert_eq!(response.body, b"ok");
+        assert_eq!(response.receipt.authorized_addresses, vec![address]);
+        assert_eq!(response.receipt.remote_peer, address);
+        assert_eq!(
+            resolver.calls.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "execution must not perform a second DNS lookup"
+        );
+
+        let (peer, request) = server.await.unwrap();
+        assert_eq!(peer, address);
+        let request = String::from_utf8_lossy(&request);
+        assert!(
+            request.contains(&format!("Host: prism-e2e.test:{}", address.port())),
+            "HTTP Host must retain the original hostname: {request}"
+        );
     }
 
     #[tokio::test]
