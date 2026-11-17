@@ -447,6 +447,9 @@ jobs:
           }
           require_source '.redirect(reqwest::redirect::Policy::none())' "$egress"
           require_source '.no_proxy()' "$egress"
+          # Reqwest 0.12.23+ retries protocol NACKs by default. The transport
+          # must leave all retry policy decisions to Prism's capability layer.
+          require_source '.retry(reqwest::retry::never())' "$egress"
           require_source '.resolve_to_addrs(host, addresses)' "$egress"
           require_source 'response.remote_addr()' "$egress"
           require_source '.http2_max_header_list_size(64 * 1024)' "$egress"
