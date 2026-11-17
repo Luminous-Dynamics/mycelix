@@ -33,3 +33,10 @@ The container/event contract now includes empty-container mass, optional embodie
 A separate, versioned `ContainerLifecycleImpactFactorsV1` input supplies region/year-specific electricity, water, detergent, transport-mode and end-of-life factors. The coordinator computes a reproducible packaging-only cradle-to-grave report with exact numerator/denominator ratios per accepted serving. It uses ceiling rounding for unit conversions to avoid understating impact. It does not ship default South African grid or water factors. Missing observations or factors return an incomplete-evidence error; they are not silently treated as zero. Known zero remains explicit as `Some(0)`.
 
 This is not a product-food LCA or an independently audited environmental claim. Factor-set provenance, geography, reference year, method and evidence class are retained. Compare returnable and single-use alternatives only with the same accepted-serving functional unit and include washing, return logistics, breakage/loss and end-of-life.
+
+
+## Matched single-use comparator
+
+`SingleUsePackagingBaselineV1.schema.json` describes a single-use package on the same accepted-serving functional unit and region/year impact factor set. It includes packaging units per serving as an exact ratio, packaging and transported mass, distribution distance/mode, embodied impact, end-of-life impact and evidence.
+
+The coordinator comparator refuses factor-set/geography/year mismatches, then reports exact reusable and single-use mg CO2e per accepted serving and identifies which supplied scenario is lower. The outcome is not generalized beyond the declared packaging boundary. The unit test intentionally makes the single-use comparator lower at four accepted servings, demonstrating that reuse is not automatically better at low cycle counts. Increasing verified reuse cycles amortizes one-time embodied impact, while wash resource use and reverse logistics continue to accumulate.
