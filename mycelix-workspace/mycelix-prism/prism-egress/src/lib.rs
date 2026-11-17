@@ -135,7 +135,7 @@ pub enum EgressAuthority {
     Perplexity,
 }
 
-const MAX_PUBLIC_WEB_REQUESTS: usize = 48;
+const MAX_PUBLIC_WEB_REQUESTS: usize = 56;
 const MAX_BRAVE_REQUESTS: usize = 4;
 const MAX_PERPLEXITY_REQUESTS: usize = 4;
 static PUBLIC_WEB_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_PUBLIC_WEB_REQUESTS);
@@ -1059,6 +1059,36 @@ mod tests {
                 .iter()
                 .any(|address| address.ip() == ip("2606:4700:4700::1111"))
         );
+    }
+
+    #[test]
+    fn each_authority_has_a_disjoint_admission_budget() {
+        assert_eq!(
+            EgressAuthority::PublicWeb
+                .admission_semaphore()
+                .available_permits(),
+            MAX_PUBLIC_WEB_REQUESTS
+        );
+        assert_eq!(
+            EgressAuthority::BraveSearch
+                .admission_semaphore()
+                .available_permits(),
+            MAX_BRAVE_REQUESTS
+        );
+        assert_eq!(
+            EgressAuthority::Perplexity
+                .admission_semaphore()
+                .available_permits(),
+            MAX_PERPLEXITY_REQUESTS
+        );
+        assert!(!std::ptr::eq(
+            EgressAuthority::PublicWeb.admission_semaphore(),
+            EgressAuthority::BraveSearch.admission_semaphore(),
+        ));
+        assert!(!std::ptr::eq(
+            EgressAuthority::PublicWeb.admission_semaphore(),
+            EgressAuthority::Perplexity.admission_semaphore(),
+        ));
     }
 
     #[test]
