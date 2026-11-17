@@ -10,6 +10,8 @@ prism-common = { path = "../prism-common" }
 prism-egress = { path = "../prism-egress", optional = true }
 tokio = { workspace = true, optional = true }
 url = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
@@ -25,4 +27,4 @@ name = "build_corpus"
 required-features = ["fetch"]
 
 [features]
-fetch = ["dep:prism-egress", "dep:tokio", "dep:url"]
+fetch = ["dep:prism-egress", "dep:tokio", "dep:url", "dep:sha2", "dep:hex"]
