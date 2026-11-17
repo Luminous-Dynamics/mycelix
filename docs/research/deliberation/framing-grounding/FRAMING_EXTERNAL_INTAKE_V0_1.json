@@ -1,0 +1,169 @@
+{
+  "protocol_id": "DELIB-FRAME-GROUND-001",
+  "version": "0.1.0",
+  "status": "metadata_only_no_external_payloads",
+  "audit_date": "2026-11-12",
+  "sources": [
+    {
+      "source_id": "WILDFRAME-EMNLP-2026",
+      "title": "Comparing the Framing Effect in Humans and LLMs on Naturally Occurring Texts",
+      "url": "https://aclanthology.org/2026.findings-emnlp.41/",
+      "resource_type": "research_paper_and_dataset",
+      "relevance": "direct_framing_comparator",
+      "paper_access": "public",
+      "paper_license": "ACL Anthology states post-2016 ACL materials are CC BY 4.0; this applies to the paper publication, not automatically to underlying source texts or human response data.",
+      "dataset_license": "not_located",
+      "participant_consent": "not_verified",
+      "payload_status": "metadata_only",
+      "evaluation_use": "pending_review",
+      "training_use": "not_authorized",
+      "redistribution_use": "not_authorized",
+      "notes": "The Anthology page identifies the paper, abstract and PDF but does not itself identify a dataset-specific license, consent notice, raw-data repository or human-response data-use terms. The source describes 1,000 naturally occurring texts and human sentiment annotations. No raw text or participant-level records were downloaded or committed."
+    },
+    {
+      "source_id": "FRAMING-FUNCTION-ANNOTATION-2026",
+      "title": "Agreement Helps, Disagreement Matters: Scaling Framing Function Annotation With Large Language Models",
+      "url": "https://doi.org/10.1177/08944393261501889",
+      "resource_type": "research_paper_and_dataset",
+      "relevance": "direct_framing_comparator",
+      "paper_access": "public",
+      "paper_license": "Article page is marked open access; the article-page statement does not establish rights for underlying social-media posts or annotation records.",
+      "dataset_license": "not_located",
+      "participant_consent": "not_verified",
+      "payload_status": "metadata_only",
+      "evaluation_use": "pending_review",
+      "training_use": "not_authorized",
+      "redistribution_use": "not_authorized",
+      "notes": "The reported study annotates 455 EV-related social-media posts with three human coders. Raw posts, author metadata, annotation payloads and codebook artifacts are not admitted until their specific rights, deletion/retention and data-use conditions are reviewed."
+    },
+    {
+      "source_id": "PNAS-NUDGES-2026",
+      "title": "AI Agents Are Sensitive to Nudges",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13291645/",
+      "resource_type": "research_paper",
+      "relevance": "behavioral_choice_comparator",
+      "paper_access": "public",
+      "paper_license": "PMC reports the article is CC BY 4.0; supplementary data/code rights and human-reference data terms require their own review.",
+      "dataset_license": "not_located",
+      "participant_consent": "not_verified",
+      "payload_status": "metadata_only",
+      "evaluation_use": "pending_review",
+      "training_use": "not_authorized",
+      "redistribution_use": "not_authorized",
+      "notes": "Use as a methodology and behavioral-choice comparator only. Do not ingest human-level trial records, supplements or model outputs until artifact provenance and their separate terms are checked."
+    },
+    {
+      "source_id": "AFRISENTI",
+      "title": "AfriSenti multilingual sentiment dataset",
+      "url": "https://huggingface.co/datasets/masakhane/afrisenti",
+      "resource_type": "text_dataset",
+      "relevance": "adjacent_language_resource",
+      "paper_access": "public",
+      "paper_license": "Dataset card reports CC-BY-NC-SA-2.0; confirm exact snapshot, source-content restrictions and allowed derivative use before any payload access.",
+      "dataset_license": "reported_but_unverified",
+      "participant_consent": "not_verified",
+      "payload_status": "metadata_only",
+      "evaluation_use": "pending_review",
+      "training_use": "not_authorized",
+      "redistribution_use": "not_authorized",
+      "notes": "Sentiment labels are not framing-function annotations or semantic-equivalence judgments. Its reported 14-language list is not the target five-language South African scope; do not treat it as a substitute or repurpose labels as framing ground truth."
+    },
+    {
+      "source_id": "MASAKHANEWS",
+      "title": "MasakhaNEWS African-language news topic dataset",
+      "url": "https://huggingface.co/datasets/masakhane/masakhanews",
+      "resource_type": "text_dataset",
+      "relevance": "adjacent_language_resource",
+      "paper_access": "public",
+      "paper_license": "Dataset-card licensing metadata is not internally consistent across the surfaced card views (AFL-3.0 badge and CC/non-commercial wording); resolve exact revision and provenance before use.",
+      "dataset_license": "conflicting_metadata",
+      "participant_consent": "not_verified",
+      "payload_status": "metadata_only",
+      "evaluation_use": "not_authorized",
+      "training_use": "not_authorized",
+      "redistribution_use": "not_authorized",
+      "notes": "Topic classification is not framing annotation. The inspected card includes isiXhosa but not the full requested target set. Do not use the corpus or its labels as framing ground truth."
+    },
+    {
+      "source_id": "SA-LINGUISTIC-CORPORA",
+      "title": "Linguistically annotated dataset for four official South African languages with a conjunctive orthography",
+      "url": "https://doi.org/10.1016/j.dib.2022.107994",
+      "resource_type": "language_corpus",
+      "relevance": "adjacent_language_resource",
+      "paper_access": "public",
+      "paper_license": "Article reports open-access Creative Commons licensing; the underlying corpus's exact Seanoe data license and allowed derivative/annotation terms require direct verification.",
+      "dataset_license": "reported_but_unverified",
+      "participant_consent": "unknown",
+      "payload_status": "metadata_only",
+      "evaluation_use": "pending_review",
+      "training_use": "not_authorized",
+      "redistribution_use": "not_authorized",
+      "notes": "Resource covers isiNdebele, isiXhosa, isiZulu and Siswati and linguistic layers such as morphology, POS and lemmas. It is not a framing or deliberation dataset and does not supply human framing judgments."
+    },
+    {
+      "source_id": "SA-KNOWLEDGE",
+      "title": "SA-Knowledge South African language resources",
+      "url": "https://huggingface.co/datasets/sello-ralethe/SA-Knowledge",
+      "resource_type": "language_corpus",
+      "relevance": "adjacent_language_resource",
+      "paper_access": "public",
+      "paper_license": "Dataset card identifies thesis-linked subsets and source scope; exact license and permitted use must be resolved per subset.",
+      "dataset_license": "not_located",
+      "participant_consent": "unknown",
+      "payload_status": "metadata_only",
+      "evaluation_use": "pending_review",
+      "training_use": "not_authorized",
+      "redistribution_use": "not_authorized",
+      "notes": "Card lists isiZulu, isiXhosa, Sepedi, Sesotho and English and government-domain subsets. It does not provide framing-function labels. Rights must be assessed independently per subset before use."
+    }
+  ],
+  "language_readiness": [
+    {
+      "language_tag": "en-ZA",
+      "language_name": "South African English",
+      "status": "synthetic_contract_only",
+      "required_authoring_mode": "native_authored_or_native_adjudicated",
+      "admitted_items": 0,
+      "native_review_receipts": 0
+    },
+    {
+      "language_tag": "af-ZA",
+      "language_name": "Afrikaans",
+      "status": "native_authoring_pending",
+      "required_authoring_mode": "native_authored_or_native_adjudicated",
+      "admitted_items": 0,
+      "native_review_receipts": 0
+    },
+    {
+      "language_tag": "zu-ZA",
+      "language_name": "isiZulu",
+      "status": "native_authoring_pending",
+      "required_authoring_mode": "native_authored_or_native_adjudicated",
+      "admitted_items": 0,
+      "native_review_receipts": 0
+    },
+    {
+      "language_tag": "xh-ZA",
+      "language_name": "isiXhosa",
+      "status": "native_authoring_pending",
+      "required_authoring_mode": "native_authored_or_native_adjudicated",
+      "admitted_items": 0,
+      "native_review_receipts": 0
+    },
+    {
+      "language_tag": "st-ZA",
+      "language_name": "Sesotho",
+      "status": "native_authoring_pending",
+      "required_authoring_mode": "native_authored_or_native_adjudicated",
+      "admitted_items": 0,
+      "native_review_receipts": 0
+    }
+  ],
+  "global_rules": {
+    "raw_external_payloads_committed": false,
+    "human_annotations_collected": false,
+    "training_permitted_by_default": false,
+    "redistribution_permitted_by_default": false,
+    "human_study_authorized": false
+  }
+}

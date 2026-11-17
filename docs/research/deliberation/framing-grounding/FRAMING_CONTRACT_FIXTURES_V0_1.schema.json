@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/framing-contract-fixtures-v0.1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "protocol_id",
+    "fixture_count",
+    "controls"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "framing-contract-fixtures-v0.1"
+    },
+    "status": {
+      "const": "synthetic_controls_only_no_human_annotations"
+    },
+    "protocol_id": {
+      "const": "DELIB-FRAME-GROUND-001"
+    },
+    "fixture_count": {
+      "const": 12
+    },
+    "controls": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fixture_id",
+          "family",
+          "record_kind",
+          "language_tag",
+          "authorship_status",
+          "source_text",
+          "variant_text",
+          "synthetic_relation_control",
+          "frame_function_design_intent",
+          "human_annotations",
+          "model_annotations",
+          "adjudication_status",
+          "note"
+        ],
+        "properties": {
+          "fixture_id": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string"
+          },
+          "record_kind": {
+            "const": "synthetic_contract_fixture"
+          },
+          "language_tag": {
+            "const": "en-ZA"
+          },
+          "authorship_status": {
+            "const": "synthetic_english"
+          },
+          "source_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "variant_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "synthetic_relation_control": {
+            "enum": [
+              "meaning_equivalent",
+              "disclosed_tradeoff",
+              "meaning_changed",
+              "underspecified_or_ambiguous"
+            ]
+          },
+          "frame_function_design_intent": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "define_problem",
+                "causal_diagnosis",
+                "moral_evaluation",
+                "treatment_recommendation"
+              ]
+            }
+          },
+          "human_annotations": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "model_annotations": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "adjudication_status": {
+            "const": "not_applicable_synthetic"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

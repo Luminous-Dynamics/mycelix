@@ -1,0 +1,38 @@
+name: Deliberation Frame Grounding Qualifier
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/research/deliberation/framing-grounding/**"
+      - ".github/workflows/delib-frame-ground-qualifier.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/research/deliberation/framing-grounding/**"
+      - ".github/workflows/delib-frame-ground-qualifier.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run qualifier tests
+        run: cargo test --manifest-path docs/research/deliberation/framing-grounding/qualifier/Cargo.toml
+      - name: Validate metadata custody and synthetic contract controls
+        run: |
+          cargo run --manifest-path docs/research/deliberation/framing-grounding/qualifier/Cargo.toml -- \
+            docs/research/deliberation/framing-grounding/FRAMING_EXTERNAL_INTAKE_V0_1.json \
+            docs/research/deliberation/framing-grounding/FRAMING_CONTRACT_FIXTURES_V0_1.json
