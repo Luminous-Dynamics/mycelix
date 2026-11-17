@@ -1,0 +1,334 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/food/FoodLotReconciliationReportV1.schema.json",
+  "title": "FoodLotReconciliationReportV1",
+  "description": "Read-only local reconciliation result joining one recipe ingredient requirement to one canonical producer lot, a private household receipt and its append-only local events. This is not an inventory command, food-safety conclusion or actuation permit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reconciliation_id",
+    "ingredient_id",
+    "product_ref",
+    "product_lot_ref",
+    "lot_revision",
+    "receipt_id",
+    "as_of",
+    "disposition",
+    "recipe_planning_eligibility",
+    "required_quantity",
+    "available_quantity",
+    "event_chain_tip",
+    "issue_codes",
+    "evidence_refs",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "reconciliation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "ingredient_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "product_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "product_lot_ref": {
+      "type": "string",
+      "pattern": "^mycelix:food-lot:[a-z0-9][a-z0-9._:-]{0,127}$"
+    },
+    "lot_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "receipt_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "as_of": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "disposition": {
+      "enum": [
+        "resolved",
+        "indeterminate",
+        "conflicted"
+      ]
+    },
+    "recipe_planning_eligibility": {
+      "enum": [
+        "eligible",
+        "not_eligible",
+        "unknown"
+      ]
+    },
+    "required_quantity": {
+      "$ref": "#/$defs/quantity"
+    },
+    "available_quantity": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/quantity"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "event_chain_tip": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "issue_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "missing_lot",
+          "missing_receipt",
+          "ambiguous_receipt",
+          "quarantined_receipt",
+          "stale_lot_revision",
+          "product_mismatch",
+          "quantity_dimension_mismatch",
+          "quantity_unit_mismatch",
+          "receipt_mass_balance_mismatch",
+          "event_sequence_gap",
+          "event_parent_mismatch",
+          "duplicate_event",
+          "event_time_regression",
+          "overconsumption",
+          "invalid_split_balance",
+          "recall_hold",
+          "declared_use_by_elapsed",
+          "current_time_unknown",
+          "stale_or_missing_evidence",
+          "unsupported_exact_conversion"
+        ]
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "claim_ceiling": {
+      "const": "Read-only reconciliation of submitted lot, receipt, quantity and event declarations as of the stated time; not proof of physical inventory, freshness, food safety, allergen status, suitability, or authority to purchase, consume, transfer, discard or actuate."
+    }
+  },
+  "$defs": {
+    "quantity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "value",
+        "decimal_places",
+        "unit"
+      ],
+      "properties": {
+        "dimension": {
+          "enum": [
+            "mass",
+            "volume",
+            "count"
+          ]
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "decimal_places": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        },
+        "unit": {
+          "enum": [
+            "mg",
+            "g",
+            "kg",
+            "mL",
+            "L",
+            "count",
+            "piece"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "dimension": {
+                "const": "mass"
+              }
+            },
+            "required": [
+              "dimension"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "mg",
+                  "g",
+                  "kg"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "dimension": {
+                "const": "volume"
+              }
+            },
+            "required": [
+              "dimension"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "mL",
+                  "L"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "dimension": {
+                "const": "count"
+              }
+            },
+            "required": [
+              "dimension"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "count",
+                  "piece"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "disposition": {
+            "const": "resolved"
+          }
+        },
+        "required": [
+          "disposition"
+        ]
+      },
+      "then": {
+        "properties": {
+          "recipe_planning_eligibility": {
+            "const": "eligible"
+          },
+          "receipt_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "available_quantity": {
+            "$ref": "#/$defs/quantity"
+          },
+          "event_chain_tip": {
+            "type": "string",
+            "minLength": 1
+          },
+          "issue_codes": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "disposition": {
+            "const": "indeterminate"
+          }
+        },
+        "required": [
+          "disposition"
+        ]
+      },
+      "then": {
+        "properties": {
+          "recipe_planning_eligibility": {
+            "enum": [
+              "not_eligible",
+              "unknown"
+            ]
+          },
+          "issue_codes": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "disposition": {
+            "const": "conflicted"
+          }
+        },
+        "required": [
+          "disposition"
+        ]
+      },
+      "then": {
+        "properties": {
+          "recipe_planning_eligibility": {
+            "const": "not_eligible"
+          },
+          "issue_codes": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}
