@@ -516,7 +516,7 @@ impl PublicEgressClient {
                 return Err(EgressError::ResponseHeadersTooLarge);
             }
 
-            if capability.authority == EgressAuthority::PublicWeb
+            if authority_may_follow_redirect(capability.authority)
                 && is_followable_redirect(status)
             {
                 if let Some(location) = response_headers.get(reqwest::header::LOCATION) {
@@ -526,14 +526,7 @@ impl PublicEgressClient {
                     let location = location
                         .to_str()
                         .map_err(|_| EgressError::InvalidRedirectLocation)?;
-                    let next_url = capability
-                        .url
-                        .join(location)
-                        .map_err(|_| EgressError::InvalidRedirectLocation)?;
-
-                    if capability.url.scheme() == "https" && next_url.scheme() == "http" {
-                        return Err(EgressError::RedirectSchemeDowngrade);
-                    }
+                    let next_url = resolve_public_redirect_target(&capability.url, location)?;
 
                     // Redirects carry no user headers or bodies in PublicWeb
                     // scope. Re-authorization validates URL syntax, scheme,
@@ -547,10 +540,7 @@ impl PublicEgressClient {
                             Vec::new(),
                         )
                         .await?;
-                    let next_url_key = next_capability.url.as_str().to_owned();
-                    if !visited_urls.insert(next_url_key) {
-                        return Err(EgressError::RedirectLoop);
-                    }
+                    record_redirect_target(&mut visited_urls, &next_capability.url)?;
 
                     let to_origin = format!(
                         "{}://{}",
@@ -773,6 +763,34 @@ fn validate_request_headers(headers: &HeaderMap) -> Result<(), EgressError> {
         }
     }
     Ok(())
+}
+
+fn resolve_public_redirect_target(
+    current_url: &Url,
+    location: &str,
+) -> Result<Url, EgressError> {
+    let next_url = current_url
+        .join(location)
+        .map_err(|_| EgressError::InvalidRedirectLocation)?;
+    if current_url.scheme() == "https" && next_url.scheme() == "http" {
+        return Err(EgressError::RedirectSchemeDowngrade);
+    }
+    Ok(next_url)
+}
+
+fn record_redirect_target(
+    visited_urls: &mut HashSet<String>,
+    next_url: &Url,
+) -> Result<(), EgressError> {
+    if visited_urls.insert(next_url.as_str().to_owned()) {
+        Ok(())
+    } else {
+        Err(EgressError::RedirectLoop)
+    }
+}
+
+fn authority_may_follow_redirect(authority: EgressAuthority) -> bool {
+    authority == EgressAuthority::PublicWeb
 }
 
 fn is_followable_redirect(status: StatusCode) -> bool {
@@ -1029,6 +1047,78 @@ mod tests {
                 break;
             }
         }
+    }
+
+    #[test]
+    fn public_redirect_targets_resolve_relative_locations_without_downgrade() {
+        let current = Url::parse("https://public.example/a/b").unwrap();
+        assert_eq!(
+            resolve_public_redirect_target(&current, "../next").unwrap().as_str(),
+            "https://public.example/next"
+        );
+        assert_eq!(
+            resolve_public_redirect_target(&current, "https://other.example/path")
+                .unwrap()
+                .as_str(),
+            "https://other.example/path"
+        );
+        assert!(matches!(
+            resolve_public_redirect_target(&current, "http://other.example/path"),
+            Err(EgressError::RedirectSchemeDowngrade)
+        ));
+        assert!(matches!(
+            resolve_public_redirect_target(&current, "http://[invalid"),
+            Err(EgressError::InvalidRedirectLocation)
+        ));
+    }
+
+    #[test]
+    fn redirect_loop_detection_uses_normalized_authorized_urls() {
+        let mut visited = HashSet::new();
+        let first = Url::parse("https://public.example/path").unwrap();
+        let second = Url::parse("https://public.example/other").unwrap();
+        record_redirect_target(&mut visited, &first).unwrap();
+        record_redirect_target(&mut visited, &second).unwrap();
+        assert!(matches!(
+            record_redirect_target(&mut visited, &first),
+            Err(EgressError::RedirectLoop)
+        ));
+    }
+
+    #[test]
+    fn provider_authorities_never_follow_redirects() {
+        assert!(authority_may_follow_redirect(EgressAuthority::PublicWeb));
+        assert!(!authority_may_follow_redirect(EgressAuthority::BraveSearch));
+        assert!(!authority_may_follow_redirect(EgressAuthority::Perplexity));
+    }
+
+    #[tokio::test]
+    async fn public_web_redirect_to_metadata_is_rejected_before_second_connection() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            read_test_request(&mut stream).await;
+            stream
+                .write_all(
+                    b"HTTP/1.1 302 Found\r\nLocation: http://metadata.google.internal/\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                )
+                .await
+                .unwrap();
+        });
+
+        let client = PublicEgressClient::default();
+        let url = Url::parse(&format!(
+            "http://response-cap-test.invalid:{}/",
+            address.port()
+        ))
+        .unwrap();
+        let capability = test_capability(url, address, 16);
+        let result = client.execute(capability).await;
+        assert!(matches!(result, Err(EgressError::BlockedHost)));
+        server.await.unwrap();
     }
 
     #[tokio::test]
