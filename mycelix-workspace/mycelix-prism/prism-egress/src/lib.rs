@@ -771,11 +771,11 @@ fn validate_authority_scope(
             let pairs = url.query_pairs().collect::<Vec<_>>();
             let query_values = pairs
                 .iter()
-                .filter(|(name, value)| name == "query" && !value.trim().is_empty())
+                .filter(|(name, value)| name.as_ref() == "query" && !value.trim().is_empty())
                 .count();
             let format_values = pairs
                 .iter()
-                .filter(|(name, value)| name == "format" && value == "json")
+                .filter(|(name, value)| name.as_ref() == "format" && value.as_ref() == "json")
                 .count();
             if pairs.len() != 2 || query_values != 1 || format_values != 1 {
                 return Err(EgressError::AuthorityScopeViolation);
