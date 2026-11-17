@@ -163,16 +163,17 @@ A new native-only `prism-egress` crate now provides:
 - A per-request Reqwest client using `resolve_to_addrs` for the validated address set, retaining the URL hostname for HTTP authority and TLS verification. The exact Reqwest 0.12 API is documented to override hostname resolution for the specified address set. See the upstream ClientBuilder documentation.
 - Automatic redirects and ambient proxy discovery disabled. A 3xx is returned to the caller; it is not followed. The next increment must add explicit per-hop reauthorization rather than re-enable automatic redirects.
 - A non-cloneable, in-memory, one-use `EgressCapability` that binds the exact URL, method, outbound headers, body, resolved address set, expiry, response budget, timeouts, and policy version. Execution consumes the capability. This is a Rust ownership boundary, not a cryptographically signed or remotely transferable token.
-- Five-second authorization lifetime; 8 KiB URL limit; 16 KiB outbound header limit; 2 MiB request-body limit; 10 MiB response-body limit; 64 KiB / 128-entry response-header budget; 5-second connect timeout; 30-second total request timeout.
-- HTTPS required for any request with a body or custom headers. Plain HTTP is limited to bodyless, headerless GET.
+- Five-second authorization lifetime; 8 KiB URL limit; 16 KiB total request-header budget (including a 512-byte allowance for transport-generated fields); 2 MiB request-body limit; 10 MiB response-body limit; 64 KiB / 128-entry accepted response-header budget; 5-second connect timeout; 30-second total request timeout.
+- DNS work is separately bounded to 16 concurrent lookups, a two-second queue wait, five-second lookup timeout, and at most 32 returned addresses per hostname.
+- Typed authority scopes restrict generic public-web access to bodyless, headerless GET. Brave Search credentials can only be sent to api.search.brave.com/res/v1/web/search with its approved header set. Perplexity bearer credentials can only be sent to api.perplexity.ai/chat/completions with its approved header set and POST method. The authority is stored in the one-use capability and execution receipt.
 - A process-wide limit of 64 concurrent egress requests with a two-second admission wait bound.
-- Privacy-minimized receipts containing origin (not path/query), method, authorized addresses, status, byte counts, duration, and policy version. Request/response bodies and query strings are not included.
+- Privacy-minimized receipts contain origin (not path/query), authority, method, authorized addresses, status, byte counts, duration, and policy version. Request/response bodies and query strings are not included.
 
 The conservative address table is aligned to the IANA IPv4 and IPv6 Special-Purpose registries, whose current pages show a last-updated date of 2025-10-09. Entire parent aggregates such as IPv4 192.0.0.0/24 and IPv6 2001::/23 are denied even though IANA lists more-specific globally reachable assignments inside them. That choice favours a smaller attack surface over maximum compatibility and should be tracked as an explicit false-positive trade-off, not described as a perfect mirror of IANA's per-prefix reachability field.
 
 ### Call-site migration and remaining contexts
 
-- `prism-proxy` and `prism-serve`: generic URL proxy plus DuckDuckGo, Brave, and Perplexity fetch paths now call `PublicEgressClient`. Provider query parameters are encoded with URL query-pair APIs. Inbound body limits remain 2 MiB. Redirects are not followed.
+- `prism-proxy` and `prism-serve`: generic URL proxy and DuckDuckGo use the unauthenticated PublicWeb scope; Brave and Perplexity use fixed typed provider scopes that constrain hostname, path, method, and allowed credential headers. Provider query parameters are encoded with URL query-pair APIs. Inbound body limits remain 2 MiB. Redirects are not followed.
 - `prism-net`: now explicitly documents its user-directed navigation role, limits URLs to 8 KiB and response bodies to the configured 10 MiB default while streaming, rejects non-HTTP(S) schemes and URL credentials, and preserves declared legacy HTTP charsets. It deliberately retains local/LAN destinations and a ten-redirect browser-like limit; it is not the hosted public-egress policy.
 - `prism-tauri`: applies the same 8 KiB URL and 10 MiB streamed response limits and rejects non-HTTP(S) schemes and URL credentials. Explicit desktop LAN navigation remains possible. Redirects remain browser-like and bounded to ten; redirects to local resources are therefore part of the desktop navigation threat model and require separate UX/authority work.
 - `prism-ingest`: its two fixed-source blocking fetchers now disable automatic redirects and ambient proxy discovery, and enforce 2 MiB Wikipedia, 16 MiB Wikidata, and 64 KiB diagnostic error-body limits. They are still a separate fixed-source transport and are **not yet DNS-pinned through `prism-egress`**. Do not mark the direct-client inventory gate complete.
@@ -223,7 +224,7 @@ The proposed **Prism Egress Assurance Benchmark (PEAB)** should be a public, rep
 | DNS rebinding attempts that reach a peer outside the authorized snapshot | 0 |
 | Redirect-to-private, redirect-to-metadata, scheme downgrade, and redirect loop bypasses | 0 |
 | Retry/fallback connections outside the current capability | 0 |
-| Bytes read beyond configured response cap | 0 |
+| Bytes appended/returned beyond configured response cap | 0 |
 | In-scope server fetches outside the approved transport | 0 |
 | Negative controls that fail to detect a deliberately removed guard | 0 |
 
@@ -231,13 +232,17 @@ The proposed **Prism Egress Assurance Benchmark (PEAB)** should be a public, rep
 
 Run matched workloads against (1) baseline Reqwest with the current Prism configuration, (2) Prism's public-egress client, and (3) a conventional Envoy/egress-gateway or cloud-firewall baseline where configuration permits. Publish hardware, resolver, TLS, connection reuse, cache, response-size, and concurrency conditions.
 
-Measure p50/p95/p99 added latency; DNS lookups and answer-set sizes; TLS handshakes; throughput at 1/10/50/64/100 concurrent requests; queue wait and rejection rate; CPU per MiB; peak RSS; response bytes consumed at cancellation; and public-destination false-positive rate. Set no performance superiority claim until the comparisons are measured.
+Measure p50/p95/p99 added latency; DNS lookups and answer-set sizes; TLS handshakes; throughput at 1/10/50/64/100 concurrent requests; queue wait and rejection rate; CPU per MiB; peak RSS; response bytes received in the in-flight chunk at cancellation versus bytes appended/returned; and public-destination false-positive rate. The current chunk loop refuses to append a chunk that would exceed the cap, but Reqwest may already have delivered that in-flight chunk to the application. The benchmark must quantify that bounded overshoot separately. Set no performance superiority claim until the comparisons are measured.
 
 Initial performance goals are hypotheses to validate, not current results:
 - p95 overhead below 10% against matched Reqwest for warm, connection-reusable same-origin traffic once safe pooling exists;
 - p99 queue admission below 100 ms at 50 concurrent requests under the target deployment profile;
 - peak memory bounded by active-request count times configured body budget plus measured fixed overhead;
 - zero false positives on a versioned 1,000-host public compatibility corpus, with every exception reviewed and recorded.
+
+
+
+Industry comparison: AWS's published egress patterns recommend composing DNS-layer domain filtering, network-layer inspection, and least-privilege security-group egress rather than relying on one mechanism. Prism's typed application authority and per-request destination pinning operate at a different layer. The target deployment should pair Prism with network egress controls (for example, deny-all-except security-group rules and DNS firewalling); neither layer substitutes for the other. AWS documentation also calls out that security groups do not filter Route 53 Resolver DNS traffic, which is why DNS-layer policy must be designed separately.
 
 #### Paradigm shifts worth pursuing
 
