@@ -504,6 +504,54 @@ mod tests {
         ).is_ok());
     }
 
+    #[tokio::test]
+    async fn pinned_reqwest_client_connects_to_the_override_not_system_dns() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, peer) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            let mut buffer = [0u8; 1024];
+            loop {
+                let count = stream.read(&mut buffer).await.unwrap();
+                if count == 0 {
+                    break;
+                }
+                request.extend_from_slice(&buffer[..count]);
+                if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                    break;
+                }
+            }
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
+                .await
+                .unwrap();
+            (peer, request)
+        });
+
+        // Exercise reqwest's resolver override with a loopback test server.
+        // Production authorization rejects loopback before transport setup.
+        let client = build_pinned_client(
+            "prism-pinned-test.invalid",
+            &[address],
+            true,
+            Duration::from_secs(2),
+            Duration::from_secs(5),
+        )
+        .unwrap();
+        let url = format!("http://prism-pinned-test.invalid:{}/probe", address.port());
+        let response = client.get(&url).send().await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.bytes().await.unwrap().as_ref(), b"ok");
+
+        let (peer, request) = server.await.unwrap();
+        assert_eq!(peer.ip(), IpAddr::V4(Ipv4Addr::LOCALHOST));
+        let request = String::from_utf8_lossy(&request);
+        assert!(request.contains(&format!("Host: prism-pinned-test.invalid:{}", address.port())));
+    }
+
     #[test]
     fn allows_representative_public_unicast_addresses() {
         for address in ["1.1.1.1", "8.8.8.8", "93.184.216.34", "192.31.196.1", "192.52.193.1", "192.175.48.1", "2606:4700:4700::1111", "2001:4860::1"] {
