@@ -38,6 +38,7 @@ const MAX_PUBLIC_WEB_REDIRECT_HOPS: usize = 5;
 const DNS_QUEUE_TIMEOUT: Duration = Duration::from_secs(2);
 const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_secs(5);
 const REQUEST_HEADER_OVERHEAD_ALLOWANCE: usize = 512;
+const MAX_RESPONSE_HEADER_COUNT: usize = 128;
 static EGRESS_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_CONCURRENT_EGRESS_REQUESTS);
 static DNS_SEMAPHORE: OnceLock<Arc<Semaphore>> = OnceLock::new();
 
@@ -571,7 +572,7 @@ impl PublicEgressClient {
             let status = response.status();
             let response_headers = response.headers().clone();
             if response_header_bytes(&response_headers) > 64 * 1024
-                || response_headers.len() > 128
+                || response_headers.len() > MAX_RESPONSE_HEADER_COUNT
             {
                 return Err(EgressError::ResponseHeadersTooLarge);
             }
@@ -726,6 +727,7 @@ fn build_pinned_client(
         // authorized by the same capability state machine.
         .retry(reqwest::retry::never())
         .no_proxy()
+        .http1_max_headers(MAX_RESPONSE_HEADER_COUNT)
         .http2_max_header_list_size(64 * 1024)
         .connect_timeout(connect_timeout)
         .timeout(request_timeout);
@@ -1413,6 +1415,45 @@ mod tests {
         assert_eq!(response.receipt.authority, "public-web");
         assert_eq!(response.receipt.authorized_addresses, vec![address]);
         assert_eq!(response.receipt.response_body_limit_bytes, 16);
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn http1_parser_rejects_response_header_count_over_transport_limit() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            read_test_request(&mut stream).await;
+
+            let mut response = b"HTTP/1.1 200 OK\r\n".to_vec();
+            for index in 0..=MAX_RESPONSE_HEADER_COUNT {
+                response.extend_from_slice(
+                    format!("X-Prism-Test-{index}: value\r\n").as_bytes(),
+                );
+            }
+            response.extend_from_slice(
+                b"Content-Length: 0\r\nConnection: close\r\n\r\n",
+            );
+            stream.write_all(&response).await.unwrap();
+        });
+
+        let client = build_pinned_client(
+            "prism-http1-header-limit.test",
+            &[address],
+            true,
+            Duration::from_secs(2),
+            Duration::from_secs(5),
+        )
+        .unwrap();
+        let url = format!("http://prism-http1-header-limit.test:{}/", address.port());
+        let result = client.get(&url).send().await;
+        assert!(
+            result.is_err(),
+            "HTTP/1 parser must reject a response above {MAX_RESPONSE_HEADER_COUNT} headers"
+        );
         server.await.unwrap();
     }
 
