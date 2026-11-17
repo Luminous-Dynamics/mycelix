@@ -1,0 +1,77 @@
+{
+  "protocol_id": "DELIB-AGENDA-001",
+  "version": "0.1.0",
+  "status": "research-proposal",
+  "title": "Agenda integrity, option-set completeness and counterfactual framing sensitivity",
+  "owning_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6082",
+  "parent_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5999",
+  "composition": {
+    "participant_conditioned_summaries": "https://github.com/Luminous-Dynamics/mycelix/issues/6011",
+    "opinion_update_fidelity": "https://github.com/Luminous-Dynamics/mycelix/issues/6023",
+    "bitemporal_reconstruction": "https://github.com/Luminous-Dynamics/mycelix/issues/6069",
+    "independent_evaluation": "https://github.com/Luminous-Dynamics/mycelix/issues/4835",
+    "influence_contagion": "https://github.com/Luminous-Dynamics/symthaea/issues/11320",
+    "phantom_consensus": "https://github.com/Luminous-Dynamics/symthaea/issues/11682"
+  },
+  "semantic_relations": [
+    "equivalent",
+    "disclosed_tradeoff",
+    "invalid_mutation",
+    "normative_pluralism"
+  ],
+  "task_classes": [
+    "verifiable",
+    "normative_pluralism"
+  ],
+  "transformation_families": [
+    "equivalent_framing",
+    "required_option_omission",
+    "order_sensitivity",
+    "no_action_visibility",
+    "unmarked_default",
+    "bundle_constraint_loss",
+    "transparent_bundle",
+    "unprovenanced_option",
+    "late_mutation",
+    "normative_pluralism",
+    "disclosed_tradeoff",
+    "incomplete_source_registry",
+    "undisclosed_split",
+    "disclosed_split"
+  ],
+  "metric_ids": [
+    "required_option_recall",
+    "constraint_retention",
+    "equivalent_frame_effect",
+    "order_default_effect",
+    "omission_impact",
+    "bundle_split_sensitivity",
+    "agenda_mutation_detection",
+    "participant_origin_coverage",
+    "decision_impact",
+    "pluralism_coverage",
+    "contestability_completeness"
+  ],
+  "qualification_gates": [
+    "source_registry_complete_or_indeterminate",
+    "all_required_options_present",
+    "all_option_origins_resolve",
+    "all_constraints_preserved",
+    "defaults_explicitly_authorized",
+    "late_mutations_authorized_or_rejected",
+    "split_decomposition_disclosed",
+    "normative_tasks_have_no_gold_option",
+    "matched_pairs_bind_identical_decision_material",
+    "unknown_outcomes_never_pass"
+  ],
+  "claim_ceiling": {
+    "synthetic": "Qualifies only bounded option/provenance/constraint and declared transformation invariants.",
+    "model": "Applies only to pinned models, tasks, agenda variants, prompts, evaluators and seeds.",
+    "excluded": [
+      "human democratic legitimacy",
+      "real public opinion",
+      "legal compliance",
+      "production deployment readiness"
+    ]
+  }
+}

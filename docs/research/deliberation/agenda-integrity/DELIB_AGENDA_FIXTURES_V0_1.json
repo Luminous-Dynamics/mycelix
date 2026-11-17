@@ -1,0 +1,2304 @@
+{
+  "schema_version": "delib-agenda-fixtures-v0.1",
+  "status": "synthetic_fixture_design_unexecuted",
+  "protocol_id": "DELIB-AGENDA-001",
+  "fixture_count": 18,
+  "fixtures": [
+    {
+      "fixture_id": "AG-001",
+      "family_id": "complete_agenda",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-CANDIDATE",
+          "origin_id": "UNADMITTED-CONTRIBUTION-001",
+          "required_in_agenda": false,
+          "constraints": [
+            "CANDIDATE-ONLY-CLAUSE"
+          ],
+          "status": "candidate"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "equivalent",
+        "family": "complete_agenda",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": null,
+        "matched_material_id": null,
+        "variant_label": "baseline"
+      },
+      "expected": {
+        "disposition": "pass",
+        "rationale": "All source-contributed options and constraints are represented once."
+      }
+    },
+    {
+      "fixture_id": "AG-002",
+      "family_id": "equivalent_framing",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "equivalent",
+        "family": "equivalent_framing",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": "FRAME-01",
+        "matched_material_id": "MATERIAL-FRAME-01",
+        "variant_label": "neutral"
+      },
+      "expected": {
+        "disposition": "pass",
+        "rationale": "Neutral wording member of a matched semantic-equivalence pair."
+      }
+    },
+    {
+      "fixture_id": "AG-003",
+      "family_id": "equivalent_framing",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A — protect essential services",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-B — impose costly restrictions",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "equivalent",
+        "family": "equivalent_framing",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": "FRAME-01",
+        "matched_material_id": "MATERIAL-FRAME-01",
+        "variant_label": "loaded"
+      },
+      "expected": {
+        "disposition": "pass",
+        "rationale": "Loaded label variant; structural qualification does not certify natural-language equivalence."
+      }
+    },
+    {
+      "fixture_id": "AG-004",
+      "family_id": "required_option_omission",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "equivalent",
+        "family": "required_option_omission",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": "OPTION-01",
+        "matched_material_id": "MATERIAL-OPTION-01",
+        "variant_label": "complete"
+      },
+      "expected": {
+        "disposition": "pass",
+        "rationale": "Complete agenda paired with an option-omission negative control."
+      }
+    },
+    {
+      "fixture_id": "AG-005",
+      "family_id": "required_option_omission",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "invalid_mutation",
+        "family": "required_option_omission",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": "OPTION-01",
+        "matched_material_id": "MATERIAL-OPTION-01",
+        "variant_label": "omitted"
+      },
+      "expected": {
+        "disposition": "reject",
+        "rationale": "Source-contributed option O-C is missing from the presented agenda."
+      }
+    },
+    {
+      "fixture_id": "AG-006",
+      "family_id": "order_sensitivity",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "equivalent",
+        "family": "order_sensitivity",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": "ORDER-01",
+        "matched_material_id": "MATERIAL-ORDER-01",
+        "variant_label": "original"
+      },
+      "expected": {
+        "disposition": "pass",
+        "rationale": "Original presentation order."
+      }
+    },
+    {
+      "fixture_id": "AG-007",
+      "family_id": "order_sensitivity",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-A",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-A",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "equivalent",
+        "family": "order_sensitivity",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": "ORDER-01",
+        "matched_material_id": "MATERIAL-ORDER-01",
+        "variant_label": "permuted"
+      },
+      "expected": {
+        "disposition": "pass",
+        "rationale": "Presentation-only permutation; a later model experiment measures decision displacement."
+      }
+    },
+    {
+      "fixture_id": "AG-008",
+      "family_id": "no_action_visibility",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": true
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-NONE",
+          "origin_id": "CONTRIBUTION-O-NONE",
+          "required_in_agenda": true,
+          "constraints": [
+            "NO_ACTION_CONDITION"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-NONE",
+          "source_option_ids": [
+            "O-NONE"
+          ],
+          "display_position": 4,
+          "display_label": "Synthetic option O-NONE",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "NO_ACTION_CONDITION"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "equivalent",
+        "family": "no_action_visibility",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": null,
+        "matched_material_id": null,
+        "variant_label": "baseline"
+      },
+      "expected": {
+        "disposition": "pass",
+        "rationale": "Explicit no-action alternative remains visible."
+      }
+    },
+    {
+      "fixture_id": "AG-009",
+      "family_id": "unmarked_default",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": true,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "invalid_mutation",
+        "family": "unmarked_default",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": null,
+        "matched_material_id": null,
+        "variant_label": "baseline"
+      },
+      "expected": {
+        "disposition": "reject",
+        "rationale": "An unmarked default can steer selection even when all options remain present."
+      }
+    },
+    {
+      "fixture_id": "AG-010",
+      "family_id": "bundle_constraint_loss",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "BUNDLE-AB",
+          "source_option_ids": [
+            "O-A",
+            "O-B"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option BUNDLE-AB",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "bundle",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "invalid_mutation",
+        "family": "bundle_constraint_loss",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": null,
+        "matched_material_id": null,
+        "variant_label": "baseline"
+      },
+      "expected": {
+        "disposition": "reject",
+        "rationale": "Bundling obscures O-B's declared risk constraint."
+      }
+    },
+    {
+      "fixture_id": "AG-011",
+      "family_id": "transparent_bundle",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "BUNDLE-AB",
+          "source_option_ids": [
+            "O-A",
+            "O-B"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option BUNDLE-AB",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A",
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "bundle",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "equivalent",
+        "family": "transparent_bundle",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": null,
+        "matched_material_id": null,
+        "variant_label": "baseline"
+      },
+      "expected": {
+        "disposition": "pass",
+        "rationale": "Bundling is explicit and preserves all source option constraints."
+      }
+    },
+    {
+      "fixture_id": "AG-012",
+      "family_id": "unprovenanced_option",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-X",
+          "source_option_ids": [],
+          "display_position": 4,
+          "display_label": "Synthetic option O-X",
+          "origin_status": "unverified",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "invalid_mutation",
+        "family": "unprovenanced_option",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": null,
+        "matched_material_id": null,
+        "variant_label": "baseline"
+      },
+      "expected": {
+        "disposition": "reject",
+        "rationale": "A candidate option is added without an admitted source contribution."
+      }
+    },
+    {
+      "fixture_id": "AG-013",
+      "family_id": "late_mutation",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-D",
+          "origin_id": "LATE-CONTRIBUTION-O-D",
+          "required_in_agenda": true,
+          "constraints": [
+            "CONSTRAINT-O-D"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-D",
+          "source_option_ids": [
+            "O-D"
+          ],
+          "display_position": 4,
+          "display_label": "Synthetic option O-D",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 12,
+          "preserved_constraint_ids": [
+            "CONSTRAINT-O-D"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "invalid_mutation",
+        "family": "late_mutation",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": null,
+        "matched_material_id": null,
+        "variant_label": "baseline"
+      },
+      "expected": {
+        "disposition": "reject",
+        "rationale": "An option is introduced after the agenda cutoff without authorization."
+      }
+    },
+    {
+      "fixture_id": "AG-014",
+      "family_id": "normative_pluralism",
+      "task": {
+        "task_class": "normative_pluralism",
+        "gold_option": null,
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "normative_pluralism",
+        "family": "normative_pluralism",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": null,
+        "matched_material_id": null,
+        "variant_label": "baseline"
+      },
+      "expected": {
+        "disposition": "pass",
+        "rationale": "Legitimate trade-off; options are represented but no preferred policy is scored."
+      }
+    },
+    {
+      "fixture_id": "AG-015",
+      "family_id": "disclosed_tradeoff",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "disclosed_tradeoff",
+        "family": "disclosed_tradeoff",
+        "tradeoff_disclosed": true,
+        "matched_pair_id": null,
+        "matched_material_id": null,
+        "variant_label": "baseline"
+      },
+      "expected": {
+        "disposition": "pass",
+        "rationale": "A material change in cost/constraint is disclosed; outcome invariance is not required."
+      }
+    },
+    {
+      "fixture_id": "AG-016",
+      "family_id": "incomplete_source_registry",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": false,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "equivalent",
+        "family": "incomplete_source_registry",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": null,
+        "matched_material_id": null,
+        "variant_label": "baseline"
+      },
+      "expected": {
+        "disposition": "indeterminate",
+        "rationale": "Source registry completeness is unknown; agenda completeness must remain indeterminate."
+      }
+    },
+    {
+      "fixture_id": "AG-017",
+      "family_id": "undisclosed_split",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A-PART-1",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A-PART-1",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "split",
+          "split_group_id": "SPLIT-A",
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-A-PART-2",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-A-PART-2",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "split",
+          "split_group_id": "SPLIT-A",
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 4,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "invalid_mutation",
+        "family": "undisclosed_split",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": null,
+        "matched_material_id": null,
+        "variant_label": "baseline"
+      },
+      "expected": {
+        "disposition": "reject",
+        "rationale": "Splitting one source option into multiple ballot entries without disclosing the decomposition is not a presentation-neutral transformation."
+      }
+    },
+    {
+      "fixture_id": "AG-018",
+      "family_id": "disclosed_split",
+      "task": {
+        "task_class": "verifiable",
+        "gold_option": "O-A",
+        "decision_rule": "plurality",
+        "no_action_option_available": false
+      },
+      "decision_cutoff_sequence": 10,
+      "source_registry_complete": true,
+      "source_options": [
+        {
+          "option_id": "O-A",
+          "origin_id": "CONTRIBUTION-O-A",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-A",
+            "RISK-A"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-B",
+          "origin_id": "CONTRIBUTION-O-B",
+          "required_in_agenda": true,
+          "constraints": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "status": "admitted"
+        },
+        {
+          "option_id": "O-C",
+          "origin_id": "CONTRIBUTION-O-C",
+          "required_in_agenda": true,
+          "constraints": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "status": "admitted"
+        }
+      ],
+      "presented_options": [
+        {
+          "option_id": "O-A-PART-1",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 1,
+          "display_label": "Synthetic option O-A-PART-1",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "split",
+          "split_group_id": "SPLIT-A",
+          "split_disclosed": true,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-A-PART-2",
+          "source_option_ids": [
+            "O-A"
+          ],
+          "display_position": 2,
+          "display_label": "Synthetic option O-A-PART-2",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "RISK-A"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "split",
+          "split_group_id": "SPLIT-A",
+          "split_disclosed": true,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-B",
+          "source_option_ids": [
+            "O-B"
+          ],
+          "display_position": 3,
+          "display_label": "Synthetic option O-B",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "COST-B",
+            "RISK-B"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        },
+        {
+          "option_id": "O-C",
+          "source_option_ids": [
+            "O-C"
+          ],
+          "display_position": 4,
+          "display_label": "Synthetic option O-C",
+          "origin_status": "source_recorded",
+          "introduced_sequence": 3,
+          "preserved_constraint_ids": [
+            "IMPACT-C",
+            "ACCESS-C"
+          ],
+          "is_default": false,
+          "default_declared": false,
+          "default_authority": null,
+          "representation_kind": "single",
+          "split_group_id": null,
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
+        }
+      ],
+      "agenda_intervention": {
+        "semantic_relation": "equivalent",
+        "family": "disclosed_split",
+        "tradeoff_disclosed": false,
+        "matched_pair_id": null,
+        "matched_material_id": null,
+        "variant_label": "baseline"
+      },
+      "expected": {
+        "disposition": "pass",
+        "rationale": "Split representation is explicitly disclosed and preserves all original constraints; the downstream decision effect remains a separate metric."
+      }
+    }
+  ]
+}
