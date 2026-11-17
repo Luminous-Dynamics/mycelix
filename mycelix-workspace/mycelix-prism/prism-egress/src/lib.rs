@@ -534,6 +534,10 @@ impl PublicEgressClient {
                     let mut next_url = next_url;
                     next_url.set_fragment(None);
                     record_redirect_target(&mut visited_urls, &next_url)?;
+
+                    // Release the redirecting socket before DNS work for the
+                    // next hop so both network and egress capacity stay bounded.
+                    drop(response);
                     let next_capability = self
                         .authorize_with_authority(
                             EgressAuthority::PublicWeb,
@@ -557,8 +561,6 @@ impl PublicEgressClient {
                         target_addresses: next_capability.addresses.clone(),
                     });
 
-                    // Drop the redirect response without consuming its body.
-                    drop(response);
                     capability = next_capability;
                     continue;
                 }
