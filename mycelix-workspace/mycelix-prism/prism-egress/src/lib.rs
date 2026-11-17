@@ -24,9 +24,9 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::Arc;
-use tokio::sync::{Semaphore, SemaphorePermit};
 use std::time::Duration;
 use thiserror::Error;
+use tokio::sync::{Semaphore, SemaphorePermit};
 use url::{Host, Url};
 
 const MAX_CONCURRENT_EGRESS_REQUESTS: usize = 64;
@@ -245,7 +245,9 @@ impl PublicEgressClient {
 
         let mut url = Url::parse(raw_url)?;
         validate_url_policy(&url)?;
-        if url.scheme() == "http" && (method != Method::GET || !headers.is_empty() || !body.is_empty()) {
+        if url.scheme() == "http"
+            && (method != Method::GET || !headers.is_empty() || !body.is_empty())
+        {
             return Err(EgressError::RequestRequiresTls);
         }
         // URL fragments are client-side state and must not affect the
@@ -254,7 +256,8 @@ impl PublicEgressClient {
 
         let host = url.host_str().ok_or(EgressError::MissingHost)?.to_owned();
         let port = url.port_or_known_default().ok_or(EgressError::PortNotPermitted)?;
-        let (addresses, is_domain) = resolve_and_authorize(&url, port, self.resolver.as_ref()).await?;
+        let (addresses, is_domain) =
+            resolve_and_authorize(&url, port, self.resolver.as_ref()).await?;
 
         Ok(EgressCapability {
             url,
@@ -693,7 +696,16 @@ mod tests {
 
     #[test]
     fn allows_representative_public_unicast_addresses() {
-        for address in ["1.1.1.1", "8.8.8.8", "93.184.216.34", "192.31.196.1", "192.52.193.1", "192.175.48.1", "2606:4700:4700::1111", "2001:4860::1"] {
+        for address in [
+            "1.1.1.1",
+            "8.8.8.8",
+            "93.184.216.34",
+            "192.31.196.1",
+            "192.52.193.1",
+            "192.175.48.1",
+            "2606:4700:4700::1111",
+            "2001:4860::1",
+        ] {
             assert!(is_public_unicast_ip(&ip(address)), "unexpectedly denied {address}");
         }
     }
@@ -823,7 +835,12 @@ mod tests {
         assert_eq!(resolver.calls.load(std::sync::atomic::Ordering::SeqCst), 1);
         assert_eq!(capability.addresses.len(), 2);
         assert!(capability.addresses.iter().any(|address| address.ip() == ip("93.184.216.34")));
-        assert!(capability.addresses.iter().any(|address| address.ip() == ip("2606:4700:4700::1111")));
+        assert!(
+            capability
+                .addresses
+                .iter()
+                .any(|address| address.ip() == ip("2606:4700:4700::1111"))
+        );
     }
 
     #[tokio::test]
@@ -891,7 +908,8 @@ mod tests {
     #[tokio::test]
     async fn rejects_private_ip_literals_before_transport() {
         let client = PublicEgressClient::default();
-        let result = client.authorize(Method::GET, "http://127.0.0.1/", HeaderMap::new(), Vec::new());
+        let result = client
+            .authorize(Method::GET, "http://127.0.0.1/", HeaderMap::new(), Vec::new());
         assert!(matches!(
             result.await,
             Err(EgressError::AddressNotPermitted(_))
@@ -903,7 +921,10 @@ mod tests {
         let mut limits = EgressLimits::default();
         limits.capability_ttl = Duration::ZERO;
         let client = PublicEgressClient::new(limits);
-        let capability = client.authorize(Method::GET, "https://1.1.1.1/", HeaderMap::new(), Vec::new()).await.unwrap();
+        let capability = client
+            .authorize(Method::GET, "https://1.1.1.1/", HeaderMap::new(), Vec::new())
+            .await
+            .unwrap();
         let result = client.execute(capability).await;
         assert!(matches!(result, Err(EgressError::CapabilityExpired)));
     }
@@ -918,7 +939,13 @@ mod tests {
 
     #[test]
     fn rejects_headers_that_can_override_transport_authority() {
-        for name in ["host", "content-length", "transfer-encoding", "proxy-authorization", "connection"] {
+        for name in [
+            "host",
+            "content-length",
+            "transfer-encoding",
+            "proxy-authorization",
+            "connection",
+        ] {
             let mut headers = HeaderMap::new();
             headers.insert(name, "attacker-controlled");
             assert!(matches!(
