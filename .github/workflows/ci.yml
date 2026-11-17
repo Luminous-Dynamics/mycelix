@@ -414,6 +414,16 @@ jobs:
             -p prism-ingest -p prism-search -p prism-layout -p prism-reflex -p prism-privacy \
             -p prism-zkp -p prism-knowledge-bridge -p prism-bridge -p prism-shell -p prism-ui \
             -p prism-tauri -p prism-node
+      - name: Enforce Prism direct HTTP client inventory
+        run: |
+          cd mycelix-workspace
+          unexpected=$(grep -R -nE 'reqwest::(blocking::)?(Client::builder|Client::new|get\\()' mycelix-prism --include='*.rs' \
+            | grep -Ev 'mycelix-prism/(prism-egress/src/|prism-net/src/|prism-tauri/src/|prism-ingest/src/bin/)' || true)
+          if [ -n "$unexpected" ]; then
+            echo "Unclassified direct HTTP client detected:"
+            echo "$unexpected"
+            exit 1
+          fi
       - name: Build prism-ui for wasm32 (Trunk target)
         run: cd mycelix-workspace/mycelix-prism/prism-ui && cargo build --target wasm32-unknown-unknown
       # Each package is tested in its own `cargo test` invocation, not one
