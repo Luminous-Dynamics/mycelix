@@ -15,13 +15,14 @@ use axum::routing::{get, post};
 use prism_common::ssrf::validate_proxy_url;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tower_http::compression::CompressionLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::SetResponseHeaderLayer;
 
 const MAX_RESPONSE_SIZE: usize = 10 * 1024 * 1024; // 10MB
+const MAX_SYMTHAEA_RESPONSE_LINE_BYTES: usize = 64 * 1024;
 
 // ═══════════════════════════════════════════════════════════════
 // SSRF PROTECTION
@@ -34,6 +35,11 @@ const MAX_RESPONSE_SIZE: usize = 10 * 1024 * 1024; // 10MB
 // ═══════════════════════════════════════════════════════════════
 // HTTP CLIENT
 // ═══════════════════════════════════════════════════════════════
+
+fn symthaea_response_is_safe(parsed: &serde_json::Value) -> bool {
+    // Missing, malformed, or unknown safety metadata must never authorize a safe result.
+    parsed.get("safe").and_then(serde_json::Value::as_bool).unwrap_or(false)
+}
 
 fn build_client(user_agent: &str, timeout_secs: u64) -> reqwest::Client {
     reqwest::Client::builder()
@@ -360,12 +366,16 @@ async fn symthaea_query_handler(
             .write_all(line.as_bytes())
             .await
             .map_err(|e| format!("write failed: {e}"))?;
-        let mut reader = BufReader::new(stream);
+        let reader = BufReader::new(stream);
         let mut response_line = String::new();
-        reader
+        let bytes_read = reader
+            .take((MAX_SYMTHAEA_RESPONSE_LINE_BYTES + 1) as u64)
             .read_line(&mut response_line)
             .await
             .map_err(|e| format!("read failed: {e}"))?;
+        if bytes_read > MAX_SYMTHAEA_RESPONSE_LINE_BYTES || !response_line.ends_with('\n') {
+            return Err("Symthaea response line exceeded its limit or was unterminated".to_string());
+        }
         Ok(response_line)
     }
     .await;
@@ -402,7 +412,7 @@ async fn symthaea_query_handler(
             .get("confidence")
             .and_then(|v| v.as_f64())
             .unwrap_or(0.0) as f32,
-        safe: parsed.get("safe").and_then(|v| v.as_bool()).unwrap_or(true),
+        safe: symthaea_response_is_safe(&parsed),
         phi: parsed.get("phi").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
         processing_time_ms: parsed
             .get("processing_time_ms")
@@ -518,6 +528,20 @@ mod tests {
         std::fs::create_dir_all(dir.path().join("static")).unwrap();
         std::fs::write(dir.path().join("static/test.js"), "console.log('ok')").unwrap();
         dir
+    }
+
+    #[test]
+    fn missing_or_malformed_safety_metadata_fails_closed() {
+        assert!(!symthaea_response_is_safe(&serde_json::json!({})));
+        assert!(!symthaea_response_is_safe(&serde_json::json!({"safe": null})));
+        assert!(!symthaea_response_is_safe(&serde_json::json!({"safe": "true"})));
+        assert!(!symthaea_response_is_safe(&serde_json::json!({"safe": 1})));
+    }
+
+    #[test]
+    fn explicit_safety_metadata_is_preserved() {
+        assert!(symthaea_response_is_safe(&serde_json::json!({"safe": true})));
+        assert!(!symthaea_response_is_safe(&serde_json::json!({"safe": false})));
     }
 
     #[tokio::test]
