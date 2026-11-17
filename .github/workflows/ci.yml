@@ -408,7 +408,7 @@ jobs:
       # Per-package `-p` flags avoid that full-graph walk.
       - name: Check formatting
         run: |
-          cd mycelix-workspace/mycelix-prism
+          cd mycelix-workspace
           cargo fmt --check \
             -p prism-common -p prism-dom -p prism-net -p prism-egress -p prism-proxy -p prism-serve \
             -p prism-ingest -p prism-search -p prism-layout -p prism-reflex -p prism-privacy \
@@ -424,7 +424,7 @@ jobs:
       # version) even though each crate builds and tests cleanly alone.
       - name: Test Prism crates
         run: |
-          cd mycelix-workspace/mycelix-prism
+          cd mycelix-workspace
           for pkg in prism-common prism-dom prism-net prism-egress prism-proxy prism-serve \
                      prism-ingest prism-search prism-layout prism-reflex prism-privacy \
                      prism-zkp prism-knowledge-bridge prism-bridge prism-shell prism-ui; do
@@ -432,9 +432,9 @@ jobs:
             cargo test -p "$pkg"
           done
       - name: Compile optional fixed-source ingestion binaries
-        run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-ingest --features fetch --bins
+        run: cd mycelix-workspace && cargo check -p prism-ingest --features fetch --bins
       - name: Check prism-tauri (desktop shell, compile-only)
-        run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-tauri
+        run: cd mycelix-workspace && cargo check -p prism-tauri
 
   # Summary gate
   ci-pass:
