@@ -469,6 +469,7 @@ jobs:
           require_source 'response_body_limit_bytes' "$egress"
           require_source 'authorize_pins_resolver_snapshot_through_socket_peer_receipt' "$egress"
           require_source 'public_redirect_reauthorizes_and_pins_each_hop_dns_snapshot' "$egress"
+          require_source 'normalized.ends_with(".home.arpa")' "$egress"
           require_source 'MAX_RESPONSE_HEADER_COUNT: usize = 128' "$egress"
           require_source 'gzip_decompression_is_subject_to_the_response_body_budget' "$egress"
           for ingestion in \
