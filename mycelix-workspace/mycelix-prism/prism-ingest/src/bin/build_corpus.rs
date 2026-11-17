@@ -406,6 +406,7 @@ struct WikipediaRunProvenance {
     success_body_limit_bytes: u64,
     error_body_limit_bytes: u64,
     articles_fetched: usize,
+    article_titles: Vec<String>,
     claims_generated: usize,
     output_path: &'static str,
     output_sha256: String,
@@ -455,6 +456,7 @@ fn main() {
     let mut all_claims: Vec<JsonClaim> = Vec::new();
     let mut seen = std::collections::HashSet::new();
     let mut fetched = 0;
+    let mut fetched_titles = Vec::new();
     let total_articles: usize = TOPICS.iter().map(|(_, articles, _)| articles.len()).sum();
 
     println!(
@@ -518,6 +520,7 @@ fn main() {
                                 }
                             }
                             fetched += 1;
+                            fetched_titles.push(title.to_string());
                             if fetched % 20 == 0 {
                                 println!(
                                     "  {} / {} articles fetched ({} claims)",
@@ -560,6 +563,7 @@ fn main() {
         success_body_limit_bytes: MAX_WIKIPEDIA_RESPONSE_BYTES,
         error_body_limit_bytes: 64 * 1024,
         articles_fetched: fetched,
+        article_titles: fetched_titles,
         claims_generated: all_claims.len(),
         output_path,
         output_sha256: hex::encode(Sha256::digest(json.as_bytes())),
