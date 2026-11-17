@@ -1,0 +1,221 @@
+schema: lise.ipb.scenario-manifest.v0
+suite_id: IPB-S2-COI-v0
+scenario_id: community-fund-expenditure-authorization
+scenario_version: 1
+claim_scope: synthetic_approval_authorization_fixture
+evidence_tier: deterministic_software_fixture
+status: frozen_reference_specification
+source_implementation:
+  repository: Luminous-Dynamics/mycelix
+  branch: research/institutional-systems-engineering-v0
+  commit: c9a366095ad204f2561ac2c76ff7de8a4dd5b73c
+  crate: mycelix-governance/crates/institutional-assurance
+  validation_run: 13845
+  validation_scope:
+    - change_detection
+    - format
+    - test_governance
+    - ci_pass
+  validation_exclusions:
+    - unrelated_path_filtered_suites
+    - production_holochain_zome_equivalence
+    - real_world_institutional_effectiveness
+
+fixture_clock:
+  unit: millisecond
+  origin: 0
+  wall_clock_dependency: false
+  timezone: not_applicable
+
+policy:
+  policy_id: lise-coi-policy
+  version: 1
+  require_conflict_screen: true
+  deny_proposer_and_beneficiary_approval: true
+  declared_conflicts_are:
+    source: explicit_fixture_input
+    inference_from_identity_or_reputation: false
+
+canonical_proposal:
+  proposal_id: expense-001
+  proposer_id: member-initiator
+  beneficiary_id: vendor-42
+  resource_id: community-fund
+  amount_minor: 5000
+  conflict_screen_complete: true
+  conflicted_actors: []
+
+canonical_authority_grant:
+  grant_id: grant-independent-reviewer
+  subject_id: independent-reviewer
+  scope: expenditure_approval
+  resource_id: community-fund
+  valid_from_ms_inclusive: 0
+  valid_until_ms_exclusive: 10000
+  max_amount_minor: 10000
+
+canonical_approval_attempt:
+  attempt_id: attempt-independent-reviewer
+  actor_id: independent-reviewer
+  proposal_id: expense-001
+  grant_id: grant-independent-reviewer
+  at_ms: 1000
+
+case_expectations:
+  - case_id: s2-positive-independent-authorized-approver
+    expected_decision: permit
+    expected_reason: authorized
+    class: positive_control
+    mutations: []
+  - case_id: s2-positive-exact-authority-limit
+    expected_decision: permit
+    expected_reason: authorized
+    class: positive_boundary_control
+    mutations:
+      - proposal.amount_minor = grant.max_amount_minor = 10000
+  - case_id: s2-positive-at-inclusive-grant-start
+    expected_decision: permit
+    expected_reason: authorized
+    class: positive_boundary_control
+    mutations:
+      - attempt.at_ms = grant.valid_from_ms = 0
+  - case_id: s2-positive-before-grant-expiry
+    expected_decision: permit
+    expected_reason: authorized
+    class: positive_boundary_control
+    mutations:
+      - attempt.at_ms = 9999
+  - case_id: s2-positive-substitute-approver-after-proposer-recusal
+    expected_decision: permit
+    expected_reason: authorized
+    class: positive_control
+    mutations:
+      - proposal.conflicted_actors = [member-initiator]
+      - attempt.actor_id = independent-reviewer
+  - case_id: s2-positive-matched-resource-scope
+    expected_decision: permit
+    expected_reason: authorized
+    class: positive_control
+    mutations:
+      - proposal.resource_id = community-reserve
+      - grant.resource_id = community-reserve
+      - grant.grant_id = grant-community-reserve
+      - attempt.grant_id = grant-community-reserve
+  - case_id: s2-negative-conflicted-beneficiary
+    expected_decision: deny
+    expected_reason: conflict_of_interest
+    class: negative_control
+    mutations:
+      - attempt.actor_id = vendor-42
+      - grant.subject_id = vendor-42
+  - case_id: s2-negative-proposer-self-approval
+    expected_decision: deny
+    expected_reason: conflict_of_interest
+    class: negative_control
+    mutations:
+      - attempt.actor_id = member-initiator
+      - grant.subject_id = member-initiator
+  - case_id: s2-negative-screened-conflict
+    expected_decision: deny
+    expected_reason: conflict_of_interest
+    class: negative_control
+    mutations:
+      - proposal.conflicted_actors = [reviewer-with-interest]
+      - attempt.actor_id = reviewer-with-interest
+      - grant.subject_id = reviewer-with-interest
+  - case_id: s2-negative-incomplete-conflict-screen
+    expected_decision: deny
+    expected_reason: conflict_screen_incomplete
+    class: negative_control
+    mutations:
+      - proposal.conflict_screen_complete = false
+  - case_id: s2-negative-missing-authority
+    expected_decision: deny
+    expected_reason: missing_authority
+    class: negative_control
+    mutations:
+      - grant = null
+      - attempt.grant_id = grant-missing
+  - case_id: s2-negative-expired-authority
+    expected_decision: deny
+    expected_reason: authority_expired
+    class: negative_boundary_control
+    mutations:
+      - attempt.at_ms = grant.valid_until_ms = 10000
+      - grant.grant_id = grant-expired
+  - case_id: s2-negative-wrong-authority-scope
+    expected_decision: deny
+    expected_reason: wrong_authority_scope
+    class: negative_control
+    mutations:
+      - grant.scope = other
+      - grant.grant_id = grant-delegation-only
+      - attempt.grant_id = grant-delegation-only
+  - case_id: s2-negative-resource-scope
+    expected_decision: deny
+    expected_reason: wrong_resource
+    class: negative_control
+    mutations:
+      - grant.resource_id = different-fund
+      - grant.grant_id = grant-other-resource
+      - attempt.grant_id = grant-other-resource
+  - case_id: s2-negative-amount-exceeds-grant
+    expected_decision: deny
+    expected_reason: amount_exceeds_authority
+    class: negative_boundary_control
+    mutations:
+      - proposal.amount_minor = 5000
+      - grant.max_amount_minor = 4999
+      - grant.grant_id = grant-low-limit
+      - attempt.grant_id = grant-low-limit
+  - case_id: s2-negative-proposal-substitution
+    expected_decision: deny
+    expected_reason: proposal_mismatch
+    class: negative_control
+    mutations:
+      - proposal.proposal_id = different-proposal
+      - attempt.proposal_id = expense-001
+  - case_id: s2-negative-authority-holder-mismatch
+    expected_decision: deny
+    expected_reason: authority_holder_mismatch
+    class: negative_control
+    mutations:
+      - grant.subject_id = different-reviewer
+      - attempt.actor_id = independent-reviewer
+      - grant.grant_id = grant-other-holder
+      - attempt.grant_id = grant-other-holder
+  - case_id: s2-negative-authority-not-yet-valid
+    expected_decision: deny
+    expected_reason: authority_not_yet_valid
+    class: negative_boundary_control
+    mutations:
+      - attempt.at_ms = 1000
+      - grant.valid_from_ms = 1500
+      - grant.grant_id = grant-future
+      - attempt.grant_id = grant-future
+  - case_id: s2-negative-invalid-authority-window
+    expected_decision: deny
+    expected_reason: invalid_authority_window
+    class: negative_boundary_control
+    mutations:
+      - grant.valid_from_ms = 2000
+      - grant.valid_until_ms = 2000
+      - grant.grant_id = grant-invalid-window
+      - attempt.grant_id = grant-invalid-window
+  - case_id: s2-negative-zero-amount
+    expected_decision: deny
+    expected_reason: invalid_amount
+    class: negative_boundary_control
+    mutations:
+      - proposal.amount_minor = 0
+
+suite_invariants:
+  expected_total_cases: 20
+  expected_positive_cases: 6
+  expected_negative_cases: 14
+  expected_positive_decision: permit
+  expected_negative_decision: deny
+  expected_repeated_runs_byte_identical: true
+  random_seed: none
+  external_network: none
+  production_authorization: false
