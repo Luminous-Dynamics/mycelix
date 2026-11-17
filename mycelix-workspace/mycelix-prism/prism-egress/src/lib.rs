@@ -181,7 +181,7 @@ pub enum EgressAuthority {
     WikidataSparql,
 }
 
-const MAX_PUBLIC_WEB_REQUESTS: usize = 56;
+const MAX_PUBLIC_WEB_REQUESTS: usize = 52;
 const MAX_BRAVE_REQUESTS: usize = 4;
 const MAX_PERPLEXITY_REQUESTS: usize = 4;
 const MAX_WIKIPEDIA_REQUESTS: usize = 2;
@@ -744,10 +744,12 @@ fn validate_authority_scope(
             }
         }
         EgressAuthority::WikipediaSummary => {
+            let title = path.strip_prefix("/api/rest_v1/page/summary/");
             if !is_https
                 || host != "en.wikipedia.org"
-                || !path.starts_with("/api/rest_v1/page/summary/")
-                || path.len() <= "/api/rest_v1/page/summary/".len()
+                || title.is_none_or(|value| {
+                    value.is_empty() || value.contains('/') || value == "." || value == ".."
+                })
                 || url.query().is_some()
                 || *method != Method::GET
                 || !headers.is_empty()
