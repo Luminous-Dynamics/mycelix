@@ -1,0 +1,49 @@
+{
+  "fixture_id": "container-packaging-impact-synthetic-za-2026",
+  "status": "synthetic_only_not_regional_emissions_data",
+  "impact_factors": {
+    "schema_version": 1,
+    "factor_set_ref": "fixture:za-impact-factors-2026",
+    "geography": "ZA-fixture-only",
+    "reference_year": 2026,
+    "electricity_mg_co2e_per_wh": 100,
+    "water_mg_co2e_per_litre": 10,
+    "detergent_mg_co2e_per_gram": 1000,
+    "end_of_life_mg_co2e_per_container": 100,
+    "transport_factors": [
+      {
+        "mode": "Bicycle",
+        "mg_co2e_per_tonne_km": 100000
+      }
+    ],
+    "evidence": {
+      "source_ref": "fixture:synthetic-factor-source",
+      "method_ref": "fixture:synthetic-factor-method",
+      "calibration_ref": null,
+      "evidence_class": "Simulated"
+    }
+  },
+  "expected_impact": {
+    "accepted_servings": 4,
+    "fill_events": 1,
+    "embodied_packaging_mg_co2e": 25000,
+    "washing_electricity_mg_co2e": 12000,
+    "washing_water_mg_co2e": 80,
+    "detergent_mg_co2e": 40000,
+    "logistics_mg_co2e": 2200,
+    "end_of_life_mg_co2e": 100,
+    "total_packaging_mg_co2e": 79380,
+    "mg_co2e_per_accepted_serving": [
+      79380,
+      4
+    ],
+    "wash_water_ml_per_accepted_serving": [
+      8000,
+      4
+    ],
+    "wash_energy_wh_per_accepted_serving": [
+      120,
+      4
+    ]
+  }
+}
