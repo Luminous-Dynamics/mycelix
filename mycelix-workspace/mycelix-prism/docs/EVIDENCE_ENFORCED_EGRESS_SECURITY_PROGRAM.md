@@ -47,16 +47,22 @@ The policy must be explicit in types (for example `EgressContext::HostedProxy`, 
 8. **Receipts are evidence, not authority:** emit a structured receipt containing policy version, context, normalized origin, resolved address set, selected peer address where observable, redirect chain, byte counts, decision, and reason. Do not log credentials, sensitive query values, or response bodies.
 9. **Defense in depth:** production deployment also blocks internal/control-plane ranges at the network layer. Application checks are not a substitute for egress firewalling or isolation.
 
-## Interim hardening already applied on the feature branch
+## Current feature-branch implementation (PR #6299)
 
-The first runtime increment is deliberately fail-closed while the full transport is built:
+Status: the following are source-level controls on `security/prism-evidence-enforced-egress-v1`; they are not yet validated by a passing build or runtime security run.
 
-- `prism-proxy` and `prism-serve` incrementally read response chunks and stop before appending a chunk that would exceed the 10 MiB budget. This bounds accumulated response memory; it is not a streaming-to-client implementation.
-- All four upstream response paths in each binary use the bounded reader (generic proxy, DuckDuckGo, Brave, Perplexity).
-- Automatic redirects are disabled in both binaries. Redirect responses are returned rather than followed; this temporarily sacrifices transparent redirect support to avoid following an unvalidated Location.
-- Ambient system proxy discovery is disabled in both binaries with `no_proxy()`. A future explicitly configured egress proxy must be treated as a trusted network hop and included in the policy model.
+- **Typed native egress:** `prism-egress` is a native-only crate with one-use, non-cloneable, short-lived capabilities bound to an exact URL, authority, method, headers, body, DNS snapshot, timeout, response budgets, and policy version.
+- **DNS admission and destination policy:** the default resolver collects bounded unique socket answers; the complete set is rejected if empty, oversized, or contains any address denied by the IPv4/IPv6 classifier. DNS admission and blocking resolver work have separate bounded capacity.
+- **Pinned connection:** a fresh Reqwest client per capability uses `resolve_to_addrs` for the authorized set, retains the URL hostname for HTTP/TLS identity, and disables ambient proxy discovery. After the response arrives, Prism requires `remote_addr()` to be present and a member of the authorized socket set. That peer check is post-connect evidence; the address override is the connection-time restriction.
+- **Manual redirect state machine:** only `PublicWeb` follows redirects, with a five-hop ceiling, loop detection, HTTPS downgrade rejection, and a fresh DNS authorization for every next hop. Provider and fixed-source authorities do not follow redirects. Redirect hops are included in the receipt.
+- **No hidden transport retries:** the pinned Reqwest builder explicitly uses `retry(reqwest::retry::never())`. Future retries must be an application-level transition that obtains a fresh capability and records the attempt; they must not be introduced through an implicit client default.
+- **Resource budgets:** request body/header and URL ceilings, bounded DNS, execution concurrency, connection/request deadlines, response header count/bytes after parsing, and incremental response-body caps are enforced in source. Defaults are 10 MiB success / 64 KiB error; fixed ingestion may raise its success budget to 16 MiB. Reqwest may deliver one in-flight decoded chunk before Prism can reject it; benchmark received-chunk overshoot separately from bytes appended/returned.
+- **Authority partitioning:** public web, Brave, Perplexity, Wikipedia, and Wikidata have distinct exact origin/path/method/header scopes and separate concurrency pools. Provider credentials cannot be forwarded to arbitrary destinations.
+- **Ingestion provenance:** the optional native Wikipedia/Wikidata binaries use fixed authorities and a versioned source manifest, and emit query/source and output digests with redacted egress receipts.
+- **Desktop navigation remains separate:** `prism-net` and `prism-tauri` retain the user-navigation trust context, with explicit HTTP(S)/URL checks and bounded streamed bodies. They still use their own Reqwest clients and browser-like redirects; DNS pinning and per-hop redirect reauthorization for this desktop context remain outstanding. Do not describe the complete Prism product as having one universal egress boundary yet.
+- **Architectural guard:** CI checks the direct Reqwest-client inventory and required egress source invariants. The current grep-based inventory is a useful ratchet, not a complete compiler-level proof against all possible networking APIs.
 
-These changes are not the completed SSRF boundary. DNS resolution/pinning, per-hop redirect support, deterministic tests, and the other network clients remain open. The workflow status reported for an implementation commit was `skipped`, not passed.
+Focused source tests cover address policy, mixed DNS answers, resolver snapshots, connection override/Host preservation, peer validation, redirects, response limits, provider scopes, and cancellation of blocking DNS work. They have not been run successfully on the current PR head. The latest workflow is `skipped`, not passed; Cargo test/fmt/clippy and end-to-end exploit evidence remain pending.
 
 ## Implementation sequence
 
@@ -131,10 +137,13 @@ There is no universally accepted single SSRF-prevention benchmark that fairly ra
 | Mixed public + prohibited DNS answer sets denied | 100% | 100% |
 | DNS rebinding / TOCTOU cases reaching prohibited peer | 0 | 0 |
 | Redirect-to-private / metadata / loopback blocked | 100% | 100% |
-| Response body over limit consumed beyond hard cap | 0 bytes (excluding at most one bounded in-flight chunk if implementation contract documents it) | 0 bytes |
+| Bytes appended to/returned from the response buffer beyond the configured cap | 0 | 0 |
+| Transport-delivered in-flight decoded chunk overshoot | Measured and reported separately; bounded by transport chunk behavior | 0 bytes |
 | Unknown policy state resulting in allow | 0 | 0 |
 | Direct-client inventory coverage for in-scope Prism fetch paths | 100% | 100% |
 | Negative controls detected | 100% | 100% |
+| Implicit HTTP-client retries outside Prism's authorization state machine | 0 | 0 |
+| Redirect/retry attempts without a fresh authorization receipt | 0 | 0 |
 
 ### Performance and reliability (measure, do not assume)
 
