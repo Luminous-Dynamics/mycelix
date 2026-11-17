@@ -915,7 +915,7 @@ mod tests {
                 expires_at: Some(300),
                 authority_epoch: 4,
                 parent: None,
-        },
+            },
             true,
         )
         .unwrap();
@@ -962,7 +962,7 @@ mod tests {
                 expires_at: None,
                 authority_epoch: 4,
                 parent: None,
-        },
+            },
             true,
         )
         .unwrap();
@@ -1020,7 +1020,7 @@ mod tests {
                 expires_at: None,
                 authority_epoch: 4,
                 parent: None,
-        },
+            },
             true,
         )
         .unwrap();
@@ -1084,7 +1084,7 @@ mod tests {
                 expires_at: None,
                 authority_epoch: 4,
                 parent: Some(root.id),
-        },
+            },
             true,
         )
         .unwrap();
@@ -1135,7 +1135,7 @@ mod tests {
                 expires_at: None,
                 authority_epoch: 4,
                 parent: None,
-        },
+            },
             true,
         )
         .unwrap();
@@ -1188,7 +1188,7 @@ mod tests {
                 expires_at: None,
                 authority_epoch: 4,
                 parent: None,
-        },
+            },
             true,
         )
         .unwrap();
@@ -1235,7 +1235,7 @@ mod tests {
                 expires_at: Some(300),
                 authority_epoch: 4,
                 parent: None,
-        },
+            },
             true,
         )
         .unwrap();
@@ -1282,7 +1282,7 @@ mod tests {
                 expires_at: None,
                 authority_epoch: 4,
                 parent: None,
-        },
+            },
             true,
         )
         .unwrap();
@@ -1372,7 +1372,7 @@ mod tests {
                 expires_at: Some(200),
                 authority_epoch: 4,
                 parent: None,
-        },
+            },
             true,
         )
         .unwrap();
@@ -1432,7 +1432,7 @@ mod tests {
                 expires_at: None,
                 authority_epoch: 4,
                 parent: None,
-        },
+            },
             true,
         )
         .unwrap();
