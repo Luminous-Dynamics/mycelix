@@ -17,7 +17,14 @@
     "location_ref",
     "condition",
     "sanitation",
-    "evidence"
+    "evidence",
+    "accepted_servings",
+    "filled_mass_g",
+    "filled_volume_ml",
+    "transport_distance_m",
+    "transport_mode",
+    "transported_mass_g",
+    "end_of_life_route_ref"
   ],
   "properties": {
     "container_hash": {
@@ -109,7 +116,10 @@
         "sanitizer_concentration_mg_l",
         "exposure_time_ms",
         "observation_ref",
-        "evidence"
+        "evidence",
+        "wash_water_ml",
+        "wash_energy_wh",
+        "detergent_mass_mg"
       ],
       "properties": {
         "protocol_ref": {
@@ -149,11 +159,93 @@
         },
         "evidence": {
           "$ref": "#/$defs/evidence"
+        },
+        "wash_water_ml": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "wash_energy_wh": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "detergent_mass_mg": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
         }
       }
     },
     "evidence": {
       "$ref": "#/$defs/evidence"
+    },
+    "accepted_servings": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "filled_mass_g": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "filled_volume_ml": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "transport_distance_m": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "transport_mode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "HumanPowered",
+        "Bicycle",
+        "Motorcycle",
+        "PassengerVehicle",
+        "LightCommercialVehicle",
+        "HeavyGoodsVehicle",
+        "Rail",
+        "Ship",
+        "Air",
+        "Other",
+        null
+      ]
+    },
+    "transported_mass_g": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "end_of_life_route_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
     }
   },
   "allOf": [
@@ -275,6 +367,102 @@
             }
           }
         }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "const": "Filled"
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "accepted_servings"
+        ],
+        "anyOf": [
+          {
+            "properties": {
+              "filled_mass_g": {
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "properties": {
+              "filled_volume_ml": {
+                "type": "integer"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "enum": [
+              "Dispatched",
+              "Returned"
+            ]
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "transport_distance_m": {
+            "type": "integer"
+          },
+          "transport_mode": {
+            "type": "string"
+          },
+          "transported_mass_g": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "const": "Retired"
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "end_of_life_route_ref": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "transport_distance_m": {
+            "type": "integer"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "transport_mode",
+          "transported_mass_g"
+        ]
       }
     }
   ],
