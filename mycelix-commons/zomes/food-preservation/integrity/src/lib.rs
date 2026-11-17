@@ -622,7 +622,17 @@ fn validate_container_cycle_event(
     {
         return Ok(ValidateCallbackResult::Invalid("Filled event must reference a product lot or preservation batch".into()));
     }
-    if matches!(event.event_kind, ContainerEventKind::Washed | ContainerEventKind::Sanitized) {
+    if let Some(batch_hash) = event.preservation_batch_hash.as_ref() {
+        let batch_record = must_get_valid_record(batch_hash.clone())?;
+        let _: PreservationBatch = batch_record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Container event preservation_batch_hash does not reference a PreservationBatch".into()
+            )))?;
+    }
+    if matches!(&event.event_kind, ContainerEventKind::Washed | ContainerEventKind::Sanitized) {
         let Some(observation) = event.sanitation.as_ref() else {
             return Ok(ValidateCallbackResult::Invalid("Washed/Sanitized events require a sanitation observation".into()));
         };
@@ -907,7 +917,7 @@ mod tests {
         condition: ContainerCondition,
         sequence_number: u64,
     ) -> ContainerCycleEvent {
-        let sanitation = matches!(kind, ContainerEventKind::Washed | ContainerEventKind::Sanitized)
+        let sanitation = matches!(&kind, ContainerEventKind::Washed | ContainerEventKind::Sanitized)
             .then(|| ContainerSanitationObservation {
                 protocol_ref: "protocol:wash-v1".into(),
                 wash_water_temp_millic: Some(60_000),
