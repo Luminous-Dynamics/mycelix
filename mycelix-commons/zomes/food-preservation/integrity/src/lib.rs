@@ -182,6 +182,7 @@ pub struct ContainerCycleEvent {
     pub sequence_number: u64,
     pub event_kind: ContainerEventKind,
     pub occurred_at: u64,
+    pub product_ref: Option<String>,
     pub product_lot_ref: Option<String>,
     pub preservation_batch_hash: Option<ActionHash>,
     pub location_ref: Option<String>,
@@ -445,7 +446,8 @@ fn validate_container_cycle_event(
     if event.occurred_at == 0 {
         return Ok(ValidateCallbackResult::Invalid("Container event time must be positive".into()));
     }
-    if event.product_lot_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+    if event.product_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+        || event.product_lot_ref.as_deref().is_some_and(|value| value.trim().is_empty())
         || event.location_ref.as_deref().is_some_and(|value| value.trim().is_empty())
     {
         return Ok(ValidateCallbackResult::Invalid("Optional lot/location refs must be non-empty when supplied".into()));
@@ -465,6 +467,8 @@ fn validate_container_cycle_event(
         }
         if observation.sanitizer_ref.as_deref().is_some_and(|value| value.trim().is_empty())
             || observation.exposure_time_ms == Some(0)
+            || observation.sanitizer_concentration_mg_l == Some(0)
+            || observation.wash_water_temp_millic == Some(i32::MIN)
         {
             return Ok(ValidateCallbackResult::Invalid("Sanitation optional refs must be non-empty and exposure time positive".into()));
         }
@@ -484,9 +488,19 @@ fn validate_container_cycle_event(
     }
 
     let container_record = must_get_valid_record(event.container_hash.clone())?;
-    let _: ReusableContainer = container_record.entry().to_app_option()
+    let container: ReusableContainer = container_record.entry().to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Container reference is not a ReusableContainer entry".into())))?;
+    if event.event_kind == ContainerEventKind::Filled
+        && !container.compatible_product_refs.is_empty()
+        && event.product_ref.as_deref().is_none_or(|product_ref| {
+            !container.compatible_product_refs.iter().any(|allowed| allowed == product_ref)
+        })
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Filled product_ref is not in the container's compatible product list".into(),
+        ));
+    }
 
     if let Some(previous_hash) = event.previous_event_hash.as_ref() {
         let previous_record = must_get_valid_record(previous_hash.clone())?;
