@@ -1826,6 +1826,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rejects_alternate_ipv4_literal_encodings() {
+        let client = PublicEgressClient::default();
+        for raw in [
+            "http://127.0.0.1/",
+            "http://0x7f.0.0.1/",
+            "http://0177.0.0.1/",
+            "http://2130706433/",
+            "http://0x7f000001/",
+        ] {
+            let result = client
+                .authorize(Method::GET, raw, HeaderMap::new(), Vec::new())
+                .await;
+            assert!(
+                matches!(
+                    result,
+                    Err(EgressError::InvalidUrl(_))
+                        | Err(EgressError::AddressNotPermitted(_))
+                ),
+                "alternate loopback encoding escaped policy: {raw}"
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn rejects_private_ip_literals_before_transport() {
         let client = PublicEgressClient::default();
         let result = client
