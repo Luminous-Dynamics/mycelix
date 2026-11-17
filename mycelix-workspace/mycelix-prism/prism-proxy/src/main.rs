@@ -17,7 +17,7 @@ use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::Router;
 use prism_common::ssrf::validate_proxy_url;
-use prism_egress::{EgressError, PublicEgressClient};
+use prism_egress::{EgressAuthority, EgressError, PublicEgressClient};
 use reqwest::{Method, header::HeaderMap};
 use url::Url;
 use tower_http::cors::{AllowOrigin, CorsLayer};
@@ -32,6 +32,18 @@ async fn egress_request(
 ) -> Result<prism_egress::EgressResponse, EgressError> {
     PublicEgressClient::default()
         .request(method, url, headers, body)
+        .await
+}
+
+async fn egress_provider_request(
+    authority: EgressAuthority,
+    method: Method,
+    url: &str,
+    headers: HeaderMap,
+    body: Vec<u8>,
+) -> Result<prism_egress::EgressResponse, EgressError> {
+    PublicEgressClient::default()
+        .request_with_authority(authority, method, url, headers, body)
         .await
 }
 
@@ -68,7 +80,10 @@ fn upstream_error(
         | EgressError::MissingHost
         | EgressError::AddressNotPermitted(_)
         | EgressError::MethodNotPermitted
-        | EgressError::RequestRequiresTls => {
+        | EgressError::RequestRequiresTls
+        | EgressError::AuthorityScopeViolation
+        | EgressError::AuthorityHeaderViolation(_)
+        | EgressError::ProviderCredentialMissing => {
             (StatusCode::FORBIDDEN, "Destination or request not permitted")
         }
     };
@@ -178,7 +193,7 @@ async fn brave_handler(
     outbound_headers.insert("X-Subscription-Token", token);
     outbound_headers.insert(reqwest::header::ACCEPT, HeaderValue::from_static("application/json"));
 
-    match egress_request(Method::GET, url.as_str(), outbound_headers, Vec::new()).await {
+    match egress_provider_request(EgressAuthority::BraveSearch, Method::GET, url.as_str(), outbound_headers, Vec::new()).await {
         Ok(response) => json_response(response.status.as_u16(), response.body).into_response(),
         Err(error) => upstream_error("Brave", error).into_response(),
     }
@@ -211,7 +226,8 @@ async fn perplexity_handler(
         HeaderValue::from_static("application/json"),
     );
 
-    match egress_request(
+    match egress_provider_request(
+        EgressAuthority::Perplexity,
         Method::POST,
         "https://api.perplexity.ai/chat/completions",
         outbound_headers,
