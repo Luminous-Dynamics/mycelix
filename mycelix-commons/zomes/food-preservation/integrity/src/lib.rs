@@ -6,6 +6,7 @@
 
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
+use std::collections::BTreeSet;
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -542,6 +543,9 @@ fn validate_reusable_container(
             "Container steward must be the agent registering the container".into(),
         ));
     }
+    if container.registered_at == 0 {
+        return Ok(ValidateCallbackResult::Invalid("Container registered_at must be positive Unix time".into()));
+    }
     if container.capacity_ml == 0 {
         return Ok(ValidateCallbackResult::Invalid("Container capacity_ml must be positive".into()));
     }
@@ -564,6 +568,12 @@ fn validate_reusable_container(
         || container.compatible_product_refs.iter().any(|value| value.trim().is_empty())
     {
         return Ok(ValidateCallbackResult::Invalid("Compatible product refs must be non-empty and at most 128 entries".into()));
+    }
+    let mut product_refs = BTreeSet::new();
+    if container.compatible_product_refs.iter().any(|value| !product_refs.insert(value.as_str())) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Compatible product refs must be unique".into(),
+        ));
     }
     validate_container_evidence(&container.evidence)
 }
