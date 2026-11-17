@@ -495,6 +495,22 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ))
         }
         FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let deleted_record = must_get_valid_record(action.deletes_address.clone())?;
+            if let Some(entry) = deleted_record
+                .entry()
+                .to_app_option::<EntryTypes>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            {
+                if matches!(
+                    entry,
+                    EntryTypes::ReusableContainer(_) | EntryTypes::ContainerCycleEvent(_)
+                ) {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Reusable containers and lifecycle events are immutable; deletion is prohibited"
+                            .into(),
+                    ));
+                }
+            }
             let original = must_get_action(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
