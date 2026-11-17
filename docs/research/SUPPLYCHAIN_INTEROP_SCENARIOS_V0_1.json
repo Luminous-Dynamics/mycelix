@@ -1,0 +1,477 @@
+{
+  "schema_version": "mycelix.supplychain.interop-scenarios.v0.1",
+  "snapshot_date": "2026-11-14",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6105",
+  "data_class": "synthetic_development_blueprints",
+  "gold_status": "not_adjudicated",
+  "score_status": "not_scored",
+  "execution_authority": {
+    "candidate_code_execution": false,
+    "production_data": false,
+    "production_credentials": false,
+    "physical_supply_chain_actions": false
+  },
+  "warning": "These are scenario intents for authoring and review. They are not a sealed oracle, adjudicated gold labels, executed tests or conformance results.",
+  "scenarios": [
+    {
+      "id": "SC-OBJ-001",
+      "family": "epcis_object_event",
+      "name": "single serialized object observation",
+      "control": "positive",
+      "intent": "Map one serialized object observation to an EPCIS ObjectEvent and back; preserve eventID, object identity, eventTime, timezone, readPoint, business step and disposition.",
+      "expected_control": "supported_profile_round_trip",
+      "required_fields": [
+        "event_id",
+        "epc_instance_id",
+        "event_time",
+        "event_time_zone_offset",
+        "read_point_id",
+        "biz_step",
+        "disposition"
+      ],
+      "claim_limit": "Synthetic semantic mapping only."
+    },
+    {
+      "id": "SC-OBJ-002",
+      "family": "epcis_object_event",
+      "name": "class-level quantity event",
+      "control": "positive",
+      "intent": "Represent a class-level quantity using the selected EPCIS quantity semantics without treating a SKU label as a serialized object identifier.",
+      "expected_control": "supported_profile_round_trip",
+      "required_fields": [
+        "class_identifier",
+        "quantity",
+        "uom",
+        "event_time"
+      ],
+      "claim_limit": "Does not establish physical quantity measurement accuracy."
+    },
+    {
+      "id": "SC-TRN-001",
+      "family": "epcis_transformation_event",
+      "name": "multi-input multi-output transformation",
+      "control": "positive",
+      "intent": "Map a manufacturing transformation with multiple input lots and multiple outputs; retain input/output roles, quantities, units and event identity.",
+      "expected_control": "supported_profile_round_trip",
+      "required_fields": [
+        "transformation_id",
+        "input_products",
+        "output_products",
+        "quantity_units",
+        "event_time"
+      ],
+      "claim_limit": "Does not validate process yield or physical mass balance."
+    },
+    {
+      "id": "SC-AGG-001",
+      "family": "epcis_aggregation_event",
+      "name": "aggregation and disaggregation",
+      "control": "positive",
+      "intent": "Preserve parent/child object relationships through EPCIS AggregationEvent transitions, including disaggregation.",
+      "expected_control": "supported_profile_round_trip",
+      "required_fields": [
+        "parent_id",
+        "child_ids",
+        "action",
+        "event_time",
+        "read_point_id"
+      ],
+      "claim_limit": "Does not prove that scanned objects were physically present."
+    },
+    {
+      "id": "SC-TIME-001",
+      "family": "time_semantics",
+      "name": "eventTime versus recordTime",
+      "control": "positive",
+      "intent": "Represent occurrence time separately from repository capture/record time and preserve explicit time zone offset.",
+      "expected_control": "distinct_time_semantics",
+      "required_fields": [
+        "event_time",
+        "event_time_zone_offset",
+        "record_time",
+        "clock_source"
+      ],
+      "claim_limit": "No clock-traceability certification."
+    },
+    {
+      "id": "SC-TIME-002",
+      "family": "time_semantics",
+      "name": "ambiguous local time and clock uncertainty",
+      "control": "negative",
+      "intent": "Reject or return indeterminate for a local timestamp with no zone/clock basis when the target profile requires an exact instant.",
+      "expected_control": "reject_or_indeterminate",
+      "required_fields": [
+        "raw_timestamp",
+        "timestamp_unit",
+        "timezone_or_offset",
+        "clock_source"
+      ],
+      "claim_limit": "No physical time measurement qualification."
+    },
+    {
+      "id": "SC-CORR-001",
+      "family": "corrections_replay",
+      "name": "event correction and error declaration",
+      "control": "positive",
+      "intent": "Preserve original event, correction/error-declaration relation and chronology without rewriting history.",
+      "expected_control": "append_only_correction_lineage",
+      "required_fields": [
+        "original_event_id",
+        "correction_event_id",
+        "error_declaration",
+        "record_time"
+      ],
+      "claim_limit": "Does not define a universal recall procedure."
+    },
+    {
+      "id": "SC-REPLAY-001",
+      "family": "corrections_replay",
+      "name": "duplicate event identifier replay",
+      "control": "negative",
+      "intent": "Test duplicate/replayed event ID handling under the declared ingestion profile and idempotency contract.",
+      "expected_control": "reject_or_idempotently_deduplicate_with_receipt",
+      "required_fields": [
+        "event_id",
+        "source_issuer",
+        "source_digest",
+        "ingestion_key"
+      ],
+      "claim_limit": "No distributed exactly-once claim."
+    },
+    {
+      "id": "SC-EXT-001",
+      "family": "extensions_unknowns",
+      "name": "unknown EPCIS extension",
+      "control": "ambiguous",
+      "intent": "Preserve opaque source material or return Unsupported/Indeterminate when an extension cannot be interpreted; never silently drop it.",
+      "expected_control": "explicit_unknown_without_semantic_loss",
+      "required_fields": [
+        "extension_uri",
+        "raw_value",
+        "source_digest",
+        "mapping_profile_version"
+      ],
+      "claim_limit": "Opaque preservation is not semantic understanding."
+    },
+    {
+      "id": "SC-UNIT-001",
+      "family": "identifiers_units",
+      "name": "unit mismatch and identifier ambiguity",
+      "control": "negative",
+      "intent": "Reject or mark indeterminate when units are missing/incompatible or a product identifier's scheme/granularity is unknown.",
+      "expected_control": "reject_or_indeterminate",
+      "required_fields": [
+        "quantity",
+        "uom",
+        "identifier_scheme",
+        "identity_granularity"
+      ],
+      "claim_limit": "Does not validate measuring instrument calibration."
+    },
+    {
+      "id": "SC-LINEAGE-001",
+      "family": "lineage_integrity",
+      "name": "broken predecessor reference",
+      "control": "negative",
+      "intent": "Detect missing predecessor, wrong predecessor digest, graph cycle or impossible lineage edge.",
+      "expected_control": "reject_invalid_chain_or_mark_incomplete",
+      "required_fields": [
+        "checkpoint_id",
+        "previous_checkpoint_id",
+        "predecessor_digest",
+        "relationship_type"
+      ],
+      "claim_limit": "A valid graph does not prove a physical process occurred."
+    },
+    {
+      "id": "SC-LINEAGE-002",
+      "family": "lineage_integrity",
+      "name": "forked issuer history",
+      "control": "negative",
+      "intent": "Detect two incompatible successors or statements from the same issuer/sequence without a declared resolution or transparency proof.",
+      "expected_control": "detect_equivocation_or_indeterminate",
+      "required_fields": [
+        "issuer",
+        "sequence_or_event_id",
+        "statement_digest",
+        "transparency_evidence"
+      ],
+      "claim_limit": "Does not prove universal consensus across all supply-chain participants."
+    },
+    {
+      "id": "SC-VC-001",
+      "family": "credential_trust",
+      "name": "wrong subject and actor role substitution",
+      "control": "negative",
+      "intent": "Reject an otherwise valid credential when its subject/issuer/holder binding does not match the declared event role or resource owner.",
+      "expected_control": "reject_wrong_binding",
+      "required_fields": [
+        "issuer",
+        "subject",
+        "holder",
+        "actor_role",
+        "resource_owner",
+        "proof"
+      ],
+      "claim_limit": "Does not establish external legal identity by itself."
+    },
+    {
+      "id": "SC-VC-002",
+      "family": "credential_trust",
+      "name": "revoked or expired credential",
+      "control": "negative",
+      "intent": "Reject or mark indeterminate when credential validity or status is invalid/unknown at the decision-relevant time.",
+      "expected_control": "reject_or_indeterminate",
+      "required_fields": [
+        "valid_from",
+        "valid_until",
+        "status_reference",
+        "status_checked_at",
+        "trust_policy_digest"
+      ],
+      "claim_limit": "Status availability and trust-root operation remain deployment dependencies."
+    },
+    {
+      "id": "SC-VC-003",
+      "family": "credential_trust",
+      "name": "modified proof and tampered artifact",
+      "control": "negative",
+      "intent": "Reject modified credential proof, raw event artifact, or source digest mismatch.",
+      "expected_control": "reject_invalid_proof_or_digest",
+      "required_fields": [
+        "proof",
+        "canonical_payload_digest",
+        "raw_source_digest",
+        "verification_method"
+      ],
+      "claim_limit": "Cryptographic integrity alone does not establish statement truth."
+    },
+    {
+      "id": "SC-PRIV-001",
+      "family": "selective_disclosure",
+      "name": "authorized selective disclosure",
+      "control": "positive",
+      "intent": "Disclose requested batch/quality claims while withholding protected supplier pricing and internal process data; retain issuer and scope verification.",
+      "expected_control": "requested_claims_verifiable_without_hidden_fields",
+      "required_fields": [
+        "disclosure_policy",
+        "requested_claims",
+        "withheld_claims",
+        "presentation_proof"
+      ],
+      "claim_limit": "A single synthetic fixture does not establish unlinkability."
+    },
+    {
+      "id": "SC-PRIV-002",
+      "family": "selective_disclosure",
+      "name": "unauthorized disclosure and metadata correlation",
+      "control": "negative",
+      "intent": "Detect direct leakage of protected fields and assess indirect correlation through stable identifiers, timestamps, issuer keys and metadata.",
+      "expected_control": "no_forbidden_disclosure_and_correlation_reported",
+      "required_fields": [
+        "protected_field_registry",
+        "presentation",
+        "metadata",
+        "correlation_test_profile"
+      ],
+      "claim_limit": "Zero leakage in fixtures is not a general privacy guarantee."
+    },
+    {
+      "id": "SC-SCITT-001",
+      "family": "transparency",
+      "name": "statement receipt mismatch",
+      "control": "negative",
+      "intent": "Reject a receipt for a different statement digest, issuer, log/service identity or profile.",
+      "expected_control": "reject_mismatched_transparency_evidence",
+      "required_fields": [
+        "statement_digest",
+        "issuer",
+        "service_id",
+        "receipt",
+        "verification_keyset"
+      ],
+      "claim_limit": "Requires a real compatible transparency service for external conformance."
+    },
+    {
+      "id": "SC-BATCH-001",
+      "family": "batch_semantics",
+      "name": "best-effort partial acceptance",
+      "control": "positive",
+      "intent": "Test partial success/failure with per-event outcomes and exact denominator accounting; prevent partial acceptance from being reported as atomic success.",
+      "expected_control": "per_event_dispositions_and_partial_result",
+      "required_fields": [
+        "batch_id",
+        "mode",
+        "events",
+        "per_event_terminal_disposition"
+      ],
+      "claim_limit": "No throughput or atomic transaction guarantee."
+    },
+    {
+      "id": "SC-BATCH-002",
+      "family": "batch_semantics",
+      "name": "atomic batch failure",
+      "control": "negative",
+      "intent": "Test all-or-nothing semantics when one member fails; establish whether the implementation actually rolls back or merely returns aggregate failure.",
+      "expected_control": "verified_atomicity_or_explicit_unsupported",
+      "required_fields": [
+        "batch_id",
+        "mode",
+        "events",
+        "commit_receipt",
+        "rollback_receipt"
+      ],
+      "claim_limit": "Do not claim atomicity until state is observed and independently checked."
+    },
+    {
+      "id": "SC-TIME-003",
+      "family": "corrections_replay",
+      "name": "late-recorded correction cannot rewrite prior as-of view",
+      "intent": "An event correction/error declaration has an eventTime or asserted occurrence date earlier than decision frontier K but is captured/recorded after K. Reconstruct the state at K and the later state separately.",
+      "control": "negative",
+      "expected_control": "preserve_prior_as_of_state_and_apply_correction_only_after_its_recorded_frontier",
+      "required_fields": [
+        "original_event_id",
+        "correction_or_error_declaration_id",
+        "eventTime",
+        "recordTime_or_capture_receipt",
+        "decision_frontier_K"
+      ],
+      "claim_limit": "A backdated eventTime does not prove that the correction was recorded or known at K."
+    },
+    {
+      "id": "SC-TIME-004",
+      "family": "time_semantics",
+      "name": "repository record time is not downstream model visibility",
+      "intent": "An EPCIS repository has recorded an event, but the downstream adapter, search index, cache or candidate context materializes it later or has no retained visibility receipt.",
+      "control": "ambiguous",
+      "expected_control": "no_model_visibility_claim_without_materialization_or_run_context_evidence",
+      "required_fields": [
+        "eventID",
+        "recordTime_if_defined_by_profile",
+        "adapter_ingestion_receipt_if_present",
+        "index_or_cache_materialization_receipt_if_present",
+        "run_context_manifest_if_present"
+      ],
+      "claim_limit": "Do not infer the actual retrieval or context of an AI system from EPCIS recordTime. If the consumer does not expose this telemetry, mark the submetric unobservable/incomparable."
+    },
+    {
+      "id": "SC-TIME-005",
+      "family": "time_semantics",
+      "name": "overlapping event-time uncertainty intervals",
+      "intent": "Two events carry different nominal timestamps but their declared precision, clock error or uncertainty intervals overlap.",
+      "control": "negative",
+      "expected_control": "indeterminate_order_without_supported_precedence",
+      "required_fields": [
+        "raw_event_timestamps",
+        "eventTimeZoneOffset",
+        "clock_source_and_precision",
+        "uncertainty_intervals"
+      ],
+      "claim_limit": "A nominal timestamp sort is not proof of physical ordering or causal precedence when the intervals overlap."
+    },
+    {
+      "id": "SC-STD-001",
+      "family": "standards_versioning",
+      "name": "frozen normative validator dependencies are not silently replaced",
+      "intent": "A historical conformance assessment pins the exact validator/schema/context/SHACL artifact set named by its normative source, while a newer standards index exposes a different artifact edition.",
+      "control": "negative",
+      "expected_control": "preserve_distinct_versioned_artifact_sets_and_block_unpinned_substitution",
+      "required_fields": [
+        "normative_document_identity_and_revision",
+        "exact_dependency_urls",
+        "captured_artifact_bytes_and_digests_when_acquired",
+        "validator_version_and_configuration",
+        "assessment_frontier"
+      ],
+      "claim_limit": "A current artifact index does not by itself revise the normative dependencies of an older ratified source. Raw bytes and hashes remain outstanding until actually captured."
+    },
+    {
+      "id": "SC-TIME-006",
+      "family": "time_semantics",
+      "name": "distributed source frontier without false total order",
+      "control": "ambiguous",
+      "intent": "Combine EPCIS events or evidence observations from two or more independent source streams whose local sequence numbers and wall-clock timestamps do not establish a global order. Preserve explicit causal joins where evidenced and preserve concurrency/unknown where no join exists.",
+      "expected_control": "partial_order_or_indeterminate_no_synthetic_total_order",
+      "required_fields": [
+        "source_or_stream_identity",
+        "source_local_sequence_if_available",
+        "event_time_and_clock_uncertainty",
+        "repository_record_time_if_available",
+        "evidence_frontier_reference_and_digest",
+        "explicit_causal_edge_references_if_any",
+        "source_set_completeness"
+      ],
+      "claim_limit": "A deterministic event list or timestamp sort is not proof of happens-before, physical causality, complete source capture or independent corroboration."
+    },
+    {
+      "id": "SC-TIME-007",
+      "family": "time_semantics",
+      "name": "event occurrence validity versus decision-time admissibility",
+      "control": "negative",
+      "intent": "Given an EPCIS ObjectEvent whose eventTime predates target world time T but whose recordTime or capture receipt is after decision frontier K, evaluate two independent questions: what time the capturing application asserts the event occurred, and whether the evidence was actually available to the decision process by K. Also test the inverse case where a record is present in the repository before K but eventTime is outside the target-time validity window.",
+      "expected_control": "separate_world_event_time_from_repository_receipt_and_process_availability",
+      "required_fields": [
+        "eventID",
+        "eventTime",
+        "eventTimeZoneOffset",
+        "recordTime_if_defined_by_profile",
+        "source_publication_or_issuer_availability",
+        "adapter_ingestion_receipt",
+        "run_context_manifest",
+        "target_world_time_T",
+        "decision_frontier_K"
+      ],
+      "claim_limit": "eventTime is an occurrence-time assertion, not proof of source availability; recordTime is repository bookkeeping, not proof of event truth, downstream materialization or candidate-context inclusion. Event validity may require separate validity-interval evidence."
+    },
+    {
+      "id": "SC-TIME-008",
+      "family": "temporal_coverage",
+      "name": "required temporal periods and source roles are covered",
+      "control": "negative",
+      "intent": "A supply-chain investigation requires admissible evidence from pre-transition, transition-window and post-transition periods and from a frozen set of supplier, carrier, repository and inspection source roles. Candidate retrieval returns individually relevant events from only one period or omits one required source role, then claims complete coverage.",
+      "expected_control": "coverage_fail_against_frozen_temporal_bins_and_source_inventory",
+      "required_fields": [
+        "query_specification_digest",
+        "required_temporal_bins",
+        "required_source_roles",
+        "source_inventory_digest",
+        "retrieved_event_ids",
+        "event_time_and_uncertainty",
+        "record_or_receipt_times",
+        "admissibility_outcomes",
+        "coverage_report"
+      ],
+      "claim_limit": "Temporal coverage is measured against the evaluator-frozen required-bin and source-role denominators. Missing evidence is not proof that no event or impact occurred."
+    }
+  ],
+  "decision_time_overlay": {
+    "status": "blueprint_only_unadjudicated_unscored",
+    "coordinates": [
+      "world_valid_or_event_time",
+      "source_publication_or_release_time",
+      "repository_record_or_receipt_time",
+      "adapter_acquisition_or_ingestion_time",
+      "downstream_materialization_time",
+      "actual_run_context_inclusion"
+    ],
+    "rules": [
+      "eventTime_is_not_recordTime",
+      "recordTime_is_not_consumer_index_or_model_visibility",
+      "late_recorded_corrections_do_not_rewrite_prior_as_of_views",
+      "overlapping_uncertainty_intervals_do_not_establish_total_order",
+      "exact_normative_validator_dependencies_are_version_pinned",
+      "event_time_validity_and_decision_frontier_admissibility_are_scored_as_separate_axes",
+      "temporal_coverage_uses_the_frozen_required_time_bin_and_source_role_denominators"
+    ],
+    "owner_composition": {
+      "temporal_reasoning": "Symthaea #10600",
+      "artifact_identity_and_import_receipts": "Mycelix #3022 / #5451",
+      "unknown_vs_unbounded": "Mycelix #3046",
+      "relation_materialization": "Mycelix #4778",
+      "supplychain_event_contract_and_normative_gs1_intake": "Mycelix #6105 / #5395",
+      "semantic_translation_loss": "Mycelix #1112",
+      "desci_receipt_time_projection_only": "Mycelix #5860"
+    }
+  }
+}
