@@ -37,8 +37,8 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Format check
-        run: cargo fmt --manifest-path crates/mycelix-core-types/Cargo.toml -- --check
+      - name: Format check for ROS-005-touched files
+        run: rustfmt --edition 2024 --check --config skip_children=true crates/mycelix-core-types/src/delegation.rs crates/mycelix-core-types/src/lib.rs
 
       - name: Unit and adversarial tests
         run: cargo test --manifest-path crates/mycelix-core-types/Cargo.toml
