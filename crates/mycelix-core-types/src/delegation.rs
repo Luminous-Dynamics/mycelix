@@ -99,7 +99,7 @@ impl DelegationId {
     /// Derive the canonical, content-bound address for a delegation.
     pub fn derive_content_bound(delegation: &Delegation) -> Self {
         let mut h = blake3::Hasher::new();
-        h.update(b"mycelix.delegation-content.v1\0");
+        h.update(b"mycelix.delegation-content.v2\0");
         let canonical = delegation.canonical_bytes();
         h.update(&(canonical.len() as u64).to_le_bytes());
         h.update(&canonical);
@@ -121,6 +121,9 @@ pub struct Delegation {
     pub granted_at: i64,
     pub expires_at: Option<i64>,
     pub authority_epoch: AuthorityEpoch,
+    /// Whether this delegation may issue attenuated child delegations.
+    /// Defaults to false; only the principal may opt in at grant time.
+    pub subdelegation_allowed: bool,
     pub status: DelegationStatus,
     pub parent: Option<DelegationId>,
     pub events: Vec<DelegationEvent>,
@@ -181,7 +184,47 @@ impl<'a> DelegationContext<'a> {
 impl Delegation {
     pub const MAX_CHAIN_DEPTH: usize = 64;
 
+    /// Create a delegation that cannot create child delegations.
+    ///
+    /// This is the safe default. Use `grant_with_subdelegation` only when
+    /// the principal explicitly intends the delegate to attenuate and issue
+    /// child delegations.
     pub fn grant(
+        id: DelegationId,
+        relationship_id: RelationshipId,
+        principal: PrincipalRef,
+        delegate: PrincipalRef,
+        action: ActionScope,
+        resource: ResourceScope,
+        mode: DelegationMode,
+        granted_at: i64,
+        expires_at: Option<i64>,
+        authority_epoch: AuthorityEpoch,
+        parent: Option<DelegationId>,
+    ) -> Result<Self, DelegationError> {
+        Self::grant_with_subdelegation(
+            id,
+            relationship_id,
+            principal,
+            delegate,
+            action,
+            resource,
+            mode,
+            granted_at,
+            expires_at,
+            authority_epoch,
+            parent,
+            false,
+        )
+    }
+
+    /// Create a delegation with an explicit subdelegation decision.
+    ///
+    /// A true value is immutable authority content and is included in the
+    /// content-bound DelegationId. A child may still delegate only when this
+    /// flag is true on every parent edge and every child remains attenuated.
+    #[allow(clippy::too_many_arguments)]
+    pub fn grant_with_subdelegation(
         _id: DelegationId,
         relationship_id: RelationshipId,
         principal: PrincipalRef,
@@ -193,6 +236,7 @@ impl Delegation {
         expires_at: Option<i64>,
         authority_epoch: AuthorityEpoch,
         parent: Option<DelegationId>,
+        subdelegation_allowed: bool,
     ) -> Result<Self, DelegationError> {
         if principal == delegate { return Err(DelegationError::SelfDelegation); }
         if let Some(expiry) = expires_at {
@@ -207,7 +251,7 @@ impl Delegation {
         let mut delegation = Self {
             id: DelegationId([0; 32]),
             relationship_id, principal, delegate, action, resource, mode,
-            granted_at, expires_at, authority_epoch,
+            granted_at, expires_at, authority_epoch, subdelegation_allowed,
             status: DelegationStatus::Active, parent, events: vec![event],
         };
         delegation.id = DelegationId::derive_content_bound(&delegation);
@@ -239,7 +283,7 @@ impl Delegation {
     /// Canonical immutable authority content used for content-addressed identity.
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        out.extend_from_slice(b"mycelix.delegation-content.v1\0");
+        out.extend_from_slice(b"mycelix.delegation-content.v2\0");
         out.extend_from_slice(self.relationship_id.as_bytes());
         self.principal.canonical_bytes(&mut out);
         self.delegate.canonical_bytes(&mut out);
@@ -255,6 +299,7 @@ impl Delegation {
             None => out.push(0),
         }
         out.extend_from_slice(&self.authority_epoch.to_le_bytes());
+        out.push(u8::from(self.subdelegation_allowed));
         match self.parent {
             Some(parent) => { out.push(1); out.extend_from_slice(parent.as_bytes()); }
             None => out.push(0),
@@ -329,6 +374,9 @@ impl Delegation {
             visited.push(parent_id);
 
             let parent = context.get(parent_id)?;
+            if !parent.subdelegation_allowed {
+                return Err(DelegationError::SubdelegationNotAllowed { id: parent.id });
+            }
             if parent.relationship_id != child.relationship_id {
                 return Err(DelegationError::ParentRelationshipMismatch);
             }
@@ -404,6 +452,9 @@ impl Delegation {
             visited.push(parent_id);
 
             let parent = context.get(parent_id)?;
+            if !parent.subdelegation_allowed {
+                return Err(DelegationError::SubdelegationNotAllowed { id: parent.id });
+            }
             if parent.status != DelegationStatus::Active {
                 return Err(DelegationError::ParentInactive { id: parent.id });
             }
@@ -470,6 +521,7 @@ pub enum DelegationError {
     DuplicateDelegationId { id: DelegationId },
     MissingParent { id: DelegationId },
     ParentInactive { id: DelegationId },
+    SubdelegationNotAllowed { id: DelegationId },
     ParentRelationshipMismatch,
     ParentPrincipalMismatch,
     ParentEpochMismatch,
@@ -533,6 +585,7 @@ impl fmt::Display for DelegationError {
             Self::DuplicateDelegationId { .. } => "delegation context contains duplicate identifiers",
             Self::MissingParent { .. } => "parent delegation is missing from validation context",
             Self::ParentInactive { .. } => "parent delegation is not active",
+            Self::SubdelegationNotAllowed { .. } => "parent delegation does not permit subdelegation",
             Self::ParentRelationshipMismatch => "parent and child belong to different relationships",
             Self::ParentPrincipalMismatch => "child principal is not the parent delegate",
             Self::ParentEpochMismatch => "parent and child authority epochs differ",
@@ -650,14 +703,57 @@ mod tests {
     }
 
     #[test]
-    fn valid_parent_chain_authorizes() {
-        let relationship = RelationshipId::derive("test", b"chain");
+    fn subdelegation_is_denied_by_default_and_requires_explicit_parent_opt_in() {
+        let relationship = RelationshipId::derive("test", b"subdelegation-default");
         let parent = Delegation::grant(
             DelegationId::derive(relationship, b"parent"),
             relationship, p("alice"), p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 100, Some(300), 4, None,
+            DelegationMode::Execute, 100, None, 4, None,
+        ).unwrap();
+        assert!(!parent.subdelegation_allowed);
+
+        let child = Delegation::grant(
+            DelegationId::derive(relationship, b"child"),
+            relationship, p("broker"), p("agent"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Execute, 150, None, 4, Some(parent.id),
+        ).unwrap();
+        let request = ExecutionRequest {
+            principal: p("broker"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            requested_at: 200,
+            authority_epoch: 4,
+        };
+        let context = context(&[parent]);
+        assert_eq!(
+            child.authorize(&request, &context),
+            Err(DelegationError::SubdelegationNotAllowed {
+                id: context.delegations[0].id
+            })
+        );
+        assert_eq!(
+            child.validate_parent_chain_structure(&context),
+            Err(DelegationError::SubdelegationNotAllowed {
+                id: context.delegations[0].id
+            })
+        );
+    }
+
+    #[test]
+    fn valid_parent_chain_authorizes() {
+        let relationship = RelationshipId::derive("test", b"chain");
+        let parent = Delegation::grant_with_subdelegation(
+            DelegationId::derive(relationship, b"parent"),
+            relationship, p("alice"), p("broker"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Execute, 100, Some(300), 4, None, true,
         ).unwrap();
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
@@ -679,12 +775,12 @@ mod tests {
     #[test]
     fn tampered_parent_content_is_rejected_before_parent_scope_evaluation() {
         let relationship = RelationshipId::derive("test", b"parent-identity");
-        let parent = Delegation::grant(
+        let parent = Delegation::grant_with_subdelegation(
             DelegationId::derive(relationship, b"parent"),
             relationship, p("alice"), p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 100, None, 4, None,
+            DelegationMode::Execute, 100, None, 4, None, true,
         ).unwrap();
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
@@ -722,12 +818,12 @@ mod tests {
     #[test]
     fn revoked_parent_blocks_child() {
         let relationship = RelationshipId::derive("test", b"revoked-parent");
-        let mut parent = Delegation::grant(
+        let mut parent = Delegation::grant_with_subdelegation(
             DelegationId::derive(relationship, b"parent"),
             relationship, p("alice"), p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 100, None, 4, None,
+            DelegationMode::Execute, 100, None, 4, None, true,
         ).unwrap();
         let parent_id = parent.id;
         parent.revoke(&p("alice"), 160, 4).unwrap();
@@ -752,12 +848,12 @@ mod tests {
     #[test]
     fn parent_scope_and_epoch_escalation_fail_closed() {
         let relationship = RelationshipId::derive("test", b"scope");
-        let parent = Delegation::grant(
+        let parent = Delegation::grant_with_subdelegation(
             DelegationId::derive(relationship, b"parent"),
             relationship, p("alice"), p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Propose, 100, Some(300), 4, None,
+            DelegationMode::Propose, 100, Some(300), 4, None, true,
         ).unwrap();
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
@@ -835,12 +931,12 @@ mod tests {
     #[test]
     fn child_cannot_outlive_parent() {
         let relationship = RelationshipId::derive("test", b"expiry");
-        let parent = Delegation::grant(
+        let parent = Delegation::grant_with_subdelegation(
             DelegationId::derive(relationship, b"parent"),
             relationship, p("alice"), p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 100, Some(200), 4, None,
+            DelegationMode::Execute, 100, Some(200), 4, None, true,
         ).unwrap();
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
@@ -867,6 +963,31 @@ mod tests {
 
         d.resource = ResourceScope::named("acme:opportunity:8").unwrap();
         assert_eq!(d.validate_identity(), Err(DelegationError::IdentityMismatch));
+    }
+
+    #[test]
+    fn subdelegation_opt_in_is_bound_into_content_identity() {
+        let relationship = RelationshipId::derive("test", b"subdelegation-identity");
+        let mut delegation = Delegation::grant_with_subdelegation(
+            DelegationId::derive(relationship, b"delegation"),
+            relationship,
+            p("alice"),
+            p("broker"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Execute,
+            100,
+            None,
+            4,
+            None,
+            true,
+        ).unwrap();
+        assert!(delegation.validate_identity().is_ok());
+        delegation.subdelegation_allowed = false;
+        assert_eq!(
+            delegation.validate_identity(),
+            Err(DelegationError::IdentityMismatch)
+        );
     }
 
     #[test]
