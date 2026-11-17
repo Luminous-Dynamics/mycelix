@@ -135,12 +135,27 @@ pub enum EgressAuthority {
     Perplexity,
 }
 
+const MAX_PUBLIC_WEB_REQUESTS: usize = 48;
+const MAX_BRAVE_REQUESTS: usize = 4;
+const MAX_PERPLEXITY_REQUESTS: usize = 4;
+static PUBLIC_WEB_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_PUBLIC_WEB_REQUESTS);
+static BRAVE_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_BRAVE_REQUESTS);
+static PERPLEXITY_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_PERPLEXITY_REQUESTS);
+
 impl EgressAuthority {
     fn label(self) -> &'static str {
         match self {
             Self::PublicWeb => "public-web",
             Self::BraveSearch => "brave-search",
             Self::Perplexity => "perplexity",
+        }
+    }
+
+    fn admission_semaphore(self) -> &'static Semaphore {
+        match self {
+            Self::PublicWeb => &PUBLIC_WEB_SEMAPHORE,
+            Self::BraveSearch => &BRAVE_SEMAPHORE,
+            Self::Perplexity => &PERPLEXITY_SEMAPHORE,
         }
     }
 }
@@ -363,6 +378,15 @@ impl PublicEgressClient {
         let method_name = capability.method.as_str().to_owned();
         let request_body_bytes = capability.body.len();
         let started = std::time::Instant::now();
+        // Reserve authority-specific capacity before the shared total budget.
+        // A burst of generic web reads cannot occupy Brave/Perplexity slots.
+        let _authority_permit: SemaphorePermit<'static> = tokio::time::timeout(
+            Duration::from_secs(2),
+            capability.authority.admission_semaphore().acquire(),
+        )
+        .await
+        .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
+        .map_err(|_| EgressError::ConcurrencyUnavailable)?;
         let _permit: SemaphorePermit<'static> = tokio::time::timeout(
             Duration::from_secs(2),
             EGRESS_SEMAPHORE.acquire(),
