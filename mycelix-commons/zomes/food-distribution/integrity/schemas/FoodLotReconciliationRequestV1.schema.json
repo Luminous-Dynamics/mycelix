@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/food/FoodLotReconciliationRequestV1.schema.json",
+  "title": "FoodLotReconciliationRequestV1",
+  "description": "Read-only local reconciliation input joining a recipe ingredient to an exact producer lot, household-private receipt and append-only local receipt events. No purchase, consumption, storage or actuation command is represented.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reconciliation_id",
+    "ingredient_id",
+    "expected_product_ref",
+    "expected_lot_revision",
+    "required_quantity",
+    "lot",
+    "receipt",
+    "events",
+    "child_receipts",
+    "as_of",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "reconciliation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "ingredient_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "expected_product_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "expected_lot_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "required_quantity": {
+      "$ref": "#/$defs/quantity"
+    },
+    "lot": {
+      "anyOf": [
+        {
+          "$ref": "./FoodLotProvenanceV1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "receipt": {
+      "anyOf": [
+        {
+          "$ref": "./FoodLotHouseholdReceiptV1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "./FoodLotHouseholdEventV1.schema.json"
+      }
+    },
+    "child_receipts": {
+      "type": "array",
+      "items": {
+        "$ref": "./FoodLotHouseholdReceiptV1.schema.json"
+      }
+    },
+    "as_of": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Explicit epoch-seconds time. Zero represents unavailable/unknown and yields indeterminate."
+    },
+    "claim_ceiling": {
+      "const": "Read-only reconciliation of submitted lot, receipt, quantity and event declarations as of the stated time; not proof of physical inventory, freshness, food safety, allergen status, suitability, or authority to purchase, consume, transfer, discard or actuate."
+    }
+  },
+  "$defs": {
+    "quantity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "value",
+        "decimal_places",
+        "unit"
+      ],
+      "properties": {
+        "dimension": {
+          "enum": [
+            "mass",
+            "volume",
+            "count"
+          ]
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "decimal_places": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        },
+        "unit": {
+          "enum": [
+            "mg",
+            "g",
+            "kg",
+            "mL",
+            "L",
+            "count",
+            "piece"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "dimension": {
+                "const": "mass"
+              }
+            },
+            "required": [
+              "dimension"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "mg",
+                  "g",
+                  "kg"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "dimension": {
+                "const": "volume"
+              }
+            },
+            "required": [
+              "dimension"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "mL",
+                  "L"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "dimension": {
+                "const": "count"
+              }
+            },
+            "required": [
+              "dimension"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "count",
+                  "piece"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
