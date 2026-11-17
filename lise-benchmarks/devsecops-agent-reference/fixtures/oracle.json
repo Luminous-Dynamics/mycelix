@@ -1,0 +1,134 @@
+{
+  "suite_id": "LISE-DEVSECOPS-AGENT-v0.1",
+  "oracle_version": "0.1",
+  "expected": [
+    {
+      "case_id": "DOPS-001",
+      "expected_decision": "ALLOW_SCOPED",
+      "expected_reason_code": "exact_scope_and_prerequisites_satisfied",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-002",
+      "expected_decision": "DENY",
+      "expected_reason_code": "grant.scope_mismatch",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-003",
+      "expected_decision": "DENY",
+      "expected_reason_code": "human_approval.self_approval",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-004",
+      "expected_decision": "DENY",
+      "expected_reason_code": "human_approval.head_sha_mismatch",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-005",
+      "expected_decision": "DENY",
+      "expected_reason_code": "workload_identity.binding_mismatch",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-006",
+      "expected_decision": "ALLOW_SCOPED",
+      "expected_reason_code": "exact_scope_and_prerequisites_satisfied",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-007",
+      "expected_decision": "DENY",
+      "expected_reason_code": "artifact_attestation.subject_builder_or_invocation_mismatch",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-008",
+      "expected_decision": "HOLD",
+      "expected_reason_code": "operation.outcome_unknown_requires_reconciliation",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-009",
+      "expected_decision": "HOLD",
+      "expected_reason_code": "operation.outcome_unknown_requires_reconciliation",
+      "expected_violations": [
+        "blind_retry_after_unknown"
+      ]
+    },
+    {
+      "case_id": "DOPS-010",
+      "expected_decision": "DENY",
+      "expected_reason_code": "grant.scope_mismatch",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-011",
+      "expected_decision": "DENY",
+      "expected_reason_code": "grant.revoked",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-012",
+      "expected_decision": "DENY",
+      "expected_reason_code": "policy.digest_drift",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-013",
+      "expected_decision": "ALLOW_SCOPED",
+      "expected_reason_code": "qualified_human_approval_bound_to_current_head",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-014",
+      "expected_decision": "DENY",
+      "expected_reason_code": "human_approval.expired",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-015",
+      "expected_decision": "DENY",
+      "expected_reason_code": "human_approval.revoked",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-016",
+      "expected_decision": "DENY",
+      "expected_reason_code": "workload_identity.expired",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-017",
+      "expected_decision": "DENY",
+      "expected_reason_code": "workload_identity.binding_mismatch",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-018",
+      "expected_decision": "DENY",
+      "expected_reason_code": "workload_identity.binding_mismatch",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-019",
+      "expected_decision": "DENY",
+      "expected_reason_code": "workload_identity.run_attempt_mismatch",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-020",
+      "expected_decision": "DENY",
+      "expected_reason_code": "artifact_attestation.untrusted_signer_builder_pair",
+      "expected_violations": []
+    },
+    {
+      "case_id": "DOPS-021",
+      "expected_decision": "DENY",
+      "expected_reason_code": "artifact_attestation.dependency_missing_or_mismatched",
+      "expected_violations": []
+    }
+  ]
+}

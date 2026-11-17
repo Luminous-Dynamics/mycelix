@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/lise-benchmarks/devsecops-agent-reference/fixtures/cases.schema.json",
+  "title": "LISE DevSecOps agent candidate-visible case bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suite_id",
+    "synthetic",
+    "cases"
+  ],
+  "properties": {
+    "suite_id": {
+      "const": "LISE-DEVSECOPS-AGENT-v0.1"
+    },
+    "synthetic": {
+      "const": true
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 21,
+      "items": {
+        "type": "object",
+        "required": [
+          "case_id",
+          "principal",
+          "request",
+          "grant",
+          "policy"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string"
+          },
+          "principal": {
+            "type": "object"
+          },
+          "request": {
+            "type": "object",
+            "properties": {
+              "required_dependencies": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "uri",
+                    "digest"
+                  ],
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "digest": {
+                      "type": "object",
+                      "minProperties": 1,
+                      "additionalProperties": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "grant": {
+            "type": "object"
+          },
+          "policy": {
+            "type": "object",
+            "properties": {
+              "trusted_signer_builder_pairs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "signer_id",
+                    "builder_id"
+                  ],
+                  "properties": {
+                    "signer_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "builder_id": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "artifact_attestation": {
+            "type": "object",
+            "required": [
+              "state",
+              "signer_id",
+              "builder_id",
+              "predicate_type",
+              "subject_digest",
+              "commit_sha",
+              "workflow_ref",
+              "workflow_sha",
+              "invocation_id",
+              "resolved_dependencies",
+              "observed_at"
+            ],
+            "properties": {
+              "state": {
+                "const": "verified"
+              },
+              "signer_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "builder_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "predicate_type": {
+                "const": "https://slsa.dev/provenance/v1"
+              },
+              "subject_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "commit_sha": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}$"
+              },
+              "workflow_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "workflow_sha": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}$"
+              },
+              "invocation_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "resolved_dependencies": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "uri",
+                    "digest"
+                  ],
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "digest": {
+                      "type": "object",
+                      "minProperties": 1,
+                      "additionalProperties": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "observed_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
