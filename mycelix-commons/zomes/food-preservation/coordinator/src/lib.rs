@@ -104,6 +104,20 @@ pub fn register_reusable_container(container: ReusableContainer) -> ExternResult
             "Only the declared container steward may register the container".into()
         )));
     }
+    for record in get_all_reusable_containers(())? {
+        let existing: ReusableContainer = record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Container registry link points to an invalid entry".into()
+            )))?;
+        if existing.id == container.id {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Reusable container ID is already registered".into()
+            )));
+        }
+    }
     let action_hash = create_entry(&EntryTypes::ReusableContainer(container))?;
     create_entry(&EntryTypes::Anchor(Anchor("all_reusable_containers".into())))?;
     create_link(
