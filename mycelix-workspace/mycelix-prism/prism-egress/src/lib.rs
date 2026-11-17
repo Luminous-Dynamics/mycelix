@@ -199,20 +199,12 @@ impl PublicEgressClient {
         let request_body_bytes = body.len();
         let started = std::time::Instant::now();
 
-        // A fresh client per request deliberately trades a little setup cost
-        // for a simple connection-pool isolation boundary. The original URL
-        // hostname remains in the URL, preserving Host, TLS SNI, and
-        // certificate verification while reqwest uses only the approved IPs.
-        let mut builder = Client::builder()
-            .user_agent("Prism/0.4 (capability-bound egress)")
-            .redirect(reqwest::redirect::Policy::none())
-            .no_proxy()
-            .connect_timeout(self.limits.connect_timeout)
-            .timeout(self.limits.request_timeout);
-        if capability.is_domain {
-            builder = builder.resolve_to_addrs(&capability.host, &capability.addresses);
-        }
-        let client = builder.build()?;
+        let client = build_pinned_client(
+            &capability.host,
+            &capability.addresses,
+            capability.is_domain,
+            &self.limits,
+        )?;
 
         let response = client
             .request(capability.method, capability.url)
@@ -266,6 +258,27 @@ impl PublicEgressClient {
         let capability = self.authorize(method, raw_url).await?;
         self.execute(capability, headers, body).await
     }
+}
+
+fn build_pinned_client(
+    host: &str,
+    addresses: &[SocketAddr],
+    is_domain: bool,
+    limits: &EgressLimits,
+) -> Result<Client, EgressError> {
+    // Each request gets a fresh pool. The URL retains the original hostname
+    // for Host/SNI/certificate checks while this explicit resolver override
+    // constrains socket destinations to the authorized set.
+    let mut builder = Client::builder()
+        .user_agent("Prism/0.4 (capability-bound egress)")
+        .redirect(reqwest::redirect::Policy::none())
+        .no_proxy()
+        .connect_timeout(limits.connect_timeout)
+        .timeout(limits.request_timeout);
+    if is_domain {
+        builder = builder.resolve_to_addrs(host, addresses);
+    }
+    Ok(builder.build()?)
 }
 
 fn request_header_bytes(headers: &HeaderMap) -> usize {
@@ -434,6 +447,13 @@ mod tests {
 
     fn ip(value: &str) -> IpAddr {
         value.parse().expect("test IP literal")
+    }
+
+    #[test]
+    fn reqwest_client_builder_accepts_a_pinned_domain_address_set() {
+        let addresses = ["93.184.216.34:443".parse().unwrap()];
+        validate_address_set(&addresses).unwrap();
+        assert!(build_pinned_client("example.com", &addresses, true, &EgressLimits::default()).is_ok());
     }
 
     #[test]
