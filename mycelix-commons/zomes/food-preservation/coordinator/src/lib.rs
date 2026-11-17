@@ -38,6 +38,31 @@ fn container_history_records(container_hash: ActionHash) -> ExternResult<Vec<Rec
 /// Load and verify the complete linked history. A duplicated sequence,
 /// missing link, fork or broken parent pointer returns an error instead of
 /// guessing which branch is authoritative.
+fn validate_container_event_chain(
+    container_hash: &ActionHash,
+    mut events: Vec<(ActionHash, ContainerCycleEvent)>,
+) -> Result<Vec<(ActionHash, ContainerCycleEvent)>, String> {
+    events.sort_by_key(|(_, event)| event.sequence_number);
+    let mut expected_parent: Option<ActionHash> = None;
+    let mut seen_sequences = BTreeSet::new();
+    for (index, (action_hash, event)) in events.iter().enumerate() {
+        if &event.container_hash != container_hash {
+            return Err("Container history contains an event for another container".into());
+        }
+        if !seen_sequences.insert(event.sequence_number) {
+            return Err("Container lifecycle conflict: duplicate sequence number; reconciliation required".into());
+        }
+        if event.sequence_number != index as u64 {
+            return Err("Container lifecycle conflict: sequence gap; reconciliation required".into());
+        }
+        if event.previous_event_hash != expected_parent {
+            return Err("Container lifecycle conflict: event parent does not match the unique preceding event".into());
+        }
+        expected_parent = Some(action_hash.clone());
+    }
+    Ok(events)
+}
+
 fn verified_container_history(
     container_hash: ActionHash,
 ) -> ExternResult<Vec<(ActionHash, ContainerCycleEvent)>> {
@@ -52,36 +77,10 @@ fn verified_container_history(
             .ok_or(wasm_error!(WasmErrorInner::Guest(
                 "Container history link points to a non-event record".into()
             )))?;
-        if event.container_hash != container_hash {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Container history contains an event for another container".into()
-            )));
-        }
         events.push((action_hash, event));
     }
-    events.sort_by_key(|(_, event)| event.sequence_number);
-
-    let mut expected_parent: Option<ActionHash> = None;
-    let mut seen_sequences = BTreeSet::new();
-    for (index, (action_hash, event)) in events.iter().enumerate() {
-        if !seen_sequences.insert(event.sequence_number) {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Container lifecycle conflict: duplicate sequence number; reconciliation required".into()
-            )));
-        }
-        if event.sequence_number != index as u64 {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Container lifecycle conflict: sequence gap; reconciliation required".into()
-            )));
-        }
-        if event.previous_event_hash != expected_parent {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Container lifecycle conflict: event parent does not match the unique preceding event".into()
-            )));
-        }
-        expected_parent = Some(action_hash.clone());
-    }
-    Ok(events)
+    validate_container_event_chain(&container_hash, events)
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason)))
 }
 
 fn derived_fill_cycle_count(events: &[(ActionHash, ContainerCycleEvent)]) -> u64 {
@@ -167,6 +166,15 @@ pub fn record_container_cycle_event(event: ContainerCycleEvent) -> ExternResult<
     }
 
     if event.event_kind == ContainerEventKind::Filled {
+        if !container.compatible_product_refs.is_empty()
+            && event.product_ref.as_deref().is_none_or(|product_ref| {
+                !container.compatible_product_refs.iter().any(|allowed| allowed == product_ref)
+            })
+        {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Product is not listed as compatible with this container".into()
+            )));
+        }
         let fills = derived_fill_cycle_count(&history);
         if container.manufacturer_reuse_cycle_limit.is_some_and(|limit| fills >= u64::from(limit)) {
             return Err(wasm_error!(WasmErrorInner::Guest(
@@ -371,6 +379,100 @@ mod tests {
     fn fake_agent() -> AgentPubKey {
         AgentPubKey::from_raw_36(vec![0u8; 36])
     }
+
+    fn sample_container_hash() -> ActionHash {
+        ActionHash::from_raw_36(vec![7u8; 36])
+    }
+
+    fn sample_cycle_event(
+        sequence_number: u64,
+        previous_event_hash: Option<ActionHash>,
+        event_kind: ContainerEventKind,
+    ) -> (ActionHash, ContainerCycleEvent) {
+        let container_hash = sample_container_hash();
+        let hash = ActionHash::from_raw_36(vec![(sequence_number as u8).wrapping_add(20); 36]);
+        let event = ContainerCycleEvent {
+            container_hash,
+            previous_event_hash,
+            sequence_number,
+            event_kind,
+            occurred_at: 1_700_000_000 + sequence_number,
+            product_ref: None,
+            product_lot_ref: None,
+            preservation_batch_hash: None,
+            location_ref: None,
+            condition: ContainerCondition::Unknown,
+            sanitation: None,
+            evidence: ContainerEvidenceRef {
+                source_ref: "fixture:event".into(),
+                method_ref: None,
+                calibration_ref: None,
+                evidence_class: ContainerEvidenceClass::Declared,
+            },
+        };
+        (hash, event)
+    }
+
+
+    #[test]
+    fn container_history_accepts_one_linear_chain() {
+        let (h0, e0) = sample_cycle_event(0, None, ContainerEventKind::Washed);
+        let (h1, e1) = sample_cycle_event(1, Some(h0.clone()), ContainerEventKind::Sanitized);
+        let (h2, e2) = sample_cycle_event(2, Some(h1.clone()), ContainerEventKind::Inspected);
+        let checked = validate_container_event_chain(&sample_container_hash(), vec![
+            (h2, e2),
+            (h0, e0),
+            (h1, e1),
+        ]).unwrap();
+        assert_eq!(checked.len(), 3);
+        assert_eq!(checked[2].1.sequence_number, 2);
+    }
+
+    #[test]
+    fn container_history_rejects_duplicate_sequence_fork() {
+        let (h0, e0) = sample_cycle_event(0, None, ContainerEventKind::Washed);
+        let (h1a, e1a) = sample_cycle_event(1, Some(h0.clone()), ContainerEventKind::Sanitized);
+        let (h1b, e1b) = sample_cycle_event(1, Some(h0), ContainerEventKind::Sanitized);
+        let error = validate_container_event_chain(&sample_container_hash(), vec![
+            (h1a, e1a),
+            (h1b, e1b),
+            (ActionHash::from_raw_36(vec![1; 36]), e0),
+        ]).unwrap_err();
+        assert!(error.contains("duplicate sequence"));
+    }
+
+    #[test]
+    fn container_history_rejects_gaps_and_wrong_parent() {
+        let (h0, e0) = sample_cycle_event(0, None, ContainerEventKind::Washed);
+        let (h2, e2) = sample_cycle_event(2, Some(h0.clone()), ContainerEventKind::Inspected);
+        assert!(validate_container_event_chain(&sample_container_hash(), vec![
+            (h0.clone(), e0.clone()),
+            (h2, e2),
+        ]).unwrap_err().contains("sequence gap"));
+
+        let (wrong_parent_hash, wrong_parent_event) = sample_cycle_event(
+            1,
+            Some(ActionHash::from_raw_36(vec![99; 36])),
+            ContainerEventKind::Sanitized,
+        );
+        assert!(validate_container_event_chain(&sample_container_hash(), vec![
+            (h0, e0),
+            (wrong_parent_hash, wrong_parent_event),
+        ]).unwrap_err().contains("parent"));
+    }
+
+    #[test]
+    fn reuse_count_is_derived_only_from_fill_events() {
+        let (h0, e0) = sample_cycle_event(0, None, ContainerEventKind::Washed);
+        let (h1, e1) = sample_cycle_event(1, Some(h0.clone()), ContainerEventKind::Filled);
+        let (h2, e2) = sample_cycle_event(2, Some(h1.clone()), ContainerEventKind::Emptied);
+        let (h3, e3) = sample_cycle_event(3, Some(h2.clone()), ContainerEventKind::Filled);
+        let history = validate_container_event_chain(&sample_container_hash(), vec![
+            (h0,e0),(h1,e1),(h2,e2),(h3,e3)
+        ]).unwrap();
+        assert_eq!(derived_fill_cycle_count(&history), 2);
+    }
+
 
     // ========================================================================
     // BatchStatus enum serde tests
