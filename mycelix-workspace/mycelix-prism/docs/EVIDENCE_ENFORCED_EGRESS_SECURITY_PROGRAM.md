@@ -160,16 +160,17 @@ A new native-only `prism-egress` crate now provides:
 
 - An injectable `EgressResolver` interface and a system resolver implementation. Tests can supply deterministic complete answer sets without relying on public DNS.
 - All-answer-set classification: the request is denied if any returned IPv4 or IPv6 address is outside the conservative public-unicast policy. Mixed public/private answers fail closed.
-- A per-request Reqwest client using `resolve_to_addrs` for the validated address set, retaining the URL hostname for HTTP authority and TLS verification. The exact Reqwest 0.12 API is documented to override hostname resolution for the specified address set. See the upstream ClientBuilder documentation.
+- A per-request Reqwest client using `resolve_to_addrs` for the validated address set, retaining the URL hostname for HTTP authority and TLS verification. The exact Reqwest 0.12 API is documented to override hostname resolution for the specified address set. After connecting, Prism reads `Response::remote_addr()`, requires it to match an exact socket address in the authorized set, and fails closed if peer evidence is unavailable or unexpected. The receipt records this observed peer. See the Reqwest 0.12 Response and ClientBuilder documentation.
 - DNS work is independently budgeted: 16 concurrent system lookups, two-second queue wait, five-second caller deadline, and a maximum of 32 unique returned addresses. The resolver permit is moved into Tokio's blocking DNS closure and is not released when the awaiting request times out; it remains held until the non-cancellable OS lookup actually exits. This bounds concurrent work rather than merely concurrent waiters. A resolver that never returns consumes one slot and fails closed, leaving the other slots available.
 - Automatic redirects and ambient proxy discovery disabled. A 3xx is returned to the caller; it is not followed. The next increment must add explicit per-hop reauthorization rather than re-enable automatic redirects.
 - A non-cloneable, in-memory, one-use `EgressCapability` that binds the exact URL, typed authority, method, outbound headers, body, resolved address set, expiry, response budget, timeouts, and policy version. Execution consumes the capability. This is a Rust ownership boundary, not a cryptographically signed or remotely transferable token.
 - `PublicWeb` authority is unauthenticated, bodyless GET only. `BraveSearch` authority is bound to the exact Brave API host/path and a restricted header set. `Perplexity` authority is bound to its exact host/path, POST method, bearer authorization, JSON content type, and restricted header set. Duplicate credential headers are rejected.
+- Constructor-enforced absolute ceilings prevent caller configuration from widening limits: a caller may set lower URL/body/header/time limits, but cannot raise the hard maximums.
 - Absolute constructor-enforced ceilings: five-second authorization lifetime; 8 KiB URL; 16 KiB total request-header budget (including a 512-byte allowance for transport-generated fields); 2 MiB request body; 10 MiB response body; 64 KiB / 128-entry accepted response headers; five-second connect timeout; 30-second total request timeout. Caller-supplied lower limits are honored, but caller configuration cannot raise these ceilings.
 - Typed authority scopes restrict generic public-web access to bodyless, headerless GET. Brave Search credentials can only be sent to api.search.brave.com/res/v1/web/search with its approved header set. Perplexity bearer credentials can only be sent to api.perplexity.ai/chat/completions with its approved header set and POST method. Duplicate credential headers are rejected. The authority is stored in the one-use capability and execution receipt.
 - HTTP execution has a global limit of 64 in-flight requests, partitioned into 56 PublicWeb, 4 BraveSearch, and 4 Perplexity slots. Each partition has its own two-second admission wait, so unauthenticated public traffic cannot consume provider-reserved capacity.
 - A known oversized Content-Length is rejected before reading the response body. Unknown/chunked/decompressed bodies are checked incrementally. Reqwest may have already delivered one in-flight chunk before the application refuses to append it; that bounded overshoot is measured separately in PEAB.
-- Privacy-minimized receipts contain origin (not path/query), authority, method, authorized addresses, status, byte counts, duration, and policy version. Request/response bodies and query strings are not included.
+- Privacy-minimized receipts contain origin (not path/query), authority, method, the authorized address set, the observed `remote_peer`, status, byte counts, duration, and policy version. Request/response bodies and query strings are not included.
 
 The conservative address table is aligned to the IANA IPv4 and IPv6 Special-Purpose registries, whose current pages show a last-updated date of 2025-10-09. Entire parent aggregates such as IPv4 192.0.0.0/24 and IPv6 2001::/23 are denied even though IANA lists more-specific globally reachable assignments inside them. That choice favours a smaller attack surface over maximum compatibility and should be tracked as an explicit false-positive trade-off, not described as a perfect mirror of IANA's per-prefix reachability field.
 
@@ -204,7 +205,8 @@ The `prism-egress` source and integration corpus include tests for:
 - representative public IPv4/IPv6 addresses and special-purpose, private, transition, multicast, documentation, and benchmarking ranges;
 - mixed public/private DNS answer rejection and empty answer sets;
 - deterministic injected-resolver snapshots and exactly one resolver call during authorization;
-- actual Reqwest destination pinning to a local test listener while preserving the original Host authority;
+- actual Reqwest destination pinning to a local test listener while preserving the original Host authority, followed by observed-peer membership validation;
+- missing/unexpected peer evidence rejection;
 - redirect responses being returned without following a metadata-service Location;
 - URL scheme, port, credentials, local hostname, body, header, capability expiry, HTTPS requirements, provider-origin/header allowlists, and duplicate credential headers.
 
@@ -297,6 +299,8 @@ These changes are source edits only until the exact branch head is compiled and 
 
 - OWASP SSRF Prevention Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html
 - reqwest ClientBuilder documentation (including `resolve_to_addrs`): https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html
+- reqwest Response documentation (including `remote_addr`): https://docs.rs/reqwest/0.12.24/reqwest/struct.Response.html
+- Tokio `lookup_host` implementation: https://docs.rs/tokio/latest/src/tokio/net/addr.rs.html — the system resolver uses the blocking pool; started blocking tasks cannot be aborted, so the resolver permit is held by the blocking closure.
 - reqwest redirect behavior: https://docs.rs/reqwest/latest/reqwest/
 
 These references inform the design; they do not constitute verification of Prism's implementation.
