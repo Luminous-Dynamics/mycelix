@@ -6,7 +6,7 @@ license.workspace = true
 description = "Context-constrained, DNS-pinned, resource-bounded HTTP egress for Prism"
 
 [dependencies]
-reqwest = { workspace = true, features = ["gzip", "brotli"] }
+reqwest = { workspace = true, features = ["gzip", "brotli", "http2"] }
 tokio = { workspace = true }
 url = { workspace = true }
 thiserror = { workspace = true }
