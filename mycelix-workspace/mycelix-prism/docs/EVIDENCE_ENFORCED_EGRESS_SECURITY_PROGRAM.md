@@ -54,7 +54,7 @@ Status: the following are source-level controls on `security/prism-evidence-enfo
 - **Typed native egress:** `prism-egress` is a native-only crate with one-use, non-cloneable, short-lived capabilities bound to an exact URL, authority, method, headers, body, DNS snapshot, timeout, response budgets, and policy version.
 - **DNS admission and destination policy:** the default resolver collects bounded unique socket answers; the complete set is rejected if empty, oversized, or contains any address denied by the IPv4/IPv6 classifier. DNS admission and blocking resolver work have separate bounded capacity.
 - **Pinned connection:** a fresh Reqwest client per capability uses `resolve_to_addrs` for the authorized set, retains the URL hostname for HTTP/TLS identity, and disables ambient proxy discovery. After the response arrives, Prism requires `remote_addr()` to be present and a member of the authorized socket set. That peer check is post-connect evidence; the address override is the connection-time restriction.
-- **Manual redirect state machine:** only `PublicWeb` follows redirects, with a five-hop ceiling, loop detection, HTTPS downgrade rejection, and a fresh DNS authorization for every next hop. Provider and fixed-source authorities do not follow redirects. Redirect hops are included in the receipt.
+- **Manual redirect state machine:** only `PublicWeb` follows redirects, with a five-hop ceiling, loop detection, duplicate `Location` rejection, HTTPS downgrade rejection, and a fresh DNS authorization for every next hop. Provider and fixed-source authorities do not follow redirects. Redirect hops are included in the receipt.
 - **No hidden transport retries:** the pinned Reqwest builder explicitly uses `retry(reqwest::retry::never())`. Future retries must be an application-level transition that obtains a fresh capability and records the attempt; they must not be introduced through an implicit client default.
 - **Resource budgets:** request body/header and URL ceilings, bounded DNS, execution concurrency, connection/request deadlines, response header count/bytes after parsing, and incremental response-body caps are enforced in source. Defaults are 10 MiB success / 64 KiB error; fixed ingestion may raise its success budget to 16 MiB. Reqwest may deliver one in-flight decoded chunk before Prism can reject it; benchmark received-chunk overshoot separately from bytes appended/returned.
 - **Authority partitioning:** public web, Brave, Perplexity, Wikipedia, and Wikidata have distinct exact origin/path/method/header scopes and separate concurrency pools. Provider credentials cannot be forwarded to arbitrary destinations.
@@ -207,7 +207,7 @@ The Symthaea bridge also now fails closed when the daemon omits or malforms its 
 
 The Prism CI job runs Cargo package commands from the actual outer `mycelix-workspace` Cargo workspace root (the `mycelix-prism/Cargo.toml` file is a placeholder, not a workspace root). The existing `mycelix-prism/*` membership glob includes the new crate. Formatting and package-test lists include `prism-egress`; fixed-source ingestion binaries are compile-checked and their manifest/query-provenance tests run with `--features fetch`; a source-level ratchet now permits exactly two direct Reqwest client constructors, both in the desktop-navigation clients (`prism-net` and `prism-tauri`).
 
-The CI source ratchet also asserts the hosted egress invariants: no independent Reqwest client or automatic redirect policy in the proxy servers, one pinned egress client builder, `resolve_to_addrs`, observed peer validation, the five-hop PublicWeb redirect state machine, redirect-hop receipt creation, and provider authority routing. The hosted handlers must call the receipt logger for proxy, DuckDuckGo, Brave, and Perplexity results.
+The CI source ratchet also asserts the hosted egress invariants: no independent Reqwest client or automatic redirect policy in the proxy servers, one pinned egress client builder, `resolve_to_addrs`, observed peer validation, explicit disabling of Reqwest protocol-NACK retries, duplicate-`Location` rejection, the five-hop PublicWeb redirect state machine, redirect-hop receipt creation, and provider authority routing. The hosted handlers must call the receipt logger for proxy, DuckDuckGo, Brave, and Perplexity results.
 
 This ratchet is an initial guardrail, not a complete static proof: aliases, wrappers, other HTTP libraries, browser-side fetches, and generated code need separate inventory coverage.
 
@@ -242,7 +242,7 @@ The `prism-egress` source and integration corpus include tests for:
 - deterministic injected-resolver snapshots and exactly one resolver call during authorization;
 - actual Reqwest destination pinning to a local test listener while preserving the original Host authority, followed by observed-peer membership validation;
 - missing/unexpected peer evidence rejection and successful receipts recording the observed peer;
-- metadata-host redirect rejection through the high-level PublicWeb execution path, relative redirect target parsing, HTTPS downgrade rejection, loop detection, and provider no-follow policy;
+- metadata-host redirect rejection through the high-level PublicWeb execution path, duplicate `Location` rejection, relative redirect target parsing, HTTPS downgrade rejection, loop detection, and provider no-follow policy;
 - URL scheme, port, credentials, local hostname, body, header, capability expiry, HTTPS requirements, provider-origin/header allowlists, and duplicate credential headers.
 
 No passing test result is claimed. The PR remains a draft; the workflow's `pull_request` gate skips draft PRs, and the latest branch head has not been built or tested in a runner or local checkout.
@@ -320,18 +320,19 @@ Compare against OWASP guidance, reverse proxies/egress gateways, and cloud netwo
 5. Can the same policy model be consumed by Rust clients, desktop navigation, browser asset routing, and deployment firewall generation while preserving distinct trust contexts?
 6. Can fixed-source ingestion be granted a verifiable data-source manifest with versioned URI templates, query schemas, and update windows—so data acquisition is auditable and reproducible, not just network-safe?
 
-## Interim implementation ledger (branch: security/prism-evidence-enforced-egress-v1)
+## Current implementation ledger (branch: security/prism-evidence-enforced-egress-v1)
 
-The current draft branch includes the following bounded, fail-closed controls in addition to the design programme:
+The current draft branch includes the typed `prism-egress` transport and the following additional controls:
 
-- `prism-proxy` and `prism-serve` disable automatic redirects until a per-hop authorization state machine exists.
-- Both clients disable ambient system proxy discovery; any future proxy must be an explicitly configured and reviewed trust boundary.
-- All four upstream response paths in each binary consume response chunks incrementally and stop before exceeding the 10 MiB response budget.
-- Both servers explicitly cap inbound request bodies at 2 MiB.
-- The Symthaea Unix-socket response frame is capped at 64 KiB and must be newline-terminated.
-- Missing, null, or malformed Symthaea `safe` metadata maps to `false`; focused unit tests cover missing/malformed and explicit boolean values.
+- `prism-proxy` and `prism-serve` use PublicWeb and fixed provider authorities through `prism-egress`; public redirects are manually reauthorized per hop.
+- The pinned Reqwest client disables automatic redirects, ambient proxy discovery, and Reqwest's implicit protocol-NACK retry behavior. Application retries must obtain fresh capabilities.
+- The redirect state machine rejects duplicate `Location` fields before authorizing a second hop.
+- Upstream response readers enforce decoded streaming body budgets; a gzip expansion regression test is included. Both hosted servers explicitly cap inbound request bodies at 2 MiB.
+- Fixed Wikipedia/Wikidata ingestion uses typed authorities, a versioned source manifest, fresh authorization for explicit retries, and provenance/output digests.
+- The Symthaea Unix-socket response frame is capped at 64 KiB and must be newline-terminated. Missing, null, or malformed Symthaea `safe` metadata maps to `false`.
+- CI source checks require the pinned transport, explicit retry disabling, duplicate-redirect rejection, gzip-budget regression test, and reviewed direct-client inventory.
 
-These changes are source edits only until the exact branch head is compiled and tested. The current environment has not produced passing Cargo, formatting, clippy, or adversarial runtime evidence. Do not interpret the presence of unit tests as evidence that they have passed.
+These remain source-level controls until the exact branch head is compiled and tested. The latest recorded workflow on the current feature line was skipped; no passing Cargo, formatting, clippy, or adversarial runtime result is claimed. Do not interpret the presence of unit tests as evidence that they have passed.
 ## Source references
 
 - OWASP SSRF Prevention Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html
@@ -339,6 +340,7 @@ These changes are source edits only until the exact branch head is compiled and 
 - reqwest Response documentation (including `remote_addr`): https://docs.rs/reqwest/0.12.24/reqwest/struct.Response.html
 - Tokio `lookup_host` implementation: https://docs.rs/tokio/latest/src/tokio/net/addr.rs.html — the system resolver uses the blocking pool; started blocking tasks cannot be aborted, so the resolver permit is held by the blocking closure.
 - reqwest redirect behavior: https://docs.rs/reqwest/latest/reqwest/
+- Reqwest 0.12.28 retry policy documentation: https://docs.rs/reqwest/0.12.28/reqwest/retry/fn.never.html — the transport default retries protocol NACKs; Prism explicitly selects `retry::never()` so application retries stay visible and capability-scoped.
 
 These references inform the design; they do not constitute verification of Prism's implementation.
 
