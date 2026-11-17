@@ -1,0 +1,12 @@
+[package]
+name = "prism-egress"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Context-constrained, DNS-pinned, resource-bounded HTTP egress for Prism"
+
+[dependencies]
+reqwest = { workspace = true, features = ["gzip", "brotli"] }
+tokio = { workspace = true }
+url = { workspace = true }
+thiserror = { workspace = true }
