@@ -8,6 +8,7 @@ description = "Dependency-light semantic conformance harness for the Integral CO
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+sha2 = "0.10"
 manufacturing_common = { path = "../manufacturing_common" }
 
 [[bin]]
