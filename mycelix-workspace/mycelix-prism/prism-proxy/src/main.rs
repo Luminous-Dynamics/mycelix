@@ -193,9 +193,20 @@ async fn brave_handler(
     };
     let mut outbound_headers = HeaderMap::new();
     outbound_headers.insert("X-Subscription-Token", token);
-    outbound_headers.insert(reqwest::header::ACCEPT, HeaderValue::from_static("application/json"));
+    outbound_headers.insert(
+        reqwest::header::ACCEPT,
+        HeaderValue::from_static("application/json"),
+    );
 
-    match egress_provider_request(EgressAuthority::BraveSearch, Method::GET, url.as_str(), outbound_headers, Vec::new()).await {
+    match egress_provider_request(
+        EgressAuthority::BraveSearch,
+        Method::GET,
+        url.as_str(),
+        outbound_headers,
+        Vec::new(),
+    )
+    .await
+    {
         Ok(response) => json_response(response.status.as_u16(), response.body).into_response(),
         Err(error) => upstream_error("Brave", error).into_response(),
     }
