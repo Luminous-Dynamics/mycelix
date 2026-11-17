@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/fabrication_common",
+    "crates/fabrication_monitor_core",
     "zomes/designs/integrity",
     "zomes/designs/coordinator",
     "zomes/printers/integrity",

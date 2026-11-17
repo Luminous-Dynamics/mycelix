@@ -1,0 +1,10 @@
+[package]
+name = "fabrication_monitor_core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Deterministic, Holochain-independent process monitoring core for Mycelix Fabrication"
+
+[lib]
+path = "src/lib.rs"
