@@ -380,6 +380,81 @@ mod tests {
         AgentPubKey::from_raw_36(vec![0u8; 36])
     }
 
+    #[derive(Deserialize)]
+    struct ContainerLifecycleFixtureBundle {
+        container: ContainerFixtureIdentity,
+        events: Vec<ContainerEventFixture>,
+    }
+
+    #[derive(Deserialize)]
+    struct ContainerFixtureIdentity {
+        id: String,
+        material: ContainerMaterial,
+        capacity_ml: u64,
+        manufacturer_reuse_cycle_limit: Option<u32>,
+    }
+
+    #[derive(Deserialize)]
+    struct ContainerEventFixture {
+        container_hash: String,
+        previous_event_hash: Option<String>,
+        sequence_number: u64,
+        event_kind: ContainerEventKind,
+        occurred_at: u64,
+        product_ref: Option<String>,
+        product_lot_ref: Option<String>,
+        location_ref: Option<String>,
+        condition: ContainerCondition,
+        sanitation: Option<ContainerSanitationObservation>,
+        evidence: ContainerEvidenceRef,
+    }
+
+    #[test]
+    fn synthetic_container_lifecycle_fixture_has_one_verified_linear_history() {
+        let bundle: ContainerLifecycleFixtureBundle = serde_json::from_str(include_str!(
+            "../../integrity/schemas/fixtures/container-lifecycle-v1.json"
+        ))
+        .expect("container lifecycle fixture bundle must deserialize");
+        assert_eq!(bundle.container.id, "fixture:container-za-001");
+        assert_eq!(bundle.container.capacity_ml, 1_000);
+        assert_eq!(bundle.container.manufacturer_reuse_cycle_limit, Some(500));
+        assert_eq!(bundle.container.material, ContainerMaterial::BorosilicateGlass);
+
+        let container_hash = sample_container_hash();
+        let mut records = Vec::new();
+        let mut prior_hash: Option<ActionHash> = None;
+        for (index, fixture) in bundle.events.into_iter().enumerate() {
+            assert_eq!(fixture.container_hash, "uhCEkSyntheticContainerHash");
+            assert_eq!(fixture.sequence_number, index as u64);
+            assert_eq!(
+                fixture.previous_event_hash,
+                index.checked_sub(1).map(|previous| format!("uhCEkSyntheticEventHash{previous}"))
+            );
+            let action_hash = ActionHash::from_raw_36(vec![(index as u8).wrapping_add(20); 36]);
+            let event = ContainerCycleEvent {
+                container_hash: container_hash.clone(),
+                previous_event_hash: prior_hash.clone(),
+                sequence_number: fixture.sequence_number,
+                event_kind: fixture.event_kind,
+                occurred_at: fixture.occurred_at,
+                product_ref: fixture.product_ref,
+                product_lot_ref: fixture.product_lot_ref,
+                preservation_batch_hash: None,
+                location_ref: fixture.location_ref,
+                condition: fixture.condition,
+                sanitation: fixture.sanitation,
+                evidence: fixture.evidence,
+            };
+            records.push((action_hash.clone(), event));
+            prior_hash = Some(action_hash);
+        }
+
+        let checked = validate_container_event_chain(&container_hash, records).unwrap();
+        assert_eq!(checked.len(), 12);
+        assert_eq!(derived_fill_cycle_count(&checked), 1);
+    }
+
+
     fn sample_container_hash() -> ActionHash {
         ActionHash::from_raw_36(vec![7u8; 36])
     }
