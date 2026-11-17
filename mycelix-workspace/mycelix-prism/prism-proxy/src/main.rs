@@ -11,47 +11,29 @@
 //!
 //! WASM app requests: GET /proxy?url=https://example.com
 
-use axum::{Router, extract::{DefaultBodyLimit, Query}, http::StatusCode, response::IntoResponse, routing::get};
+use axum::{Router, extract::{DefaultBodyLimit, Query}, http::{StatusCode, header::HeaderValue}, response::IntoResponse, routing::get};
 use prism_common::ssrf::validate_proxy_url;
+use prism_egress::{EgressError, PublicEgressClient};
+use reqwest::{Method, header::HeaderMap};
+use url::Url;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-const MAX_RESPONSE_SIZE: usize = 10 * 1024 * 1024; // 10MB
 const MAX_REQUEST_BODY_SIZE: usize = 2 * 1024 * 1024; // 2 MiB
 
-// SSRF validation (`validate_proxy_url` / `is_private_ipv4`) lives in
-// `prism_common::ssrf` so `prism-proxy` and `prism-serve` share a single
-// implementation — see that module for rationale and tests.
-
-fn build_client(user_agent: &str, timeout_secs: u64) -> reqwest::Client {
-    reqwest::Client::builder()
-        .user_agent(user_agent)
-        .redirect(reqwest::redirect::Policy::none())
-        // Never let ambient HTTP(S)_PROXY environment variables route around
-        // the destination policy. An explicit trusted egress proxy can be
-        // configured as a separately reviewed transport in a later increment.
-        .no_proxy()
-        .timeout(std::time::Duration::from_secs(timeout_secs))
-        .build()
-        .expect("HTTP client TLS init failed")
+async fn egress_request(
+    method: Method,
+    url: &str,
+    headers: HeaderMap,
+    body: Vec<u8>,
+) -> Result<prism_egress::EgressResponse, EgressError> {
+    PublicEgressClient::default()
+        .request(method, url, headers, body)
+        .await
 }
 
-/// Read an upstream response incrementally and stop before the configured byte budget is exceeded.
-async fn read_bounded(
-    mut response: reqwest::Response,
-    max_bytes: usize,
-) -> Result<axum::body::Bytes, String> {
-    let mut body = Vec::new();
-    while let Some(chunk) = response
-        .chunk()
-        .await
-        .map_err(|error| format!("Upstream body read failed: {error}"))?
-    {
-        if body.len().saturating_add(chunk.len()) > max_bytes {
-            return Err(format!("Upstream response exceeds {max_bytes} byte limit"));
-        }
-        body.extend_from_slice(&chunk);
-    }
-    Ok(axum::body::Bytes::from(body))
+fn upstream_error(context: &str, error: EgressError) -> axum::response::Response<axum::body::Body> {
+    log::warn!("Prism egress {context} failed: {error}");
+    (StatusCode::BAD_GATEWAY, "Upstream request failed").into_response()
 }
 
 fn internal_error_response() -> axum::response::Response<axum::body::Body> {
@@ -78,52 +60,29 @@ struct ProxyParams {
 
 async fn proxy_handler(Query(params): Query<ProxyParams>) -> impl IntoResponse {
     let validated = match validate_proxy_url(&params.url) {
-        Ok(u) => u,
+        Ok(url) => url,
         Err(reason) => {
-            log::warn!("Blocked proxy request to {}: {}", params.url, reason);
+            log::warn!("Blocked Prism proxy URL: {reason}");
             return (StatusCode::FORBIDDEN, reason.to_string()).into_response();
         }
     };
 
-    log::info!("Proxying: {}", validated);
-
-    let client = build_client("Prism/0.1 (proxy; +https://luminousdynamics.org)", 15);
-
-    match client.get(validated.as_str()).send().await {
-        Ok(resp) => {
-            let status = resp.status().as_u16();
-            let content_type = resp
-                .headers()
-                .get("content-type")
-                .and_then(|v| v.to_str().ok())
-                .unwrap_or("text/html")
-                .to_string();
-
-            match read_bounded(resp, MAX_RESPONSE_SIZE).await {
-                Ok(body) => {
-                    if body.len() > MAX_RESPONSE_SIZE {
-                        return (
-                            StatusCode::PAYLOAD_TOO_LARGE,
-                            "Response too large".to_string(),
-                        )
-                            .into_response();
-                    }
-                    axum::response::Response::builder()
-                        .status(status)
-                        .header("content-type", content_type)
-                        .header("x-prism-proxied", "true")
-                        .body(axum::body::Body::from(body))
-                        .unwrap_or_else(|_| internal_error_response())
-                        .into_response()
-                }
-                Err(e) => (
-                    StatusCode::BAD_GATEWAY,
-                    format!("Failed to read response body: {}", e),
-                )
-                    .into_response(),
-            }
+    match egress_request(Method::GET, validated.as_str(), HeaderMap::new(), Vec::new()).await {
+        Ok(response) => {
+            let content_type = response
+                .headers
+                .get(reqwest::header::CONTENT_TYPE)
+                .cloned()
+                .unwrap_or_else(|| HeaderValue::from_static("text/html"));
+            axum::response::Response::builder()
+                .status(response.status.as_u16())
+                .header(axum::http::header::CONTENT_TYPE, content_type)
+                .header("x-prism-proxied", "true")
+                .body(axum::body::Body::from(response.body))
+                .unwrap_or_else(|_| internal_error_response())
+                .into_response()
         }
-        Err(e) => (StatusCode::BAD_GATEWAY, format!("Fetch failed: {}", e)).into_response(),
+        Err(error) => upstream_error("proxy", error).into_response(),
     }
 }
 
@@ -134,23 +93,16 @@ struct DdgParams {
 }
 
 async fn ddg_handler(Query(params): Query<DdgParams>) -> impl IntoResponse {
-    let url = format!(
-        "https://api.duckduckgo.com/?q={}&format=json&no_html=1&skip_disambig=1",
-        params.q.replace(' ', "+")
-    );
-    log::info!("DDG proxy: {}", params.q);
+    let mut url = Url::parse("https://api.duckduckgo.com/").expect("static DDG URL is valid");
+    url.query_pairs_mut()
+        .append_pair("q", &params.q)
+        .append_pair("format", "json")
+        .append_pair("no_html", "1")
+        .append_pair("skip_disambig", "1");
 
-    let client = build_client("Prism/0.2 (ddg-proxy)", 10);
-
-    match client.get(&url).send().await {
-        Ok(resp) => {
-            let body = match read_bounded(resp, MAX_RESPONSE_SIZE).await {
-                Ok(body) => body,
-                Err(error) => return (StatusCode::BAD_GATEWAY, error).into_response(),
-            };
-            json_response(200, body).into_response()
-        }
-        Err(e) => (StatusCode::BAD_GATEWAY, format!("DDG fetch failed: {}", e)).into_response(),
+    match egress_request(Method::GET, url.as_str(), HeaderMap::new(), Vec::new()).await {
+        Ok(response) => json_response(response.status.as_u16(), response.body).into_response(),
+        Err(error) => upstream_error("DuckDuckGo", error).into_response(),
     }
 }
 
@@ -173,34 +125,21 @@ async fn brave_handler(
         return (StatusCode::UNAUTHORIZED, "Missing X-Brave-Key header").into_response();
     }
 
-    let url = format!(
-        "https://api.search.brave.com/res/v1/web/search?q={}",
-        params.q.replace(' ', "+")
-    );
-    log::info!("Brave proxy: {}", params.q);
+    let mut url = Url::parse("https://api.search.brave.com/res/v1/web/search")
+        .expect("static Brave URL is valid");
+    url.query_pairs_mut().append_pair("q", &params.q);
 
-    let client = build_client("Prism/0.2 (brave-proxy)", 15);
+    let token = match HeaderValue::from_str(api_key) {
+        Ok(value) => value,
+        Err(_) => return (StatusCode::BAD_REQUEST, "Invalid Brave API key header").into_response(),
+    };
+    let mut outbound_headers = HeaderMap::new();
+    outbound_headers.insert("X-Subscription-Token", token);
+    outbound_headers.insert(reqwest::header::ACCEPT, HeaderValue::from_static("application/json"));
 
-    match client
-        .get(&url)
-        .header("X-Subscription-Token", api_key)
-        .header("Accept", "application/json")
-        .send()
-        .await
-    {
-        Ok(resp) => {
-            let status = resp.status().as_u16();
-            let body = match read_bounded(resp, MAX_RESPONSE_SIZE).await {
-                Ok(body) => body,
-                Err(error) => return (StatusCode::BAD_GATEWAY, error).into_response(),
-            };
-            json_response(status, body).into_response()
-        }
-        Err(e) => (
-            StatusCode::BAD_GATEWAY,
-            format!("Brave fetch failed: {}", e),
-        )
-            .into_response(),
+    match egress_request(Method::GET, url.as_str(), outbound_headers, Vec::new()).await {
+        Ok(response) => json_response(response.status.as_u16(), response.body).into_response(),
+        Err(error) => upstream_error("Brave", error).into_response(),
     }
 }
 
@@ -218,31 +157,24 @@ async fn perplexity_handler(
         return (StatusCode::UNAUTHORIZED, "Missing X-Perplexity-Key header").into_response();
     }
 
-    log::info!("Perplexity proxy request");
+    let authorization = match HeaderValue::from_str(&format!("Bearer {api_key}")) {
+        Ok(value) => value,
+        Err(_) => return (StatusCode::BAD_REQUEST, "Invalid Perplexity API key header").into_response(),
+    };
+    let mut outbound_headers = HeaderMap::new();
+    outbound_headers.insert(reqwest::header::AUTHORIZATION, authorization);
+    outbound_headers.insert(reqwest::header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
-    let client = build_client("Prism/0.2 (perplexity-proxy)", 30);
-
-    match client
-        .post("https://api.perplexity.ai/chat/completions")
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Content-Type", "application/json")
-        .body(body.to_vec())
-        .send()
-        .await
+    match egress_request(
+        Method::POST,
+        "https://api.perplexity.ai/chat/completions",
+        outbound_headers,
+        body.to_vec(),
+    )
+    .await
     {
-        Ok(resp) => {
-            let status = resp.status().as_u16();
-            let body = match read_bounded(resp, MAX_RESPONSE_SIZE).await {
-                Ok(body) => body,
-                Err(error) => return (StatusCode::BAD_GATEWAY, error).into_response(),
-            };
-            json_response(status, body).into_response()
-        }
-        Err(e) => (
-            StatusCode::BAD_GATEWAY,
-            format!("Perplexity fetch failed: {}", e),
-        )
-            .into_response(),
+        Ok(response) => json_response(response.status.as_u16(), response.body).into_response(),
+        Err(error) => upstream_error("Perplexity", error).into_response(),
     }
 }
 
