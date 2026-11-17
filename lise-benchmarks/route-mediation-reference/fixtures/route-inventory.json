@@ -1,0 +1,148 @@
+{
+  "suite_id": "LISE-ROUTE-MEDIATION-v0.1",
+  "synthetic": true,
+  "scope": {
+    "scope_ref": "DEVSECOPS-DEPLOY-001",
+    "principal_ref": "AGENT-CODE-REVIEWER-01",
+    "action": "deploy_production",
+    "purpose": "release_approved_build",
+    "resource_ref": "production-environment",
+    "operation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "action_at": "2026-03-10T11:00:00Z",
+    "known_at": "2026-03-10T11:00:00Z"
+  },
+  "graph": {
+    "entry_points": [
+      "agent-entry"
+    ],
+    "protected_effect_nodes": [
+      "production-environment"
+    ],
+    "nodes": [
+      {
+        "node_id": "agent-entry",
+        "kind": "principal_entry"
+      },
+      {
+        "node_id": "workflow-connector",
+        "kind": "connector"
+      },
+      {
+        "node_id": "policy-pep",
+        "kind": "policy_enforcement_point"
+      },
+      {
+        "node_id": "github-api",
+        "kind": "connector"
+      },
+      {
+        "node_id": "background-worker",
+        "kind": "worker"
+      },
+      {
+        "node_id": "direct-api",
+        "kind": "connector"
+      },
+      {
+        "node_id": "production-environment",
+        "kind": "protected_effect"
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "E-AGENT-WORKFLOW",
+        "from": "agent-entry",
+        "to": "workflow-connector",
+        "enabled": true,
+        "effect_capable": true
+      },
+      {
+        "edge_id": "E-WORKFLOW-PEP",
+        "from": "workflow-connector",
+        "to": "policy-pep",
+        "enabled": true,
+        "effect_capable": true
+      },
+      {
+        "edge_id": "E-PEP-API",
+        "from": "policy-pep",
+        "to": "github-api",
+        "enabled": true,
+        "effect_capable": true
+      },
+      {
+        "edge_id": "E-API-PROD",
+        "from": "github-api",
+        "to": "production-environment",
+        "enabled": true,
+        "effect_capable": true
+      },
+      {
+        "edge_id": "E-AGENT-DIRECT",
+        "from": "agent-entry",
+        "to": "direct-api",
+        "enabled": true,
+        "effect_capable": true
+      },
+      {
+        "edge_id": "E-DIRECT-PROD",
+        "from": "direct-api",
+        "to": "production-environment",
+        "enabled": true,
+        "effect_capable": true
+      },
+      {
+        "edge_id": "E-WORKFLOW-WORKER",
+        "from": "workflow-connector",
+        "to": "background-worker",
+        "enabled": true,
+        "effect_capable": true
+      },
+      {
+        "edge_id": "E-WORKER-PROD",
+        "from": "background-worker",
+        "to": "production-environment",
+        "enabled": true,
+        "effect_capable": true
+      }
+    ]
+  },
+  "mediators": [
+    {
+      "mediator_ref": "PEP-GITHUB-ENV-PROTECTION-01",
+      "node_ref": "policy-pep",
+      "principal_ref": "AGENT-CODE-REVIEWER-01",
+      "action": "deploy_production",
+      "purpose": "release_approved_build",
+      "resource_ref": "production-environment",
+      "operation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "state": "active",
+      "valid_from": "2026-01-01T00:00:00Z",
+      "valid_through": "2026-12-31T23:59:59Z",
+      "observed_at": "2026-03-10T10:59:00Z",
+      "evidence_ref": "synthetic://pep/01"
+    }
+  ],
+  "inventory_receipt": {
+    "receipt_ref": "ROUTE-INVENTORY-RECEIPT-001",
+    "principal_ref": "AGENT-CODE-REVIEWER-01",
+    "action": "deploy_production",
+    "purpose": "release_approved_build",
+    "resource_ref": "production-environment",
+    "operation_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "graph_sha256": "3e21b25ed3afadd9170ccf2d322a32f834dd83a9ff6c13783761ac21f513fc40",
+    "completeness_state": "complete_for_scope",
+    "query_scope_exact": true,
+    "independent_inventory_source": true,
+    "inventory_source_ref": "synthetic://cloud-control-plane/route-enumeration/01",
+    "independent_observer_ref": "SYNTHETIC-OWNER-OBSERVER-01",
+    "coverage_from": "2026-01-01T00:00:00Z",
+    "coverage_through": "2026-03-10T11:00:00Z",
+    "observed_at": "2026-03-10T10:59:30Z",
+    "verification_state": "fixture_assertion_not_cryptographically_verified",
+    "issuer_trust": "untrusted_synthetic_fixture"
+  }
+}
