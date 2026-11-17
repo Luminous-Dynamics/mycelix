@@ -91,8 +91,8 @@ Keep address classification pure and deterministic. Prefer a maintained IANA spe
 1. `prism-serve` and `prism-proxy`: hosted public-only policy first.
 2. `prism-net`: explicit browsing policy; prevent background fetches from inheriting desktop navigation privileges.
 3. `prism-tauri`: retain intentional user-approved local browsing, but make local-network access explicit and ensure redirects/background work cannot silently broaden authority.
-4. `prism-ingest`: fixed source manifests and bounded blocking reads; no arbitrary URL bypass.
-5. Remove or quarantine duplicate direct clients only after their callers have been migrated and tests prove parity.
+4. `prism-ingest`: fixed Wikipedia/Wikidata sources use typed `prism-egress` authorities, bounded async fetches, pinned DNS snapshots, peer validation, and per-source success/error budgets; no arbitrary URL bypass.
+5. Retain only the two explicit desktop-navigation Reqwest clients; any new server-side HTTP caller must use a typed `prism-egress` authority.
 
 ### E4 — protocol and application boundaries
 
@@ -178,6 +178,10 @@ The conservative address table is aligned to the IANA IPv4 and IPv6 Special-Purp
 
 
 The redirect state machine deliberately prefers a failed fetch over an unreviewed destination: non-HTTP(S) targets, credentials in redirect URLs, non-default ports, unsafe DNS answers, DNS timeouts, loops, downgrade attempts, and more than five hops all terminate the operation before connecting to the next peer. This remains a public-web context only; no provider secret is carried across a redirect because provider authorities do not follow.
+
+
+
+The success/error budget split is now used by fixed-source ingestion: Wikipedia caps successful payloads at 2 MiB; Wikidata caps successful payloads at 16 MiB and non-success diagnostic payloads at 64 KiB. The 90-second absolute total-operation ceiling accommodates the previous Wikidata timeout while preserving a 30-second default for other authorities. Both fixed-source callers record the selected body limit as part of their redacted receipt output.
 
 ### Call-site migration and remaining contexts
 
