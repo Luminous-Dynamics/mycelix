@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/iaap-validation/claim-packet.schema.json",
+  "title": "IAAP Synthetic Claim Packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_id",
+    "packet_type",
+    "source_metadata",
+    "claim",
+    "declared_scope",
+    "system_boundary",
+    "supplied_evidence",
+    "declared_assumptions",
+    "reviewer_instruction"
+  ],
+  "properties": {
+    "record_id": {
+      "type": "string",
+      "pattern": "^IAAP-CAL-[0-9]{3}$"
+    },
+    "packet_type": {
+      "const": "synthetic_claim_packet"
+    },
+    "source_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "source_version",
+        "locator"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locator": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "claim": {
+      "type": "string",
+      "minLength": 1
+    },
+    "declared_scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "system_boundary": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "supplied_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "declared_assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "reviewer_instruction": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

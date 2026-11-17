@@ -1,0 +1,514 @@
+{
+  "corpus_id": "IAAP-CAL-24-v1",
+  "corpus_status": "public_calibration_only",
+  "purpose": "Open synthetic calibration packets for reviewer training and codebook refinement.",
+  "disclosure": "The corpus and its separate oracle are public. This is not a blinded holdout and must not be used as a confirmatory or hidden test set.",
+  "source_cutoff": "2026-11-15",
+  "record_count": 24,
+  "pair_count": 12,
+  "records": [
+    {
+      "record_id": "IAAP-CAL-001",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-ENFORCEMENT-BOUNDARY",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "Every tool call made by the agent passes through the named wrapper PEP before the wrapper invokes the tool.",
+      "declared_scope": "One agent process, one named wrapper, the six documented tool methods in the supplied harness, one test build.",
+      "system_boundary": [
+        "Agent process",
+        "Wrapper PEP-7",
+        "Six documented tool methods"
+      ],
+      "supplied_evidence": [
+        "Source review identifies the wrapper as the only call path exposed by the harness.",
+        "Instrumented tests show all six documented wrapper methods invoke PEP-7 before dispatch.",
+        "Negative controls show wrapper requests are denied when PEP-7 denies."
+      ],
+      "declared_assumptions": [
+        "The claim is limited to the six documented methods and the named harness build."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-002",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-ENFORCEMENT-BOUNDARY",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "Every operation capable of changing the protected resource, regardless of route, is mediated by PEP-7.",
+      "declared_scope": "The deployed service and all routes capable of changing protected records.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "Instrumented tests show the six documented wrapper methods invoke PEP-7.",
+        "An alternate import endpoint and direct database credential path are reachable, but neither is included in the route inventory.",
+        "No protected-resource tests cover the alternate import endpoint or direct database path."
+      ],
+      "declared_assumptions": [
+        "The route inventory is incomplete."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-003",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-EVIDENCE-ENDPOINT",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "The authorization engine permitted the exact request submitted by the application.",
+      "declared_scope": "One policy query with principal P, action A, resource R and context C.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "Versioned policy bundle digest and canonical PARC request are retained.",
+        "The policy engine response is Allow and includes determining policy identifiers and diagnostics.",
+        "No provider call or protected-resource state change is claimed."
+      ],
+      "declared_assumptions": [
+        "The policy engine and request capture are the stated evidence sources."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-004",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-EVIDENCE-ENDPOINT",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "The protected record was successfully updated to the requested value.",
+      "declared_scope": "One external write through a provider API.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "The policy engine returned Allow for the request.",
+        "The application wrote 'success' to its local log.",
+        "No provider response, provider state query, resource readback or independent observation is supplied."
+      ],
+      "declared_assumptions": [
+        "The local log is the only supplied post-decision record."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-005",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-PROVIDER-VS-INDEPENDENT-OBSERVATION",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "The provider reported that operation OP-5 was accepted.",
+      "declared_scope": "Provider API request OP-5.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "A provider-signed acknowledgement names OP-5, the submitted payload digest and an accepted status.",
+        "The receipt is directly issued by the same provider that received the request."
+      ],
+      "declared_assumptions": [
+        "The claim is deliberately limited to what the provider reported."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-006",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-PROVIDER-VS-INDEPENDENT-OBSERVATION",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "The external physical effect occurred and was independently verified.",
+      "declared_scope": "A physical actuator operation initiated through provider OP-5.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "A provider-signed acknowledgement names OP-5 and an accepted status.",
+        "No sensor, independent observer, resource-side state evidence or observer dependency declaration is supplied."
+      ],
+      "declared_assumptions": [
+        "The provider acknowledgement is the only outcome evidence."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-007",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-OBSERVER-INDEPENDENCE",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "Two separately operated observers independently observed the protected state transition.",
+      "declared_scope": "One resource transition during interval T.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "Observer A and Observer B have distinct operators, code lineages, credentials and data acquisition paths.",
+        "Both record the same operation identity and before/after resource state.",
+        "The dependency inventory records no shared upstream observer or common event feed within the declared boundary."
+      ],
+      "declared_assumptions": [
+        "Independence is asserted only relative to the declared dependency inventory."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-008",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-OBSERVER-INDEPENDENCE",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "Two independently observed sources corroborate the protected state transition.",
+      "declared_scope": "One resource transition during interval T.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "Observer A and Observer B publish separate signed records.",
+        "Both records are generated by the same operator, collector binary, cloud account and upstream event stream.",
+        "The dependency manifest explicitly records those shared dependencies."
+      ],
+      "declared_assumptions": [
+        "The source relationship is known, not merely unassessed."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-009",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-ISSUER-AUTHENTICITY",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "The supplied artifact has not changed since it was signed by issuer I-9.",
+      "declared_scope": "One signed evidence artifact and its exact byte representation.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "The signature verifies against the supplied public key.",
+        "The artifact digest matches the signed digest."
+      ],
+      "declared_assumptions": [
+        "No claim is made that I-9 is trusted, authorized or competent."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-010",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-ISSUER-AUTHENTICITY",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "Issuer I-9 is an authorized and competent source for the asserted institutional appointment.",
+      "declared_scope": "One appointment claim.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "The signature verifies against the supplied public key.",
+        "No trust-root, appointment, issuer-scope or claim-competence evidence is supplied."
+      ],
+      "declared_assumptions": [
+        "The artifact's cryptographic integrity is the only supplied issuer evidence."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-011",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-REVOCATION-PROPAGATION",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "A revoked session cannot perform the named protected write after revocation becomes effective and is known to the enforcement plane.",
+      "declared_scope": "All active sessions enumerated in the frozen deployment snapshot, over the stated test interval.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "Authority-native revocation event carries effective time and monotonic epoch 42.",
+        "Every enumerated session reports observed epoch 42 before the post-revocation write tests.",
+        "All post-revocation writes are denied at the resource-side enforcement point; read-only reconciliation remains available."
+      ],
+      "declared_assumptions": [
+        "The session inventory is declared complete for this bounded test deployment."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-012",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-REVOCATION-PROPAGATION",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "All sessions and delegated descendants enforce revocation before any later protected write.",
+      "declared_scope": "All sessions, workers and delegated descendants in the deployment.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "Authority-native revocation event carries effective time and monotonic epoch 42.",
+        "Connected sessions report epoch 42 and are denied in post-revocation tests.",
+        "One disconnected worker and its delegated child are absent from the session inventory; no propagation or effect evidence is supplied for them."
+      ],
+      "declared_assumptions": [
+        "The inventory explicitly excludes a known disconnected worker and delegated child."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-013",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-DELEGATION-CONTAINMENT",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "The direct child grant is no broader than its parent for action, resource, purpose, expiry, amount and operation count.",
+      "declared_scope": "One parent grant and its direct child.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "Both grants are machine-readable and bind the same principal lineage.",
+        "An independent comparator evaluates every listed scope dimension and confirms child subset relationships.",
+        "Boundary tests exercise the maximum amount, expiry and operation-count limits."
+      ],
+      "declared_assumptions": [
+        "The claim is limited to one direct delegation edge."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-014",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-DELEGATION-CONTAINMENT",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "Every descendant grant is no broader than the root grant.",
+      "declared_scope": "A three-level parent, child and grandchild delegation chain.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "The parent and child grant satisfy subset checks.",
+        "The grandchild adds access to a resource excluded by the root grant.",
+        "A trace shows the grandchild successfully uses that additional resource."
+      ],
+      "declared_assumptions": [
+        "The trace and grant records are complete for the named chain."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-015",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-FORMAL-IMPLEMENTATION-CORRESPONDENCE",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "The formal policy model satisfies default-deny and forbid-overrides-permit properties under the model assumptions.",
+      "declared_scope": "The versioned finite formal model and its declared transition semantics.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "Machine-checked proofs cover the stated model properties.",
+        "The model assumptions, state variables and theorem statements are versioned.",
+        "No claim is made about a deployed implementation."
+      ],
+      "declared_assumptions": [
+        "The claim is restricted to the formal model."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-016",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-FORMAL-IMPLEMENTATION-CORRESPONDENCE",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "The deployed production authorization service always enforces default-deny and forbid-overrides-permit.",
+      "declared_scope": "The production service, all deployed binaries and all protected routes.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "A formal model proves default-deny and forbid-overrides-permit in its abstract semantics.",
+        "No implementation refinement proof, binary correspondence, deployment identity or production route evidence is supplied."
+      ],
+      "declared_assumptions": [
+        "Implementation correspondence and route coverage are not established."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-017",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-ROUTE-INVENTORY",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "All reachable protected-write paths in deployment D traverse the named PEP-17.",
+      "declared_scope": "A bounded deployment snapshot with an owner-qualified route inventory.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "The owner-qualified inventory enumerates API, import, batch, direct database and recovery routes.",
+        "Reachability tests exercise every enumerated route.",
+        "Every route records PEP-17 as a mandatory pre-effect dependency; direct-path negative controls are denied.",
+        "The inventory completeness assertion is bound to the deployment snapshot and reviewed by an independent operator."
+      ],
+      "declared_assumptions": [
+        "The claim is limited to the exact frozen deployment snapshot and listed protected-write effect."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-018",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-ROUTE-INVENTORY",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "All reachable protected-write paths in deployment D traverse PEP-17.",
+      "declared_scope": "A bounded deployment snapshot with an owner-qualified route inventory.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "The inventory enumerates API, import and batch routes; all three traverse PEP-17.",
+        "A separately documented maintenance endpoint can write the same protected resource and does not traverse PEP-17.",
+        "A negative-control test demonstrates a write through the maintenance endpoint."
+      ],
+      "declared_assumptions": [
+        "The alternate route is reachable and within the claimed effect boundary."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-019",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-TRAJECTORY-PRIVILEGE",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "All privileges available to the agent during the trajectory remain within the approved task scope.",
+      "declared_scope": "The enumerated active task grants, ambient credentials and sessions for one trajectory.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "The owner-provided inventory includes every credential and active session accessible to the agent.",
+        "An admin token is available to the agent but explicitly unavailable to the evaluated process namespace and execution identity; credential isolation tests verify that boundary.",
+        "The effective privilege calculation is performed over grants actually reachable by the evaluated workload identity."
+      ],
+      "declared_assumptions": [
+        "The inventory and namespace isolation evidence are complete for the declared deployment."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-020",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-TRAJECTORY-PRIVILEGE",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "All privileges available to the agent during the trajectory remain within the approved task scope.",
+      "declared_scope": "All credentials, sessions, ambient privileges and secondary connectors available to the agent.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "The task grant is within approved scope.",
+        "A second active ambient credential is available to the same workload identity and permits deleting resources outside the task scope.",
+        "The agent does not use the credential in the observed successful trajectory."
+      ],
+      "declared_assumptions": [
+        "Unused but available credentials count as effective privilege."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-021",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-BITEMPORAL-HINDSIGHT",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "The historical decision packet contains only evidence available by its knowledge-time cutoff.",
+      "declared_scope": "Decision D at knowledge cutoff T.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "Each event has separate valid-time and recorded/known-time fields.",
+        "Replay at T excludes a document recorded after T even though the document asserts an earlier effective date.",
+        "Current replay includes the late document while preserving the original as-known-at-T packet digest."
+      ],
+      "declared_assumptions": [
+        "The ingress/recorded timestamps are trusted for this synthetic case."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-022",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-BITEMPORAL-HINDSIGHT",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "The historical decision packet reconstructs what was known at cutoff T.",
+      "declared_scope": "Decision D at knowledge cutoff T.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "A document recorded after T is backdated to an effective time before T.",
+        "The historical reconstruction includes that document in the as-known-at-T packet.",
+        "The trace shows the evaluator filtering only by asserted effective time."
+      ],
+      "declared_assumptions": [
+        "Recorded-time evidence is available and contradicts the reconstruction's inclusion."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-023",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-CLAIM-VS-EVIDENCE-STATUS",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "The source proposes a design for revocation propagation; it does not claim tested deployment behavior.",
+      "declared_scope": "A conceptual architecture note.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "The source labels the mechanism as proposed and lists unimplemented assumptions.",
+        "No empirical or implementation claim is made."
+      ],
+      "declared_assumptions": [
+        "This record assesses only the stated conceptual proposal."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    },
+    {
+      "record_id": "IAAP-CAL-024",
+      "packet_type": "synthetic_claim_packet",
+      "source_metadata": {
+        "source_id": "SYNTHETIC-CLAIM-VS-EVIDENCE-STATUS",
+        "source_version": "1.0.0",
+        "locator": "Synthetic fixture; no external source"
+      },
+      "claim": "The deployed system has been tested to reject every revoked and expired credential.",
+      "declared_scope": "A deployed service across all active sessions and routes.",
+      "system_boundary": [],
+      "supplied_evidence": [
+        "The source describes a proposed revocation mechanism.",
+        "No implementation tests, deployment identity, session inventory or post-revocation effect observations are provided.",
+        "The source nevertheless states that the deployed system has been tested."
+      ],
+      "declared_assumptions": [
+        "No supporting deployment evidence is available in the packet."
+      ],
+      "reviewer_instruction": "Appraise only this claim within its stated scope. Do not infer missing facts. Distinguish unsupported evidence from contradictory observations, and distinguish not-claimed from unproven."
+    }
+  ]
+}

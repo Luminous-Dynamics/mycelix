@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/iaap-validation/review-appraisal.schema.json",
+  "title": "IAAP Reviewer Claim Appraisal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_id",
+    "codebook_version",
+    "reviewer_ref",
+    "appraisal",
+    "property_code",
+    "claim_strength",
+    "enforcement_locus",
+    "observation_endpoint",
+    "evidence_completeness",
+    "source_independence",
+    "residual_assumptions",
+    "justified_claim_ceiling",
+    "rationale",
+    "confidence"
+  ],
+  "properties": {
+    "record_id": {
+      "type": "string",
+      "pattern": "^IAAP-CAL-[0-9]{3}$"
+    },
+    "codebook_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewer_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Pseudonymous reviewer reference; keep identity/conflict metadata outside public claim packets."
+    },
+    "appraisal": {
+      "enum": [
+        "SUPPORTED_AT_SCOPE",
+        "NARROWER_SUPPORT_ONLY",
+        "UNSUPPORTED_EVIDENCE",
+        "CONTRADICTED_BY_OBSERVATION",
+        "INDETERMINATE",
+        "NOT_CLAIMED"
+      ]
+    },
+    "property_code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claim_strength": {
+      "enum": [
+        "DESCRIPTIVE",
+        "ASSERTED",
+        "TESTED",
+        "IMPLEMENTED",
+        "FORMALLY_ESTABLISHED_IN_MODEL",
+        "INDEPENDENTLY_REPLICATED",
+        "UNSPECIFIED"
+      ]
+    },
+    "enforcement_locus": {
+      "enum": [
+        "PROVISIONING",
+        "TASK_START",
+        "PLANNING",
+        "TOOL_ADMISSION",
+        "EXECUTION",
+        "RESOURCE_SIDE",
+        "POST_HOC_ONLY",
+        "NOT_APPLICABLE",
+        "UNKNOWN"
+      ]
+    },
+    "observation_endpoint": {
+      "enum": [
+        "MODEL_OUTPUT",
+        "TOOL_SELECTION",
+        "CALL_ATTEMPT",
+        "PEP_DECISION",
+        "DISPATCH",
+        "PROVIDER_ACKNOWLEDGEMENT",
+        "PROVIDER_STATUS",
+        "PROTECTED_STATE",
+        "INDEPENDENT_OBSERVATION",
+        "RECONCILIATION",
+        "CONCEPTUAL_ONLY",
+        "UNKNOWN"
+      ]
+    },
+    "evidence_completeness": {
+      "enum": [
+        "COMPLETE_FOR_DECLARED_SCOPE",
+        "PARTIAL",
+        "KNOWN_OMISSION",
+        "UNKNOWN",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "source_independence": {
+      "enum": [
+        "QUALIFIED_WITHIN_DECLARED_GRAPH",
+        "KNOWN_SHARED_DEPENDENCY",
+        "UNKNOWN_OR_UNASSESSED",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "residual_assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "justified_claim_ceiling": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1
+    },
+    "confidence": {
+      "enum": [
+        "LOW",
+        "MODERATE",
+        "HIGH"
+      ]
+    },
+    "abstention_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "alternative_interpretations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

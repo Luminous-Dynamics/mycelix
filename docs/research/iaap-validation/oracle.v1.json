@@ -1,0 +1,272 @@
+{
+  "corpus_id": "IAAP-CAL-24-v1",
+  "oracle_status": "public_calibration_key",
+  "disclosure": "Public answer key; not a concealed oracle. Do not report reviewer scores on this public calibration set as blinded or independent validation.",
+  "expected_record_count": 24,
+  "outcomes": [
+    {
+      "record_id": "IAAP-CAL-001",
+      "expected_appraisal": "SUPPORTED_AT_SCOPE",
+      "property_code": "tool_call",
+      "enforcement_locus_code": "wrapper_pep",
+      "observation_endpoint_code": "tool-call observation",
+      "coverage_code": "complete within explicitly enumerated methods",
+      "residual_assumption_code": "assumption: harness boundary",
+      "justified_claim_ceiling": "Tool-call mediation is supported only for the six documented wrapper methods and named harness build; no broader route claim follows.",
+      "pair_id": "PAIR-01"
+    },
+    {
+      "record_id": "IAAP-CAL-002",
+      "expected_appraisal": "INDETERMINATE",
+      "property_code": "complete_mediation",
+      "enforcement_locus_code": "unknown_or_incomplete",
+      "observation_endpoint_code": "call-level only",
+      "coverage_code": "incomplete; alternate routes omitted",
+      "residual_assumption_code": "known inventory gap",
+      "justified_claim_ceiling": "The broad claim cannot be evaluated because a known reachable route is outside the route inventory and has no protected-effect evidence.",
+      "pair_id": "PAIR-01"
+    },
+    {
+      "record_id": "IAAP-CAL-003",
+      "expected_appraisal": "SUPPORTED_AT_SCOPE",
+      "property_code": "policy_decision",
+      "enforcement_locus_code": "pdp",
+      "observation_endpoint_code": "policy response",
+      "coverage_code": "one request captured",
+      "residual_assumption_code": "policy and request identity",
+      "justified_claim_ceiling": "The policy engine permitted the exact captured PARC request. No protected-resource write or provider effect is established or claimed.",
+      "pair_id": "PAIR-02"
+    },
+    {
+      "record_id": "IAAP-CAL-004",
+      "expected_appraisal": "NARROWER_SUPPORT_ONLY",
+      "property_code": "effect_accounting",
+      "enforcement_locus_code": "application_log",
+      "observation_endpoint_code": "local log",
+      "coverage_code": "no provider or resource observation",
+      "residual_assumption_code": "provider/effect absent",
+      "justified_claim_ceiling": "Evidence supports that policy evaluation permitted and the application logged a local success string; it does not establish that the protected record changed.",
+      "pair_id": "PAIR-02"
+    },
+    {
+      "record_id": "IAAP-CAL-005",
+      "expected_appraisal": "SUPPORTED_AT_SCOPE",
+      "property_code": "provider_report",
+      "enforcement_locus_code": "provider_endpoint",
+      "observation_endpoint_code": "provider acknowledgement",
+      "coverage_code": "one operation ID",
+      "residual_assumption_code": "provider is the reporting source",
+      "justified_claim_ceiling": "The provider reported acceptance of OP-5. This does not independently establish external or physical completion.",
+      "pair_id": "PAIR-03"
+    },
+    {
+      "record_id": "IAAP-CAL-006",
+      "expected_appraisal": "NARROWER_SUPPORT_ONLY",
+      "property_code": "effect_accounting",
+      "enforcement_locus_code": "provider_endpoint",
+      "observation_endpoint_code": "provider acknowledgement",
+      "coverage_code": "no independent observer",
+      "residual_assumption_code": "no sensor/state evidence",
+      "justified_claim_ceiling": "Evidence supports a provider-reported accepted status only; it does not support independent observation of a realized physical effect.",
+      "pair_id": "PAIR-03"
+    },
+    {
+      "record_id": "IAAP-CAL-007",
+      "expected_appraisal": "SUPPORTED_AT_SCOPE",
+      "property_code": "independent_observation",
+      "enforcement_locus_code": "two_observer_paths",
+      "observation_endpoint_code": "protected state before/after",
+      "coverage_code": "complete for declared observer set",
+      "residual_assumption_code": "independence conditional on declared graph",
+      "justified_claim_ceiling": "Two observers support the stated state transition under the disclosed dependency boundary; the result is scoped to that inventory.",
+      "pair_id": "PAIR-04"
+    },
+    {
+      "record_id": "IAAP-CAL-008",
+      "expected_appraisal": "CONTRADICTED_BY_OBSERVATION",
+      "property_code": "evidence_independence",
+      "enforcement_locus_code": "shared_observer_path",
+      "observation_endpoint_code": "two signed records with known common cause",
+      "coverage_code": "shared dependency explicitly observed",
+      "residual_assumption_code": "names/signatures do not establish independence",
+      "justified_claim_ceiling": "The claim of independent corroboration is contradicted by the supplied shared operator, collector, account and upstream event stream.",
+      "pair_id": "PAIR-04"
+    },
+    {
+      "record_id": "IAAP-CAL-009",
+      "expected_appraisal": "SUPPORTED_AT_SCOPE",
+      "property_code": "artifact_integrity",
+      "enforcement_locus_code": "signature_verification",
+      "observation_endpoint_code": "signed bytes and digest",
+      "coverage_code": "one artifact",
+      "residual_assumption_code": "key trust not asserted",
+      "justified_claim_ceiling": "The signature supports byte integrity relative to the supplied key; no issuer trust, authorization or competence claim is made.",
+      "pair_id": "PAIR-05"
+    },
+    {
+      "record_id": "IAAP-CAL-010",
+      "expected_appraisal": "UNSUPPORTED_EVIDENCE",
+      "property_code": "issuer_trust_and_competence",
+      "enforcement_locus_code": "signature_only",
+      "observation_endpoint_code": "signed bytes",
+      "coverage_code": "no trust-root or competence evidence",
+      "residual_assumption_code": "claim exceeds supplied evidence",
+      "justified_claim_ceiling": "Signature validity alone does not establish that issuer I-9 is authorized or competent for the appointment claim.",
+      "pair_id": "PAIR-05"
+    },
+    {
+      "record_id": "IAAP-CAL-011",
+      "expected_appraisal": "SUPPORTED_AT_SCOPE",
+      "property_code": "revocation_propagation",
+      "enforcement_locus_code": "resource_side_pep",
+      "observation_endpoint_code": "post-revocation denial",
+      "coverage_code": "complete for enumerated sessions and interval",
+      "residual_assumption_code": "bounded deployment scope",
+      "justified_claim_ceiling": "The bounded session inventory observed the current revocation epoch and resource-side denial before post-revocation writes; read-only reconciliation remains available.",
+      "pair_id": "PAIR-06"
+    },
+    {
+      "record_id": "IAAP-CAL-012",
+      "expected_appraisal": "INDETERMINATE",
+      "property_code": "revocation_propagation",
+      "enforcement_locus_code": "control_plane_only",
+      "observation_endpoint_code": "connected-session denial only",
+      "coverage_code": "known missing worker/child",
+      "residual_assumption_code": "incomplete session inventory",
+      "justified_claim_ceiling": "Propagation to a known disconnected worker and delegated child is unobserved; the universal claim cannot be established.",
+      "pair_id": "PAIR-06"
+    },
+    {
+      "record_id": "IAAP-CAL-013",
+      "expected_appraisal": "SUPPORTED_AT_SCOPE",
+      "property_code": "delegation_containment",
+      "enforcement_locus_code": "delegation_edge",
+      "observation_endpoint_code": "scope comparison and boundary tests",
+      "coverage_code": "one direct edge",
+      "residual_assumption_code": "direct-edge scope only",
+      "justified_claim_ceiling": "The direct child is contained within its parent across the six stated dimensions; this does not establish all deeper descendants.",
+      "pair_id": "PAIR-07"
+    },
+    {
+      "record_id": "IAAP-CAL-014",
+      "expected_appraisal": "CONTRADICTED_BY_OBSERVATION",
+      "property_code": "delegation_containment",
+      "enforcement_locus_code": "descendant_effect",
+      "observation_endpoint_code": "successful out-of-root resource use",
+      "coverage_code": "three-level chain",
+      "residual_assumption_code": "known scope amplification",
+      "justified_claim_ceiling": "The grandchild uses a resource excluded by the root grant; the universal descendant-containment claim is contradicted.",
+      "pair_id": "PAIR-07"
+    },
+    {
+      "record_id": "IAAP-CAL-015",
+      "expected_appraisal": "SUPPORTED_AT_SCOPE",
+      "property_code": "formal_model_property",
+      "enforcement_locus_code": "formal_model",
+      "observation_endpoint_code": "machine-checked theorem",
+      "coverage_code": "complete for named theorem/model",
+      "residual_assumption_code": "no implementation correspondence claimed",
+      "justified_claim_ceiling": "The proofs establish the named properties only within the formal model and assumptions.",
+      "pair_id": "PAIR-08"
+    },
+    {
+      "record_id": "IAAP-CAL-016",
+      "expected_appraisal": "NARROWER_SUPPORT_ONLY",
+      "property_code": "implementation_correspondence",
+      "enforcement_locus_code": "formal_model_only",
+      "observation_endpoint_code": "model theorem",
+      "coverage_code": "no binary/route evidence",
+      "residual_assumption_code": "implementation mapping missing",
+      "justified_claim_ceiling": "The formal model supports an in-model property; the evidence does not establish that the production deployment refines or implements that model.",
+      "pair_id": "PAIR-08"
+    },
+    {
+      "record_id": "IAAP-CAL-017",
+      "expected_appraisal": "SUPPORTED_AT_SCOPE",
+      "property_code": "complete_mediation",
+      "enforcement_locus_code": "exact_named_pep",
+      "observation_endpoint_code": "route reachability and negative controls",
+      "coverage_code": "complete in frozen snapshot",
+      "residual_assumption_code": "deployment snapshot bound",
+      "justified_claim_ceiling": "The declared, reviewed inventory and route tests support complete mediation for the named effect in the frozen deployment snapshot.",
+      "pair_id": "PAIR-09"
+    },
+    {
+      "record_id": "IAAP-CAL-018",
+      "expected_appraisal": "CONTRADICTED_BY_OBSERVATION",
+      "property_code": "complete_mediation",
+      "enforcement_locus_code": "alternate_route_bypass",
+      "observation_endpoint_code": "protected write through non-PEP route",
+      "coverage_code": "alternate route observed",
+      "residual_assumption_code": "known bypass",
+      "justified_claim_ceiling": "A reachable maintenance endpoint writes the protected resource without PEP-17, directly contradicting the mediation claim.",
+      "pair_id": "PAIR-09"
+    },
+    {
+      "record_id": "IAAP-CAL-019",
+      "expected_appraisal": "SUPPORTED_AT_SCOPE",
+      "property_code": "trajectory_least_privilege",
+      "enforcement_locus_code": "workload_identity_boundary",
+      "observation_endpoint_code": "credential isolation and inventory",
+      "coverage_code": "complete for evaluated identity",
+      "residual_assumption_code": "identity/namespace binding",
+      "justified_claim_ceiling": "The available privileges of the evaluated workload identity are within scope; an inaccessible admin token is excluded by tested namespace isolation.",
+      "pair_id": "PAIR-10"
+    },
+    {
+      "record_id": "IAAP-CAL-020",
+      "expected_appraisal": "CONTRADICTED_BY_OBSERVATION",
+      "property_code": "trajectory_least_privilege",
+      "enforcement_locus_code": "ambient_credential",
+      "observation_endpoint_code": "credential reachability and scope",
+      "coverage_code": "active secondary grant observed",
+      "residual_assumption_code": "unused privilege still available",
+      "justified_claim_ceiling": "An unused but reachable ambient credential grants deletion outside task scope; availability itself violates the stated least-privilege claim.",
+      "pair_id": "PAIR-10"
+    },
+    {
+      "record_id": "IAAP-CAL-021",
+      "expected_appraisal": "SUPPORTED_AT_SCOPE",
+      "property_code": "bitemporal_reconstruction",
+      "enforcement_locus_code": "recorded_time_cutoff",
+      "observation_endpoint_code": "replay and packet digest",
+      "coverage_code": "complete for supplied event set",
+      "residual_assumption_code": "recorded-time integrity",
+      "justified_claim_ceiling": "The as-known-at-T packet excludes later-recorded evidence while the current view includes it and preserves the historical packet digest.",
+      "pair_id": "PAIR-11"
+    },
+    {
+      "record_id": "IAAP-CAL-022",
+      "expected_appraisal": "CONTRADICTED_BY_OBSERVATION",
+      "property_code": "bitemporal_reconstruction",
+      "enforcement_locus_code": "valid_time_only",
+      "observation_endpoint_code": "historical replay trace",
+      "coverage_code": "late-arriving event observed",
+      "residual_assumption_code": "hindsight leakage",
+      "justified_claim_ceiling": "The replay uses asserted valid time while ignoring recorded time and therefore imports later knowledge into the historical packet.",
+      "pair_id": "PAIR-11"
+    },
+    {
+      "record_id": "IAAP-CAL-023",
+      "expected_appraisal": "NOT_CLAIMED",
+      "property_code": "revocation_propagation",
+      "enforcement_locus_code": "not_applicable",
+      "observation_endpoint_code": "conceptual proposal only",
+      "coverage_code": "not applicable",
+      "residual_assumption_code": "property not claimed",
+      "justified_claim_ceiling": "The source proposes a revocation design but makes no claim of tested deployment behavior; do not score an unclaimed property as a failure.",
+      "pair_id": "PAIR-12"
+    },
+    {
+      "record_id": "IAAP-CAL-024",
+      "expected_appraisal": "UNSUPPORTED_EVIDENCE",
+      "property_code": "deployment_revocation_test",
+      "enforcement_locus_code": "proposal_only",
+      "observation_endpoint_code": "conceptual proposal only",
+      "coverage_code": "no deployment evidence",
+      "residual_assumption_code": "asserted test evidence absent",
+      "justified_claim_ceiling": "The claim of deployed testing is unsupported by the supplied proposal; there are no implementation, deployment, inventory or effect observations.",
+      "pair_id": "PAIR-12"
+    }
+  ]
+}
