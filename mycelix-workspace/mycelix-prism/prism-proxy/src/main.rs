@@ -32,8 +32,30 @@ async fn egress_request(
 }
 
 fn upstream_error(context: &str, error: EgressError) -> axum::response::Response<axum::body::Body> {
-    log::warn!("Prism egress {context} failed: {error}");
-    (StatusCode::BAD_GATEWAY, "Upstream request failed").into_response()
+    let (status, message) = match error {
+        EgressError::InvalidUrl(_) => (StatusCode::BAD_REQUEST, "Invalid request URL"),
+        EgressError::UrlTooLarge => (StatusCode::URI_TOO_LONG, "Request URL too large"),
+        EgressError::RequestBodyTooLarge => (StatusCode::PAYLOAD_TOO_LARGE, "Request body too large"),
+        EgressError::RequestHeadersTooLarge | EgressError::ForbiddenHeader(_) => {
+            (StatusCode::BAD_REQUEST, "Request headers not permitted")
+        }
+        EgressError::ResponseBodyTooLarge => (StatusCode::BAD_GATEWAY, "Upstream response too large"),
+        EgressError::DnsResolution { .. } | EgressError::EmptyAddressSet(_) | EgressError::Http(_) => {
+            (StatusCode::BAD_GATEWAY, "Upstream request failed")
+        }
+        EgressError::CapabilityExpired => (StatusCode::SERVICE_UNAVAILABLE, "Request authorization expired"),
+        EgressError::UnsupportedScheme
+        | EgressError::CredentialsNotPermitted
+        | EgressError::BlockedHost
+        | EgressError::PortNotPermitted
+        | EgressError::MissingHost
+        | EgressError::AddressNotPermitted(_)
+        | EgressError::MethodNotPermitted
+        | EgressError::RequestRequiresTls => (StatusCode::FORBIDDEN, "Destination or request not permitted"),
+    };
+    // Do not log URLs, query strings, header values, or transport error details.
+    log::warn!("Prism egress {context} returned status {}", status.as_u16());
+    (status, message).into_response()
 }
 
 fn internal_error_response() -> axum::response::Response<axum::body::Body> {
