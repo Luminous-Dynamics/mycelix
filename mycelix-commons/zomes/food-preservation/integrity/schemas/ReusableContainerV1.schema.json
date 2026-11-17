@@ -18,7 +18,10 @@
     "compatible_product_refs",
     "registered_at",
     "steward",
-    "evidence"
+    "evidence",
+    "empty_mass_g",
+    "embodied_impact_mg_co2e",
+    "embodied_impact_source_ref"
   ],
   "properties": {
     "id": {
@@ -92,6 +95,26 @@
     },
     "evidence": {
       "$ref": "#/$defs/evidence"
+    },
+    "empty_mass_g": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Measured empty container plus closure mass in grams"
+    },
+    "embodied_impact_mg_co2e": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "One-time packaging embodied impact under a declared LCA method"
+    },
+    "embodied_impact_source_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
     }
   },
   "allOf": [
