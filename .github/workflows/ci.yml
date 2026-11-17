@@ -454,6 +454,20 @@ jobs:
           require_source 'MAX_PUBLIC_WEB_REDIRECT_HOPS: usize = 5' "$egress"
           require_source 'self.authorize_with_authority(' "$egress"
           require_source 'redirect_hops.push(RedirectHopReceipt' "$egress"
+          require_source 'EgressAuthority::WikipediaSummary' "$egress"
+          require_source 'EgressAuthority::WikidataSparql' "$egress"
+          require_source 'max_error_response_body_bytes' "$egress"
+          require_source 'response_body_limit_bytes' "$egress"
+          for ingestion in \
+            mycelix-prism/prism-ingest/src/bin/build_corpus.rs \
+            mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs; do
+            if grep -Eq 'reqwest::blocking|Client::builder|Policy::limited|Policy::custom' "$ingestion"; then
+              echo "Fixed-source ingestion must use typed prism-egress authority: $ingestion"
+              exit 1
+            fi
+          done
+          require_source 'EgressAuthority::WikipediaSummary' mycelix-prism/prism-ingest/src/bin/build_corpus.rs
+          require_source 'EgressAuthority::WikidataSparql' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
           for hosted in mycelix-prism/prism-proxy/src/main.rs mycelix-prism/prism-serve/src/main.rs; do
             if grep -Eq 'reqwest::Client::builder|Policy::limited|Policy::custom' "$hosted"; then
               echo "Hosted service must not create an independent or auto-redirecting Reqwest client: $hosted"
