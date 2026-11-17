@@ -18,7 +18,7 @@ use axum::routing::{get, post};
 use prism_common::ssrf::validate_proxy_url;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tower_http::compression::CompressionLayer;
 use tower_http::services::{ServeDir, ServeFile};
@@ -300,17 +300,53 @@ async fn symthaea_query_handler(
             .write_all(line.as_bytes())
             .await
             .map_err(|e| format!("write failed: {e}"))?;
-        let reader = BufReader::new(stream);
-        let mut response_line = String::new();
-        let bytes_read = reader
-            .take((MAX_SYMTHAEA_RESPONSE_LINE_BYTES + 1) as u64)
-            .read_line(&mut response_line)
-            .await
-            .map_err(|e| format!("read failed: {e}"))?;
-        if bytes_read > MAX_SYMTHAEA_RESPONSE_LINE_BYTES || !response_line.ends_with('\n') {
-            return Err("Symthaea response line exceeded its limit or was unterminated".to_string());
+        let mut reader = BufReader::new(stream);
+        let mut response_line = Vec::with_capacity(1024);
+        loop {
+            let (chunk, consumed, newline_found, too_large) = {
+                let available = reader
+                    .fill_buf()
+                    .await
+                    .map_err(|e| format!("read failed: {e}"))?;
+                if available.is_empty() {
+                    return Err("Symthaea response ended before its newline terminator".to_string());
+                }
+                let remaining_with_sentinel = MAX_SYMTHAEA_RESPONSE_LINE_BYTES
+                    .saturating_sub(response_line.len())
+                    .saturating_add(1);
+                let inspected = available.len().min(remaining_with_sentinel);
+                let candidate = &available[..inspected];
+                match candidate.iter().position(|byte| *byte == b'\n') {
+                    Some(index) => {
+                        let consumed = index + 1;
+                        (
+                            candidate[..consumed].to_vec(),
+                            consumed,
+                            true,
+                            response_line.len().saturating_add(consumed)
+                                > MAX_SYMTHAEA_RESPONSE_LINE_BYTES,
+                        )
+                    }
+                    None => (
+                        candidate.to_vec(),
+                        inspected,
+                        false,
+                        response_line.len().saturating_add(inspected)
+                            > MAX_SYMTHAEA_RESPONSE_LINE_BYTES,
+                    ),
+                }
+            };
+            reader.consume(consumed);
+            response_line.extend_from_slice(&chunk);
+            if too_large {
+                return Err("Symthaea response line exceeded its byte limit".to_string());
+            }
+            if newline_found {
+                break;
+            }
         }
-        Ok(response_line)
+        String::from_utf8(response_line)
+            .map_err(|_| "Symthaea response line was not valid UTF-8".to_string())
     }
     .await;
 
