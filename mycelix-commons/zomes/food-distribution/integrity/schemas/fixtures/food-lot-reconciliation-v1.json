@@ -98,6 +98,24 @@
       "scenario": "Listing/order references are present but no local physical receipt observation exists.",
       "expected_disposition": "indeterminate",
       "planning_eligibility": "unknown"
+    },
+    {
+      "case_id": "resolved-but-insufficient-household-quantity",
+      "scenario": "Lot and receipt reconcile fully, but available accepted remainder is lower than the recipe requirement. Report is resolved with planning eligibility not_eligible.",
+      "expected_disposition": "resolved",
+      "planning_eligibility": "not_eligible"
+    },
+    {
+      "case_id": "missing-canonical-producer-lot",
+      "scenario": "No canonical producer lot record is supplied. Lot identity/revision fields in the report are null, never empty-string placeholders.",
+      "expected_disposition": "indeterminate",
+      "planning_eligibility": "unknown"
+    },
+    {
+      "case_id": "unreferenced-child-receipt",
+      "scenario": "A child receipt is supplied but no parent Split event names it; orphan child receipts are a split-history conflict.",
+      "expected_disposition": "conflicted",
+      "planning_eligibility": "not_eligible"
     }
   ]
 }
