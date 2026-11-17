@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/food/SingleUsePackagingBaselineV1.schema.json",
+  "title": "SingleUsePackagingBaselineV1",
+  "description": "Source-linked single-use packaging comparator on the same accepted-serving functional unit and region/year factor set as a reusable-container report.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "baseline_ref",
+    "factor_set_ref",
+    "geography",
+    "reference_year",
+    "packaging_units_numerator",
+    "packaging_units_denominator",
+    "packaging_mass_g_per_unit",
+    "transported_mass_g_per_unit",
+    "distribution_distance_m_per_unit",
+    "distribution_mode",
+    "embodied_impact_mg_co2e_per_unit",
+    "end_of_life_impact_mg_co2e_per_unit",
+    "evidence"
+  ],
+  "properties": {
+    "baseline_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "factor_set_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "geography": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reference_year": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "packaging_units_numerator": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "packaging_units_denominator": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "packaging_mass_g_per_unit": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "transported_mass_g_per_unit": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "distribution_distance_m_per_unit": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "distribution_mode": {
+      "enum": [
+        "HumanPowered",
+        "Bicycle",
+        "Motorcycle",
+        "PassengerVehicle",
+        "LightCommercialVehicle",
+        "HeavyGoodsVehicle",
+        "Rail",
+        "Ship",
+        "Air",
+        "Other"
+      ]
+    },
+    "embodied_impact_mg_co2e_per_unit": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "end_of_life_impact_mg_co2e_per_unit": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "evidence": {
+      "$ref": "https://luminousdynamics.io/schemas/food/ContainerLifecycleImpactFactorsV1.schema.json#/$defs/evidence"
+    }
+  }
+}
