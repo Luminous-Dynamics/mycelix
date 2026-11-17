@@ -505,6 +505,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn pinned_client_does_not_follow_redirects_to_unvalidated_destinations() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            let mut buffer = [0u8; 1024];
+            loop {
+                let count = stream.read(&mut buffer).await.unwrap();
+                if count == 0 {
+                    break;
+                }
+                request.extend_from_slice(&buffer[..count]);
+                if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                    break;
+                }
+            }
+            stream
+                .write_all(
+                    b"HTTP/1.1 302 Found\r\nLocation: http://metadata.google.internal/\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                )
+                .await
+                .unwrap();
+        });
+
+        let client = build_pinned_client(
+            "prism-redirect-test.invalid",
+            &[address],
+            true,
+            Duration::from_secs(2),
+            Duration::from_secs(5),
+        )
+        .unwrap();
+        let url = format!("http://prism-redirect-test.invalid:{}/", address.port());
+        let response = client.get(&url).send().await.unwrap();
+        assert_eq!(response.status(), StatusCode::FOUND);
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
     async fn pinned_reqwest_client_connects_to_the_override_not_system_dns() {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
