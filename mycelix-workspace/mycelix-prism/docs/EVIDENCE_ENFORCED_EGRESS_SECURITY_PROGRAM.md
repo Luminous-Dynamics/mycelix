@@ -248,7 +248,7 @@ The `prism-egress` source and integration corpus include tests for 47 versioned 
 - representative public IPv4/IPv6 addresses and special-purpose, private, transition, multicast, documentation, and benchmarking ranges;
 - mixed public/private DNS answer rejection and empty answer sets;
 - deterministic injected-resolver snapshots and exactly one resolver call during authorization;
-- full local end-to-end authorization through the injected DNS snapshot, pinned socket connection, original Host preservation, observed-peer verification, and receipt generation (the loopback exception exists only under `cfg(test)`);
+- full local end-to-end authorization through the injected DNS snapshot, pinned socket connection, original Host preservation, observed-peer verification, and receipt generation; a scripted rebinding resolver returns a different private peer on a second lookup and the test proves that no second lookup or connection occurs (the loopback exception exists only under `cfg(test)`);
 - actual Reqwest destination pinning to a local test listener while preserving the original Host authority, followed by observed-peer membership validation;
 - missing/unexpected peer evidence rejection and successful receipts recording the observed peer;
 - metadata-host redirect rejection through the high-level PublicWeb execution path, duplicate `Location` rejection, relative redirect target parsing, HTTPS downgrade rejection, loop detection, and provider no-follow policy;
