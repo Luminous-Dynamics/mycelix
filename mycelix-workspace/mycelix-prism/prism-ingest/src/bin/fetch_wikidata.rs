@@ -9,7 +9,10 @@
 
 use std::collections::HashSet;
 use std::fmt::Write as FmtWrite;
-use std::io::{Read, Write};
+use prism_egress::{EgressAuthority, EgressLimits, HeaderMap, Method, PublicEgressClient};
+use std::io::Write;
+use std::time::Duration;
+use url::Url;
 
 const MAX_WIKIDATA_RESPONSE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_WIKIDATA_ERROR_BYTES: u64 = 64 * 1024;
@@ -27,20 +30,22 @@ struct QuerySpec {
 
 fn main() {
     let queries = build_queries();
-    let client = reqwest::blocking::Client::builder()
-        .user_agent("PrismIngest/0.1 (https://luminousdynamics.org; tristan.stoltz@evolvingresonantcocreationism.com)")
-        .redirect(reqwest::redirect::Policy::none())
-        .no_proxy()
-        .timeout(std::time::Duration::from_secs(90))
+    let mut limits = EgressLimits::default();
+    limits.max_response_body_bytes = MAX_WIKIDATA_RESPONSE_BYTES as usize;
+    limits.max_error_response_body_bytes = MAX_WIKIDATA_ERROR_BYTES as usize;
+    limits.request_timeout = Duration::from_secs(90);
+    let client = PublicEgressClient::new(limits);
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
         .build()
-        .expect("Failed to build HTTP client");
+        .expect("Tokio runtime");
 
     let mut all_claims: Vec<(String, &[&str], &[&str])> = Vec::new();
     let mut seen = HashSet::new();
 
     for spec in &queries {
         eprintln!("Fetching: {} ...", spec.name);
-        match fetch_query(&client, spec.sparql) {
+        match fetch_query(&runtime, &client, spec.sparql) {
             Ok(results) => {
                 let mut count = 0;
                 for binding in &results {
@@ -168,18 +173,39 @@ fn chrono_now() -> String {
 }
 
 fn fetch_query(
-    client: &reqwest::blocking::Client,
+    runtime: &tokio::runtime::Runtime,
+    client: &PublicEgressClient,
     sparql: &str,
 ) -> Result<Vec<serde_json::Value>, String> {
     let max_retries = 3;
     for attempt in 0..max_retries {
-        let resp = client
-            .get(ENDPOINT)
-            .query(&[("query", sparql), ("format", "json")])
-            .send()
-            .map_err(|e| format!("HTTP error: {}", e))?;
+        let mut url = Url::parse(ENDPOINT).expect("static Wikidata endpoint is valid");
+        url.query_pairs_mut()
+            .append_pair("query", sparql)
+            .append_pair("format", "json");
 
-        if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        let response = runtime
+            .block_on(client.request_with_authority(
+                EgressAuthority::WikidataSparql,
+                Method::GET,
+                url.as_str(),
+                HeaderMap::new(),
+                Vec::new(),
+            ))
+            .map_err(|error| format!("Egress request failed: {error}"))?;
+
+        eprintln!(
+            "    EGRESS authority={} origin={} peer={} status={} bytes={}/{} elapsed_ms={}",
+            response.receipt.authority,
+            response.receipt.origin,
+            response.receipt.remote_peer,
+            response.receipt.status,
+            response.receipt.response_body_bytes,
+            response.receipt.response_body_limit_bytes,
+            response.receipt.elapsed.as_millis(),
+        );
+
+        if response.status.as_u16() == 429 {
             if attempt < max_retries - 1 {
                 let wait = 60; // Wikidata usually says retry in ~45s
                 eprintln!(
@@ -188,42 +214,22 @@ fn fetch_query(
                     attempt + 1,
                     max_retries
                 );
-                std::thread::sleep(std::time::Duration::from_secs(wait));
+                std::thread::sleep(Duration::from_secs(wait));
                 continue;
             }
             return Err("Rate-limited after max retries".to_string());
         }
 
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let mut bounded = resp.take(MAX_WIKIDATA_ERROR_BYTES + 1);
-            let mut error_body = Vec::new();
-            bounded
-                .read_to_end(&mut error_body)
-                .map_err(|e| format!("HTTP {status}; bounded error-body read failed: {e}"))?;
-            if error_body.len() as u64 > MAX_WIKIDATA_ERROR_BYTES {
-                return Err(format!("HTTP {status}; error body exceeded the diagnostic limit"));
-            }
+        if !response.status.is_success() {
             return Err(format!(
-                "HTTP {}: {}",
-                status,
-                String::from_utf8_lossy(&error_body)
+                "Wikidata returned HTTP {} ({} diagnostic bytes; body omitted from logs)",
+                response.status,
+                response.body.len()
             ));
         }
 
-        let mut bounded = resp.take(MAX_WIKIDATA_RESPONSE_BYTES + 1);
-        let mut response_bytes = Vec::new();
-        bounded
-            .read_to_end(&mut response_bytes)
-            .map_err(|e| format!("bounded response read failed: {e}"))?;
-        if response_bytes.len() as u64 > MAX_WIKIDATA_RESPONSE_BYTES {
-            return Err(format!(
-                "Wikidata response exceeded {} bytes",
-                MAX_WIKIDATA_RESPONSE_BYTES
-            ));
-        }
-        let body: serde_json::Value = serde_json::from_slice(&response_bytes)
-            .map_err(|e| format!("JSON parse error: {}", e))?;
+        let body: serde_json::Value = serde_json::from_slice(&response.body)
+            .map_err(|error| format!("JSON parse error: {}", error))?;
         let bindings = body["results"]["bindings"]
             .as_array()
             .ok_or("No results.bindings array")?
