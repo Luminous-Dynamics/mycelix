@@ -1,0 +1,112 @@
+{
+  "corpus_id": "ACS-COMP-EXT-8-v1",
+  "status": "public_development_oracle",
+  "disclosure": "Public expected outcomes; calibration only.",
+  "outcome_count": 8,
+  "outcomes": [
+    {
+      "scenario_id": "ACS-EXT-001",
+      "core_profile_claim": "ACS_CORE_CLAIMED",
+      "hook_coverage": "COMPLETE",
+      "disposition_honored": "NOT_TESTED",
+      "modify_behavior": "NOT_TESTED",
+      "negotiated_profiles": "NEGOTIATED",
+      "profile_evidence": "OBSERVED_IMPLEMENTATION",
+      "interoperability_scope": "WITHIN_V0_1_4",
+      "protocol_conformance": "PASS",
+      "claim_disposition": "SUPPORTED_AT_SCOPE",
+      "reason_code": "OBSERVABLE_ADDITIONAL_HOOKS_EMITTED"
+    },
+    {
+      "scenario_id": "ACS-EXT-002",
+      "core_profile_claim": "ACS_CORE_CLAIMED",
+      "hook_coverage": "INCOMPLETE",
+      "disposition_honored": "NOT_TESTED",
+      "modify_behavior": "NOT_TESTED",
+      "negotiated_profiles": "NEGOTIATED",
+      "profile_evidence": "DECLARATION_ONLY",
+      "interoperability_scope": "WITHIN_V0_1_4",
+      "protocol_conformance": "PARTIAL",
+      "claim_disposition": "CONTRADICTED",
+      "reason_code": "ADDITIONAL_OBSERVABLE_HOOKS_MISSING"
+    },
+    {
+      "scenario_id": "ACS-EXT-003",
+      "core_profile_claim": "ACS_CORE_CLAIMED",
+      "hook_coverage": "NOT_TESTED",
+      "disposition_honored": "NOT_TESTED",
+      "modify_behavior": "NOT_TESTED",
+      "negotiated_profiles": "DECLARED_AND_ACCEPTED",
+      "profile_evidence": "IMPLEMENTATION_VERIFIED",
+      "interoperability_scope": "WITHIN_V0_1_4",
+      "protocol_conformance": "PASS",
+      "claim_disposition": "SUPPORTED_AT_SCOPE",
+      "reason_code": "PROFILE_DECLARATION_CORROBORATED"
+    },
+    {
+      "scenario_id": "ACS-EXT-004",
+      "core_profile_claim": "ACS_CORE_CLAIMED",
+      "hook_coverage": "NOT_TESTED",
+      "disposition_honored": "NOT_TESTED",
+      "modify_behavior": "NOT_TESTED",
+      "negotiated_profiles": "DECLARED_AND_ACCEPTED",
+      "profile_evidence": "DECLARATION_ONLY",
+      "interoperability_scope": "WITHIN_V0_1_4",
+      "protocol_conformance": "FAIL",
+      "claim_disposition": "UNSUPPORTED_EVIDENCE",
+      "reason_code": "HANDSHAKE_PROFILE_NOT_IMPLEMENTED"
+    },
+    {
+      "scenario_id": "ACS-EXT-005",
+      "core_profile_claim": "ACS_CORE_CLAIMED",
+      "hook_coverage": "NOT_TESTED",
+      "disposition_honored": "HONORED",
+      "modify_behavior": "DENY_SUBSTITUTION",
+      "negotiated_profiles": "NEGOTIATED",
+      "profile_evidence": "OBSERVED_IMPLEMENTATION",
+      "interoperability_scope": "WITHIN_V0_1_4",
+      "protocol_conformance": "PASS",
+      "claim_disposition": "SUPPORTED_AT_SCOPE",
+      "reason_code": "MODIFY_INCAPABLE_DENY_SUBSTITUTION"
+    },
+    {
+      "scenario_id": "ACS-EXT-006",
+      "core_profile_claim": "ACS_CORE_CLAIMED",
+      "hook_coverage": "NOT_TESTED",
+      "disposition_honored": "IGNORED",
+      "modify_behavior": "ORIGINAL_EXECUTED",
+      "negotiated_profiles": "NEGOTIATED",
+      "profile_evidence": "OBSERVED_IMPLEMENTATION",
+      "interoperability_scope": "WITHIN_V0_1_4",
+      "protocol_conformance": "FAIL",
+      "claim_disposition": "CONTRADICTED",
+      "reason_code": "MODIFY_RESULT_NOT_APPLIED"
+    },
+    {
+      "scenario_id": "ACS-EXT-007",
+      "core_profile_claim": "ACS_CORE_CLAIMED",
+      "hook_coverage": "COMPLETE",
+      "disposition_honored": "NOT_TESTED",
+      "modify_behavior": "NOT_TESTED",
+      "negotiated_profiles": "NOT_APPLICABLE",
+      "profile_evidence": "IMPLEMENTATION_VERIFIED",
+      "interoperability_scope": "MCP_ONLY_A2A_UNSUPPORTED",
+      "protocol_conformance": "PASS",
+      "claim_disposition": "SUPPORTED_AT_SCOPE",
+      "reason_code": "A2A_SCOPE_EXPLICITLY_LIMITED"
+    },
+    {
+      "scenario_id": "ACS-EXT-008",
+      "core_profile_claim": "ACS_CORE_CLAIMED",
+      "hook_coverage": "UNKNOWN",
+      "disposition_honored": "UNKNOWN",
+      "modify_behavior": "UNKNOWN",
+      "negotiated_profiles": "NOT_APPLICABLE",
+      "profile_evidence": "UNSUPPORTED",
+      "interoperability_scope": "A2A_DEFERRED_TO_V0_2",
+      "protocol_conformance": "PARTIAL",
+      "claim_disposition": "UNSUPPORTED_EVIDENCE",
+      "reason_code": "A2A_WRAPPING_NOT_SPECIFIED_IN_V0_1_4"
+    }
+  ]
+}

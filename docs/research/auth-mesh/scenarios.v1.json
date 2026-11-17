@@ -1,0 +1,691 @@
+{
+  "corpus_id": "LISE-AUTH-MESH-48-v1",
+  "status": "public_development_seed",
+  "disclosure": "Scenarios and separate oracle are public. This is not a hidden or blinded holdout. It is for contract development, calibration and independent codebook review only.",
+  "scenario_count": 48,
+  "pair_count": 24,
+  "property_axes": [
+    "authenticity",
+    "integrity",
+    "authorization",
+    "currentness",
+    "mediation",
+    "workflow_binding",
+    "effect_evidence",
+    "disposition"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "AUTH-MESH-001",
+      "pair_id": "M01",
+      "variant": "A",
+      "family": "identity_key_lifecycle",
+      "contrast": "signature subject binding",
+      "declared_claim": "Signed invocation verifies under K-1; registry binds K-1 to P-1; request names P-1 and exact OP-1.",
+      "observed_facts": [
+        "Registry snapshot R-7 is pinned and current.",
+        "Signature covers principal, operation digest, policy digest, nonce and session.",
+        "Receiver resolves K-1 to P-1."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-002",
+      "pair_id": "M01",
+      "variant": "B",
+      "family": "identity_key_lifecycle",
+      "contrast": "signature subject binding",
+      "declared_claim": "Signed invocation verifies under K-1, but receiver registry binds K-1 to P-2 while request claims P-1.",
+      "observed_facts": [
+        "Signature is cryptographically valid.",
+        "Registry binding to P-2 is current and authenticated.",
+        "Invocation claims P-1."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-003",
+      "pair_id": "M02",
+      "variant": "A",
+      "family": "identity_key_lifecycle",
+      "contrast": "signed argument integrity",
+      "declared_claim": "Receiver verifies exact operation arguments and policy digest covered by the invocation signature.",
+      "observed_facts": [
+        "Canonical operation digest matches the signed digest.",
+        "No arguments changed in transit.",
+        "Receiver verifies before dispatch."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-004",
+      "pair_id": "M02",
+      "variant": "B",
+      "family": "identity_key_lifecycle",
+      "contrast": "signed argument integrity",
+      "declared_claim": "Recipient field changes after signing while friendly request ID and original signature are reused.",
+      "observed_facts": [
+        "Transmitted recipient differs from signed canonical operation.",
+        "Signature verification fails against transmitted arguments.",
+        "No dispatch occurs."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-005",
+      "pair_id": "M03",
+      "variant": "A",
+      "family": "identity_key_lifecycle",
+      "contrast": "revoked key and status uncertainty",
+      "declared_claim": "Key K-3 was revoked before operation time; receiver has current revocation epoch.",
+      "observed_facts": [
+        "Authority revocation is effective and known before invocation.",
+        "Receiver observed current revocation epoch.",
+        "Signature still verifies mathematically."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-006",
+      "pair_id": "M03",
+      "variant": "B",
+      "family": "identity_key_lifecycle",
+      "contrast": "revoked key and status uncertainty",
+      "declared_claim": "Revocation-status service is unavailable and PEP has no current revocation epoch.",
+      "observed_facts": [
+        "Last cached status predates action.",
+        "No currentness evidence is available.",
+        "Requested action is high impact."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-007",
+      "pair_id": "M04",
+      "variant": "A",
+      "family": "identity_key_lifecycle",
+      "contrast": "registry equivocation",
+      "declared_claim": "Two PEPs resolve the same key to the same principal from one pinned registry commitment.",
+      "observed_facts": [
+        "Both PEPs verify the same registry root digest.",
+        "Key-to-principal binding is identical.",
+        "Registry observation is current."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-008",
+      "pair_id": "M04",
+      "variant": "B",
+      "family": "identity_key_lifecycle",
+      "contrast": "registry equivocation",
+      "declared_claim": "Two PEPs receive conflicting key-to-principal bindings for the same key and epoch.",
+      "observed_facts": [
+        "PEP-A resolves K-4 to P-4.",
+        "PEP-B resolves K-4 to P-9.",
+        "No authoritative resolution is available."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-009",
+      "pair_id": "M05",
+      "variant": "A",
+      "family": "identity_key_lifecycle",
+      "contrast": "tenant/session binding",
+      "declared_claim": "Invocation subject, authenticated session and resource tenant all bind to T-1.",
+      "observed_facts": [
+        "Session nonce is current and single-use.",
+        "Resource verifier checks tenant and principal binding.",
+        "Invocation uses bound session."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-010",
+      "pair_id": "M05",
+      "variant": "B",
+      "family": "identity_key_lifecycle",
+      "contrast": "tenant/session binding",
+      "declared_claim": "Signed invocation from tenant T-1 is replayed using a session bound to T-2.",
+      "observed_facts": [
+        "Signature remains valid for original invocation.",
+        "Resource belongs to T-2.",
+        "Session and invocation tenant bindings disagree."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-011",
+      "pair_id": "M06",
+      "variant": "A",
+      "family": "identity_key_lifecycle",
+      "contrast": "trust-root rollback",
+      "declared_claim": "PEP verifies signing chain against current trust-root epoch 12.",
+      "observed_facts": [
+        "Trust-root digest matches current authority epoch.",
+        "Certificate is valid for principal and operation.",
+        "No rollback is observed."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-012",
+      "pair_id": "M06",
+      "variant": "B",
+      "family": "identity_key_lifecycle",
+      "contrast": "trust-root rollback",
+      "declared_claim": "Restored backup reinstates trust-root epoch 10 after epoch 12 revoked the relevant key.",
+      "observed_facts": [
+        "PEP accepts a locally valid historical chain.",
+        "Authority publishes epoch 12 as current.",
+        "Restored PEP snapshot is not fenced."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-013",
+      "pair_id": "M07",
+      "variant": "A",
+      "family": "control_plane_policy_cache",
+      "contrast": "policy cache freshness",
+      "declared_claim": "PEP uses policy bundle epoch 21 within its declared freshness/grace contract.",
+      "observed_facts": [
+        "Bundle signature verifies.",
+        "Current authority epoch is 21.",
+        "PEP cache age is within declared offline grace."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-014",
+      "pair_id": "M07",
+      "variant": "B",
+      "family": "control_plane_policy_cache",
+      "contrast": "policy cache freshness",
+      "declared_claim": "PEP uses epoch 20 after authority published epoch 21 and permitted grace expired.",
+      "observed_facts": [
+        "Cached policy signature remains valid.",
+        "Current policy epoch is 21.",
+        "PEP has no current policy witness."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-015",
+      "pair_id": "M08",
+      "variant": "A",
+      "family": "control_plane_policy_cache",
+      "contrast": "policy bundle signature and issuer authority",
+      "declared_claim": "Current policy bundle is signed by an authorized publisher and matches the designated epoch.",
+      "observed_facts": [
+        "Publisher authority is current and scoped to policy release.",
+        "Bundle digest is pinned by authority.",
+        "PEP verifies before evaluation."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-016",
+      "pair_id": "M08",
+      "variant": "B",
+      "family": "control_plane_policy_cache",
+      "contrast": "policy bundle signature and issuer authority",
+      "declared_claim": "Policy bundle signature verifies, but signing key lacks authority to publish this policy domain.",
+      "observed_facts": [
+        "Signature verifies against a known key.",
+        "Key's current role excludes this policy namespace.",
+        "Bundle attempts to grant a forbidden operation."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-017",
+      "pair_id": "M09",
+      "variant": "A",
+      "family": "control_plane_policy_cache",
+      "contrast": "offline policy grace",
+      "declared_claim": "Control plane is unreachable, but PEP has authenticated current policy within the explicitly configured grace interval.",
+      "observed_facts": [
+        "Last policy digest is current at outage start.",
+        "Offline grace has not expired.",
+        "Operation is within cached policy scope."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-018",
+      "pair_id": "M09",
+      "variant": "B",
+      "family": "control_plane_policy_cache",
+      "contrast": "offline policy grace",
+      "declared_claim": "Control plane remains unreachable beyond configured offline grace interval.",
+      "observed_facts": [
+        "Last policy was once valid.",
+        "Cache age exceeds declared grace period.",
+        "Requested operation is high impact."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-019",
+      "pair_id": "M10",
+      "variant": "A",
+      "family": "control_plane_policy_cache",
+      "contrast": "policy rollback and equivocation",
+      "declared_claim": "All active PEPs use same current policy epoch and digest.",
+      "observed_facts": [
+        "Policy epoch and digest are pinned.",
+        "No older policy snapshot is accepted.",
+        "PEP results agree for same operation."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-020",
+      "pair_id": "M10",
+      "variant": "B",
+      "family": "control_plane_policy_cache",
+      "contrast": "policy rollback and equivocation",
+      "declared_claim": "Two PEPs receive different policy digests for same nominal epoch; one is rollback snapshot.",
+      "observed_facts": [
+        "PEP-A uses digest DA.",
+        "PEP-B uses digest DB.",
+        "No designated-current digest resolves conflict."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-021",
+      "pair_id": "M11",
+      "variant": "A",
+      "family": "pep_mediation",
+      "contrast": "all routes versus direct bypass",
+      "declared_claim": "Every reachable protected-write route in complete owner inventory traverses PEP-11.",
+      "observed_facts": [
+        "Inventory includes API, batch, import, maintenance and recovery paths.",
+        "Reachability tests exercise each path.",
+        "Direct-write negative controls are denied."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-022",
+      "pair_id": "M11",
+      "variant": "B",
+      "family": "pep_mediation",
+      "contrast": "all routes versus direct bypass",
+      "declared_claim": "Reachable maintenance endpoint writes protected resource without traversing PEP-11.",
+      "observed_facts": [
+        "Maintenance endpoint is within named effect boundary.",
+        "Test demonstrates protected write through alternate route.",
+        "Other routes still traverse PEP-11."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-023",
+      "pair_id": "M12",
+      "variant": "A",
+      "family": "pep_mediation",
+      "contrast": "incomplete route inventory versus known bypass",
+      "declared_claim": "Owner route inventory is explicitly incomplete because a dynamic plugin route is not enumerated.",
+      "observed_facts": [
+        "No alternate route has yet been observed.",
+        "Dynamic route may produce protected effect.",
+        "No completeness attestation exists."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-024",
+      "pair_id": "M12",
+      "variant": "B",
+      "family": "pep_mediation",
+      "contrast": "incomplete route inventory versus known bypass",
+      "declared_claim": "Dynamic plugin route is enumerated and observed to write protected resource without named PEP.",
+      "observed_facts": [
+        "Route is reachable and effect-capable.",
+        "PEP invocation is absent from trace.",
+        "Protected state changes through route."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-025",
+      "pair_id": "M13",
+      "variant": "A",
+      "family": "pep_mediation",
+      "contrast": "exact PEP identity",
+      "declared_claim": "Invocation is verified by owner-designated PEP identity PEP-13.",
+      "observed_facts": [
+        "PEP certificate maps to expected PEP-13.",
+        "Resource accepts only declared PEP identity.",
+        "Operation and policy digests match."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-026",
+      "pair_id": "M13",
+      "variant": "B",
+      "family": "pep_mediation",
+      "contrast": "exact PEP identity",
+      "declared_claim": "Different, validly signed PEP evaluates request but is not owner-designated enforcement point.",
+      "observed_facts": [
+        "PEP-99 has its own valid certificate.",
+        "Owner contract requires PEP-13.",
+        "No delegation permits PEP-99 to replace PEP-13."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-027",
+      "pair_id": "M14",
+      "variant": "A",
+      "family": "pep_mediation",
+      "contrast": "distributed PEP decision agreement",
+      "declared_claim": "Caller-side and resource-side PEPs evaluate same current policy digest and both deny operation.",
+      "observed_facts": [
+        "Both PEP identities are owner-qualified.",
+        "Both use same authority and policy epochs.",
+        "Both preserve denial."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-028",
+      "pair_id": "M14",
+      "variant": "B",
+      "family": "pep_mediation",
+      "contrast": "distributed PEP decision agreement",
+      "declared_claim": "Caller-side PEP allows using stale policy while resource-side PEP denies using current epoch.",
+      "observed_facts": [
+        "Caller PEP uses epoch 8.",
+        "Resource PEP uses designated-current epoch 9.",
+        "Caller treats earlier permit as sufficient."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-029",
+      "pair_id": "M15",
+      "variant": "A",
+      "family": "prompt_data_lineage",
+      "contrast": "authentic prompt versus authorized instruction",
+      "declared_claim": "Signed principal prompt explicitly requests exact bounded operation and is current for session.",
+      "observed_facts": [
+        "Prompt origin and content digest verify.",
+        "Exact operation fields are bound to principal approval.",
+        "No broader delegated privilege is used."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-030",
+      "pair_id": "M15",
+      "variant": "B",
+      "family": "prompt_data_lineage",
+      "contrast": "authentic prompt versus authorized instruction",
+      "declared_claim": "Retrieved untrusted document content is faithfully signed into context and instructs sending data to attacker.",
+      "observed_facts": [
+        "Source signature and derivation chain verify.",
+        "Source is not authority for task instructions or recipient changes.",
+        "No principal approval binds exfiltration operation."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-031",
+      "pair_id": "M16",
+      "variant": "A",
+      "family": "prompt_data_lineage",
+      "contrast": "context-chain integrity",
+      "declared_claim": "Context events form valid hash chain with monotonic sequence and authenticated session identity.",
+      "observed_facts": [
+        "Trusted genesis is bound to session.",
+        "All sequence numbers are present and ordered.",
+        "Each event digest verifies."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-032",
+      "pair_id": "M16",
+      "variant": "B",
+      "family": "prompt_data_lineage",
+      "contrast": "context-chain integrity",
+      "declared_claim": "Intermediate context event is modified while later hashes are recomputed by an untrusted client.",
+      "observed_facts": [
+        "Client lacks authority to sign altered predecessor.",
+        "Receiver detects invalid signature/digest link.",
+        "No operation is dispatched."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-033",
+      "pair_id": "M17",
+      "variant": "A",
+      "family": "prompt_data_lineage",
+      "contrast": "trusted versus attacker-selected genesis",
+      "declared_claim": "Context chain starts from authority-bound session genesis and continues without gaps.",
+      "observed_facts": [
+        "Genesis digest is signed by session authority.",
+        "Session identity and tenant are bound.",
+        "Sequence chain is complete."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-034",
+      "pair_id": "M17",
+      "variant": "B",
+      "family": "prompt_data_lineage",
+      "contrast": "trusted versus attacker-selected genesis",
+      "declared_claim": "Hash chain is internally consistent but begins at a genesis value selected by agent without authority receipt.",
+      "observed_facts": [
+        "All subsequent hashes verify.",
+        "No authority-bound genesis or session binding exists.",
+        "Chain could omit prior context."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-035",
+      "pair_id": "M18",
+      "variant": "A",
+      "family": "prompt_data_lineage",
+      "contrast": "sequence completeness and truncation",
+      "declared_claim": "Context sequence 1 through 15 is complete and every predecessor digest resolves.",
+      "observed_facts": [
+        "Independent sequence receipt records expected count 15.",
+        "Events 1-15 are supplied.",
+        "No branch or missing predecessor exists."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-036",
+      "pair_id": "M18",
+      "variant": "B",
+      "family": "prompt_data_lineage",
+      "contrast": "sequence completeness and truncation",
+      "declared_claim": "Event stream jumps from sequence 9 to 12 while caller claims context is complete.",
+      "observed_facts": [
+        "Expected sequence 10 and 11 are absent.",
+        "No authenticated truncation/compaction receipt is supplied.",
+        "Missing context could include revocation or scope change."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-037",
+      "pair_id": "M19",
+      "variant": "A",
+      "family": "prompt_data_lineage",
+      "contrast": "cross-session context isolation",
+      "declared_claim": "User A's context is bound to session A and operation uses only session A state.",
+      "observed_facts": [
+        "Session subject, tenant and context digest match.",
+        "Resource PEP checks session binding.",
+        "No cross-session references occur."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-038",
+      "pair_id": "M19",
+      "variant": "B",
+      "family": "prompt_data_lineage",
+      "contrast": "cross-session context isolation",
+      "declared_claim": "Valid signed context fragment from User A is replayed into User B's session.",
+      "observed_facts": [
+        "Fragment signature verifies for session A.",
+        "Current operation uses session B.",
+        "Session/tenant binding mismatch is observable."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-039",
+      "pair_id": "M20",
+      "variant": "A",
+      "family": "prompt_data_lineage",
+      "contrast": "bitemporal context and hindsight",
+      "declared_claim": "As-known-at-T replay excludes evidence recorded after T even if asserted effective time is earlier.",
+      "observed_facts": [
+        "Events have effective and recorded times.",
+        "Late-arriving event remains in current view only.",
+        "Historical packet digest is preserved."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-040",
+      "pair_id": "M20",
+      "variant": "B",
+      "family": "prompt_data_lineage",
+      "contrast": "bitemporal context and hindsight",
+      "declared_claim": "Late event recorded after T is inserted into historical view because asserted effective time is earlier.",
+      "observed_facts": [
+        "Recorded time is after decision cutoff T.",
+        "Replay filters only on asserted valid/effective time.",
+        "Historical decision packet includes late knowledge."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-041",
+      "pair_id": "M21",
+      "variant": "A",
+      "family": "delegation_attestation",
+      "contrast": "delegation attenuation",
+      "declared_claim": "Child grant is structural subset of parent for action, resource, purpose, recipient, amount, duration and operation count.",
+      "observed_facts": [
+        "Every required scope dimension is explicit.",
+        "Parent is current and not revoked.",
+        "Receiver checks child at use."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-042",
+      "pair_id": "M21",
+      "variant": "B",
+      "family": "delegation_attestation",
+      "contrast": "delegation attenuation",
+      "declared_claim": "Grandchild grant reintroduces a resource excluded by root grant.",
+      "observed_facts": [
+        "Parent excludes resource R-9.",
+        "Child remains within parent.",
+        "Grandchild includes R-9 and attempts write."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-043",
+      "pair_id": "M22",
+      "variant": "A",
+      "family": "delegation_attestation",
+      "contrast": "attestation exact-operation binding",
+      "declared_claim": "Prerequisite attestation is signed by designated receiver and binds same actor, operation digest, resource and policy epoch.",
+      "observed_facts": [
+        "Attestation status and result match required predecessor.",
+        "Operation digest and actor match exactly.",
+        "Current policy epoch is bound."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-044",
+      "pair_id": "M22",
+      "variant": "B",
+      "family": "delegation_attestation",
+      "contrast": "attestation exact-operation binding",
+      "declared_claim": "Authentic attestation refers to a different operation digest and resource but is presented as prerequisite.",
+      "observed_facts": [
+        "Signature and issuer identity verify.",
+        "Resource and operation digest differ from current request.",
+        "Caller reuses friendly workflow ID."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-045",
+      "pair_id": "M23",
+      "variant": "A",
+      "family": "delegation_attestation",
+      "contrast": "caller self-report versus receiver attestation",
+      "declared_claim": "Workflow advances only after receiver/resource-side signed attestation confirms prerequisite completion.",
+      "observed_facts": [
+        "Attestation issuer is resource owner.",
+        "Result binds exact predecessor operation.",
+        "Sequence and currentness are verified."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-046",
+      "pair_id": "M23",
+      "variant": "B",
+      "family": "delegation_attestation",
+      "contrast": "caller self-report versus receiver attestation",
+      "declared_claim": "Caller supplies boolean 'step complete' without receiver signature or independent state evidence.",
+      "observed_facts": [
+        "Caller controls supplied status.",
+        "No resource-side attestation or receipt exists.",
+        "Next step would create high-impact effect."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-047",
+      "pair_id": "M24",
+      "variant": "A",
+      "family": "effect_observation",
+      "contrast": "provider assertion versus independent effect observation",
+      "declared_claim": "Provider returns signed acknowledgement for OP-24; no independent observer or resource readback is supplied.",
+      "observed_facts": [
+        "Signature authenticates provider assertion.",
+        "Status is accepted.",
+        "No independent observation establishes realized protected state."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    },
+    {
+      "scenario_id": "AUTH-MESH-048",
+      "pair_id": "M24",
+      "variant": "B",
+      "family": "effect_observation",
+      "contrast": "provider assertion versus independent effect observation",
+      "declared_claim": "Qualified independent observer records resulting protected state and binds it to OP-24.",
+      "observed_facts": [
+        "Observer independence is qualified against declared dependency graph.",
+        "Observed resource state matches exact operation digest and target.",
+        "Expected action coverage is complete."
+      ],
+      "evaluator_instruction": "Evaluate each property independently. A valid signature does not imply authorization, a PEP decision does not imply complete route coverage, and a provider assertion does not imply independent effect observation."
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/auth-mesh/acs-extension-oracle.schema.json",
+  "title": "ACS Comparator Extension Oracle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scenario_id",
+    "core_profile_claim",
+    "hook_coverage",
+    "disposition_honored",
+    "modify_behavior",
+    "negotiated_profiles",
+    "profile_evidence",
+    "interoperability_scope",
+    "protocol_conformance",
+    "claim_disposition",
+    "reason_code"
+  ],
+  "properties": {
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^ACS-EXT-[0-9]{3}$"
+    },
+    "core_profile_claim": {
+      "enum": [
+        "ACS_CORE_CLAIMED",
+        "ACS_CORE_NOT_CLAIMED",
+        "UNKNOWN"
+      ]
+    },
+    "hook_coverage": {
+      "enum": [
+        "COMPLETE",
+        "INCOMPLETE",
+        "BYPASS",
+        "UNKNOWN",
+        "NOT_TESTED"
+      ]
+    },
+    "disposition_honored": {
+      "enum": [
+        "HONORED",
+        "IGNORED",
+        "UNKNOWN",
+        "NOT_TESTED"
+      ]
+    },
+    "modify_behavior": {
+      "enum": [
+        "MODIFIED_OPERATION_EXECUTED",
+        "DENY_SUBSTITUTION",
+        "ORIGINAL_EXECUTED",
+        "UNKNOWN",
+        "NOT_TESTED"
+      ]
+    },
+    "negotiated_profiles": {
+      "enum": [
+        "DECLARED_AND_ACCEPTED",
+        "DECLARED_NOT_ACCEPTED",
+        "NEGOTIATED",
+        "NOT_APPLICABLE",
+        "UNKNOWN"
+      ]
+    },
+    "profile_evidence": {
+      "enum": [
+        "IMPLEMENTATION_VERIFIED",
+        "OBSERVED_IMPLEMENTATION",
+        "DECLARATION_ONLY",
+        "UNSUPPORTED",
+        "UNKNOWN",
+        "NOT_TESTED"
+      ]
+    },
+    "interoperability_scope": {
+      "enum": [
+        "WITHIN_V0_1_4",
+        "MCP_ONLY_A2A_UNSUPPORTED",
+        "A2A_DEFERRED_TO_V0_2",
+        "UNKNOWN"
+      ]
+    },
+    "protocol_conformance": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "PARTIAL",
+        "INDETERMINATE"
+      ]
+    },
+    "claim_disposition": {
+      "enum": [
+        "SUPPORTED_AT_SCOPE",
+        "NARROWER_SUPPORT_ONLY",
+        "UNSUPPORTED_EVIDENCE",
+        "CONTRADICTED",
+        "INDETERMINATE",
+        "NOT_CLAIMED"
+      ]
+    },
+    "reason_code": {
+      "type": "string",
+      "pattern": "^[A-Z0-9_]+$"
+    }
+  }
+}
