@@ -226,6 +226,7 @@ fn validate_container_link(
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
     tag: LinkTag,
+    author: &AgentPubKey,
 ) -> ExternResult<ValidateCallbackResult> {
     if tag.0.len() > 512 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -240,13 +241,18 @@ fn validate_container_link(
                 ));
             };
             let record = must_get_valid_record(target_hash)?;
-            let _: ReusableContainer = record
+            let container: ReusableContainer = record
                 .entry()
                 .to_app_option()
                 .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
                 .ok_or(wasm_error!(WasmErrorInner::Guest(
                     "AllReusableContainers target is not a ReusableContainer".into()
                 )))?;
+            if &container.steward != author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the container steward may add the registry link".into(),
+                ));
+            }
             if base_address.as_ref().len() != 39 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "AllReusableContainers base anchor hash is invalid".into(),
@@ -266,13 +272,18 @@ fn validate_container_link(
                 ));
             };
             let container_record = must_get_valid_record(container_hash.clone())?;
-            let _: ReusableContainer = container_record
+            let container: ReusableContainer = container_record
                 .entry()
                 .to_app_option()
                 .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
                 .ok_or(wasm_error!(WasmErrorInner::Guest(
                     "ContainerToCycleEvents base is not a ReusableContainer".into()
                 )))?;
+            if &container.steward != author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the container steward may index its lifecycle events".into(),
+                ));
+            }
             let event_record = must_get_valid_record(event_hash)?;
             let event: ContainerCycleEvent = event_record
                 .entry()
@@ -317,6 +328,19 @@ fn validate_container_link(
                 .ok_or(wasm_error!(WasmErrorInner::Guest(
                     "ContainerEventToNext target is not a ContainerCycleEvent".into()
                 )))?;
+            let container_record = must_get_valid_record(previous.container_hash.clone())?;
+            let container: ReusableContainer = container_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "ContainerEventToNext parent references a missing container".into()
+                )))?;
+            if &container.steward != author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the container steward may index the event parent link".into(),
+                ));
+            }
             if next.container_hash != previous.container_hash
                 || next.previous_event_hash.as_ref() != Some(&previous_hash)
                 || previous.sequence_number.checked_add(1) != Some(next.sequence_number)
@@ -343,13 +367,13 @@ fn validate_container_link(
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::PreservationBatch(b) => validate_batch(b),
                 EntryTypes::PreservationMethod(m) => validate_method(m),
                 EntryTypes::StorageUnit(s) => validate_storage(s),
-                EntryTypes::ReusableContainer(container) => validate_reusable_container(container),
-                EntryTypes::ContainerCycleEvent(event) => validate_container_cycle_event(event),
+                EntryTypes::ReusableContainer(container) => validate_reusable_container(container, &action.author),
+                EntryTypes::ContainerCycleEvent(event) => validate_container_cycle_event(event, &action.author),
             },
             OpEntry::UpdateEntry {
                 app_entry: EntryTypes::PreservationBatch(b),
@@ -432,9 +456,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 base_address,
                 target_address,
                 tag,
+                &action.author,
             ),
         },
-        FlatOp::RegisterDeleteLink { action, .. } => {
+        FlatOp::RegisterDeleteLink { link_type, action } => {
+            if matches!(
+                link_type,
+                LinkTypes::AllReusableContainers
+                    | LinkTypes::ContainerToCycleEvents
+                    | LinkTypes::ContainerEventToNext
+            ) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Reusable container registry and lifecycle links are immutable".into(),
+                ));
+            }
             let original_action = must_get_action(action.link_add_address.clone())?;
             Ok(check_link_author_match(
                 original_action.action().author(),
@@ -497,9 +532,15 @@ fn validate_container_evidence(
 
 fn validate_reusable_container(
     container: ReusableContainer,
+    author: &AgentPubKey,
 ) -> ExternResult<ValidateCallbackResult> {
     if container.id.trim().is_empty() || container.id.len() > 128 {
         return Ok(ValidateCallbackResult::Invalid("Container ID must be non-empty and at most 128 characters".into()));
+    }
+    if &container.steward != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container steward must be the agent registering the container".into(),
+        ));
     }
     if container.capacity_ml == 0 {
         return Ok(ValidateCallbackResult::Invalid("Container capacity_ml must be positive".into()));
@@ -561,6 +602,7 @@ fn validate_container_transition_fields(
 
 fn validate_container_cycle_event(
     event: ContainerCycleEvent,
+    author: &AgentPubKey,
 ) -> ExternResult<ValidateCallbackResult> {
     if event.occurred_at == 0 {
         return Ok(ValidateCallbackResult::Invalid("Container event time must be positive".into()));
@@ -618,6 +660,11 @@ fn validate_container_cycle_event(
     let container: ReusableContainer = container_record.entry().to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Container reference is not a ReusableContainer entry".into())))?;
+    if &container.steward != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the registered container steward may append lifecycle events".into(),
+        ));
+    }
     if event.event_kind == ContainerEventKind::Filled
         && !container.compatible_product_refs.is_empty()
         && event.product_ref.as_deref().is_none_or(|product_ref| {
