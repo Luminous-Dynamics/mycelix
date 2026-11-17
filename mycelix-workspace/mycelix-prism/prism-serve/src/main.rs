@@ -73,6 +73,9 @@ fn upstream_error(
         | EgressError::EmptyAddressSet(_)
         | EgressError::RemotePeerUnavailable
         | EgressError::RemotePeerNotAuthorized(_)
+        | EgressError::RedirectLimitExceeded
+        | EgressError::InvalidRedirectLocation
+        | EgressError::RedirectLoop
         | EgressError::Http(_) => {
             (StatusCode::BAD_GATEWAY, "Upstream request failed")
         }
@@ -80,6 +83,9 @@ fn upstream_error(
         | EgressError::ConcurrencyQueueTimeout
         | EgressError::ConcurrencyUnavailable => {
             (StatusCode::SERVICE_UNAVAILABLE, "Egress capacity is unavailable")
+        }
+        EgressError::ExecutionTimeout => {
+            (StatusCode::GATEWAY_TIMEOUT, "Egress execution deadline exceeded")
         }
         EgressError::UnsupportedScheme
         | EgressError::CredentialsNotPermitted
@@ -89,6 +95,7 @@ fn upstream_error(
         | EgressError::AddressNotPermitted(_)
         | EgressError::MethodNotPermitted
         | EgressError::RequestRequiresTls
+        | EgressError::RedirectSchemeDowngrade
         | EgressError::AuthorityScopeViolation
         | EgressError::AuthorityHeaderViolation(_)
         | EgressError::ProviderCredentialMissing => {
