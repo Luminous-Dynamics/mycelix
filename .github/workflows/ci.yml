@@ -470,6 +470,9 @@ jobs:
           require_source 'authorize_pins_resolver_snapshot_through_socket_peer_receipt' "$egress"
           require_source 'public_redirect_reauthorizes_and_pins_each_hop_dns_snapshot' "$egress"
           require_source 'normalized.ends_with(".home.arpa")' "$egress"
+          require_source 'pinned_tls_uses_original_hostname_for_sni_and_certificate_verification' "$egress"
+          require_source 'tokio-rustls = { version = "=0.26.6"' mycelix-prism/prism-egress/Cargo.toml
+          require_source 'rcgen = "=0.14.10"' mycelix-prism/prism-egress/Cargo.toml
           require_source 'MAX_RESPONSE_HEADER_COUNT: usize = 128' "$egress"
           require_source 'gzip_decompression_is_subject_to_the_response_body_budget' "$egress"
           for ingestion in \
