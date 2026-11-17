@@ -431,6 +431,8 @@ jobs:
             echo "=== Testing $pkg ==="
             cargo test -p "$pkg"
           done
+      - name: Compile optional fixed-source ingestion binaries
+        run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-ingest --features fetch --bins
       - name: Check prism-tauri (desktop shell, compile-only)
         run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-tauri
 
