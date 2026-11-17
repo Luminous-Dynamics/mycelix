@@ -1296,9 +1296,15 @@ mod tests {
                 }
             }
             stream
-                .write_all(
-                    b"HTTP/1.1 302 Found\r\nLocation: http://metadata.google.internal/\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
-                )
+                .write_all(b"HTTP/1.1 302 Found\r\n")
+                .await
+                .unwrap();
+            stream
+                .write_all(b"Location: http://metadata.google.internal/\r\n")
+                .await
+                .unwrap();
+            stream
+                .write_all(b"Content-Length: 0\r\nConnection: close\r\n\r\n")
                 .await
                 .unwrap();
         });
