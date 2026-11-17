@@ -27,6 +27,15 @@ const SOURCE_MANIFEST_JSON: &str = include_str!(concat!(
 ));
 
 /// A category of SPARQL query with metadata for composing sentences.
+#[derive(serde::Serialize)]
+struct QueryRunProvenance {
+    query_id: String,
+    sha256: String,
+    succeeded: bool,
+    result_rows: usize,
+    claims_generated: usize,
+}
+
 struct QuerySpec {
     name: &'static str,
     sparql: &'static str,
@@ -48,13 +57,12 @@ fn main() {
         .expect("Tokio runtime");
 
     let mut all_claims: Vec<(String, &[&str], String)> = Vec::new();
-    let mut query_digests: Vec<(String, String)> = Vec::new();
+    let mut query_runs: Vec<QueryRunProvenance> = Vec::new();
     let mut seen = HashSet::new();
 
     for spec in &queries {
         eprintln!("Fetching: {} ...", spec.name);
         let query_sha256 = hex::encode(Sha256::digest(spec.sparql.as_bytes()));
-        query_digests.push((spec.name.to_owned(), query_sha256.clone()));
         match fetch_query(&runtime, &client, spec.name, spec.sparql) {
             Ok(results) => {
                 let mut count = 0;
@@ -84,9 +92,23 @@ fn main() {
                     }
                 }
                 eprintln!("  -> {} claims from {}", count, spec.name);
+                query_runs.push(QueryRunProvenance {
+                    query_id: spec.name.to_owned(),
+                    sha256: query_sha256,
+                    succeeded: true,
+                    result_rows: results.len(),
+                    claims_generated: count,
+                });
             }
             Err(e) => {
                 eprintln!("  ERROR fetching {}: {}", spec.name, e);
+                query_runs.push(QueryRunProvenance {
+                    query_id: spec.name.to_owned(),
+                    sha256: query_sha256,
+                    succeeded: false,
+                    result_rows: 0,
+                    claims_generated: 0,
+                });
             }
         }
         // Be polite to Wikidata — generous delay to avoid 429s
@@ -173,15 +195,6 @@ fn main() {
     file.write_all(output.as_bytes())
         .expect("Failed to write output");
 
-    let query_digest_records = query_digests
-        .iter()
-        .map(|(query_id, sha256)| {
-            serde_json::json!({
-                "query_id": query_id,
-                "sha256": sha256,
-            })
-        })
-        .collect::<Vec<_>>();
     let provenance = serde_json::json!({
         "schema_version": "1.0.0",
         "manifest_id": SOURCE_MANIFEST_ID,
@@ -192,12 +205,12 @@ fn main() {
         "egress_policy": "prism-public-egress-v1",
         "endpoint": ENDPOINT,
         "query_digest_algorithm": "SHA-256",
-        "query_digests": query_digest_records,
+        "query_runs": query_runs,
         "success_body_limit_bytes": MAX_WIKIDATA_RESPONSE_BYTES,
         "error_body_limit_bytes": MAX_WIKIDATA_ERROR_BYTES,
         "timeout_seconds": 90,
         "claims_generated": all_claims.len(),
-        "query_count": query_digests.len(),
+        "query_count": query_runs.len(),
         "output_path": out_path.display().to_string(),
         "output_sha256": hex::encode(Sha256::digest(output.as_bytes())),
     });
