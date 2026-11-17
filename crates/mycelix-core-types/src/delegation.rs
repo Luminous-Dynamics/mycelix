@@ -893,7 +893,8 @@ mod tests {
             requested_at: 200,
             authority_epoch: 4,
         };
-        let context = context(&[parent]);
+        let parent_records = [parent];
+        let context = context(&parent_records);
         assert_eq!(
             child.authorize(&request, &context),
             Err(DelegationError::SubdelegationNotAllowed {
@@ -1001,7 +1002,8 @@ mod tests {
         // Preserve the address while changing immutable scope content.
         tampered_parent.resource = ResourceScope::named("acme:opportunity:8").unwrap();
 
-        let context = context(&[tampered_parent]);
+        let parent_records = [tampered_parent];
+        let context = context(&parent_records);
         assert_eq!(
             child.authorize(&request, &context),
             Err(DelegationError::IdentityMismatch)
@@ -1118,7 +1120,8 @@ mod tests {
             requested_at: 200,
             authority_epoch: 4,
         };
-        let context = context(&[root, middle]);
+        let parent_records = [root, middle];
+        let context = context(&parent_records);
         assert_eq!(
             leaf.authorize(&request, &context),
             Err(DelegationError::SubdelegationNotAllowed {
@@ -1168,7 +1171,8 @@ mod tests {
             requested_at: 120,
             authority_epoch: 4,
         };
-        let context = context(&[parent]);
+        let parent_records = [parent];
+        let context = context(&parent_records);
         assert_eq!(
             child.authorize(&request, &context),
             Err(DelegationError::ChildNotStrictlyAttenuated)
@@ -1357,10 +1361,10 @@ mod tests {
     #[test]
     fn duplicate_context_ids_are_rejected() {
         let d = delegation(DelegationMode::Execute);
-        assert_eq!(
+        assert!(matches!(
             DelegationContext::from_slice(&[d.clone(), d]),
-            Err(DelegationError::DuplicateDelegationId { id: d.id })
-        );
+            Err(DelegationError::DuplicateDelegationId { id }) if id == d.id
+        ));
     }
 
     #[test]
