@@ -424,7 +424,10 @@ fn main() {
                         continue;
                     }
                     if body.len() as u64 > MAX_WIKIPEDIA_RESPONSE_BYTES {
-                        eprintln!("  SKIP {}: response exceeded {} bytes", title, MAX_WIKIPEDIA_RESPONSE_BYTES);
+                        eprintln!(
+                            "  SKIP {}: response exceeded {} bytes",
+                            title, MAX_WIKIPEDIA_RESPONSE_BYTES
+                        );
                         continue;
                     }
                     match serde_json::from_slice::<WikiSummary>(&body) {
