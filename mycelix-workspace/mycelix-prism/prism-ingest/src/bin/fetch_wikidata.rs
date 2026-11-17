@@ -12,12 +12,15 @@ use std::collections::HashSet;
 use std::fmt::Write as FmtWrite;
 use std::io::Write;
 use std::time::Duration;
+use sha2::{Digest, Sha256};
 use url::Url;
 
 const MAX_WIKIDATA_RESPONSE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_WIKIDATA_ERROR_BYTES: u64 = 64 * 1024;
 
 const ENDPOINT: &str = "https://query.wikidata.org/sparql";
+const SOURCE_MANIFEST_ID: &str = "luminous.prism.ingest.sources";
+const SOURCE_MANIFEST_VERSION: &str = "2026-11-17.1";
 
 /// A category of SPARQL query with metadata for composing sentences.
 struct QuerySpec {
@@ -40,12 +43,13 @@ fn main() {
         .build()
         .expect("Tokio runtime");
 
-    let mut all_claims: Vec<(String, &[&str], &[&str])> = Vec::new();
+    let mut all_claims: Vec<(String, &[&str], String)> = Vec::new();
     let mut seen = HashSet::new();
 
     for spec in &queries {
         eprintln!("Fetching: {} ...", spec.name);
-        match fetch_query(&runtime, &client, spec.sparql) {
+        let query_sha256 = hex::encode(Sha256::digest(spec.sparql.as_bytes()));
+        match fetch_query(&runtime, &client, spec.name, spec.sparql) {
             Ok(results) => {
                 let mut count = 0;
                 for binding in &results {
@@ -64,7 +68,8 @@ fn main() {
                         };
                         let dedup_key = key[..end].to_string();
                         if key.len() > 20 && seen.insert(dedup_key) {
-                            all_claims.push((sentence, spec.tags, &["Wikidata"]));
+                            let source = format!("Wikidata query={} sha256={}", spec.name, query_sha256);
+                            all_claims.push((sentence, spec.tags, source));
                             count += 1;
                         }
                     }
@@ -94,6 +99,14 @@ fn main() {
     )
     .unwrap();
     writeln!(output, "//!").unwrap();
+    writeln!(
+        output,
+        "//! Source manifest: {}@{}",
+        SOURCE_MANIFEST_ID,
+        SOURCE_MANIFEST_VERSION
+    )
+    .unwrap();
+    writeln!(output, "//! Each source carries its exact SPARQL SHA-256 query digest.").unwrap();
     writeln!(output, "//! Generated: {}", chrono_now()).unwrap();
     writeln!(output).unwrap();
     writeln!(output, "use crate::RawClaim;").unwrap();
@@ -126,22 +139,18 @@ fn main() {
     )
     .unwrap();
 
-    for (sentence, tags, sources) in &all_claims {
+    for (sentence, tags, source) in &all_claims {
         let escaped = sentence.replace('\\', "\\\\").replace('"', "\\\"");
+        let escaped_source = source.replace('\\', "\\\\").replace('"', "\\\"");
         let tags_str = tags
             .iter()
-            .map(|t| format!("\"{}\"", t))
-            .collect::<Vec<_>>()
-            .join(", ");
-        let sources_str = sources
-            .iter()
-            .map(|s| format!("\"{}\"", s))
+            .map(|tag| format!("\"{}\"", tag))
             .collect::<Vec<_>>()
             .join(", ");
         writeln!(
             output,
-            "    (\"{}\", E4, &[{}], &[{}]),",
-            escaped, sources_str, tags_str
+            "    (\"{}\", E4, &[\"{}\"], &[{}]),",
+            escaped, escaped_source, tags_str
         )
         .unwrap();
     }
@@ -175,6 +184,7 @@ fn chrono_now() -> String {
 fn fetch_query(
     runtime: &tokio::runtime::Runtime,
     client: &PublicEgressClient,
+    query_id: &str,
     sparql: &str,
 ) -> Result<Vec<serde_json::Value>, String> {
     let max_retries = 3;
@@ -195,7 +205,11 @@ fn fetch_query(
             .map_err(|error| format!("Egress request failed: {error}"))?;
 
         eprintln!(
-            "    EGRESS authority={} origin={} peer={} status={} bytes={}/{} elapsed_ms={}",
+            "    EGRESS manifest={}@{} query_id={} query_sha256={} authority={} origin={} peer={} status={} bytes={}/{} elapsed_ms={}",
+            SOURCE_MANIFEST_ID,
+            SOURCE_MANIFEST_VERSION,
+            query_id,
+            hex::encode(Sha256::digest(sparql.as_bytes())),
             response.receipt.authority,
             response.receipt.origin,
             response.receipt.remote_peer,
@@ -241,6 +255,53 @@ fn fetch_query(
 
 fn get_str<'a>(binding: &'a serde_json::Value, key: &str) -> Option<&'a str> {
     binding.get(key)?.get("value")?.as_str()
+}
+
+#[cfg(test)]
+mod source_manifest_tests {
+    use super::*;
+
+    #[test]
+    fn query_ids_and_source_policy_match_versioned_manifest() {
+        let manifest: serde_json::Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/sources/manifest.json"
+        )))
+        .expect("source manifest must be valid JSON");
+
+        assert_eq!(
+            manifest["manifest_id"].as_str(),
+            Some(SOURCE_MANIFEST_ID)
+        );
+        assert_eq!(
+            manifest["manifest_version"].as_str(),
+            Some(SOURCE_MANIFEST_VERSION)
+        );
+
+        let sources = manifest["sources"].as_array().expect("sources array");
+        let wikidata = sources
+            .iter()
+            .find(|source| source["source_id"] == "wikidata-public-sparql")
+            .expect("Wikidata source manifest entry");
+        let query_ids = wikidata["query_ids"]
+            .as_array()
+            .expect("Wikidata query_ids");
+        let manifest_ids = query_ids
+            .iter()
+            .map(|value| value.as_str().expect("query ID"))
+            .collect::<Vec<_>>();
+        let actual_ids = build_queries()
+            .iter()
+            .map(|query| query.name)
+            .collect::<Vec<_>>();
+        assert_eq!(actual_ids, manifest_ids);
+
+        assert_eq!(wikidata["endpoint"].as_str(), Some(ENDPOINT));
+        assert_eq!(wikidata["authority"].as_str(), Some("WikidataSparql"));
+        assert_eq!(wikidata["success_body_limit_bytes"].as_u64(), Some(MAX_WIKIDATA_RESPONSE_BYTES));
+        assert_eq!(wikidata["error_body_limit_bytes"].as_u64(), Some(MAX_WIKIDATA_ERROR_BYTES));
+        assert_eq!(wikidata["redirects"].as_str(), Some("deny"));
+    }
 }
 
 fn build_queries() -> Vec<QuerySpec> {
