@@ -11,10 +11,17 @@
 
 use prism_egress::{EgressAuthority, EgressLimits, HeaderMap, Method, PublicEgressClient};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::time::Duration;
 use url::Url;
 
 const MAX_WIKIPEDIA_RESPONSE_BYTES: u64 = 2 * 1024 * 1024;
+const SOURCE_MANIFEST_ID: &str = "luminous.prism.ingest.sources";
+const SOURCE_MANIFEST_VERSION: &str = "2026-11-17.1";
+const SOURCE_MANIFEST_JSON: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/sources/manifest.json"
+));
 
 #[derive(Deserialize)]
 struct WikiSummary {
@@ -386,6 +393,55 @@ fn extract_sentences(text: &str) -> Vec<String> {
     sentences
 }
 
+#[derive(Serialize)]
+struct WikipediaRunProvenance {
+    schema_version: &'static str,
+    manifest_id: &'static str,
+    manifest_version: &'static str,
+    manifest_sha256: String,
+    source_id: &'static str,
+    authority: &'static str,
+    egress_policy: &'static str,
+    endpoint_template: &'static str,
+    success_body_limit_bytes: u64,
+    error_body_limit_bytes: u64,
+    articles_fetched: usize,
+    claims_generated: usize,
+    output_path: &'static str,
+    output_sha256: String,
+}
+
+#[cfg(test)]
+mod source_manifest_tests {
+    use super::*;
+
+    #[test]
+    fn wikipedia_manifest_matches_the_compiled_ingestion_policy() {
+        let manifest: serde_json::Value =
+            serde_json::from_str(SOURCE_MANIFEST_JSON).expect("source manifest JSON");
+        assert_eq!(manifest["manifest_id"].as_str(), Some(SOURCE_MANIFEST_ID));
+        assert_eq!(manifest["manifest_version"].as_str(), Some(SOURCE_MANIFEST_VERSION));
+        let source = manifest["sources"]
+            .as_array()
+            .expect("source entries")
+            .iter()
+            .find(|entry| entry["source_id"] == "wikipedia-en-page-summary")
+            .expect("Wikipedia source entry");
+        assert_eq!(source["authority"].as_str(), Some("WikipediaSummary"));
+        assert_eq!(
+            source["endpoint"].as_str(),
+            Some("https://en.wikipedia.org/api/rest_v1/page/summary/{title-segment}")
+        );
+        assert_eq!(
+            source["success_body_limit_bytes"].as_u64(),
+            Some(MAX_WIKIPEDIA_RESPONSE_BYTES)
+        );
+        assert_eq!(source["error_body_limit_bytes"].as_u64(), Some(64 * 1024));
+        assert_eq!(source["redirects"].as_str(), Some("deny"));
+        assert_eq!(source["method"].as_str(), Some("GET"));
+    }
+}
+
 fn main() {
     let mut limits = EgressLimits::default();
     limits.max_response_body_bytes = MAX_WIKIPEDIA_RESPONSE_BYTES as usize;
@@ -488,5 +544,26 @@ fn main() {
     let output_path = "prism-ingest/claims/wikipedia-extracts.json";
     let json = serde_json::to_string_pretty(&all_claims).expect("JSON serialization");
     std::fs::write(output_path, &json).expect("Failed to write output");
-    println!("Written to {}", output_path);
+
+    let provenance = WikipediaRunProvenance {
+        schema_version: "1.0.0",
+        manifest_id: SOURCE_MANIFEST_ID,
+        manifest_version: SOURCE_MANIFEST_VERSION,
+        manifest_sha256: hex::encode(Sha256::digest(SOURCE_MANIFEST_JSON.as_bytes())),
+        source_id: "wikipedia-en-page-summary",
+        authority: "WikipediaSummary",
+        egress_policy: "prism-public-egress-v1",
+        endpoint_template: "https://en.wikipedia.org/api/rest_v1/page/summary/{title-segment}",
+        success_body_limit_bytes: MAX_WIKIPEDIA_RESPONSE_BYTES,
+        error_body_limit_bytes: 64 * 1024,
+        articles_fetched: fetched,
+        claims_generated: all_claims.len(),
+        output_path,
+        output_sha256: hex::encode(Sha256::digest(json.as_bytes())),
+    };
+    let provenance_json =
+        serde_json::to_string_pretty(&provenance).expect("provenance serialization");
+    let provenance_path = "prism-ingest/claims/wikipedia-extracts.provenance.json";
+    std::fs::write(provenance_path, provenance_json).expect("Failed to write provenance");
+    println!("Written to {} with provenance {}", output_path, provenance_path);
 }
