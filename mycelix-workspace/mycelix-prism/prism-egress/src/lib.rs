@@ -85,8 +85,8 @@ pub enum EgressError {
     RequestHeadersTooLarge,
     #[error("request contains a transport-controlled header: {0}")]
     ForbiddenHeader(String),
-    #[error("custom request headers require HTTPS")]
-    HeadersRequireTls,
+    #[error("request payloads and custom headers require HTTPS")]
+    RequestRequiresTls,
     #[error("request body exceeds the configured byte limit")]
     RequestBodyTooLarge,
     #[error("response body exceeds the configured byte limit")]
@@ -235,8 +235,8 @@ impl PublicEgressClient {
 
         let mut url = Url::parse(raw_url)?;
         validate_url_policy(&url)?;
-        if url.scheme() == "http" && !headers.is_empty() {
-            return Err(EgressError::HeadersRequireTls);
+        if url.scheme() == "http" && (method != Method::GET || !headers.is_empty() || !body.is_empty()) {
+            return Err(EgressError::RequestRequiresTls);
         }
         // URL fragments are client-side state and must not affect the
         // authorization identity or be sent as part of the HTTP request.
@@ -775,7 +775,7 @@ mod tests {
     #[tokio::test]
     async fn injected_resolver_snapshot_is_taken_exactly_once_for_authorization() {
         let resolver = StaticResolver {
-            answers: socket_addresses(&["93.184.216.34:443", "2606:4700:4700::1111:443"]),
+            answers: socket_addresses(&["93.184.216.34:443", "[2606:4700:4700::1111]:443"]),
             calls: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         };
         let client = PublicEgressClient::with_resolver(EgressLimits::default(), resolver.clone());
@@ -834,7 +834,7 @@ mod tests {
         let result = client
             .authorize(Method::GET, "http://93.184.216.34/", headers, Vec::new())
             .await;
-        assert!(matches!(result, Err(EgressError::HeadersRequireTls)));
+        assert!(matches!(result, Err(EgressError::RequestRequiresTls)));
     }
 
     #[tokio::test]
