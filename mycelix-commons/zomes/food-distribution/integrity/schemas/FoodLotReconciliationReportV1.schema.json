@@ -43,11 +43,17 @@
       "maxLength": 512
     },
     "product_lot_ref": {
-      "type": "string",
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "^mycelix:food-lot:[a-z0-9][a-z0-9._:-]{0,127}$"
     },
     "lot_revision": {
-      "type": "integer",
+      "type": [
+        "integer",
+        "null"
+      ],
       "minimum": 1
     },
     "receipt_id": {
@@ -60,7 +66,7 @@
     },
     "as_of": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 0
     },
     "disposition": {
       "enum": [
@@ -106,6 +112,7 @@
           "missing_receipt",
           "ambiguous_receipt",
           "quarantined_receipt",
+          "rejected_receipt",
           "stale_lot_revision",
           "product_mismatch",
           "quantity_dimension_mismatch",
@@ -121,13 +128,16 @@
           "declared_use_by_elapsed",
           "current_time_unknown",
           "stale_or_missing_evidence",
-          "unsupported_exact_conversion"
+          "unsupported_exact_conversion",
+          "insufficient_quantity",
+          "invalid_quantity_record",
+          "missing_event_quantity",
+          "invalid_claim_ceiling"
         ]
       }
     },
     "evidence_refs": {
       "type": "array",
-      "minItems": 1,
       "uniqueItems": true,
       "items": {
         "type": "string",
@@ -264,7 +274,10 @@
       "then": {
         "properties": {
           "recipe_planning_eligibility": {
-            "const": "eligible"
+            "enum": [
+              "eligible",
+              "not_eligible"
+            ]
           },
           "receipt_id": {
             "type": "string",
@@ -273,14 +286,54 @@
           "available_quantity": {
             "$ref": "#/$defs/quantity"
           },
-          "event_chain_tip": {
-            "type": "string",
-            "minLength": 1
-          },
           "issue_codes": {
             "maxItems": 0
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "recipe_planning_eligibility": {
+                  "const": "eligible"
+                }
+              },
+              "required": [
+                "recipe_planning_eligibility"
+              ]
+            },
+            "then": {
+              "properties": {
+                "issue_codes": {
+                  "maxItems": 0
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "recipe_planning_eligibility": {
+                  "const": "not_eligible"
+                }
+              },
+              "required": [
+                "recipe_planning_eligibility"
+              ]
+            },
+            "then": {
+              "properties": {
+                "issue_codes": {
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "contains": {
+                    "const": "insufficient_quantity"
+                  }
+                }
+              }
+            }
+          }
+        ]
       }
     },
     {
