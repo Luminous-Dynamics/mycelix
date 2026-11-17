@@ -186,7 +186,7 @@ impl PublicEgressClient {
             max_response_body_bytes: self.limits.max_response_body_bytes,
             connect_timeout: self.limits.connect_timeout,
             request_timeout: self.limits.request_timeout,
-            policy_version: capability.policy_version,
+            policy_version: "prism-public-egress-v1",
         })
     }
 
@@ -251,7 +251,7 @@ impl PublicEgressClient {
             request_body_bytes,
             response_body_bytes: collected.len(),
             elapsed: started.elapsed(),
-            policy_version: "prism-public-egress-v1",
+            policy_version: capability.policy_version,
         };
 
         Ok(EgressResponse {
