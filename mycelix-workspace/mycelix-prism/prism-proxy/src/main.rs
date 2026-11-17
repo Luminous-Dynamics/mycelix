@@ -51,7 +51,7 @@ fn log_egress_receipt(context: &str, receipt: &prism_egress::EgressReceipt) {
     // Receipts are deliberately metadata-only: no URL path/query, headers,
     // credentials, request body, or response body enters the audit record.
     log::info!(
-        "Prism egress receipt context={} authority={} origin={} method={} peer={} authorized={:?} status={} request_bytes={} response_bytes={} redirects={} elapsed_ms={} policy={}",
+        "Prism egress receipt context={} authority={} origin={} method={} peer={} authorized={:?} status={} request_bytes={} response_bytes={} response_limit={} redirects={} elapsed_ms={} policy={}",
         context,
         receipt.authority,
         receipt.origin,
@@ -61,6 +61,7 @@ fn log_egress_receipt(context: &str, receipt: &prism_egress::EgressReceipt) {
         receipt.status,
         receipt.request_body_bytes,
         receipt.response_body_bytes,
+        receipt.response_body_limit_bytes,
         receipt.redirect_hops.len(),
         receipt.elapsed.as_millis(),
         receipt.policy_version,
