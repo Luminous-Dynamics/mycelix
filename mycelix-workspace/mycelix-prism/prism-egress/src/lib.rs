@@ -256,7 +256,7 @@ pub struct EgressReceipt {
 
 /// Resolver interface makes DNS policy deterministic under test. Implementations
 /// must return the complete A and AAAA answer set, not only the first address.
-pub trait EgressResolver: Send + Sync {
+trait EgressResolver: Send + Sync {
     /// Resolve one host while owning the DNS admission permit. Implementations
     /// that delegate to non-cancellable blocking work must move this permit
     /// into that work so timeouts cannot release capacity early.
@@ -269,7 +269,7 @@ pub trait EgressResolver: Send + Sync {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-pub struct SystemEgressResolver;
+struct SystemEgressResolver;
 
 impl EgressResolver for SystemEgressResolver {
     fn resolve<'a>(
@@ -323,7 +323,7 @@ impl PublicEgressClient {
         Self::with_resolver(limits, SystemEgressResolver)
     }
 
-    pub fn with_resolver<R>(limits: EgressLimits, resolver: R) -> Self
+    fn with_resolver<R>(limits: EgressLimits, resolver: R) -> Self
     where
         R: EgressResolver + 'static,
     {
