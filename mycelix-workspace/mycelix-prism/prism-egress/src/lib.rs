@@ -103,8 +103,36 @@ pub enum EgressError {
     ConcurrencyUnavailable,
     #[error("egress capability expired before execution")]
     CapabilityExpired,
+    #[error("request does not fit the selected egress authority")]
+    AuthorityScopeViolation,
+    #[error("request header is not permitted for the selected egress authority: {0}")]
+    AuthorityHeaderViolation(String),
+    #[error("required provider authorization header is missing or malformed")]
+    ProviderCredentialMissing,
     #[error("HTTP transport failed: {0}")]
     Http(#[from] reqwest::Error),
+}
+
+/// Typed outbound authority. Provider variants are intentionally fixed to
+/// reviewed service origins; callers cannot mint an arbitrary credential scope.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EgressAuthority {
+    /// Unauthenticated, bodyless public-web GET only.
+    PublicWeb,
+    /// Brave Search API: api.search.brave.com/res/v1/web/search.
+    BraveSearch,
+    /// Perplexity API: api.perplexity.ai/chat/completions.
+    Perplexity,
+}
+
+impl EgressAuthority {
+    fn label(self) -> &'static str {
+        match self {
+            Self::PublicWeb => "public-web",
+            Self::BraveSearch => "brave-search",
+            Self::Perplexity => "perplexity",
+        }
+    }
 }
 
 /// A one-use, short-lived authorization to fetch one exact URL with one method
@@ -115,6 +143,7 @@ pub enum EgressError {
 pub struct EgressCapability {
     url: Url,
     host: String,
+    authority: EgressAuthority,
     method: Method,
     headers: HeaderMap,
     body: Vec<u8>,
@@ -148,6 +177,7 @@ pub struct EgressReceipt {
     pub response_body_bytes: usize,
     pub elapsed: Duration,
     pub policy_version: &'static str,
+    pub authority: EgressAuthority,
 }
 
 /// Resolver interface makes DNS policy deterministic under test. Implementations
@@ -220,10 +250,29 @@ impl PublicEgressClient {
         &self.limits
     }
 
-    /// Resolve and authorize an exact request target. The returned capability
-    /// expires quickly and can only be executed once.
+    /// Resolve and authorize an unauthenticated public-web request. This
+    /// default context accepts only bodyless, headerless GET requests.
     pub async fn authorize(
         &self,
+        method: Method,
+        raw_url: &str,
+        headers: HeaderMap,
+        body: Vec<u8>,
+    ) -> Result<EgressCapability, EgressError> {
+        self.authorize_with_authority(
+            EgressAuthority::PublicWeb,
+            method,
+            raw_url,
+            headers,
+            body,
+        )
+        .await
+    }
+
+    /// Resolve and authorize an exact request under a fixed, typed authority.
+    pub async fn authorize_with_authority(
+        &self,
+        authority: EgressAuthority,
         method: Method,
         raw_url: &str,
         headers: HeaderMap,
@@ -245,11 +294,7 @@ impl PublicEgressClient {
 
         let mut url = Url::parse(raw_url)?;
         validate_url_policy(&url)?;
-        if url.scheme() == "http"
-            && (method != Method::GET || !headers.is_empty() || !body.is_empty())
-        {
-            return Err(EgressError::RequestRequiresTls);
-        }
+        validate_authority_scope(authority, &url, &method, &headers, &body)?;
         // URL fragments are client-side state and must not affect the
         // authorization identity or be sent as part of the HTTP request.
         url.set_fragment(None);
@@ -262,6 +307,7 @@ impl PublicEgressClient {
         Ok(EgressCapability {
             url,
             host,
+            authority,
             method,
             headers,
             body,
@@ -285,6 +331,7 @@ impl PublicEgressClient {
         }
 
         let origin = format!("{}://{}", capability.url.scheme(), capability.host);
+        let authority = capability.authority;
         let authorized_addresses = capability.addresses.clone();
         let method_name = capability.method.as_str().to_owned();
         let request_body_bytes = capability.body.len();
@@ -346,6 +393,7 @@ impl PublicEgressClient {
             response_body_bytes: collected.len(),
             elapsed: started.elapsed(),
             policy_version: capability.policy_version,
+            authority,
         };
 
         Ok(EgressResponse {
@@ -354,6 +402,21 @@ impl PublicEgressClient {
             body: collected,
             receipt,
         })
+    }
+
+    /// Execute a request under a reviewed provider authority.
+    pub async fn request_with_authority(
+        &self,
+        authority: EgressAuthority,
+        method: Method,
+        raw_url: &str,
+        headers: HeaderMap,
+        body: Vec<u8>,
+    ) -> Result<EgressResponse, EgressError> {
+        let capability = self
+            .authorize_with_authority(authority, method, raw_url, headers, body)
+            .await?;
+        self.execute(capability).await
     }
 
     /// Convenience wrapper; internally still issues then consumes a one-use
@@ -390,6 +453,75 @@ fn build_pinned_client(
         builder = builder.resolve_to_addrs(host, addresses);
     }
     Ok(builder.build()?)
+}
+
+fn validate_authority_scope(
+    authority: EgressAuthority,
+    url: &Url,
+    method: &Method,
+    headers: &HeaderMap,
+    body: &[u8],
+) -> Result<(), EgressError> {
+    let is_https = url.scheme() == "https";
+    let host = url.host_str().unwrap_or_default();
+    let path = url.path();
+
+    match authority {
+        EgressAuthority::PublicWeb => {
+            if *method != Method::GET || !headers.is_empty() || !body.is_empty() {
+                return Err(EgressError::AuthorityScopeViolation);
+            }
+        }
+        EgressAuthority::BraveSearch => {
+            if !is_https
+                || host != "api.search.brave.com"
+                || path != "/res/v1/web/search"
+                || *method != Method::GET
+                || !body.is_empty()
+            {
+                return Err(EgressError::AuthorityScopeViolation);
+            }
+            for name in headers.keys() {
+                if !matches!(name.as_str(), "x-subscription-token" | "accept") {
+                    return Err(EgressError::AuthorityHeaderViolation(name.as_str().to_owned()));
+                }
+            }
+            let token = headers
+                .get("x-subscription-token")
+                .and_then(|value| value.to_str().ok())
+                .filter(|value| !value.trim().is_empty());
+            if token.is_none() {
+                return Err(EgressError::ProviderCredentialMissing);
+            }
+        }
+        EgressAuthority::Perplexity => {
+            if !is_https
+                || host != "api.perplexity.ai"
+                || path != "/chat/completions"
+                || *method != Method::POST
+            {
+                return Err(EgressError::AuthorityScopeViolation);
+            }
+            for name in headers.keys() {
+                if !matches!(name.as_str(), "authorization" | "content-type") {
+                    return Err(EgressError::AuthorityHeaderViolation(name.as_str().to_owned()));
+                }
+            }
+            let authorization = headers
+                .get(reqwest::header::AUTHORIZATION)
+                .and_then(|value| value.to_str().ok())
+                .filter(|value| value.starts_with("Bearer ") && value.len() > "Bearer ".len());
+            let content_type = headers
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok())
+                .filter(|value| value.eq_ignore_ascii_case("application/json"));
+            if authorization.is_none() || content_type.is_none() {
+                return Err(EgressError::ProviderCredentialMissing);
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn validate_request_headers(headers: &HeaderMap) -> Result<(), EgressError> {
@@ -841,6 +973,88 @@ mod tests {
                 .iter()
                 .any(|address| address.ip() == ip("2606:4700:4700::1111"))
         );
+    }
+
+    #[test]
+    fn public_web_authority_rejects_headers_and_request_bodies() {
+        let url = Url::parse("https://attacker.example/collect").unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(reqwest::header::AUTHORIZATION, "Bearer secret".parse().unwrap());
+        assert!(matches!(
+            validate_authority_scope(
+                EgressAuthority::PublicWeb,
+                &url,
+                &Method::GET,
+                &headers,
+                &[],
+            ),
+            Err(EgressError::AuthorityScopeViolation)
+        ));
+        assert!(matches!(
+            validate_authority_scope(
+                EgressAuthority::PublicWeb,
+                &url,
+                &Method::POST,
+                &HeaderMap::new(),
+                b"private payload",
+            ),
+            Err(EgressError::AuthorityScopeViolation)
+        ));
+    }
+
+    #[test]
+    fn brave_authority_is_fixed_to_exact_origin_path_and_headers() {
+        let url = Url::parse("https://api.search.brave.com/res/v1/web/search?q=x").unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert("X-Subscription-Token", "secret".parse().unwrap());
+        headers.insert(reqwest::header::ACCEPT, "application/json".parse().unwrap());
+        assert!(validate_authority_scope(
+            EgressAuthority::BraveSearch,
+            &url,
+            &Method::GET,
+            &headers,
+            &[],
+        ).is_ok());
+
+        let attacker = Url::parse("https://attacker.example/res/v1/web/search").unwrap();
+        assert!(matches!(
+            validate_authority_scope(EgressAuthority::BraveSearch, &attacker, &Method::GET, &headers, &[]),
+            Err(EgressError::AuthorityScopeViolation)
+        ));
+
+        let wrong_path = Url::parse("https://api.search.brave.com/other").unwrap();
+        assert!(matches!(
+            validate_authority_scope(EgressAuthority::BraveSearch, &wrong_path, &Method::GET, &headers, &[]),
+            Err(EgressError::AuthorityScopeViolation)
+        ));
+    }
+
+    #[test]
+    fn perplexity_authority_is_fixed_to_exact_origin_path_and_header_set() {
+        let url = Url::parse("https://api.perplexity.ai/chat/completions").unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(reqwest::header::AUTHORIZATION, "Bearer secret".parse().unwrap());
+        headers.insert(reqwest::header::CONTENT_TYPE, "application/json".parse().unwrap());
+        assert!(validate_authority_scope(
+            EgressAuthority::Perplexity,
+            &url,
+            &Method::POST,
+            &headers,
+            b"{}",
+        ).is_ok());
+
+        let attacker = Url::parse("https://attacker.example/chat/completions").unwrap();
+        assert!(matches!(
+            validate_authority_scope(EgressAuthority::Perplexity, &attacker, &Method::POST, &headers, b"{}"),
+            Err(EgressError::AuthorityScopeViolation)
+        ));
+
+        let mut extra = headers.clone();
+        extra.insert("x-forwarded-host", "attacker.example".parse().unwrap());
+        assert!(matches!(
+            validate_authority_scope(EgressAuthority::Perplexity, &url, &Method::POST, &extra, b"{}"),
+            Err(EgressError::AuthorityHeaderViolation(_))
+        ));
     }
 
     #[tokio::test]
