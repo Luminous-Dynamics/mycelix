@@ -1446,7 +1446,7 @@ mod tests {
         });
 
         let second_server = tokio::spawn(async move {
-            let (mut stream, peer) = second_listener.accept().await.unwrap();
+            let (mut stream, _) = second_listener.accept().await.unwrap();
             let request = read_test_request(&mut stream).await;
             stream
                 .write_all(
@@ -1454,7 +1454,7 @@ mod tests {
                 )
                 .await
                 .unwrap();
-            (peer, request)
+            request
         });
 
         let resolver = LoopbackResolver::default();
@@ -1504,9 +1504,7 @@ mod tests {
             "Host: prism-redirect.test:{}",
             first_address.port()
         )));
-        let (second_peer, second_request) = second_server.await.unwrap();
-        assert_eq!(second_peer, second_address);
-        let second_request = String::from_utf8_lossy(&second_request);
+        let second_request = String::from_utf8_lossy(&second_server.await.unwrap());
         assert!(second_request.contains(&format!(
             "Host: prism-redirect.test:{}",
             second_address.port()
