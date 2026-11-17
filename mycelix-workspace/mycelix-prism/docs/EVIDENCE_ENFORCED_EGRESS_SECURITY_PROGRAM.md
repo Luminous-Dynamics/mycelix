@@ -62,7 +62,7 @@ Status: the following are source-level controls on `security/prism-evidence-enfo
 - **Desktop navigation remains separate:** `prism-net` and `prism-tauri` retain the user-navigation trust context, with explicit HTTP(S)/URL checks and bounded streamed bodies. They still use their own Reqwest clients and browser-like redirects; DNS pinning and per-hop redirect reauthorization for this desktop context remain outstanding. Do not describe the complete Prism product as having one universal egress boundary yet.
 - **Architectural guard:** CI checks the direct Reqwest-client inventory and required egress source invariants. The current grep-based inventory is a useful ratchet, not a complete compiler-level proof against all possible networking APIs.
 
-Focused source tests cover address policy (47 versioned IANA-derived cases), mixed DNS answers, resolver snapshots, a full `authorize → resolve snapshot → pinned socket → observed peer → receipt` local end-to-end path, connection override/Host preservation, peer validation, redirects, HTTP/1 parser-level header-count rejection, response limits including gzip expansion, provider scopes, and cancellation of blocking DNS work. They have not been run successfully on the current PR head. The latest workflow is `skipped`, not passed; Cargo test/fmt/clippy and end-to-end exploit evidence remain pending.
+Focused source tests cover address policy (47 versioned IANA-derived cases), mixed DNS answers, resolver snapshots, a full `authorize → resolve snapshot → pinned socket → observed peer → receipt` local end-to-end path, connection override/Host preservation, peer validation, per-hop redirect DNS re-authorization and pinning, HTTP/1 parser-level header-count rejection, response limits including gzip expansion, provider scopes, and cancellation of blocking DNS work. Workflow #14615 reached `test-prism` but stopped before rustfmt or tests: Cargo metadata treated `mycelix-prism/docs` as a workspace member because the broad `mycelix-prism/*` glob did not exclude it. The workspace exclusion was added in commit `0875ef4e26906952d569874b9f05c45ea99ac5c1`. No passing fmt, build, test, or clippy result is claimed for the updated head; no exact-head run is currently recorded after the fix.
 
 ## Implementation sequence
 
@@ -254,10 +254,11 @@ The `prism-egress` source and integration corpus include tests for 47 versioned 
 - actual Reqwest destination pinning to a local test listener while preserving the original Host authority, followed by observed-peer membership validation;
 - missing/unexpected peer evidence rejection and successful receipts recording the observed peer;
 - metadata-host redirect rejection through the high-level PublicWeb execution path, duplicate `Location` rejection, relative redirect target parsing, HTTPS downgrade rejection, loop detection, and provider no-follow policy;
+- a two-server end-to-end redirect test that re-resolves the same hostname for a new port, pins the second connection to the second authorization snapshot, and verifies both hop peers, the final receipt, and each original `Host` authority;
 - HTTP/1 response rejection when the server exceeds the transport-level 128-header limit;
 - URL scheme, port, credentials, local hostname, body, header, capability expiry, HTTPS requirements, provider-origin/header allowlists, and duplicate credential headers.
 
-No passing test result is claimed. The PR remains a draft; the workflow's `pull_request` gate skips draft PRs, and the latest branch head has not been built or tested in a runner or local checkout.
+No passing test result is claimed. The PR remains a draft. Draft PRs now execute the changed-path `test-prism` job; the latest observed run failed at Cargo workspace metadata before formatting/tests because `mycelix-prism/docs` was not excluded. That workspace omission has been fixed, but the corrected head has not yet produced an observed workflow run and has not been compiled or tested locally.
 
 ## Research and benchmark plan: evidence before SOTA claims
 
@@ -354,7 +355,7 @@ The current draft branch includes the typed `prism-egress` transport and the fol
 - Upstream response readers enforce decoded streaming body budgets; a gzip expansion regression test is included. Both hosted servers explicitly cap inbound request bodies at 2 MiB.
 - Fixed Wikipedia/Wikidata ingestion uses typed authorities, a versioned source manifest, fresh authorization for explicit retries, and provenance/output digests.
 - The Symthaea Unix-socket response frame is capped at 64 KiB and must be newline-terminated. Missing, null, or malformed Symthaea `safe` metadata maps to `false`.
-- CI source checks require the pinned transport, explicit retry disabling, duplicate-redirect rejection, gzip-budget regression test, end-to-end DNS-to-peer test, HTTP/1 parser header-count limit, and reviewed direct-client inventory.
+- CI source checks require the pinned transport, explicit retry disabling, duplicate-redirect rejection, gzip-budget regression test, end-to-end DNS-to-peer test, per-hop redirect DNS re-authorization test, HTTP/1 parser header-count limit, and reviewed direct-client inventory. The root Cargo workspace explicitly excludes `mycelix-prism/docs` so the broad Prism member glob only discovers actual crates.
 - The CI changed-path detector now runs on draft PRs, allowing the affected Prism package job to run without enabling unrelated cluster tests; global formatting and aggregate merge-summary gates remain draft-gated.
 
 These remain source-level controls until the exact branch head is compiled and tested. The latest recorded workflow on the current feature line was skipped; no passing Cargo, formatting, clippy, or adversarial runtime result is claimed. Do not interpret the presence of unit tests as evidence that they have passed.
