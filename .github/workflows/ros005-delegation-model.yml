@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ros005-delegation-model-${{ github.ref }}
+  group: ros005-delegation-model-v0.2-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
