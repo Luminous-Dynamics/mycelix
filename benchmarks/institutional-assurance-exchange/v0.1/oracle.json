@@ -1,0 +1,34 @@
+{
+  "oracle_version": "0.1",
+  "synthetic": true,
+  "status": "development_known_answer_not_independently_adjudicated",
+  "cases": [
+    {
+      "packet_id": "IAE-SYNTHETIC-001",
+      "expected_disposition": "HOLD_FOR_RECONCILIATION",
+      "required_reason_codes": [
+        "operation.outcome.unknown"
+      ],
+      "prohibited_inferences": [
+        "Do not infer successful handover from submission or timeout.",
+        "Do not infer legal title from custody or catalogue identity.",
+        "Do not infer permission to repeat the operation without reconciliation."
+      ],
+      "expected_execution": {
+        "state": "UNKNOWN",
+        "mutation_count": 1,
+        "retry_count": 0,
+        "reattempt_permitted": false,
+        "reconciliation_required": true
+      },
+      "required_next_evidence": [
+        "receiving_custodian_receipt_or_authoritative_non_completion_confirmation"
+      ],
+      "historical_rewrite_permitted": false,
+      "required_evidence_receipts": [
+        "RECEIPT-CUSTODY-001",
+        "RECEIPT-CATALOGUE-001"
+      ]
+    }
+  ]
+}
