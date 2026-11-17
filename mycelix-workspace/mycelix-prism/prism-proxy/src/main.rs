@@ -65,6 +65,7 @@ fn upstream_error(
         }
         EgressError::DnsResolution { .. }
         | EgressError::DnsResolutionTimeout
+        | EgressError::DnsCapacityUnavailable
         | EgressError::DnsAnswerSetTooLarge
         | EgressError::EmptyAddressSet(_)
         | EgressError::RemotePeerUnavailable
