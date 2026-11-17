@@ -1,0 +1,368 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/food/ContainerCycleEventV1.schema.json",
+  "title": "ContainerCycleEventV1",
+  "description": "Append-only container lifecycle event. The parent hash and sequence form a chain; the coordinator detects forks and fails closed. Sanitation values are observations, not microbial safety validation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "container_hash",
+    "previous_event_hash",
+    "sequence_number",
+    "event_kind",
+    "occurred_at",
+    "product_ref",
+    "product_lot_ref",
+    "preservation_batch_hash",
+    "location_ref",
+    "condition",
+    "sanitation",
+    "evidence"
+  ],
+  "properties": {
+    "container_hash": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Holochain ActionHash of the reusable container"
+    },
+    "previous_event_hash": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "description": "Previous lifecycle event ActionHash; null only for sequence zero"
+    },
+    "sequence_number": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "event_kind": {
+      "enum": [
+        "Washed",
+        "Sanitized",
+        "Inspected",
+        "Filled",
+        "Sealed",
+        "Dispatched",
+        "Received",
+        "Emptied",
+        "Returned",
+        "Retired",
+        "Lost",
+        "Damaged"
+      ]
+    },
+    "occurred_at": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "product_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "product_lot_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "preservation_batch_hash": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "location_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "condition": {
+      "enum": [
+        "Serviceable",
+        "NeedsCleaning",
+        "Damaged",
+        "FailedInspection",
+        "Retired",
+        "Lost",
+        "Unknown"
+      ]
+    },
+    "sanitation": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "protocol_ref",
+        "wash_water_temp_millic",
+        "sanitizer_ref",
+        "sanitizer_concentration_mg_l",
+        "exposure_time_ms",
+        "observation_ref",
+        "evidence"
+      ],
+      "properties": {
+        "protocol_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wash_water_temp_millic": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "sanitizer_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "sanitizer_concentration_mg_l": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "exposure_time_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "observation_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        }
+      }
+    },
+    "evidence": {
+      "$ref": "#/$defs/evidence"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "sequence_number": {
+            "const": 0
+          }
+        },
+        "required": [
+          "sequence_number"
+        ]
+      },
+      "then": {
+        "properties": {
+          "previous_event_hash": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "previous_event_hash": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "const": "Filled"
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "anyOf": [
+          {
+            "properties": {
+              "product_lot_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          {
+            "properties": {
+              "preservation_batch_hash": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "enum": [
+              "Washed",
+              "Sanitized"
+            ]
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "sanitation": {
+            "type": "object"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "sanitation": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "const": "Sanitized"
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "sanitation": {
+            "properties": {
+              "sanitizer_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sanitizer_concentration_mg_l": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "exposure_time_ms": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_ref",
+        "method_ref",
+        "calibration_ref",
+        "evidence_class"
+      ],
+      "properties": {
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "calibration_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "evidence_class": {
+          "enum": [
+            "Declared",
+            "Modelled",
+            "Simulated",
+            "Measured",
+            "IndependentlyAssayed",
+            "IndependentlyQualified"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidence_class": {
+                "const": "Measured"
+              }
+            },
+            "required": [
+              "evidence_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "calibration_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evidence_class": {
+                "enum": [
+                  "IndependentlyAssayed",
+                  "IndependentlyQualified"
+                ]
+              }
+            },
+            "required": [
+              "evidence_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "method_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
