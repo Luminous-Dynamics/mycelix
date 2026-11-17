@@ -196,11 +196,23 @@ The Symthaea bridge also now fails closed when the daemon omits or malforms its 
 
 ### CI architecture ratchet
 
-The Prism CI job runs Cargo package commands from the actual outer `mycelix-workspace` Cargo workspace root (the `mycelix-prism/Cargo.toml` file is a placeholder, not a workspace root). The existing `mycelix-prism/*` membership glob includes the new crate. Formatting and package-test lists include `prism-egress`; optional fixed-source ingestion binaries are compile-checked with `--features fetch`; a source-level ratchet now permits exactly two direct Reqwest client constructors, both in the desktop-navigation clients (`prism-net` and `prism-tauri`).
+The Prism CI job runs Cargo package commands from the actual outer `mycelix-workspace` Cargo workspace root (the `mycelix-prism/Cargo.toml` file is a placeholder, not a workspace root). The existing `mycelix-prism/*` membership glob includes the new crate. Formatting and package-test lists include `prism-egress`; fixed-source ingestion binaries are compile-checked and their manifest/query-provenance tests run with `--features fetch`; a source-level ratchet now permits exactly two direct Reqwest client constructors, both in the desktop-navigation clients (`prism-net` and `prism-tauri`).
 
 The CI source ratchet also asserts the hosted egress invariants: no independent Reqwest client or automatic redirect policy in the proxy servers, one pinned egress client builder, `resolve_to_addrs`, observed peer validation, the five-hop PublicWeb redirect state machine, redirect-hop receipt creation, and provider authority routing. The hosted handlers must call the receipt logger for proxy, DuckDuckGo, Brave, and Perplexity results.
 
 This ratchet is an initial guardrail, not a complete static proof: aliases, wrappers, other HTTP libraries, browser-side fetches, and generated code need separate inventory coverage.
+
+### Ingestion source manifest and run provenance
+
+The fixed-source ingestion paths now have a versioned contract at `prism-ingest/sources/manifest.json`:
+
+- Manifest ID `luminous.prism.ingest.sources`, version `2026-11-17.1`, bound to egress policy `prism-public-egress-v1`.
+- Wikipedia entry specifies the exact title-segment endpoint, GET-only/no-redirect authority, 2 MiB success and 64 KiB error budgets, and ten-second timeout.
+- Wikidata entry specifies the exact SPARQL endpoint and `query` + `format=json` shape, 16 MiB success and 64 KiB error budgets, 90-second timeout, three-attempt 429 retry policy, and all 79 query IDs.
+- The Wikidata generator hashes the exact UTF-8 SPARQL query bytes with SHA-256. Each generated claim carries its query ID and digest in its source metadata; the run sidecar records each query's digest, success/failure, result-row count, and generated-claim count.
+- Both ingestion jobs emit provenance sidecars that bind the exact source-manifest SHA-256 to the generated data/source artifact SHA-256, source ID, authority, policy version, and resource budgets. The Wikipedia sidecar also records the successful article-title set.
+
+The binary-level tests compare the live query registry and source limits against the manifest. CI runs those tests with `cargo test -p prism-ingest --features fetch --bins`. This is the start of a reproducible source-acquisition contract; the next step is to add external response digests and independently attested retrieval timestamps without storing sensitive data.
 
 ### Versioned benchmark artifacts added
 
