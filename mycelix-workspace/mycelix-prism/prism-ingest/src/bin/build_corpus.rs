@@ -10,6 +10,9 @@
 //! Output: claims/wikipedia-extracts.json
 
 use serde::{Deserialize, Serialize};
+use std::io::Read;
+
+const MAX_WIKIPEDIA_RESPONSE_BYTES: u64 = 2 * 1024 * 1024;
 
 #[derive(Deserialize)]
 struct WikiSummary {
@@ -384,6 +387,8 @@ fn extract_sentences(text: &str) -> Vec<String> {
 fn main() {
     let client = reqwest::blocking::Client::builder()
         .user_agent("PrismCorpusBuilder/1.0 (https://mycelix.net; epistemic search)")
+        .redirect(reqwest::redirect::Policy::none())
+        .no_proxy()
         .timeout(std::time::Duration::from_secs(10))
         .build()
         .expect("HTTP client");
@@ -412,7 +417,17 @@ fn main() {
                         eprintln!("  SKIP {}: HTTP {}", title, resp.status());
                         continue;
                     }
-                    match resp.json::<WikiSummary>() {
+                    let mut bounded = resp.take(MAX_WIKIPEDIA_RESPONSE_BYTES + 1);
+                    let mut body = Vec::new();
+                    if let Err(error) = bounded.read_to_end(&mut body) {
+                        eprintln!("  SKIP {}: response read failed: {}", title, error);
+                        continue;
+                    }
+                    if body.len() as u64 > MAX_WIKIPEDIA_RESPONSE_BYTES {
+                        eprintln!("  SKIP {}: response exceeded {} bytes", title, MAX_WIKIPEDIA_RESPONSE_BYTES);
+                        continue;
+                    }
+                    match serde_json::from_slice::<WikiSummary>(&body) {
                         Ok(summary) => {
                             let extract = summary.extract.unwrap_or_default();
                             let article_title =
