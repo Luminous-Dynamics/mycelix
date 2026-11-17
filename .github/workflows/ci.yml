@@ -453,6 +453,8 @@ jobs:
           require_source '.resolve_to_addrs(host, addresses)' "$egress"
           require_source 'response.remote_addr()' "$egress"
           require_source '.http2_max_header_list_size(64 * 1024)' "$egress"
+          require_source '.http1_max_headers(MAX_RESPONSE_HEADER_COUNT)' "$egress"
+          require_source 'http1_parser_rejects_response_header_count_over_transport_limit' "$egress"
           require_source 'MAX_PUBLIC_WEB_REDIRECT_HOPS: usize = 5' "$egress"
           require_source 'AmbiguousRedirectLocation' "$egress"
           require_source 'duplicate_location_headers_are_rejected_before_a_second_hop' "$egress"
