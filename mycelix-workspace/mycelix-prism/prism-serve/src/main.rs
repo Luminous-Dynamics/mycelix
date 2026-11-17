@@ -10,12 +10,11 @@ use axum::Router;
 use axum::extract::{DefaultBodyLimit, Query, State};
 use axum::http::StatusCode;
 use axum::http::header::HeaderValue;
-use prism_egress::{EgressAuthority, EgressError, PublicEgressClient};
-use reqwest::{Method, header::HeaderMap};
-use url::Url;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use prism_common::ssrf::validate_proxy_url;
+use prism_egress::{EgressAuthority, EgressError, PublicEgressClient};
+use reqwest::{Method, header::HeaderMap};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -23,6 +22,7 @@ use tokio::net::UnixStream;
 use tower_http::compression::CompressionLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::SetResponseHeaderLayer;
+use url::Url;
 
 const MAX_REQUEST_BODY_SIZE: usize = 2 * 1024 * 1024; // 2 MiB
 const MAX_SYMTHAEA_RESPONSE_LINE_BYTES: usize = 64 * 1024;
@@ -83,10 +83,7 @@ fn log_egress_receipt(context: &str, receipt: &prism_egress::EgressReceipt) {
     }
 }
 
-fn upstream_error(
-    context: &str,
-    error: EgressError,
-) -> axum::response::Response<axum::body::Body> {
+fn upstream_error(context: &str, error: EgressError) -> axum::response::Response<axum::body::Body> {
     let (status, message) = match error {
         EgressError::InvalidUrl(_) => (StatusCode::BAD_REQUEST, "Invalid request URL"),
         EgressError::UrlTooLarge => (StatusCode::URI_TOO_LONG, "Request URL too large"),
@@ -96,9 +93,10 @@ fn upstream_error(
         EgressError::RequestHeadersTooLarge | EgressError::ForbiddenHeader(_) => {
             (StatusCode::BAD_REQUEST, "Request headers not permitted")
         }
-        EgressError::ResponseBodyTooLarge | EgressError::ResponseHeadersTooLarge => {
-            (StatusCode::BAD_GATEWAY, "Upstream response exceeded its resource budget")
-        }
+        EgressError::ResponseBodyTooLarge | EgressError::ResponseHeadersTooLarge => (
+            StatusCode::BAD_GATEWAY,
+            "Upstream response exceeded its resource budget",
+        ),
         EgressError::DnsResolution { .. }
         | EgressError::DnsResolutionTimeout
         | EgressError::DnsCapacityUnavailable
@@ -109,17 +107,17 @@ fn upstream_error(
         | EgressError::RedirectLimitExceeded
         | EgressError::InvalidRedirectLocation
         | EgressError::RedirectLoop
-        | EgressError::Http(_) => {
-            (StatusCode::BAD_GATEWAY, "Upstream request failed")
-        }
+        | EgressError::Http(_) => (StatusCode::BAD_GATEWAY, "Upstream request failed"),
         EgressError::CapabilityExpired
         | EgressError::ConcurrencyQueueTimeout
-        | EgressError::ConcurrencyUnavailable => {
-            (StatusCode::SERVICE_UNAVAILABLE, "Egress capacity is unavailable")
-        }
-        EgressError::ExecutionTimeout => {
-            (StatusCode::GATEWAY_TIMEOUT, "Egress execution deadline exceeded")
-        }
+        | EgressError::ConcurrencyUnavailable => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Egress capacity is unavailable",
+        ),
+        EgressError::ExecutionTimeout => (
+            StatusCode::GATEWAY_TIMEOUT,
+            "Egress execution deadline exceeded",
+        ),
         EgressError::UnsupportedScheme
         | EgressError::CredentialsNotPermitted
         | EgressError::BlockedHost
@@ -131,9 +129,10 @@ fn upstream_error(
         | EgressError::RedirectSchemeDowngrade
         | EgressError::AuthorityScopeViolation
         | EgressError::AuthorityHeaderViolation(_)
-        | EgressError::ProviderCredentialMissing => {
-            (StatusCode::FORBIDDEN, "Destination or request not permitted")
-        }
+        | EgressError::ProviderCredentialMissing => (
+            StatusCode::FORBIDDEN,
+            "Destination or request not permitted",
+        ),
     };
     // Do not log URLs, query strings, header values, or transport error details.
     log::warn!("Prism egress {context} returned status {}", status.as_u16());
@@ -172,7 +171,14 @@ async fn proxy_handler(Query(params): Query<ProxyParams>) -> impl IntoResponse {
         }
     };
 
-    match egress_request(Method::GET, validated.as_str(), HeaderMap::new(), Vec::new()).await {
+    match egress_request(
+        Method::GET,
+        validated.as_str(),
+        HeaderMap::new(),
+        Vec::new(),
+    )
+    .await
+    {
         Ok(response) => {
             log_egress_receipt("proxy", &response.receipt);
             let content_type = response
@@ -629,15 +635,23 @@ mod tests {
     #[test]
     fn missing_or_malformed_safety_metadata_fails_closed() {
         assert!(!symthaea_response_is_safe(&serde_json::json!({})));
-        assert!(!symthaea_response_is_safe(&serde_json::json!({"safe": null})));
-        assert!(!symthaea_response_is_safe(&serde_json::json!({"safe": "true"})));
+        assert!(!symthaea_response_is_safe(
+            &serde_json::json!({"safe": null})
+        ));
+        assert!(!symthaea_response_is_safe(
+            &serde_json::json!({"safe": "true"})
+        ));
         assert!(!symthaea_response_is_safe(&serde_json::json!({"safe": 1})));
     }
 
     #[test]
     fn explicit_safety_metadata_is_preserved() {
-        assert!(symthaea_response_is_safe(&serde_json::json!({"safe": true})));
-        assert!(!symthaea_response_is_safe(&serde_json::json!({"safe": false})));
+        assert!(symthaea_response_is_safe(
+            &serde_json::json!({"safe": true})
+        ));
+        assert!(!symthaea_response_is_safe(
+            &serde_json::json!({"safe": false})
+        ));
     }
 
     #[tokio::test]
