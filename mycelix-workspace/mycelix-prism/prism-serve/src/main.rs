@@ -46,11 +46,17 @@ fn upstream_error(context: &str, error: EgressError) -> axum::response::Response
         EgressError::RequestHeadersTooLarge | EgressError::ForbiddenHeader(_) => {
             (StatusCode::BAD_REQUEST, "Request headers not permitted")
         }
-        EgressError::ResponseBodyTooLarge => (StatusCode::BAD_GATEWAY, "Upstream response too large"),
+        EgressError::ResponseBodyTooLarge | EgressError::ResponseHeadersTooLarge => {
+            (StatusCode::BAD_GATEWAY, "Upstream response exceeded its resource budget")
+        }
         EgressError::DnsResolution { .. } | EgressError::EmptyAddressSet(_) | EgressError::Http(_) => {
             (StatusCode::BAD_GATEWAY, "Upstream request failed")
         }
-        EgressError::CapabilityExpired => (StatusCode::SERVICE_UNAVAILABLE, "Request authorization expired"),
+        EgressError::CapabilityExpired
+        | EgressError::ConcurrencyQueueTimeout
+        | EgressError::ConcurrencyUnavailable => {
+            (StatusCode::SERVICE_UNAVAILABLE, "Egress capacity is unavailable")
+        }
         EgressError::UnsupportedScheme
         | EgressError::CredentialsNotPermitted
         | EgressError::BlockedHost
