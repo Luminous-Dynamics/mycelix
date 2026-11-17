@@ -435,6 +435,32 @@ jobs:
             echo "Expected exactly one transport client builder in prism-egress, found $egress_client_builders"
             exit 1
           fi
+      - name: Enforce hosted Prism egress invariants
+        run: |
+          cd mycelix-workspace
+          egress=mycelix-prism/prism-egress/src/lib.rs
+          require_source() {
+            if ! grep -Fq "$1" "$2"; then
+              echo "Missing required egress invariant '$1' in $2"
+              exit 1
+            fi
+          }
+          require_source '.redirect(reqwest::redirect::Policy::none())' "$egress"
+          require_source '.no_proxy()' "$egress"
+          require_source '.resolve_to_addrs(host, addresses)' "$egress"
+          require_source 'response.remote_addr()' "$egress"
+          require_source 'MAX_PUBLIC_WEB_REDIRECT_HOPS: usize = 5' "$egress"
+          require_source 'self.authorize_with_authority(' "$egress"
+          require_source 'redirect_hops.push(RedirectHopReceipt' "$egress"
+          for hosted in mycelix-prism/prism-proxy/src/main.rs mycelix-prism/prism-serve/src/main.rs; do
+            if grep -Eq 'reqwest::Client::builder|Policy::limited|Policy::custom' "$hosted"; then
+              echo "Hosted service must not create an independent or auto-redirecting Reqwest client: $hosted"
+              exit 1
+            fi
+            require_source 'EgressAuthority::BraveSearch' "$hosted"
+            require_source 'EgressAuthority::Perplexity' "$hosted"
+            require_source 'PublicEgressClient::default()' "$hosted"
+          done
       - name: Build prism-ui for wasm32 (Trunk target)
         run: cd mycelix-workspace/mycelix-prism/prism-ui && cargo build --target wasm32-unknown-unknown
       # Each package is tested in its own `cargo test` invocation, not one
