@@ -958,23 +958,27 @@ mod tests {
 
     #[test]
     fn reusable_container_declared_fixture_is_valid() {
-        assert_valid(validate_reusable_container(valid_container()));
+        let container = valid_container();
+        let author = container.steward.clone();
+        assert_valid(validate_reusable_container(container, &author));
     }
 
     #[test]
     fn reusable_container_rejects_zero_capacity_and_reversed_temperature() {
         let mut container = valid_container();
         container.capacity_ml = 0;
+        let author = container.steward.clone();
         assert_invalid(
-            validate_reusable_container(container),
+            validate_reusable_container(container, &author),
             "Container capacity_ml must be positive",
         );
 
         let mut container = valid_container();
         container.temperature_min_millic = Some(90_000);
         container.temperature_max_millic = Some(10_000);
+        let author = container.steward.clone();
         assert_invalid(
-            validate_reusable_container(container),
+            validate_reusable_container(container, &author),
             "Temperature minimum cannot exceed maximum",
         );
     }
@@ -983,8 +987,9 @@ mod tests {
     fn measured_container_evidence_requires_calibration() {
         let mut container = valid_container();
         container.evidence.evidence_class = ContainerEvidenceClass::Measured;
+        let author = container.steward.clone();
         assert_invalid(
-            validate_reusable_container(container),
+            validate_reusable_container(container, &author),
             "Measured evidence requires a calibration reference",
         );
     }
