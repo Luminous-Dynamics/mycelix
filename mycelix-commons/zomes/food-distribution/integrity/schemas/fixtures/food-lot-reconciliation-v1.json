@@ -1,0 +1,103 @@
+{
+  "fixture_bundle_id": "food-lot-reconciliation-v1",
+  "status": "synthetic_cross_record_contract_cases_only",
+  "report_schema_ref": "./FoodLotReconciliationReportV1.schema.json",
+  "cases": [
+    {
+      "case_id": "accepted-lot-full-receipt-exact-mass",
+      "scenario": "Producer provenance quantity, household received quantity, accepted quantity and rejected quantity share mass dimension; accepted plus rejected equals received; ordered event chain accounts for consumption; remainder covers recipe requirement.",
+      "expected_disposition": "resolved",
+      "planning_eligibility": "eligible"
+    },
+    {
+      "case_id": "partial-receipt-exact-balance",
+      "scenario": "Received quantity is split into accepted and rejected quantities with exact same-dimension arithmetic; only accepted amount is available to recipe planning.",
+      "expected_disposition": "resolved",
+      "planning_eligibility": "eligible"
+    },
+    {
+      "case_id": "missing-household-receipt",
+      "scenario": "Producer lot and listing exist but no local receipt record is supplied; supplier availability is not household stock.",
+      "expected_disposition": "indeterminate",
+      "planning_eligibility": "unknown"
+    },
+    {
+      "case_id": "accepted-plus-rejected-does-not-equal-received",
+      "scenario": "Receipt quantity arithmetic does not balance after exact same-dimension conversion; no quantity is allocated.",
+      "expected_disposition": "conflicted",
+      "planning_eligibility": "not_eligible"
+    },
+    {
+      "case_id": "accepted-and-rejected-dimensions-differ",
+      "scenario": "Accepted quantity is mass while rejected quantity is volume; no cross-dimension sum is inferred.",
+      "expected_disposition": "conflicted",
+      "planning_eligibility": "not_eligible"
+    },
+    {
+      "case_id": "recipe-mass-vs-lot-volume",
+      "scenario": "Recipe requires mass but received lot declares volume and no independently sourced exact conversion exists.",
+      "expected_disposition": "indeterminate",
+      "planning_eligibility": "unknown"
+    },
+    {
+      "case_id": "consumption-exceeds-accepted-remainder",
+      "scenario": "Append-only consumed events exceed accepted quantity; later allocation is blocked pending reconciliation.",
+      "expected_disposition": "conflicted",
+      "planning_eligibility": "not_eligible"
+    },
+    {
+      "case_id": "split-parent-child-quantity-does-not-balance",
+      "scenario": "Split event child receipt quantities plus parent remainder do not reconcile to the pre-split quantity.",
+      "expected_disposition": "conflicted",
+      "planning_eligibility": "not_eligible"
+    },
+    {
+      "case_id": "event-sequence-gap-or-parent-fork",
+      "scenario": "An event sequence skips, duplicates a sequence, or references the wrong parent event; the chain cannot be treated as complete.",
+      "expected_disposition": "conflicted",
+      "planning_eligibility": "not_eligible"
+    },
+    {
+      "case_id": "event-time-regression",
+      "scenario": "A child event timestamp precedes its parent beyond the declared clock policy; retain the conflict rather than silently sorting by time.",
+      "expected_disposition": "conflicted",
+      "planning_eligibility": "not_eligible"
+    },
+    {
+      "case_id": "recall-notice-holds-lot",
+      "scenario": "A recall notice event exists; mark the receipt unavailable pending authoritative disposition without asserting the food is unsafe.",
+      "expected_disposition": "conflicted",
+      "planning_eligibility": "not_eligible"
+    },
+    {
+      "case_id": "declared-use-by-elapsed",
+      "scenario": "The declared use-by timestamp has elapsed at the explicit reconciliation as_of time; do not represent lot as available for recipe planning.",
+      "expected_disposition": "conflicted",
+      "planning_eligibility": "not_eligible"
+    },
+    {
+      "case_id": "missing-current-time-for-expiry-check",
+      "scenario": "Expiry-sensitive reconciliation is requested but no trustworthy as_of time is available.",
+      "expected_disposition": "indeterminate",
+      "planning_eligibility": "unknown"
+    },
+    {
+      "case_id": "stale-lot-revision",
+      "scenario": "Receipt or packaging reference points to an older lot revision while a newer exact revision is required by the selected workflow.",
+      "expected_disposition": "conflicted",
+      "planning_eligibility": "not_eligible"
+    },
+    {
+      "case_id": "overlapping-identical-events",
+      "scenario": "The same event reference or event identifier appears more than once in the local chain.",
+      "expected_disposition": "conflicted",
+      "planning_eligibility": "not_eligible"
+    },
+    {
+      "case_id": "supplier-listing-not-receipt",
+      "scenario": "Listing/order references are present but no local physical receipt observation exists.",
+      "expected_disposition": "indeterminate",
+      "planning_eligibility": "unknown"
+    }
+  ]
+}
