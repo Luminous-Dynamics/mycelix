@@ -399,7 +399,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             base_address,
             target_address,
             tag,
-            ..
+            action,
         } => match link_type {
             LinkTypes::AllBatches => {
                 if tag.0.len() > 256 {
@@ -921,6 +921,7 @@ mod tests {
             sequence_number,
             event_kind: kind,
             occurred_at: 1_700_000_000 + sequence_number,
+            product_ref: None,
             product_lot_ref: None,
             preservation_batch_hash: None,
             location_ref: None,
