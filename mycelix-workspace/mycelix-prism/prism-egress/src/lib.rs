@@ -1398,6 +1398,115 @@ mod tests {
         );
     }
 
+    #[derive(Clone, Default)]
+    struct LoopbackResolver {
+        calls: Arc<std::sync::Mutex<Vec<(String, u16)>>>,
+    }
+
+    impl EgressResolver for LoopbackResolver {
+        fn resolve<'a>(
+            &'a self,
+            host: &'a str,
+            port: u16,
+            _permit: OwnedSemaphorePermit,
+        ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
+            let host = host.to_owned();
+            let calls = Arc::clone(&self.calls);
+            Box::pin(async move {
+                calls
+                    .lock()
+                    .expect("resolver call lock")
+                    .push((host, port));
+                Ok(vec![SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port)])
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn public_redirect_reauthorizes_and_pins_each_hop_dns_snapshot() {
+        use tokio::io::AsyncWriteExt;
+
+        let first_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let first_address = first_listener.local_addr().unwrap();
+        let second_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let second_address = second_listener.local_addr().unwrap();
+
+        let first_server = tokio::spawn(async move {
+            let (mut stream, _) = first_listener.accept().await.unwrap();
+            let request = read_test_request(&mut stream).await;
+            let location = format!(
+                "http://prism-redirect.test:{}/final",
+                second_address.port()
+            );
+            let response = format!(
+                "HTTP/1.1 302 Found\\r\\nLocation: {location}\\r\\nContent-Length: 0\\r\\nConnection: close\\r\\n\\r\\n"
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+            request
+        });
+
+        let second_server = tokio::spawn(async move {
+            let (mut stream, peer) = second_listener.accept().await.unwrap();
+            let request = read_test_request(&mut stream).await;
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\nConnection: close\\r\\n\\r\\nok",
+                )
+                .await
+                .unwrap();
+            (peer, request)
+        });
+
+        let resolver = LoopbackResolver::default();
+        let client =
+            PublicEgressClient::with_test_resolver(EgressLimits::default(), resolver.clone());
+        let first_url = format!(
+            "http://prism-redirect.test:{}/start",
+            first_address.port()
+        );
+        let capability = client
+            .authorize(&Method::GET, &first_url, HeaderMap::new(), Vec::new())
+            .await
+            .unwrap();
+
+        let response = client.execute(capability).await.unwrap();
+        assert_eq!(response.status, StatusCode::OK);
+        assert_eq!(response.body, b"ok");
+        assert_eq!(response.receipt.remote_peer, second_address);
+        assert_eq!(response.receipt.authorized_addresses, vec![second_address]);
+        assert_eq!(response.receipt.redirect_hops.len(), 1);
+
+        let hop = &response.receipt.redirect_hops[0];
+        assert_eq!(hop.from_origin, format!("http://prism-redirect.test:{}", first_address.port()));
+        assert_eq!(hop.to_origin, format!("http://prism-redirect.test:{}", second_address.port()));
+        assert_eq!(hop.status, StatusCode::FOUND.as_u16());
+        assert_eq!(hop.remote_peer, first_address);
+        assert_eq!(hop.target_addresses, vec![second_address]);
+
+        let resolver_calls = resolver.calls.lock().expect("resolver call lock").clone();
+        assert_eq!(
+            resolver_calls,
+            vec![
+                ("prism-redirect.test".to_owned(), first_address.port()),
+                ("prism-redirect.test".to_owned(), second_address.port()),
+            ],
+            "each redirect hop must receive a fresh DNS authorization"
+        );
+
+        let first_request = String::from_utf8_lossy(&first_server.await.unwrap());
+        assert!(first_request.contains(&format!(
+            "Host: prism-redirect.test:{}",
+            first_address.port()
+        )));
+        let (second_peer, second_request) = second_server.await.unwrap();
+        assert_eq!(second_peer, second_address);
+        let second_request = String::from_utf8_lossy(&second_request);
+        assert!(second_request.contains(&format!(
+            "Host: prism-redirect.test:{}",
+            second_address.port()
+        )));
+    }
+
     #[tokio::test]
     async fn successful_receipt_records_observed_peer_and_authority() {
         use tokio::io::AsyncWriteExt;
