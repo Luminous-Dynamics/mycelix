@@ -32,6 +32,7 @@ pub struct EgressLimits {
     pub max_response_body_bytes: usize,
     pub connect_timeout: Duration,
     pub request_timeout: Duration,
+    pub capability_ttl: Duration,
 }
 
 impl Default for EgressLimits {
@@ -43,6 +44,7 @@ impl Default for EgressLimits {
             max_response_body_bytes: 10 * 1024 * 1024,
             connect_timeout: Duration::from_secs(5),
             request_timeout: Duration::from_secs(30),
+            capability_ttl: Duration::from_secs(5),
         }
     }
 }
@@ -79,21 +81,51 @@ pub enum EgressError {
     RequestBodyTooLarge,
     #[error("response body exceeds the configured byte limit")]
     ResponseBodyTooLarge,
+    #[error("egress capability expired before execution")]
+    CapabilityExpired,
     #[error("HTTP transport failed: {0}")]
     Http(#[from] reqwest::Error),
 }
 
-/// A bounded response. Redirect responses are returned as-is; this transport
-/// never follows them implicitly.
+/// A one-use, short-lived authorization to fetch one exact URL with one method
+/// and one already-validated destination address set.
+///
+/// The fields are private and the value is not Clone. Execution consumes it,
+/// making accidental reuse or widening harder at the API boundary.
+pub struct EgressCapability {
+    url: Url,
+    host: String,
+    method: Method,
+    addresses: Vec<SocketAddr>,
+    is_domain: bool,
+    expires_at: std::time::Instant,
+}
+
+/// A bounded response plus a privacy-minimized execution receipt.
 #[derive(Debug)]
 pub struct EgressResponse {
     pub status: StatusCode,
     pub headers: HeaderMap,
     pub body: Vec<u8>,
+    pub receipt: EgressReceipt,
+}
+
+#[derive(Clone, Debug)]
+pub struct EgressReceipt {
+    /// Scheme + authority only. Path, query, credentials, and response content
+    /// are deliberately excluded from the receipt.
+    pub origin: String,
+    pub method: String,
+    pub authorized_addresses: Vec<SocketAddr>,
+    pub status: u16,
+    pub request_body_bytes: usize,
+    pub response_body_bytes: usize,
+    pub elapsed: Duration,
+    pub policy_version: &'static str,
 }
 
 /// Public-web-only HTTP client. It creates a fresh, DNS-pinned reqwest client
-/// for each request to prevent cross-request connection-pool reuse.
+/// for each consumed capability to prevent cross-request connection-pool reuse.
 #[derive(Clone, Debug, Default)]
 pub struct PublicEgressClient {
     limits: EgressLimits,
@@ -108,18 +140,49 @@ impl PublicEgressClient {
         &self.limits
     }
 
-    pub async fn request(
+    /// Resolve and authorize an exact request target. The returned capability
+    /// expires quickly and can only be executed once.
+    pub async fn authorize(
         &self,
         method: Method,
         raw_url: &str,
-        headers: HeaderMap,
-        body: Vec<u8>,
-    ) -> Result<EgressResponse, EgressError> {
+    ) -> Result<EgressCapability, EgressError> {
         if raw_url.len() > self.limits.max_url_bytes {
             return Err(EgressError::UrlTooLarge);
         }
         if method != Method::GET && method != Method::POST {
             return Err(EgressError::MethodNotPermitted);
+        }
+
+        let mut url = Url::parse(raw_url)?;
+        validate_url_policy(&url)?;
+        // URL fragments are client-side state and must not affect the
+        // authorization identity or be sent as part of the HTTP request.
+        url.set_fragment(None);
+
+        let host = url.host_str().ok_or(EgressError::MissingHost)?.to_owned();
+        let port = url.port_or_known_default().ok_or(EgressError::PortNotPermitted)?;
+        let (addresses, is_domain) = resolve_and_authorize(&url, port).await?;
+
+        Ok(EgressCapability {
+            url,
+            host,
+            method,
+            addresses,
+            is_domain,
+            expires_at: std::time::Instant::now() + self.limits.capability_ttl,
+        })
+    }
+
+    /// Consume one authorization and perform the exact bounded request.
+    pub async fn execute(
+        &self,
+        capability: EgressCapability,
+        headers: HeaderMap,
+        body: Vec<u8>,
+    ) -> Result<EgressResponse, EgressError> {
+        if std::time::Instant::now() > capability.expires_at {
+            return Err(EgressError::CapabilityExpired);
         }
         if body.len() > self.limits.max_request_body_bytes {
             return Err(EgressError::RequestBodyTooLarge);
@@ -128,28 +191,29 @@ impl PublicEgressClient {
             return Err(EgressError::RequestHeadersTooLarge);
         }
 
-        let url = Url::parse(raw_url)?;
-        validate_url_policy(&url)?;
-        let host = url.host_str().ok_or(EgressError::MissingHost)?.to_owned();
-        let port = url.port_or_known_default().ok_or(EgressError::PortNotPermitted)?;
-        let (addresses, is_domain) = resolve_and_authorize(&url, port).await?;
+        let origin = format!("{}://{}", capability.url.scheme(), capability.host);
+        let authorized_addresses = capability.addresses.clone();
+        let method_name = capability.method.as_str().to_owned();
+        let request_body_bytes = body.len();
+        let started = std::time::Instant::now();
 
         // A fresh client per request deliberately trades a little setup cost
         // for a simple connection-pool isolation boundary. The original URL
         // hostname remains in the URL, preserving Host, TLS SNI, and
-        // certificate verification while reqwest uses only this pinned set.
+        // certificate verification while reqwest uses only the approved IPs.
         let mut builder = Client::builder()
+            .user_agent("Prism/0.4 (capability-bound egress)")
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy()
             .connect_timeout(self.limits.connect_timeout)
             .timeout(self.limits.request_timeout);
-        if is_domain {
-            builder = builder.resolve_to_addrs(&host, &addresses);
+        if capability.is_domain {
+            builder = builder.resolve_to_addrs(&capability.host, &capability.addresses);
         }
         let client = builder.build()?;
 
         let response = client
-            .request(method, url)
+            .request(capability.method, capability.url)
             .headers(headers)
             .body(body)
             .send()
@@ -169,11 +233,36 @@ impl PublicEgressClient {
             collected.extend_from_slice(&chunk);
         }
 
+        let receipt = EgressReceipt {
+            origin,
+            method: method_name,
+            authorized_addresses,
+            status: status.as_u16(),
+            request_body_bytes,
+            response_body_bytes: collected.len(),
+            elapsed: started.elapsed(),
+            policy_version: "prism-public-egress-v1",
+        };
+
         Ok(EgressResponse {
             status,
             headers: response_headers,
             body: collected,
+            receipt,
         })
+    }
+
+    /// Convenience wrapper; internally still issues then consumes a one-use
+    /// authorization before any socket request is made.
+    pub async fn request(
+        &self,
+        method: Method,
+        raw_url: &str,
+        headers: HeaderMap,
+        body: Vec<u8>,
+    ) -> Result<EgressResponse, EgressError> {
+        let capability = self.authorize(method, raw_url).await?;
+        self.execute(capability, headers, body).await
     }
 }
 
