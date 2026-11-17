@@ -83,6 +83,114 @@ pub struct StorageUnit {
     pub steward: AgentPubKey,
 }
 
+
+ // REUSABLE FOOD CONTAINERS AND APPEND-ONLY LIFECYCLE
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ContainerMaterial {
+    BorosilicateGlass,
+    StainlessSteel,
+    FoodGradePolymer,
+    Silicone,
+    Ceramic,
+    Other,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ContainerEventKind {
+    Washed,
+    Sanitized,
+    Inspected,
+    Filled,
+    Sealed,
+    Dispatched,
+    Received,
+    Emptied,
+    Returned,
+    Retired,
+    Lost,
+    Damaged,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ContainerCondition {
+    Serviceable,
+    NeedsCleaning,
+    Damaged,
+    FailedInspection,
+    Retired,
+    Lost,
+    Unknown,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ContainerEvidenceClass {
+    Declared,
+    Modelled,
+    Simulated,
+    Measured,
+    IndependentlyAssayed,
+    IndependentlyQualified,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ContainerEvidenceRef {
+    pub source_ref: String,
+    pub method_ref: Option<String>,
+    pub calibration_ref: Option<String>,
+    pub evidence_class: ContainerEvidenceClass,
+}
+
+/// Capacity is millilitres; temperature limits are milli-degrees Celsius.
+/// Food-contact qualification and cleaning references are evidence pointers.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct ReusableContainer {
+    pub id: String,
+    pub material: ContainerMaterial,
+    pub capacity_ml: u64,
+    pub temperature_min_millic: Option<i32>,
+    pub temperature_max_millic: Option<i32>,
+    pub closure_type: String,
+    pub food_contact_qualification_ref: String,
+    pub cleaning_protocol_ref: String,
+    pub manufacturer_reuse_cycle_limit: Option<u32>,
+    pub compatible_product_refs: Vec<String>,
+    pub registered_at: u64,
+    pub steward: AgentPubKey,
+    pub evidence: ContainerEvidenceRef,
+}
+
+/// Observations are not a claim that a microbiological reduction target was met.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ContainerSanitationObservation {
+    pub protocol_ref: String,
+    pub wash_water_temp_millic: Option<i32>,
+    pub sanitizer_ref: Option<String>,
+    pub sanitizer_concentration_mg_l: Option<u64>,
+    pub exposure_time_ms: Option<u64>,
+    pub observation_ref: String,
+    pub evidence: ContainerEvidenceRef,
+}
+
+/// Append-only lifecycle event. Reuse count is derived from Filled events.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct ContainerCycleEvent {
+    pub container_hash: ActionHash,
+    pub previous_event_hash: Option<ActionHash>,
+    pub sequence_number: u64,
+    pub event_kind: ContainerEventKind,
+    pub occurred_at: u64,
+    pub product_lot_ref: Option<String>,
+    pub preservation_batch_hash: Option<ActionHash>,
+    pub location_ref: Option<String>,
+    pub condition: ContainerCondition,
+    pub sanitation: Option<ContainerSanitationObservation>,
+    pub evidence: ContainerEvidenceRef,
+}
+
+
 // ============================================================================
 // ENTRY & LINK TYPE REGISTRATION
 // ============================================================================
@@ -94,6 +202,8 @@ pub enum EntryTypes {
     PreservationBatch(PreservationBatch),
     PreservationMethod(PreservationMethod),
     StorageUnit(StorageUnit),
+    ReusableContainer(ReusableContainer),
+    ContainerCycleEvent(ContainerCycleEvent),
 }
 
 #[hdk_link_types]
@@ -104,6 +214,9 @@ pub enum LinkTypes {
     MethodToBatch,
     StorageToBatch,
     AgentToBatch,
+    AllReusableContainers,
+    ContainerToCycleEvents,
+    ContainerEventToNext,
 }
 
 // ============================================================================
@@ -119,11 +232,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::PreservationBatch(b) => validate_batch(b),
                 EntryTypes::PreservationMethod(m) => validate_method(m),
                 EntryTypes::StorageUnit(s) => validate_storage(s),
+                EntryTypes::ReusableContainer(container) => validate_reusable_container(container),
+                EntryTypes::ContainerCycleEvent(event) => validate_container_cycle_event(event),
             },
             OpEntry::UpdateEntry {
                 app_entry: EntryTypes::PreservationBatch(b),
                 ..
             } => validate_batch(b),
+            OpEntry::UpdateEntry {
+                app_entry: EntryTypes::ReusableContainer(container),
+                ..
+            } => validate_reusable_container(container),
+            OpEntry::UpdateEntry {
+                app_entry: EntryTypes::ContainerCycleEvent(_),
+                ..
+            } => Ok(ValidateCallbackResult::Invalid(
+                "Container cycle events are append-only and cannot be updated".into(),
+            )),
             OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Valid),
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -176,6 +301,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
+            LinkTypes::AllReusableContainers
+            | LinkTypes::ContainerToCycleEvents
+            | LinkTypes::ContainerEventToNext => {
+                if tag.0.len() > 512 {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Container lifecycle link tag too long (max 512 bytes)".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
         },
         FlatOp::RegisterDeleteLink { action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
@@ -210,6 +345,129 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ))
         }
     }
+}
+
+
+fn validate_container_evidence(
+    evidence: &ContainerEvidenceRef,
+) -> ExternResult<ValidateCallbackResult> {
+    if evidence.source_ref.trim().is_empty() {
+        return Ok(ValidateCallbackResult::Invalid("Container evidence source_ref cannot be empty".into()));
+    }
+    if evidence.method_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+        || evidence.calibration_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+    {
+        return Ok(ValidateCallbackResult::Invalid("Optional evidence references cannot be empty".into()));
+    }
+    if evidence.evidence_class == ContainerEvidenceClass::Measured
+        && evidence.calibration_ref.as_deref().is_none_or(|value| value.trim().is_empty())
+    {
+        return Ok(ValidateCallbackResult::Invalid("Measured evidence requires a calibration reference".into()));
+    }
+    if matches!(evidence.evidence_class,
+        ContainerEvidenceClass::IndependentlyAssayed | ContainerEvidenceClass::IndependentlyQualified)
+        && evidence.method_ref.as_deref().is_none_or(|value| value.trim().is_empty())
+    {
+        return Ok(ValidateCallbackResult::Invalid("Independent assay/qualification requires a method reference".into()));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_reusable_container(
+    container: ReusableContainer,
+) -> ExternResult<ValidateCallbackResult> {
+    if container.id.trim().is_empty() || container.id.len() > 128 {
+        return Ok(ValidateCallbackResult::Invalid("Container ID must be non-empty and at most 128 characters".into()));
+    }
+    if container.capacity_ml == 0 {
+        return Ok(ValidateCallbackResult::Invalid("Container capacity_ml must be positive".into()));
+    }
+    if container.closure_type.trim().is_empty()
+        || container.closure_type.len() > 128
+        || container.food_contact_qualification_ref.trim().is_empty()
+        || container.cleaning_protocol_ref.trim().is_empty()
+    {
+        return Ok(ValidateCallbackResult::Invalid("Closure, food-contact and cleaning references are required".into()));
+    }
+    if container.temperature_min_millic.is_some_and(|minimum|
+        container.temperature_max_millic.is_some_and(|maximum| minimum > maximum))
+    {
+        return Ok(ValidateCallbackResult::Invalid("Temperature minimum cannot exceed maximum".into()));
+    }
+    if container.manufacturer_reuse_cycle_limit == Some(0) {
+        return Ok(ValidateCallbackResult::Invalid("Manufacturer reuse cycle limit must be positive when supplied".into()));
+    }
+    if container.compatible_product_refs.len() > 128
+        || container.compatible_product_refs.iter().any(|value| value.trim().is_empty())
+    {
+        return Ok(ValidateCallbackResult::Invalid("Compatible product refs must be non-empty and at most 128 entries".into()));
+    }
+    validate_container_evidence(&container.evidence)
+}
+
+fn validate_container_cycle_event(
+    event: ContainerCycleEvent,
+) -> ExternResult<ValidateCallbackResult> {
+    if event.occurred_at == 0 {
+        return Ok(ValidateCallbackResult::Invalid("Container event time must be positive".into()));
+    }
+    if event.product_lot_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+        || event.location_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+    {
+        return Ok(ValidateCallbackResult::Invalid("Optional lot/location refs must be non-empty when supplied".into()));
+    }
+    if event.event_kind == ContainerEventKind::Filled
+        && event.product_lot_ref.is_none()
+        && event.preservation_batch_hash.is_none()
+    {
+        return Ok(ValidateCallbackResult::Invalid("Filled event must reference a product lot or preservation batch".into()));
+    }
+    if matches!(event.event_kind, ContainerEventKind::Washed | ContainerEventKind::Sanitized) {
+        let Some(observation) = event.sanitation.as_ref() else {
+            return Ok(ValidateCallbackResult::Invalid("Washed/Sanitized events require a sanitation observation".into()));
+        };
+        if observation.protocol_ref.trim().is_empty() || observation.observation_ref.trim().is_empty() {
+            return Ok(ValidateCallbackResult::Invalid("Sanitation protocol and observation refs must be non-empty".into()));
+        }
+        if observation.sanitizer_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+            || observation.exposure_time_ms == Some(0)
+        {
+            return Ok(ValidateCallbackResult::Invalid("Sanitation optional refs must be non-empty and exposure time positive".into()));
+        }
+        validate_container_evidence(&observation.evidence)?;
+    } else if event.sanitation.is_some() {
+        return Ok(ValidateCallbackResult::Invalid("Sanitation observation is only valid on Washed/Sanitized events".into()));
+    }
+
+    if event.sequence_number == 0 {
+        if event.previous_event_hash.is_some() {
+            return Ok(ValidateCallbackResult::Invalid("Root container event must not have a previous event".into()));
+        }
+    } else if event.previous_event_hash.is_none() {
+        return Ok(ValidateCallbackResult::Invalid("Non-root container event requires a previous event".into()));
+    }
+
+    let container_record = must_get_valid_record(event.container_hash.clone())?;
+    let _: ReusableContainer = container_record.entry().to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Container reference is not a ReusableContainer entry".into())))?;
+
+    if let Some(previous_hash) = event.previous_event_hash.as_ref() {
+        let previous_record = must_get_valid_record(previous_hash.clone())?;
+        let previous: ContainerCycleEvent = previous_record.entry().to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest("Previous event is not a ContainerCycleEvent entry".into())))?;
+        if previous.container_hash != event.container_hash {
+            return Ok(ValidateCallbackResult::Invalid("Previous event belongs to another container".into()));
+        }
+        if previous.sequence_number.checked_add(1) != Some(event.sequence_number) {
+            return Ok(ValidateCallbackResult::Invalid("Event sequence must be exactly previous sequence + 1".into()));
+        }
+        if event.occurred_at < previous.occurred_at {
+            return Ok(ValidateCallbackResult::Invalid("Event time cannot precede parent event time".into()));
+        }
+    }
+    validate_container_evidence(&event.evidence)
 }
 
 fn validate_batch(b: PreservationBatch) -> ExternResult<ValidateCallbackResult> {
