@@ -24,11 +24,15 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::Arc;
+use tokio::sync::{Semaphore, SemaphorePermit};
 use std::time::Duration;
 use thiserror::Error;
 use url::{Host, Url};
 
 #[derive(Clone, Debug)]
+const MAX_CONCURRENT_EGRESS_REQUESTS: usize = 64;
+static EGRESS_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_CONCURRENT_EGRESS_REQUESTS);
+
 pub struct EgressLimits {
     pub max_url_bytes: usize,
     pub max_request_header_bytes: usize,
@@ -91,6 +95,12 @@ pub enum EgressError {
     RequestBodyTooLarge,
     #[error("response body exceeds the configured byte limit")]
     ResponseBodyTooLarge,
+    #[error("response headers exceed the configured byte limit")]
+    ResponseHeadersTooLarge,
+    #[error("egress concurrency queue exceeded its wait limit")]
+    ConcurrencyQueueTimeout,
+    #[error("egress concurrency semaphore is unavailable")]
+    ConcurrencyUnavailable,
     #[error("egress capability expired before execution")]
     CapabilityExpired,
     #[error("HTTP transport failed: {0}")]
@@ -276,6 +286,13 @@ impl PublicEgressClient {
         let method_name = capability.method.as_str().to_owned();
         let request_body_bytes = capability.body.len();
         let started = std::time::Instant::now();
+        let _permit: SemaphorePermit<'static> = tokio::time::timeout(
+            Duration::from_secs(2),
+            EGRESS_SEMAPHORE.acquire(),
+        )
+        .await
+        .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
+        .map_err(|_| EgressError::ConcurrencyUnavailable)?;
 
         let client = build_pinned_client(
             &capability.host,
@@ -294,6 +311,11 @@ impl PublicEgressClient {
 
         let status = response.status();
         let response_headers = response.headers().clone();
+        if response_header_bytes(&response_headers) > 64 * 1024
+            || response_headers.len() > 128
+        {
+            return Err(EgressError::ResponseHeadersTooLarge);
+        }
         let mut response = response;
         let mut collected = Vec::new();
 
@@ -379,6 +401,15 @@ fn validate_request_headers(headers: &HeaderMap) -> Result<(), EgressError> {
         }
     }
     Ok(())
+}
+
+fn response_header_bytes(headers: &HeaderMap) -> usize {
+    headers.iter().fold(0usize, |total, (name, value)| {
+        total
+            .saturating_add(name.as_str().len())
+            .saturating_add(value.as_bytes().len())
+            .saturating_add(4)
+    })
 }
 
 fn request_header_bytes(headers: &HeaderMap) -> usize {
