@@ -175,7 +175,10 @@ async fn brave_handler(
     {
         Ok(resp) => {
             let status = resp.status().as_u16();
-            let body = resp.bytes().await.unwrap_or_default();
+            let body = match read_bounded(resp, MAX_RESPONSE_SIZE).await {
+                Ok(body) => body,
+                Err(error) => return (StatusCode::BAD_GATEWAY, error).into_response(),
+            };
             axum::response::Response::builder()
                 .status(status)
                 .header("content-type", "application/json")
@@ -213,7 +216,10 @@ async fn perplexity_handler(
     {
         Ok(resp) => {
             let status = resp.status().as_u16();
-            let body = resp.bytes().await.unwrap_or_default();
+            let body = match read_bounded(resp, MAX_RESPONSE_SIZE).await {
+                Ok(body) => body,
+                Err(error) => return (StatusCode::BAD_GATEWAY, error).into_response(),
+            };
             axum::response::Response::builder()
                 .status(status)
                 .header("content-type", "application/json")
