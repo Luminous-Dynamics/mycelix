@@ -229,7 +229,10 @@ mod tests {
 
     #[test]
     fn navigation_policy_bounds_url_length() {
-        let raw = format!("https://example.com/{}", "a".repeat(MAX_NAVIGATION_URL_BYTES));
+        let raw = format!(
+            "https://example.com/{}",
+            "a".repeat(MAX_NAVIGATION_URL_BYTES)
+        );
         assert!(matches!(
             validate_navigation_url(&raw),
             Err(FetchError::UrlTooLarge)
