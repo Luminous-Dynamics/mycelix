@@ -283,8 +283,10 @@ mod navigation_policy_tests {
 
     #[test]
     fn desktop_navigation_bounds_url_length() {
-        let raw = format!("https://example.com/{}", "a".repeat(MAX_NAVIGATION_URL_BYTES));
+        let raw = format!(
+            "https://example.com/{}",
+            "a".repeat(MAX_NAVIGATION_URL_BYTES)
+        );
         assert!(validate_user_navigation_url(&raw).is_err());
     }
 }
-
