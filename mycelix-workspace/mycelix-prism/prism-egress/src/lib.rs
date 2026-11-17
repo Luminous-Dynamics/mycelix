@@ -17,8 +17,8 @@
 //! This crate is intentionally native-only. Do not add it as a dependency of
 //! prism-common, which is also consumed by WASM targets.
 
-pub use reqwest::header::HeaderMap;
 pub use reqwest::Method;
+pub use reqwest::header::HeaderMap;
 use reqwest::{Client, StatusCode};
 use std::collections::HashSet;
 use std::future::Future;
@@ -396,14 +396,8 @@ impl PublicEgressClient {
         headers: HeaderMap,
         body: Vec<u8>,
     ) -> Result<EgressCapability, EgressError> {
-        self.authorize_with_authority(
-            EgressAuthority::PublicWeb,
-            method,
-            raw_url,
-            headers,
-            body,
-        )
-        .await
+        self.authorize_with_authority(EgressAuthority::PublicWeb, method, raw_url, headers, body)
+            .await
     }
 
     /// Resolve and authorize an exact request under a fixed, typed authority.
@@ -448,19 +442,18 @@ impl PublicEgressClient {
         url.set_fragment(None);
 
         let host = url.host_str().ok_or(EgressError::MissingHost)?.to_owned();
-        let port = url.port_or_known_default().ok_or(EgressError::PortNotPermitted)?;
+        let port = url
+            .port_or_known_default()
+            .ok_or(EgressError::PortNotPermitted)?;
 
         // Bound hostname resolution independently from HTTP execution.
         // Numeric IP literals do not consume DNS capacity.
         let dns_permit = match url.host().ok_or(EgressError::MissingHost)? {
             Host::Domain(_) => Some(
-                tokio::time::timeout(
-                    DNS_QUEUE_TIMEOUT,
-                    dns_semaphore().clone().acquire_owned(),
-                )
-                .await
-                .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
-                .map_err(|_| EgressError::ConcurrencyUnavailable)?,
+                tokio::time::timeout(DNS_QUEUE_TIMEOUT, dns_semaphore().clone().acquire_owned())
+                    .await
+                    .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
+                    .map_err(|_| EgressError::ConcurrencyUnavailable)?,
             ),
             Host::Ipv4(_) | Host::Ipv6(_) => None,
         };
@@ -538,13 +531,11 @@ impl PublicEgressClient {
             .await
             .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
             .map_err(|_| EgressError::ConcurrencyUnavailable)?;
-            let _permit: SemaphorePermit<'static> = tokio::time::timeout(
-                Duration::from_secs(2),
-                EGRESS_SEMAPHORE.acquire(),
-            )
-            .await
-            .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
-            .map_err(|_| EgressError::ConcurrencyUnavailable)?;
+            let _permit: SemaphorePermit<'static> =
+                tokio::time::timeout(Duration::from_secs(2), EGRESS_SEMAPHORE.acquire())
+                    .await
+                    .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
+                    .map_err(|_| EgressError::ConcurrencyUnavailable)?;
 
             // Queueing consumes capability lifetime. Re-check after admission
             // so an expired authorization cannot connect merely because it waited.
@@ -577,8 +568,7 @@ impl PublicEgressClient {
                 return Err(EgressError::ResponseHeadersTooLarge);
             }
 
-            if authority_may_follow_redirect(capability.authority)
-                && is_followable_redirect(status)
+            if authority_may_follow_redirect(capability.authority) && is_followable_redirect(status)
             {
                 let location_values = response_headers
                     .get_all(reqwest::header::LOCATION)
@@ -765,7 +755,9 @@ fn validate_authority_scope(
             }
             for name in headers.keys() {
                 if !matches!(name.as_str(), "x-subscription-token" | "accept") {
-                    return Err(EgressError::AuthorityHeaderViolation(name.as_str().to_owned()));
+                    return Err(EgressError::AuthorityHeaderViolation(
+                        name.as_str().to_owned(),
+                    ));
                 }
             }
             let token_count = headers.get_all("x-subscription-token").iter().count();
@@ -831,7 +823,9 @@ fn validate_authority_scope(
             }
             for name in headers.keys() {
                 if !matches!(name.as_str(), "authorization" | "content-type") {
-                    return Err(EgressError::AuthorityHeaderViolation(name.as_str().to_owned()));
+                    return Err(EgressError::AuthorityHeaderViolation(
+                        name.as_str().to_owned(),
+                    ));
                 }
             }
             let authorization_count = headers
@@ -894,10 +888,7 @@ fn sanitized_origin(url: &Url) -> String {
     }
 }
 
-fn resolve_public_redirect_target(
-    current_url: &Url,
-    location: &str,
-) -> Result<Url, EgressError> {
+fn resolve_public_redirect_target(current_url: &Url, location: &str) -> Result<Url, EgressError> {
     let next_url = current_url
         .join(location)
         .map_err(|_| EgressError::InvalidRedirectLocation)?;
@@ -966,10 +957,7 @@ fn validate_url_policy(url: &Url) -> Result<(), EgressError> {
     validate_url_policy_with_test_port(url, false)
 }
 
-fn validate_url_policy_with_test_port(
-    url: &Url,
-    allow_test_port: bool,
-) -> Result<(), EgressError> {
+fn validate_url_policy_with_test_port(url: &Url, allow_test_port: bool) -> Result<(), EgressError> {
     match url.scheme() {
         "http" if url.port_or_known_default() == Some(80) => {}
         "https" if url.port_or_known_default() == Some(443) => {}
@@ -1103,7 +1091,9 @@ fn is_public_ipv4(ip: &Ipv4Addr) -> bool {
         ([224, 0, 0, 0], 4),     // multicast
         ([240, 0, 0, 0], 4),     // reserved and limited broadcast
     ];
-    !DENY.iter().any(|(network, prefix)| ipv4_in_prefix(ip, *network, *prefix))
+    !DENY
+        .iter()
+        .any(|(network, prefix)| ipv4_in_prefix(ip, *network, *prefix))
 }
 
 fn is_public_ipv6(ip: &Ipv6Addr) -> bool {
@@ -1116,16 +1106,18 @@ fn is_public_ipv6(ip: &Ipv6Addr) -> bool {
     const DENY: &[([u16; 8], u8)] = &[
         ([0x0064, 0xff9b, 0, 0, 0, 0, 0, 0], 96), // well-known NAT64
         ([0x0064, 0xff9b, 0x0001, 0, 0, 0, 0, 0], 48), // local-use NAT64
-        ([0x2001, 0, 0, 0, 0, 0, 0, 0], 23), // IETF assignments incl. Teredo
+        ([0x2001, 0, 0, 0, 0, 0, 0, 0], 23),      // IETF assignments incl. Teredo
         ([0x2001, 0x0002, 0, 0, 0, 0, 0, 0], 48), // benchmarking
         ([0x2001, 0x0010, 0, 0, 0, 0, 0, 0], 28), // deprecated ORCHID
         ([0x2001, 0x0020, 0, 0, 0, 0, 0, 0], 28), // ORCHIDv2
         ([0x2001, 0x0db8, 0, 0, 0, 0, 0, 0], 32), // documentation
-        ([0x2002, 0, 0, 0, 0, 0, 0, 0], 16), // 6to4 (can embed private IPv4)
-        ([0x3fff, 0, 0, 0, 0, 0, 0, 0], 20), // documentation
-        ([0x5f00, 0, 0, 0, 0, 0, 0, 0], 16), // SRv6 segment-routing SIDs
+        ([0x2002, 0, 0, 0, 0, 0, 0, 0], 16),      // 6to4 (can embed private IPv4)
+        ([0x3fff, 0, 0, 0, 0, 0, 0, 0], 20),      // documentation
+        ([0x5f00, 0, 0, 0, 0, 0, 0, 0], 16),      // SRv6 segment-routing SIDs
     ];
-    !DENY.iter().any(|(network, prefix)| ipv6_in_prefix(ip, *network, *prefix))
+    !DENY
+        .iter()
+        .any(|(network, prefix)| ipv6_in_prefix(ip, *network, *prefix))
         && !ip.is_loopback()
         && !ip.is_unspecified()
         && !ip.is_multicast()
@@ -1137,15 +1129,26 @@ fn is_public_ipv6(ip: &Ipv6Addr) -> bool {
 fn ipv4_in_prefix(ip: &Ipv4Addr, network: [u8; 4], prefix: u8) -> bool {
     let ip = u32::from_be_bytes(ip.octets());
     let network = u32::from_be_bytes(network);
-    let mask = if prefix == 0 { 0 } else { u32::MAX << (32 - prefix) };
+    let mask = if prefix == 0 {
+        0
+    } else {
+        u32::MAX << (32 - prefix)
+    };
     (ip & mask) == (network & mask)
 }
 
 fn ipv6_in_prefix(ip: &Ipv6Addr, network: [u16; 8], prefix: u8) -> bool {
     let ip = u128::from_be_bytes(ip.octets());
-    let network_bytes = network.into_iter().flat_map(u16::to_be_bytes).collect::<Vec<_>>();
+    let network_bytes = network
+        .into_iter()
+        .flat_map(u16::to_be_bytes)
+        .collect::<Vec<_>>();
     let network = u128::from_be_bytes(network_bytes.try_into().expect("16-byte IPv6 network"));
-    let mask = if prefix == 0 { 0 } else { u128::MAX << (128 - prefix) };
+    let mask = if prefix == 0 {
+        0
+    } else {
+        u128::MAX << (128 - prefix)
+    };
     (ip & mask) == (network & mask)
 }
 
@@ -1161,13 +1164,16 @@ mod tests {
     fn reqwest_client_builder_accepts_a_pinned_domain_address_set() {
         let addresses = ["93.184.216.34:443".parse().unwrap()];
         validate_address_set(&addresses).unwrap();
-        assert!(build_pinned_client(
-            "example.com",
-            &addresses,
-            true,
-            Duration::from_secs(5),
-            Duration::from_secs(30),
-        ).is_ok());
+        assert!(
+            build_pinned_client(
+                "example.com",
+                &addresses,
+                true,
+                Duration::from_secs(5),
+                Duration::from_secs(30),
+            )
+            .is_ok()
+        );
     }
 
     fn test_capability(
@@ -1213,10 +1219,7 @@ mod tests {
     #[test]
     fn receipt_origin_serialization_brackets_ipv6_and_omits_paths_and_queries() {
         let ipv6 = Url::parse("https://[2606:4700:4700::1111]/secret/path?q=private").unwrap();
-        assert_eq!(
-            sanitized_origin(&ipv6),
-            "https://[2606:4700:4700::1111]"
-        );
+        assert_eq!(sanitized_origin(&ipv6), "https://[2606:4700:4700::1111]");
         let domain = Url::parse("https://example.com:443/secret?q=private").unwrap();
         assert_eq!(sanitized_origin(&domain), "https://example.com");
     }
@@ -1225,7 +1228,9 @@ mod tests {
     fn public_redirect_targets_resolve_relative_locations_without_downgrade() {
         let current = Url::parse("https://public.example/a/b").unwrap();
         assert_eq!(
-            resolve_public_redirect_target(&current, "../next").unwrap().as_str(),
+            resolve_public_redirect_target(&current, "../next")
+                .unwrap()
+                .as_str(),
             "https://public.example/next"
         );
         assert_eq!(
@@ -1262,8 +1267,12 @@ mod tests {
         assert!(authority_may_follow_redirect(EgressAuthority::PublicWeb));
         assert!(!authority_may_follow_redirect(EgressAuthority::BraveSearch));
         assert!(!authority_may_follow_redirect(EgressAuthority::Perplexity));
-        assert!(!authority_may_follow_redirect(EgressAuthority::WikipediaSummary));
-        assert!(!authority_may_follow_redirect(EgressAuthority::WikidataSparql));
+        assert!(!authority_may_follow_redirect(
+            EgressAuthority::WikipediaSummary
+        ));
+        assert!(!authority_may_follow_redirect(
+            EgressAuthority::WikidataSparql
+        ));
     }
 
     #[tokio::test]
@@ -1307,10 +1316,7 @@ mod tests {
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
             read_test_request(&mut stream).await;
-            stream
-                .write_all(b"HTTP/1.1 302 Found\r\n")
-                .await
-                .unwrap();
+            stream.write_all(b"HTTP/1.1 302 Found\r\n").await.unwrap();
             stream
                 .write_all(b"Location: http://metadata.google.internal/\r\n")
                 .await
@@ -1343,9 +1349,7 @@ mod tests {
             let (mut stream, peer) = listener.accept().await.unwrap();
             let request = read_test_request(&mut stream).await;
             stream
-                .write_all(
-                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok",
-                )
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
                 .await
                 .unwrap();
             (peer, request)
@@ -1385,11 +1389,8 @@ mod tests {
 
         let (peer, request) = server.await.unwrap();
         assert_eq!(peer, address);
-        let unexpected_connection = tokio::time::timeout(
-            Duration::from_millis(100),
-            attacker_listener.accept(),
-        )
-        .await;
+        let unexpected_connection =
+            tokio::time::timeout(Duration::from_millis(100), attacker_listener.accept()).await;
         assert!(
             unexpected_connection.is_err(),
             "a second connection reached the resolver's rebinding answer"
@@ -1416,10 +1417,7 @@ mod tests {
             let host = host.to_owned();
             let calls = Arc::clone(&self.calls);
             Box::pin(async move {
-                calls
-                    .lock()
-                    .expect("resolver call lock")
-                    .push((host, port));
+                calls.lock().expect("resolver call lock").push((host, port));
                 Ok(vec![SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port)])
             })
         }
@@ -1437,10 +1435,7 @@ mod tests {
         let first_server = tokio::spawn(async move {
             let (mut stream, _) = first_listener.accept().await.unwrap();
             let request = read_test_request(&mut stream).await;
-            let location = format!(
-                "http://prism-redirect.test:{}/final",
-                second_address.port()
-            );
+            let location = format!("http://prism-redirect.test:{}/final", second_address.port());
             let response = format!(
                 "HTTP/1.1 302 Found\\r\\nLocation: {location}\\r\\nContent-Length: 0\\r\\nConnection: close\\r\\n\\r\\n"
             );
@@ -1463,10 +1458,7 @@ mod tests {
         let resolver = LoopbackResolver::default();
         let client =
             PublicEgressClient::with_test_resolver(EgressLimits::default(), resolver.clone());
-        let first_url = format!(
-            "http://prism-redirect.test:{}/start",
-            first_address.port()
-        );
+        let first_url = format!("http://prism-redirect.test:{}/start", first_address.port());
         let capability = client
             .authorize(Method::GET, &first_url, HeaderMap::new(), Vec::new())
             .await
@@ -1524,9 +1516,7 @@ mod tests {
             let (mut stream, _) = listener.accept().await.unwrap();
             read_test_request(&mut stream).await;
             stream
-                .write_all(
-                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok",
-                )
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
                 .await
                 .unwrap();
         });
@@ -1559,13 +1549,9 @@ mod tests {
 
             let mut response = b"HTTP/1.1 200 OK\r\n".to_vec();
             for index in 0..=MAX_RESPONSE_HEADER_COUNT {
-                response.extend_from_slice(
-                    format!("X-Prism-Test-{index}: value\r\n").as_bytes(),
-                );
+                response.extend_from_slice(format!("X-Prism-Test-{index}: value\r\n").as_bytes());
             }
-            response.extend_from_slice(
-                b"Content-Length: 0\r\nConnection: close\r\n\r\n",
-            );
+            response.extend_from_slice(b"Content-Length: 0\r\nConnection: close\r\n\r\n");
             stream.write_all(&response).await.unwrap();
         });
 
@@ -1596,9 +1582,7 @@ mod tests {
             let (mut stream, _) = listener.accept().await.unwrap();
             read_test_request(&mut stream).await;
             stream
-                .write_all(
-                    b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n",
-                )
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n")
                 .await
                 .unwrap();
         });
@@ -1660,10 +1644,7 @@ mod tests {
                 )
                 .await
                 .unwrap();
-            stream
-                .write_all(b"5\r\nhello\r\n0\r\n\r\n")
-                .await
-                .unwrap();
+            stream.write_all(b"5\r\nhello\r\n0\r\n\r\n").await.unwrap();
         });
 
         let client = PublicEgressClient::default();
@@ -1772,10 +1753,7 @@ mod tests {
                     break;
                 }
             }
-            stream
-                .write_all(b"HTTP/1.1 302 Found\r\n")
-                .await
-                .unwrap();
+            stream.write_all(b"HTTP/1.1 302 Found\r\n").await.unwrap();
             stream
                 .write_all(b"Location: http://metadata.google.internal/\r\n")
                 .await
@@ -1845,7 +1823,10 @@ mod tests {
         let (peer, request) = server.await.unwrap();
         assert_eq!(peer.ip(), IpAddr::V4(Ipv4Addr::LOCALHOST));
         let request = String::from_utf8_lossy(&request);
-        assert!(request.contains(&format!("Host: prism-pinned-test.invalid:{}", address.port())));
+        assert!(request.contains(&format!(
+            "Host: prism-pinned-test.invalid:{}",
+            address.port()
+        )));
     }
 
     #[test]
@@ -1860,32 +1841,65 @@ mod tests {
             "2606:4700:4700::1111",
             "2001:4860::1",
         ] {
-            assert!(is_public_unicast_ip(&ip(address)), "unexpectedly denied {address}");
+            assert!(
+                is_public_unicast_ip(&ip(address)),
+                "unexpectedly denied {address}"
+            );
         }
     }
 
     #[test]
     fn denies_ipv4_special_and_non_global_ranges() {
         for address in [
-            "0.1.2.3", "10.1.2.3", "100.64.0.1", "127.0.0.1",
-            "169.254.169.254", "172.16.0.1", "192.0.0.1",
-            "192.0.2.1", "192.88.99.1", "192.168.1.1",
-            "198.18.0.1", "198.51.100.1", "203.0.113.1",
-            "224.0.0.1", "240.0.0.1", "255.255.255.255",
+            "0.1.2.3",
+            "10.1.2.3",
+            "100.64.0.1",
+            "127.0.0.1",
+            "169.254.169.254",
+            "172.16.0.1",
+            "192.0.0.1",
+            "192.0.2.1",
+            "192.88.99.1",
+            "192.168.1.1",
+            "198.18.0.1",
+            "198.51.100.1",
+            "203.0.113.1",
+            "224.0.0.1",
+            "240.0.0.1",
+            "255.255.255.255",
         ] {
-            assert!(!is_public_unicast_ip(&ip(address)), "unexpectedly allowed {address}");
+            assert!(
+                !is_public_unicast_ip(&ip(address)),
+                "unexpectedly allowed {address}"
+            );
         }
     }
 
     #[test]
     fn denies_ipv6_special_transition_and_non_global_ranges() {
         for address in [
-            "::", "::1", "::ffff:8.8.8.8", "64:ff9b::808:808",
-            "64:ff9b:1::1", "100::1", "2001::1", "2001:2::1",
-            "2001:10::1", "2001:20::1", "2001:db8::1", "2002::1",
-            "3fff::1", "5f00::1", "fc00::1", "fe80::1", "ff02::1",
+            "::",
+            "::1",
+            "::ffff:8.8.8.8",
+            "64:ff9b::808:808",
+            "64:ff9b:1::1",
+            "100::1",
+            "2001::1",
+            "2001:2::1",
+            "2001:10::1",
+            "2001:20::1",
+            "2001:db8::1",
+            "2002::1",
+            "3fff::1",
+            "5f00::1",
+            "fc00::1",
+            "fe80::1",
+            "ff02::1",
         ] {
-            assert!(!is_public_unicast_ip(&ip(address)), "unexpectedly allowed {address}");
+            assert!(
+                !is_public_unicast_ip(&ip(address)),
+                "unexpectedly allowed {address}"
+            );
         }
     }
 
@@ -1935,10 +1949,13 @@ mod tests {
             "http://router.home.arpa/",
             "http://printer.home.arpa./",
         ] {
-            assert!(matches!(
-                validate_url_policy(&Url::parse(raw).unwrap()),
-                Err(EgressError::BlockedHost)
-            ), "expected blocked host: {raw}");
+            assert!(
+                matches!(
+                    validate_url_policy(&Url::parse(raw).unwrap()),
+                    Err(EgressError::BlockedHost)
+                ),
+                "expected blocked host: {raw}"
+            );
         }
     }
 
@@ -1995,10 +2012,7 @@ mod tests {
         let mut inputs = vec![duplicate; 100];
         inputs.extend(
             (1..=MAX_DNS_ANSWER_ADDRESSES + 1).map(|last| {
-                SocketAddr::new(
-                    IpAddr::V4(Ipv4Addr::new(93, 184, 217, last as u8)),
-                    443,
-                )
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(93, 184, 217, last as u8)), 443)
             }),
         );
         let collected = collect_unique_addresses_bounded(inputs);
@@ -2012,12 +2026,7 @@ mod tests {
     #[test]
     fn rejects_dns_answer_sets_over_the_count_limit() {
         let addresses = (1..=(MAX_DNS_ANSWER_ADDRESSES + 1))
-            .map(|last| {
-                SocketAddr::new(
-                    IpAddr::V4(Ipv4Addr::new(93, 184, 216, last as u8)),
-                    443,
-                )
-            })
+            .map(|last| SocketAddr::new(IpAddr::V4(Ipv4Addr::new(93, 184, 216, last as u8)), 443))
             .collect::<Vec<_>>();
         assert!(matches!(
             validate_address_set(&addresses),
@@ -2071,7 +2080,12 @@ mod tests {
         };
         let client = PublicEgressClient::with_resolver(EgressLimits::default(), resolver.clone());
         let result = client
-            .authorize(Method::GET, "https://mixed.example/", HeaderMap::new(), Vec::new())
+            .authorize(
+                Method::GET,
+                "https://mixed.example/",
+                HeaderMap::new(),
+                Vec::new(),
+            )
             .await;
         assert!(matches!(result, Err(EgressError::AddressNotPermitted(_))));
         assert_eq!(resolver.calls.load(std::sync::atomic::Ordering::SeqCst), 1);
@@ -2085,12 +2099,22 @@ mod tests {
         };
         let client = PublicEgressClient::with_resolver(EgressLimits::default(), resolver.clone());
         let capability = client
-            .authorize(Method::GET, "https://snapshot.example/", HeaderMap::new(), Vec::new())
+            .authorize(
+                Method::GET,
+                "https://snapshot.example/",
+                HeaderMap::new(),
+                Vec::new(),
+            )
             .await
             .unwrap();
         assert_eq!(resolver.calls.load(std::sync::atomic::Ordering::SeqCst), 1);
         assert_eq!(capability.addresses.len(), 2);
-        assert!(capability.addresses.iter().any(|address| address.ip() == ip("93.184.216.34")));
+        assert!(
+            capability
+                .addresses
+                .iter()
+                .any(|address| address.ip() == ip("93.184.216.34"))
+        );
         assert!(
             capability
                 .addresses
@@ -2159,23 +2183,23 @@ mod tests {
 
     #[test]
     fn fixed_source_authorities_are_bound_to_exact_hosts_paths_and_query_shapes() {
-        let wikipedia = Url::parse(
-            "https://en.wikipedia.org/api/rest_v1/page/summary/Quantum_mechanics",
-        )
-        .unwrap();
-        assert!(validate_authority_scope(
-            EgressAuthority::WikipediaSummary,
-            &wikipedia,
-            &Method::GET,
-            &HeaderMap::new(),
-            &[],
-        )
-        .is_ok());
+        let wikipedia =
+            Url::parse("https://en.wikipedia.org/api/rest_v1/page/summary/Quantum_mechanics")
+                .unwrap();
+        assert!(
+            validate_authority_scope(
+                EgressAuthority::WikipediaSummary,
+                &wikipedia,
+                &Method::GET,
+                &HeaderMap::new(),
+                &[],
+            )
+            .is_ok()
+        );
 
-        let wikipedia_attacker = Url::parse(
-            "https://attacker.example/api/rest_v1/page/summary/Quantum_mechanics",
-        )
-        .unwrap();
+        let wikipedia_attacker =
+            Url::parse("https://attacker.example/api/rest_v1/page/summary/Quantum_mechanics")
+                .unwrap();
         assert!(matches!(
             validate_authority_scope(
                 EgressAuthority::WikipediaSummary,
@@ -2186,10 +2210,9 @@ mod tests {
             ),
             Err(EgressError::AuthorityScopeViolation)
         ));
-        let wikipedia_nested = Url::parse(
-            "https://en.wikipedia.org/api/rest_v1/page/summary/Quantum_mechanics/other",
-        )
-        .unwrap();
+        let wikipedia_nested =
+            Url::parse("https://en.wikipedia.org/api/rest_v1/page/summary/Quantum_mechanics/other")
+                .unwrap();
         assert!(matches!(
             validate_authority_scope(
                 EgressAuthority::WikipediaSummary,
@@ -2205,14 +2228,16 @@ mod tests {
             "https://query.wikidata.org/sparql?query=SELECT%20%2A%20WHERE%20%7B%7D&format=json",
         )
         .unwrap();
-        assert!(validate_authority_scope(
-            EgressAuthority::WikidataSparql,
-            &wikidata,
-            &Method::GET,
-            &HeaderMap::new(),
-            &[],
-        )
-        .is_ok());
+        assert!(
+            validate_authority_scope(
+                EgressAuthority::WikidataSparql,
+                &wikidata,
+                &Method::GET,
+                &HeaderMap::new(),
+                &[],
+            )
+            .is_ok()
+        );
 
         let wikidata_extra = Url::parse(
             "https://query.wikidata.org/sparql?query=SELECT%20%2A%20WHERE%20%7B%7D&format=json&redirect=https://attacker.example",
@@ -2234,7 +2259,10 @@ mod tests {
     fn public_web_authority_rejects_headers_and_request_bodies() {
         let url = Url::parse("https://attacker.example/collect").unwrap();
         let mut headers = HeaderMap::new();
-        headers.insert(reqwest::header::AUTHORIZATION, "Bearer secret".parse().unwrap());
+        headers.insert(
+            reqwest::header::AUTHORIZATION,
+            "Bearer secret".parse().unwrap(),
+        );
         assert!(matches!(
             validate_authority_scope(
                 EgressAuthority::PublicWeb,
@@ -2263,13 +2291,16 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert("X-Subscription-Token", "secret".parse().unwrap());
         headers.insert(reqwest::header::ACCEPT, "application/json".parse().unwrap());
-        assert!(validate_authority_scope(
-            EgressAuthority::BraveSearch,
-            &url,
-            &Method::GET,
-            &headers,
-            &[],
-        ).is_ok());
+        assert!(
+            validate_authority_scope(
+                EgressAuthority::BraveSearch,
+                &url,
+                &Method::GET,
+                &headers,
+                &[],
+            )
+            .is_ok()
+        );
 
         let attacker = Url::parse("https://attacker.example/res/v1/web/search").unwrap();
         assert!(matches!(
@@ -2298,8 +2329,7 @@ mod tests {
 
     #[test]
     fn provider_authorities_reject_duplicate_credential_headers() {
-        let brave_url =
-            Url::parse("https://api.search.brave.com/res/v1/web/search").unwrap();
+        let brave_url = Url::parse("https://api.search.brave.com/res/v1/web/search").unwrap();
         let mut brave_headers = HeaderMap::new();
         brave_headers.insert("X-Subscription-Token", "secret".parse().unwrap());
         brave_headers.append("X-Subscription-Token", "second".parse().unwrap());
@@ -2314,8 +2344,7 @@ mod tests {
             Err(EgressError::AuthorityHeaderViolation(_))
         ));
 
-        let perplexity_url =
-            Url::parse("https://api.perplexity.ai/chat/completions").unwrap();
+        let perplexity_url = Url::parse("https://api.perplexity.ai/chat/completions").unwrap();
         let mut perplexity_headers = HeaderMap::new();
         perplexity_headers.insert(
             reqwest::header::AUTHORIZATION,
@@ -2345,15 +2374,24 @@ mod tests {
     fn perplexity_authority_is_fixed_to_exact_origin_path_and_header_set() {
         let url = Url::parse("https://api.perplexity.ai/chat/completions").unwrap();
         let mut headers = HeaderMap::new();
-        headers.insert(reqwest::header::AUTHORIZATION, "Bearer secret".parse().unwrap());
-        headers.insert(reqwest::header::CONTENT_TYPE, "application/json".parse().unwrap());
-        assert!(validate_authority_scope(
-            EgressAuthority::Perplexity,
-            &url,
-            &Method::POST,
-            &headers,
-            b"{}",
-        ).is_ok());
+        headers.insert(
+            reqwest::header::AUTHORIZATION,
+            "Bearer secret".parse().unwrap(),
+        );
+        headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            "application/json".parse().unwrap(),
+        );
+        assert!(
+            validate_authority_scope(
+                EgressAuthority::Perplexity,
+                &url,
+                &Method::POST,
+                &headers,
+                b"{}",
+            )
+            .is_ok()
+        );
 
         let attacker = Url::parse("https://attacker.example/chat/completions").unwrap();
         assert!(matches!(
@@ -2387,11 +2425,16 @@ mod tests {
             answers: socket_addresses(&["93.184.216.34:443"]),
             calls: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         };
-        let client =
-            PublicEgressClient::with_resolver(EgressLimits::default(), resolver);
+        let client = PublicEgressClient::with_resolver(EgressLimits::default(), resolver);
         let mut headers = HeaderMap::new();
-        headers.insert(reqwest::header::AUTHORIZATION, "Bearer secret".parse().unwrap());
-        headers.insert(reqwest::header::CONTENT_TYPE, "application/json".parse().unwrap());
+        headers.insert(
+            reqwest::header::AUTHORIZATION,
+            "Bearer secret".parse().unwrap(),
+        );
+        headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            "application/json".parse().unwrap(),
+        );
         let capability = client
             .authorize_with_authority(
                 EgressAuthority::Perplexity,
@@ -2403,7 +2446,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(capability.url.as_str(), "https://api.perplexity.ai/chat/completions");
+        assert_eq!(
+            capability.url.as_str(),
+            "https://api.perplexity.ai/chat/completions"
+        );
         assert_eq!(capability.authority, EgressAuthority::Perplexity);
         assert_eq!(capability.method, Method::POST);
         assert_eq!(capability.headers, headers);
@@ -2467,8 +2513,7 @@ mod tests {
             assert!(
                 matches!(
                     result,
-                    Err(EgressError::InvalidUrl(_))
-                        | Err(EgressError::AddressNotPermitted(_))
+                    Err(EgressError::InvalidUrl(_)) | Err(EgressError::AddressNotPermitted(_))
                 ),
                 "alternate loopback encoding escaped policy: {raw}"
             );
@@ -2478,8 +2523,12 @@ mod tests {
     #[tokio::test]
     async fn rejects_private_ip_literals_before_transport() {
         let client = PublicEgressClient::default();
-        let result = client
-            .authorize(Method::GET, "http://127.0.0.1/", HeaderMap::new(), Vec::new());
+        let result = client.authorize(
+            Method::GET,
+            "http://127.0.0.1/",
+            HeaderMap::new(),
+            Vec::new(),
+        );
         assert!(matches!(
             result.await,
             Err(EgressError::AddressNotPermitted(_))
@@ -2492,7 +2541,12 @@ mod tests {
         limits.capability_ttl = Duration::ZERO;
         let client = PublicEgressClient::new(limits);
         let capability = client
-            .authorize(Method::GET, "https://1.1.1.1/", HeaderMap::new(), Vec::new())
+            .authorize(
+                Method::GET,
+                "https://1.1.1.1/",
+                HeaderMap::new(),
+                Vec::new(),
+            )
             .await
             .unwrap();
         let result = client.execute(capability).await;
@@ -2518,10 +2572,13 @@ mod tests {
         ] {
             let mut headers = HeaderMap::new();
             headers.insert(name, "attacker-controlled");
-            assert!(matches!(
-                validate_request_headers(&headers),
-                Err(EgressError::ForbiddenHeader(_))
-            ), "expected forbidden header: {name}");
+            assert!(
+                matches!(
+                    validate_request_headers(&headers),
+                    Err(EgressError::ForbiddenHeader(_))
+                ),
+                "expected forbidden header: {name}"
+            );
         }
     }
 
