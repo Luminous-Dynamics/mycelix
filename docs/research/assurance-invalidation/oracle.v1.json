@@ -1,0 +1,778 @@
+{
+  "corpus_id": "LISE-ASSURANCE-INV-50-v1",
+  "status": "public_development_oracle",
+  "disclosure": "Public answer key; calibration only, not a hidden or blinded holdout.",
+  "outcome_count": 50,
+  "outcomes": [
+    {
+      "scenario_id": "INV-001",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "historical_signature_integrity",
+        "current_key_binding"
+      ],
+      "reason_code": "KEY_STILL_CURRENT"
+    },
+    {
+      "scenario_id": "INV-002",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "current_key_authority",
+        "new_invocation_authorization"
+      ],
+      "preserved_dimensions": [
+        "historical_signature_integrity",
+        "historical_key_binding"
+      ],
+      "reason_code": "KEY_REVOKED_AFTER_CHECK"
+    },
+    {
+      "scenario_id": "INV-003",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "principal_identity",
+        "key_binding",
+        "historical_signature_integrity"
+      ],
+      "reason_code": "KEY_BINDING_UNCHANGED"
+    },
+    {
+      "scenario_id": "INV-004",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "current_signing_authority",
+        "new_invocation_binding"
+      ],
+      "preserved_dimensions": [
+        "historical_artifact_integrity",
+        "principal_identity"
+      ],
+      "reason_code": "KEY_ROTATION_REQUIRES_NEW_CURRENT_BINDING"
+    },
+    {
+      "scenario_id": "INV-005",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "identity_binding",
+        "historical_signatures"
+      ],
+      "reason_code": "REGISTRY_ROOT_CONSISTENT"
+    },
+    {
+      "scenario_id": "INV-006",
+      "applicability": "Unknown",
+      "currentness": "CurrentnessUnknown",
+      "horizon_relation": "UNKNOWN",
+      "change_coverage": "UNKNOWN",
+      "disposition": "INDETERMINATE",
+      "invalidated_dimensions": [
+        "current_identity_binding",
+        "cross_pep_consistency"
+      ],
+      "preserved_dimensions": [
+        "historical_signature_bytes"
+      ],
+      "reason_code": "REGISTRY_EQUIVOCATION_UNRESOLVED"
+    },
+    {
+      "scenario_id": "INV-007",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "historical_artifact_verification",
+        "current_trust_root"
+      ],
+      "reason_code": "TRUST_ROOT_RESTORE_CURRENT"
+    },
+    {
+      "scenario_id": "INV-008",
+      "applicability": "HistoricalOnly",
+      "currentness": "SupersededByKnownEvidence",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "HISTORICAL_ONLY",
+      "invalidated_dimensions": [
+        "current_trust_root",
+        "current_key_admission"
+      ],
+      "preserved_dimensions": [
+        "historical_signature_verification",
+        "historical_trust_root_record"
+      ],
+      "reason_code": "RESTORED_TRUST_ROOT_IS_SUPERSEDED"
+    },
+    {
+      "scenario_id": "INV-009",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "historical_decision_record",
+        "current_policy_decision"
+      ],
+      "reason_code": "POLICY_EPOCH_UNCHANGED"
+    },
+    {
+      "scenario_id": "INV-010",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "current_policy_decision",
+        "decision_to_effect_authority"
+      ],
+      "preserved_dimensions": [
+        "historical_decision_integrity",
+        "historical_policy_evaluation"
+      ],
+      "reason_code": "OLD_ALLOW_NOT_CURRENT_EFFECT_AUTHORITY"
+    },
+    {
+      "scenario_id": "INV-011",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "parent_grant",
+        "child_attenuation",
+        "historical_delegation"
+      ],
+      "reason_code": "PARENT_SCOPE_UNCHANGED"
+    },
+    {
+      "scenario_id": "INV-012",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "child_session_currentness",
+        "effective_delegated_scope"
+      ],
+      "preserved_dimensions": [
+        "historical_parent_grant",
+        "historical_child_delegation"
+      ],
+      "reason_code": "CHILD_SESSION_MUST_REVALIDATE_AFTER_PARENT_NARROWING"
+    },
+    {
+      "scenario_id": "INV-013",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "approval_history",
+        "exact_operation_binding",
+        "effect_authority"
+      ],
+      "reason_code": "APPROVAL_EPOCH_STILL_CURRENT"
+    },
+    {
+      "scenario_id": "INV-014",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "current_effect_authority",
+        "approval_currentness"
+      ],
+      "preserved_dimensions": [
+        "historical_approval",
+        "exact_operation_digest"
+      ],
+      "reason_code": "CONSTITUTION_EPOCH_CHANGED_AFTER_READY"
+    },
+    {
+      "scenario_id": "INV-015",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "alpha_policy_currentness",
+        "exact_operation_binding",
+        "historical_beta_state"
+      ],
+      "reason_code": "UNRELATED_NAMESPACE_CHANGE"
+    },
+    {
+      "scenario_id": "INV-016",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "effective_policy_semantics",
+        "policy_currentness"
+      ],
+      "preserved_dimensions": [
+        "historical_policy_inputs",
+        "unaffected_identity_binding"
+      ],
+      "reason_code": "TRANSITIVE_POLICY_DEPENDENCY_CHANGED"
+    },
+    {
+      "scenario_id": "INV-017",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "complete_mediation",
+        "expected_pep_identity"
+      ],
+      "reason_code": "ROUTE_INVENTORY_UNCHANGED"
+    },
+    {
+      "scenario_id": "INV-018",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "complete_mediation",
+        "route_coverage"
+      ],
+      "preserved_dimensions": [
+        "historical_r9_route_evidence",
+        "old_route_pep_identity"
+      ],
+      "reason_code": "NEW_EFFECT_ROUTE_REQUIRES_MEDIATION_REQUALIFICATION"
+    },
+    {
+      "scenario_id": "INV-019",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "route_inventory",
+        "pep_coverage"
+      ],
+      "reason_code": "ROUTE_CLOSURE_STILL_COMPLETE"
+    },
+    {
+      "scenario_id": "INV-020",
+      "applicability": "Unknown",
+      "currentness": "CurrentnessUnknown",
+      "horizon_relation": "UNKNOWN",
+      "change_coverage": "INCOMPLETE",
+      "disposition": "INDETERMINATE",
+      "invalidated_dimensions": [
+        "complete_mediation",
+        "route_inventory_completeness"
+      ],
+      "preserved_dimensions": [
+        "historical_static_route_tests"
+      ],
+      "reason_code": "DYNAMIC_ROUTE_SET_INCOMPLETE"
+    },
+    {
+      "scenario_id": "INV-021",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "complete_mediation",
+        "pep_identity"
+      ],
+      "reason_code": "EXPECTED_PEP_COVERS_CLOSED_ROUTE_SET"
+    },
+    {
+      "scenario_id": "INV-022",
+      "applicability": "Inapplicable",
+      "currentness": "SupersededByKnownEvidence",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "HISTORICAL_ONLY",
+      "invalidated_dimensions": [
+        "complete_mediation",
+        "route_exclusion"
+      ],
+      "preserved_dimensions": [
+        "historical_old_route_tests",
+        "old_pep_signature_integrity"
+      ],
+      "reason_code": "OBSERVED_EFFECT_ROUTE_BYPASSES_REQUIRED_PEP"
+    },
+    {
+      "scenario_id": "INV-023",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "pep_implementation_identity",
+        "old_route_coverage"
+      ],
+      "reason_code": "PEP_ARTIFACT_DIGEST_UNCHANGED"
+    },
+    {
+      "scenario_id": "INV-024",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "pep_implementation_identity",
+        "enforcement_behavior"
+      ],
+      "preserved_dimensions": [
+        "historical_h1_test_results"
+      ],
+      "reason_code": "PEP_BINARY_CHANGED_WITHOUT_EQUIVALENCE_EVIDENCE"
+    },
+    {
+      "scenario_id": "INV-025",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "v014_conformance",
+        "historical_profile_evidence"
+      ],
+      "reason_code": "ACS_PROFILE_REVISION_UNCHANGED"
+    },
+    {
+      "scenario_id": "INV-026",
+      "applicability": "Unknown",
+      "currentness": "CurrentnessUnknown",
+      "horizon_relation": "UNKNOWN",
+      "change_coverage": "UNKNOWN",
+      "disposition": "INDETERMINATE",
+      "invalidated_dimensions": [
+        "current_acs_profile_conformance"
+      ],
+      "preserved_dimensions": [
+        "historical_v014_conformance"
+      ],
+      "reason_code": "NEW_PROFILE_SEMANTICS_NOT_YET_QUALIFIED"
+    },
+    {
+      "scenario_id": "INV-027",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "model_benchmark_result",
+        "tool_policy_identity"
+      ],
+      "reason_code": "MODEL_SUBJECT_UNCHANGED"
+    },
+    {
+      "scenario_id": "INV-028",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "model_specific_behavioral_evidence"
+      ],
+      "preserved_dimensions": [
+        "policy_engine_identity",
+        "pep_boundary_evidence",
+        "historical_m1_result"
+      ],
+      "reason_code": "MODEL_SUCCESSOR_REQUIRES_DIMENSION_SPECIFIC_REVALIDATION"
+    },
+    {
+      "scenario_id": "INV-029",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "inventory_completeness",
+        "historical_component_provenance"
+      ],
+      "reason_code": "AGBOM_COMPONENT_SET_UNCHANGED"
+    },
+    {
+      "scenario_id": "INV-030",
+      "applicability": "Unknown",
+      "currentness": "CurrentnessUnknown",
+      "horizon_relation": "UNKNOWN",
+      "change_coverage": "INCOMPLETE",
+      "disposition": "INDETERMINATE",
+      "invalidated_dimensions": [
+        "agent_inventory_completeness",
+        "context_source_coverage"
+      ],
+      "preserved_dimensions": [
+        "old_tool_artifact_integrity",
+        "historical_agbom_10"
+      ],
+      "reason_code": "DYNAMIC_MEMORY_COMPONENT_OMITTED"
+    },
+    {
+      "scenario_id": "INV-031",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "context_chain_integrity",
+        "session_binding"
+      ],
+      "reason_code": "CONTEXT_SEQUENCE_COMPLETE"
+    },
+    {
+      "scenario_id": "INV-032",
+      "applicability": "Unknown",
+      "currentness": "CurrentnessUnknown",
+      "horizon_relation": "UNKNOWN",
+      "change_coverage": "INCOMPLETE",
+      "disposition": "INDETERMINATE",
+      "invalidated_dimensions": [
+        "context_history_completeness",
+        "current_session_authority"
+      ],
+      "preserved_dimensions": [
+        "integrity_of_supplied_events"
+      ],
+      "reason_code": "CONTEXT_EVENT_GAP_PREVENTS_CURRENT_RECONSTRUCTION"
+    },
+    {
+      "scenario_id": "INV-033",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "policy_engine_result",
+        "historical_model_metadata"
+      ],
+      "reason_code": "POLICY_CLAIM_DEPENDENCY_UNCHANGED"
+    },
+    {
+      "scenario_id": "INV-034",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "policy_engine_result",
+        "policy_artifact_identity"
+      ],
+      "reason_code": "TOKENIZER_CHANGE_OUTSIDE_POLICY_CLAIM_CLOSURE"
+    },
+    {
+      "scenario_id": "INV-035",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "source_authenticity",
+        "purpose_binding",
+        "context_derivation"
+      ],
+      "reason_code": "PROMPT_SOURCE_LINEAGE_UNCHANGED"
+    },
+    {
+      "scenario_id": "INV-036",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "prompt_source_authority",
+        "purpose_applicability",
+        "current_context_authorization"
+      ],
+      "preserved_dimensions": [
+        "historical_source_bytes",
+        "historical_derivation_record"
+      ],
+      "reason_code": "SOURCE_CLASSIFICATION_CHANGED_REQUIRES_CONTEXT_REAPPRAISAL"
+    },
+    {
+      "scenario_id": "INV-037",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "observation_content",
+        "source_independence"
+      ],
+      "reason_code": "OBSERVER_PATHS_REMAIN_INDEPENDENT"
+    },
+    {
+      "scenario_id": "INV-038",
+      "applicability": "Inapplicable",
+      "currentness": "SupersededByKnownEvidence",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "HISTORICAL_ONLY",
+      "invalidated_dimensions": [
+        "observer_independence",
+        "corroboration_count"
+      ],
+      "preserved_dimensions": [
+        "signature_authenticity",
+        "historical_observation_content"
+      ],
+      "reason_code": "COMMON_CAUSE_DISCOVERED_INVALIDATES_INDEPENDENCE_CLAIM"
+    },
+    {
+      "scenario_id": "INV-039",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "historical_observation_signature",
+        "observer_identity"
+      ],
+      "reason_code": "OBSERVER_KEY_UNCHANGED"
+    },
+    {
+      "scenario_id": "INV-040",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "current_observer_signing_authority",
+        "new_observation_admission"
+      ],
+      "preserved_dimensions": [
+        "historical_observation_signature",
+        "historical_observer_attribution"
+      ],
+      "reason_code": "OBSERVER_KEY_ROTATION_SCOPES_NEW_OBSERVATIONS"
+    },
+    {
+      "scenario_id": "INV-041",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "observation_coverage",
+        "historical_source_identity"
+      ],
+      "reason_code": "EXPECTED_SOURCE_SET_COMPLETE"
+    },
+    {
+      "scenario_id": "INV-042",
+      "applicability": "Unknown",
+      "currentness": "CurrentnessUnknown",
+      "horizon_relation": "UNKNOWN",
+      "change_coverage": "INCOMPLETE",
+      "disposition": "INDETERMINATE",
+      "invalidated_dimensions": [
+        "expected_source_coverage",
+        "absence_claim"
+      ],
+      "preserved_dimensions": [
+        "historical_available_source_records"
+      ],
+      "reason_code": "SOURCE_FEED_UNAVAILABLE_IS_NOT_NO_EVENT"
+    },
+    {
+      "scenario_id": "INV-043",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "observation_content",
+        "independent_corroboration"
+      ],
+      "reason_code": "INDEPENDENT_OBSERVERS_REMAIN_DISTINCT"
+    },
+    {
+      "scenario_id": "INV-044",
+      "applicability": "Inapplicable",
+      "currentness": "SupersededByKnownEvidence",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "HISTORICAL_ONLY",
+      "invalidated_dimensions": [
+        "independent_corroboration",
+        "observer_count"
+      ],
+      "preserved_dimensions": [
+        "receipt_authenticity",
+        "single_source_observation"
+      ],
+      "reason_code": "MIRRORED_RECEIPT_IS_NOT_TWO_INDEPENDENT_OBSERVATIONS"
+    },
+    {
+      "scenario_id": "INV-045",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "as_known_at_f1",
+        "historical_packet_digest"
+      ],
+      "reason_code": "HISTORICAL_FRONTIER_REPLAY_STABLE"
+    },
+    {
+      "scenario_id": "INV-046",
+      "applicability": "HistoricalOnly",
+      "currentness": "SupersededByKnownEvidence",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "HISTORICAL_ONLY",
+      "invalidated_dimensions": [
+        "current_view_applicability_at_f2"
+      ],
+      "preserved_dimensions": [
+        "as_known_at_f1",
+        "historical_packet_digest",
+        "late_evidence_recorded_time"
+      ],
+      "reason_code": "LATE_EVIDENCE_UPDATES_F2_NOT_F1"
+    },
+    {
+      "scenario_id": "INV-047",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "historical_inclusion_proofs",
+        "current_log_consistency"
+      ],
+      "reason_code": "CHECKPOINT_ADVANCED_WITH_CONSISTENCY_PROOF"
+    },
+    {
+      "scenario_id": "INV-048",
+      "applicability": "Unknown",
+      "currentness": "CurrentnessUnknown",
+      "horizon_relation": "UNKNOWN",
+      "change_coverage": "UNKNOWN",
+      "disposition": "INDETERMINATE",
+      "invalidated_dimensions": [
+        "current_log_frontier",
+        "event_completeness"
+      ],
+      "preserved_dimensions": [
+        "historical_c10_inclusion_proofs"
+      ],
+      "reason_code": "NO_CONSISTENCY_PROOF_NO_CURRENT_FRONTIER"
+    },
+    {
+      "scenario_id": "INV-049",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "historical_evidence_truth",
+        "reusable_verification_horizon"
+      ],
+      "reason_code": "LEASE_STILL_OPEN_AND_SUBJECT_UNCHANGED"
+    },
+    {
+      "scenario_id": "INV-050",
+      "applicability": "HistoricalOnly",
+      "currentness": "SupersededByKnownEvidence",
+      "horizon_relation": "WITHIN_EVIDENCE_LEASE",
+      "change_coverage": "COMPLETE",
+      "disposition": "HISTORICAL_ONLY",
+      "invalidated_dimensions": [
+        "reusable_verification_horizon",
+        "current_positive_reuse"
+      ],
+      "preserved_dimensions": [
+        "historical_evidence_truth",
+        "original_verification_record"
+      ],
+      "reason_code": "EXPIRED_LEASE_BLOCKS_REUSE_NOT_HISTORICAL_TRUTH"
+    }
+  ]
+}
