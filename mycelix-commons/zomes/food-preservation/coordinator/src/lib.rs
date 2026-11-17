@@ -286,7 +286,7 @@ pub fn calculate_container_lifecycle_impact(
                     details: vec!["accepted-serving count overflow".into()],
                 },
             )?;
-            fill_events += 1;
+            impact_sum(&mut fill_events, 1)?;
         }
 
         if matches!(&event.event_kind, ContainerEventKind::Washed | ContainerEventKind::Sanitized) {
@@ -306,9 +306,9 @@ pub fn calculate_container_lifecycle_impact(
                 code: ContainerImpactErrorCodeV1::MissingSanitationObservation,
                 details: vec!["detergent_mass_mg is unknown".into()],
             })?;
-            wash_water_ml += u128::from(water_ml);
-            wash_energy_wh += u128::from(energy_wh);
-            detergent_mass_mg += u128::from(detergent_mg);
+            impact_sum(&mut wash_water_ml, u128::from(water_ml))?;
+            impact_sum(&mut wash_energy_wh, u128::from(energy_wh))?;
+            impact_sum(&mut detergent_mass_mg, u128::from(detergent_mg))?;
             impact_sum(
                 &mut electricity_impact,
                 impact_mul(&[u128::from(energy_wh), u128::from(factors.electricity_mg_co2e_per_wh)])?,
@@ -343,7 +343,7 @@ pub fn calculate_container_lifecycle_impact(
                     code: ContainerImpactErrorCodeV1::MissingTransportFactor,
                     details: vec![format!("no impact factor supplied for transport mode {:?}", mode)],
                 })?;
-            transport_distance_m += u128::from(distance);
+            impact_sum(&mut transport_distance_m, u128::from(distance))?;
             // g * m / 1e9 = tonne-kilometres; factor is mg CO2e / tonne-km.
             impact_sum(
                 &mut logistics_impact,
