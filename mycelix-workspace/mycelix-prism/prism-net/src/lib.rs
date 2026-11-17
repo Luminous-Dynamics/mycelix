@@ -12,6 +12,7 @@ use thiserror::Error;
 use url::Url;
 
 const PRISM_USER_AGENT: &str = "Prism/0.1 (pure Rust; +https://luminousdynamics.org)";
+const MAX_NAVIGATION_URL_BYTES: usize = 8 * 1024;
 
 #[derive(Error, Debug)]
 pub enum FetchError {
@@ -21,6 +22,12 @@ pub enum FetchError {
     InvalidUrl(#[from] url::ParseError),
     #[error("Response too large: {size} bytes (max {max})")]
     TooLarge { size: u64, max: u64 },
+    #[error("only HTTP and HTTPS navigation is supported")]
+    UnsupportedScheme,
+    #[error("URL credentials are not permitted")]
+    CredentialsNotPermitted,
+    #[error("URL exceeds the configured byte limit")]
+    UrlTooLarge,
 }
 
 /// Metadata about a fetched page, used by the reflex arc and privacy classifier.
@@ -51,7 +58,12 @@ pub struct FetchedPage {
     pub metadata: FetchMetadata,
 }
 
-/// HTTP client for Prism (networking layer).
+/// User-directed desktop navigation client.
+///
+/// This client intentionally retains browser-like access to local/LAN targets
+/// and bounded redirects because it is used by the interactive Prism shell.
+/// It is not a hosted proxy or background-fetch transport; those callers must
+/// use the PublicEgressClient in prism-egress instead.
 pub struct PrismClient {
     client: reqwest::Client,
     max_body_size: u64,
@@ -80,12 +92,12 @@ impl PrismClient {
         }
     }
 
-    /// Fetch a URL and parse it into a DOM tree.
+    /// Fetch one user-initiated navigation target and parse its bounded body.
     pub async fn fetch(&self, url: &str) -> Result<FetchedPage, FetchError> {
-        let parsed_url = Url::parse(url)?;
-        log::info!("Fetching: {}", parsed_url);
+        let parsed_url = validate_navigation_url(url)?;
+        log::info!("Fetching user navigation: {}", parsed_url);
 
-        let response = self.client.get(parsed_url.clone()).send().await?;
+        let response = self.client.get(parsed_url).send().await?;
 
         let status = response.status().as_u16();
         let headers = response.headers().clone();
@@ -101,7 +113,8 @@ impl PrismClient {
             .and_then(|v| v.to_str().ok())
             .map(|s| s.to_string());
 
-        // Check content length before downloading
+        // Content-Length is only an early rejection; the chunk loop is
+        // authoritative for missing, false, or compressed lengths.
         if let Some(len) = response.content_length()
             && len > self.max_body_size
         {
@@ -111,10 +124,20 @@ impl PrismClient {
             });
         }
 
-        // Get final URL after redirects
         let final_url = response.url().clone();
-
-        let html = response.text().await?;
+        let mut response = response;
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await? {
+            let next_size = (bytes.len() as u64).saturating_add(chunk.len() as u64);
+            if next_size > self.max_body_size {
+                return Err(FetchError::TooLarge {
+                    size: next_size,
+                    max: self.max_body_size,
+                });
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        let html = String::from_utf8_lossy(&bytes).into_owned();
 
         // Parse HTML into DOM
         let dom = prism_dom::parse_html(&html);
@@ -136,6 +159,20 @@ impl PrismClient {
     }
 }
 
+fn validate_navigation_url(raw: &str) -> Result<Url, FetchError> {
+    if raw.len() > MAX_NAVIGATION_URL_BYTES {
+        return Err(FetchError::UrlTooLarge);
+    }
+    let parsed = Url::parse(raw)?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err(FetchError::UnsupportedScheme);
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err(FetchError::CredentialsNotPermitted);
+    }
+    Ok(parsed)
+}
+
 impl Default for PrismClient {
     fn default() -> Self {
         Self::new()
@@ -145,6 +182,29 @@ impl Default for PrismClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn navigation_policy_allows_explicit_local_navigation_but_only_http_schemes() {
+        assert!(validate_navigation_url("http://127.0.0.1:8080/").is_ok());
+        assert!(validate_navigation_url("https://example.com/").is_ok());
+        assert!(matches!(
+            validate_navigation_url("file:///etc/passwd"),
+            Err(FetchError::UnsupportedScheme)
+        ));
+        assert!(matches!(
+            validate_navigation_url("https://user:pass@example.com/"),
+            Err(FetchError::CredentialsNotPermitted)
+        ));
+    }
+
+    #[test]
+    fn navigation_policy_bounds_url_length() {
+        let raw = format!("https://example.com/{}", "a".repeat(MAX_NAVIGATION_URL_BYTES));
+        assert!(matches!(
+            validate_navigation_url(&raw),
+            Err(FetchError::UrlTooLarge)
+        ));
+    }
 
     #[test]
     fn client_creates_successfully() {
