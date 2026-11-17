@@ -1030,10 +1030,14 @@ mod tests {
 
     #[test]
     fn rejects_dns_answer_sets_over_the_count_limit() {
-        let addresses = vec![
-            "93.184.216.34:443".parse().unwrap();
-            MAX_DNS_ANSWER_ADDRESSES + 1
-        ];
+        let addresses = (1..=(MAX_DNS_ANSWER_ADDRESSES + 1))
+            .map(|last| {
+                SocketAddr::new(
+                    IpAddr::V4(Ipv4Addr::new(93, 184, 216, last as u8)),
+                    443,
+                )
+            })
+            .collect::<Vec<_>>();
         assert!(matches!(
             validate_address_set(&addresses),
             Err(EgressError::DnsAnswerSetTooLarge)
