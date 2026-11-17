@@ -1474,7 +1474,7 @@ mod tests {
             let request = read_test_request(&mut stream).await;
             stream
                 .write_all(
-                    b"HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\nConnection: close\\r\\n\\r\\nok",
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok",
                 )
                 .await
                 .unwrap();
