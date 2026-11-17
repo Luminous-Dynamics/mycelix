@@ -16,11 +16,41 @@ fn versioned_address_policy_corpus_matches_prism_classifier() {
         Some("prism-public-egress-v1"),
         "corpus policy version must match the tested policy"
     );
+    assert_eq!(
+        corpus["provenance"]["registry_last_updated"].as_str(),
+        Some("2025-10-09"),
+        "address corpus must identify the checked-in IANA registry revision"
+    );
+    assert_eq!(
+        corpus["provenance"]["verified_against_registry_on"].as_str(),
+        Some("2026-11-17"),
+        "address corpus must record the date its IANA provenance was reviewed"
+    );
+    assert!(
+        corpus["provenance"]["registry_urls"]["ipv4"].as_str().is_some(),
+        "IPv4 registry source URL must be retained"
+    );
+    assert!(
+        corpus["provenance"]["registry_urls"]["ipv6"].as_str().is_some(),
+        "IPv6 registry source URL must be retained"
+    );
 
     let cases = corpus["cases"]
         .as_array()
         .expect("corpus must contain a cases array");
-    assert!(cases.len() >= 30, "corpus unexpectedly small");
+    assert!(cases.len() >= 47, "corpus unexpectedly small or missing reviewed IANA vectors");
+
+    for id in ["v4-deny-017", "v6-deny-019", "v6-deny-020"] {
+        let case = cases
+            .iter()
+            .find(|case| case["id"].as_str() == Some(id))
+            .unwrap_or_else(|| panic!("missing conservative-aggregate case {id}"));
+        assert_eq!(case["expected_public"].as_bool(), Some(false));
+        assert!(
+            case["reason"].as_str().is_some_and(|reason| !reason.is_empty()),
+            "conservative false-positive case {id} must explain its rationale"
+        );
+    }
 
     for case in cases {
         let id = case["id"].as_str().expect("case ID");
