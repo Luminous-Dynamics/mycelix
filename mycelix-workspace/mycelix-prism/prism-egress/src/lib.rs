@@ -211,10 +211,10 @@ async fn resolve_and_authorize(
         Host::Ipv4(address) => (vec![SocketAddr::new(IpAddr::V4(address), port)], false),
         Host::Ipv6(address) => (vec![SocketAddr::new(IpAddr::V6(address), port)], false),
         Host::Domain(domain) => {
-            let resolved = tokio::net::lookup_host((domain.as_str(), port))
+            let resolved = tokio::net::lookup_host((domain, port))
                 .await
                 .map_err(|source| EgressError::DnsResolution {
-                    host: domain.clone(),
+                    host: domain.to_owned(),
                     source,
                 })?;
             (resolved.collect::<Vec<_>>(), true)
@@ -338,7 +338,7 @@ mod tests {
 
     #[test]
     fn allows_representative_public_unicast_addresses() {
-        for address in ["1.1.1.1", "8.8.8.8", "93.184.216.34", "192.31.196.1", "192.52.193.1", "192.175.48.1", "2606:4700:4700::1111"] {
+        for address in ["1.1.1.1", "8.8.8.8", "93.184.216.34", "192.31.196.1", "192.52.193.1", "192.175.48.1", "2606:4700:4700::1111", "2001:4860::1"] {
             assert!(is_public_unicast_ip(&ip(address)), "unexpectedly denied {address}");
         }
     }
@@ -363,7 +363,6 @@ mod tests {
             "64:ff9b:1::1", "100::1", "2001::1", "2001:2::1",
             "2001:10::1", "2001:20::1", "2001:db8::1", "2002::1",
             "3fff::1", "5f00::1", "fc00::1", "fe80::1", "ff02::1",
-            "2001:4860::1",
         ] {
             assert!(!is_public_unicast_ip(&ip(address)), "unexpectedly allowed {address}");
         }
