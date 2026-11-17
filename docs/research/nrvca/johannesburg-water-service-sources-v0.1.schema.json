@@ -1,0 +1,432 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/nrvca/johannesburg-water-service-sources-v0.1.schema.json",
+  "title": "Johannesburg Water Service Evidence Source Register v0.1",
+  "description": "Metadata-only source inventory. A registered source does not establish a service event or measured customer outcome.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "register_id",
+    "as_of_date",
+    "sources",
+    "interpretation_rules",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "register_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "as_of_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "publisher",
+          "title",
+          "uri",
+          "source_kind",
+          "published_at_text",
+          "publication_time_is_not_event_time",
+          "valid_time",
+          "reported_geography",
+          "source_role",
+          "reported_context",
+          "content_acquisition",
+          "content_sha256",
+          "rights_status",
+          "evidence_class",
+          "claim_ceiling",
+          "does_not_establish",
+          "notice_media_reviews"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "pattern": "^[A-Z0-9][A-Z0-9._-]{2,63}$"
+          },
+          "publisher": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "source_kind": {
+            "enum": [
+              "operator_statement",
+              "human_rights_inquiry_release",
+              "national_risk_communication",
+              "customer_notice_image_attachment"
+            ]
+          },
+          "published_at_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "publication_time_is_not_event_time": {
+            "const": true
+          },
+          "valid_time": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "start",
+              "end",
+              "note"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "unknown",
+                  "source_defined_interval",
+                  "publication_snapshot_only"
+                ]
+              },
+              "start": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "end": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "note": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "reported_geography": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "reported_labels",
+              "spatial_resolution",
+              "geocoding_status"
+            ],
+            "properties": {
+              "reported_labels": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "spatial_resolution": {
+                "type": "string",
+                "minLength": 1
+              },
+              "geocoding_status": {
+                "enum": [
+                  "not_geocoded",
+                  "source_geometry_verified",
+                  "unknown"
+                ]
+              }
+            }
+          },
+          "source_role": {
+            "enum": [
+              "operator_assertion",
+              "human_rights_inquiry_finding_summary",
+              "government_risk_communication",
+              "operator_customer_notice_publication"
+            ]
+          },
+          "reported_context": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reported_numeric_context": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "metric",
+                "value",
+                "unit",
+                "period_or_scope",
+                "status"
+              ],
+              "properties": {
+                "metric": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "unit": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "period_or_scope": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "status": {
+                  "enum": [
+                    "reported_in_publication",
+                    "underlying_artifact_not_acquired",
+                    "unknown"
+                  ]
+                }
+              }
+            }
+          },
+          "content_acquisition": {
+            "enum": [
+              "metadata_only_not_downloaded",
+              "public_html_reviewed_exact_bytes_not_pinned",
+              "exact_bytes_acquired",
+              "page_html_reviewed_image_media_visually_inspected"
+            ]
+          },
+          "content_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "rights_status": {
+            "enum": [
+              "unknown_not_assessed",
+              "permission_required",
+              "redistribution_cleared",
+              "public_domain_or_open_license_verified"
+            ]
+          },
+          "evidence_class": {
+            "const": "publisher_statement_or_inquiry_summary"
+          },
+          "claim_ceiling": {
+            "type": "string",
+            "minLength": 1
+          },
+          "does_not_establish": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "notice_media_reviews": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "media_index",
+                "media_uri",
+                "media_sha256",
+                "published_at_text",
+                "notice_class",
+                "headline",
+                "reported_summary",
+                "reported_areas",
+                "reported_assets",
+                "event_time",
+                "reported_metrics",
+                "restoration_time_estimate",
+                "interpretation_limitations"
+              ],
+              "properties": {
+                "media_index": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "media_uri": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "media_sha256": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "published_at_text": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "notice_class": {
+                  "enum": [
+                    "system_status_update",
+                    "scheduled_reservoir_closure",
+                    "unplanned_burst_repair",
+                    "infrastructure_security_notice"
+                  ]
+                },
+                "headline": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reported_summary": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reported_areas": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "reported_assets": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "event_time": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "start_text",
+                    "end_text",
+                    "note"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "snapshot_at",
+                        "scheduled_interval",
+                        "incident_reported_at",
+                        "unknown"
+                      ]
+                    },
+                    "start_text": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "end_text": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "note": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "reported_metrics": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "metric",
+                      "value",
+                      "unit",
+                      "comparison",
+                      "status"
+                    ],
+                    "properties": {
+                      "metric": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "value": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "unit": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "comparison": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "enum": [
+                          "reported_in_notice",
+                          "underlying_meter_or_report_not_acquired",
+                          "unknown"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "restoration_time_estimate": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "status",
+                    "text"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "provided",
+                        "not_provided",
+                        "not_applicable",
+                        "unknown"
+                      ]
+                    },
+                    "text": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                },
+                "interpretation_limitations": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "interpretation_rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
