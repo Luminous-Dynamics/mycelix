@@ -30,7 +30,13 @@ use tokio::sync::{Semaphore, SemaphorePermit};
 use url::{Host, Url};
 
 const MAX_CONCURRENT_EGRESS_REQUESTS: usize = 64;
+const MAX_CONCURRENT_DNS_LOOKUPS: usize = 16;
+const MAX_DNS_ANSWER_ADDRESSES: usize = 32;
+const DNS_QUEUE_TIMEOUT: Duration = Duration::from_secs(2);
+const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_secs(5);
+const REQUEST_HEADER_OVERHEAD_ALLOWANCE: usize = 512;
 static EGRESS_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_CONCURRENT_EGRESS_REQUESTS);
+static DNS_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_CONCURRENT_DNS_LOOKUPS);
 
 #[derive(Clone, Debug)]
 pub struct EgressLimits {
@@ -81,6 +87,10 @@ pub enum EgressError {
     },
     #[error("DNS returned no addresses for {0}")]
     EmptyAddressSet(String),
+    #[error("DNS answer set exceeded the configured address count limit")]
+    DnsAnswerSetTooLarge,
+    #[error("DNS lookup exceeded its time limit")]
+    DnsResolutionTimeout,
     #[error("destination address is not permitted: {0}")]
     AddressNotPermitted(SocketAddr),
     #[error("only GET and POST methods are permitted")]
@@ -288,7 +298,9 @@ impl PublicEgressClient {
             return Err(EgressError::RequestBodyTooLarge);
         }
         validate_request_headers(&headers)?;
-        if request_header_bytes(&headers) > self.limits.max_request_header_bytes {
+        if request_header_bytes(&headers).saturating_add(REQUEST_HEADER_OVERHEAD_ALLOWANCE)
+            > self.limits.max_request_header_bytes
+        {
             return Err(EgressError::RequestHeadersTooLarge);
         }
 
@@ -304,8 +316,18 @@ impl PublicEgressClient {
 
         let host = url.host_str().ok_or(EgressError::MissingHost)?.to_owned();
         let port = url.port_or_known_default().ok_or(EgressError::PortNotPermitted)?;
-        let (addresses, is_domain) =
-            resolve_and_authorize(&url, port, self.resolver.as_ref()).await?;
+
+        // Bound resolver fan-out independently from HTTP execution capacity.
+        let _dns_permit = tokio::time::timeout(DNS_QUEUE_TIMEOUT, DNS_SEMAPHORE.acquire())
+            .await
+            .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
+            .map_err(|_| EgressError::ConcurrencyUnavailable)?;
+        let (addresses, is_domain) = tokio::time::timeout(
+            DNS_LOOKUP_TIMEOUT,
+            resolve_and_authorize(&url, port, self.resolver.as_ref()),
+        )
+        .await
+        .map_err(|_| EgressError::DnsResolutionTimeout)??;
 
         Ok(EgressCapability {
             url,
@@ -615,6 +637,9 @@ async fn resolve_and_authorize(
         return Err(EgressError::EmptyAddressSet(
             url.host_str().unwrap_or_default().to_owned(),
         ));
+    }
+    if addresses.len() > MAX_DNS_ANSWER_ADDRESSES {
+        return Err(EgressError::DnsAnswerSetTooLarge);
     }
 
     addresses.sort_unstable();
@@ -940,6 +965,18 @@ mod tests {
 
     fn socket_addresses(values: &[&str]) -> Vec<SocketAddr> {
         values.iter().map(|value| value.parse().unwrap()).collect()
+    }
+
+    #[test]
+    fn rejects_dns_answer_sets_over_the_count_limit() {
+        let addresses = vec![
+            "93.184.216.34:443".parse().unwrap();
+            MAX_DNS_ANSWER_ADDRESSES + 1
+        ];
+        assert!(matches!(
+            validate_address_set(&addresses),
+            Err(EgressError::DnsAnswerSetTooLarge)
+        ));
     }
 
     #[tokio::test]
