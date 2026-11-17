@@ -1644,7 +1644,7 @@ mod tests {
                         successful_request = Some(read_test_request(&mut tls_stream).await);
                         tls_stream
                             .write_all(
-                                b"HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\nConnection: close\\r\\n\\r\\nok",
+                                b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok",
                             )
                             .await
                             .unwrap();
