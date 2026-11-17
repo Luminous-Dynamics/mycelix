@@ -127,6 +127,10 @@ pub enum EgressError {
     ResponseBodyTooLarge,
     #[error("response headers exceed the configured byte limit")]
     ResponseHeadersTooLarge,
+    #[error("transport did not expose the connected peer address")]
+    RemotePeerUnavailable,
+    #[error("connected peer was not in the authorized DNS snapshot: {0}")]
+    RemotePeerNotAuthorized(SocketAddr),
     #[error("egress concurrency queue exceeded its wait limit")]
     ConcurrencyQueueTimeout,
     #[error("egress concurrency semaphore is unavailable")]
@@ -217,6 +221,7 @@ pub struct EgressReceipt {
     pub origin: String,
     pub method: String,
     pub authorized_addresses: Vec<SocketAddr>,
+    pub remote_peer: SocketAddr,
     pub status: u16,
     pub request_body_bytes: usize,
     pub response_body_bytes: usize,
@@ -452,6 +457,11 @@ impl PublicEgressClient {
             .send()
             .await?;
 
+        let remote_peer = validate_connected_peer(
+            &capability.addresses,
+            response.remote_addr(),
+        )?;
+
         if response
             .content_length()
             .is_some_and(|length| length > capability.max_response_body_bytes as u64)
@@ -482,6 +492,7 @@ impl PublicEgressClient {
             origin,
             method: method_name,
             authorized_addresses,
+            remote_peer,
             status: status.as_u16(),
             request_body_bytes,
             response_body_bytes: collected.len(),
@@ -656,6 +667,17 @@ fn validate_request_headers(headers: &HeaderMap) -> Result<(), EgressError> {
         }
     }
     Ok(())
+}
+
+fn validate_connected_peer(
+    authorized_addresses: &[SocketAddr],
+    remote_peer: Option<SocketAddr>,
+) -> Result<SocketAddr, EgressError> {
+    let remote_peer = remote_peer.ok_or(EgressError::RemotePeerUnavailable)?;
+    if !authorized_addresses.contains(&remote_peer) {
+        return Err(EgressError::RemotePeerNotAuthorized(remote_peer));
+    }
+    Ok(remote_peer)
 }
 
 fn response_header_bytes(headers: &HeaderMap) -> usize {
@@ -947,6 +969,29 @@ mod tests {
         let result = client.execute(capability).await;
         assert!(matches!(result, Err(EgressError::ResponseBodyTooLarge)));
         server.await.unwrap();
+    }
+
+    #[test]
+    fn peer_attestation_requires_the_actual_socket_peer_in_the_authorized_set() {
+        let authorized = [
+            "93.184.216.34:443".parse().unwrap(),
+            "2606:4700:4700::1111:443".parse().unwrap(),
+        ];
+        let expected: SocketAddr = "93.184.216.34:443".parse().unwrap();
+        assert_eq!(
+            validate_connected_peer(&authorized, Some(expected)).unwrap(),
+            expected
+        );
+
+        let unexpected: SocketAddr = "10.0.0.9:443".parse().unwrap();
+        assert!(matches!(
+            validate_connected_peer(&authorized, Some(unexpected)),
+            Err(EgressError::RemotePeerNotAuthorized(address)) if address == unexpected
+        ));
+        assert!(matches!(
+            validate_connected_peer(&authorized, None),
+            Err(EgressError::RemotePeerUnavailable)
+        ));
     }
 
     #[test]
