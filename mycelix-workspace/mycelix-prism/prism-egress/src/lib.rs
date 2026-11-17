@@ -531,6 +531,9 @@ impl PublicEgressClient {
                     // Redirects carry no user headers or bodies in PublicWeb
                     // scope. Re-authorization validates URL syntax, scheme,
                     // port, credentials, DNS answers, and the next socket set.
+                    let mut next_url = next_url;
+                    next_url.set_fragment(None);
+                    record_redirect_target(&mut visited_urls, &next_url)?;
                     let next_capability = self
                         .authorize_with_authority(
                             EgressAuthority::PublicWeb,
@@ -540,7 +543,6 @@ impl PublicEgressClient {
                             Vec::new(),
                         )
                         .await?;
-                    record_redirect_target(&mut visited_urls, &next_capability.url)?;
 
                     let to_origin = format!(
                         "{}://{}",
