@@ -496,11 +496,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDelete(OpDelete { action, .. }) => {
             let deleted_record = must_get_valid_record(action.deletes_address.clone())?;
-            if let Some(entry) = deleted_record
+            let deleted_entry: Option<EntryTypes> = deleted_record
                 .entry()
-                .to_app_option::<EntryTypes>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-            {
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            if let Some(entry) = deleted_entry {
                 if matches!(
                     entry,
                     EntryTypes::ReusableContainer(_) | EntryTypes::ContainerCycleEvent(_)
