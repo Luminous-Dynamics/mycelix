@@ -1653,17 +1653,25 @@ mod tests {
     async fn cancelled_dns_waiter_keeps_owned_permit_until_blocking_work_exits() {
         let semaphore = Arc::new(Semaphore::new(1));
         let permit = semaphore.clone().acquire_owned().await.unwrap();
-        let work = spawn_blocking_dns_with_permit(permit, || {
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let mut work = Box::pin(spawn_blocking_dns_with_permit(permit, move || {
+            let _ = started_tx.send(());
             std::thread::sleep(Duration::from_millis(100));
             Ok(Vec::new())
-        });
+        }));
 
-        let result = tokio::time::timeout(Duration::from_millis(10), work).await;
+        tokio::select! {
+            _ = started_rx => {}
+            result = &mut work => panic!("blocking worker finished before cancellation: {result:?}"),
+        }
+
+        let result = tokio::time::timeout(Duration::from_millis(10), &mut work).await;
         assert!(result.is_err(), "async resolver waiter should time out");
+        drop(work);
         assert_eq!(
             semaphore.available_permits(),
             0,
-            "blocking DNS work must retain its owned admission permit"
+            "started blocking DNS work must retain its owned admission permit after waiter cancellation"
         );
 
         tokio::time::sleep(Duration::from_millis(150)).await;
