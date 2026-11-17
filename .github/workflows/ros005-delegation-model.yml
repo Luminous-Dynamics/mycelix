@@ -9,6 +9,8 @@ on:
   push:
     branches:
       - main
+      - feat/ros-005-parent-chain-hardening
+      - research/ros005-model-ci-v0.1
     paths:
       - "crates/mycelix-core-types/Cargo.toml"
       - "crates/mycelix-core-types/src/**"
