@@ -99,15 +99,14 @@
     "empty_mass_g": {
       "type": "integer",
       "minimum": 1,
-      "description": "Measured empty container plus closure mass in grams"
+      "description": "Empty container mass including closure, in grams"
     },
     "embodied_impact_mg_co2e": {
       "type": [
         "integer",
         "null"
       ],
-      "minimum": 0,
-      "description": "One-time packaging embodied impact under a declared LCA method"
+      "minimum": 0
     },
     "embodied_impact_source_ref": {
       "type": [
