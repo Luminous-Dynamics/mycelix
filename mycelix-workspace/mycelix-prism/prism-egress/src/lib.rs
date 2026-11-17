@@ -338,6 +338,10 @@ pub struct PublicEgressClient {
     // does not exist in non-test builds and is never externally configurable.
     #[cfg(test)]
     allow_test_destinations: bool,
+    // Trust roots are injected only by local TLS tests; production always uses
+    // the platform/WebPKI trust configuration.
+    #[cfg(test)]
+    test_root_certificates: Vec<reqwest::Certificate>,
 }
 
 impl std::fmt::Debug for PublicEgressClient {
@@ -370,6 +374,8 @@ impl PublicEgressClient {
             resolver: Arc::new(resolver),
             #[cfg(test)]
             allow_test_destinations: false,
+            #[cfg(test)]
+            test_root_certificates: Vec::new(),
         }
     }
 
@@ -381,6 +387,15 @@ impl PublicEgressClient {
         let mut client = Self::with_resolver(limits, resolver);
         client.allow_test_destinations = true;
         client
+    }
+
+    #[cfg(test)]
+    fn with_test_root_certificates(
+        mut self,
+        certificates: Vec<reqwest::Certificate>,
+    ) -> Self {
+        self.test_root_certificates = certificates;
+        self
     }
 
     pub fn limits(&self) -> &EgressLimits {
@@ -549,6 +564,8 @@ impl PublicEgressClient {
                 capability.is_domain,
                 capability.connect_timeout,
                 capability.request_timeout,
+                #[cfg(test)]
+                &self.test_root_certificates,
             )?;
 
             let response = client
@@ -705,6 +722,7 @@ fn build_pinned_client(
     is_domain: bool,
     connect_timeout: Duration,
     request_timeout: Duration,
+    #[cfg(test)] test_root_certificates: &[reqwest::Certificate],
 ) -> Result<Client, EgressError> {
     // Each request gets a fresh pool. The URL retains the original hostname
     // for Host/SNI/certificate checks while this explicit resolver override
@@ -723,6 +741,10 @@ fn build_pinned_client(
         .timeout(request_timeout);
     if is_domain {
         builder = builder.resolve_to_addrs(host, addresses);
+    }
+    #[cfg(test)]
+    for certificate in test_root_certificates {
+        builder = builder.add_root_certificate(certificate.clone());
     }
     Ok(builder.build()?)
 }
@@ -1171,6 +1193,7 @@ mod tests {
                 true,
                 Duration::from_secs(5),
                 Duration::from_secs(30),
+                &[],
             )
             .is_ok()
         );
@@ -1199,7 +1222,10 @@ mod tests {
         }
     }
 
-    async fn read_test_request(stream: &mut tokio::net::TcpStream) -> Vec<u8> {
+    async fn read_test_request<S>(stream: &mut S) -> Vec<u8>
+    where
+        S: tokio::io::AsyncRead + Unpin,
+    {
         use tokio::io::AsyncReadExt;
         let mut request = Vec::new();
         let mut buffer = [0u8; 1024];
@@ -1537,6 +1563,142 @@ mod tests {
         server.await.unwrap();
     }
 
+
+    #[derive(Debug)]
+    struct SniRecordingResolver {
+        certificates: Vec<Arc<tokio_rustls::rustls::sign::CertifiedKey>>,
+        observed_sni: Arc<std::sync::Mutex<Vec<Option<String>>>>,
+    }
+
+    impl tokio_rustls::rustls::server::ResolvesServerCert for SniRecordingResolver {
+        fn resolve(
+            &self,
+            client_hello: tokio_rustls::rustls::server::ClientHello<'_>,
+        ) -> Option<Arc<tokio_rustls::rustls::sign::CertifiedKey>> {
+            let server_name = client_hello.server_name().map(str::to_owned);
+            let mut observed = self.observed_sni.lock().expect("SNI observation lock");
+            observed.push(server_name.clone());
+            if server_name.as_deref() != Some("prism-tls.test") {
+                return None;
+            }
+            self.certificates.get(observed.len() - 1).cloned()
+        }
+    }
+
+    fn test_certified_key(
+        certificate: &rcgen::CertifiedKey,
+    ) -> Arc<tokio_rustls::rustls::sign::CertifiedKey> {
+        use tokio_rustls::rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
+
+        let provider = tokio_rustls::rustls::crypto::aws_lc_rs::default_provider();
+        let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
+            certificate.signing_key.serialize_der(),
+        ));
+        Arc::new(
+            tokio_rustls::rustls::sign::CertifiedKey::from_der(
+                vec![certificate.cert.der().clone()],
+                key,
+                &provider,
+            )
+            .expect("valid local TLS test certificate and key"),
+        )
+    }
+
+    #[tokio::test]
+    async fn pinned_tls_uses_original_hostname_for_sni_and_certificate_verification() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let valid_certificate =
+            rcgen::generate_simple_self_signed(vec!["prism-tls.test".to_owned()]).unwrap();
+        let wrong_name_certificate =
+            rcgen::generate_simple_self_signed(vec!["different-tls.test".to_owned()]).unwrap();
+
+        let valid_root =
+            reqwest::Certificate::from_der(valid_certificate.cert.der().as_ref()).unwrap();
+        // Trust the wrong-name certificate as a root too, so the second
+        // handshake fails specifically on hostname verification, not trust.
+        let wrong_name_root =
+            reqwest::Certificate::from_der(wrong_name_certificate.cert.der().as_ref()).unwrap();
+
+        let observed_sni = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let resolver = SniRecordingResolver {
+            certificates: vec![
+                test_certified_key(&valid_certificate),
+                test_certified_key(&wrong_name_certificate),
+            ],
+            observed_sni: Arc::clone(&observed_sni),
+        };
+        let server_config = tokio_rustls::rustls::ServerConfig::builder()
+            .with_no_client_auth()
+            .with_cert_resolver(Arc::new(resolver));
+        let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server_config));
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let mut successful_request = None;
+            for connection_index in 0..2 {
+                let (stream, _) = listener.accept().await.unwrap();
+                if let Ok(mut tls_stream) = acceptor.accept(stream).await {
+                    if connection_index == 0 {
+                        successful_request = Some(read_test_request(&mut tls_stream).await);
+                        tls_stream
+                            .write_all(
+                                b"HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\nConnection: close\\r\\n\\r\\nok",
+                            )
+                            .await
+                            .unwrap();
+                    } else {
+                        // The client should reject the trusted certificate
+                        // whose SAN does not match the authorized URL host.
+                        let mut buffer = [0u8; 1024];
+                        let _ = tls_stream.read(&mut buffer).await;
+                    }
+                }
+            }
+            successful_request
+        });
+
+        let test_resolver = LoopbackResolver::default();
+        let client = PublicEgressClient::with_test_resolver(
+            EgressLimits::default(),
+            test_resolver,
+        )
+        .with_test_root_certificates(vec![valid_root, wrong_name_root]);
+
+        let valid_url = format!("https://prism-tls.test:{}/probe", address.port());
+        let valid_capability = client
+            .authorize(Method::GET, &valid_url, HeaderMap::new(), Vec::new())
+            .await
+            .unwrap();
+        let response = client.execute(valid_capability).await.unwrap();
+        assert_eq!(response.status, StatusCode::OK);
+        assert_eq!(response.body, b"ok");
+        assert_eq!(response.receipt.remote_peer, address);
+
+        let wrong_name_capability = client
+            .authorize(Method::GET, &valid_url, HeaderMap::new(), Vec::new())
+            .await
+            .unwrap();
+        let wrong_name_result = client.execute(wrong_name_capability).await;
+        assert!(
+            matches!(wrong_name_result, Err(EgressError::Http(_))),
+            "a trusted certificate with the wrong DNS SAN must be rejected"
+        );
+
+        let request = String::from_utf8_lossy(&server.await.unwrap().unwrap());
+        assert!(request.contains(&format!("Host: prism-tls.test:{}", address.port())));
+        let observed_sni = observed_sni.lock().expect("SNI observation lock").clone();
+        assert_eq!(
+            observed_sni,
+            vec![
+                Some("prism-tls.test".to_owned()),
+                Some("prism-tls.test".to_owned()),
+            ],
+            "both handshakes must use the original URL hostname as SNI"
+        );
+    }
+
     #[tokio::test]
     async fn http1_parser_rejects_response_header_count_over_transport_limit() {
         use tokio::io::AsyncWriteExt;
@@ -1561,6 +1723,7 @@ mod tests {
             true,
             Duration::from_secs(2),
             Duration::from_secs(5),
+            &[],
         )
         .unwrap();
         let url = format!("http://prism-http1-header-limit.test:{}/", address.port());
@@ -1770,6 +1933,7 @@ mod tests {
             true,
             Duration::from_secs(2),
             Duration::from_secs(5),
+            &[],
         )
         .unwrap();
         let url = format!("http://prism-redirect-test.invalid:{}/", address.port());
@@ -1813,6 +1977,7 @@ mod tests {
             true,
             Duration::from_secs(2),
             Duration::from_secs(5),
+            &[],
         )
         .unwrap();
         let url = format!("http://prism-pinned-test.invalid:{}/probe", address.port());
