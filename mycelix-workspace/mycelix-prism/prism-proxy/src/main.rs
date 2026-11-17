@@ -11,7 +11,11 @@
 //!
 //! WASM app requests: GET /proxy?url=https://example.com
 
-use axum::{Router, extract::{DefaultBodyLimit, Query}, http::{StatusCode, header::HeaderValue}, response::IntoResponse, routing::get};
+use axum::extract::{DefaultBodyLimit, Query};
+use axum::http::{header::HeaderValue, StatusCode};
+use axum::response::IntoResponse;
+use axum::routing::get;
+use axum::Router;
 use prism_common::ssrf::validate_proxy_url;
 use prism_egress::{EgressError, PublicEgressClient};
 use reqwest::{Method, header::HeaderMap};
@@ -31,18 +35,25 @@ async fn egress_request(
         .await
 }
 
-fn upstream_error(context: &str, error: EgressError) -> axum::response::Response<axum::body::Body> {
+fn upstream_error(
+    context: &str,
+    error: EgressError,
+) -> axum::response::Response<axum::body::Body> {
     let (status, message) = match error {
         EgressError::InvalidUrl(_) => (StatusCode::BAD_REQUEST, "Invalid request URL"),
         EgressError::UrlTooLarge => (StatusCode::URI_TOO_LONG, "Request URL too large"),
-        EgressError::RequestBodyTooLarge => (StatusCode::PAYLOAD_TOO_LARGE, "Request body too large"),
+        EgressError::RequestBodyTooLarge => {
+            (StatusCode::PAYLOAD_TOO_LARGE, "Request body too large")
+        }
         EgressError::RequestHeadersTooLarge | EgressError::ForbiddenHeader(_) => {
             (StatusCode::BAD_REQUEST, "Request headers not permitted")
         }
         EgressError::ResponseBodyTooLarge | EgressError::ResponseHeadersTooLarge => {
             (StatusCode::BAD_GATEWAY, "Upstream response exceeded its resource budget")
         }
-        EgressError::DnsResolution { .. } | EgressError::EmptyAddressSet(_) | EgressError::Http(_) => {
+        EgressError::DnsResolution { .. }
+        | EgressError::EmptyAddressSet(_)
+        | EgressError::Http(_) => {
             (StatusCode::BAD_GATEWAY, "Upstream request failed")
         }
         EgressError::CapabilityExpired
@@ -57,7 +68,9 @@ fn upstream_error(context: &str, error: EgressError) -> axum::response::Response
         | EgressError::MissingHost
         | EgressError::AddressNotPermitted(_)
         | EgressError::MethodNotPermitted
-        | EgressError::RequestRequiresTls => (StatusCode::FORBIDDEN, "Destination or request not permitted"),
+        | EgressError::RequestRequiresTls => {
+            (StatusCode::FORBIDDEN, "Destination or request not permitted")
+        }
     };
     // Do not log URLs, query strings, header values, or transport error details.
     log::warn!("Prism egress {context} returned status {}", status.as_u16());
@@ -187,11 +200,16 @@ async fn perplexity_handler(
 
     let authorization = match HeaderValue::from_str(&format!("Bearer {api_key}")) {
         Ok(value) => value,
-        Err(_) => return (StatusCode::BAD_REQUEST, "Invalid Perplexity API key header").into_response(),
+        Err(_) => {
+            return (StatusCode::BAD_REQUEST, "Invalid Perplexity API key header").into_response();
+        }
     };
     let mut outbound_headers = HeaderMap::new();
     outbound_headers.insert(reqwest::header::AUTHORIZATION, authorization);
-    outbound_headers.insert(reqwest::header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    outbound_headers.insert(
+        reqwest::header::CONTENT_TYPE,
+        HeaderValue::from_static("application/json"),
+    );
 
     match egress_request(
         Method::POST,
