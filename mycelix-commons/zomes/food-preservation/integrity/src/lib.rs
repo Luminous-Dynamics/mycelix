@@ -125,6 +125,20 @@ pub enum ContainerCondition {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ContainerTransportMode {
+    HumanPowered,
+    Bicycle,
+    Motorcycle,
+    PassengerVehicle,
+    LightCommercialVehicle,
+    HeavyGoodsVehicle,
+    Rail,
+    Ship,
+    Air,
+    Other,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ContainerEvidenceClass {
     Declared,
     Modelled,
@@ -150,6 +164,11 @@ pub struct ReusableContainer {
     pub id: String,
     pub material: ContainerMaterial,
     pub capacity_ml: u64,
+    /// Empty container mass including closure for reverse-logistics accounting.
+    pub empty_mass_g: u64,
+    /// Optional one-time embodied impact and its source. Neither is inferred.
+    pub embodied_impact_mg_co2e: Option<u64>,
+    pub embodied_impact_source_ref: Option<String>,
     pub temperature_min_millic: Option<i32>,
     pub temperature_max_millic: Option<i32>,
     pub closure_type: String,
@@ -170,6 +189,10 @@ pub struct ContainerSanitationObservation {
     pub sanitizer_ref: Option<String>,
     pub sanitizer_concentration_mg_l: Option<u64>,
     pub exposure_time_ms: Option<u64>,
+    /// Optional resource measurements; None means unknown, not zero.
+    pub wash_water_ml: Option<u64>,
+    pub wash_energy_wh: Option<u64>,
+    pub detergent_mass_mg: Option<u64>,
     pub observation_ref: String,
     pub evidence: ContainerEvidenceRef,
 }
@@ -185,6 +208,14 @@ pub struct ContainerCycleEvent {
     pub occurred_at: u64,
     pub product_ref: Option<String>,
     pub product_lot_ref: Option<String>,
+    /// Serving count and filled quantity support a declared functional unit.
+    pub accepted_servings: Option<u32>,
+    pub filled_mass_g: Option<u64>,
+    pub filled_volume_ml: Option<u64>,
+    /// Distribution and reverse-logistics observations, not estimates.
+    pub transport_distance_m: Option<u64>,
+    pub transport_mode: Option<ContainerTransportMode>,
+    pub end_of_life_route_ref: Option<String>,
     pub preservation_batch_hash: Option<ActionHash>,
     pub location_ref: Option<String>,
     pub condition: ContainerCondition,
@@ -600,6 +631,19 @@ fn validate_reusable_container(
             "Container capacity_ml must be positive".into(),
         ));
     }
+    if container.empty_mass_g == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container empty_mass_g must be positive".into(),
+        ));
+    }
+    if container.embodied_impact_mg_co2e.is_some()
+        != container.embodied_impact_source_ref.is_some()
+        || container.embodied_impact_source_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Embodied impact and its non-empty source reference must be supplied together".into(),
+        ));
+    }
     if container.closure_type.trim().is_empty()
         || container.closure_type.len() > 128
         || container.food_contact_qualification_ref.trim().is_empty()
@@ -736,6 +780,24 @@ fn validate_container_cycle_event(
             "Container event time must be positive".into(),
         ));
     }
+    if event.accepted_servings == Some(0)
+        || event.filled_mass_g == Some(0)
+        || event.filled_volume_ml == Some(0)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Accepted servings, filled mass and filled volume must be positive when supplied".into(),
+        ));
+    }
+    if event.transport_distance_m.is_some() != event.transport_mode.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transport distance and transport mode must be supplied together".into(),
+        ));
+    }
+    if event.end_of_life_route_ref.as_deref().is_some_and(|value| value.trim().is_empty()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "End-of-life route reference must be non-empty when supplied".into(),
+        ));
+    }
     if event
         .product_ref
         .as_deref()
@@ -751,6 +813,14 @@ fn validate_container_cycle_event(
     {
         return Ok(ValidateCallbackResult::Invalid(
             "Optional lot/location refs must be non-empty when supplied".into(),
+        ));
+    }
+    if event.event_kind == ContainerEventKind::Filled
+        && (event.accepted_servings.is_none()
+            || (event.filled_mass_g.is_none() && event.filled_volume_ml.is_none()))
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Filled events require accepted_servings and a filled mass or volume for impact accounting".into(),
         ));
     }
     if event.event_kind == ContainerEventKind::Filled
@@ -781,6 +851,14 @@ fn validate_container_cycle_event(
                 "Washed/Sanitized events require a sanitation observation".into(),
             ));
         };
+        if observation.wash_water_ml == Some(0)
+            || observation.wash_energy_wh == Some(0)
+            || observation.detergent_mass_mg == Some(0)
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Sanitation resource observations must be positive when supplied".into(),
+            ));
+        }
         if observation.protocol_ref.trim().is_empty()
             || observation.observation_ref.trim().is_empty()
         {
@@ -845,6 +923,13 @@ fn validate_container_cycle_event(
     if &container.steward != author {
         return Ok(ValidateCallbackResult::Invalid(
             "Only the registered container steward may append lifecycle events".into(),
+        ));
+    }
+    if event.event_kind == ContainerEventKind::Retired
+        && event.end_of_life_route_ref.as_deref().is_none_or(|value| value.trim().is_empty())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Retired events require an end-of-life route reference".into(),
         ));
     }
     if event.event_kind == ContainerEventKind::Filled
