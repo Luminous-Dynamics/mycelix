@@ -285,9 +285,6 @@
           },
           "available_quantity": {
             "$ref": "#/$defs/quantity"
-          },
-          "issue_codes": {
-            "maxItems": 0
           }
         },
         "allOf": [
