@@ -851,14 +851,8 @@ fn validate_container_cycle_event(
                 "Washed/Sanitized events require a sanitation observation".into(),
             ));
         };
-        if observation.wash_water_ml == Some(0)
-            || observation.wash_energy_wh == Some(0)
-            || observation.detergent_mass_mg == Some(0)
-        {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Sanitation resource observations must be positive when supplied".into(),
-            ));
-        }
+        // Optional resource observations distinguish unknown (None) from a
+        // measured zero (Some(0)); the LCA calculator requires all fields.
         if observation.protocol_ref.trim().is_empty()
             || observation.observation_ref.trim().is_empty()
         {
