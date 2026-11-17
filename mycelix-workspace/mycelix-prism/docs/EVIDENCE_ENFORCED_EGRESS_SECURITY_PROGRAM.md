@@ -185,6 +185,16 @@ The Prism CI job now runs Cargo package commands from the actual outer `mycelix-
 
 This ratchet is an initial guardrail, not a complete static proof: aliases, wrappers, other HTTP libraries, browser-side fetches, and generated code need separate inventory coverage.
 
+### Versioned benchmark artifacts added
+
+The first PEAB data artifacts now exist in the crate and are consumed by integration tests:
+
+- `prism-egress/tests/data/address_policy_cases.json`: 41 IPv4/IPv6 cases, with expected allow/deny outcome, case ID, policy snapshot, registry provenance, and an explicit note about conservative aggregate denial.
+- `prism-egress/tests/data/dns_answer_sets.json`: 8 complete-answer-set cases covering public IPv4, public IPv6, dual-stack public, mixed loopback, mixed ULA, metadata, IPv4-mapped IPv6, and empty answer sets.
+- `prism-egress/tests/address_policy_corpus.rs`: integration tests parse both JSON corpora and compare expected outcomes against the public classifier and all-or-nothing resolver-set validator.
+
+These are regression corpora, not yet a full performance benchmark or independent penetration-test result. The next PEAB increment should add a hermetic local DNS server capable of scripted A/AAAA/CNAME responses, capture the actual peer socket, run redirect/retry/slow-stream/compression cases, and emit JSON receipts with exact commit and policy digests.
+
 ### Adversarial tests added (not yet executed)
 
 The `prism-egress` source includes tests for:
