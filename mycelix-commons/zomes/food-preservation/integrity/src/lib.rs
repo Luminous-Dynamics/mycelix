@@ -468,9 +468,17 @@ fn validate_container_cycle_event(
         if observation.sanitizer_ref.as_deref().is_some_and(|value| value.trim().is_empty())
             || observation.exposure_time_ms == Some(0)
             || observation.sanitizer_concentration_mg_l == Some(0)
-            || observation.wash_water_temp_millic == Some(i32::MIN)
         {
             return Ok(ValidateCallbackResult::Invalid("Sanitation optional refs must be non-empty and exposure time positive".into()));
+        }
+        if event.event_kind == ContainerEventKind::Sanitized
+            && (observation.sanitizer_ref.as_deref().is_none_or(|value| value.trim().is_empty())
+                || observation.sanitizer_concentration_mg_l.is_none_or(|value| value == 0)
+                || observation.exposure_time_ms.is_none_or(|value| value == 0))
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Sanitized events require sanitizer identity, concentration and exposure-time observations".into(),
+            ));
         }
         match validate_container_evidence(&observation.evidence)? {
             ValidateCallbackResult::Valid => {}
