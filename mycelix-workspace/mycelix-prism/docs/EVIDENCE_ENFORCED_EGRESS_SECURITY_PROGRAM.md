@@ -150,6 +150,96 @@ Compare the same corpus and hardware against the current implementation and a co
 
 Do not optimize away safety. A performance improvement is valid only if all security gates remain green.
 
+## Branch implementation status (2026-11-17)
+
+This section records source changes on `security/prism-evidence-enforced-egress-v1`. It is an implementation inventory, not a claim that the branch compiles or passes its tests.
+
+### Native public egress primitive
+
+A new native-only `prism-egress` crate now provides:
+
+- An injectable `EgressResolver` interface and a system resolver implementation. Tests can supply deterministic complete answer sets without relying on public DNS.
+- All-answer-set classification: the request is denied if any returned IPv4 or IPv6 address is outside the conservative public-unicast policy. Mixed public/private answers fail closed.
+- A per-request Reqwest client using `resolve_to_addrs` for the validated address set, retaining the URL hostname for HTTP authority and TLS verification. The exact Reqwest 0.12 API is documented to override hostname resolution for the specified address set. See the upstream ClientBuilder documentation.
+- Automatic redirects and ambient proxy discovery disabled. A 3xx is returned to the caller; it is not followed. The next increment must add explicit per-hop reauthorization rather than re-enable automatic redirects.
+- A non-cloneable, in-memory, one-use `EgressCapability` that binds the exact URL, method, outbound headers, body, resolved address set, expiry, response budget, timeouts, and policy version. Execution consumes the capability. This is a Rust ownership boundary, not a cryptographically signed or remotely transferable token.
+- Five-second authorization lifetime; 8 KiB URL limit; 16 KiB outbound header limit; 2 MiB request-body limit; 10 MiB response-body limit; 64 KiB / 128-entry response-header budget; 5-second connect timeout; 30-second total request timeout.
+- HTTPS required for any request with a body or custom headers. Plain HTTP is limited to bodyless, headerless GET.
+- A process-wide limit of 64 concurrent egress requests with a two-second admission wait bound.
+- Privacy-minimized receipts containing origin (not path/query), method, authorized addresses, status, byte counts, duration, and policy version. Request/response bodies and query strings are not included.
+
+The conservative address table is aligned to the IANA IPv4 and IPv6 Special-Purpose registries, whose current pages show a last-updated date of 2025-10-09. Entire parent aggregates such as IPv4 192.0.0.0/24 and IPv6 2001::/23 are denied even though IANA lists more-specific globally reachable assignments inside them. That choice favours a smaller attack surface over maximum compatibility and should be tracked as an explicit false-positive trade-off, not described as a perfect mirror of IANA's per-prefix reachability field.
+
+### Call-site migration and remaining contexts
+
+- `prism-proxy` and `prism-serve`: generic URL proxy plus DuckDuckGo, Brave, and Perplexity fetch paths now call `PublicEgressClient`. Provider query parameters are encoded with URL query-pair APIs. Inbound body limits remain 2 MiB. Redirects are not followed.
+- `prism-net`: now explicitly documents its user-directed navigation role, limits URLs to 8 KiB and response bodies to the configured 10 MiB default while streaming, rejects non-HTTP(S) schemes and URL credentials, and preserves declared legacy HTTP charsets. It deliberately retains local/LAN destinations and a ten-redirect browser-like limit; it is not the hosted public-egress policy.
+- `prism-tauri`: applies the same 8 KiB URL and 10 MiB streamed response limits and rejects non-HTTP(S) schemes and URL credentials. Explicit desktop LAN navigation remains possible. Redirects remain browser-like and bounded to ten; redirects to local resources are therefore part of the desktop navigation threat model and require separate UX/authority work.
+- `prism-ingest`: its two fixed-source blocking fetchers now disable automatic redirects and ambient proxy discovery, and enforce 2 MiB Wikipedia, 16 MiB Wikidata, and 64 KiB diagnostic error-body limits. They are still a separate fixed-source transport and are **not yet DNS-pinned through `prism-egress`**. Do not mark the direct-client inventory gate complete.
+
+The Symthaea bridge also now fails closed when the daemon omits or malforms its `safe` field, and its Unix-socket response frame is bounded to 64 KiB and must be newline-terminated.
+
+### CI architecture ratchet
+
+The Prism CI job now runs Cargo package commands from the actual outer `mycelix-workspace` Cargo workspace root (the `mycelix-prism/Cargo.toml` file is a placeholder, not a workspace root). The existing `mycelix-prism/*` membership glob includes the new crate. Formatting and package-test lists include `prism-egress`; optional fixed-source ingestion binaries receive a compile check; a source-level ratchet rejects new direct Reqwest client constructors outside the approved egress, desktop-navigation, and fixed-source-ingestion directories.
+
+This ratchet is an initial guardrail, not a complete static proof: aliases, wrappers, other HTTP libraries, browser-side fetches, and generated code need separate inventory coverage.
+
+### Adversarial tests added (not yet executed)
+
+The `prism-egress` source includes tests for:
+- representative public IPv4/IPv6 addresses and special-purpose, private, transition, multicast, documentation, and benchmarking ranges;
+- mixed public/private DNS answer rejection and empty answer sets;
+- deterministic injected-resolver snapshots and exactly one resolver call during authorization;
+- actual Reqwest destination pinning to a local test listener while preserving the original Host authority;
+- redirect responses being returned without following a metadata-service Location;
+- URL scheme, port, credentials, local hostname, body, header, capability expiry, and HTTPS requirements.
+
+No passing test result is claimed. The PR remains a draft; the workflow's `pull_request` gate skips draft PRs, and the latest branch head has not been built or tested in a runner or local checkout.
+
+## Research and benchmark plan: evidence before SOTA claims
+
+OWASP's current SSRF guidance says to validate resolved A and AAAA destinations, ensure the HTTP client connects only to those validated addresses, preserve the original hostname for Host/SNI/certificate checks, and disable unsafe automatic redirects. Those are design requirements, not proof that this implementation meets them. Cloud egress controls such as AWS security-group egress restrictions and DNS Firewall add network-layer controls; Prism should complement these, not claim to replace them.
+
+The proposed **Prism Egress Assurance Benchmark (PEAB)** should be a public, reproducible corpus with a versioned policy snapshot, deterministic DNS server, local HTTP/TLS peers, adversarial redirect server, raw request/peer capture, mutation controls, and machine-readable run receipts.
+
+#### Security release gates
+
+| Measure | Release target |
+|---|---:|
+| Denied destination corpus blocked (IPv4, IPv6, mapped, transition, special-use, metadata) | 100% |
+| Mixed public + prohibited A/AAAA/CNAME answer sets denied | 100% |
+| Requests reaching a prohibited socket peer | 0 |
+| DNS rebinding attempts that reach a peer outside the authorized snapshot | 0 |
+| Redirect-to-private, redirect-to-metadata, scheme downgrade, and redirect loop bypasses | 0 |
+| Retry/fallback connections outside the current capability | 0 |
+| Bytes read beyond configured response cap | 0 |
+| In-scope server fetches outside the approved transport | 0 |
+| Negative controls that fail to detect a deliberately removed guard | 0 |
+
+#### Compatibility, performance, and reliability measurements
+
+Run matched workloads against (1) baseline Reqwest with the current Prism configuration, (2) Prism's public-egress client, and (3) a conventional Envoy/egress-gateway or cloud-firewall baseline where configuration permits. Publish hardware, resolver, TLS, connection reuse, cache, response-size, and concurrency conditions.
+
+Measure p50/p95/p99 added latency; DNS lookups and answer-set sizes; TLS handshakes; throughput at 1/10/50/64/100 concurrent requests; queue wait and rejection rate; CPU per MiB; peak RSS; response bytes consumed at cancellation; and public-destination false-positive rate. Set no performance superiority claim until the comparisons are measured.
+
+Initial performance goals are hypotheses to validate, not current results:
+- p95 overhead below 10% against matched Reqwest for warm, connection-reusable same-origin traffic once safe pooling exists;
+- p99 queue admission below 100 ms at 50 concurrent requests under the target deployment profile;
+- peak memory bounded by active-request count times configured body budget plus measured fixed overhead;
+- zero false positives on a versioned 1,000-host public compatibility corpus, with every exception reviewed and recorded.
+
+#### Paradigm shifts worth pursuing
+
+1. **Authority-carrying requests:** make network access an explicit capability scoped to trust context, origin, method, headers, body digest, destination set, expiry, and resource budgets—not a URL string plus ambient process privileges.
+2. **Proof-carrying execution:** extend receipts with intent ID, policy digest, DNS answer-set digest and TTL, actual peer, TLS identity, redirect-hop decisions, and response-budget outcome. Sign receipts with a workload identity; never store request/response bodies or raw secret-bearing URLs.
+3. **Safe pooling without authority leakage:** pool only by a key that includes origin, trust context, authorized address set, policy version, and expiry. A connection established under one address set must never serve a capability authorized under another.
+4. **Model-based adversarial verification:** generate DNS/redirect/retry/timeout/cancellation interleavings and check the invariant: every successful socket connection must target an address authorized for the exact unexpired capability.
+5. **Policy-as-code across layers:** generate application policy, deployment firewall rules, allowlist manifests, and benchmark cases from one reviewed policy representation while preserving the distinction between public hosted fetch, pinned providers, fixed-source ingestion, and user-approved desktop navigation.
+6. **Live policy drift detection:** alert when DNS, certificates, route egress, or the IANA range snapshot changes in a way that invalidates assumptions; policy updates should be reviewed, versioned, and regression-tested, never downloaded at runtime to silently change authorization.
+
+The first implementation is deliberately narrower than these research targets. In particular, it does not yet implement a manual redirect state machine, signed receipts, validated connection pooling, a cryptographic capability token, full fixed-source DNS pinning, or independent runtime peer attestation.
+
 ## Competitive positioning
 
 The defensible differentiator is not claiming a stronger deny-list than OWASP or a faster HTTP client. It is an auditable, typed, context-aware egress capability with:
