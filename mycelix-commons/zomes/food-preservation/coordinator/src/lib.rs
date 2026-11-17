@@ -927,6 +927,145 @@ mod tests {
         );
     }
 
+    fn synthetic_lca_container() -> ReusableContainer {
+        ReusableContainer {
+            id: "fixture:lca-container".into(),
+            material: ContainerMaterial::BorosilicateGlass,
+            capacity_ml: 2_000,
+            empty_mass_g: 600,
+            temperature_min_millic: Some(0),
+            temperature_max_millic: Some(100_000),
+            closure_type: "screw-top".into(),
+            food_contact_qualification_ref: "fixture:food-contact".into(),
+            cleaning_protocol_ref: "fixture:cleaning".into(),
+            manufacturer_reuse_cycle_limit: None,
+            compatible_product_refs: vec!["product:fixture".into()],
+            registered_at: 1_700_000_000,
+            steward: fake_agent(),
+            embodied_impact_mg_co2e: Some(25_000),
+            embodied_impact_source_ref: Some("fixture:embodied-impact".into()),
+            evidence: ContainerEvidenceRef {
+                source_ref: "fixture:container".into(),
+                method_ref: Some("method:container-lca".into()),
+                calibration_ref: None,
+                evidence_class: ContainerEvidenceClass::Declared,
+            },
+        }
+    }
+
+    fn synthetic_lca_factors() -> ContainerLifecycleImpactFactorsV1 {
+        ContainerLifecycleImpactFactorsV1 {
+            schema_version: 1,
+            factor_set_ref: "fixture:za-impact-factors-2026".into(),
+            geography: "ZA-fixture-only".into(),
+            reference_year: 2026,
+            electricity_mg_co2e_per_wh: 100,
+            water_mg_co2e_per_litre: 10,
+            detergent_mg_co2e_per_gram: 1_000,
+            end_of_life_mg_co2e_per_container: 100,
+            transport_factors: vec![ContainerTransportImpactFactorV1 {
+                mode: ContainerTransportMode::Bicycle,
+                mg_co2e_per_tonne_km: 100_000,
+            }],
+            evidence: ContainerEvidenceRef {
+                source_ref: "fixture:impact-factor-source".into(),
+                method_ref: Some("method:synthetic-factor-set".into()),
+                calibration_ref: None,
+                evidence_class: ContainerEvidenceClass::Simulated,
+            },
+        }
+    }
+
+    fn synthetic_lca_history() -> Vec<(ActionHash, ContainerCycleEvent)> {
+        let kinds = [
+            ContainerEventKind::Washed,
+            ContainerEventKind::Sanitized,
+            ContainerEventKind::Inspected,
+            ContainerEventKind::Filled,
+            ContainerEventKind::Sealed,
+            ContainerEventKind::Dispatched,
+            ContainerEventKind::Received,
+            ContainerEventKind::Emptied,
+            ContainerEventKind::Returned,
+            ContainerEventKind::Washed,
+            ContainerEventKind::Sanitized,
+            ContainerEventKind::Inspected,
+        ];
+        let mut history = Vec::new();
+        let mut previous: Option<ActionHash> = None;
+        for (index, kind) in kinds.into_iter().enumerate() {
+            let is_dispatched = kind == ContainerEventKind::Dispatched;
+            let is_returned = kind == ContainerEventKind::Returned;
+            let (hash, mut event) =
+                sample_cycle_event(index as u64, previous.clone(), kind);
+            if is_dispatched {
+                event.transport_distance_m = Some(10_000);
+                event.transport_mode = Some(ContainerTransportMode::Bicycle);
+                event.transported_mass_g = Some(1_600);
+            }
+            if is_returned {
+                event.transport_distance_m = Some(10_000);
+                event.transport_mode = Some(ContainerTransportMode::Bicycle);
+                event.transported_mass_g = Some(600);
+            }
+            previous = Some(hash.clone());
+            history.push((hash, event));
+        }
+        history
+    }
+
+    #[test]
+    fn packaging_lifecycle_impact_is_reproducible_per_accepted_serving() {
+        let container = synthetic_lca_container();
+        let container_hash = sample_container_hash();
+        let history = synthetic_lca_history();
+        let factors = synthetic_lca_factors();
+        let report = calculate_container_lifecycle_impact(
+            &container,
+            &container_hash,
+            &history,
+            &factors,
+        )
+        .unwrap();
+
+        assert_eq!(report.fill_events, 1);
+        assert_eq!(report.accepted_servings, 4);
+        assert_eq!(report.embodied_packaging_mg_co2e, 25_000);
+        assert_eq!(report.washing_electricity_mg_co2e, 12_000);
+        assert_eq!(report.washing_water_mg_co2e, 80);
+        assert_eq!(report.detergent_mg_co2e, 40_000);
+        assert_eq!(report.logistics_mg_co2e, 2_200);
+        assert_eq!(report.end_of_life_mg_co2e, 100);
+        assert_eq!(report.total_packaging_mg_co2e, 79_380);
+        assert_eq!(report.mg_co2e_per_accepted_serving, (79_380, 4));
+        assert_eq!(report.wash_water_ml_per_accepted_serving, (8_000, 4));
+        assert_eq!(report.wash_energy_wh_per_accepted_serving, (120, 4));
+    }
+
+    #[test]
+    fn packaging_lifecycle_impact_refuses_unknown_sanitation_inputs() {
+        let container = synthetic_lca_container();
+        let container_hash = sample_container_hash();
+        let mut history = synthetic_lca_history();
+        history[0]
+            .1
+            .sanitation
+            .as_mut()
+            .expect("wash fixture has an observation")
+            .wash_energy_wh = None;
+        let error = calculate_container_lifecycle_impact(
+            &container,
+            &container_hash,
+            &history,
+            &synthetic_lca_factors(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.code,
+            ContainerImpactErrorCodeV1::MissingSanitationObservation
+        );
+    }
+
     #[test]
     fn reuse_count_is_derived_only_from_fill_events() {
         let (h0, e0) = sample_cycle_event(0, None, ContainerEventKind::Washed);
