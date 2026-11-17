@@ -289,7 +289,7 @@ pub fn calculate_container_lifecycle_impact(
             fill_events += 1;
         }
 
-        if matches!(event.event_kind, ContainerEventKind::Washed | ContainerEventKind::Sanitized) {
+        if matches!(&event.event_kind, ContainerEventKind::Washed | ContainerEventKind::Sanitized) {
             let observation = event.sanitation.as_ref().ok_or(ContainerImpactErrorV1 {
                 code: ContainerImpactErrorCodeV1::MissingSanitationObservation,
                 details: vec![format!("{:?} event is missing sanitation observations", event.event_kind)],
@@ -329,7 +329,7 @@ pub fn calculate_container_lifecycle_impact(
             )?;
         }
 
-        if matches!(event.event_kind, ContainerEventKind::Dispatched | ContainerEventKind::Returned) {
+        if matches!(&event.event_kind, ContainerEventKind::Dispatched | ContainerEventKind::Returned) {
             let distance = event.transport_distance_m.ok_or(ContainerImpactErrorV1 {
                 code: ContainerImpactErrorCodeV1::MissingTransportObservation,
                 details: vec![format!("{:?} event is missing transport_distance_m", event.event_kind)],
@@ -349,7 +349,10 @@ pub fn calculate_container_lifecycle_impact(
                 &mut logistics_impact,
                 impact_ceil_div(
                     impact_mul(&[
-                        u128::from(container.empty_mass_g),
+                        u128::from(event.transported_mass_g.ok_or(ContainerImpactErrorV1 {
+                            code: ContainerImpactErrorCodeV1::MissingTransportObservation,
+                            details: vec!["transported_mass_g is unknown".into()],
+                        })?),
                         u128::from(distance),
                         u128::from(factor.mg_co2e_per_tonne_km),
                     ])?,
