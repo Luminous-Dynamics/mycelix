@@ -452,6 +452,13 @@ impl PublicEgressClient {
             .send()
             .await?;
 
+        if response
+            .content_length()
+            .is_some_and(|length| length > capability.max_response_body_bytes as u64)
+        {
+            return Err(EgressError::ResponseBodyTooLarge);
+        }
+
         let status = response.status();
         let response_headers = response.headers().clone();
         if response_header_bytes(&response_headers) > 64 * 1024
@@ -844,6 +851,113 @@ mod tests {
             Duration::from_secs(5),
             Duration::from_secs(30),
         ).is_ok());
+    }
+
+    fn test_capability(
+        url: Url,
+        address: SocketAddr,
+        max_response_body_bytes: usize,
+    ) -> EgressCapability {
+        EgressCapability {
+            host: url.host_str().unwrap().to_owned(),
+            url,
+            authority: EgressAuthority::PublicWeb,
+            method: Method::GET,
+            headers: HeaderMap::new(),
+            body: Vec::new(),
+            addresses: vec![address],
+            is_domain: true,
+            expires_at: std::time::Instant::now() + Duration::from_secs(30),
+            max_response_body_bytes,
+            connect_timeout: Duration::from_secs(2),
+            request_timeout: Duration::from_secs(5),
+            policy_version: "prism-public-egress-v1",
+        }
+    }
+
+    async fn read_test_request(stream: &mut tokio::net::TcpStream) {
+        use tokio::io::AsyncReadExt;
+        let mut request = Vec::new();
+        let mut buffer = [0u8; 1024];
+        loop {
+            let count = stream.read(&mut buffer).await.unwrap();
+            if count == 0 {
+                break;
+            }
+            request.extend_from_slice(&buffer[..count]);
+            if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                break;
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn declared_oversized_content_length_is_rejected_before_body_read() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            read_test_request(&mut stream).await;
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n",
+                )
+                .await
+                .unwrap();
+        });
+
+        let client = PublicEgressClient::default();
+        let url = Url::parse(&format!(
+            "http://response-cap-test.invalid:{}/",
+            address.port()
+        ))
+        .unwrap();
+        let capability = test_capability(url, address, 16);
+        let result = client.execute(capability).await;
+        assert!(matches!(result, Err(EgressError::ResponseBodyTooLarge)));
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn streamed_chunked_body_stops_at_the_configured_cap() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            read_test_request(&mut stream).await;
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n5\r\nhello\r\n0\r\n\r\n",
+                )
+                .await
+                .unwrap();
+        });
+
+        let client = PublicEgressClient::default();
+        let url = Url::parse(&format!(
+            "http://response-cap-test.invalid:{}/",
+            address.port()
+        ))
+        .unwrap();
+        let capability = test_capability(url, address, 4);
+        let result = client.execute(capability).await;
+        assert!(matches!(result, Err(EgressError::ResponseBodyTooLarge)));
+        server.await.unwrap();
+    }
+
+    #[test]
+    fn response_header_budget_counts_all_header_names_and_values() {
+        let mut headers = HeaderMap::new();
+        let oversized_value = vec![b'a'; 64 * 1024 + 1];
+        headers.insert(
+            "x-large",
+            reqwest::header::HeaderValue::from_bytes(&oversized_value).unwrap(),
+        );
+        assert!(response_header_bytes(&headers) > 64 * 1024);
     }
 
     #[tokio::test]
