@@ -30,6 +30,25 @@ fn build_client(user_agent: &str, timeout_secs: u64) -> reqwest::Client {
         .expect("HTTP client TLS init failed")
 }
 
+/// Read an upstream response incrementally and stop before the configured byte budget is exceeded.
+async fn read_bounded(
+    mut response: reqwest::Response,
+    max_bytes: usize,
+) -> Result<axum::body::Bytes, String> {
+    let mut body = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| format!("Upstream body read failed: {error}"))?
+    {
+        if body.len().saturating_add(chunk.len()) > max_bytes {
+            return Err(format!("Upstream response exceeds {max_bytes} byte limit"));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(axum::body::Bytes::from(body))
+}
+
 fn internal_error_response() -> axum::response::Response<axum::body::Body> {
     let mut resp = axum::response::Response::new(axum::body::Body::from("Internal error"));
     *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
@@ -75,7 +94,7 @@ async fn proxy_handler(Query(params): Query<ProxyParams>) -> impl IntoResponse {
                 .unwrap_or("text/html")
                 .to_string();
 
-            match resp.bytes().await {
+            match read_bounded(resp, MAX_RESPONSE_SIZE).await {
                 Ok(body) => {
                     if body.len() > MAX_RESPONSE_SIZE {
                         return (
@@ -120,7 +139,10 @@ async fn ddg_handler(Query(params): Query<DdgParams>) -> impl IntoResponse {
 
     match client.get(&url).send().await {
         Ok(resp) => {
-            let body = resp.bytes().await.unwrap_or_default();
+            let body = match read_bounded(resp, MAX_RESPONSE_SIZE).await {
+                Ok(body) => body,
+                Err(error) => return (StatusCode::BAD_GATEWAY, error).into_response(),
+            };
             json_response(200, body).into_response()
         }
         Err(e) => (StatusCode::BAD_GATEWAY, format!("DDG fetch failed: {}", e)).into_response(),
