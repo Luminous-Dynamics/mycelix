@@ -271,6 +271,26 @@ trait EgressResolver: Send + Sync {
 #[derive(Clone, Copy, Debug, Default)]
 struct SystemEgressResolver;
 
+fn spawn_blocking_dns_with_permit<F>(
+    permit: OwnedSemaphorePermit,
+    work: F,
+) -> impl Future<Output = io::Result<Vec<SocketAddr>>> + Send
+where
+    F: FnOnce() -> io::Result<Vec<SocketAddr>> + Send + 'static,
+{
+    async move {
+        // A started spawn_blocking task cannot be aborted. Keep the owned
+        // permit inside the closure so cancelling the async waiter cannot
+        // release resolver capacity while the OS operation is still running.
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            work()
+        })
+        .await
+        .map_err(|error| io::Error::other(format!("DNS worker failed: {error}")))?
+    }
+}
+
 impl EgressResolver for SystemEgressResolver {
     fn resolve<'a>(
         &'a self,
@@ -279,18 +299,10 @@ impl EgressResolver for SystemEgressResolver {
         permit: OwnedSemaphorePermit,
     ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
         let host = host.to_owned();
-        Box::pin(async move {
-            // Tokio's system lookup uses the blocking pool. A started
-            // spawn_blocking task cannot be aborted, so move the owned permit
-            // into the closure and keep it until getaddrinfo actually exits.
-            tokio::task::spawn_blocking(move || {
-                let _permit = permit;
-                std::net::ToSocketAddrs::to_socket_addrs(&(host.as_str(), port))
-                    .map(collect_unique_addresses_bounded)
-            })
-            .await
-            .map_err(|error| io::Error::other(format!("DNS worker failed: {error}")))?
-        })
+        Box::pin(spawn_blocking_dns_with_permit(permit, move || {
+            std::net::ToSocketAddrs::to_socket_addrs(&(host.as_str(), port))
+                .map(collect_unique_addresses_bounded)
+        }))
     }
 }
 
@@ -1521,6 +1533,31 @@ mod tests {
             validate_address_set(&addresses),
             Err(EgressError::DnsAnswerSetTooLarge)
         ));
+    }
+
+    #[tokio::test]
+    async fn cancelled_dns_waiter_keeps_owned_permit_until_blocking_work_exits() {
+        let semaphore = Arc::new(Semaphore::new(1));
+        let permit = semaphore.clone().acquire_owned().await.unwrap();
+        let work = spawn_blocking_dns_with_permit(permit, || {
+            std::thread::sleep(Duration::from_millis(100));
+            Ok(Vec::new())
+        });
+
+        let result = tokio::time::timeout(Duration::from_millis(10), work).await;
+        assert!(result.is_err(), "async resolver waiter should time out");
+        assert_eq!(
+            semaphore.available_permits(),
+            0,
+            "blocking DNS work must retain its owned admission permit"
+        );
+
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        assert_eq!(
+            semaphore.available_permits(),
+            1,
+            "permit must return only after blocking resolver work exits"
+        );
     }
 
     #[tokio::test]
