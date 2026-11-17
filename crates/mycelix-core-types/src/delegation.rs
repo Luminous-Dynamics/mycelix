@@ -406,6 +406,9 @@ impl Delegation {
                     return Err(DelegationError::ChildOutlivesParent);
                 }
             }
+            if !child.is_strictly_attenuated_by(parent) {
+                return Err(DelegationError::ChildNotStrictlyAttenuated);
+            }
 
             child = parent;
             next = parent.parent;
@@ -413,6 +416,24 @@ impl Delegation {
         }
 
         Ok(())
+    }
+
+    /// Whether this delegation narrows at least one currently modelled
+    /// authority dimension relative to its parent.
+    ///
+    /// Action and resource scopes are presently exact Named values, so their
+    /// containment is equality-only. Strict attenuation is therefore supplied
+    /// by a narrower mode or validity interval until richer set-valued scope
+    /// types are introduced.
+    fn is_strictly_attenuated_by(&self, parent: &Self) -> bool {
+        let narrower_mode = self.mode != parent.mode && self.mode.is_contained_by(parent.mode);
+        let later_start = self.granted_at > parent.granted_at;
+        let earlier_expiry = match (parent.expires_at, self.expires_at) {
+            (None, Some(_)) => true,
+            (Some(parent_expiry), Some(child_expiry)) => child_expiry < parent_expiry,
+            _ => false,
+        };
+        narrower_mode || later_start || earlier_expiry
     }
 
     fn validate_request(&self, request: &ExecutionRequest) -> Result<(), DelegationError> {
@@ -490,6 +511,9 @@ impl Delegation {
                     return Err(DelegationError::ParentExpired);
                 }
             }
+            if !child.is_strictly_attenuated_by(parent) {
+                return Err(DelegationError::ChildNotStrictlyAttenuated);
+            }
 
             child = parent;
             next = parent.parent;
@@ -531,6 +555,7 @@ pub enum DelegationError {
     ParentNotYetEffective,
     ParentExpired,
     ChildOutlivesParent,
+    ChildNotStrictlyAttenuated,
     DelegationCycle { id: DelegationId },
     DelegationChainTooDeep,
 }
@@ -595,6 +620,7 @@ impl fmt::Display for DelegationError {
             Self::ParentNotYetEffective => "child delegation predates its parent",
             Self::ParentExpired => "parent delegation had expired at the requested time",
             Self::ChildOutlivesParent => "child delegation outlives its parent",
+            Self::ChildNotStrictlyAttenuated => "child delegation does not narrow any modeled authority dimension",
             Self::DelegationCycle { .. } => "delegation parent chain contains a cycle",
             Self::DelegationChainTooDeep => "delegation parent chain exceeds the deterministic depth limit",
         };
@@ -843,6 +869,101 @@ mod tests {
             },
             &context(&[parent]),
         ), Err(DelegationError::ParentInactive { id: parent_id }));
+    }
+
+    #[test]
+    fn same_scope_child_without_a_narrower_mode_or_validity_window_is_rejected() {
+        let relationship = RelationshipId::derive("test", b"strict-attenuation");
+        let parent = Delegation::grant_with_subdelegation(
+            DelegationId::derive(relationship, b"parent"),
+            relationship,
+            p("alice"),
+            p("broker"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Execute,
+            100,
+            None,
+            4,
+            None,
+            true,
+        ).unwrap();
+        let child = Delegation::grant(
+            DelegationId::derive(relationship, b"child"),
+            relationship,
+            p("broker"),
+            p("agent"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Execute,
+            100,
+            None,
+            4,
+            Some(parent.id),
+        ).unwrap();
+        let request = ExecutionRequest {
+            principal: p("broker"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Execute,
+            requested_at: 120,
+            authority_epoch: 4,
+        };
+        let context = context(&[parent]);
+        assert_eq!(
+            child.authorize(&request, &context),
+            Err(DelegationError::ChildNotStrictlyAttenuated)
+        );
+        assert_eq!(
+            child.validate_parent_chain_structure(&context),
+            Err(DelegationError::ChildNotStrictlyAttenuated)
+        );
+    }
+
+    #[test]
+    fn propose_child_is_narrower_than_execute_parent() {
+        let relationship = RelationshipId::derive("test", b"mode-attenuation");
+        let parent = Delegation::grant_with_subdelegation(
+            DelegationId::derive(relationship, b"parent"),
+            relationship,
+            p("alice"),
+            p("broker"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Execute,
+            100,
+            None,
+            4,
+            None,
+            true,
+        ).unwrap();
+        let child = Delegation::grant(
+            DelegationId::derive(relationship, b"child"),
+            relationship,
+            p("broker"),
+            p("agent"),
+            ActionScope::named("create-opportunity").unwrap(),
+            ResourceScope::named("acme:opportunity:7").unwrap(),
+            DelegationMode::Propose,
+            100,
+            None,
+            4,
+            Some(parent.id),
+        ).unwrap();
+        let request = ExecutionRequest {
+            principal: p("broker"),
+            delegate: p("agent"),
+            action: ActionScope::named("create-opportunity").unwrap(),
+            resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+            mode: DelegationMode::Propose,
+            requested_at: 120,
+            authority_epoch: 4,
+        };
+        assert_eq!(
+            child.authorize(&request, &context(&[parent])),
+            Ok(ExecutionDecision::AuthorizedProposal)
+        );
     }
 
     #[test]
