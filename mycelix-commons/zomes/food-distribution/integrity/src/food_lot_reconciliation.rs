@@ -302,8 +302,8 @@ fn is_conflict(code: FoodLotReconciliationIssueCodeV1) -> bool {
             | FoodLotReconciliationIssueCodeV1::InvalidSplitBalance
             | FoodLotReconciliationIssueCodeV1::RecallHold
             | FoodLotReconciliationIssueCodeV1::DeclaredUseByElapsed
-            | FoodLotReconciliationIssueCodeV1::InsufficientQuantity
             | FoodLotReconciliationIssueCodeV1::InvalidQuantityRecord
+            | FoodLotReconciliationIssueCodeV1::InvalidClaimCeiling
     )
 }
 
