@@ -110,6 +110,15 @@ Keep address classification pure and deterministic. Prefer a maintained IANA spe
 - Run targeted crate tests, fmt, clippy, and workspace integration checks locally. CI queued/skipped is pending, never a pass.
 - Publish exact-head test receipts and a reproducible benchmark corpus.
 
+## Direct-fetch surface audit
+
+A source review of the default-branch Prism clients found that the proxy/serve hardening is not yet end-to-end:
+
+- `prism-net/src/lib.rs`: uses a shared `reqwest::Client` with automatic redirects limited to 10. It checks `Content-Length` when present, then calls `Response::text()`; this is not a hard streaming byte cap when the length is absent or misleading. It does not currently call the shared `validate_proxy_url` policy.
+- `prism-tauri/src/main.rs`: the desktop `fetch_url` command uses a separate reqwest client with up to 10 automatic redirects and reads the full body with `Response::text()`. The URL is parsed for Reflex analysis after the network fetch. This path must be treated as user-directed desktop navigation, not silently forced into the hosted public-only policy; local/LAN navigation needs explicit user authority and a separate redirect policy.
+- `prism-ingest` exposes optional blocking reqwest fetch binaries behind the `fetch` feature. Their source paths/callers still need a complete inventory before the ingestion transport can be declared covered.
+
+Therefore the current 100% direct-client inventory coverage gate is **not met**. The next integration work must classify every caller as hosted-public, desktop-user-navigation, pinned-provider, or fixed-manifest ingestion, then route each through the appropriate bounded transport. Do not simply apply one global private-address deny-list to desktop browsing.
 ## Benchmark programme
 
 There is no universally accepted single SSRF-prevention benchmark that fairly ranks application egress controls. Prism should publish a transparent adversarial suite rather than claim superiority from a hand-picked score.
