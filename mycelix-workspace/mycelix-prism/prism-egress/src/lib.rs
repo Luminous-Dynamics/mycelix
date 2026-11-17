@@ -1188,7 +1188,7 @@ mod tests {
         }
     }
 
-    async fn read_test_request(stream: &mut tokio::net::TcpStream) {
+    async fn read_test_request(stream: &mut tokio::net::TcpStream) -> Vec<u8> {
         use tokio::io::AsyncReadExt;
         let mut request = Vec::new();
         let mut buffer = [0u8; 1024];
@@ -1202,6 +1202,7 @@ mod tests {
                 break;
             }
         }
+        request
     }
 
     #[test]
@@ -1338,7 +1339,7 @@ mod tests {
             let request = read_test_request(&mut stream).await;
             stream
                 .write_all(
-                    b"HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\nConnection: close\\r\\n\\r\\nok",
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok",
                 )
                 .await
                 .unwrap();
