@@ -63,6 +63,22 @@ impl Default for EgressLimits {
     }
 }
 
+impl EgressLimits {
+    /// Apply absolute policy ceilings even when a caller supplies custom
+    /// lower limits. Public configuration must never widen the egress policy.
+    fn bounded(self) -> Self {
+        Self {
+            max_url_bytes: self.max_url_bytes.min(8 * 1024),
+            max_request_header_bytes: self.max_request_header_bytes.min(16 * 1024),
+            max_request_body_bytes: self.max_request_body_bytes.min(2 * 1024 * 1024),
+            max_response_body_bytes: self.max_response_body_bytes.min(10 * 1024 * 1024),
+            connect_timeout: self.connect_timeout.min(Duration::from_secs(5)),
+            request_timeout: self.request_timeout.min(Duration::from_secs(30)),
+            capability_ttl: self.capability_ttl.min(Duration::from_secs(5)),
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum EgressError {
     #[error("URL exceeds the configured byte limit")]
@@ -266,7 +282,7 @@ impl PublicEgressClient {
         R: EgressResolver + 'static,
     {
         Self {
-            limits,
+            limits: limits.bounded(),
             resolver: Arc::new(resolver),
         }
     }
@@ -1058,6 +1074,29 @@ mod tests {
                 .iter()
                 .any(|address| address.ip() == ip("2606:4700:4700::1111"))
         );
+    }
+
+    #[test]
+    fn custom_limits_cannot_raise_absolute_security_ceilings() {
+        let limits = EgressLimits {
+            max_url_bytes: usize::MAX,
+            max_request_header_bytes: usize::MAX,
+            max_request_body_bytes: usize::MAX,
+            max_response_body_bytes: usize::MAX,
+            connect_timeout: Duration::MAX,
+            request_timeout: Duration::MAX,
+            capability_ttl: Duration::MAX,
+        };
+        let client = PublicEgressClient::new(limits);
+        let limits = client.limits();
+
+        assert_eq!(limits.max_url_bytes, 8 * 1024);
+        assert_eq!(limits.max_request_header_bytes, 16 * 1024);
+        assert_eq!(limits.max_request_body_bytes, 2 * 1024 * 1024);
+        assert_eq!(limits.max_response_body_bytes, 10 * 1024 * 1024);
+        assert_eq!(limits.connect_timeout, Duration::from_secs(5));
+        assert_eq!(limits.request_timeout, Duration::from_secs(30));
+        assert_eq!(limits.capability_ttl, Duration::from_secs(5));
     }
 
     #[test]
