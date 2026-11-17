@@ -215,6 +215,8 @@ pub struct ContainerCycleEvent {
     /// Distribution and reverse-logistics observations, not estimates.
     pub transport_distance_m: Option<u64>,
     pub transport_mode: Option<ContainerTransportMode>,
+    /// Measured total mass (container plus contents) carried on this leg.
+    pub transported_mass_g: Option<u64>,
     pub end_of_life_route_ref: Option<String>,
     pub preservation_batch_hash: Option<ActionHash>,
     pub location_ref: Option<String>,
@@ -788,9 +790,30 @@ fn validate_container_cycle_event(
             "Accepted servings, filled mass and filled volume must be positive when supplied".into(),
         ));
     }
-    if event.transport_distance_m.is_some() != event.transport_mode.is_some() {
+    let has_transport_observation = event.transport_distance_m.is_some()
+        || event.transport_mode.is_some()
+        || event.transported_mass_g.is_some();
+    if has_transport_observation
+        && (event.transport_distance_m.is_none()
+            || event.transport_mode.is_none()
+            || event.transported_mass_g.is_none())
+    {
         return Ok(ValidateCallbackResult::Invalid(
-            "Transport distance and transport mode must be supplied together".into(),
+            "Transport distance, mode and transported mass must be supplied together".into(),
+        ));
+    }
+    if matches!(
+        &event.event_kind,
+        ContainerEventKind::Dispatched | ContainerEventKind::Returned
+    ) && event.transport_distance_m.is_none()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Dispatched/Returned events require a transport observation".into(),
+        ));
+    }
+    if event.transported_mass_g == Some(0) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transported mass must be positive when supplied".into(),
         ));
     }
     if event.end_of_life_route_ref.as_deref().is_some_and(|value| value.trim().is_empty()) {
