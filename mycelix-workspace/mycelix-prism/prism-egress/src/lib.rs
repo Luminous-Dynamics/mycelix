@@ -1233,7 +1233,7 @@ mod tests {
             read_test_request(&mut stream).await;
             stream
                 .write_all(
-                    b"HTTP/1.1 302 Found\\r\\nLocation: https://public.example/first\\r\\nLocation: http://metadata.google.internal/\\r\\nContent-Length: 0\\r\\nConnection: close\\r\\n\\r\\n",
+                    b"HTTP/1.1 302 Found\r\nLocation: https://public.example/first\r\nLocation: http://metadata.google.internal/\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
                 )
                 .await
                 .unwrap();
