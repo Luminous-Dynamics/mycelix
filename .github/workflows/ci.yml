@@ -410,7 +410,7 @@ jobs:
         run: |
           cd mycelix-workspace/mycelix-prism
           cargo fmt --check \
-            -p prism-common -p prism-dom -p prism-net -p prism-proxy -p prism-serve \
+            -p prism-common -p prism-dom -p prism-net -p prism-egress -p prism-proxy -p prism-serve \
             -p prism-ingest -p prism-search -p prism-layout -p prism-reflex -p prism-privacy \
             -p prism-zkp -p prism-knowledge-bridge -p prism-bridge -p prism-shell -p prism-ui \
             -p prism-tauri -p prism-node
@@ -425,7 +425,7 @@ jobs:
       - name: Test Prism crates
         run: |
           cd mycelix-workspace/mycelix-prism
-          for pkg in prism-common prism-dom prism-net prism-proxy prism-serve \
+          for pkg in prism-common prism-dom prism-net prism-egress prism-proxy prism-serve \
                      prism-ingest prism-search prism-layout prism-reflex prism-privacy \
                      prism-zkp prism-knowledge-bridge prism-bridge prism-shell prism-ui; do
             echo "=== Testing $pkg ==="
