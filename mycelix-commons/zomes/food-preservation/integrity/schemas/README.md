@@ -24,3 +24,12 @@ The initial container history must begin with a recorded wash. Each fill referen
 ## Claim limits
 
 QR/NFC labels are identifiers, not proof of authenticity, freshness or safety. Cleaning/sanitizing observations are not microbial lethality evidence. Food-contact qualification, cleaning protocols, regulatory compliance, cold-chain integrity and shelf-life claims need their own method, calibration, uncertainty and independent qualification records. No safety claim is inferred from a container material label or a sanitation event.
+
+
+## Packaging lifecycle impact per accepted serving
+
+The container/event contract now includes empty-container mass, optional embodied-impact value plus source reference, accepted-serving count and filled quantity, wash water/energy/detergent observations, transport distance/mode/transported mass, and end-of-life route reference.
+
+A separate, versioned `ContainerLifecycleImpactFactorsV1` input supplies region/year-specific electricity, water, detergent, transport-mode and end-of-life factors. The coordinator computes a reproducible packaging-only cradle-to-grave report with exact numerator/denominator ratios per accepted serving. It uses ceiling rounding for unit conversions to avoid understating impact. It does not ship default South African grid or water factors. Missing observations or factors return an incomplete-evidence error; they are not silently treated as zero. Known zero remains explicit as `Some(0)`.
+
+This is not a product-food LCA or an independently audited environmental claim. Factor-set provenance, geography, reference year, method and evidence class are retained. Compare returnable and single-use alternatives only with the same accepted-serving functional unit and include washing, return logistics, breakage/loss and end-of-life.
