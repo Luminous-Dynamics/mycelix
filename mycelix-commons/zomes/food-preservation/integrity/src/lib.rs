@@ -220,6 +220,121 @@ pub enum LinkTypes {
     ContainerEventToNext,
 }
 
+
+fn validate_container_link(
+    link_type: LinkTypes,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+    tag: LinkTag,
+) -> ExternResult<ValidateCallbackResult> {
+    if tag.0.len() > 512 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container lifecycle link tag too long (max 512 bytes)".into(),
+        ));
+    }
+    match link_type {
+        LinkTypes::AllReusableContainers => {
+            let Some(target_hash) = target_address.into_action_hash() else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AllReusableContainers target must be an action hash".into(),
+                ));
+            };
+            let record = must_get_valid_record(target_hash)?;
+            let _: ReusableContainer = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "AllReusableContainers target is not a ReusableContainer".into()
+                )))?;
+            if base_address.as_ref().len() != 39 {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AllReusableContainers base anchor hash is invalid".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        LinkTypes::ContainerToCycleEvents => {
+            let Some(container_hash) = base_address.into_action_hash() else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ContainerToCycleEvents base must be a container action hash".into(),
+                ));
+            };
+            let Some(event_hash) = target_address.into_action_hash() else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ContainerToCycleEvents target must be an event action hash".into(),
+                ));
+            };
+            let container_record = must_get_valid_record(container_hash.clone())?;
+            let _: ReusableContainer = container_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "ContainerToCycleEvents base is not a ReusableContainer".into()
+                )))?;
+            let event_record = must_get_valid_record(event_hash)?;
+            let event: ContainerCycleEvent = event_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "ContainerToCycleEvents target is not a ContainerCycleEvent".into()
+                )))?;
+            if event.container_hash != container_hash
+                || tag.0 != event.sequence_number.to_be_bytes().to_vec()
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ContainerToCycleEvents link must bind the matching container and sequence tag".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        LinkTypes::ContainerEventToNext => {
+            let Some(previous_hash) = base_address.into_action_hash() else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ContainerEventToNext base must be an event action hash".into(),
+                ));
+            };
+            let Some(next_hash) = target_address.into_action_hash() else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ContainerEventToNext target must be an event action hash".into(),
+                ));
+            };
+            let previous_record = must_get_valid_record(previous_hash.clone())?;
+            let previous: ContainerCycleEvent = previous_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "ContainerEventToNext base is not a ContainerCycleEvent".into()
+                )))?;
+            let next_record = must_get_valid_record(next_hash)?;
+            let next: ContainerCycleEvent = next_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "ContainerEventToNext target is not a ContainerCycleEvent".into()
+                )))?;
+            if next.container_hash != previous.container_hash
+                || next.previous_event_hash.as_ref() != Some(&previous_hash)
+                || previous.sequence_number.checked_add(1) != Some(next.sequence_number)
+                || !tag.0.is_empty()
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ContainerEventToNext must bind the exact parent event and next sequence".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        _ => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported link type for container lifecycle validation".into(),
+        )),
+    }
+}
+
+
 // ============================================================================
 // VALIDATION
 // ============================================================================
@@ -255,7 +370,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Valid),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => match link_type {
+        FlatOp::RegisterCreateLink {
+            link_type,
+            base_address,
+            target_address,
+            tag,
+            ..
+        } => match link_type {
             LinkTypes::AllBatches => {
                 if tag.0.len() > 256 {
                     return Ok(ValidateCallbackResult::Invalid(
@@ -306,14 +427,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             LinkTypes::AllReusableContainers
             | LinkTypes::ContainerToCycleEvents
-            | LinkTypes::ContainerEventToNext => {
-                if tag.0.len() > 512 {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "Container lifecycle link tag too long (max 512 bytes)".into(),
-                    ));
-                }
-                Ok(ValidateCallbackResult::Valid)
-            }
+            | LinkTypes::ContainerEventToNext => validate_container_link(
+                link_type,
+                base_address,
+                target_address,
+                tag,
+            ),
         },
         FlatOp::RegisterDeleteLink { action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
