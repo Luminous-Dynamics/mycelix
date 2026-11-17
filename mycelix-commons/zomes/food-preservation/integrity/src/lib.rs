@@ -1187,6 +1187,7 @@ mod tests {
         condition: ContainerCondition,
         sequence_number: u64,
     ) -> ContainerCycleEvent {
+        let is_filled = kind == ContainerEventKind::Filled;
         let sanitation = matches!(
             &kind,
             ContainerEventKind::Washed | ContainerEventKind::Sanitized
@@ -1197,6 +1198,9 @@ mod tests {
             sanitizer_ref: Some("sanitizer:declared".into()),
             sanitizer_concentration_mg_l: Some(100),
             exposure_time_ms: Some(30_000),
+            wash_water_ml: Some(2_000),
+            wash_energy_wh: Some(30),
+            detergent_mass_mg: Some(10_000),
             observation_ref: "observation:synthetic".into(),
             evidence: container_evidence("source:synthetic-sanitization"),
         });
@@ -1207,10 +1211,10 @@ mod tests {
             sequence_number,
             event_kind: kind,
             occurred_at: 1_700_000_000 + sequence_number,
-            product_ref: (kind == ContainerEventKind::Filled).then(|| "product:dry-goods".into()),
-            product_lot_ref: (kind == ContainerEventKind::Filled).then(|| "lot:fixture-001".into()),
-            accepted_servings: (kind == ContainerEventKind::Filled).then_some(4),
-            filled_mass_g: (kind == ContainerEventKind::Filled).then_some(1_000),
+            product_ref: is_filled.then(|| "product:dry-goods".into()),
+            product_lot_ref: is_filled.then(|| "lot:fixture-001".into()),
+            accepted_servings: is_filled.then_some(4),
+            filled_mass_g: is_filled.then_some(1_000),
             filled_volume_ml: None,
             transport_distance_m: None,
             transport_mode: None,
