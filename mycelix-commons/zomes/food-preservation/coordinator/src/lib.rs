@@ -9,11 +9,731 @@ use hdk::prelude::*;
 use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::records_from_links;
+use std::collections::BTreeSet;
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
     hash_entry(&EntryTypes::Anchor(anchor))
 }
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ContainerLifecycleSummary {
+    pub container_hash: ActionHash,
+    /// Derived from validated Filled events. This is never stored as a counter.
+    pub derived_fill_cycle_count: u64,
+    pub latest_event_hash: Option<ActionHash>,
+    pub latest_sequence_number: Option<u64>,
+    pub latest_condition: Option<ContainerCondition>,
+}
+
+fn container_history_records(container_hash: ActionHash) -> ExternResult<Vec<Record>> {
+    let links = get_links(
+        LinkQuery::try_new(container_hash, LinkTypes::ContainerToCycleEvents)?,
+        GetStrategy::default(),
+    )?;
+    records_from_links(links)
+}
+
+/// Load and verify the complete linked history. A duplicated sequence,
+/// missing link, fork or broken parent pointer returns an error instead of
+/// guessing which branch is authoritative.
+fn validate_container_event_chain(
+    container_hash: &ActionHash,
+    mut events: Vec<(ActionHash, ContainerCycleEvent)>,
+) -> Result<Vec<(ActionHash, ContainerCycleEvent)>, String> {
+    events.sort_by_key(|(_, event)| event.sequence_number);
+    let mut expected_parent: Option<ActionHash> = None;
+    let mut seen_sequences = BTreeSet::new();
+    for (index, (action_hash, event)) in events.iter().enumerate() {
+        if &event.container_hash != container_hash {
+            return Err("Container history contains an event for another container".into());
+        }
+        if !seen_sequences.insert(event.sequence_number) {
+            return Err(
+                "Container lifecycle conflict: duplicate sequence number; reconciliation required"
+                    .into(),
+            );
+        }
+        if event.sequence_number != index as u64 {
+            return Err(
+                "Container lifecycle conflict: sequence gap; reconciliation required".into(),
+            );
+        }
+        if event.previous_event_hash != expected_parent {
+            return Err("Container lifecycle conflict: event parent does not match the unique preceding event".into());
+        }
+        expected_parent = Some(action_hash.clone());
+    }
+    Ok(events)
+}
+
+fn verified_container_history(
+    container_hash: ActionHash,
+) -> ExternResult<Vec<(ActionHash, ContainerCycleEvent)>> {
+    let records = container_history_records(container_hash.clone())?;
+    let mut events = Vec::with_capacity(records.len());
+    for record in records {
+        let action_hash = record.action_address().clone();
+        let event: ContainerCycleEvent = record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Container history link points to a non-event record".into()
+            )))?;
+        events.push((action_hash, event));
+    }
+    validate_container_event_chain(&container_hash, events)
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason)))
+}
+
+fn derived_fill_cycle_count(events: &[(ActionHash, ContainerCycleEvent)]) -> u64 {
+    events
+        .iter()
+        .filter(|(_, event)| event.event_kind == ContainerEventKind::Filled)
+        .count() as u64
+}
+
+
+/// Versioned impact factors supplied by a source/region/year-specific LCA factor set.
+/// The factor set is explicit input; this module contains no hard-coded emissions factors.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ContainerTransportImpactFactorV1 {
+    pub mode: ContainerTransportMode,
+    pub mg_co2e_per_tonne_km: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ContainerLifecycleImpactFactorsV1 {
+    pub schema_version: u32,
+    pub factor_set_ref: String,
+    pub geography: String,
+    pub reference_year: u32,
+    pub electricity_mg_co2e_per_wh: u64,
+    pub water_mg_co2e_per_litre: u64,
+    pub detergent_mg_co2e_per_gram: u64,
+    pub end_of_life_mg_co2e_per_container: u64,
+    pub transport_factors: Vec<ContainerTransportImpactFactorV1>,
+    pub evidence: ContainerEvidenceRef,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ContainerImpactErrorCodeV1 {
+    UnsupportedFactorSchema,
+    MissingFactorProvenance,
+    DuplicateTransportFactor,
+    MissingEmbodiedImpact,
+    MissingAcceptedServings,
+    MissingSanitationObservation,
+    MissingTransportObservation,
+    MissingTransportFactor,
+    ArithmeticOverflow,
+    InvalidHistory,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ContainerImpactErrorV1 {
+    pub code: ContainerImpactErrorCodeV1,
+    pub details: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ContainerLifecycleImpactReportV1 {
+    pub factor_set_ref: String,
+    pub geography: String,
+    pub reference_year: u32,
+    pub fill_events: u64,
+    pub accepted_servings: u64,
+    pub empty_container_mass_g: u64,
+    pub embodied_packaging_mg_co2e: u64,
+    pub washing_electricity_mg_co2e: u64,
+    pub washing_water_mg_co2e: u64,
+    pub detergent_mg_co2e: u64,
+    pub logistics_mg_co2e: u64,
+    /// Projected end-of-life impact from the supplied factor set.
+    pub end_of_life_mg_co2e: u64,
+    pub total_packaging_mg_co2e: u64,
+    pub wash_water_ml: u64,
+    pub wash_energy_wh: u64,
+    pub detergent_mass_mg: u64,
+    pub transport_distance_m: u64,
+    /// Exact fixed-point ratios: numerator / denominator.
+    pub mg_co2e_per_accepted_serving: (u64, u64),
+    pub wash_water_ml_per_accepted_serving: (u64, u64),
+    pub wash_energy_wh_per_accepted_serving: (u64, u64),
+}
+
+/// Conservative integer ceiling division: partial units never understate impact.
+fn impact_ceil_div(numerator: u128, denominator: u128) -> Result<u128, ContainerImpactErrorV1> {
+    if denominator == 0 {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+            details: vec!["impact factor denominator cannot be zero".into()],
+        });
+    }
+    let Some(adjusted) = numerator.checked_add(denominator - 1) else {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+            details: vec!["impact ceiling division overflow".into()],
+        });
+    };
+    Ok(adjusted / denominator)
+}
+
+fn impact_mul(values: &[u128]) -> Result<u128, ContainerImpactErrorV1> {
+    values.iter().try_fold(1_u128, |acc, value| {
+        acc.checked_mul(*value).ok_or(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+            details: vec!["impact multiplication overflow".into()],
+        })
+    })
+}
+
+fn impact_sum(target: &mut u128, value: u128) -> Result<(), ContainerImpactErrorV1> {
+    *target = target.checked_add(value).ok_or(ContainerImpactErrorV1 {
+        code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+        details: vec!["impact aggregation overflow".into()],
+    })?;
+    Ok(())
+}
+
+fn impact_u64(value: u128, field: &str) -> Result<u64, ContainerImpactErrorV1> {
+    u64::try_from(value).map_err(|_| ContainerImpactErrorV1 {
+        code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+        details: vec![format!("{field} exceeds u64")],
+    })
+}
+
+/// Validate an external factor set. A valid factor set is not independently
+/// audited merely because it is structurally valid; evidence class is retained.
+pub fn validate_container_impact_factors(
+    factors: &ContainerLifecycleImpactFactorsV1,
+) -> Result<(), ContainerImpactErrorV1> {
+    if factors.schema_version != 1 {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::UnsupportedFactorSchema,
+            details: vec![format!("unsupported impact factor schema {}", factors.schema_version)],
+        });
+    }
+    if factors.factor_set_ref.trim().is_empty()
+        || factors.geography.trim().is_empty()
+        || factors.reference_year == 0
+        || factors.evidence.source_ref.trim().is_empty()
+        || factors.evidence.method_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+        || factors.evidence.calibration_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+    {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::MissingFactorProvenance,
+            details: vec!["factor set, geography, year and evidence references must be populated".into()],
+        });
+    }
+    if factors.transport_factors.iter().enumerate().any(|(index, factor)| {
+        factors.transport_factors[..index].iter().any(|prior| prior.mode == factor.mode)
+    }) {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::DuplicateTransportFactor,
+            details: vec!["transport modes must have one factor each".into()],
+        });
+    }
+    Ok(())
+}
+
+/// Compute packaging-only cradle-to-grave impact for the supplied functional
+/// unit (accepted servings). Required measured/declared observations must be
+/// complete; unknown values cause an error rather than silently becoming zero.
+/// The report preserves exact numerator/denominator ratios and uses ceiling
+/// rounding for unit conversions so integer rounding cannot understate impact.
+pub fn calculate_container_lifecycle_impact(
+    container: &ReusableContainer,
+    container_hash: &ActionHash,
+    events: &[(ActionHash, ContainerCycleEvent)],
+    factors: &ContainerLifecycleImpactFactorsV1,
+) -> Result<ContainerLifecycleImpactReportV1, ContainerImpactErrorV1> {
+    validate_container_impact_factors(factors)?;
+    let checked = validate_container_event_chain(container_hash, events.to_vec()).map_err(|reason| {
+        ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::InvalidHistory,
+            details: vec![reason],
+        }
+    })?;
+
+    let embodied = container.embodied_impact_mg_co2e.ok_or(ContainerImpactErrorV1 {
+        code: ContainerImpactErrorCodeV1::MissingEmbodiedImpact,
+        details: vec!["container requires an embodied-impact value and source reference".into()],
+    })?;
+
+    let mut accepted_servings = 0_u128;
+    let mut fill_events = 0_u128;
+    let mut wash_water_ml = 0_u128;
+    let mut wash_energy_wh = 0_u128;
+    let mut detergent_mass_mg = 0_u128;
+    let mut electricity_impact = 0_u128;
+    let mut water_impact = 0_u128;
+    let mut detergent_impact = 0_u128;
+    let mut logistics_impact = 0_u128;
+    let mut transport_distance_m = 0_u128;
+
+    for (_, event) in &checked {
+        if event.event_kind == ContainerEventKind::Filled {
+            let servings = event.accepted_servings.ok_or(ContainerImpactErrorV1 {
+                code: ContainerImpactErrorCodeV1::MissingAcceptedServings,
+                details: vec!["a Filled event is missing accepted_servings".into()],
+            })?;
+            accepted_servings = accepted_servings.checked_add(u128::from(servings)).ok_or(
+                ContainerImpactErrorV1 {
+                    code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+                    details: vec!["accepted-serving count overflow".into()],
+                },
+            )?;
+            impact_sum(&mut fill_events, 1)?;
+        }
+
+        if matches!(&event.event_kind, ContainerEventKind::Washed | ContainerEventKind::Sanitized) {
+            let observation = event.sanitation.as_ref().ok_or(ContainerImpactErrorV1 {
+                code: ContainerImpactErrorCodeV1::MissingSanitationObservation,
+                details: vec![format!("{:?} event is missing sanitation observations", event.event_kind)],
+            })?;
+            let water_ml = observation.wash_water_ml.ok_or(ContainerImpactErrorV1 {
+                code: ContainerImpactErrorCodeV1::MissingSanitationObservation,
+                details: vec!["wash_water_ml is unknown".into()],
+            })?;
+            let energy_wh = observation.wash_energy_wh.ok_or(ContainerImpactErrorV1 {
+                code: ContainerImpactErrorCodeV1::MissingSanitationObservation,
+                details: vec!["wash_energy_wh is unknown".into()],
+            })?;
+            let detergent_mg = observation.detergent_mass_mg.ok_or(ContainerImpactErrorV1 {
+                code: ContainerImpactErrorCodeV1::MissingSanitationObservation,
+                details: vec!["detergent_mass_mg is unknown".into()],
+            })?;
+            impact_sum(&mut wash_water_ml, u128::from(water_ml))?;
+            impact_sum(&mut wash_energy_wh, u128::from(energy_wh))?;
+            impact_sum(&mut detergent_mass_mg, u128::from(detergent_mg))?;
+            impact_sum(
+                &mut electricity_impact,
+                impact_mul(&[u128::from(energy_wh), u128::from(factors.electricity_mg_co2e_per_wh)])?,
+            )?;
+            impact_sum(
+                &mut water_impact,
+                impact_ceil_div(
+                    impact_mul(&[u128::from(water_ml), u128::from(factors.water_mg_co2e_per_litre)])?,
+                    1_000,
+                )?,
+            )?;
+            impact_sum(
+                &mut detergent_impact,
+                impact_ceil_div(
+                    impact_mul(&[u128::from(detergent_mg), u128::from(factors.detergent_mg_co2e_per_gram)])?,
+                    1_000,
+                )?,
+            )?;
+        }
+
+        if matches!(&event.event_kind, ContainerEventKind::Dispatched | ContainerEventKind::Returned) {
+            let distance = event.transport_distance_m.ok_or(ContainerImpactErrorV1 {
+                code: ContainerImpactErrorCodeV1::MissingTransportObservation,
+                details: vec![format!("{:?} event is missing transport_distance_m", event.event_kind)],
+            })?;
+            let mode = event.transport_mode.as_ref().ok_or(ContainerImpactErrorV1 {
+                code: ContainerImpactErrorCodeV1::MissingTransportObservation,
+                details: vec![format!("{:?} event is missing transport_mode", event.event_kind)],
+            })?;
+            let factor = factors.transport_factors.iter().find(|candidate| &candidate.mode == mode)
+                .ok_or(ContainerImpactErrorV1 {
+                    code: ContainerImpactErrorCodeV1::MissingTransportFactor,
+                    details: vec![format!("no impact factor supplied for transport mode {:?}", mode)],
+                })?;
+            impact_sum(&mut transport_distance_m, u128::from(distance))?;
+            // g * m / 1e9 = tonne-kilometres; factor is mg CO2e / tonne-km.
+            impact_sum(
+                &mut logistics_impact,
+                impact_ceil_div(
+                    impact_mul(&[
+                        u128::from(event.transported_mass_g.ok_or(ContainerImpactErrorV1 {
+                            code: ContainerImpactErrorCodeV1::MissingTransportObservation,
+                            details: vec!["transported_mass_g is unknown".into()],
+                        })?),
+                        u128::from(distance),
+                        u128::from(factor.mg_co2e_per_tonne_km),
+                    ])?,
+                    1_000_000_000,
+                )?,
+            )?;
+        }
+    }
+
+    if accepted_servings == 0 || fill_events == 0 {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::MissingAcceptedServings,
+            details: vec!["history contains no accepted servings from Filled events".into()],
+        });
+    }
+
+    let eol = u128::from(factors.end_of_life_mg_co2e_per_container);
+    let total = [
+        u128::from(embodied),
+        electricity_impact,
+        water_impact,
+        detergent_impact,
+        logistics_impact,
+        eol,
+    ]
+    .into_iter()
+    .try_fold(0_u128, |acc, value| acc.checked_add(value).ok_or(ContainerImpactErrorV1 {
+        code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+        details: vec!["total lifecycle impact overflow".into()],
+    }))?;
+
+    let servings = accepted_servings;
+    Ok(ContainerLifecycleImpactReportV1 {
+        factor_set_ref: factors.factor_set_ref.clone(),
+        geography: factors.geography.clone(),
+        reference_year: factors.reference_year,
+        fill_events: impact_u64(fill_events, "fill events")?,
+        accepted_servings: impact_u64(accepted_servings, "accepted servings")?,
+        empty_container_mass_g: container.empty_mass_g,
+        embodied_packaging_mg_co2e: embodied,
+        washing_electricity_mg_co2e: impact_u64(electricity_impact, "washing electricity impact")?,
+        washing_water_mg_co2e: impact_u64(water_impact, "washing water impact")?,
+        detergent_mg_co2e: impact_u64(detergent_impact, "detergent impact")?,
+        logistics_mg_co2e: impact_u64(logistics_impact, "logistics impact")?,
+        end_of_life_mg_co2e: factors.end_of_life_mg_co2e_per_container,
+        total_packaging_mg_co2e: impact_u64(total, "total packaging impact")?,
+        wash_water_ml: impact_u64(wash_water_ml, "wash water")?,
+        wash_energy_wh: impact_u64(wash_energy_wh, "wash energy")?,
+        detergent_mass_mg: impact_u64(detergent_mass_mg, "detergent mass")?,
+        transport_distance_m: impact_u64(transport_distance_m, "transport distance")?,
+        mg_co2e_per_accepted_serving: (impact_u64(total, "total packaging impact")?, impact_u64(servings, "accepted servings")?),
+        wash_water_ml_per_accepted_serving: (impact_u64(wash_water_ml, "wash water")?, impact_u64(servings, "accepted servings")?),
+        wash_energy_wh_per_accepted_serving: (impact_u64(wash_energy_wh, "wash energy")?, impact_u64(servings, "accepted servings")?),
+    })
+}
+
+
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SingleUsePackagingBaselineV1 {
+    pub baseline_ref: String,
+    /// Must match the reusable report's factor set, geography and year.
+    pub factor_set_ref: String,
+    pub geography: String,
+    pub reference_year: u32,
+    /// Exact packaging units per accepted serving (numerator / denominator).
+    pub packaging_units_numerator: u64,
+    pub packaging_units_denominator: u64,
+    pub packaging_mass_g_per_unit: u64,
+    pub transported_mass_g_per_unit: u64,
+    pub distribution_distance_m_per_unit: u64,
+    pub distribution_mode: ContainerTransportMode,
+    pub embodied_impact_mg_co2e_per_unit: u64,
+    pub end_of_life_impact_mg_co2e_per_unit: u64,
+    pub evidence: ContainerEvidenceRef,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum PackagingComparisonOutcomeV1 {
+    ReusableLower,
+    SingleUseLower,
+    Equal,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PackagingComparisonReportV1 {
+    pub functional_unit: String,
+    pub factor_set_ref: String,
+    pub geography: String,
+    pub reference_year: u32,
+    pub reusable_packaging_mg_co2e_per_accepted_serving: (u64, u64),
+    pub single_use_packaging_mg_co2e_per_accepted_serving: (u64, u64),
+    pub single_use_packaging_mass_g_per_accepted_serving: (u64, u64),
+    pub outcome: PackagingComparisonOutcomeV1,
+    pub limitations: Vec<String>,
+}
+
+/// Compare a reusable lifecycle report and single-use packaging reference using
+/// the same accepted-serving functional unit and the same regional/year factor
+/// set. The outcome compares packaging boundary only; it is not a product LCA.
+pub fn compare_reusable_packaging_to_single_use(
+    reusable: &ContainerLifecycleImpactReportV1,
+    single_use: &SingleUsePackagingBaselineV1,
+    factors: &ContainerLifecycleImpactFactorsV1,
+) -> Result<PackagingComparisonReportV1, ContainerImpactErrorV1> {
+    validate_container_impact_factors(factors)?;
+    if single_use.baseline_ref.trim().is_empty()
+        || single_use.factor_set_ref.trim().is_empty()
+        || single_use.geography.trim().is_empty()
+        || single_use.reference_year == 0
+        || single_use.packaging_units_numerator == 0
+        || single_use.packaging_units_denominator == 0
+        || single_use.packaging_mass_g_per_unit == 0
+        || single_use.transported_mass_g_per_unit == 0
+        || single_use.evidence.source_ref.trim().is_empty()
+    {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::MissingFactorProvenance,
+            details: vec!["single-use comparator provenance, functional unit, mass and evidence are required".into()],
+        });
+    }
+    if single_use.factor_set_ref != reusable.factor_set_ref
+        || single_use.factor_set_ref != factors.factor_set_ref
+        || single_use.geography != reusable.geography
+        || single_use.geography != factors.geography
+        || single_use.reference_year != reusable.reference_year
+        || single_use.reference_year != factors.reference_year
+    {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::MissingFactorProvenance,
+            details: vec!["reusable and single-use comparison must share the same factor set, geography and reference year".into()],
+        });
+    }
+    let transport_factor = factors
+        .transport_factors
+        .iter()
+        .find(|factor| factor.mode == single_use.distribution_mode)
+        .ok_or(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::MissingTransportFactor,
+            details: vec![format!(
+                "no impact factor supplied for single-use transport mode {:?}",
+                single_use.distribution_mode
+            )],
+        })?;
+    let transport_impact = impact_ceil_div(
+        impact_mul(&[
+            u128::from(single_use.transported_mass_g_per_unit),
+            u128::from(single_use.distribution_distance_m_per_unit),
+            u128::from(transport_factor.mg_co2e_per_tonne_km),
+        ])?,
+        1_000_000_000,
+    )?;
+    let per_unit = [
+        u128::from(single_use.embodied_impact_mg_co2e_per_unit),
+        transport_impact,
+        u128::from(single_use.end_of_life_impact_mg_co2e_per_unit),
+    ]
+    .into_iter()
+    .try_fold(0_u128, |sum, value| {
+        sum.checked_add(value).ok_or(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+            details: vec!["single-use packaging impact aggregation overflow".into()],
+        })
+    })?;
+    let single_use_numerator = impact_mul(&[
+        per_unit,
+        u128::from(single_use.packaging_units_numerator),
+    ])?;
+    let single_use_denominator = u128::from(single_use.packaging_units_denominator);
+    let reusable_left = impact_mul(&[
+        u128::from(reusable.total_packaging_mg_co2e),
+        single_use_denominator,
+    ])?;
+    let single_use_right = impact_mul(&[
+        single_use_numerator,
+        u128::from(reusable.accepted_servings),
+    ])?;
+    let outcome = match reusable_left.cmp(&single_use_right) {
+        std::cmp::Ordering::Less => PackagingComparisonOutcomeV1::ReusableLower,
+        std::cmp::Ordering::Greater => PackagingComparisonOutcomeV1::SingleUseLower,
+        std::cmp::Ordering::Equal => PackagingComparisonOutcomeV1::Equal,
+    };
+    Ok(PackagingComparisonReportV1 {
+        functional_unit: "one accepted serving".into(),
+        factor_set_ref: factors.factor_set_ref.clone(),
+        geography: factors.geography.clone(),
+        reference_year: factors.reference_year,
+        reusable_packaging_mg_co2e_per_accepted_serving: (
+            reusable.total_packaging_mg_co2e,
+            reusable.accepted_servings,
+        ),
+        single_use_packaging_mg_co2e_per_accepted_serving: (
+            impact_u64(single_use_numerator, "single-use impact numerator")?,
+            impact_u64(single_use_denominator, "single-use impact denominator")?,
+        ),
+        single_use_packaging_mass_g_per_accepted_serving: (
+            single_use.packaging_mass_g_per_unit
+                .checked_mul(single_use.packaging_units_numerator)
+                .ok_or(ContainerImpactErrorV1 {
+                    code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+                    details: vec!["single-use packaging mass numerator overflow".into()],
+                })?,
+            single_use.packaging_units_denominator,
+        ),
+        outcome,
+        limitations: vec![
+            "Packaging boundary only; food production and preparation impacts are excluded".into(),
+            "All factor inputs must describe the same geography, reference year and functional unit".into(),
+            "No environmental advantage is implied outside the supplied lifecycle scope".into(),
+        ],
+    })
+}
+
+
+/// Register a reusable container in the existing food-preservation registry.
+#[hdk_extern]
+pub fn register_reusable_container(container: ReusableContainer) -> ExternResult<Record> {
+    mycelix_zome_helpers::require_civic(
+        "commons_bridge",
+        &civic_requirement_basic(),
+        "register_reusable_container",
+    )?;
+    let agent = agent_info()?.agent_initial_pubkey;
+    if container.steward != agent {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the declared container steward may register the container".into()
+        )));
+    }
+    for record in get_all_reusable_containers(())? {
+        let existing: ReusableContainer = record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Container registry link points to an invalid entry".into()
+            )))?;
+        if existing.id == container.id {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Reusable container ID is already registered".into()
+            )));
+        }
+    }
+    let action_hash = create_entry(&EntryTypes::ReusableContainer(container))?;
+    create_entry(&EntryTypes::Anchor(Anchor(
+        "all_reusable_containers".into(),
+    )))?;
+    create_link(
+        anchor_hash("all_reusable_containers")?,
+        action_hash.clone(),
+        LinkTypes::AllReusableContainers,
+        (),
+    )?;
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Could not find created reusable container".into()
+    )))
+}
+
+#[hdk_extern]
+pub fn get_reusable_container(container_hash: ActionHash) -> ExternResult<Option<Record>> {
+    get(container_hash, GetOptions::default())
+}
+
+#[hdk_extern]
+pub fn get_all_reusable_containers(_: ()) -> ExternResult<Vec<Record>> {
+    let links = get_links(
+        LinkQuery::try_new(
+            anchor_hash("all_reusable_containers")?,
+            LinkTypes::AllReusableContainers,
+        )?,
+        GetStrategy::default(),
+    )?;
+    records_from_links(links)
+}
+
+/// Append one lifecycle event. The event must extend the unique current head;
+/// a fork or incomplete history blocks mutation until it is reconciled.
+#[hdk_extern]
+pub fn record_container_cycle_event(event: ContainerCycleEvent) -> ExternResult<Record> {
+    mycelix_zome_helpers::require_civic(
+        "commons_bridge",
+        &civic_requirement_basic(),
+        "record_container_cycle_event",
+    )?;
+    let container_record = get(event.container_hash.clone(), GetOptions::default())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest("Container not found".into())),
+    )?;
+    let container: ReusableContainer = container_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Container reference is not a ReusableContainer entry".into()
+        )))?;
+    let agent = agent_info()?.agent_initial_pubkey;
+    if container.steward != agent {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the container steward may append lifecycle events".into()
+        )));
+    }
+
+    let history = verified_container_history(event.container_hash.clone())?;
+    let expected_sequence = history.len() as u64;
+    let expected_parent = history.last().map(|(hash, _)| hash.clone());
+    if event.sequence_number != expected_sequence || event.previous_event_hash != expected_parent {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Container event does not extend the unique current head; reload and reconcile before retrying".into()
+        )));
+    }
+
+    if event.event_kind == ContainerEventKind::Filled {
+        if !container.compatible_product_refs.is_empty()
+            && event.product_ref.as_deref().is_none_or(|product_ref| {
+                !container
+                    .compatible_product_refs
+                    .iter()
+                    .any(|allowed| allowed == product_ref)
+            })
+        {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Product is not listed as compatible with this container".into()
+            )));
+        }
+        let fills = derived_fill_cycle_count(&history);
+        if container
+            .manufacturer_reuse_cycle_limit
+            .is_some_and(|limit| fills >= u64::from(limit))
+        {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Manufacturer reuse-cycle limit reached; container cannot be filled again".into()
+            )));
+        }
+    }
+
+    let action_hash = create_entry(&EntryTypes::ContainerCycleEvent(event.clone()))?;
+    create_link(
+        event.container_hash.clone(),
+        action_hash.clone(),
+        LinkTypes::ContainerToCycleEvents,
+        event.sequence_number.to_be_bytes().to_vec().into(),
+    )?;
+    if let Some(previous_hash) = event.previous_event_hash {
+        create_link(
+            previous_hash,
+            action_hash.clone(),
+            LinkTypes::ContainerEventToNext,
+            (),
+        )?;
+    }
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Could not find created container lifecycle event".into()
+    )))
+}
+
+#[hdk_extern]
+pub fn get_container_cycle_history(container_hash: ActionHash) -> ExternResult<Vec<Record>> {
+    let history = verified_container_history(container_hash)?;
+    history
+        .into_iter()
+        .map(|(action_hash, _)| {
+            get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Container lifecycle event disappeared during history retrieval".into()
+            )))
+        })
+        .collect()
+}
+
+#[hdk_extern]
+pub fn get_container_lifecycle_summary(
+    container_hash: ActionHash,
+) -> ExternResult<ContainerLifecycleSummary> {
+    let history = verified_container_history(container_hash.clone())?;
+    let latest = history.last();
+    Ok(ContainerLifecycleSummary {
+        container_hash,
+        derived_fill_cycle_count: derived_fill_cycle_count(&history),
+        latest_event_hash: latest.map(|(hash, _)| hash.clone()),
+        latest_sequence_number: latest.map(|(_, event)| event.sequence_number),
+        latest_condition: latest.map(|(_, event)| event.condition.clone()),
+    })
+}
+
 
 // ============================================================================
 // BATCH MANAGEMENT
@@ -162,6 +882,450 @@ mod tests {
     fn fake_agent() -> AgentPubKey {
         AgentPubKey::from_raw_36(vec![0u8; 36])
     }
+
+    #[derive(Deserialize)]
+    struct ContainerLifecycleFixtureBundle {
+        container: ContainerFixtureIdentity,
+        events: Vec<ContainerEventFixture>,
+    }
+
+    #[derive(Deserialize)]
+    struct ContainerFixtureIdentity {
+        id: String,
+        material: ContainerMaterial,
+        capacity_ml: u64,
+        manufacturer_reuse_cycle_limit: Option<u32>,
+    }
+
+    #[derive(Deserialize)]
+    struct ContainerEventFixture {
+        container_hash: String,
+        previous_event_hash: Option<String>,
+        sequence_number: u64,
+        event_kind: ContainerEventKind,
+        occurred_at: u64,
+        product_ref: Option<String>,
+        product_lot_ref: Option<String>,
+        accepted_servings: Option<u32>,
+        filled_mass_g: Option<u64>,
+        filled_volume_ml: Option<u64>,
+        transport_distance_m: Option<u64>,
+        transport_mode: Option<ContainerTransportMode>,
+        transported_mass_g: Option<u64>,
+        end_of_life_route_ref: Option<String>,
+        location_ref: Option<String>,
+        condition: ContainerCondition,
+        sanitation: Option<ContainerSanitationObservation>,
+        evidence: ContainerEvidenceRef,
+    }
+
+    #[test]
+    fn synthetic_container_lifecycle_fixture_has_one_verified_linear_history() {
+        let bundle: ContainerLifecycleFixtureBundle = serde_json::from_str(include_str!(
+            "../../integrity/schemas/fixtures/container-lifecycle-v1.json"
+        ))
+        .expect("container lifecycle fixture bundle must deserialize");
+        assert_eq!(bundle.container.id, "fixture:container-za-001");
+        assert_eq!(bundle.container.capacity_ml, 1_000);
+        assert_eq!(bundle.container.manufacturer_reuse_cycle_limit, Some(500));
+        assert_eq!(
+            bundle.container.material,
+            ContainerMaterial::BorosilicateGlass
+        );
+
+        let container_hash = sample_container_hash();
+        let mut records = Vec::new();
+        let mut prior_hash: Option<ActionHash> = None;
+        for (index, fixture) in bundle.events.into_iter().enumerate() {
+            assert_eq!(fixture.container_hash, "uhCEkSyntheticContainerHash");
+            assert_eq!(fixture.sequence_number, index as u64);
+            assert_eq!(
+                fixture.previous_event_hash,
+                index
+                    .checked_sub(1)
+                    .map(|previous| format!("uhCEkSyntheticEventHash{previous}"))
+            );
+            let action_hash = ActionHash::from_raw_36(vec![(index as u8).wrapping_add(20); 36]);
+            let event = ContainerCycleEvent {
+                container_hash: container_hash.clone(),
+                previous_event_hash: prior_hash.clone(),
+                sequence_number: fixture.sequence_number,
+                event_kind: fixture.event_kind,
+                occurred_at: fixture.occurred_at,
+                product_ref: fixture.product_ref,
+                product_lot_ref: fixture.product_lot_ref,
+                accepted_servings: fixture.accepted_servings,
+                filled_mass_g: fixture.filled_mass_g,
+                filled_volume_ml: fixture.filled_volume_ml,
+                transport_distance_m: fixture.transport_distance_m,
+                transport_mode: fixture.transport_mode,
+                transported_mass_g: fixture.transported_mass_g,
+                end_of_life_route_ref: fixture.end_of_life_route_ref,
+                preservation_batch_hash: None,
+                location_ref: fixture.location_ref,
+                condition: fixture.condition,
+                sanitation: fixture.sanitation,
+                evidence: fixture.evidence,
+            };
+            records.push((action_hash.clone(), event));
+            prior_hash = Some(action_hash);
+        }
+
+        let checked = validate_container_event_chain(&container_hash, records).unwrap();
+        assert_eq!(checked.len(), 12);
+        assert_eq!(derived_fill_cycle_count(&checked), 1);
+    }
+
+
+    fn sample_container_hash() -> ActionHash {
+        ActionHash::from_raw_36(vec![7u8; 36])
+    }
+
+    fn sample_cycle_event(
+        sequence_number: u64,
+        previous_event_hash: Option<ActionHash>,
+        event_kind: ContainerEventKind,
+    ) -> (ActionHash, ContainerCycleEvent) {
+        let container_hash = sample_container_hash();
+        let hash = ActionHash::from_raw_36(vec![(sequence_number as u8).wrapping_add(20); 36]);
+        let is_filled = event_kind == ContainerEventKind::Filled;
+        let event = ContainerCycleEvent {
+            container_hash,
+            previous_event_hash,
+            sequence_number,
+            event_kind,
+            occurred_at: 1_700_000_000 + sequence_number,
+            product_ref: is_filled.then(|| "product:fixture".into()),
+            product_lot_ref: is_filled.then(|| "lot:fixture-001".into()),
+            accepted_servings: is_filled.then_some(4),
+            filled_mass_g: is_filled.then_some(1_000),
+            filled_volume_ml: None,
+            transport_distance_m: None,
+            transport_mode: None,
+            transported_mass_g: None,
+            end_of_life_route_ref: None,
+            preservation_batch_hash: None,
+            location_ref: None,
+            condition: ContainerCondition::Unknown,
+            sanitation: matches!(
+                &event_kind,
+                ContainerEventKind::Washed | ContainerEventKind::Sanitized
+            )
+            .then(|| ContainerSanitationObservation {
+                protocol_ref: "protocol:fixture".into(),
+                wash_water_temp_millic: Some(60_000),
+                sanitizer_ref: Some("sanitizer:fixture".into()),
+                sanitizer_concentration_mg_l: Some(100),
+                exposure_time_ms: Some(30_000),
+                wash_water_ml: Some(2_000),
+                wash_energy_wh: Some(30),
+                detergent_mass_mg: Some(10_000),
+                observation_ref: "observation:fixture".into(),
+                evidence: ContainerEvidenceRef {
+                    source_ref: "fixture:sanitation".into(),
+                    method_ref: None,
+                    calibration_ref: None,
+                    evidence_class: ContainerEvidenceClass::Declared,
+                },
+            }),
+            evidence: ContainerEvidenceRef {
+                source_ref: "fixture:event".into(),
+                method_ref: None,
+                calibration_ref: None,
+                evidence_class: ContainerEvidenceClass::Declared,
+            },
+        };
+        (hash, event)
+    }
+
+
+    #[test]
+    fn container_history_accepts_one_linear_chain() {
+        let (h0, e0) = sample_cycle_event(0, None, ContainerEventKind::Washed);
+        let (h1, e1) = sample_cycle_event(1, Some(h0.clone()), ContainerEventKind::Sanitized);
+        let (h2, e2) = sample_cycle_event(2, Some(h1.clone()), ContainerEventKind::Inspected);
+        let checked = validate_container_event_chain(
+            &sample_container_hash(),
+            vec![(h2, e2), (h0, e0), (h1, e1)],
+        )
+        .unwrap();
+        assert_eq!(checked.len(), 3);
+        assert_eq!(checked[2].1.sequence_number, 2);
+    }
+
+    #[test]
+    fn container_history_rejects_duplicate_sequence_fork() {
+        let (h0, e0) = sample_cycle_event(0, None, ContainerEventKind::Washed);
+        let (h1a, e1a) = sample_cycle_event(1, Some(h0.clone()), ContainerEventKind::Sanitized);
+        let (h1b, e1b) = sample_cycle_event(1, Some(h0), ContainerEventKind::Sanitized);
+        let error = validate_container_event_chain(
+            &sample_container_hash(),
+            vec![
+                (h1a, e1a),
+                (h1b, e1b),
+                (ActionHash::from_raw_36(vec![1; 36]), e0),
+            ],
+        )
+        .unwrap_err();
+        assert!(error.contains("duplicate sequence"));
+    }
+
+    #[test]
+    fn container_history_rejects_gaps_and_wrong_parent() {
+        let (h0, e0) = sample_cycle_event(0, None, ContainerEventKind::Washed);
+        let (h2, e2) = sample_cycle_event(2, Some(h0.clone()), ContainerEventKind::Inspected);
+        assert!(
+            validate_container_event_chain(
+                &sample_container_hash(),
+                vec![(h0.clone(), e0.clone()), (h2, e2),]
+            )
+            .unwrap_err()
+            .contains("sequence gap")
+        );
+
+        let (wrong_parent_hash, wrong_parent_event) = sample_cycle_event(
+            1,
+            Some(ActionHash::from_raw_36(vec![99; 36])),
+            ContainerEventKind::Sanitized,
+        );
+        assert!(
+            validate_container_event_chain(
+                &sample_container_hash(),
+                vec![(h0, e0), (wrong_parent_hash, wrong_parent_event),]
+            )
+            .unwrap_err()
+            .contains("parent")
+        );
+    }
+
+    fn synthetic_lca_container() -> ReusableContainer {
+        ReusableContainer {
+            id: "fixture:lca-container".into(),
+            material: ContainerMaterial::BorosilicateGlass,
+            capacity_ml: 2_000,
+            empty_mass_g: 600,
+            temperature_min_millic: Some(0),
+            temperature_max_millic: Some(100_000),
+            closure_type: "screw-top".into(),
+            food_contact_qualification_ref: "fixture:food-contact".into(),
+            cleaning_protocol_ref: "fixture:cleaning".into(),
+            manufacturer_reuse_cycle_limit: None,
+            compatible_product_refs: vec!["product:fixture".into()],
+            registered_at: 1_700_000_000,
+            steward: fake_agent(),
+            embodied_impact_mg_co2e: Some(25_000),
+            embodied_impact_source_ref: Some("fixture:embodied-impact".into()),
+            evidence: ContainerEvidenceRef {
+                source_ref: "fixture:container".into(),
+                method_ref: Some("method:container-lca".into()),
+                calibration_ref: None,
+                evidence_class: ContainerEvidenceClass::Declared,
+            },
+        }
+    }
+
+    #[derive(Deserialize)]
+    struct ContainerImpactFixtureBundle {
+        impact_factors: ContainerLifecycleImpactFactorsV1,
+        expected_impact: ContainerImpactExpectedV1,
+        single_use_baseline: SingleUsePackagingBaselineV1,
+        expected_comparison: ContainerImpactComparisonExpectedV1,
+    }
+
+    #[derive(Deserialize)]
+    struct ContainerImpactComparisonExpectedV1 {
+        outcome: PackagingComparisonOutcomeV1,
+        reusable_ratio: (u64, u64),
+        single_use_ratio: (u64, u64),
+        single_use_mass_ratio_g: (u64, u64),
+    }
+
+    #[derive(Deserialize)]
+    struct ContainerImpactExpectedV1 {
+        accepted_servings: u64,
+        fill_events: u64,
+        embodied_packaging_mg_co2e: u64,
+        washing_electricity_mg_co2e: u64,
+        washing_water_mg_co2e: u64,
+        detergent_mg_co2e: u64,
+        logistics_mg_co2e: u64,
+        end_of_life_mg_co2e: u64,
+        total_packaging_mg_co2e: u64,
+        mg_co2e_per_accepted_serving: (u64, u64),
+        wash_water_ml_per_accepted_serving: (u64, u64),
+        wash_energy_wh_per_accepted_serving: (u64, u64),
+    }
+
+    fn synthetic_lca_fixture() -> ContainerImpactFixtureBundle {
+        serde_json::from_str(include_str!(
+            "../../integrity/schemas/fixtures/container-impact-factors-v1.json"
+        ))
+        .expect("packaging impact factor fixture must deserialize")
+    }
+
+    fn synthetic_lca_history() -> Vec<(ActionHash, ContainerCycleEvent)> {
+        let kinds = [
+            ContainerEventKind::Washed,
+            ContainerEventKind::Sanitized,
+            ContainerEventKind::Inspected,
+            ContainerEventKind::Filled,
+            ContainerEventKind::Sealed,
+            ContainerEventKind::Dispatched,
+            ContainerEventKind::Received,
+            ContainerEventKind::Emptied,
+            ContainerEventKind::Returned,
+            ContainerEventKind::Washed,
+            ContainerEventKind::Sanitized,
+            ContainerEventKind::Inspected,
+        ];
+        let mut history = Vec::new();
+        let mut previous: Option<ActionHash> = None;
+        for (index, kind) in kinds.into_iter().enumerate() {
+            let is_dispatched = kind == ContainerEventKind::Dispatched;
+            let is_returned = kind == ContainerEventKind::Returned;
+            let (hash, mut event) =
+                sample_cycle_event(index as u64, previous.clone(), kind);
+            if is_dispatched {
+                event.transport_distance_m = Some(10_000);
+                event.transport_mode = Some(ContainerTransportMode::Bicycle);
+                event.transported_mass_g = Some(1_600);
+            }
+            if is_returned {
+                event.transport_distance_m = Some(10_000);
+                event.transport_mode = Some(ContainerTransportMode::Bicycle);
+                event.transported_mass_g = Some(600);
+            }
+            previous = Some(hash.clone());
+            history.push((hash, event));
+        }
+        history
+    }
+
+    #[test]
+    fn packaging_lifecycle_impact_is_reproducible_per_accepted_serving() {
+        let container = synthetic_lca_container();
+        let container_hash = sample_container_hash();
+        let history = synthetic_lca_history();
+        let impact_fixture = synthetic_lca_fixture();
+        let factors = impact_fixture.impact_factors;
+        let report = calculate_container_lifecycle_impact(
+            &container,
+            &container_hash,
+            &history,
+            &factors,
+        )
+        .unwrap();
+
+        let expected = impact_fixture.expected_impact;
+        assert_eq!(report.fill_events, expected.fill_events);
+        assert_eq!(report.accepted_servings, expected.accepted_servings);
+        assert_eq!(report.embodied_packaging_mg_co2e, expected.embodied_packaging_mg_co2e);
+        assert_eq!(report.washing_electricity_mg_co2e, expected.washing_electricity_mg_co2e);
+        assert_eq!(report.washing_water_mg_co2e, expected.washing_water_mg_co2e);
+        assert_eq!(report.detergent_mg_co2e, expected.detergent_mg_co2e);
+        assert_eq!(report.logistics_mg_co2e, expected.logistics_mg_co2e);
+        assert_eq!(report.end_of_life_mg_co2e, expected.end_of_life_mg_co2e);
+        assert_eq!(report.total_packaging_mg_co2e, expected.total_packaging_mg_co2e);
+        assert_eq!(report.mg_co2e_per_accepted_serving, expected.mg_co2e_per_accepted_serving);
+        assert_eq!(report.wash_water_ml_per_accepted_serving, expected.wash_water_ml_per_accepted_serving);
+        assert_eq!(report.wash_energy_wh_per_accepted_serving, expected.wash_energy_wh_per_accepted_serving);
+    }
+
+    #[test]
+    fn reusable_packaging_comparison_uses_matched_factor_set_and_servings() {
+        let fixture = synthetic_lca_fixture();
+        let container = synthetic_lca_container();
+        let history = synthetic_lca_history();
+        let reusable = calculate_container_lifecycle_impact(
+            &container,
+            &sample_container_hash(),
+            &history,
+            &fixture.impact_factors,
+        )
+        .unwrap();
+        let comparison = compare_reusable_packaging_to_single_use(
+            &reusable,
+            &fixture.single_use_baseline,
+            &fixture.impact_factors,
+        )
+        .unwrap();
+        let expected = fixture.expected_comparison;
+        assert_eq!(comparison.outcome, expected.outcome);
+        assert_eq!(
+            comparison.reusable_packaging_mg_co2e_per_accepted_serving,
+            expected.reusable_ratio
+        );
+        assert_eq!(
+            comparison.single_use_packaging_mg_co2e_per_accepted_serving,
+            expected.single_use_ratio
+        );
+        assert_eq!(
+            comparison.single_use_packaging_mass_g_per_accepted_serving,
+            expected.single_use_mass_ratio_g
+        );
+    }
+
+    #[test]
+    fn reusable_packaging_comparison_rejects_factor_set_mismatch() {
+        let fixture = synthetic_lca_fixture();
+        let container = synthetic_lca_container();
+        let history = synthetic_lca_history();
+        let reusable = calculate_container_lifecycle_impact(
+            &container,
+            &sample_container_hash(),
+            &history,
+            &fixture.impact_factors,
+        )
+        .unwrap();
+        let mut baseline = fixture.single_use_baseline;
+        baseline.reference_year += 1;
+        let error = compare_reusable_packaging_to_single_use(
+            &reusable,
+            &baseline,
+            &fixture.impact_factors,
+        )
+        .unwrap_err();
+        assert_eq!(error.code, ContainerImpactErrorCodeV1::MissingFactorProvenance);
+    }
+
+    #[test]
+    fn packaging_lifecycle_impact_refuses_unknown_sanitation_inputs() {
+        let container = synthetic_lca_container();
+        let container_hash = sample_container_hash();
+        let mut history = synthetic_lca_history();
+        history[0]
+            .1
+            .sanitation
+            .as_mut()
+            .expect("wash fixture has an observation")
+            .wash_energy_wh = None;
+        let error = calculate_container_lifecycle_impact(
+            &container,
+            &container_hash,
+            &history,
+            &synthetic_lca_fixture().impact_factors,
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.code,
+            ContainerImpactErrorCodeV1::MissingSanitationObservation
+        );
+    }
+
+    #[test]
+    fn reuse_count_is_derived_only_from_fill_events() {
+        let (h0, e0) = sample_cycle_event(0, None, ContainerEventKind::Washed);
+        let (h1, e1) = sample_cycle_event(1, Some(h0.clone()), ContainerEventKind::Filled);
+        let (h2, e2) = sample_cycle_event(2, Some(h1.clone()), ContainerEventKind::Emptied);
+        let (h3, e3) = sample_cycle_event(3, Some(h2.clone()), ContainerEventKind::Filled);
+        let history = validate_container_event_chain(
+            &sample_container_hash(),
+            vec![(h0, e0), (h1, e1), (h2, e2), (h3, e3)],
+        )
+        .unwrap();
+        assert_eq!(derived_fill_cycle_count(&history), 2);
+    }
+
 
     // ========================================================================
     // BatchStatus enum serde tests

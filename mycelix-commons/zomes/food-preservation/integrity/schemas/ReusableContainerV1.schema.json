@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/food/ReusableContainerV1.schema.json",
+  "title": "ReusableContainerV1",
+  "description": "Append-only reuse programme container identity and declared operating envelope. Food-contact and sanitation compliance are separate qualified evidence claims.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "material",
+    "capacity_ml",
+    "temperature_min_millic",
+    "temperature_max_millic",
+    "closure_type",
+    "food_contact_qualification_ref",
+    "cleaning_protocol_ref",
+    "manufacturer_reuse_cycle_limit",
+    "compatible_product_refs",
+    "registered_at",
+    "steward",
+    "evidence",
+    "empty_mass_g",
+    "embodied_impact_mg_co2e",
+    "embodied_impact_source_ref"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "material": {
+      "enum": [
+        "BorosilicateGlass",
+        "StainlessSteel",
+        "FoodGradePolymer",
+        "Silicone",
+        "Ceramic",
+        "Other"
+      ]
+    },
+    "capacity_ml": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "temperature_min_millic": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "temperature_max_millic": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "closure_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "food_contact_qualification_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cleaning_protocol_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "manufacturer_reuse_cycle_limit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "compatible_product_refs": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "registered_at": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "steward": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Holochain AgentPubKey identifier"
+    },
+    "evidence": {
+      "$ref": "#/$defs/evidence"
+    },
+    "empty_mass_g": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Empty container mass including closure, in grams"
+    },
+    "embodied_impact_mg_co2e": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "embodied_impact_source_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "temperature_min_millic": {
+            "type": "integer"
+          },
+          "temperature_max_millic": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "temperature_min_millic",
+          "temperature_max_millic"
+        ]
+      },
+      "then": {
+        "description": "Runtime validation enforces minimum temperature <= maximum temperature."
+      }
+    }
+  ],
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_ref",
+        "method_ref",
+        "calibration_ref",
+        "evidence_class"
+      ],
+      "properties": {
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "calibration_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "evidence_class": {
+          "enum": [
+            "Declared",
+            "Modelled",
+            "Simulated",
+            "Measured",
+            "IndependentlyAssayed",
+            "IndependentlyQualified"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidence_class": {
+                "const": "Measured"
+              }
+            },
+            "required": [
+              "evidence_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "calibration_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evidence_class": {
+                "enum": [
+                  "IndependentlyAssayed",
+                  "IndependentlyQualified"
+                ]
+              }
+            },
+            "required": [
+              "evidence_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "method_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

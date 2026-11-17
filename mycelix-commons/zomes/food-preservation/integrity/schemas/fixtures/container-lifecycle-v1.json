@@ -1,0 +1,439 @@
+{
+  "fixture_bundle_id": "container-lifecycle-v1",
+  "status": "synthetic_only_not_hygiene_qualification",
+  "container": {
+    "id": "fixture:container-za-001",
+    "material": "BorosilicateGlass",
+    "capacity_ml": 1000,
+    "temperature_min_millic": -20000,
+    "temperature_max_millic": 100000,
+    "closure_type": "screw-top",
+    "food_contact_qualification_ref": "fixture:food-contact-qualification",
+    "cleaning_protocol_ref": "fixture:cleaning-protocol",
+    "manufacturer_reuse_cycle_limit": 500,
+    "compatible_product_refs": [
+      "product:dry-goods"
+    ],
+    "registered_at": 1700000000,
+    "steward": "uhCAkSyntheticAgentKey",
+    "evidence": {
+      "source_ref": "fixture:synthetic-observation",
+      "method_ref": null,
+      "calibration_ref": null,
+      "evidence_class": "Declared"
+    },
+    "empty_mass_g": 600,
+    "embodied_impact_mg_co2e": 25000,
+    "embodied_impact_source_ref": "fixture:packaging-embodied-impact-method-v1"
+  },
+  "events": [
+    {
+      "container_hash": "uhCEkSyntheticContainerHash",
+      "previous_event_hash": null,
+      "sequence_number": 0,
+      "event_kind": "Washed",
+      "occurred_at": 1700000000,
+      "product_ref": null,
+      "product_lot_ref": null,
+      "preservation_batch_hash": null,
+      "location_ref": "loc:community-kitchen",
+      "condition": "NeedsCleaning",
+      "sanitation": {
+        "protocol_ref": "fixture:protocol:washed",
+        "wash_water_temp_millic": 60000,
+        "sanitizer_ref": "fixture:washing-agent",
+        "sanitizer_concentration_mg_l": null,
+        "exposure_time_ms": null,
+        "observation_ref": "fixture:observation:washed",
+        "evidence": {
+          "source_ref": "fixture:event:sanitation-Washed",
+          "method_ref": null,
+          "calibration_ref": null,
+          "evidence_class": "Declared"
+        },
+        "wash_water_ml": 2000,
+        "wash_energy_wh": 30,
+        "detergent_mass_mg": 10000
+      },
+      "evidence": {
+        "source_ref": "fixture:event:Washed",
+        "method_ref": null,
+        "calibration_ref": null,
+        "evidence_class": "Declared"
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
+    },
+    {
+      "container_hash": "uhCEkSyntheticContainerHash",
+      "previous_event_hash": "uhCEkSyntheticEventHash0",
+      "sequence_number": 1,
+      "event_kind": "Sanitized",
+      "occurred_at": 1700000100,
+      "product_ref": null,
+      "product_lot_ref": null,
+      "preservation_batch_hash": null,
+      "location_ref": "loc:community-kitchen",
+      "condition": "Serviceable",
+      "sanitation": {
+        "protocol_ref": "fixture:protocol:sanitized",
+        "wash_water_temp_millic": 60000,
+        "sanitizer_ref": "fixture:sanitizer",
+        "sanitizer_concentration_mg_l": 100,
+        "exposure_time_ms": 30000,
+        "observation_ref": "fixture:observation:sanitized",
+        "evidence": {
+          "source_ref": "fixture:event:sanitation-Sanitized",
+          "method_ref": null,
+          "calibration_ref": null,
+          "evidence_class": "Declared"
+        },
+        "wash_water_ml": 2000,
+        "wash_energy_wh": 30,
+        "detergent_mass_mg": 10000
+      },
+      "evidence": {
+        "source_ref": "fixture:event:Sanitized",
+        "method_ref": null,
+        "calibration_ref": null,
+        "evidence_class": "Declared"
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
+    },
+    {
+      "container_hash": "uhCEkSyntheticContainerHash",
+      "previous_event_hash": "uhCEkSyntheticEventHash1",
+      "sequence_number": 2,
+      "event_kind": "Inspected",
+      "occurred_at": 1700000200,
+      "product_ref": null,
+      "product_lot_ref": null,
+      "preservation_batch_hash": null,
+      "location_ref": "loc:community-kitchen",
+      "condition": "Serviceable",
+      "sanitation": null,
+      "evidence": {
+        "source_ref": "fixture:event:Inspected",
+        "method_ref": null,
+        "calibration_ref": null,
+        "evidence_class": "Declared"
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
+    },
+    {
+      "container_hash": "uhCEkSyntheticContainerHash",
+      "previous_event_hash": "uhCEkSyntheticEventHash2",
+      "sequence_number": 3,
+      "event_kind": "Filled",
+      "occurred_at": 1700000300,
+      "product_ref": "product:dry-goods",
+      "product_lot_ref": "lot:flour-001",
+      "preservation_batch_hash": null,
+      "location_ref": "loc:community-kitchen",
+      "condition": "Serviceable",
+      "sanitation": null,
+      "evidence": {
+        "source_ref": "fixture:event:Filled",
+        "method_ref": null,
+        "calibration_ref": null,
+        "evidence_class": "Declared"
+      },
+      "accepted_servings": 4,
+      "filled_mass_g": 1000,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
+    },
+    {
+      "container_hash": "uhCEkSyntheticContainerHash",
+      "previous_event_hash": "uhCEkSyntheticEventHash3",
+      "sequence_number": 4,
+      "event_kind": "Sealed",
+      "occurred_at": 1700000400,
+      "product_ref": null,
+      "product_lot_ref": null,
+      "preservation_batch_hash": null,
+      "location_ref": "loc:community-kitchen",
+      "condition": "Serviceable",
+      "sanitation": null,
+      "evidence": {
+        "source_ref": "fixture:event:Sealed",
+        "method_ref": null,
+        "calibration_ref": null,
+        "evidence_class": "Declared"
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
+    },
+    {
+      "container_hash": "uhCEkSyntheticContainerHash",
+      "previous_event_hash": "uhCEkSyntheticEventHash4",
+      "sequence_number": 5,
+      "event_kind": "Dispatched",
+      "occurred_at": 1700000500,
+      "product_ref": null,
+      "product_lot_ref": null,
+      "preservation_batch_hash": null,
+      "location_ref": "loc:community-kitchen",
+      "condition": "Serviceable",
+      "sanitation": null,
+      "evidence": {
+        "source_ref": "fixture:event:Dispatched",
+        "method_ref": null,
+        "calibration_ref": null,
+        "evidence_class": "Declared"
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": 10000,
+      "transport_mode": "Bicycle",
+      "transported_mass_g": 1600,
+      "end_of_life_route_ref": null
+    },
+    {
+      "container_hash": "uhCEkSyntheticContainerHash",
+      "previous_event_hash": "uhCEkSyntheticEventHash5",
+      "sequence_number": 6,
+      "event_kind": "Received",
+      "occurred_at": 1700000600,
+      "product_ref": null,
+      "product_lot_ref": null,
+      "preservation_batch_hash": null,
+      "location_ref": "loc:community-kitchen",
+      "condition": "Serviceable",
+      "sanitation": null,
+      "evidence": {
+        "source_ref": "fixture:event:Received",
+        "method_ref": null,
+        "calibration_ref": null,
+        "evidence_class": "Declared"
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
+    },
+    {
+      "container_hash": "uhCEkSyntheticContainerHash",
+      "previous_event_hash": "uhCEkSyntheticEventHash6",
+      "sequence_number": 7,
+      "event_kind": "Emptied",
+      "occurred_at": 1700000700,
+      "product_ref": null,
+      "product_lot_ref": null,
+      "preservation_batch_hash": null,
+      "location_ref": "loc:community-kitchen",
+      "condition": "NeedsCleaning",
+      "sanitation": null,
+      "evidence": {
+        "source_ref": "fixture:event:Emptied",
+        "method_ref": null,
+        "calibration_ref": null,
+        "evidence_class": "Declared"
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
+    },
+    {
+      "container_hash": "uhCEkSyntheticContainerHash",
+      "previous_event_hash": "uhCEkSyntheticEventHash7",
+      "sequence_number": 8,
+      "event_kind": "Returned",
+      "occurred_at": 1700000800,
+      "product_ref": null,
+      "product_lot_ref": null,
+      "preservation_batch_hash": null,
+      "location_ref": "loc:community-kitchen",
+      "condition": "NeedsCleaning",
+      "sanitation": null,
+      "evidence": {
+        "source_ref": "fixture:event:Returned",
+        "method_ref": null,
+        "calibration_ref": null,
+        "evidence_class": "Declared"
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": 10000,
+      "transport_mode": "Bicycle",
+      "transported_mass_g": 600,
+      "end_of_life_route_ref": null
+    },
+    {
+      "container_hash": "uhCEkSyntheticContainerHash",
+      "previous_event_hash": "uhCEkSyntheticEventHash8",
+      "sequence_number": 9,
+      "event_kind": "Washed",
+      "occurred_at": 1700000900,
+      "product_ref": null,
+      "product_lot_ref": null,
+      "preservation_batch_hash": null,
+      "location_ref": "loc:community-kitchen",
+      "condition": "NeedsCleaning",
+      "sanitation": {
+        "protocol_ref": "fixture:protocol:washed",
+        "wash_water_temp_millic": 60000,
+        "sanitizer_ref": "fixture:washing-agent",
+        "sanitizer_concentration_mg_l": null,
+        "exposure_time_ms": null,
+        "observation_ref": "fixture:observation:washed",
+        "evidence": {
+          "source_ref": "fixture:event:sanitation-Washed",
+          "method_ref": null,
+          "calibration_ref": null,
+          "evidence_class": "Declared"
+        },
+        "wash_water_ml": 2000,
+        "wash_energy_wh": 30,
+        "detergent_mass_mg": 10000
+      },
+      "evidence": {
+        "source_ref": "fixture:event:Washed",
+        "method_ref": null,
+        "calibration_ref": null,
+        "evidence_class": "Declared"
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
+    },
+    {
+      "container_hash": "uhCEkSyntheticContainerHash",
+      "previous_event_hash": "uhCEkSyntheticEventHash9",
+      "sequence_number": 10,
+      "event_kind": "Sanitized",
+      "occurred_at": 1700001000,
+      "product_ref": null,
+      "product_lot_ref": null,
+      "preservation_batch_hash": null,
+      "location_ref": "loc:community-kitchen",
+      "condition": "Serviceable",
+      "sanitation": {
+        "protocol_ref": "fixture:protocol:sanitized",
+        "wash_water_temp_millic": 60000,
+        "sanitizer_ref": "fixture:sanitizer",
+        "sanitizer_concentration_mg_l": 100,
+        "exposure_time_ms": 30000,
+        "observation_ref": "fixture:observation:sanitized",
+        "evidence": {
+          "source_ref": "fixture:event:sanitation-Sanitized",
+          "method_ref": null,
+          "calibration_ref": null,
+          "evidence_class": "Declared"
+        },
+        "wash_water_ml": 2000,
+        "wash_energy_wh": 30,
+        "detergent_mass_mg": 10000
+      },
+      "evidence": {
+        "source_ref": "fixture:event:Sanitized",
+        "method_ref": null,
+        "calibration_ref": null,
+        "evidence_class": "Declared"
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
+    },
+    {
+      "container_hash": "uhCEkSyntheticContainerHash",
+      "previous_event_hash": "uhCEkSyntheticEventHash10",
+      "sequence_number": 11,
+      "event_kind": "Inspected",
+      "occurred_at": 1700001100,
+      "product_ref": null,
+      "product_lot_ref": null,
+      "preservation_batch_hash": null,
+      "location_ref": "loc:community-kitchen",
+      "condition": "Serviceable",
+      "sanitation": null,
+      "evidence": {
+        "source_ref": "fixture:event:Inspected",
+        "method_ref": null,
+        "calibration_ref": null,
+        "evidence_class": "Declared"
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
+    }
+  ],
+  "adversarial_cases": [
+    {
+      "case_id": "duplicate-sequence-fork",
+      "expected": "conflict",
+      "description": "Two distinct events claim the same sequence and parent; coordinator must block further appends."
+    },
+    {
+      "case_id": "sequence-gap",
+      "expected": "conflict",
+      "description": "A history omits one sequence; coordinator must not infer a current count."
+    },
+    {
+      "case_id": "wrong-parent",
+      "expected": "conflict",
+      "description": "A child names a parent from another container or an earlier non-head event."
+    },
+    {
+      "case_id": "fill-with-incompatible-product",
+      "expected": "reject",
+      "description": "A fill product_ref is not listed in compatible_product_refs."
+    },
+    {
+      "case_id": "fill-before-inspection",
+      "expected": "reject",
+      "description": "A fill follows sanitization but skips an inspection."
+    },
+    {
+      "case_id": "sanitize-without-concentration-or-exposure",
+      "expected": "reject",
+      "description": "A Sanitized event lacks sanitizer identity/concentration/exposure observation."
+    }
+  ]
+}

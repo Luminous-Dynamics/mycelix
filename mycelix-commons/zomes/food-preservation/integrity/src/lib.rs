@@ -6,6 +6,7 @@
 
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
+use std::collections::BTreeSet;
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -83,6 +84,148 @@ pub struct StorageUnit {
     pub steward: AgentPubKey,
 }
 
+
+// REUSABLE FOOD CONTAINERS AND APPEND-ONLY LIFECYCLE
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ContainerMaterial {
+    BorosilicateGlass,
+    StainlessSteel,
+    FoodGradePolymer,
+    Silicone,
+    Ceramic,
+    Other,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ContainerEventKind {
+    Washed,
+    Sanitized,
+    Inspected,
+    Filled,
+    Sealed,
+    Dispatched,
+    Received,
+    Emptied,
+    Returned,
+    Retired,
+    Lost,
+    Damaged,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ContainerCondition {
+    Serviceable,
+    NeedsCleaning,
+    Damaged,
+    FailedInspection,
+    Retired,
+    Lost,
+    Unknown,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ContainerTransportMode {
+    HumanPowered,
+    Bicycle,
+    Motorcycle,
+    PassengerVehicle,
+    LightCommercialVehicle,
+    HeavyGoodsVehicle,
+    Rail,
+    Ship,
+    Air,
+    Other,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ContainerEvidenceClass {
+    Declared,
+    Modelled,
+    Simulated,
+    Measured,
+    IndependentlyAssayed,
+    IndependentlyQualified,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ContainerEvidenceRef {
+    pub source_ref: String,
+    pub method_ref: Option<String>,
+    pub calibration_ref: Option<String>,
+    pub evidence_class: ContainerEvidenceClass,
+}
+
+/// Capacity is millilitres; temperature limits are milli-degrees Celsius.
+/// Food-contact qualification and cleaning references are evidence pointers.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct ReusableContainer {
+    pub id: String,
+    pub material: ContainerMaterial,
+    pub capacity_ml: u64,
+    /// Empty container mass including closure for reverse-logistics accounting.
+    pub empty_mass_g: u64,
+    /// Optional one-time embodied impact and its source. Neither is inferred.
+    pub embodied_impact_mg_co2e: Option<u64>,
+    pub embodied_impact_source_ref: Option<String>,
+    pub temperature_min_millic: Option<i32>,
+    pub temperature_max_millic: Option<i32>,
+    pub closure_type: String,
+    pub food_contact_qualification_ref: String,
+    pub cleaning_protocol_ref: String,
+    pub manufacturer_reuse_cycle_limit: Option<u32>,
+    pub compatible_product_refs: Vec<String>,
+    pub registered_at: u64,
+    pub steward: AgentPubKey,
+    pub evidence: ContainerEvidenceRef,
+}
+
+/// Observations are not a claim that a microbiological reduction target was met.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ContainerSanitationObservation {
+    pub protocol_ref: String,
+    pub wash_water_temp_millic: Option<i32>,
+    pub sanitizer_ref: Option<String>,
+    pub sanitizer_concentration_mg_l: Option<u64>,
+    pub exposure_time_ms: Option<u64>,
+    /// Optional resource measurements; None means unknown, not zero.
+    pub wash_water_ml: Option<u64>,
+    pub wash_energy_wh: Option<u64>,
+    pub detergent_mass_mg: Option<u64>,
+    pub observation_ref: String,
+    pub evidence: ContainerEvidenceRef,
+}
+
+/// Append-only lifecycle event. Reuse count is derived from Filled events.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct ContainerCycleEvent {
+    pub container_hash: ActionHash,
+    pub previous_event_hash: Option<ActionHash>,
+    pub sequence_number: u64,
+    pub event_kind: ContainerEventKind,
+    pub occurred_at: u64,
+    pub product_ref: Option<String>,
+    pub product_lot_ref: Option<String>,
+    /// Serving count and filled quantity support a declared functional unit.
+    pub accepted_servings: Option<u32>,
+    pub filled_mass_g: Option<u64>,
+    pub filled_volume_ml: Option<u64>,
+    /// Distribution and reverse-logistics observations, not estimates.
+    pub transport_distance_m: Option<u64>,
+    pub transport_mode: Option<ContainerTransportMode>,
+    /// Measured total mass (container plus contents) carried on this leg.
+    pub transported_mass_g: Option<u64>,
+    pub end_of_life_route_ref: Option<String>,
+    pub preservation_batch_hash: Option<ActionHash>,
+    pub location_ref: Option<String>,
+    pub condition: ContainerCondition,
+    pub sanitation: Option<ContainerSanitationObservation>,
+    pub evidence: ContainerEvidenceRef,
+}
+
+
 // ============================================================================
 // ENTRY & LINK TYPE REGISTRATION
 // ============================================================================
@@ -94,6 +237,8 @@ pub enum EntryTypes {
     PreservationBatch(PreservationBatch),
     PreservationMethod(PreservationMethod),
     StorageUnit(StorageUnit),
+    ReusableContainer(ReusableContainer),
+    ContainerCycleEvent(ContainerCycleEvent),
 }
 
 #[hdk_link_types]
@@ -104,7 +249,151 @@ pub enum LinkTypes {
     MethodToBatch,
     StorageToBatch,
     AgentToBatch,
+    AllReusableContainers,
+    ContainerToCycleEvents,
+    ContainerEventToNext,
 }
+
+
+fn validate_container_link(
+    link_type: LinkTypes,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+    tag: LinkTag,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    if tag.0.len() > 512 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container lifecycle link tag too long (max 512 bytes)".into(),
+        ));
+    }
+    match link_type {
+        LinkTypes::AllReusableContainers => {
+            let Some(target_hash) = target_address.into_action_hash() else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AllReusableContainers target must be an action hash".into(),
+                ));
+            };
+            let record = must_get_valid_record(target_hash)?;
+            let container: ReusableContainer = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "AllReusableContainers target is not a ReusableContainer".into()
+                )))?;
+            if &container.steward != author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the container steward may add the registry link".into(),
+                ));
+            }
+            if base_address.as_ref().len() != 39 {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AllReusableContainers base anchor hash is invalid".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        LinkTypes::ContainerToCycleEvents => {
+            let Some(container_hash) = base_address.into_action_hash() else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ContainerToCycleEvents base must be a container action hash".into(),
+                ));
+            };
+            let Some(event_hash) = target_address.into_action_hash() else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ContainerToCycleEvents target must be an event action hash".into(),
+                ));
+            };
+            let container_record = must_get_valid_record(container_hash.clone())?;
+            let container: ReusableContainer = container_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "ContainerToCycleEvents base is not a ReusableContainer".into()
+                )))?;
+            if &container.steward != author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the container steward may index its lifecycle events".into(),
+                ));
+            }
+            let event_record = must_get_valid_record(event_hash)?;
+            let event: ContainerCycleEvent = event_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "ContainerToCycleEvents target is not a ContainerCycleEvent".into()
+                )))?;
+            if event.container_hash != container_hash
+                || tag.0 != event.sequence_number.to_be_bytes().to_vec()
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ContainerToCycleEvents link must bind the matching container and sequence tag"
+                        .into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        LinkTypes::ContainerEventToNext => {
+            let Some(previous_hash) = base_address.into_action_hash() else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ContainerEventToNext base must be an event action hash".into(),
+                ));
+            };
+            let Some(next_hash) = target_address.into_action_hash() else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ContainerEventToNext target must be an event action hash".into(),
+                ));
+            };
+            let previous_record = must_get_valid_record(previous_hash.clone())?;
+            let previous: ContainerCycleEvent = previous_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "ContainerEventToNext base is not a ContainerCycleEvent".into()
+                )))?;
+            let next_record = must_get_valid_record(next_hash)?;
+            let next: ContainerCycleEvent = next_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "ContainerEventToNext target is not a ContainerCycleEvent".into()
+                )))?;
+            let container_record = must_get_valid_record(previous.container_hash.clone())?;
+            let container: ReusableContainer = container_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "ContainerEventToNext parent references a missing container".into()
+                )))?;
+            if &container.steward != author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the container steward may index the event parent link".into(),
+                ));
+            }
+            if next.container_hash != previous.container_hash
+                || next.previous_event_hash.as_ref() != Some(&previous_hash)
+                || previous.sequence_number.checked_add(1) != Some(next.sequence_number)
+                || !tag.0.is_empty()
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ContainerEventToNext must bind the exact parent event and next sequence"
+                        .into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        _ => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported link type for container lifecycle validation".into(),
+        )),
+    }
+}
+
 
 // ============================================================================
 // VALIDATION
@@ -114,20 +403,45 @@ pub enum LinkTypes {
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::PreservationBatch(b) => validate_batch(b),
                 EntryTypes::PreservationMethod(m) => validate_method(m),
                 EntryTypes::StorageUnit(s) => validate_storage(s),
+                EntryTypes::ReusableContainer(container) => {
+                    validate_reusable_container(container, &action.author)
+                }
+                EntryTypes::ContainerCycleEvent(event) => {
+                    validate_container_cycle_event(event, &action.author)
+                }
             },
             OpEntry::UpdateEntry {
                 app_entry: EntryTypes::PreservationBatch(b),
                 ..
             } => validate_batch(b),
+            OpEntry::UpdateEntry {
+                app_entry: EntryTypes::ReusableContainer(_),
+                ..
+            } => Ok(ValidateCallbackResult::Invalid(
+                "Reusable container registration records are immutable; use lifecycle events"
+                    .into(),
+            )),
+            OpEntry::UpdateEntry {
+                app_entry: EntryTypes::ContainerCycleEvent(_),
+                ..
+            } => Ok(ValidateCallbackResult::Invalid(
+                "Container cycle events are append-only and cannot be updated".into(),
+            )),
             OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Valid),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => match link_type {
+        FlatOp::RegisterCreateLink {
+            link_type,
+            base_address,
+            target_address,
+            tag,
+            action,
+        } => match link_type {
             LinkTypes::AllBatches => {
                 if tag.0.len() > 256 {
                     return Ok(ValidateCallbackResult::Invalid(
@@ -176,8 +490,27 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
+            LinkTypes::AllReusableContainers
+            | LinkTypes::ContainerToCycleEvents
+            | LinkTypes::ContainerEventToNext => validate_container_link(
+                link_type,
+                base_address,
+                target_address,
+                tag,
+                &action.author,
+            ),
         },
-        FlatOp::RegisterDeleteLink { action, .. } => {
+        FlatOp::RegisterDeleteLink { link_type, action } => {
+            if matches!(
+                link_type,
+                LinkTypes::AllReusableContainers
+                    | LinkTypes::ContainerToCycleEvents
+                    | LinkTypes::ContainerEventToNext
+            ) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Reusable container registry and lifecycle links are immutable".into(),
+                ));
+            }
             let original_action = must_get_action(action.link_add_address.clone())?;
             Ok(check_link_author_match(
                 original_action.action().author(),
@@ -202,6 +535,22 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ))
         }
         FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let deleted_record = must_get_valid_record(action.deletes_address.clone())?;
+            let deleted_entry: Option<EntryTypes> = deleted_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            if let Some(entry) = deleted_entry {
+                if matches!(
+                    entry,
+                    EntryTypes::ReusableContainer(_) | EntryTypes::ContainerCycleEvent(_)
+                ) {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Reusable containers and lifecycle events are immutable; deletion is prohibited"
+                            .into(),
+                    ));
+                }
+            }
             let original = must_get_action(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
@@ -210,6 +559,445 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ))
         }
     }
+}
+
+
+fn validate_container_evidence(
+    evidence: &ContainerEvidenceRef,
+) -> ExternResult<ValidateCallbackResult> {
+    if evidence.source_ref.trim().is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container evidence source_ref cannot be empty".into(),
+        ));
+    }
+    if evidence
+        .method_ref
+        .as_deref()
+        .is_some_and(|value| value.trim().is_empty())
+        || evidence
+            .calibration_ref
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Optional evidence references cannot be empty".into(),
+        ));
+    }
+    if evidence.evidence_class == ContainerEvidenceClass::Measured
+        && evidence
+            .calibration_ref
+            .as_deref()
+            .is_none_or(|value| value.trim().is_empty())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Measured evidence requires a calibration reference".into(),
+        ));
+    }
+    if matches!(
+        evidence.evidence_class,
+        ContainerEvidenceClass::IndependentlyAssayed
+            | ContainerEvidenceClass::IndependentlyQualified
+    ) && evidence
+        .method_ref
+        .as_deref()
+        .is_none_or(|value| value.trim().is_empty())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Independent assay/qualification requires a method reference".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_reusable_container(
+    container: ReusableContainer,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    if container.id.trim().is_empty() || container.id.len() > 128 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container ID must be non-empty and at most 128 characters".into(),
+        ));
+    }
+    if &container.steward != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container steward must be the agent registering the container".into(),
+        ));
+    }
+    if container.registered_at == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container registered_at must be positive Unix time".into(),
+        ));
+    }
+    if container.capacity_ml == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container capacity_ml must be positive".into(),
+        ));
+    }
+    if container.empty_mass_g == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container empty_mass_g must be positive".into(),
+        ));
+    }
+    if container.embodied_impact_mg_co2e.is_some()
+        != container.embodied_impact_source_ref.is_some()
+        || container.embodied_impact_source_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Embodied impact and its non-empty source reference must be supplied together".into(),
+        ));
+    }
+    if container.closure_type.trim().is_empty()
+        || container.closure_type.len() > 128
+        || container.food_contact_qualification_ref.trim().is_empty()
+        || container.cleaning_protocol_ref.trim().is_empty()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Closure, food-contact and cleaning references are required".into(),
+        ));
+    }
+    if container.temperature_min_millic.is_some_and(|minimum| {
+        container
+            .temperature_max_millic
+            .is_some_and(|maximum| minimum > maximum)
+    }) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Temperature minimum cannot exceed maximum".into(),
+        ));
+    }
+    if container.manufacturer_reuse_cycle_limit == Some(0) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Manufacturer reuse cycle limit must be positive when supplied".into(),
+        ));
+    }
+    if container.compatible_product_refs.len() > 128
+        || container
+            .compatible_product_refs
+            .iter()
+            .any(|value| value.trim().is_empty())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Compatible product refs must be non-empty and at most 128 entries".into(),
+        ));
+    }
+    let mut product_refs = BTreeSet::new();
+    if container
+        .compatible_product_refs
+        .iter()
+        .any(|value| !product_refs.insert(value.as_str()))
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Compatible product refs must be unique".into(),
+        ));
+    }
+    validate_container_evidence(&container.evidence)
+}
+
+fn validate_container_transition_fields(
+    previous: Option<&ContainerCycleEvent>,
+    current: &ContainerCycleEvent,
+) -> ValidateCallbackResult {
+    let valid = match (
+        previous.map(|event| event.event_kind.clone()),
+        &current.event_kind,
+    ) {
+        (None, ContainerEventKind::Washed) => {
+            current.condition == ContainerCondition::NeedsCleaning
+        }
+        (
+            Some(ContainerEventKind::Emptied | ContainerEventKind::Returned),
+            ContainerEventKind::Washed,
+        ) => current.condition == ContainerCondition::NeedsCleaning,
+        (Some(ContainerEventKind::Washed), ContainerEventKind::Sanitized) => {
+            current.condition == ContainerCondition::Serviceable
+        }
+        (Some(ContainerEventKind::Sanitized), ContainerEventKind::Inspected) => matches!(
+            current.condition,
+            ContainerCondition::Serviceable | ContainerCondition::FailedInspection
+        ),
+        (Some(ContainerEventKind::Inspected), ContainerEventKind::Filled) => {
+            previous.is_some_and(|event| event.condition == ContainerCondition::Serviceable)
+                && current.condition == ContainerCondition::Serviceable
+        }
+        (Some(ContainerEventKind::Filled), ContainerEventKind::Sealed) => {
+            current.condition == ContainerCondition::Serviceable
+        }
+        (Some(ContainerEventKind::Sealed), ContainerEventKind::Dispatched) => {
+            current.condition == ContainerCondition::Serviceable
+        }
+        (Some(ContainerEventKind::Dispatched), ContainerEventKind::Received) => {
+            current.condition == ContainerCondition::Serviceable
+        }
+        (Some(ContainerEventKind::Received), ContainerEventKind::Emptied) => {
+            current.condition == ContainerCondition::NeedsCleaning
+        }
+        (Some(ContainerEventKind::Emptied), ContainerEventKind::Returned) => {
+            current.condition == ContainerCondition::NeedsCleaning
+        }
+        (Some(previous_kind), ContainerEventKind::Retired)
+            if !matches!(
+                previous_kind,
+                ContainerEventKind::Retired | ContainerEventKind::Lost
+            ) =>
+        {
+            current.condition == ContainerCondition::Retired
+        }
+        (Some(previous_kind), ContainerEventKind::Lost)
+            if !matches!(
+                previous_kind,
+                ContainerEventKind::Retired | ContainerEventKind::Lost
+            ) =>
+        {
+            current.condition == ContainerCondition::Lost
+        }
+        (Some(previous_kind), ContainerEventKind::Damaged)
+            if !matches!(
+                previous_kind,
+                ContainerEventKind::Retired
+                    | ContainerEventKind::Lost
+                    | ContainerEventKind::Damaged
+            ) =>
+        {
+            current.condition == ContainerCondition::Damaged
+        }
+        _ => false,
+    };
+    if valid {
+        ValidateCallbackResult::Valid
+    } else {
+        ValidateCallbackResult::Invalid(format!(
+            "Invalid container lifecycle transition: {:?} -> {:?} with condition {:?}",
+            previous.map(|event| &event.event_kind),
+            current.event_kind,
+            current.condition
+        ))
+    }
+}
+
+fn validate_container_cycle_event(
+    event: ContainerCycleEvent,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    if event.occurred_at == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Container event time must be positive".into(),
+        ));
+    }
+    if event.accepted_servings == Some(0)
+        || event.filled_mass_g == Some(0)
+        || event.filled_volume_ml == Some(0)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Accepted servings, filled mass and filled volume must be positive when supplied".into(),
+        ));
+    }
+    let has_transport_observation = event.transport_distance_m.is_some()
+        || event.transport_mode.is_some()
+        || event.transported_mass_g.is_some();
+    if has_transport_observation
+        && (event.transport_distance_m.is_none()
+            || event.transport_mode.is_none()
+            || event.transported_mass_g.is_none())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transport distance, mode and transported mass must be supplied together".into(),
+        ));
+    }
+    if matches!(
+        &event.event_kind,
+        ContainerEventKind::Dispatched | ContainerEventKind::Returned
+    ) && event.transport_distance_m.is_none()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Dispatched/Returned events require a transport observation".into(),
+        ));
+    }
+    if event.transported_mass_g == Some(0) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transported mass must be positive when supplied".into(),
+        ));
+    }
+    if event.end_of_life_route_ref.as_deref().is_some_and(|value| value.trim().is_empty()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "End-of-life route reference must be non-empty when supplied".into(),
+        ));
+    }
+    if event
+        .product_ref
+        .as_deref()
+        .is_some_and(|value| value.trim().is_empty())
+        || event
+            .product_lot_ref
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
+        || event
+            .location_ref
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Optional lot/location refs must be non-empty when supplied".into(),
+        ));
+    }
+    if event.event_kind == ContainerEventKind::Filled
+        && (event.accepted_servings.is_none()
+            || (event.filled_mass_g.is_none() && event.filled_volume_ml.is_none()))
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Filled events require accepted_servings and a filled mass or volume for impact accounting".into(),
+        ));
+    }
+    if event.event_kind == ContainerEventKind::Filled
+        && event.product_lot_ref.is_none()
+        && event.preservation_batch_hash.is_none()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Filled event must reference a product lot or preservation batch".into(),
+        ));
+    }
+    if let Some(batch_hash) = event.preservation_batch_hash.as_ref() {
+        let batch_record = must_get_valid_record(batch_hash.clone())?;
+        let _: PreservationBatch = batch_record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Container event preservation_batch_hash does not reference a PreservationBatch"
+                    .into()
+            )))?;
+    }
+    if matches!(
+        &event.event_kind,
+        ContainerEventKind::Washed | ContainerEventKind::Sanitized
+    ) {
+        let Some(observation) = event.sanitation.as_ref() else {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Washed/Sanitized events require a sanitation observation".into(),
+            ));
+        };
+        // Optional resource observations distinguish unknown (None) from a
+        // measured zero (Some(0)); the LCA calculator requires all fields.
+        if observation.protocol_ref.trim().is_empty()
+            || observation.observation_ref.trim().is_empty()
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Sanitation protocol and observation refs must be non-empty".into(),
+            ));
+        }
+        if observation
+            .sanitizer_ref
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
+            || observation.exposure_time_ms == Some(0)
+            || observation.sanitizer_concentration_mg_l == Some(0)
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Sanitation optional refs must be non-empty and exposure time positive".into(),
+            ));
+        }
+        if event.event_kind == ContainerEventKind::Sanitized
+            && (observation
+                .sanitizer_ref
+                .as_deref()
+                .is_none_or(|value| value.trim().is_empty())
+                || observation
+                    .sanitizer_concentration_mg_l
+                    .is_none_or(|value| value == 0)
+                || observation.exposure_time_ms.is_none_or(|value| value == 0))
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Sanitized events require sanitizer identity, concentration and exposure-time observations".into(),
+            ));
+        }
+        match validate_container_evidence(&observation.evidence)? {
+            ValidateCallbackResult::Valid => {}
+            invalid @ ValidateCallbackResult::Invalid(_) => return Ok(invalid),
+        }
+    } else if event.sanitation.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Sanitation observation is only valid on Washed/Sanitized events".into(),
+        ));
+    }
+
+    if event.sequence_number == 0 && event.previous_event_hash.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Root container event must not have a previous event".into(),
+        ));
+    }
+    if event.sequence_number > 0 && event.previous_event_hash.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Non-root container event requires a previous event".into(),
+        ));
+    }
+
+    let container_record = must_get_valid_record(event.container_hash.clone())?;
+    let container: ReusableContainer = container_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Container reference is not a ReusableContainer entry".into()
+        )))?;
+    if &container.steward != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the registered container steward may append lifecycle events".into(),
+        ));
+    }
+    if event.event_kind == ContainerEventKind::Retired
+        && event.end_of_life_route_ref.as_deref().is_none_or(|value| value.trim().is_empty())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Retired events require an end-of-life route reference".into(),
+        ));
+    }
+    if event.event_kind == ContainerEventKind::Filled
+        && !container.compatible_product_refs.is_empty()
+        && event.product_ref.as_deref().is_none_or(|product_ref| {
+            !container
+                .compatible_product_refs
+                .iter()
+                .any(|allowed| allowed == product_ref)
+        })
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Filled product_ref is not in the container's compatible product list".into(),
+        ));
+    }
+
+    if let Some(previous_hash) = event.previous_event_hash.as_ref() {
+        let previous_record = must_get_valid_record(previous_hash.clone())?;
+        let previous: ContainerCycleEvent = previous_record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Previous event is not a ContainerCycleEvent entry".into()
+            )))?;
+        if previous.container_hash != event.container_hash {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Previous event belongs to another container".into(),
+            ));
+        }
+        if previous.sequence_number.checked_add(1) != Some(event.sequence_number) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Event sequence must be exactly previous sequence + 1".into(),
+            ));
+        }
+        if event.occurred_at < previous.occurred_at {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Event time cannot precede parent event time".into(),
+            ));
+        }
+        match validate_container_transition_fields(Some(&previous), &event) {
+            ValidateCallbackResult::Valid => {}
+            invalid @ ValidateCallbackResult::Invalid(_) => return Ok(invalid),
+        }
+    } else {
+        match validate_container_transition_fields(None, &event) {
+            ValidateCallbackResult::Valid => {}
+            invalid @ ValidateCallbackResult::Invalid(_) => return Ok(invalid),
+        }
+    }
+    validate_container_evidence(&event.evidence)
 }
 
 fn validate_batch(b: PreservationBatch) -> ExternResult<ValidateCallbackResult> {
@@ -381,6 +1169,82 @@ mod tests {
         }
     }
 
+    fn container_evidence(source: &str) -> ContainerEvidenceRef {
+        ContainerEvidenceRef {
+            source_ref: source.into(),
+            method_ref: None,
+            calibration_ref: None,
+            evidence_class: ContainerEvidenceClass::Declared,
+        }
+    }
+
+    fn valid_container() -> ReusableContainer {
+        ReusableContainer {
+            id: "container-za-001".into(),
+            material: ContainerMaterial::BorosilicateGlass,
+            capacity_ml: 1_000,
+            empty_mass_g: 600,
+            embodied_impact_mg_co2e: Some(25_000),
+            embodied_impact_source_ref: Some("fixture:container-embodied-impact".into()),
+            temperature_min_millic: Some(-20_000),
+            temperature_max_millic: Some(100_000),
+            closure_type: "screw-top".into(),
+            food_contact_qualification_ref: "qualification:food-contact-glass".into(),
+            cleaning_protocol_ref: "protocol:container-cleaning-v1".into(),
+            manufacturer_reuse_cycle_limit: Some(500),
+            compatible_product_refs: vec!["product:dry-goods".into()],
+            registered_at: 1_700_000_000,
+            steward: fake_agent(),
+            evidence: container_evidence("source:container-spec"),
+        }
+    }
+
+    fn lifecycle_event(
+        kind: ContainerEventKind,
+        condition: ContainerCondition,
+        sequence_number: u64,
+    ) -> ContainerCycleEvent {
+        let is_filled = kind == ContainerEventKind::Filled;
+        let sanitation = matches!(
+            &kind,
+            ContainerEventKind::Washed | ContainerEventKind::Sanitized
+        )
+        .then(|| ContainerSanitationObservation {
+            protocol_ref: "protocol:wash-v1".into(),
+            wash_water_temp_millic: Some(60_000),
+            sanitizer_ref: Some("sanitizer:declared".into()),
+            sanitizer_concentration_mg_l: Some(100),
+            exposure_time_ms: Some(30_000),
+            wash_water_ml: Some(2_000),
+            wash_energy_wh: Some(30),
+            detergent_mass_mg: Some(10_000),
+            observation_ref: "observation:synthetic".into(),
+            evidence: container_evidence("source:synthetic-sanitization"),
+        });
+        ContainerCycleEvent {
+            container_hash: ActionHash::from_raw_36(vec![1; 36]),
+            previous_event_hash: (sequence_number > 0)
+                .then(|| ActionHash::from_raw_36(vec![2; 36])),
+            sequence_number,
+            event_kind: kind,
+            occurred_at: 1_700_000_000 + sequence_number,
+            product_ref: is_filled.then(|| "product:dry-goods".into()),
+            product_lot_ref: is_filled.then(|| "lot:fixture-001".into()),
+            accepted_servings: is_filled.then_some(4),
+            filled_mass_g: is_filled.then_some(1_000),
+            filled_volume_ml: None,
+            transport_distance_m: None,
+            transport_mode: None,
+            transported_mass_g: None,
+            end_of_life_route_ref: None,
+            preservation_batch_hash: None,
+            location_ref: None,
+            condition,
+            sanitation,
+            evidence: container_evidence("source:synthetic-event"),
+        }
+    }
+
     fn assert_valid(result: ExternResult<ValidateCallbackResult>) {
         match result {
             Ok(ValidateCallbackResult::Valid) => {}
@@ -405,6 +1269,222 @@ mod tests {
             other => panic!("Expected Invalid, got {other:?}"),
         }
     }
+
+    #[test]
+    fn reusable_container_declared_fixture_is_valid() {
+        let container = valid_container();
+        let author = container.steward.clone();
+        assert_valid(validate_reusable_container(container, &author));
+    }
+
+    #[test]
+    fn reusable_container_rejects_zero_capacity_and_reversed_temperature() {
+        let mut container = valid_container();
+        container.capacity_ml = 0;
+        let author = container.steward.clone();
+        assert_invalid(
+            validate_reusable_container(container, &author),
+            "Container capacity_ml must be positive",
+        );
+
+        let mut container = valid_container();
+        container.temperature_min_millic = Some(90_000);
+        container.temperature_max_millic = Some(10_000);
+        let author = container.steward.clone();
+        assert_invalid(
+            validate_reusable_container(container, &author),
+            "Temperature minimum cannot exceed maximum",
+        );
+    }
+
+    #[test]
+    fn measured_container_evidence_requires_calibration() {
+        let mut container = valid_container();
+        container.evidence.evidence_class = ContainerEvidenceClass::Measured;
+        let author = container.steward.clone();
+        assert_invalid(
+            validate_reusable_container(container, &author),
+            "Measured evidence requires a calibration reference",
+        );
+    }
+
+    #[test]
+    fn initial_container_cycle_must_be_washed_and_marked_needs_cleaning() {
+        let washed = lifecycle_event(
+            ContainerEventKind::Washed,
+            ContainerCondition::NeedsCleaning,
+            0,
+        );
+        assert!(matches!(
+            validate_container_transition_fields(None, &washed),
+            ValidateCallbackResult::Valid
+        ));
+
+        let invalid = lifecycle_event(
+            ContainerEventKind::Filled,
+            ContainerCondition::Serviceable,
+            0,
+        );
+        assert!(matches!(
+            validate_container_transition_fields(None, &invalid),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn container_cycle_requires_wash_sanitize_inspect_before_fill() {
+        let washed = lifecycle_event(
+            ContainerEventKind::Washed,
+            ContainerCondition::NeedsCleaning,
+            0,
+        );
+        let sanitized = lifecycle_event(
+            ContainerEventKind::Sanitized,
+            ContainerCondition::Serviceable,
+            1,
+        );
+        let inspected = lifecycle_event(
+            ContainerEventKind::Inspected,
+            ContainerCondition::Serviceable,
+            2,
+        );
+        let filled = lifecycle_event(
+            ContainerEventKind::Filled,
+            ContainerCondition::Serviceable,
+            3,
+        );
+
+        assert!(matches!(
+            validate_container_transition_fields(None, &washed),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&washed), &sanitized),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&sanitized), &inspected),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&inspected), &filled),
+            ValidateCallbackResult::Valid
+        ));
+
+        let premature_fill = lifecycle_event(
+            ContainerEventKind::Filled,
+            ContainerCondition::Serviceable,
+            2,
+        );
+        assert!(matches!(
+            validate_container_transition_fields(Some(&sanitized), &premature_fill),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn failed_inspection_cannot_be_filled_and_damaged_container_cannot_be_washed() {
+        let sanitized = lifecycle_event(
+            ContainerEventKind::Sanitized,
+            ContainerCondition::Serviceable,
+            1,
+        );
+        let failed_inspection = lifecycle_event(
+            ContainerEventKind::Inspected,
+            ContainerCondition::FailedInspection,
+            2,
+        );
+        let fill = lifecycle_event(
+            ContainerEventKind::Filled,
+            ContainerCondition::Serviceable,
+            3,
+        );
+        assert!(matches!(
+            validate_container_transition_fields(Some(&sanitized), &failed_inspection),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&failed_inspection), &fill),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let damaged = lifecycle_event(ContainerEventKind::Damaged, ContainerCondition::Damaged, 3);
+        let washed = lifecycle_event(
+            ContainerEventKind::Washed,
+            ContainerCondition::NeedsCleaning,
+            4,
+        );
+        assert!(matches!(
+            validate_container_transition_fields(Some(&damaged), &washed),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn container_cycle_requires_seal_dispatch_receive_empty_before_return() {
+        let filled = lifecycle_event(
+            ContainerEventKind::Filled,
+            ContainerCondition::Serviceable,
+            0,
+        );
+        let sealed = lifecycle_event(
+            ContainerEventKind::Sealed,
+            ContainerCondition::Serviceable,
+            1,
+        );
+        let dispatched = lifecycle_event(
+            ContainerEventKind::Dispatched,
+            ContainerCondition::Serviceable,
+            2,
+        );
+        let received = lifecycle_event(
+            ContainerEventKind::Received,
+            ContainerCondition::Serviceable,
+            3,
+        );
+        let emptied = lifecycle_event(
+            ContainerEventKind::Emptied,
+            ContainerCondition::NeedsCleaning,
+            4,
+        );
+        let returned = lifecycle_event(
+            ContainerEventKind::Returned,
+            ContainerCondition::NeedsCleaning,
+            5,
+        );
+
+        assert!(matches!(
+            validate_container_transition_fields(Some(&filled), &sealed),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&sealed), &dispatched),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&dispatched), &received),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&received), &emptied),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&emptied), &returned),
+            ValidateCallbackResult::Valid
+        ));
+
+        let skipped_seal = lifecycle_event(
+            ContainerEventKind::Dispatched,
+            ContainerCondition::Serviceable,
+            2,
+        );
+        assert!(matches!(
+            validate_container_transition_fields(Some(&filled), &skipped_seal),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
 
     // ── Serde roundtrip tests ───────────────────────────────────────────
 
