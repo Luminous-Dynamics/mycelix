@@ -394,6 +394,21 @@ fn extract_sentences(text: &str) -> Vec<String> {
 }
 
 #[derive(Serialize)]
+struct WikipediaFetchEvidence {
+    title: String,
+    origin: String,
+    authority: String,
+    remote_peer: String,
+    authorized_addresses: Vec<String>,
+    status: u16,
+    response_body_bytes: usize,
+    response_body_limit_bytes: usize,
+    response_body_sha256: String,
+    elapsed_ms: u64,
+    policy_version: String,
+}
+
+#[derive(Serialize)]
 struct WikipediaRunProvenance {
     schema_version: &'static str,
     manifest_id: &'static str,
@@ -407,6 +422,8 @@ struct WikipediaRunProvenance {
     error_body_limit_bytes: u64,
     articles_fetched: usize,
     article_titles: Vec<String>,
+    fetch_evidence: Vec<WikipediaFetchEvidence>,
+    failed_article_titles: Vec<String>,
     claims_generated: usize,
     output_path: &'static str,
     output_sha256: String,
@@ -457,6 +474,8 @@ fn main() {
     let mut seen = std::collections::HashSet::new();
     let mut fetched = 0;
     let mut fetched_titles = Vec::new();
+    let mut fetch_evidence = Vec::new();
+    let mut failed_article_titles = Vec::new();
     let total_articles: usize = TOPICS.iter().map(|(_, articles, _)| articles.len()).sum();
 
     println!(
@@ -481,7 +500,26 @@ fn main() {
                 Vec::new(),
             )) {
                 Ok(response) => {
+                    let response_body_sha256 =
+                        hex::encode(Sha256::digest(response.body.as_slice()));
                     let receipt = response.receipt;
+                    fetch_evidence.push(WikipediaFetchEvidence {
+                        title: title.to_string(),
+                        origin: receipt.origin.clone(),
+                        authority: receipt.authority.to_owned(),
+                        remote_peer: receipt.remote_peer.to_string(),
+                        authorized_addresses: receipt
+                            .authorized_addresses
+                            .iter()
+                            .map(ToString::to_string)
+                            .collect(),
+                        status: receipt.status,
+                        response_body_bytes: receipt.response_body_bytes,
+                        response_body_limit_bytes: receipt.response_body_limit_bytes,
+                        response_body_sha256,
+                        elapsed_ms: receipt.elapsed.as_millis() as u64,
+                        policy_version: receipt.policy_version.to_owned(),
+                    });
                     eprintln!(
                         concat!(
                             "  EGRESS authority={} origin={} peer={} status={} ",
@@ -497,6 +535,7 @@ fn main() {
                     );
                     if !response.status.is_success() {
                         eprintln!("  SKIP {}: HTTP {}", title, response.status);
+                        failed_article_titles.push(title.to_string());
                         continue;
                     }
 
@@ -530,10 +569,16 @@ fn main() {
                                 );
                             }
                         }
-                        Err(error) => eprintln!("  SKIP {}: parse error: {}", title, error),
+                        Err(error) => {
+                            eprintln!("  SKIP {}: parse error: {}", title, error);
+                            failed_article_titles.push(title.to_string());
+                        }
                     }
                 }
-                Err(error) => eprintln!("  SKIP {}: egress request failed: {}", title, error),
+                Err(error) => {
+                    eprintln!("  SKIP {}: egress request failed: {}", title, error);
+                    failed_article_titles.push(title.to_string());
+                }
             }
 
             // Rate limit: 100ms between requests (Wikipedia API courtesy)
@@ -564,6 +609,8 @@ fn main() {
         error_body_limit_bytes: 64 * 1024,
         articles_fetched: fetched,
         article_titles: fetched_titles,
+        fetch_evidence,
+        failed_article_titles,
         claims_generated: all_claims.len(),
         output_path,
         output_sha256: hex::encode(Sha256::digest(json.as_bytes())),
