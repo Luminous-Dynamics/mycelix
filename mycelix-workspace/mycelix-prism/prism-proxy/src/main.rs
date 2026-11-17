@@ -44,7 +44,7 @@ fn internal_error_response() -> axum::response::Response<axum::body::Body> {
 
 fn json_response(
     status: u16,
-    body: axum::body::Bytes,
+    body: Vec<u8>,
 ) -> axum::response::Response<axum::body::Body> {
     axum::response::Response::builder()
         .status(status)
