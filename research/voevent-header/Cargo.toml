@@ -1,0 +1,17 @@
+[workspace]
+
+[package]
+name = "mycelix-voevent-header"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Bounded, source-preserving VOEvent 2.1 root-header parser"
+
+[dependencies]
+hex = "=0.4.3"
+quick-xml = "=0.38.3"
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.145"
+sha2 = "=0.10.9"
+thiserror = "=2.0.17"
