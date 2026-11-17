@@ -366,7 +366,7 @@ These references inform the design; they do not constitute verification of Prism
 - IANA IPv4 Special-Purpose Address Registry: https://www.iana.org/assignments/iana-ipv4-special-registry — authoritative address-block attributes include destination validity and global reachability.
 - IANA IPv6 Special-Purpose Address Registry: https://www.iana.org/assignments/iana-ipv6-special-registry — equivalent IPv6 registry.
 - Reqwest 0.13.5 ClientBuilder: https://docs.rs/reqwest/0.13.5/reqwest/struct.ClientBuilder.html — documents `resolve_to_addrs`, `http1_max_headers`, redirect policy, and retry configuration.
-- Reqwest 0.13.5 release metadata: https://docs.rs/crate/reqwest/0.13.5 — declares Rust 1.85 as its minimum supported compiler; this is above neither the user's current toolchain family nor the branch's declared edition, but still requires exact-head workspace compilation.
+- Reqwest 0.13.5 release metadata: https://docs.rs/crate/reqwest/0.13.5 — declares Rust 1.85 as its minimum supported compiler; the exact workspace toolchain and dependency graph still require exact-head compilation.
 - Reqwest overview: https://docs.rs/reqwest/latest/reqwest/ — documents automatic redirect defaults and system proxy environment behavior.
 
 Registry data must be versioned or generated reproducibly. Do not fetch IANA data at runtime to make security decisions; updates should be reviewed, pinned, and covered by regression tests.
