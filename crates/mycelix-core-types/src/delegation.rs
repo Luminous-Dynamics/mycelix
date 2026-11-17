@@ -15,7 +15,9 @@ pub struct PrincipalRef {
 }
 
 impl PrincipalRef {
-    pub fn new(participant: ParticipantRef) -> Self { Self { participant } }
+    pub fn new(participant: ParticipantRef) -> Self {
+        Self { participant }
+    }
 }
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -26,11 +28,15 @@ pub enum ActionScope {
 impl ActionScope {
     pub fn named(value: impl Into<String>) -> Result<Self, DelegationError> {
         let value = value.into();
-        if value.trim().is_empty() { return Err(DelegationError::EmptyScope); }
+        if value.trim().is_empty() {
+            return Err(DelegationError::EmptyScope);
+        }
         Ok(Self::Named(value))
     }
 
-    fn contains(&self, requested: &Self) -> bool { self == requested }
+    fn contains(&self, requested: &Self) -> bool {
+        self == requested
+    }
 }
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -41,11 +47,15 @@ pub enum ResourceScope {
 impl ResourceScope {
     pub fn named(value: impl Into<String>) -> Result<Self, DelegationError> {
         let value = value.into();
-        if value.trim().is_empty() { return Err(DelegationError::EmptyScope); }
+        if value.trim().is_empty() {
+            return Err(DelegationError::EmptyScope);
+        }
         Ok(Self::Named(value))
     }
 
-    fn contains(&self, requested: &Self) -> bool { self == requested }
+    fn contains(&self, requested: &Self) -> bool {
+        self == requested
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -106,7 +116,9 @@ impl DelegationId {
         Self(*h.finalize().as_bytes())
     }
 
-    pub const fn as_bytes(&self) -> &[u8; 32] { &self.0 }
+    pub const fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -157,7 +169,10 @@ pub struct DelegationContext<'a> {
 
 impl<'a> DelegationContext<'a> {
     pub fn from_slice(delegations: &'a [Delegation]) -> Result<Self, DelegationError> {
-        let mut ids = delegations.iter().map(|delegation| delegation.id).collect::<Vec<_>>();
+        let mut ids = delegations
+            .iter()
+            .map(|delegation| delegation.id)
+            .collect::<Vec<_>>();
         ids.sort_unstable();
         for pair in ids.windows(2) {
             if pair[0] == pair[1] {
@@ -238,9 +253,13 @@ impl Delegation {
         parent: Option<DelegationId>,
         subdelegation_allowed: bool,
     ) -> Result<Self, DelegationError> {
-        if principal == delegate { return Err(DelegationError::SelfDelegation); }
+        if principal == delegate {
+            return Err(DelegationError::SelfDelegation);
+        }
         if let Some(expiry) = expires_at {
-            if expiry < granted_at { return Err(DelegationError::InvalidExpiry); }
+            if expiry < granted_at {
+                return Err(DelegationError::InvalidExpiry);
+            }
         }
         let event = DelegationEvent {
             kind: DelegationEventKind::Grant,
@@ -250,9 +269,19 @@ impl Delegation {
         };
         let mut delegation = Self {
             id: DelegationId([0; 32]),
-            relationship_id, principal, delegate, action, resource, mode,
-            granted_at, expires_at, authority_epoch, subdelegation_allowed,
-            status: DelegationStatus::Active, parent, events: vec![event],
+            relationship_id,
+            principal,
+            delegate,
+            action,
+            resource,
+            mode,
+            granted_at,
+            expires_at,
+            authority_epoch,
+            subdelegation_allowed,
+            status: DelegationStatus::Active,
+            parent,
+            events: vec![event],
         };
         delegation.id = DelegationId::derive_content_bound(&delegation);
         Ok(delegation)
@@ -264,9 +293,15 @@ impl Delegation {
         occurred_at: i64,
         authority_epoch: AuthorityEpoch,
     ) -> Result<(), DelegationError> {
-        if self.status != DelegationStatus::Active { return Err(DelegationError::AlreadyInactive); }
-        if actor != &self.principal { return Err(DelegationError::UnauthorizedRevocation); }
-        if occurred_at < self.granted_at { return Err(DelegationError::NonMonotonicEventTime); }
+        if self.status != DelegationStatus::Active {
+            return Err(DelegationError::AlreadyInactive);
+        }
+        if actor != &self.principal {
+            return Err(DelegationError::UnauthorizedRevocation);
+        }
+        if occurred_at < self.granted_at {
+            return Err(DelegationError::NonMonotonicEventTime);
+        }
         if authority_epoch != self.authority_epoch {
             return Err(DelegationError::StaleAuthorityEpoch);
         }
@@ -295,13 +330,19 @@ impl Delegation {
         });
         out.extend_from_slice(&self.granted_at.to_le_bytes());
         match self.expires_at {
-            Some(value) => { out.push(1); out.extend_from_slice(&value.to_le_bytes()); }
+            Some(value) => {
+                out.push(1);
+                out.extend_from_slice(&value.to_le_bytes());
+            }
             None => out.push(0),
         }
         out.extend_from_slice(&self.authority_epoch.to_le_bytes());
         out.push(u8::from(self.subdelegation_allowed));
         match self.parent {
-            Some(parent) => { out.push(1); out.extend_from_slice(parent.as_bytes()); }
+            Some(parent) => {
+                out.push(1);
+                out.extend_from_slice(parent.as_bytes());
+            }
             None => out.push(0),
         }
         out
@@ -329,7 +370,9 @@ impl Delegation {
 
     pub fn validate_identity(&self) -> Result<(), DelegationError> {
         let expected = DelegationId::derive_content_bound(self);
-        if self.id != expected { return Err(DelegationError::IdentityMismatch); }
+        if self.id != expected {
+            return Err(DelegationError::IdentityMismatch);
+        }
         Ok(())
     }
 
@@ -402,7 +445,10 @@ impl Delegation {
                 if child.granted_at >= parent_expiry {
                     return Err(DelegationError::ParentExpired);
                 }
-                if child.expires_at.is_none_or(|child_expiry| child_expiry > parent_expiry) {
+                if child
+                    .expires_at
+                    .is_none_or(|child_expiry| child_expiry > parent_expiry)
+                {
                     return Err(DelegationError::ChildOutlivesParent);
                 }
             }
@@ -437,19 +483,35 @@ impl Delegation {
     }
 
     fn validate_request(&self, request: &ExecutionRequest) -> Result<(), DelegationError> {
-        if self.status != DelegationStatus::Active { return Err(DelegationError::NotActive); }
-        if request.requested_at < self.granted_at { return Err(DelegationError::NotYetEffective); }
+        if self.status != DelegationStatus::Active {
+            return Err(DelegationError::NotActive);
+        }
+        if request.requested_at < self.granted_at {
+            return Err(DelegationError::NotYetEffective);
+        }
         if let Some(expiry) = self.expires_at {
-            if request.requested_at >= expiry { return Err(DelegationError::Expired); }
+            if request.requested_at >= expiry {
+                return Err(DelegationError::Expired);
+            }
         }
         if request.authority_epoch != self.authority_epoch {
             return Err(DelegationError::StaleAuthorityEpoch);
         }
-        if request.principal != self.principal { return Err(DelegationError::PrincipalMismatch); }
-        if request.delegate != self.delegate { return Err(DelegationError::DelegateMismatch); }
-        if !self.action.contains(&request.action) { return Err(DelegationError::ActionExceeded); }
-        if !self.resource.contains(&request.resource) { return Err(DelegationError::ResourceExceeded); }
-        if request.mode != self.mode { return Err(DelegationError::ModeMismatch); }
+        if request.principal != self.principal {
+            return Err(DelegationError::PrincipalMismatch);
+        }
+        if request.delegate != self.delegate {
+            return Err(DelegationError::DelegateMismatch);
+        }
+        if !self.action.contains(&request.action) {
+            return Err(DelegationError::ActionExceeded);
+        }
+        if !self.resource.contains(&request.resource) {
+            return Err(DelegationError::ResourceExceeded);
+        }
+        if request.mode != self.mode {
+            return Err(DelegationError::ModeMismatch);
+        }
         Ok(())
     }
 
@@ -504,7 +566,10 @@ impl Delegation {
                 if child.granted_at >= parent_expiry {
                     return Err(DelegationError::ParentExpired);
                 }
-                if child.expires_at.is_none_or(|child_expiry| child_expiry > parent_expiry) {
+                if child
+                    .expires_at
+                    .is_none_or(|child_expiry| child_expiry > parent_expiry)
+                {
                     return Err(DelegationError::ChildOutlivesParent);
                 }
                 if request.requested_at >= parent_expiry {
@@ -570,7 +635,10 @@ impl PrincipalRef {
 impl ActionScope {
     fn canonical_bytes(&self, out: &mut Vec<u8>) {
         match self {
-            Self::Named(value) => { out.push(0); write_len_prefixed(out, value.as_bytes()); }
+            Self::Named(value) => {
+                out.push(0);
+                write_len_prefixed(out, value.as_bytes());
+            }
         }
     }
 }
@@ -578,7 +646,10 @@ impl ActionScope {
 impl ResourceScope {
     fn canonical_bytes(&self, out: &mut Vec<u8>) {
         match self {
-            Self::Named(value) => { out.push(0); write_len_prefixed(out, value.as_bytes()); }
+            Self::Named(value) => {
+                out.push(0);
+                write_len_prefixed(out, value.as_bytes());
+            }
         }
     }
 }
@@ -606,12 +677,20 @@ impl fmt::Display for DelegationError {
             Self::ActionExceeded => "requested action exceeds delegation",
             Self::ResourceExceeded => "requested resource exceeds delegation",
             Self::ModeMismatch => "request mode does not match delegation",
-            Self::IdentityMismatch => "delegation identifier does not match canonical authority content",
-            Self::DuplicateDelegationId { .. } => "delegation context contains duplicate identifiers",
+            Self::IdentityMismatch => {
+                "delegation identifier does not match canonical authority content"
+            }
+            Self::DuplicateDelegationId { .. } => {
+                "delegation context contains duplicate identifiers"
+            }
             Self::MissingParent { .. } => "parent delegation is missing from validation context",
             Self::ParentInactive { .. } => "parent delegation is not active",
-            Self::SubdelegationNotAllowed { .. } => "parent delegation does not permit subdelegation",
-            Self::ParentRelationshipMismatch => "parent and child belong to different relationships",
+            Self::SubdelegationNotAllowed { .. } => {
+                "parent delegation does not permit subdelegation"
+            }
+            Self::ParentRelationshipMismatch => {
+                "parent and child belong to different relationships"
+            }
             Self::ParentPrincipalMismatch => "child principal is not the parent delegate",
             Self::ParentEpochMismatch => "parent and child authority epochs differ",
             Self::ParentActionExceeded => "child action exceeds parent delegation",
@@ -620,9 +699,13 @@ impl fmt::Display for DelegationError {
             Self::ParentNotYetEffective => "child delegation predates its parent",
             Self::ParentExpired => "parent delegation had expired at the requested time",
             Self::ChildOutlivesParent => "child delegation outlives its parent",
-            Self::ChildNotStrictlyAttenuated => "child delegation does not narrow any modeled authority dimension",
+            Self::ChildNotStrictlyAttenuated => {
+                "child delegation does not narrow any modeled authority dimension"
+            }
             Self::DelegationCycle { .. } => "delegation parent chain contains a cycle",
-            Self::DelegationChainTooDeep => "delegation parent chain exceeds the deterministic depth limit",
+            Self::DelegationChainTooDeep => {
+                "delegation parent chain exceeds the deterministic depth limit"
+            }
         };
         f.write_str(message)
     }
@@ -634,26 +717,37 @@ impl std::error::Error for DelegationError {}
 mod tests {
     use super::*;
 
-    fn p(id: &str) -> PrincipalRef { PrincipalRef::new(ParticipantRef::new("did", id)) }
+    fn p(id: &str) -> PrincipalRef {
+        PrincipalRef::new(ParticipantRef::new("did", id))
+    }
 
     fn delegation(mode: DelegationMode) -> Delegation {
         let relationship = RelationshipId::derive("test", b"relationship");
         Delegation::grant(
             DelegationId::derive(relationship, b"delegation"),
             relationship,
-            p("alice"), p("agent"),
+            p("alice"),
+            p("agent"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            mode, 100, Some(200), 4, None,
-        ).unwrap()
+            mode,
+            100,
+            Some(200),
+            4,
+            None,
+        )
+        .unwrap()
     }
 
     fn request(mode: DelegationMode, at: i64, epoch: AuthorityEpoch) -> ExecutionRequest {
         ExecutionRequest {
-            principal: p("alice"), delegate: p("agent"),
+            principal: p("alice"),
+            delegate: p("agent"),
             action: ActionScope::named("create-opportunity").unwrap(),
             resource: ResourceScope::named("acme:opportunity:7").unwrap(),
-            mode, requested_at: at, authority_epoch: epoch,
+            mode,
+            requested_at: at,
+            authority_epoch: epoch,
         }
     }
 
@@ -664,51 +758,73 @@ mod tests {
     #[test]
     fn proposal_and_execution_are_distinct_decisions() {
         let d = delegation(DelegationMode::Propose);
-        assert_eq!(d.authorize(&request(DelegationMode::Propose, 150, 4), &context(&[])),
-            Ok(ExecutionDecision::AuthorizedProposal));
+        assert_eq!(
+            d.authorize(&request(DelegationMode::Propose, 150, 4), &context(&[])),
+            Ok(ExecutionDecision::AuthorizedProposal)
+        );
         let d = delegation(DelegationMode::Execute);
-        assert_eq!(d.authorize(&request(DelegationMode::Execute, 150, 4), &context(&[])),
-            Ok(ExecutionDecision::AuthorizedExecution));
+        assert_eq!(
+            d.authorize(&request(DelegationMode::Execute, 150, 4), &context(&[])),
+            Ok(ExecutionDecision::AuthorizedExecution)
+        );
     }
 
     #[test]
     fn action_escalation_fails_closed() {
         let mut r = request(DelegationMode::Execute, 150, 4);
         r.action = ActionScope::named("delete-opportunity").unwrap();
-        assert_eq!(delegation(DelegationMode::Execute).authorize(&r, &context(&[])), Err(DelegationError::ActionExceeded));
+        assert_eq!(
+            delegation(DelegationMode::Execute).authorize(&r, &context(&[])),
+            Err(DelegationError::ActionExceeded)
+        );
     }
 
     #[test]
     fn resource_escalation_fails_closed() {
         let mut r = request(DelegationMode::Execute, 150, 4);
         r.resource = ResourceScope::named("acme:opportunity:8").unwrap();
-        assert_eq!(delegation(DelegationMode::Execute).authorize(&r, &context(&[])), Err(DelegationError::ResourceExceeded));
+        assert_eq!(
+            delegation(DelegationMode::Execute).authorize(&r, &context(&[])),
+            Err(DelegationError::ResourceExceeded)
+        );
     }
 
     #[test]
     fn stale_epoch_fails_closed() {
-        assert_eq!(delegation(DelegationMode::Execute).authorize(&request(DelegationMode::Execute, 150, 5), &context(&[])),
-            Err(DelegationError::StaleAuthorityEpoch));
+        assert_eq!(
+            delegation(DelegationMode::Execute)
+                .authorize(&request(DelegationMode::Execute, 150, 5), &context(&[])),
+            Err(DelegationError::StaleAuthorityEpoch)
+        );
     }
 
     #[test]
     fn expired_delegation_fails() {
-        assert_eq!(delegation(DelegationMode::Execute).authorize(&request(DelegationMode::Execute, 200, 4), &context(&[])),
-            Err(DelegationError::Expired));
+        assert_eq!(
+            delegation(DelegationMode::Execute)
+                .authorize(&request(DelegationMode::Execute, 200, 4), &context(&[])),
+            Err(DelegationError::Expired)
+        );
     }
 
     #[test]
     fn wrong_delegate_fails() {
         let mut r = request(DelegationMode::Execute, 150, 4);
         r.delegate = p("other-agent");
-        assert_eq!(delegation(DelegationMode::Execute).authorize(&r, &context(&[])), Err(DelegationError::DelegateMismatch));
+        assert_eq!(
+            delegation(DelegationMode::Execute).authorize(&r, &context(&[])),
+            Err(DelegationError::DelegateMismatch)
+        );
     }
 
     #[test]
     fn revoked_delegation_fails() {
         let mut d = delegation(DelegationMode::Execute);
         d.revoke(&p("alice"), 160, 4).unwrap();
-        assert_eq!(d.authorize(&request(DelegationMode::Execute, 170, 4), &context(&[])), Err(DelegationError::NotActive));
+        assert_eq!(
+            d.authorize(&request(DelegationMode::Execute, 170, 4), &context(&[])),
+            Err(DelegationError::NotActive)
+        );
     }
 
     #[test]
@@ -717,11 +833,18 @@ mod tests {
         let parent = DelegationId::derive(relationship, b"parent");
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
-            relationship, p("alice"), p("agent"),
+            relationship,
+            p("alice"),
+            p("agent"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 100, None, 4, Some(parent),
-        ).unwrap();
+            DelegationMode::Execute,
+            100,
+            None,
+            4,
+            Some(parent),
+        )
+        .unwrap();
         assert_eq!(
             child.authorize(&request(DelegationMode::Execute, 150, 4), &context(&[])),
             Err(DelegationError::MissingParent { id: parent })
@@ -733,20 +856,34 @@ mod tests {
         let relationship = RelationshipId::derive("test", b"subdelegation-default");
         let parent = Delegation::grant(
             DelegationId::derive(relationship, b"parent"),
-            relationship, p("alice"), p("broker"),
+            relationship,
+            p("alice"),
+            p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 100, None, 4, None,
-        ).unwrap();
+            DelegationMode::Execute,
+            100,
+            None,
+            4,
+            None,
+        )
+        .unwrap();
         assert!(!parent.subdelegation_allowed);
 
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
-            relationship, p("broker"), p("agent"),
+            relationship,
+            p("broker"),
+            p("agent"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 150, None, 4, Some(parent.id),
-        ).unwrap();
+            DelegationMode::Execute,
+            150,
+            None,
+            4,
+            Some(parent.id),
+        )
+        .unwrap();
         let request = ExecutionRequest {
             principal: p("broker"),
             delegate: p("agent"),
@@ -776,26 +913,46 @@ mod tests {
         let relationship = RelationshipId::derive("test", b"chain");
         let parent = Delegation::grant_with_subdelegation(
             DelegationId::derive(relationship, b"parent"),
-            relationship, p("alice"), p("broker"),
+            relationship,
+            p("alice"),
+            p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 100, Some(300), 4, None, true,
-        ).unwrap();
+            DelegationMode::Execute,
+            100,
+            Some(300),
+            4,
+            None,
+            true,
+        )
+        .unwrap();
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
-            relationship, p("broker"), p("agent"),
+            relationship,
+            p("broker"),
+            p("agent"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 150, Some(250), 4, Some(parent.id),
-        ).unwrap();
+            DelegationMode::Execute,
+            150,
+            Some(250),
+            4,
+            Some(parent.id),
+        )
+        .unwrap();
         let req = ExecutionRequest {
-            principal: p("broker"), delegate: p("agent"),
+            principal: p("broker"),
+            delegate: p("agent"),
             action: ActionScope::named("create-opportunity").unwrap(),
             resource: ResourceScope::named("acme:opportunity:7").unwrap(),
-            mode: DelegationMode::Execute, requested_at: 200, authority_epoch: 4,
+            mode: DelegationMode::Execute,
+            requested_at: 200,
+            authority_epoch: 4,
         };
-        assert_eq!(child.authorize(&req, &context(&[parent])),
-            Ok(ExecutionDecision::AuthorizedExecution));
+        assert_eq!(
+            child.authorize(&req, &context(&[parent])),
+            Ok(ExecutionDecision::AuthorizedExecution)
+        );
     }
 
     #[test]
@@ -803,18 +960,33 @@ mod tests {
         let relationship = RelationshipId::derive("test", b"parent-identity");
         let parent = Delegation::grant_with_subdelegation(
             DelegationId::derive(relationship, b"parent"),
-            relationship, p("alice"), p("broker"),
+            relationship,
+            p("alice"),
+            p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 100, None, 4, None, true,
-        ).unwrap();
+            DelegationMode::Execute,
+            100,
+            None,
+            4,
+            None,
+            true,
+        )
+        .unwrap();
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
-            relationship, p("broker"), p("agent"),
+            relationship,
+            p("broker"),
+            p("agent"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 150, None, 4, Some(parent.id),
-        ).unwrap();
+            DelegationMode::Execute,
+            150,
+            None,
+            4,
+            Some(parent.id),
+        )
+        .unwrap();
         let request = ExecutionRequest {
             principal: p("broker"),
             delegate: p("agent"),
@@ -827,8 +999,7 @@ mod tests {
 
         let mut tampered_parent = parent;
         // Preserve the address while changing immutable scope content.
-        tampered_parent.resource =
-            ResourceScope::named("acme:opportunity:8").unwrap();
+        tampered_parent.resource = ResourceScope::named("acme:opportunity:8").unwrap();
 
         let context = context(&[tampered_parent]);
         assert_eq!(
@@ -846,29 +1017,50 @@ mod tests {
         let relationship = RelationshipId::derive("test", b"revoked-parent");
         let mut parent = Delegation::grant_with_subdelegation(
             DelegationId::derive(relationship, b"parent"),
-            relationship, p("alice"), p("broker"),
+            relationship,
+            p("alice"),
+            p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 100, None, 4, None, true,
-        ).unwrap();
+            DelegationMode::Execute,
+            100,
+            None,
+            4,
+            None,
+            true,
+        )
+        .unwrap();
         let parent_id = parent.id;
         parent.revoke(&p("alice"), 160, 4).unwrap();
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
-            relationship, p("broker"), p("agent"),
+            relationship,
+            p("broker"),
+            p("agent"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 150, None, 4, Some(parent_id),
-        ).unwrap();
-        assert_eq!(child.authorize(
-            &ExecutionRequest {
-                principal: p("broker"), delegate: p("agent"),
-                action: ActionScope::named("create-opportunity").unwrap(),
-                resource: ResourceScope::named("acme:opportunity:7").unwrap(),
-                mode: DelegationMode::Execute, requested_at: 155, authority_epoch: 4,
-            },
-            &context(&[parent]),
-        ), Err(DelegationError::ParentInactive { id: parent_id }));
+            DelegationMode::Execute,
+            150,
+            None,
+            4,
+            Some(parent_id),
+        )
+        .unwrap();
+        assert_eq!(
+            child.authorize(
+                &ExecutionRequest {
+                    principal: p("broker"),
+                    delegate: p("agent"),
+                    action: ActionScope::named("create-opportunity").unwrap(),
+                    resource: ResourceScope::named("acme:opportunity:7").unwrap(),
+                    mode: DelegationMode::Execute,
+                    requested_at: 155,
+                    authority_epoch: 4,
+                },
+                &context(&[parent]),
+            ),
+            Err(DelegationError::ParentInactive { id: parent_id })
+        );
     }
 
     #[test]
@@ -886,7 +1078,8 @@ mod tests {
             None,
             4,
             None,
-        ).unwrap();
+        )
+        .unwrap();
         let middle = Delegation::grant_with_subdelegation(
             DelegationId::derive(relationship, b"middle"),
             relationship,
@@ -900,7 +1093,8 @@ mod tests {
             4,
             Some(root.id),
             true,
-        ).unwrap();
+        )
+        .unwrap();
         let leaf = Delegation::grant(
             DelegationId::derive(relationship, b"leaf"),
             relationship,
@@ -913,7 +1107,8 @@ mod tests {
             None,
             4,
             Some(middle.id),
-        ).unwrap();
+        )
+        .unwrap();
         let request = ExecutionRequest {
             principal: p("agent"),
             delegate: p("worker"),
@@ -948,7 +1143,8 @@ mod tests {
             4,
             None,
             true,
-        ).unwrap();
+        )
+        .unwrap();
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
             relationship,
@@ -961,7 +1157,8 @@ mod tests {
             None,
             4,
             Some(parent.id),
-        ).unwrap();
+        )
+        .unwrap();
         let request = ExecutionRequest {
             principal: p("broker"),
             delegate: p("agent"),
@@ -998,7 +1195,8 @@ mod tests {
             4,
             None,
             true,
-        ).unwrap();
+        )
+        .unwrap();
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
             relationship,
@@ -1011,7 +1209,8 @@ mod tests {
             None,
             4,
             Some(parent.id),
-        ).unwrap();
+        )
+        .unwrap();
         let request = ExecutionRequest {
             principal: p("broker"),
             delegate: p("agent"),
@@ -1032,26 +1231,46 @@ mod tests {
         let relationship = RelationshipId::derive("test", b"scope");
         let parent = Delegation::grant_with_subdelegation(
             DelegationId::derive(relationship, b"parent"),
-            relationship, p("alice"), p("broker"),
+            relationship,
+            p("alice"),
+            p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Propose, 100, Some(300), 4, None, true,
-        ).unwrap();
+            DelegationMode::Propose,
+            100,
+            Some(300),
+            4,
+            None,
+            true,
+        )
+        .unwrap();
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
-            relationship, p("broker"), p("agent"),
+            relationship,
+            p("broker"),
+            p("agent"),
             ActionScope::named("delete-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 150, None, 4, Some(parent.id),
-        ).unwrap();
+            DelegationMode::Execute,
+            150,
+            None,
+            4,
+            Some(parent.id),
+        )
+        .unwrap();
         let req = ExecutionRequest {
-            principal: p("broker"), delegate: p("agent"),
+            principal: p("broker"),
+            delegate: p("agent"),
             action: ActionScope::named("delete-opportunity").unwrap(),
             resource: ResourceScope::named("acme:opportunity:7").unwrap(),
-            mode: DelegationMode::Execute, requested_at: 200, authority_epoch: 4,
+            mode: DelegationMode::Execute,
+            requested_at: 200,
+            authority_epoch: 4,
         };
-        assert_eq!(child.authorize(&req, &context(&[parent])),
-            Err(DelegationError::ParentActionExceeded));
+        assert_eq!(
+            child.authorize(&req, &context(&[parent])),
+            Err(DelegationError::ParentActionExceeded)
+        );
     }
 
     #[test]
@@ -1059,26 +1278,46 @@ mod tests {
         let relationship = RelationshipId::derive("test", b"epoch");
         let parent = Delegation::grant_with_subdelegation(
             DelegationId::derive(relationship, b"parent"),
-            relationship, p("alice"), p("broker"),
+            relationship,
+            p("alice"),
+            p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 100, None, 4, None, true,
-        ).unwrap();
+            DelegationMode::Execute,
+            100,
+            None,
+            4,
+            None,
+            true,
+        )
+        .unwrap();
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
-            relationship, p("broker"), p("agent"),
+            relationship,
+            p("broker"),
+            p("agent"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 150, None, 5, Some(parent.id),
-        ).unwrap();
+            DelegationMode::Execute,
+            150,
+            None,
+            5,
+            Some(parent.id),
+        )
+        .unwrap();
         let req = ExecutionRequest {
-            principal: p("broker"), delegate: p("agent"),
+            principal: p("broker"),
+            delegate: p("agent"),
             action: ActionScope::named("create-opportunity").unwrap(),
             resource: ResourceScope::named("acme:opportunity:7").unwrap(),
-            mode: DelegationMode::Execute, requested_at: 180, authority_epoch: 5,
+            mode: DelegationMode::Execute,
+            requested_at: 180,
+            authority_epoch: 5,
         };
-        assert_eq!(child.authorize(&req, &context(&[parent])),
-            Err(DelegationError::ParentEpochMismatch));
+        assert_eq!(
+            child.authorize(&req, &context(&[parent])),
+            Err(DelegationError::ParentEpochMismatch)
+        );
     }
 
     #[test]
@@ -1087,18 +1326,32 @@ mod tests {
         let a_id = DelegationId::derive(relationship, b"a");
         let b_id = DelegationId::derive(relationship, b"b");
         let a = Delegation::grant(
-            a_id, relationship, p("root"), p("broker"),
+            a_id,
+            relationship,
+            p("root"),
+            p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 100, None, 4, Some(b_id),
-        ).unwrap();
+            DelegationMode::Execute,
+            100,
+            None,
+            4,
+            Some(b_id),
+        )
+        .unwrap();
         let req = ExecutionRequest {
-            principal: p("root"), delegate: p("broker"),
+            principal: p("root"),
+            delegate: p("broker"),
             action: ActionScope::named("create-opportunity").unwrap(),
             resource: ResourceScope::named("acme:opportunity:7").unwrap(),
-            mode: DelegationMode::Execute, requested_at: 120, authority_epoch: 4,
+            mode: DelegationMode::Execute,
+            requested_at: 120,
+            authority_epoch: 4,
         };
-        assert_eq!(a.authorize(&req, &context(&[])), Err(DelegationError::MissingParent { id: b_id }));
+        assert_eq!(
+            a.authorize(&req, &context(&[])),
+            Err(DelegationError::MissingParent { id: b_id })
+        );
     }
 
     #[test]
@@ -1115,26 +1368,46 @@ mod tests {
         let relationship = RelationshipId::derive("test", b"expiry");
         let parent = Delegation::grant_with_subdelegation(
             DelegationId::derive(relationship, b"parent"),
-            relationship, p("alice"), p("broker"),
+            relationship,
+            p("alice"),
+            p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 100, Some(200), 4, None, true,
-        ).unwrap();
+            DelegationMode::Execute,
+            100,
+            Some(200),
+            4,
+            None,
+            true,
+        )
+        .unwrap();
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
-            relationship, p("broker"), p("agent"),
+            relationship,
+            p("broker"),
+            p("agent"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 150, Some(250), 4, Some(parent.id),
-        ).unwrap();
+            DelegationMode::Execute,
+            150,
+            Some(250),
+            4,
+            Some(parent.id),
+        )
+        .unwrap();
         let req = ExecutionRequest {
-            principal: p("broker"), delegate: p("agent"),
+            principal: p("broker"),
+            delegate: p("agent"),
             action: ActionScope::named("create-opportunity").unwrap(),
             resource: ResourceScope::named("acme:opportunity:7").unwrap(),
-            mode: DelegationMode::Execute, requested_at: 180, authority_epoch: 4,
+            mode: DelegationMode::Execute,
+            requested_at: 180,
+            authority_epoch: 4,
         };
-        assert_eq!(child.authorize(&req, &context(&[parent])),
-            Err(DelegationError::ChildOutlivesParent));
+        assert_eq!(
+            child.authorize(&req, &context(&[parent])),
+            Err(DelegationError::ChildOutlivesParent)
+        );
     }
 
     #[test]
@@ -1144,7 +1417,10 @@ mod tests {
         assert_eq!(d.validate_identity(), Ok(()));
 
         d.resource = ResourceScope::named("acme:opportunity:8").unwrap();
-        assert_eq!(d.validate_identity(), Err(DelegationError::IdentityMismatch));
+        assert_eq!(
+            d.validate_identity(),
+            Err(DelegationError::IdentityMismatch)
+        );
     }
 
     #[test]
@@ -1163,7 +1439,8 @@ mod tests {
             4,
             None,
             true,
-        ).unwrap();
+        )
+        .unwrap();
         assert!(delegation.validate_identity().is_ok());
         delegation.subdelegation_allowed = false;
         assert_eq!(
@@ -1176,7 +1453,10 @@ mod tests {
     fn stale_revocation_epoch_does_not_mutate_state() {
         let mut d = delegation(DelegationMode::Execute);
         let before = d.clone();
-        assert_eq!(d.revoke(&p("alice"), 160, 5), Err(DelegationError::StaleAuthorityEpoch));
+        assert_eq!(
+            d.revoke(&p("alice"), 160, 5),
+            Err(DelegationError::StaleAuthorityEpoch)
+        );
         assert_eq!(d, before);
     }
 
@@ -1189,12 +1469,19 @@ mod tests {
 
     #[test]
     fn capability_presence_is_not_semantic_authority() {
-        assert!(delegation(DelegationMode::Execute).authorize(&request(DelegationMode::Execute, 150, 4), &context(&[])).is_ok());
+        assert!(
+            delegation(DelegationMode::Execute)
+                .authorize(&request(DelegationMode::Execute, 150, 4), &context(&[]))
+                .is_ok()
+        );
     }
 
     #[test]
     fn external_success_is_not_implied() {
-        assert_eq!(delegation(DelegationMode::Execute).authorize(&request(DelegationMode::Execute, 150, 4), &context(&[])),
-            Ok(ExecutionDecision::AuthorizedExecution));
+        assert_eq!(
+            delegation(DelegationMode::Execute)
+                .authorize(&request(DelegationMode::Execute, 150, 4), &context(&[])),
+            Ok(ExecutionDecision::AuthorizedExecution)
+        );
     }
 }
