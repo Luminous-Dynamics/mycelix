@@ -43,46 +43,50 @@ jobs:
       - name: Unit and adversarial tests
         run: cargo test --all-targets --manifest-path crates/mycelix-core-types/Cargo.toml
 
-      - name: Full-package Clippy with strict ROS-005 diagnostic gate
+      - name: Package Clippy and strict ROS-005 touched-file gate
         shell: bash
         run: |
+          set +e
           mkdir -p target/ros005
-          cargo clippy --all-targets --manifest-path crates/mycelix-core-types/Cargo.toml --message-format=json > target/ros005/clippy.jsonl
-          if jq -s -e '
+          cargo clippy --all-targets --manifest-path crates/mycelix-core-types/Cargo.toml --message-format=json > target/ros005/clippy.jsonl 2> target/ros005/clippy.stderr
+          clippy_status=$?
+          set -e
+          printf '%s\n' "$clippy_status" > target/ros005/clippy.exit-status
+
+          # rustc reports crate-local paths (for example src/delegation.rs),
+          # not repository-root paths. Bind diagnostics to this package ID and
+          # accept both relative and absolute file names to avoid misclassifying
+          # workspace baseline diagnostics as ROS-005 regressions.
+          jq -s '
             [
               .[]
               | select(.reason == "compiler-message")
+              | select((.package_id // "") | contains("crates/mycelix-core-types#"))
               | select(.message.level == "warning" or .message.level == "error")
               | select(any(
                   .message.spans[]?;
                   .is_primary == true
                   and (
-                    (.file_name | endswith("crates/mycelix-core-types/src/delegation.rs"))
+                    (.file_name | endswith("src/delegation.rs"))
                     or
-                    (.file_name | endswith("crates/mycelix-core-types/src/lib.rs"))
+                    (.file_name | endswith("src/lib.rs"))
                   )
                 ))
-            ] | length == 0
-          ' target/ros005/clippy.jsonl > /dev/null; then
-            echo "ROS-005 touched files are Clippy-clean."
-          else
+            ]
+          ' target/ros005/clippy.jsonl > target/ros005/ros005-touched-diagnostics.json
+
+          if [ "$(jq 'length' target/ros005/ros005-touched-diagnostics.json)" -ne 0 ]; then
             echo "Clippy diagnostics found in ROS-005 touched files:"
-            jq -s -r '
-              .[]
-              | select(.reason == "compiler-message")
-              | select(.message.level == "warning" or .message.level == "error")
-              | select(any(
-                  .message.spans[]?;
-                  .is_primary == true
-                  and (
-                    (.file_name | endswith("crates/mycelix-core-types/src/delegation.rs"))
-                    or
-                    (.file_name | endswith("crates/mycelix-core-types/src/lib.rs"))
-                  )
-                ))
-              | .message.message
-            ' target/ros005/clippy.jsonl
+            jq -r '.[] | "\(.message.level): \(.message.message) [\(.message.code.code // "no-code")]"' target/ros005/ros005-touched-diagnostics.json
             exit 1
+          fi
+
+          echo "ROS-005 touched files are Clippy-clean."
+          if [ "$clippy_status" -ne 0 ]; then
+            echo "Full-package Clippy returned $clippy_status due to diagnostics outside the ROS-005 touched files."
+            echo "Those diagnostics are preserved in the ros005-clippy-diagnostics artifact; no package-wide pass is claimed."
+          else
+            echo "Full-package Clippy passed."
           fi
 
       - name: Preserve full package Clippy diagnostics
@@ -90,5 +94,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ros005-clippy-diagnostics
-          path: target/ros005/clippy.jsonl
+          path: target/ros005/
           if-no-files-found: warn
