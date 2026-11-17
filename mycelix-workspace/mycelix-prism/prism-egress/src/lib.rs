@@ -1119,6 +1119,7 @@ mod tests {
             is_domain: true,
             expires_at: std::time::Instant::now() + Duration::from_secs(30),
             max_response_body_bytes,
+            max_error_response_body_bytes: 64 * 1024,
             connect_timeout: Duration::from_secs(2),
             request_timeout: Duration::from_secs(5),
             policy_version: "prism-public-egress-v1",
@@ -1275,6 +1276,36 @@ mod tests {
         ))
         .unwrap();
         let capability = test_capability(url, address, 16);
+        let result = client.execute(capability).await;
+        assert!(matches!(result, Err(EgressError::ResponseBodyTooLarge)));
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn non_success_responses_use_the_smaller_diagnostic_body_budget() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            read_test_request(&mut stream).await;
+            stream
+                .write_all(
+                    b"HTTP/1.1 500 Internal Server Error\r\nContent-Length: 5\r\nConnection: close\r\n\r\nerror",
+                )
+                .await
+                .unwrap();
+        });
+
+        let client = PublicEgressClient::default();
+        let url = Url::parse(&format!(
+            "http://response-cap-test.invalid:{}/",
+            address.port()
+        ))
+        .unwrap();
+        let mut capability = test_capability(url, address, 16);
+        capability.max_error_response_body_bytes = 4;
         let result = client.execute(capability).await;
         assert!(matches!(result, Err(EgressError::ResponseBodyTooLarge)));
         server.await.unwrap();
@@ -1699,6 +1730,18 @@ mod tests {
                 .available_permits(),
             MAX_PERPLEXITY_REQUESTS
         );
+        assert_eq!(
+            EgressAuthority::WikipediaSummary
+                .admission_semaphore()
+                .available_permits(),
+            MAX_WIKIPEDIA_REQUESTS
+        );
+        assert_eq!(
+            EgressAuthority::WikidataSparql
+                .admission_semaphore()
+                .available_permits(),
+            MAX_WIKIDATA_REQUESTS
+        );
         assert!(!std::ptr::eq(
             EgressAuthority::PublicWeb.admission_semaphore(),
             EgressAuthority::BraveSearch.admission_semaphore(),
@@ -1706,6 +1749,14 @@ mod tests {
         assert!(!std::ptr::eq(
             EgressAuthority::PublicWeb.admission_semaphore(),
             EgressAuthority::Perplexity.admission_semaphore(),
+        ));
+        assert!(!std::ptr::eq(
+            EgressAuthority::PublicWeb.admission_semaphore(),
+            EgressAuthority::WikipediaSummary.admission_semaphore(),
+        ));
+        assert!(!std::ptr::eq(
+            EgressAuthority::PublicWeb.admission_semaphore(),
+            EgressAuthority::WikidataSparql.admission_semaphore(),
         ));
     }
 
