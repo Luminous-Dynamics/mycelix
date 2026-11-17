@@ -212,6 +212,42 @@
       "id": "v6-deny-017",
       "address": "ff02::1",
       "expected_public": false
+    },
+    {
+      "id": "v4-deny-017",
+      "address": "192.0.0.10",
+      "expected_public": false,
+      "reason": "IANA globally reachable more-specific assignment conservatively denied by 192.0.0.0/24 aggregate"
+    },
+    {
+      "id": "v4-deny-018",
+      "address": "192.0.0.170",
+      "expected_public": false,
+      "reason": "NAT64/DNS64 discovery assignment; conservative 192.0.0.0/24 aggregate deny"
+    },
+    {
+      "id": "v4-deny-019",
+      "address": "192.0.0.171",
+      "expected_public": false,
+      "reason": "NAT64/DNS64 discovery assignment; conservative 192.0.0.0/24 aggregate deny"
+    },
+    {
+      "id": "v6-deny-018",
+      "address": "100:0:0:1::1",
+      "expected_public": false,
+      "reason": "IANA Dummy IPv6 Prefix; destination validity is false"
+    },
+    {
+      "id": "v6-deny-019",
+      "address": "2001:1::3",
+      "expected_public": false,
+      "reason": "IANA globally reachable more-specific assignment conservatively denied by 2001::/23 aggregate"
+    },
+    {
+      "id": "v6-deny-020",
+      "address": "2001:30::1",
+      "expected_public": false,
+      "reason": "IANA globally reachable Drone Remote ID prefix conservatively denied by 2001::/23 aggregate"
     }
   ]
 }
