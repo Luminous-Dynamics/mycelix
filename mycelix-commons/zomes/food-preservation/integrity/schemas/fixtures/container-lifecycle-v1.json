@@ -21,7 +21,10 @@
       "method_ref": null,
       "calibration_ref": null,
       "evidence_class": "Declared"
-    }
+    },
+    "empty_mass_g": 600,
+    "embodied_impact_mg_co2e": 25000,
+    "embodied_impact_source_ref": "fixture:packaging-embodied-impact-method-v1"
   },
   "events": [
     {
@@ -47,14 +50,24 @@
           "method_ref": null,
           "calibration_ref": null,
           "evidence_class": "Declared"
-        }
+        },
+        "wash_water_ml": 2000,
+        "wash_energy_wh": 30,
+        "detergent_mass_mg": 10000
       },
       "evidence": {
         "source_ref": "fixture:event:Washed",
         "method_ref": null,
         "calibration_ref": null,
         "evidence_class": "Declared"
-      }
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
     },
     {
       "container_hash": "uhCEkSyntheticContainerHash",
@@ -79,14 +92,24 @@
           "method_ref": null,
           "calibration_ref": null,
           "evidence_class": "Declared"
-        }
+        },
+        "wash_water_ml": 2000,
+        "wash_energy_wh": 30,
+        "detergent_mass_mg": 10000
       },
       "evidence": {
         "source_ref": "fixture:event:Sanitized",
         "method_ref": null,
         "calibration_ref": null,
         "evidence_class": "Declared"
-      }
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
     },
     {
       "container_hash": "uhCEkSyntheticContainerHash",
@@ -105,7 +128,14 @@
         "method_ref": null,
         "calibration_ref": null,
         "evidence_class": "Declared"
-      }
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
     },
     {
       "container_hash": "uhCEkSyntheticContainerHash",
@@ -124,7 +154,14 @@
         "method_ref": null,
         "calibration_ref": null,
         "evidence_class": "Declared"
-      }
+      },
+      "accepted_servings": 4,
+      "filled_mass_g": 1000,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
     },
     {
       "container_hash": "uhCEkSyntheticContainerHash",
@@ -143,7 +180,14 @@
         "method_ref": null,
         "calibration_ref": null,
         "evidence_class": "Declared"
-      }
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
     },
     {
       "container_hash": "uhCEkSyntheticContainerHash",
@@ -162,7 +206,14 @@
         "method_ref": null,
         "calibration_ref": null,
         "evidence_class": "Declared"
-      }
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": 10000,
+      "transport_mode": "Bicycle",
+      "transported_mass_g": 1600,
+      "end_of_life_route_ref": null
     },
     {
       "container_hash": "uhCEkSyntheticContainerHash",
@@ -181,7 +232,14 @@
         "method_ref": null,
         "calibration_ref": null,
         "evidence_class": "Declared"
-      }
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
     },
     {
       "container_hash": "uhCEkSyntheticContainerHash",
@@ -200,7 +258,14 @@
         "method_ref": null,
         "calibration_ref": null,
         "evidence_class": "Declared"
-      }
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
     },
     {
       "container_hash": "uhCEkSyntheticContainerHash",
@@ -219,7 +284,14 @@
         "method_ref": null,
         "calibration_ref": null,
         "evidence_class": "Declared"
-      }
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": 10000,
+      "transport_mode": "Bicycle",
+      "transported_mass_g": 600,
+      "end_of_life_route_ref": null
     },
     {
       "container_hash": "uhCEkSyntheticContainerHash",
@@ -244,14 +316,24 @@
           "method_ref": null,
           "calibration_ref": null,
           "evidence_class": "Declared"
-        }
+        },
+        "wash_water_ml": 2000,
+        "wash_energy_wh": 30,
+        "detergent_mass_mg": 10000
       },
       "evidence": {
         "source_ref": "fixture:event:Washed",
         "method_ref": null,
         "calibration_ref": null,
         "evidence_class": "Declared"
-      }
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
     },
     {
       "container_hash": "uhCEkSyntheticContainerHash",
@@ -276,14 +358,24 @@
           "method_ref": null,
           "calibration_ref": null,
           "evidence_class": "Declared"
-        }
+        },
+        "wash_water_ml": 2000,
+        "wash_energy_wh": 30,
+        "detergent_mass_mg": 10000
       },
       "evidence": {
         "source_ref": "fixture:event:Sanitized",
         "method_ref": null,
         "calibration_ref": null,
         "evidence_class": "Declared"
-      }
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
     },
     {
       "container_hash": "uhCEkSyntheticContainerHash",
@@ -302,7 +394,14 @@
         "method_ref": null,
         "calibration_ref": null,
         "evidence_class": "Declared"
-      }
+      },
+      "accepted_servings": null,
+      "filled_mass_g": null,
+      "filled_volume_ml": null,
+      "transport_distance_m": null,
+      "transport_mode": null,
+      "transported_mass_g": null,
+      "end_of_life_route_ref": null
     }
   ],
   "adversarial_cases": [
