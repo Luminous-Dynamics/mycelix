@@ -64,6 +64,8 @@ fn upstream_error(
             (StatusCode::BAD_GATEWAY, "Upstream response exceeded its resource budget")
         }
         EgressError::DnsResolution { .. }
+        | EgressError::DnsResolutionTimeout
+        | EgressError::DnsAnswerSetTooLarge
         | EgressError::EmptyAddressSet(_)
         | EgressError::Http(_) => {
             (StatusCode::BAD_GATEWAY, "Upstream request failed")
