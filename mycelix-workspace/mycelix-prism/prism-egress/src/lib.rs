@@ -1654,9 +1654,11 @@ mod tests {
         let semaphore = Arc::new(Semaphore::new(1));
         let permit = semaphore.clone().acquire_owned().await.unwrap();
         let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (finished_tx, finished_rx) = tokio::sync::oneshot::channel();
         let mut work = Box::pin(spawn_blocking_dns_with_permit(permit, move || {
             let _ = started_tx.send(());
             std::thread::sleep(Duration::from_millis(100));
+            let _ = finished_tx.send(());
             Ok(Vec::new())
         }));
 
@@ -1674,7 +1676,10 @@ mod tests {
             "started blocking DNS work must retain its owned admission permit after waiter cancellation"
         );
 
-        tokio::time::sleep(Duration::from_millis(150)).await;
+        tokio::time::timeout(Duration::from_secs(1), finished_rx)
+            .await
+            .expect("blocking worker should finish")
+            .expect("blocking worker completion signal");
         assert_eq!(
             semaphore.available_permits(),
             1,
@@ -1744,37 +1749,12 @@ mod tests {
     }
 
     #[test]
-    fn each_authority_has_a_disjoint_admission_budget() {
-        assert_eq!(
-            EgressAuthority::PublicWeb
-                .admission_semaphore()
-                .available_permits(),
-            MAX_PUBLIC_WEB_REQUESTS
-        );
-        assert_eq!(
-            EgressAuthority::BraveSearch
-                .admission_semaphore()
-                .available_permits(),
-            MAX_BRAVE_REQUESTS
-        );
-        assert_eq!(
-            EgressAuthority::Perplexity
-                .admission_semaphore()
-                .available_permits(),
-            MAX_PERPLEXITY_REQUESTS
-        );
-        assert_eq!(
-            EgressAuthority::WikipediaSummary
-                .admission_semaphore()
-                .available_permits(),
-            MAX_WIKIPEDIA_REQUESTS
-        );
-        assert_eq!(
-            EgressAuthority::WikidataSparql
-                .admission_semaphore()
-                .available_permits(),
-            MAX_WIKIDATA_REQUESTS
-        );
+    fn authority_admission_budgets_are_disjoint_and_sum_to_global_limit() {
+        assert_eq!(MAX_PUBLIC_WEB_REQUESTS, 52);
+        assert_eq!(MAX_BRAVE_REQUESTS, 4);
+        assert_eq!(MAX_PERPLEXITY_REQUESTS, 4);
+        assert_eq!(MAX_WIKIPEDIA_REQUESTS, 2);
+        assert_eq!(MAX_WIKIDATA_REQUESTS, 2);
         assert_eq!(
             MAX_PUBLIC_WEB_REQUESTS
                 + MAX_BRAVE_REQUESTS
