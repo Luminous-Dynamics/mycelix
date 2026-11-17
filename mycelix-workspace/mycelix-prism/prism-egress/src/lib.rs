@@ -566,9 +566,12 @@ impl PublicEgressClient {
                     next_url.set_fragment(None);
                     record_redirect_target(&mut visited_urls, &next_url)?;
 
-                    // Release the redirecting socket before DNS work for the
-                    // next hop so both network and egress capacity stay bounded.
+                    // Release the redirecting socket and execution permits
+                    // before DNS work for the next hop. Resolver capacity is
+                    // independent, and no HTTP slot is held while resolving.
                     drop(response);
+                    drop(_permit);
+                    drop(_authority_permit);
                     let next_capability = self
                         .authorize_with_authority(
                             EgressAuthority::PublicWeb,
