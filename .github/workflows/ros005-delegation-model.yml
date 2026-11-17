@@ -1,0 +1,47 @@
+name: ROS-005 Delegation Model
+
+on:
+  pull_request:
+    paths:
+      - "crates/mycelix-core-types/Cargo.toml"
+      - "crates/mycelix-core-types/src/**"
+      - ".github/workflows/ros005-delegation-model.yml"
+  push:
+    branches:
+      - main
+      - feat/ros-005-parent-chain-hardening
+      - research/ros005-model-ci-v0.2
+    paths:
+      - "crates/mycelix-core-types/Cargo.toml"
+      - "crates/mycelix-core-types/src/**"
+      - ".github/workflows/ros005-delegation-model.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ros005-delegation-model-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  delegation-model:
+    name: Format, test and lint ROS-005 core types
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Format check for ROS-005-touched files
+        run: rustfmt --edition 2024 --check --config skip_children=true crates/mycelix-core-types/src/delegation.rs crates/mycelix-core-types/src/lib.rs
+
+      - name: Unit and adversarial tests
+        run: cargo test --manifest-path crates/mycelix-core-types/Cargo.toml
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-core-types/Cargo.toml --all-targets -- -D warnings
