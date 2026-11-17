@@ -828,6 +828,7 @@ mod tests {
             filled_volume_ml: None,
             transport_distance_m: None,
             transport_mode: None,
+            transported_mass_g: None,
             end_of_life_route_ref: None,
             preservation_batch_hash: None,
             location_ref: None,
