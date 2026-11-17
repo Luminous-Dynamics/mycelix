@@ -19,6 +19,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::State;
 
+const MAX_NAVIGATION_URL_BYTES: usize = 8 * 1024;
+const MAX_NAVIGATION_RESPONSE_BYTES: usize = 10 * 1024 * 1024;
+
 /// Shared application state managed by Tauri.
 struct PrismState {
     search: SearchEngine,
@@ -48,34 +51,52 @@ struct SearchResultJson {
     rank_score: f32,
 }
 
-/// Fetch a URL directly (no CORS restrictions in native Tauri).
+/// User-initiated desktop navigation. Local/LAN destinations and redirects
+/// remain available by design; hosted and background fetches must use the
+/// PublicEgressClient policy instead.
 #[tauri::command]
 async fn fetch_url(
     url: String,
     state: State<'_, Mutex<PrismState>>,
 ) -> Result<FetchResult, String> {
-    // Clone the client before dropping the lock (reqwest::Client is cheaply cloneable)
+    let parsed_url = validate_user_navigation_url(&url)?;
+
+    // Clone the client before dropping the lock (reqwest::Client is cheaply cloneable).
     let client = {
         let s = state.lock().map_err(|e| format!("Lock error: {}", e))?;
         s.client.clone()
     };
 
     let response = client
-        .get(&url)
+        .get(parsed_url.clone())
         .send()
         .await
         .map_err(|e| format!("Fetch failed: {}", e))?;
 
-    let html = response
-        .text()
+    if let Some(length) = response.content_length()
+        && length > MAX_NAVIGATION_RESPONSE_BYTES as u64
+    {
+        return Err("Response exceeds the 10 MiB navigation limit".to_string());
+    }
+
+    let mut response = response;
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
         .await
-        .map_err(|e| format!("Read failed: {}", e))?;
+        .map_err(|e| format!("Read failed: {}", e))?
+    {
+        if bytes.len().saturating_add(chunk.len()) > MAX_NAVIGATION_RESPONSE_BYTES {
+            return Err("Response exceeds the 10 MiB navigation limit".to_string());
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    let html = String::from_utf8_lossy(&bytes).into_owned();
 
     // Sanitize
     let clean = ammonia::clean(&html);
 
     // Security analysis (re-acquire lock for reflex arc)
-    let parsed_url = url::Url::parse(&url).map_err(|e| format!("Bad URL: {}", e))?;
     let dom = parse_html(&html);
     let title = dom.title().unwrap_or_else(|| "Untitled".to_string());
 
@@ -126,6 +147,20 @@ fn search_claims(
 fn claim_count(state: State<'_, Mutex<PrismState>>) -> Result<usize, String> {
     let state = state.lock().map_err(|e| format!("Lock error: {}", e))?;
     Ok(state.search.claim_count())
+}
+
+fn validate_user_navigation_url(raw: &str) -> Result<url::Url, String> {
+    if raw.len() > MAX_NAVIGATION_URL_BYTES {
+        return Err("URL exceeds the 8 KiB navigation limit".to_string());
+    }
+    let parsed = url::Url::parse(raw).map_err(|e| format!("Bad URL: {e}"))?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err("Only HTTP and HTTPS navigation is supported".to_string());
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("URL credentials are not permitted".to_string());
+    }
+    Ok(parsed)
 }
 
 fn main() {
@@ -201,3 +236,23 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error running Prism");
 }
+#[cfg(test)]
+mod navigation_policy_tests {
+    use super::*;
+
+    #[test]
+    fn desktop_navigation_keeps_explicit_lan_support_but_rejects_other_schemes() {
+        assert!(validate_user_navigation_url("http://127.0.0.1:8080/").is_ok());
+        assert!(validate_user_navigation_url("http://192.168.1.1/").is_ok());
+        assert!(validate_user_navigation_url("https://example.com/").is_ok());
+        assert!(validate_user_navigation_url("file:///etc/passwd").is_err());
+        assert!(validate_user_navigation_url("https://user:pass@example.com/").is_err());
+    }
+
+    #[test]
+    fn desktop_navigation_bounds_url_length() {
+        let raw = format!("https://example.com/{}", "a".repeat(MAX_NAVIGATION_URL_BYTES));
+        assert!(validate_user_navigation_url(&raw).is_err());
+    }
+}
+
