@@ -684,10 +684,6 @@ async fn resolve_and_authorize(
             url.host_str().unwrap_or_default().to_owned(),
         ));
     }
-    if addresses.len() > MAX_DNS_ANSWER_ADDRESSES {
-        return Err(EgressError::DnsAnswerSetTooLarge);
-    }
-
     addresses.sort_unstable();
     addresses.dedup();
     validate_address_set(&addresses)?;
@@ -699,6 +695,9 @@ async fn resolve_and_authorize(
 pub fn validate_address_set(addresses: &[SocketAddr]) -> Result<(), EgressError> {
     if addresses.is_empty() {
         return Err(EgressError::EmptyAddressSet("<empty>".to_owned()));
+    }
+    if addresses.len() > MAX_DNS_ANSWER_ADDRESSES {
+        return Err(EgressError::DnsAnswerSetTooLarge);
     }
     for address in addresses {
         if !is_public_unicast_ip(&address.ip()) {
