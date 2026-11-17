@@ -355,6 +355,7 @@ The current draft branch includes the typed `prism-egress` transport and the fol
 - Fixed Wikipedia/Wikidata ingestion uses typed authorities, a versioned source manifest, fresh authorization for explicit retries, and provenance/output digests.
 - The Symthaea Unix-socket response frame is capped at 64 KiB and must be newline-terminated. Missing, null, or malformed Symthaea `safe` metadata maps to `false`.
 - CI source checks require the pinned transport, explicit retry disabling, duplicate-redirect rejection, gzip-budget regression test, end-to-end DNS-to-peer test, HTTP/1 parser header-count limit, and reviewed direct-client inventory.
+- The CI changed-path detector now runs on draft PRs, allowing the affected Prism package job to run without enabling unrelated cluster tests; global formatting and aggregate merge-summary gates remain draft-gated.
 
 These remain source-level controls until the exact branch head is compiled and tested. The latest recorded workflow on the current feature line was skipped; no passing Cargo, formatting, clippy, or adversarial runtime result is claimed. Do not interpret the presence of unit tests as evidence that they have passed.
 ## Source references
