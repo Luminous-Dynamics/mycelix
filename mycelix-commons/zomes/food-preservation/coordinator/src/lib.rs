@@ -1128,6 +1128,16 @@ mod tests {
     struct ContainerImpactFixtureBundle {
         impact_factors: ContainerLifecycleImpactFactorsV1,
         expected_impact: ContainerImpactExpectedV1,
+        single_use_baseline: SingleUsePackagingBaselineV1,
+        expected_comparison: ContainerImpactComparisonExpectedV1,
+    }
+
+    #[derive(Deserialize)]
+    struct ContainerImpactComparisonExpectedV1 {
+        outcome: PackagingComparisonOutcomeV1,
+        reusable_ratio: (u64, u64),
+        single_use_ratio: (u64, u64),
+        single_use_mass_ratio_g: (u64, u64),
     }
 
     #[derive(Deserialize)]
@@ -1219,6 +1229,63 @@ mod tests {
         assert_eq!(report.mg_co2e_per_accepted_serving, expected.mg_co2e_per_accepted_serving);
         assert_eq!(report.wash_water_ml_per_accepted_serving, expected.wash_water_ml_per_accepted_serving);
         assert_eq!(report.wash_energy_wh_per_accepted_serving, expected.wash_energy_wh_per_accepted_serving);
+    }
+
+    #[test]
+    fn reusable_packaging_comparison_uses_matched_factor_set_and_servings() {
+        let fixture = synthetic_lca_fixture();
+        let container = synthetic_lca_container();
+        let history = synthetic_lca_history();
+        let reusable = calculate_container_lifecycle_impact(
+            &container,
+            &sample_container_hash(),
+            &history,
+            &fixture.impact_factors,
+        )
+        .unwrap();
+        let comparison = compare_reusable_packaging_to_single_use(
+            &reusable,
+            &fixture.single_use_baseline,
+            &fixture.impact_factors,
+        )
+        .unwrap();
+        let expected = fixture.expected_comparison;
+        assert_eq!(comparison.outcome, expected.outcome);
+        assert_eq!(
+            comparison.reusable_packaging_mg_co2e_per_accepted_serving,
+            expected.reusable_ratio
+        );
+        assert_eq!(
+            comparison.single_use_packaging_mg_co2e_per_accepted_serving,
+            expected.single_use_ratio
+        );
+        assert_eq!(
+            comparison.single_use_packaging_mass_g_per_accepted_serving,
+            expected.single_use_mass_ratio_g
+        );
+    }
+
+    #[test]
+    fn reusable_packaging_comparison_rejects_factor_set_mismatch() {
+        let fixture = synthetic_lca_fixture();
+        let container = synthetic_lca_container();
+        let history = synthetic_lca_history();
+        let reusable = calculate_container_lifecycle_impact(
+            &container,
+            &sample_container_hash(),
+            &history,
+            &fixture.impact_factors,
+        )
+        .unwrap();
+        let mut baseline = fixture.single_use_baseline;
+        baseline.reference_year += 1;
+        let error = compare_reusable_packaging_to_single_use(
+            &reusable,
+            &baseline,
+            &fixture.impact_factors,
+        )
+        .unwrap_err();
+        assert_eq!(error.code, ContainerImpactErrorCodeV1::MissingFactorProvenance);
     }
 
     #[test]
