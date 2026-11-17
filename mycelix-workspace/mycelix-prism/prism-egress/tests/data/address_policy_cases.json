@@ -1,0 +1,217 @@
+{
+  "schema_version": "1.0.0",
+  "policy_snapshot": "prism-public-egress-v1",
+  "provenance": {
+    "source": "IANA IPv4 and IPv6 Special-Purpose Address Registries",
+    "registry_last_updated": "2025-10-09",
+    "note": "Conservative deny policy. Entire parent aggregate blocks may be denied even where IANA lists globally reachable more-specific exceptions."
+  },
+  "cases": [
+    {
+      "id": "v4-public-001",
+      "address": "1.1.1.1",
+      "expected_public": true
+    },
+    {
+      "id": "v4-public-002",
+      "address": "8.8.8.8",
+      "expected_public": true
+    },
+    {
+      "id": "v4-public-003",
+      "address": "93.184.216.34",
+      "expected_public": true
+    },
+    {
+      "id": "v4-public-004",
+      "address": "192.31.196.1",
+      "expected_public": true
+    },
+    {
+      "id": "v4-public-005",
+      "address": "192.52.193.1",
+      "expected_public": true
+    },
+    {
+      "id": "v4-public-006",
+      "address": "192.175.48.1",
+      "expected_public": true
+    },
+    {
+      "id": "v6-public-001",
+      "address": "2606:4700:4700::1111",
+      "expected_public": true
+    },
+    {
+      "id": "v6-public-002",
+      "address": "2001:4860::1",
+      "expected_public": true
+    },
+    {
+      "id": "v4-deny-001",
+      "address": "0.0.0.1",
+      "expected_public": false
+    },
+    {
+      "id": "v4-deny-002",
+      "address": "10.0.0.1",
+      "expected_public": false
+    },
+    {
+      "id": "v4-deny-003",
+      "address": "100.64.0.1",
+      "expected_public": false
+    },
+    {
+      "id": "v4-deny-004",
+      "address": "127.0.0.1",
+      "expected_public": false
+    },
+    {
+      "id": "v4-deny-005",
+      "address": "169.254.169.254",
+      "expected_public": false
+    },
+    {
+      "id": "v4-deny-006",
+      "address": "172.16.0.1",
+      "expected_public": false
+    },
+    {
+      "id": "v4-deny-007",
+      "address": "192.0.0.9",
+      "expected_public": false,
+      "reason": "conservative 192.0.0.0/24 aggregate"
+    },
+    {
+      "id": "v4-deny-008",
+      "address": "192.0.2.1",
+      "expected_public": false
+    },
+    {
+      "id": "v4-deny-009",
+      "address": "192.88.99.1",
+      "expected_public": false
+    },
+    {
+      "id": "v4-deny-010",
+      "address": "192.168.1.1",
+      "expected_public": false
+    },
+    {
+      "id": "v4-deny-011",
+      "address": "198.18.0.1",
+      "expected_public": false
+    },
+    {
+      "id": "v4-deny-012",
+      "address": "198.51.100.1",
+      "expected_public": false
+    },
+    {
+      "id": "v4-deny-013",
+      "address": "203.0.113.1",
+      "expected_public": false
+    },
+    {
+      "id": "v4-deny-014",
+      "address": "224.0.0.1",
+      "expected_public": false
+    },
+    {
+      "id": "v4-deny-015",
+      "address": "240.0.0.1",
+      "expected_public": false
+    },
+    {
+      "id": "v4-deny-016",
+      "address": "255.255.255.255",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-001",
+      "address": "::",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-002",
+      "address": "::1",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-003",
+      "address": "::ffff:8.8.8.8",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-004",
+      "address": "64:ff9b::808:808",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-005",
+      "address": "64:ff9b:1::1",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-006",
+      "address": "100::1",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-007",
+      "address": "2001::1",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-008",
+      "address": "2001:2::1",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-009",
+      "address": "2001:10::1",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-010",
+      "address": "2001:20::1",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-011",
+      "address": "2001:db8::1",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-012",
+      "address": "2002::1",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-013",
+      "address": "3fff::1",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-014",
+      "address": "5f00::1",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-015",
+      "address": "fc00::1",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-016",
+      "address": "fe80::1",
+      "expected_public": false
+    },
+    {
+      "id": "v6-deny-017",
+      "address": "ff02::1",
+      "expected_public": false
+    }
+  ]
+}
