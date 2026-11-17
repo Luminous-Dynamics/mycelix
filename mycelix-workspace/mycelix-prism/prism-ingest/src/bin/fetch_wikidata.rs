@@ -7,9 +7,9 @@
 //! Usage: cargo run --bin fetch_wikidata
 //! Output: prism-ingest/src/wikidata_claims.rs
 
+use prism_egress::{EgressAuthority, EgressLimits, HeaderMap, Method, PublicEgressClient};
 use std::collections::HashSet;
 use std::fmt::Write as FmtWrite;
-use prism_egress::{EgressAuthority, EgressLimits, HeaderMap, Method, PublicEgressClient};
 use std::io::Write;
 use std::time::Duration;
 use url::Url;
