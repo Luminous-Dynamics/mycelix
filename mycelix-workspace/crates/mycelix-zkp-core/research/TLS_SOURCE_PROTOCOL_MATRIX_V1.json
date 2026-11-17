@@ -1,0 +1,550 @@
+{
+  "schema_version": "mycelix-tls-source-protocol-matrix-v1",
+  "status": "research_only_unqualified",
+  "purpose": "Compare source-session provenance and private-claim architectures without transferring qualification across protocol families or modes.",
+  "comparison_rules": [
+    "No cross-protocol qualification inheritance.",
+    "Do not compare latency unless source bytes, claim/predicate, privacy objective, hardware and adversary model match.",
+    "A cryptographic proof is not source truth, account ownership, issuer authority, currentness, consent or action authority.",
+    "An attestor/notary/TEE is an explicit trust role even when its output is signed or later zero-knowledge verified.",
+    "A post-quantum signature on one layer does not promote the complete pipeline to post-quantum security."
+  ],
+  "systems": [
+    {
+      "id": "TLSNOTARY",
+      "source_refs": [
+        "https://tlsnotary.org/docs/protocol/mpc-tls/",
+        "https://tlsnotary.org/docs/protocol/notarization/",
+        "https://tlsnotary.org/docs/protocol/verification/",
+        "https://tlsnotary.org/docs/protocol/proxy-mode/",
+        "https://tlsnotary.org/docs/faq/"
+      ],
+      "profiles": [
+        {
+          "id": "TLSN-MPC-DIRECT-V1",
+          "mode": "direct_mpc_tls",
+          "witness_role": "relying verifier participates online in TLS",
+          "portability": "designated_verifier",
+          "privacy_notes": [
+            "verifier learns encrypted traffic during session, not application plaintext",
+            "server identity privacy is a protocol-specific property"
+          ],
+          "trust_assumptions": [
+            "TLSNotary protocol implementation",
+            "participating verifier correctly runs protocol"
+          ],
+          "claim_limit": "No offline public portability unless additional signed witness/receipt is introduced."
+        },
+        {
+          "id": "TLSN-MPC-NOTARY-V1",
+          "mode": "delegated_mpc_tls_notary",
+          "witness_role": "delegated notary participates online and signs Session Header",
+          "portability": "offline_attestation_under_notary_trust",
+          "privacy_notes": [
+            "notary is designed not to learn plaintext or server identity",
+            "session timing, lengths, round counts and cipher metadata may leak"
+          ],
+          "trust_assumptions": [
+            "notary key custody",
+            "notary honest participation",
+            "exact Session Header and commitment profile",
+            "later verifier's trust-root policy"
+          ],
+          "claim_limit": "Portable attestation is not trustless; offline verifier inherits trust in delegated witness."
+        },
+        {
+          "id": "TLSN-PROXY-V1",
+          "mode": "proxy",
+          "witness_role": "verifier proxies encrypted packets and observes server path",
+          "portability": "profile_specific",
+          "privacy_notes": [
+            "verifier knows server identity",
+            "server sees verifier network endpoint"
+          ],
+          "trust_assumptions": [
+            "verifier-to-server network path",
+            "proxy implementation and captured traffic"
+          ],
+          "claim_limit": "Must not inherit MPC-TLS identity privacy or direct connection assumptions."
+        },
+        {
+          "id": "TLSN-MPC-TEE-VERIFIER-V1",
+          "mode": "attested_mpc_tls_verifier",
+          "witness_role": "measured TEE runs verifier during MPC-TLS while prover retains TLS decryption/plaintext",
+          "portability": "attested verifier receipt under TEE vendor/image/TCB trust profile",
+          "privacy_notes": [
+            "enclave sees protocol/ciphertext material but must not receive TLS write/decryption keys or application plaintext",
+            "privacy remains cryptographic and prover-side only if the no-plaintext dataflow invariant is demonstrated"
+          ],
+          "trust_assumptions": [
+            "exact TEE vendor attestation root and current TCB",
+            "measured verifier image",
+            "reproducible source-to-build mapping",
+            "correct TLSNotary verifier code and protocol",
+            "receipt binding to exact session/request/image"
+          ],
+          "claim_limit": "Improves delegated verifier integrity under TEE assumptions without automatically moving plaintext into the enclave; any key/plaintext ingress changes the profile to TEE plaintext processor."
+        }
+      ],
+      "published_baseline": {
+        "release": "Beta.1 announcement 2026-11-14",
+        "workload": {
+          "request_bytes": 1024,
+          "response_bytes": 2048
+        },
+        "samples": "10 measured + 3 warmup",
+        "hardware": "Azure Standard_F8als_v6, AMD EPYC 9004, 8 vCPU/16GB, SMT disabled",
+        "seconds": {
+          "TLSN-MPC-DIRECT-V1": {
+            "native": {
+              "cable": 13.35,
+              "fiber": 3.43,
+              "mobile_5g": 9.63
+            },
+            "browser_wasm": {
+              "cable": 14.15,
+              "fiber": 4.17,
+              "mobile_5g": 10.45
+            }
+          },
+          "TLSN-PROXY-V1": {
+            "native": {
+              "cable": 1.3,
+              "fiber": 0.83,
+              "mobile_5g": 1.29
+            },
+            "browser_wasm": {
+              "cable": 1.57,
+              "fiber": 1.12,
+              "mobile_5g": 1.55
+            }
+          }
+        },
+        "qualification": "Vendor-reported reference only; small sample count, not Mycelix results, not comparable to other system workloads."
+      },
+      "pinned_candidate_release": {
+        "version": "v0.1.0-beta.1",
+        "released": "2026-11-14",
+        "full_commit_sha": "40a069565a2eaecbb5e691dbc634be20e8498daf",
+        "status": "prerelease_candidate_only",
+        "relevant_regressions": {
+          "transcript_commitment_order": "#1179",
+          "bounded_prover_commitment_ranges": "#1196",
+          "ghash_byte_order": "#1211",
+          "deterministic_session_teardown": [
+            "#1207",
+            "#1202",
+            "#1172",
+            "#1167",
+            "#1175"
+          ],
+          "matching_mux_stream_limits": "#1193"
+        },
+        "release_api_changes": [
+          "tlsn crate consolidates former prover/verifier crates",
+          "attestation functionality moved to separate attestation crate"
+        ],
+        "source": "https://github.com/tlsnotary/tlsn/commit/40a069565a2eaecbb5e691dbc634be20e8498daf",
+        "release_commit": "40a069565a2eaecbb5e691dbc634be20e8498daf"
+      },
+      "privacy_profiles": [
+        {
+          "id": "FULL_RESPONSE_REVEAL",
+          "description": "Entire traffic direction is disclosed; response-side ciphertext-to-plaintext proof may be skipped, but TLS key-derivation proof remains.",
+          "tradeoff": "Not selective privacy. Entire response reaches verifier."
+        },
+        {
+          "id": "SELECTIVE_DISCLOSURE",
+          "description": "Only chosen HTTP objects/ranges are revealed; other response fields remain redacted.",
+          "tradeoff": "Requires the relevant commitment/opening and plaintext proof path."
+        },
+        {
+          "id": "MIXED_SENSITIVE_DIRECTION",
+          "description": "At least one sensitive byte/field remains hidden in the direction.",
+          "tradeoff": "Full-reveal fast path does not apply; direction uses ZK path."
+        }
+      ],
+      "field_semantic_boundary": "TLSN authenticates selected transcript bytes and their direction/range. Application JSON field meaning is an external parser/schema relation and must be independently bound.",
+      "field_selector_candidate": {
+        "owner": "Symthaea #12328",
+        "implementation": "Symthaea PR #12336",
+        "status": "draft_host_side_parser_range_selector_unexecuted",
+        "claim_limit": "Returns an exact raw JSON body-relative token span; a separate qualified HTTP framing/TLSN transcript layer must map and authenticate the span."
+      },
+      "verified_commitment_api_blocker": {
+        "owner": "Symthaea #12373",
+        "pinned_release_commit": "40a069565a2eaecbb5e691dbc634be20e8498daf",
+        "finding": "Presentation::verify returns authenticated PartialTranscript but the transcript commitment list on Attestation::Body is only available through pub(crate) accessors; an external source-bound guest cannot select the exact signed commitment record using the public API.",
+        "required_resolution": "Expose typed verified transcript commitment metadata or a selected-field certificate via a first-class upstream API. Do not mirror internal serialization, field IDs or Merkle/domain-separation code."
+      },
+      "risc0_composition": {
+        "owner": "Symthaea #12301",
+        "design_study": "Symthaea research-tools/tlsn-field-binding-selector/TLSN_RISC0_COMPOSITION_V1.md",
+        "status": "architecture_only_not_built",
+        "preferred_guest_dependency_scope": [
+          "tlsn-attestation verification",
+          "tlsn-core typed transcript/hash types"
+        ],
+        "excluded_dependencies": [
+          "live tlsn prover/verifier protocol",
+          "MPZ MPC/garbling/OT stack"
+        ],
+        "feasibility_gates": [
+          "RISC Zero guest std support is experimental",
+          "Beta.1 attestation/core use std APIs",
+          "no-getrandom verification path must be demonstrated",
+          "guest ELF/memory/cycles and proof size must be measured"
+        ],
+        "alternatives": [
+          "full Presentation verification inside a dedicated RISC Zero guest",
+          "minimal selected-field certificate with authenticated Merkle inclusion proofs"
+        ]
+      }
+    },
+    {
+      "id": "DECO",
+      "source_refs": [
+        "https://arxiv.org/abs/1909.00938",
+        "https://www.cs.cornell.edu/~shmat/shmat_ccs20.pdf"
+      ],
+      "profiles": [
+        {
+          "id": "DECO-3PTLS-V1",
+          "mode": "three_party_tls",
+          "witness_role": "prover and verifier jointly participate with server",
+          "portability": "designated_verifier_or_application_specific",
+          "privacy_notes": [
+            "selective opening",
+            "context integrity binds disclosed substring to expected location/context"
+          ],
+          "trust_assumptions": [
+            "three-party handshake security",
+            "verifier participation",
+            "exact selective-opening/context-integrity statement"
+          ],
+          "claim_limit": "Original DECO research construction targets TLS 1.2; do not infer TLS1.3 support from DIDO+."
+        }
+      ],
+      "published_baseline": {
+        "qualification": "Original research paper and implementation are a baseline; not matched here to TLSNotary Beta.1 or current RISC Zero workload."
+      }
+    },
+    {
+      "id": "DIDO_PLUS",
+      "source_refs": [
+        "https://doi.org/10.1109/TDSC.2025.3595711"
+      ],
+      "profiles": [
+        {
+          "id": "DIDO-PLUS-TLS13-V1",
+          "mode": "three_party_tls_mpc_tls13",
+          "witness_role": "paper-specific prover/verifier MPC handshake",
+          "portability": "paper_specific",
+          "privacy_notes": [
+            "selective disclosure",
+            "protocol-specific server and session privacy"
+          ],
+          "trust_assumptions": [
+            "paper implementation and threat model",
+            "exact restricted TLS1.3 website profile"
+          ],
+          "claim_limit": "TLS1.3 capability applies only to exact DIDO+ construction and implementation; no inheritance to other TLS provenance systems."
+        }
+      ],
+      "published_baseline": {
+        "qualification": "Published in IEEE Transactions on Dependable and Secure Computing, November 2025; no directly comparable measurements included in this matrix."
+      }
+    },
+    {
+      "id": "ZKPASS",
+      "source_refs": [
+        "https://docs.zkpass.org/overview/technical-overview",
+        "https://docs.zkpass.org/supports/faq",
+        "https://docs.zkpass.org/overview/technical-whitepaper"
+      ],
+      "profiles": [
+        {
+          "id": "ZKPASS-HYBRID-V2",
+          "mode": "hybrid_proxy_and_mpc",
+          "witness_role": "proxy mode commonly used; MPC mode fallback where proxy path is restricted",
+          "portability": "public_proof_profile_specific",
+          "privacy_notes": [
+            "VOLE-based ZK and 3P-TLS",
+            "proxy mode reveals server identity to verifier",
+            "MPC mode has substantial communication overhead"
+          ],
+          "trust_assumptions": [
+            "exact mode and network topology",
+            "node/verifier behavior",
+            "VOLE/OT and transcript proof assumptions"
+          ],
+          "claim_limit": "Do not call hybrid mode a single trust model; profile actual session mode and exact release."
+        }
+      ],
+      "published_baseline": {
+        "qualification": "Official technical documentation describes hybrid operation and warns MPC mode has large fixed/per-data bandwidth overhead; measurements must be independently reproduced on a frozen version."
+      }
+    },
+    {
+      "id": "RECLAIM",
+      "source_refs": [
+        "https://trust.reclaimprotocol.org/section/security",
+        "https://trust.reclaimprotocol.org/section/tee",
+        "https://github.com/reclaimprotocol/reclaim-tee"
+      ],
+      "profiles": [
+        {
+          "id": "RECLAIM-TEE-SPLIT-V1",
+          "mode": "split_tee_mpc_tls",
+          "witness_role": "TEE_K holds TLS keys/connection; TEE_T computes authentication tags without key access",
+          "portability": "hardware_attestation_and_proof",
+          "privacy_notes": [
+            "split service roles reduce single-service view under exact implementation",
+            "TLS1.2 CBC compatibility path has a different trust boundary"
+          ],
+          "trust_assumptions": [
+            "AMD SEV / cloud Confidential VM attestation chain where used",
+            "exact image measurements and TCB version",
+            "split-service separation",
+            "operator, rollback and side-channel model"
+          ],
+          "claim_limit": "Valid hardware quote is insufficient without matching exact image/configuration and dataflow roles."
+        }
+      ],
+      "published_baseline": {
+        "qualification": "Published code and Trust Package are useful evidence, not a substitute for independently verifying a live deployment's hardware quote, image measurement and configuration."
+      }
+    },
+    {
+      "id": "SCRIBE",
+      "source_refs": [
+        "https://doi.org/10.1007/s12083-026-02246-2"
+      ],
+      "profiles": [
+        {
+          "id": "SCRIBE-ATTESTOR-STARK-V1",
+          "mode": "attestor_signed_salted_value_commitment_plus_stark",
+          "witness_role": "attestation node witnesses TLS provenance and extracts/signs commitment",
+          "portability": "transparent_stark_plus_spend_tag",
+          "privacy_notes": [
+            "private value and salt hidden by proof",
+            "application-scoped spend tag introduces controlled linkability"
+          ],
+          "trust_assumptions": [
+            "attestation node honest provenance/extraction",
+            "exact circuit-friendly signature security",
+            "aggregator spent-tag integrity",
+            "Falcon root signing key"
+          ],
+          "claim_limit": "Fresh salt can create new commitment/spend tag for same account; Falcon signature authenticates root signer but not correct append-only state transition.",
+          "qualification_dependencies": [
+            "mycelix#6245",
+            "mycelix#6251",
+            "mycelix#2109",
+            "mycelix#2110",
+            "LISE#6219"
+          ],
+          "additional_replay_risk": "A fresh salt can generate a different commitment and spend tag for the same Web2 account. Application uniqueness therefore requires a separately qualified domain-scoped subject binding; account uniqueness does not establish person uniqueness."
+        }
+      ],
+      "published_baseline": {
+        "hardware": "Apple M4 Pro, 24GB",
+        "samples": "10 STARK repetitions; 10 aggregator repetitions; 5 gas repetitions",
+        "stark": {
+          "prover_ms": {
+            "min": 6,
+            "max": 346
+          },
+          "verifier_ms": {
+            "min": 0.4,
+            "max": 9.7
+          },
+          "proof_kib": {
+            "min": 32.1,
+            "max": 77.8
+          }
+        },
+        "tlsnotary_workflow_ms": {
+          "prove_average": 856,
+          "verify_average": 749
+        },
+        "aggregator_ms_per_user": {
+          "batch_1": 1.1,
+          "batches_128_to_1024": 0.31
+        },
+        "root_publication": {
+          "batch_gas": 1500000,
+          "gas_per_user_batch_512": 2929
+        },
+        "qualification": "Paper-reported research data; threshold-only benchmark is not an end-to-end source/predicate/authority cost; do not compare directly with TLSNotary Beta.1."
+      }
+    }
+  ],
+  "benchmark_manifest": {
+    "fixture": "synthetic HTTPS financial API; fixed request/response bytes; local deterministic server; test certificate chain frozen; no real credentials or personal data",
+    "claim": "currency == ZAR AND available_minor_units >= required_minimum_minor_units AND as_of is within the declared freshness window",
+    "response_sizes_bytes": [
+      2048,
+      10240,
+      102400,
+      1048576
+    ],
+    "selected_fields_counts": [
+      1,
+      4,
+      16,
+      64
+    ],
+    "commitment_strategies": [
+      "custom_range",
+      "http_object",
+      "per_byte",
+      "attestor_value_commitment"
+    ],
+    "environments": [
+      "native_cpu",
+      "browser_wasm",
+      "pixel_8_pro_wasm",
+      "x86_64_laptop_cpu",
+      "rtx_2070_8gb_if_backend_supports_gpu"
+    ],
+    "sample_plan": {
+      "primary_cells": 1000,
+      "prewarm_samples": 50,
+      "retain_raw_samples": true,
+      "tail_percentiles": [
+        "p50",
+        "p90",
+        "p95",
+        "p99"
+      ],
+      "state_confidence_intervals": true
+    },
+    "stages": [
+      "preprocessing",
+      "tls_handshake_and_source_session",
+      "online_mpc_or_proxy",
+      "notary_or_attestor_or_tee_attestation",
+      "transcript_commitment",
+      "selected_opening_or_value_commitment",
+      "parser_and_schema",
+      "predicate_proof_generation",
+      "proof_verification",
+      "nullifier_spent_state",
+      "LISE_qualification",
+      "time_to_qualified_private_decision",
+      "domain_scoped_nullifier_generation_and_consume_once",
+      "tlsn_release_known_answer_and_range_regression",
+      "session_teardown_failure_path",
+      "full_reveal_vs_selective_disclosure_proof_cost",
+      "TEE_quote_and_TCB_verification",
+      "measured_verifier_source_build_reproduction",
+      "attested_verifier_receipt_validation",
+      "application_field_semantic_binding",
+      "json_pointer_and_parser_profile_verification",
+      "response_ordinal_and_direction_binding",
+      "host_side_field_selector",
+      "tlsn_presentation_verification_inside_risc0_guest",
+      "minimal_selected_field_certificate_verification",
+      "guest_image_build_and_dependency_closure"
+    ],
+    "measures": [
+      "wall_clock",
+      "cpu_time",
+      "peak_memory",
+      "energy",
+      "bytes_sent",
+      "bytes_received",
+      "round_trips",
+      "proof_size",
+      "header_size",
+      "secret_or_witness_artifact_size",
+      "verification_cost",
+      "failure_rate",
+      "replay_rate",
+      "linkability_advantage",
+      "unintended_field_disclosure",
+      "requalification_latency",
+      "same_subject_repeat_claim_acceptance",
+      "cross_scope_linkability",
+      "recovery_and_key_rotation_continuity",
+      "concurrent_consume_once_race",
+      "full_response_disclosure_bytes",
+      "sensitive_field_disclosure_count",
+      "range_validation_rejection_rate",
+      "session_hang_or_silent_drop_count",
+      "plaintext_bytes_entering_enclave",
+      "decryption_key_material_entering_enclave",
+      "attestation_quote_verification_latency",
+      "TCB_revocation_requalification_latency",
+      "source_build_correspondence_status",
+      "wrong_field_semantic_acceptance",
+      "parser_disagreement_acceptance",
+      "context_bytes_disclosed_for_hidden_leaf",
+      "json_duplicate_key_rejection",
+      "message_ordinal_or_direction_substitution_acceptance",
+      "field_selector_cpu_time",
+      "field_selector_peak_memory",
+      "field_selector_byte_span_alignment",
+      "duplicate_key_and_parser_ambiguity_rejection",
+      "risc0_guest_elf_bytes",
+      "risc0_guest_cycle_count",
+      "risc0_guest_memory_high_water_bytes",
+      "risc0_receipt_bytes",
+      "risc0_prove_p50_p95_p99",
+      "risc0_verify_p50_p95_p99",
+      "attested_commitment_api_proof_bytes"
+    ],
+    "fairness_rules": [
+      "Same exact request and response bytes wherever protocol allows.",
+      "Same parser/schema/predicate and public policy.",
+      "Do not compare proxy with MPC/TEE/notary as equal security modes.",
+      "Include source/session witness and credential checks, not just local proof time.",
+      "Report preprocessing separately from online latency.",
+      "Report all failures and rejected controls; rejecting all inputs is not a valid positive-control pass.",
+      "Uniqueness subject must be frozen as account, credential, entitlement, application or person; different subject claims are not interchangeable.",
+      "Do not compare full-response-reveal runtime with selective-disclosure runtime without reporting that the verifier receives the whole response in the former.",
+      "Pin exact TLSNotary release/tag/full source commit, crate graph, feature flags, Rust toolchain and target; prerelease Beta.1 remains an integration candidate, not a certified verifier.",
+      "Treat attested MPC-TLS verifier with prover-side plaintext and TEE plaintext processor as different privacy/trust profiles.",
+      "TEE-attested MPC-TLS verifier with no plaintext ingress and TEE plaintext processor are separate privacy classes; measure exactly which key/data each enclave role receives.",
+      "A TLSNotary commitment opening proves bytes/range authenticity, not that the range denotes the intended JSON Pointer; compare parser-in-proof, verifier-checked structural context and attestor extraction separately.",
+      "Host-side JSON field selection is only a body-relative parser result; never count it as TLS transcript range verification or ZK field-semantic proof.",
+      "Do not compare local STARK predicate time with end-to-end TLSNotary source proof; report TLS/MPC session, notary attestation, field extraction, guest proving and verification as separate stages.",
+      "RISC Zero guest verification must check the expected notary key and server identity/profile inside the admitted trust boundary; host-supplied verified booleans are not accepted."
+    ],
+    "prospective_targets": {
+      "false_accepts_in_frozen_adversarial_corpus": 0,
+      "request_and_root_binding_mutations_accepted": 0,
+      "unauthorized_attribute_disclosures": 0,
+      "stale_currentness_false_permits": 0,
+      "profile_substitution_accepts": 0,
+      "independent_reproduction_of_expected_outputs": "100%",
+      "latency_superiority": "Only claim after matched end-to-end benchmark under equal security, privacy, authority and hardware budgets; proposed aim is >=20% lower p95 time-to-qualified-private-decision without increasing leakage or false accepts.",
+      "no_tls_plaintext_or_decryption_keys_in_attested_verifier": "0 bytes",
+      "wrong_json_pointer_acceptance": 0,
+      "parser_disagreement_acceptance": 0,
+      "message_ordinal_or_direction_substitution_acceptance": 0,
+      "positive_field_semantic_controls": "100% of valid frozen JSON field/path fixtures accepted",
+      "minimal_selected_field_certificate_guest_cycles": "at least 20% fewer than full Presentation verification with identical authenticated fields, privacy and trust assumptions; unmeasured target only",
+      "minimal_selected_field_certificate_receipt_bytes": "at least 20% smaller than full Presentation verification with identical claim and trust assumptions; unmeasured target only"
+    },
+    "status": "protocol_and_targets_only_not_executed",
+    "privacy_profiles": [
+      "FULL_RESPONSE_REVEAL",
+      "SELECTIVE_DISCLOSURE",
+      "MIXED_SENSITIVE_DIRECTION",
+      "ATTESTED_WITNESS_PROVER_SIDE_PLAINTEXT"
+    ]
+  },
+  "nonclaims": [
+    "No system in this matrix is certified or promoted by inclusion.",
+    "Reported performance from separate papers/vendor posts is not a matched leaderboard.",
+    "Transport authenticity does not establish provider truth or account ownership.",
+    "Proof validity does not establish currentness, policy authority, consent or external effect.",
+    "Salted-commitment-derived spend tags do not guarantee uniqueness across fresh attestations for the same account.",
+    "Application/account-scoped uniqueness does not prove uniqueness of a legal or natural person.",
+    "TLSNotary full-reveal fast path is not selective disclosure: entire traffic direction is disclosed; only the key-derivation ZK proof remains while the ciphertext-to-plaintext proof for that direction is skipped.",
+    "A TEE verifier can strengthen delegated witness integrity without sacrificing prover-side plaintext confidentiality only if no TLS decryption material or application plaintext enters the enclave.",
+    "A valid TLS transcript range opening and valid ZK predicate do not by themselves prove the range maps to the intended JSON field."
+  ]
+}

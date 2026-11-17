@@ -1,0 +1,700 @@
+{
+  "schema_version": "mycelix-tlsnotary-ppac-casebook-v1",
+  "profile_id": "mycelix:source-session:tlsnotary-ppac:v1",
+  "status": "research_only",
+  "case_count": 60,
+  "oracle_status": "not_adjudicated",
+  "execution_status": "not_run",
+  "owner_issues": [
+    "mycelix#6245",
+    "mycelix#2821",
+    "mycelix#2640",
+    "mycelix#2641",
+    "mycelix#2813",
+    "mycelix#2109",
+    "mycelix#2110",
+    "mycelix#6230",
+    "symthaea#12301",
+    "symthaea#12269",
+    "symthaea#12295",
+    "mycelix#6251",
+    "mycelix#6254",
+    "symthaea#12328",
+    "symthaea#12336",
+    "symthaea#12373"
+  ],
+  "modes": [
+    {
+      "id": "TLSN-MPC-DIRECT-V1",
+      "witness": "relying verifier participates during TLS",
+      "portability": "designated verifier only",
+      "claim_ceiling": "live session evidence to that verifier"
+    },
+    {
+      "id": "TLSN-MPC-NOTARY-V1",
+      "witness": "delegated notary participates and signs Session Header",
+      "portability": "offline attestation",
+      "claim_ceiling": "portable only under explicit notary trust profile"
+    },
+    {
+      "id": "TLSN-PROXY-V1",
+      "witness": "verifier proxies encrypted traffic and verifies TLS proof",
+      "portability": "profile-specific",
+      "claim_ceiling": "includes verifier-to-server network-path assumption"
+    },
+    {
+      "id": "SCRIBE-ATTESTOR-STARK-V1",
+      "witness": "attestation node validates TLS provenance, extracts a field and signs a salted value commitment; client proves commitment/signature/policy in a transparent STARK",
+      "portability": "portable proof under explicit attestation-node, STARK and aggregator profiles",
+      "claim_ceiling": "the proof is linked to the attestor-signed extracted value; source extraction correctness inherits the attestation-node trust assumption"
+    },
+    {
+      "id": "DECO-3PTLS-V1",
+      "witness": "prover and verifier jointly participate in a three-party TLS handshake with the web server",
+      "portability": "designated verifier / application-specific proof",
+      "claim_ceiling": "the verifier checks exact TLS data provenance and selective opening under DECO's exact construction; context integrity and collusion assumptions remain explicit"
+    },
+    {
+      "id": "DIDO-PLUS-TLS13-V1",
+      "witness": "paper-specific three-party TLS/MPC protocol for restricted TLS 1.3 websites",
+      "portability": "paper-specific research protocol",
+      "claim_ceiling": "only the exact DIDO+ implementation/profile; no qualification inheritance to DECO or TLSNotary"
+    },
+    {
+      "id": "ZKPASS-HYBRID-V2",
+      "witness": "zkPass documented hybrid of proxy mode and MPC mode with VOLE-based ZK",
+      "portability": "profile-specific public proof",
+      "claim_ceiling": "mode, witness/network assumptions and exact release remain explicit"
+    },
+    {
+      "id": "RECLAIM-TEE-SPLIT-V1",
+      "witness": "split TEE services with hardware attestation and MPC/TLS proof path",
+      "portability": "profile-specific attestation",
+      "claim_ceiling": "trust is conditional on the exact TEE vendor chain, image measurement, hardware/configuration and split-service threat model"
+    },
+    {
+      "id": "TLSN-MPC-TEE-VERIFIER-V1",
+      "witness": "measured TEE runs the MPC-TLS verifier while prover keeps TLS decryption/plaintext; enclave receives ciphertext/protocol shares and emits an attested verifier receipt",
+      "portability": "attestation-backed verifier receipt under exact vendor TCB/image/build profile",
+      "claim_ceiling": "integrity of delegated verifier is anchored to measured code/hardware attestation; plaintext privacy remains prover-side only if no decryption key/plaintext enters the enclave"
+    }
+  ],
+  "nonclaims": [
+    "TLSNotary does not establish provider business truth.",
+    "An authenticated response does not establish account ownership or legal entitlement.",
+    "A notary signature does not remove trust in the delegated in-session witness.",
+    "Proxy mode is not security-equivalent to MPC-TLS.",
+    "Selective disclosure does not establish anonymity.",
+    "A request-bound balance proof is not a TLS transcript commitment opening.",
+    "TLS 1.3 support must be established from the exact release, not roadmap language.",
+    "Scribe-style salted commitment nullifiers do not guarantee account-level or person-level uniqueness across fresh salts.",
+    "Falcon-signed aggregator roots authenticate the root signer but do not by themselves prove append-only state transition correctness.",
+    "A circuit-friendly attestation signature is not automatically a standard or post-quantum signature.",
+    "TLS 1.3 support in one research protocol does not qualify TLS 1.3 support in another TLS-provenance implementation.",
+    "A valid TEE quote does not establish source authenticity unless exact measured code, TCB and dataflow roles are qualified.",
+    "A scoped nullifier does not establish person-level uniqueness unless a domain-authorized subject binding connects the relevant accounts/credentials.",
+    "A TEE-attested verifier does not preserve prover-side plaintext privacy if decryption keys or application plaintext enter the enclave.",
+    "A valid TEE quote does not establish reviewed source semantics without source-to-build correspondence and exact TCB qualification.",
+    "A TLSNotary-authenticated byte-range opening plus a valid private predicate does not prove that the range denotes the intended JSON Pointer or application field.",
+    "A prover-side parser selection is not independent proof of parser/schema/duplicate-key semantics."
+  ],
+  "cases": [
+    {
+      "id": "TLSN-001",
+      "mode": "TLSN-MPC-DIRECT-V1",
+      "kind": "positive",
+      "scenario": "Relying verifier participates online in MPC-TLS and verifies the exact server identity, transcript opening and application predicate.",
+      "expected": "DIRECT_VERIFIER_EVIDENCE",
+      "invariant": "Only the participating verifier receives the designated-verifier claim."
+    },
+    {
+      "id": "TLSN-002",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "positive",
+      "scenario": "Delegated notary signs a Session Header; later verifier validates the notary signature, transcript opening, TLS-specific server data and server identity.",
+      "expected": "PORTABLE_ATTESTATION_UNDER_NOTARY_PROFILE",
+      "invariant": "Portability inherits the declared notary trust root."
+    },
+    {
+      "id": "TLSN-003",
+      "mode": "TLSN-PROXY-V1",
+      "kind": "positive",
+      "scenario": "Proxy verifier observes encrypted traffic and verifies the exact admitted TLS 1.2 session proof under an explicit proxy profile.",
+      "expected": "PROXY_PROFILE_EVIDENCE_ONLY",
+      "invariant": "Proxy evidence never upgrades to MPC-TLS profile."
+    },
+    {
+      "id": "TLSN-004",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "An offline relying party treats a notary-signed presentation as trustless proof with no notary dependency.",
+      "expected": "BLOCKED",
+      "invariant": "Attestation verifier inherits trust in the delegated in-session witness."
+    },
+    {
+      "id": "TLSN-005",
+      "mode": "TLSN-MPC-DIRECT-V1",
+      "kind": "negative",
+      "scenario": "A third party who did not participate treats a direct-verifier transcript as portable public proof.",
+      "expected": "UNSUPPORTED",
+      "invariant": "Direct verifier evidence is designated-verifier."
+    },
+    {
+      "id": "TLSN-006",
+      "mode": "TLSN-PROXY-V1",
+      "kind": "negative",
+      "scenario": "Proxy result is admitted where the policy requires MPC-TLS's server-identity privacy or direct prover-to-server network path.",
+      "expected": "BLOCKED",
+      "invariant": "Proxy mode has a distinct trust model and server-identity disclosure."
+    },
+    {
+      "id": "TLSN-007",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A Session Header is validly signed by a key outside the expected notary trust-root/key-epoch profile.",
+      "expected": "BLOCKED",
+      "invariant": "Signature validity under an unexpected key is not notary qualification."
+    },
+    {
+      "id": "TLSN-008",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "The notary signature verifies but the supplied plaintext opening does not match the committed root.",
+      "expected": "BLOCKED",
+      "invariant": "Notary signature and commitment opening are independently checked."
+    },
+    {
+      "id": "TLSN-009",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "The transcript commitment matches, but the prover substitutes a private balance unrelated to the selected committed field.",
+      "expected": "BLOCKED",
+      "invariant": "The proof must link one witness to the exact committed field and predicate."
+    },
+    {
+      "id": "TLSN-010",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A correct opening is checked with a different HTTP-object leaf index or range selector.",
+      "expected": "BLOCKED",
+      "invariant": "The exact selector and opening path are part of the statement."
+    },
+    {
+      "id": "TLSN-011",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "The exact response is parsed with a substituted parser version, duplicate-key policy or JSON Pointer.",
+      "expected": "BLOCKED",
+      "invariant": "Parser identity and selection semantics are committed into the proof."
+    },
+    {
+      "id": "TLSN-012",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "Currency, decimal scale, sign, rounding or inclusive/exclusive comparison changes while the numeric threshold remains the same.",
+      "expected": "BLOCKED",
+      "invariant": "Claim schema and exact predicate semantics are separately bound."
+    },
+    {
+      "id": "TLSN-013",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "Valid server session is presented for the wrong origin, SNI, method, path, query, deployment or API product.",
+      "expected": "BLOCKED",
+      "invariant": "Exact source request/profile is part of the claim."
+    },
+    {
+      "id": "TLSN-014",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "Wrong TLS version or cipher suite is accepted despite the frozen protocol profile.",
+      "expected": "BLOCKED",
+      "invariant": "TLS version and cipher profile are explicit."
+    },
+    {
+      "id": "TLSN-015",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A TLS 1.3-only provider is admitted while the pinned TLSNotary release only qualifies TLS 1.2.",
+      "expected": "UNSUPPORTED",
+      "invariant": "Roadmap intent is not release capability."
+    },
+    {
+      "id": "TLSN-016",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A valid authenticated response is semantically false or misleading.",
+      "expected": "SOURCE_AUTHENTIC_BUT_SEMANTIC_TRUTH_UNESTABLISHED",
+      "invariant": "Transport authenticity does not establish business truth."
+    },
+    {
+      "id": "TLSN-017",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A successful provider login is treated as proof that the prover legally owns every returned account.",
+      "expected": "UNSUPPORTED",
+      "invariant": "Authentication is not account ownership or beneficial entitlement."
+    },
+    {
+      "id": "TLSN-018",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "The same commitment root, server metadata or account identifier correlates separate presentations across audiences.",
+      "expected": "PRIVACY_PROFILE_FAILURE",
+      "invariant": "Selective disclosure is not anonymity; linkability is measured."
+    },
+    {
+      "id": "TLSN-019",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "Repeated threshold predicates allow an adaptive verifier to infer a low-entropy private balance.",
+      "expected": "BLOCKED_BY_PEC_QUERY_POLICY",
+      "invariant": "Predicate sequences are a privacy channel."
+    },
+    {
+      "id": "TLSN-020",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A presentation reveals cookies, authorization headers, bearer tokens, account IDs or unrelated response fields.",
+      "expected": "PRIVACY_PROFILE_FAILURE",
+      "invariant": "Only explicitly permitted fields may leave the prover."
+    },
+    {
+      "id": "TLSN-021",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A request challenge, audience, purpose or policy is replayed/substituted across sessions.",
+      "expected": "BLOCKED",
+      "invariant": "Exact request binding and consume-once challenge ownership are required."
+    },
+    {
+      "id": "TLSN-022",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A previously valid response remains cryptographically authentic but is outside the required freshness interval or has been superseded.",
+      "expected": "STALE_OR_SUPERSEDED",
+      "invariant": "Cryptographic provenance is not currentness; LISE requalifies dependencies."
+    },
+    {
+      "id": "TLSN-023",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A host supplies source_valid=true, a parser output or a request digest without the corresponding authenticated root/opening evidence.",
+      "expected": "BLOCKED",
+      "invariant": "Host booleans and reference digests are not source proof."
+    },
+    {
+      "id": "TLSN-024",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A receipt valid for a different Symthaea guest ImageID is offered to the request-bound predicate verifier.",
+      "expected": "BLOCKED",
+      "invariant": "The expected exact guest ImageID is verifier-owned."
+    },
+    {
+      "id": "SCRIBE-001",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "positive",
+      "scenario": "Attestation node witnesses the exact TLS session, applies a frozen extraction rule, signs a commitment, and the STARK proves the policy over the same committed value.",
+      "expected": "ATTESTOR_BOUND_PRIVATE_PREDICATE",
+      "invariant": "This is valid only under the declared attestation-node trust assumption and exact extraction profile."
+    },
+    {
+      "id": "SCRIBE-002",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "The same Web2 account obtains a second attestation using a fresh salt, producing a different commitment and different spend tag, then claims a second one-time entitlement.",
+      "expected": "BLOCKED_WHEN_ACCOUNT_OR_ENTITLEMENT_UNIQUENESS_REQUIRED",
+      "invariant": "A salted commitment-derived spend tag prevents same-tag replay, not necessarily repeat claims by the same account. Uniqueness subject and privacy-preserving subject binding must be explicit."
+    },
+    {
+      "id": "SCRIBE-003",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "The attestation node signs a value commitment without executing or verifying a genuine TLS provenance session.",
+      "expected": "TRUST_ROOT_FAILURE_OR_INDEPENDENT_WITNESS_REQUIRED",
+      "invariant": "Base Scribe-style security assumes the attestation node behaves correctly; a signature cannot prove the witness actually ran the protocol."
+    },
+    {
+      "id": "SCRIBE-004",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "A client substitutes application ID, server ID, extraction rule, data or salt after receiving an attestation signature.",
+      "expected": "BLOCKED",
+      "invariant": "Every authority/privacy-relevant field must be covered by one unambiguous, domain-separated commitment preimage and signature."
+    },
+    {
+      "id": "SCRIBE-005",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "An in-circuit attestation signature implementation is treated as EUF-CMA secure without exact construction review, multi-message analysis, key-lifecycle rules or independent cryptanalysis.",
+      "expected": "UNSUPPORTED",
+      "invariant": "Circuit-friendly does not mean standard, secure or post-quantum; theorem assumptions must match the exact deployed construction."
+    },
+    {
+      "id": "SCRIBE-006",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "Aggregator publishes a Falcon-signed new root that omits a previously accepted spend tag or equivocates between two roots.",
+      "expected": "BLOCKED_OR_EQUIVOCATION_EVIDENCE",
+      "invariant": "A signature authenticates the root signer; it does not prove append-only correctness, inclusion of accepted submissions or consistency with the prior root."
+    },
+    {
+      "id": "SCRIBE-007",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "Deployment labels the whole credential pipeline post-quantum because the aggregator root is Falcon-signed, while TLS and attestation signatures use classical assumptions.",
+      "expected": "CRYPTO_PROFILE_MISLABEL_BLOCKED",
+      "invariant": "Post-quantum status is layer-specific; PQ root authorization does not promote the attestation, TLS, commitment or complete protocol."
+    },
+    {
+      "id": "SCRIBE-008",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "A response has ambiguous JSON/canonicalization or duplicate-key interpretation and the attestation node and prover use different extraction semantics.",
+      "expected": "BLOCKED",
+      "invariant": "The exact parser/canonicalization and extraction-rule version must be frozen and bound into the signed commitment."
+    },
+    {
+      "id": "SCRIBE-009",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "A ZK proof reveals no private witness, but request timing, response size, attestation metadata or repeated queries correlate the same subject across sessions.",
+      "expected": "PRIVACY_PROFILE_FAILURE",
+      "invariant": "Proof zero-knowledge does not hide network metadata, timing, sizes or linkability across repeated predicates."
+    },
+    {
+      "id": "SCRIBE-010",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "An application-scoped spend tag is expected to guarantee legal-person uniqueness even though no domain-qualified subject binding connects accounts to that person.",
+      "expected": "UNSUPPORTED",
+      "invariant": "Account, legal person, credential, entitlement and application are distinct uniqueness subjects. A nullifier cannot prove real-world uniqueness by itself."
+    },
+    {
+      "id": "DECO-001",
+      "mode": "DECO-3PTLS-V1",
+      "kind": "negative",
+      "scenario": "The prover reveals a selected substring that appears in multiple places or can be interpreted differently, without proving the required surrounding context and exact response position.",
+      "expected": "BLOCKED",
+      "invariant": "Selective opening must preserve context integrity; substring presence alone does not establish the intended semantic field."
+    },
+    {
+      "id": "DIDO-001",
+      "mode": "DIDO-PLUS-TLS13-V1",
+      "kind": "negative",
+      "scenario": "An implementation using DECO or TLSNotary claims TLS 1.3 coverage solely because a separate DIDO+ paper demonstrates a TLS 1.3 research protocol.",
+      "expected": "UNSUPPORTED",
+      "invariant": "TLS-version support is implementation- and profile-specific; no protocol inherits another paper's negotiated-version capability."
+    },
+    {
+      "id": "ZKPASS-001",
+      "mode": "ZKPASS-HYBRID-V2",
+      "kind": "negative",
+      "scenario": "A proxy-mode zkPass presentation is admitted under a profile that requires the MPC-mode or another direct-verifier network-path assumption.",
+      "expected": "BLOCKED",
+      "invariant": "Proxy and MPC are distinct protocol profiles; hybrid fallback does not permit cross-mode qualification inheritance."
+    },
+    {
+      "id": "ZKPASS-002",
+      "mode": "ZKPASS-HYBRID-V2",
+      "kind": "negative",
+      "scenario": "The deployment selects MPC mode without enforcing the declared bandwidth, response-size and resource limits for the exact protocol release.",
+      "expected": "RESOURCE_PROFILE_FAILURE",
+      "invariant": "Protocol mode and workload bounds are part of qualification; throughput figures from proxy mode do not establish MPC feasibility."
+    },
+    {
+      "id": "RECLAIM-001",
+      "mode": "RECLAIM-TEE-SPLIT-V1",
+      "kind": "negative",
+      "scenario": "A hardware quote verifies cryptographically but its TEE image measurement, firmware chain, cloud configuration or security version does not match the admitted profile.",
+      "expected": "BLOCKED",
+      "invariant": "A valid quote is not enough; exact measurement, vendor root, TCB version and policy must match."
+    },
+    {
+      "id": "RECLAIM-002",
+      "mode": "RECLAIM-TEE-SPLIT-V1",
+      "kind": "negative",
+      "scenario": "The split TEE architecture is reduced to a generic tee_attested=true flag, losing which service held TLS keys, which service saw request/response data, and which code measurement each quote binds.",
+      "expected": "BLOCKED",
+      "invariant": "TEE roles, data visibility, measurements and trust domains must remain separately represented and qualified."
+    },
+    {
+      "id": "SCRIBE-011",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "The same provider account and same entitlement are re-attested with a different random salt and fresh commitment; the second proof attempts to claim the same scoped benefit.",
+      "expected": "BLOCKED_BY_DOMAIN_SCOPED_SUBJECT_NULLIFIER",
+      "invariant": "The salt must not define uniqueness identity; a domain-qualified stable hidden subject binding is required for same-account/entitlement uniqueness.",
+      "owners": [
+        "Mycelix #6245",
+        "Mycelix #6251"
+      ]
+    },
+    {
+      "id": "SCRIBE-012",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "positive",
+      "scenario": "The same qualified issuer-bound subject obtains a fresh randomized presentation/credential for the same application entitlement scope; the scoped nullifier remains the same and the second consume is blocked.",
+      "expected": "SAME_SCOPED_NULLIFIER_SECOND_CONSUME_BLOCKED",
+      "invariant": "Presentation randomness and credential re-issuance must not reset same-scope uniqueness when subject continuity is established.",
+      "owners": [
+        "Mycelix #6251"
+      ]
+    },
+    {
+      "id": "SCRIBE-013",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "Two provider accounts are asserted to belong to the same natural/legal person, but no qualified common subject-binding credential or authority exists.",
+      "expected": "INDETERMINATE_PERSON_LEVEL_UNIQUENESS",
+      "invariant": "Account-level uniqueness is not person-level uniqueness; do not infer identity from names, email, device or graph correlation.",
+      "owners": [
+        "Mycelix #6251"
+      ]
+    },
+    {
+      "id": "SCRIBE-014",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "Issuer key rotation, account recovery, account merge or credential replacement changes the apparent subject secret without a qualified continuity/migration proof.",
+      "expected": "INDETERMINATE_NO_NULLIFIER_RESET",
+      "invariant": "Recovery and rotation cannot silently mint a new uniqueness identity; historical consumption remains append-only.",
+      "owners": [
+        "Mycelix #6251",
+        "LISE #6219"
+      ]
+    },
+    {
+      "id": "SCRIBE-015",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "A policy digest changes while the application entitlement is still the same, and the new proof derives a new nullifier as if the subject had never claimed.",
+      "expected": "BLOCKED_UNLESS_NEW_ENTITLEMENT_EPOCH_AUTHORIZED",
+      "invariant": "A policy version change does not automatically reset the uniqueness scope; the domain owner must explicitly define a new entitlement epoch.",
+      "owners": [
+        "Mycelix #6251"
+      ]
+    },
+    {
+      "id": "SCRIBE-016",
+      "mode": "SCRIBE-ATTESTOR-STARK-V1",
+      "kind": "negative",
+      "scenario": "The same subject's scoped nullifiers for two unrelated applications are publicly linkable through a stable global subject pseudonym.",
+      "expected": "PRIVACY_PROFILE_FAILURE",
+      "invariant": "Uniqueness is deliberately linkable only within the declared scope; no global stable subject handle is published.",
+      "owners": [
+        "Mycelix #6251",
+        "PEC #2109",
+        "#2110"
+      ]
+    },
+    {
+      "id": "TLSN-025",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A Beta.1 transcript commitment is reordered, duplicated or substituted after the commitment-order-preservation boundary.",
+      "expected": "BLOCKED",
+      "invariant": "The exact transcript commitment order is part of the authenticated statement; reordering cannot preserve acceptance.",
+      "release": "tlsn-v0.1.0-beta.1",
+      "upstream_regression": "#1179"
+    },
+    {
+      "id": "TLSN-026",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "Prover-supplied transcript commitment ranges are reversed, overlapping, duplicated, empty, overflowed or outside configured transcript bounds.",
+      "expected": "BLOCKED_WITH_BOUNDED_RESOURCE_USE",
+      "invariant": "Range validation must be enforced by the exact pinned implementation; attacker-controlled ranges cannot trigger unbounded work or ambiguous openings.",
+      "release": "tlsn-v0.1.0-beta.1",
+      "upstream_regression": "#1196"
+    },
+    {
+      "id": "TLSN-027",
+      "mode": "TLSN-MPC-DIRECT-V1",
+      "kind": "negative",
+      "scenario": "Verifier and prover compute different GHASH byte ordering or a transcript is verified against a wrong byte-order known-answer vector.",
+      "expected": "BLOCKED",
+      "invariant": "Exact GHASH byte order and TLS transcript authenticity must match the pinned beta.1 implementation.",
+      "release": "tlsn-v0.1.0-beta.1",
+      "upstream_regression": "#1211"
+    },
+    {
+      "id": "TLSN-028",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "positive",
+      "scenario": "The application intentionally accepts the entire response as non-sensitive; full-reveal path transfers the response write key, verifier decrypts the whole direction, and the TLS key-derivation ZK proof still verifies.",
+      "expected": "FULL_RESPONSE_DISCLOSED_TO_VERIFIER_PROFILE_ONLY",
+      "invariant": "Full reveal skips response ciphertext-to-plaintext ZK work but does not skip the key-derivation proof; this is not selective disclosure.",
+      "privacy_profile": "FULL_RESPONSE_REVEAL"
+    },
+    {
+      "id": "TLSN-029",
+      "mode": "TLSN-MPC-NOTARY-V1",
+      "kind": "negative",
+      "scenario": "A response contains one sensitive byte or field but is benchmarked/admitted as full reveal, disclosing the entire response or incorrectly claiming selective privacy.",
+      "expected": "SELECTIVE_ZK_PATH_REQUIRED",
+      "invariant": "One private byte/field prevents full-reveal treatment for that direction; all-or-nothing direction semantics must be explicit.",
+      "privacy_profile": "SELECTIVE_DISCLOSURE"
+    },
+    {
+      "id": "TLSN-030",
+      "mode": "TLSN-PROXY-V1",
+      "kind": "negative",
+      "scenario": "Peer close, EOF, partial proxy write, cancellation or stream-limit mismatch causes a session to hang, busy-loop or silently drop transcript bytes.",
+      "expected": "CLEAN_COMPLETION_OR_TYPED_TRANSPORT_FAILURE",
+      "invariant": "A session must either complete deterministically or fail with an observable transport error; configured mux limits must match both peers.",
+      "release": "tlsn-v0.1.0-beta.1",
+      "upstream_regressions": [
+        "#1207",
+        "#1202",
+        "#1172",
+        "#1167",
+        "#1175",
+        "#1193"
+      ]
+    },
+    {
+      "id": "TLSN-TEE-001",
+      "mode": "TLSN-MPC-TEE-VERIFIER-V1",
+      "kind": "positive",
+      "scenario": "Measured enclave participates as MPC-TLS verifier, the prover performs plaintext decryption, no TLS write key or application plaintext enters enclave memory, and a request/session/image-bound attested receipt is emitted.",
+      "expected": "ATTESTED_WITNESS_WITH_PROVER_SIDE_PLAINTEXT",
+      "invariant": "Hardware measurement anchors witness integrity while cryptographic protocol keeps user plaintext outside the enclave.",
+      "owners": [
+        "Mycelix #6254",
+        "Symthaea #12301"
+      ]
+    },
+    {
+      "id": "TLSN-TEE-002",
+      "mode": "TLSN-MPC-TEE-VERIFIER-V1",
+      "kind": "negative",
+      "scenario": "Enclave receives TLS write/decryption key, session token or application plaintext but is labelled as the prover-side-plaintext verifier profile.",
+      "expected": "PROFILE_C_MISLABEL_REJECTED",
+      "invariant": "Any plaintext custody inside enclave changes the privacy trust model and must be classified as TEE plaintext processor.",
+      "owners": [
+        "Mycelix #6254"
+      ]
+    },
+    {
+      "id": "TLSN-TEE-003",
+      "mode": "TLSN-MPC-TEE-VERIFIER-V1",
+      "kind": "negative",
+      "scenario": "Attestation quote is cryptographically valid but TCB version is stale/revoked or measured image does not match the admitted verifier image.",
+      "expected": "BLOCKED",
+      "invariant": "Quote signature validity is distinct from TCB policy, image identity and verifier admission.",
+      "owners": [
+        "Mycelix #6254"
+      ]
+    },
+    {
+      "id": "TLSN-TEE-004",
+      "mode": "TLSN-MPC-TEE-VERIFIER-V1",
+      "kind": "negative",
+      "scenario": "Attestation quote and image measurement match, but no reproducible or reviewed source/build mapping exists for the measured image.",
+      "expected": "UNSUPPORTED_OR_INDETERMINATE",
+      "invariant": "A measurement identifies bytes; it does not establish that those bytes implement the reviewed verifier semantics.",
+      "owners": [
+        "Mycelix #6254"
+      ]
+    },
+    {
+      "id": "TLSN-FIELD-001",
+      "mode": "TLSN-MPC-DIRECT-V1",
+      "kind": "positive",
+      "scenario": "Verifier independently checks authenticated structural JSON context, the exact requested JSON Pointer and byte-range relationship while the target leaf value remains hidden; the private predicate proof uses that same opened leaf.",
+      "expected": "FIELD_SEMANTICS_BOUND_PRIVATE_PREDICATE",
+      "invariant": "A proof must bind the private value to the requested response field, not merely to any valid transcript range.",
+      "owner": "Symthaea #12328"
+    },
+    {
+      "id": "TLSN-FIELD-002",
+      "mode": "TLSN-MPC-DIRECT-V1",
+      "kind": "negative",
+      "scenario": "An authentic response contains two date-shaped fields; prover commits to an unrelated date field but labels it as taxpayer.date_of_birth, and the ZK predicate over the unrelated date is valid.",
+      "expected": "BLOCKED_WRONG_JSON_POINTER",
+      "invariant": "Transcript authenticity plus a valid predicate does not establish application-field meaning; verifier must check the exact path and response object.",
+      "owner": "Symthaea #12328"
+    },
+    {
+      "id": "TLSN-FIELD-003",
+      "mode": "TLSN-MPC-DIRECT-V1",
+      "kind": "negative",
+      "scenario": "Response includes duplicate JSON keys or escaped/Unicode-equivalent field names, and prover/verifier parser configurations select different values for the requested field.",
+      "expected": "BLOCKED_PARSER_AMBIGUITY",
+      "invariant": "Parser version, duplicate-key policy, escape/Unicode rules and canonicalization are part of the exact claim semantics.",
+      "owner": "Symthaea #12328"
+    },
+    {
+      "id": "TLSN-FIELD-004",
+      "mode": "TLSN-MPC-DIRECT-V1",
+      "kind": "negative",
+      "scenario": "Prover selects the correct-looking leaf bytes from a second HTTP response/message or wrong transcript direction and attempts to use them for the first requested response.",
+      "expected": "BLOCKED_MESSAGE_ORDINAL_OR_DIRECTION_MISMATCH",
+      "invariant": "The authenticated field binding includes exact HTTP message ordinal, request-response pairing, direction, response framing and JSON Pointer.",
+      "owner": "Symthaea #12328"
+    }
+  ],
+  "upstream_release_baseline": {
+    "release": "tlsn-v0.1.0-beta.1",
+    "released": "2026-11-14",
+    "status": "prerelease_candidate_only",
+    "full_commit_sha": "40a069565a2eaecbb5e691dbc634be20e8498daf",
+    "regressions": [
+      "#1179",
+      "#1196",
+      "#1211",
+      "#1207",
+      "#1202",
+      "#1172",
+      "#1167",
+      "#1175",
+      "#1193"
+    ],
+    "release_commit": "40a069565a2eaecbb5e691dbc634be20e8498daf"
+  },
+  "privacy_profiles": [
+    {
+      "id": "FULL_RESPONSE_REVEAL",
+      "disclosure": "entire selected traffic direction is revealed to verifier",
+      "zk_cost": "TLS key-derivation proof remains; direction plaintext proof skipped",
+      "admission": "only when entire direction is approved for disclosure"
+    },
+    {
+      "id": "SELECTIVE_DISCLOSURE",
+      "disclosure": "only selected ranges/HTTP objects revealed; unrelated fields redacted",
+      "zk_cost": "commitment/opening and relevant plaintext proof required",
+      "admission": "default for private claims"
+    },
+    {
+      "id": "MIXED_SENSITIVE_DIRECTION",
+      "disclosure": "one or more sensitive bytes remain hidden within direction",
+      "zk_cost": "full direction ZK path applies; full-reveal fast path unavailable",
+      "admission": "must not be benchmarked as full reveal"
+    },
+    {
+      "id": "ATTESTED_WITNESS_PROVER_SIDE_PLAINTEXT",
+      "disclosure": "TEE sees only the protocol inputs/ciphertext needed to act as verifier; plaintext and decryption remain on prover device",
+      "trust": "TEE/vendor/image measurement anchors verifier integrity; cryptographic protocol anchors plaintext confidentiality"
+    }
+  ],
+  "parser_selector_candidate": {
+    "issue": "symthaea#12328",
+    "pull_request": "symthaea#12336",
+    "status": "draft_host_side_selector_only_not_compiled_or_executed",
+    "capabilities": [
+      "serde_json RawValue exact field token span",
+      "RFC 6901 JSON Pointer",
+      "duplicate decoded key rejection",
+      "resource limits",
+      "raw numeric lexeme preservation"
+    ],
+    "nonclaims": [
+      "not HTTP framing",
+      "not TLS transcript offset mapping",
+      "not TLSN commitment opening verification",
+      "not proof of source authenticity"
+    ]
+  }
+}
