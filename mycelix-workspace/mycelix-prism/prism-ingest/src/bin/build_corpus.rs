@@ -438,7 +438,10 @@ mod source_manifest_tests {
         let manifest: serde_json::Value =
             serde_json::from_str(SOURCE_MANIFEST_JSON).expect("source manifest JSON");
         assert_eq!(manifest["manifest_id"].as_str(), Some(SOURCE_MANIFEST_ID));
-        assert_eq!(manifest["manifest_version"].as_str(), Some(SOURCE_MANIFEST_VERSION));
+        assert_eq!(
+            manifest["manifest_version"].as_str(),
+            Some(SOURCE_MANIFEST_VERSION)
+        );
         let source = manifest["sources"]
             .as_array()
             .expect("source entries")
@@ -486,8 +489,7 @@ fn main() {
 
     for (domain, articles, level) in TOPICS {
         for title in *articles {
-            let mut url =
-                Url::parse("https://en.wikipedia.org/api/rest_v1/page/summary/").unwrap();
+            let mut url = Url::parse("https://en.wikipedia.org/api/rest_v1/page/summary/").unwrap();
             url.path_segments_mut()
                 .expect("Wikipedia summary URL is hierarchical")
                 .push(title);
@@ -619,5 +621,8 @@ fn main() {
         serde_json::to_string_pretty(&provenance).expect("provenance serialization");
     let provenance_path = "prism-ingest/claims/wikipedia-extracts.provenance.json";
     std::fs::write(provenance_path, provenance_json).expect("Failed to write provenance");
-    println!("Written to {} with provenance {}", output_path, provenance_path);
+    println!(
+        "Written to {} with provenance {}",
+        output_path, provenance_path
+    );
 }
