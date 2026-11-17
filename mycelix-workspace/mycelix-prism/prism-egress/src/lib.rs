@@ -177,7 +177,7 @@ pub struct EgressReceipt {
     pub response_body_bytes: usize,
     pub elapsed: Duration,
     pub policy_version: &'static str,
-    pub authority: EgressAuthority,
+    pub authority: &'static str,
 }
 
 /// Resolver interface makes DNS policy deterministic under test. Implementations
@@ -294,6 +294,9 @@ impl PublicEgressClient {
 
         let mut url = Url::parse(raw_url)?;
         validate_url_policy(&url)?;
+        if url.scheme() == "http" && (method != Method::GET || !headers.is_empty() || !body.is_empty()) {
+            return Err(EgressError::RequestRequiresTls);
+        }
         validate_authority_scope(authority, &url, &method, &headers, &body)?;
         // URL fragments are client-side state and must not affect the
         // authorization identity or be sent as part of the HTTP request.
@@ -331,7 +334,7 @@ impl PublicEgressClient {
         }
 
         let origin = format!("{}://{}", capability.url.scheme(), capability.host);
-        let authority = capability.authority;
+        let authority = capability.authority.label();
         let authorized_addresses = capability.addresses.clone();
         let method_name = capability.method.as_str().to_owned();
         let request_body_bytes = capability.body.len();
@@ -1061,18 +1064,21 @@ mod tests {
     async fn capability_binds_the_exact_headers_and_body() {
         let client = PublicEgressClient::default();
         let mut headers = HeaderMap::new();
-        headers.insert(reqwest::header::ACCEPT, "application/json".parse().unwrap());
+        headers.insert(reqwest::header::AUTHORIZATION, "Bearer secret".parse().unwrap());
+        headers.insert(reqwest::header::CONTENT_TYPE, "application/json".parse().unwrap());
         let capability = client
-            .authorize(
+            .authorize_with_authority(
+                EgressAuthority::Perplexity,
                 Method::POST,
-                "https://1.1.1.1/resource",
+                "https://api.perplexity.ai/chat/completions",
                 headers.clone(),
                 b"exact-payload".to_vec(),
             )
             .await
             .unwrap();
 
-        assert_eq!(capability.url.as_str(), "https://1.1.1.1/resource");
+        assert_eq!(capability.url.as_str(), "https://api.perplexity.ai/chat/completions");
+        assert_eq!(capability.authority, EgressAuthority::Perplexity);
         assert_eq!(capability.method, Method::POST);
         assert_eq!(capability.headers, headers);
         assert_eq!(capability.body, b"exact-payload");
