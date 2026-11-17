@@ -923,6 +923,38 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn successful_receipt_records_observed_peer_and_authority() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            read_test_request(&mut stream).await;
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok",
+                )
+                .await
+                .unwrap();
+        });
+
+        let client = PublicEgressClient::default();
+        let url = Url::parse(&format!(
+            "http://response-cap-test.invalid:{}/",
+            address.port()
+        ))
+        .unwrap();
+        let capability = test_capability(url, address, 16);
+        let response = client.execute(capability).await.unwrap();
+        assert_eq!(response.body, b"ok");
+        assert_eq!(response.receipt.remote_peer, address);
+        assert_eq!(response.receipt.authority, "public-web");
+        assert_eq!(response.receipt.authorized_addresses, vec![address]);
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
     async fn declared_oversized_content_length_is_rejected_before_body_read() {
         use tokio::io::AsyncWriteExt;
 
