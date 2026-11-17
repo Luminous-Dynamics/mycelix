@@ -417,11 +417,22 @@ jobs:
       - name: Enforce Prism direct HTTP client inventory
         run: |
           cd mycelix-workspace
-          unexpected=$(grep -R -nE 'reqwest::(blocking::)?(Client::builder|Client::new|get\()' mycelix-prism --include='*.rs' \
-            | grep -Ev 'mycelix-prism/(prism-egress/src/|prism-net/src/|prism-tauri/src/|prism-ingest/src/bin/)' || true)
+          inventory=$(grep -R -nE 'reqwest::(blocking::)?(Client::builder|Client::new|get\()' mycelix-prism --include='*.rs' || true)
+          unexpected=$(printf '%s\n' "$inventory" | grep -Ev '^mycelix-prism/(prism-net/src/lib\.rs|prism-tauri/src/main\.rs|prism-ingest/src/bin/(build_corpus|fetch_wikidata)\.rs):' || true)
           if [ -n "$unexpected" ]; then
             echo "Unclassified direct HTTP client detected:"
             echo "$unexpected"
+            exit 1
+          fi
+          actual=$(printf '%s\n' "$inventory" | grep -c . || true)
+          if [ "$actual" -ne 4 ]; then
+            echo "Expected exactly four reviewed direct clients, found $actual:"
+            echo "$inventory"
+            exit 1
+          fi
+          egress_client_builders=$(grep -Ec 'Client::builder\(' mycelix-prism/prism-egress/src/lib.rs || true)
+          if [ "$egress_client_builders" -ne 1 ]; then
+            echo "Expected exactly one transport client builder in prism-egress, found $egress_client_builders"
             exit 1
           fi
       - name: Build prism-ui for wasm32 (Trunk target)
