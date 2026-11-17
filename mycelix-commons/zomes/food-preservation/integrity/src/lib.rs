@@ -240,9 +240,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 ..
             } => validate_batch(b),
             OpEntry::UpdateEntry {
-                app_entry: EntryTypes::ReusableContainer(container),
+                app_entry: EntryTypes::ReusableContainer(_),
                 ..
-            } => validate_reusable_container(container),
+            } => Ok(ValidateCallbackResult::Invalid(
+                "Reusable container registration records are immutable; use lifecycle events".into(),
+            )),
             OpEntry::UpdateEntry {
                 app_entry: EntryTypes::ContainerCycleEvent(_),
                 ..
@@ -405,6 +407,38 @@ fn validate_reusable_container(
     validate_container_evidence(&container.evidence)
 }
 
+fn validate_container_transition_fields(
+    previous: Option<&ContainerCycleEvent>,
+    current: &ContainerCycleEvent,
+) -> ValidateCallbackResult {
+    let valid = match (previous.map(|event| &event.event_kind), &current.event_kind) {
+        (None, ContainerEventKind::Washed) => current.condition == ContainerCondition::NeedsCleaning,
+        (Some(ContainerEventKind::Emptied | ContainerEventKind::Returned | ContainerEventKind::Damaged | ContainerEventKind::Lost), ContainerEventKind::Washed) => current.condition == ContainerCondition::NeedsCleaning,
+        (Some(ContainerEventKind::Washed), ContainerEventKind::Sanitized) => current.condition == ContainerCondition::Serviceable,
+        (Some(ContainerEventKind::Sanitized), ContainerEventKind::Inspected) => current.condition == ContainerCondition::Serviceable,
+        (Some(ContainerEventKind::Inspected), ContainerEventKind::Filled) => previous.is_some_and(|event| event.condition == ContainerCondition::Serviceable) && current.condition == ContainerCondition::Serviceable,
+        (Some(ContainerEventKind::Filled), ContainerEventKind::Sealed) => current.condition == ContainerCondition::Serviceable,
+        (Some(ContainerEventKind::Sealed), ContainerEventKind::Dispatched) => current.condition == ContainerCondition::Serviceable,
+        (Some(ContainerEventKind::Dispatched), ContainerEventKind::Received) => current.condition == ContainerCondition::Serviceable,
+        (Some(ContainerEventKind::Received), ContainerEventKind::Emptied) => current.condition == ContainerCondition::NeedsCleaning,
+        (Some(ContainerEventKind::Emptied), ContainerEventKind::Returned) => current.condition == ContainerCondition::NeedsCleaning,
+        (Some(previous_kind), ContainerEventKind::Retired) if !matches!(previous_kind, ContainerEventKind::Retired | ContainerEventKind::Lost) => current.condition == ContainerCondition::Retired,
+        (Some(previous_kind), ContainerEventKind::Lost) if !matches!(previous_kind, ContainerEventKind::Retired | ContainerEventKind::Lost) => current.condition == ContainerCondition::Lost,
+        (Some(previous_kind), ContainerEventKind::Damaged) if !matches!(previous_kind, ContainerEventKind::Retired | ContainerEventKind::Lost) => current.condition == ContainerCondition::Damaged,
+        _ => false,
+    };
+    if valid {
+        ValidateCallbackResult::Valid
+    } else {
+        ValidateCallbackResult::Invalid(format!(
+            "Invalid container lifecycle transition: {:?} -> {:?} with condition {:?}",
+            previous.map(|event| &event.event_kind),
+            current.event_kind,
+            current.condition
+        ))
+    }
+}
+
 fn validate_container_cycle_event(
     event: ContainerCycleEvent,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -434,16 +468,18 @@ fn validate_container_cycle_event(
         {
             return Ok(ValidateCallbackResult::Invalid("Sanitation optional refs must be non-empty and exposure time positive".into()));
         }
-        validate_container_evidence(&observation.evidence)?;
+        match validate_container_evidence(&observation.evidence)? {
+            ValidateCallbackResult::Valid => {}
+            invalid @ ValidateCallbackResult::Invalid(_) => return Ok(invalid),
+        }
     } else if event.sanitation.is_some() {
         return Ok(ValidateCallbackResult::Invalid("Sanitation observation is only valid on Washed/Sanitized events".into()));
     }
 
-    if event.sequence_number == 0 {
-        if event.previous_event_hash.is_some() {
-            return Ok(ValidateCallbackResult::Invalid("Root container event must not have a previous event".into()));
-        }
-    } else if event.previous_event_hash.is_none() {
+    if event.sequence_number == 0 && event.previous_event_hash.is_some() {
+        return Ok(ValidateCallbackResult::Invalid("Root container event must not have a previous event".into()));
+    }
+    if event.sequence_number > 0 && event.previous_event_hash.is_none() {
         return Ok(ValidateCallbackResult::Invalid("Non-root container event requires a previous event".into()));
     }
 
@@ -465,6 +501,15 @@ fn validate_container_cycle_event(
         }
         if event.occurred_at < previous.occurred_at {
             return Ok(ValidateCallbackResult::Invalid("Event time cannot precede parent event time".into()));
+        }
+        match validate_container_transition_fields(Some(&previous), &event) {
+            ValidateCallbackResult::Valid => {}
+            invalid @ ValidateCallbackResult::Invalid(_) => return Ok(invalid),
+        }
+    } else {
+        match validate_container_transition_fields(None, &event) {
+            ValidateCallbackResult::Valid => {}
+            invalid @ ValidateCallbackResult::Invalid(_) => return Ok(invalid),
         }
     }
     validate_container_evidence(&event.evidence)
