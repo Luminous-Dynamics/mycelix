@@ -74,7 +74,10 @@ fn main() {
                         };
                         let dedup_key = key[..end].to_string();
                         if key.len() > 20 && seen.insert(dedup_key) {
-                            let source = format!("Wikidata query={} sha256={}", spec.name, query_sha256);
+                            let source = format!(
+                                "Wikidata query={} sha256={}",
+                                spec.name, query_sha256
+                            );
                             all_claims.push((sentence, spec.tags, source));
                             count += 1;
                         }
@@ -248,7 +251,10 @@ fn fetch_query(
             .map_err(|error| format!("Egress request failed: {error}"))?;
 
         eprintln!(
-            "    EGRESS manifest={}@{} query_id={} query_sha256={} authority={} origin={} peer={} status={} bytes={}/{} elapsed_ms={}",
+            concat!(
+                "    EGRESS manifest={}@{} query_id={} query_sha256={} ",
+                "authority={} origin={} peer={} status={} bytes={}/{} elapsed_ms={}"
+            ),
             SOURCE_MANIFEST_ID,
             SOURCE_MANIFEST_VERSION,
             query_id,
@@ -341,8 +347,14 @@ mod source_manifest_tests {
 
         assert_eq!(wikidata["endpoint"].as_str(), Some(ENDPOINT));
         assert_eq!(wikidata["authority"].as_str(), Some("WikidataSparql"));
-        assert_eq!(wikidata["success_body_limit_bytes"].as_u64(), Some(MAX_WIKIDATA_RESPONSE_BYTES));
-        assert_eq!(wikidata["error_body_limit_bytes"].as_u64(), Some(MAX_WIKIDATA_ERROR_BYTES));
+        assert_eq!(
+            wikidata["success_body_limit_bytes"].as_u64(),
+            Some(MAX_WIKIDATA_RESPONSE_BYTES)
+        );
+        assert_eq!(
+            wikidata["error_body_limit_bytes"].as_u64(),
+            Some(MAX_WIKIDATA_ERROR_BYTES)
+        );
         assert_eq!(wikidata["redirects"].as_str(), Some("deny"));
         assert_eq!(wikidata["query_digest_algorithm"].as_str(), Some("SHA-256"));
         assert_eq!(
