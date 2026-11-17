@@ -9,8 +9,10 @@
 //!
 //! Output: claims/wikipedia-extracts.json
 
+use prism_egress::{EgressAuthority, EgressLimits, HeaderMap, Method, PublicEgressClient};
 use serde::{Deserialize, Serialize};
-use std::io::Read;
+use std::time::Duration;
+use url::Url;
 
 const MAX_WIKIPEDIA_RESPONSE_BYTES: u64 = 2 * 1024 * 1024;
 
@@ -385,13 +387,14 @@ fn extract_sentences(text: &str) -> Vec<String> {
 }
 
 fn main() {
-    let client = reqwest::blocking::Client::builder()
-        .user_agent("PrismCorpusBuilder/1.0 (https://mycelix.net; epistemic search)")
-        .redirect(reqwest::redirect::Policy::none())
-        .no_proxy()
-        .timeout(std::time::Duration::from_secs(10))
+    let mut limits = EgressLimits::default();
+    limits.max_response_body_bytes = MAX_WIKIPEDIA_RESPONSE_BYTES as usize;
+    limits.request_timeout = Duration::from_secs(10);
+    let client = PublicEgressClient::new(limits);
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
         .build()
-        .expect("HTTP client");
+        .expect("Tokio runtime");
 
     let mut all_claims: Vec<JsonClaim> = Vec::new();
     let mut seen = std::collections::HashSet::new();
@@ -406,31 +409,37 @@ fn main() {
 
     for (domain, articles, level) in TOPICS {
         for title in *articles {
-            let url = format!(
-                "https://en.wikipedia.org/api/rest_v1/page/summary/{}",
-                title
-            );
+            let mut url =
+                Url::parse("https://en.wikipedia.org/api/rest_v1/page/summary/").unwrap();
+            url.path_segments_mut()
+                .expect("Wikipedia summary URL is hierarchical")
+                .push(title);
 
-            match client.get(&url).send() {
-                Ok(resp) => {
-                    if !resp.status().is_success() {
-                        eprintln!("  SKIP {}: HTTP {}", title, resp.status());
+            match runtime.block_on(client.request_with_authority(
+                EgressAuthority::WikipediaSummary,
+                Method::GET,
+                url.as_str(),
+                HeaderMap::new(),
+                Vec::new(),
+            )) {
+                Ok(response) => {
+                    let receipt = response.receipt;
+                    eprintln!(
+                        "  EGRESS authority={} origin={} peer={} status={} bytes={}/{} elapsed_ms={}",
+                        receipt.authority,
+                        receipt.origin,
+                        receipt.remote_peer,
+                        receipt.status,
+                        receipt.response_body_bytes,
+                        receipt.response_body_limit_bytes,
+                        receipt.elapsed.as_millis(),
+                    );
+                    if !response.status.is_success() {
+                        eprintln!("  SKIP {}: HTTP {}", title, response.status);
                         continue;
                     }
-                    let mut bounded = resp.take(MAX_WIKIPEDIA_RESPONSE_BYTES + 1);
-                    let mut body = Vec::new();
-                    if let Err(error) = bounded.read_to_end(&mut body) {
-                        eprintln!("  SKIP {}: response read failed: {}", title, error);
-                        continue;
-                    }
-                    if body.len() as u64 > MAX_WIKIPEDIA_RESPONSE_BYTES {
-                        eprintln!(
-                            "  SKIP {}: response exceeded {} bytes",
-                            title, MAX_WIKIPEDIA_RESPONSE_BYTES
-                        );
-                        continue;
-                    }
-                    match serde_json::from_slice::<WikiSummary>(&body) {
+
+                    match serde_json::from_slice::<WikiSummary>(&response.body) {
                         Ok(summary) => {
                             let extract = summary.extract.unwrap_or_default();
                             let article_title =
@@ -459,10 +468,10 @@ fn main() {
                                 );
                             }
                         }
-                        Err(e) => eprintln!("  SKIP {}: parse error: {}", title, e),
+                        Err(error) => eprintln!("  SKIP {}: parse error: {}", title, error),
                     }
                 }
-                Err(e) => eprintln!("  SKIP {}: fetch error: {}", title, e),
+                Err(error) => eprintln!("  SKIP {}: egress request failed: {}", title, error),
             }
 
             // Rate limit: 100ms between requests (Wikipedia API courtesy)
