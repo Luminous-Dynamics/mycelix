@@ -1190,7 +1190,12 @@ mod tests {
 
     #[tokio::test]
     async fn capability_binds_the_exact_headers_and_body() {
-        let client = PublicEgressClient::default();
+        let resolver = StaticResolver {
+            answers: socket_addresses(&["93.184.216.34:443"]),
+            calls: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        };
+        let client =
+            PublicEgressClient::with_resolver(EgressLimits::default(), resolver);
         let mut headers = HeaderMap::new();
         headers.insert(reqwest::header::AUTHORIZATION, "Bearer secret".parse().unwrap());
         headers.insert(reqwest::header::CONTENT_TYPE, "application/json".parse().unwrap());
