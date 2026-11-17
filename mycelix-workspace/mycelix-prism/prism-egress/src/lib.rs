@@ -1106,9 +1106,15 @@ mod tests {
             let (mut stream, _) = listener.accept().await.unwrap();
             read_test_request(&mut stream).await;
             stream
-                .write_all(
-                    b"HTTP/1.1 302 Found\r\nLocation: http://metadata.google.internal/\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
-                )
+                .write_all(b"HTTP/1.1 302 Found\r\n")
+                .await
+                .unwrap();
+            stream
+                .write_all(b"Location: http://metadata.google.internal/\r\n")
+                .await
+                .unwrap();
+            stream
+                .write_all(b"Content-Length: 0\r\nConnection: close\r\n\r\n")
                 .await
                 .unwrap();
         });
@@ -1197,8 +1203,12 @@ mod tests {
             read_test_request(&mut stream).await;
             stream
                 .write_all(
-                    b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n5\r\nhello\r\n0\r\n\r\n",
+                    b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n",
                 )
+                .await
+                .unwrap();
+            stream
+                .write_all(b"5\r\nhello\r\n0\r\n\r\n")
                 .await
                 .unwrap();
         });
