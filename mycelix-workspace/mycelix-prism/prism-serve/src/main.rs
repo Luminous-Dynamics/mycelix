@@ -70,6 +70,8 @@ fn upstream_error(
         | EgressError::DnsResolutionTimeout
         | EgressError::DnsAnswerSetTooLarge
         | EgressError::EmptyAddressSet(_)
+        | EgressError::RemotePeerUnavailable
+        | EgressError::RemotePeerNotAuthorized(_)
         | EgressError::Http(_) => {
             (StatusCode::BAD_GATEWAY, "Upstream request failed")
         }
