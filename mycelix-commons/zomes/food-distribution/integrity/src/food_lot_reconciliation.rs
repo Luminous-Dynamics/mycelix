@@ -379,7 +379,10 @@ fn reconcile_event_chain(
         if event.previous_event_ref != previous_id {
             issue(issues, FoodLotReconciliationIssueCodeV1::EventParentMismatch);
         }
-        if event.occurred_at < previous_time || event.occurred_at > as_of {
+        if event.occurred_at == 0
+            || event.occurred_at < previous_time
+            || (as_of > 0 && event.occurred_at > as_of)
+        {
             issue(issues, FoodLotReconciliationIssueCodeV1::EventTimeRegression);
         }
         previous_id = Some(event.event_id.clone());
@@ -431,6 +434,19 @@ fn reconcile_child_splits(
             issue(issues, FoodLotReconciliationIssueCodeV1::ProductMismatch);
             continue;
         }
+        if !matches!(child.receipt_state.as_str(), "accepted" | "partial") {
+            issue(issues, FoodLotReconciliationIssueCodeV1::InvalidSplitBalance);
+            continue;
+        }
+        if child_receipts
+            .iter()
+            .filter(|candidate| candidate.receipt_id == child_id)
+            .count()
+            != 1
+        {
+            issue(issues, FoodLotReconciliationIssueCodeV1::InvalidSplitBalance);
+            continue;
+        }
         let Some(child_received) = quantity_to_base(&child.received_quantity).ok() else {
             issue(issues, FoodLotReconciliationIssueCodeV1::InvalidSplitBalance);
             continue;
@@ -473,6 +489,9 @@ pub fn reconcile_food_lot(
     {
         issue(&mut issues, FoodLotReconciliationIssueCodeV1::InvalidQuantityRecord);
     }
+    if request.claim_ceiling != FOOD_LOT_RECONCILIATION_CLAIM_CEILING {
+        issue(&mut issues, FoodLotReconciliationIssueCodeV1::InvalidClaimCeiling);
+    }
     let required = quantity_to_base(&request.required_quantity);
     let Some(lot) = request.lot.as_ref() else {
         issue(&mut issues, FoodLotReconciliationIssueCodeV1::MissingLot);
@@ -508,6 +527,23 @@ pub fn reconcile_food_lot(
         issue(&mut issues, FoodLotReconciliationIssueCodeV1::ProductMismatch);
     }
     evidence_ref(&receipt.evidence, &mut refs, &mut issues);
+    if receipt.received_at == 0
+        || (request.as_of > 0 && receipt.received_at > request.as_of)
+    {
+        issue(&mut issues, FoodLotReconciliationIssueCodeV1::EventTimeRegression);
+    }
+    let lot_declared = quantity_to_base(&lot.quantity);
+    let receipt_received = quantity_to_base(&receipt.received_quantity);
+    match (lot_declared, receipt_received) {
+        (Ok((lot_kind, lot_value)), Ok((receipt_kind, receipt_value))) => {
+            if lot_kind != receipt_kind {
+                issue(&mut issues, FoodLotReconciliationIssueCodeV1::QuantityDimensionMismatch);
+            } else if receipt_value > lot_value {
+                issue(&mut issues, FoodLotReconciliationIssueCodeV1::ReceiptMassBalanceMismatch);
+            }
+        }
+        (Err(code), _) | (_, Err(code)) => issue(&mut issues, code),
+    }
 
     match receipt.receipt_state.as_str() {
         "ambiguous" => issue(&mut issues, FoodLotReconciliationIssueCodeV1::AmbiguousReceipt),
@@ -642,11 +678,6 @@ fn report_from_with_tip(
     mut issues: BTreeSet<FoodLotReconciliationIssueCodeV1>,
     refs: BTreeSet<String>,
 ) -> FoodLotReconciliationReportV1 {
-    if issues.contains(&FoodLotReconciliationIssueCodeV1::StaleOrMissingEvidence)
-        && issues.iter().any(|code| is_conflict(*code))
-    {
-        // Preserve both findings; stale evidence does not erase a structural conflict.
-    }
     let disposition = if issues.iter().any(|code| is_conflict(*code)) {
         FoodLotReconciliationDispositionV1::Conflicted
     } else if issues
