@@ -1348,8 +1348,12 @@ mod tests {
             (peer, request)
         });
 
-        let resolver = StaticResolver {
-            answers: vec![address],
+        let attacker_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let attacker_address = attacker_listener.local_addr().unwrap();
+        let resolver = RebindingResolver {
+            first_answers: vec![address],
+            // A second lookup deliberately changes to a different private peer.
+            subsequent_answers: vec![attacker_address],
             calls: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         };
         let client =
@@ -1378,6 +1382,15 @@ mod tests {
 
         let (peer, request) = server.await.unwrap();
         assert_eq!(peer, address);
+        let unexpected_connection = tokio::time::timeout(
+            Duration::from_millis(100),
+            attacker_listener.accept(),
+        )
+        .await;
+        assert!(
+            unexpected_connection.is_err(),
+            "a second connection reached the resolver's rebinding answer"
+        );
         let request = String::from_utf8_lossy(&request);
         assert!(
             request.contains(&format!("Host: prism-e2e.test:{}", address.port())),
@@ -1814,6 +1827,30 @@ mod tests {
     struct StaticResolver {
         answers: Vec<SocketAddr>,
         calls: Arc<std::sync::atomic::AtomicUsize>,
+    }
+
+    #[derive(Clone)]
+    struct RebindingResolver {
+        first_answers: Vec<SocketAddr>,
+        subsequent_answers: Vec<SocketAddr>,
+        calls: Arc<std::sync::atomic::AtomicUsize>,
+    }
+
+    impl EgressResolver for RebindingResolver {
+        fn resolve<'a>(
+            &'a self,
+            _host: &'a str,
+            _port: u16,
+            _permit: OwnedSemaphorePermit,
+        ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
+            let call = self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let answers = if call == 0 {
+                self.first_answers.clone()
+            } else {
+                self.subsequent_answers.clone()
+            };
+            Box::pin(async move { Ok(answers) })
+        }
     }
 
     impl EgressResolver for StaticResolver {
