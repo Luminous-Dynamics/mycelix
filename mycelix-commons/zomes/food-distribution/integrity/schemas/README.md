@@ -56,3 +56,18 @@ The future coordinator/local store must perform checked exact arithmetic and ver
 7. expiry checks require an explicit trustworthy as-of time and do not infer safe/fresh from the date alone.
 
 The report schema encodes shape and disposition compatibility only. Runtime enforcement, property-based tests and local-private storage enforcement remain unimplemented.
+## Runtime reconciliation kernel
+
+`FoodLotReconciliationRequestV1.schema.json` defines the read-only input envelope. `FoodLotReconciliationReportV1.schema.json` defines the report; its nullable lot ID/revision represent a missing producer record without an empty-string sentinel.
+
+The integrity crate exposes `food_lot_reconciliation::reconcile_food_lot`, a pure deterministic function. It does not query Holochain, persist data, or mutate a receipt. The calling local application supplies already retrieved producer, receipt, event and child-receipt records.
+
+Dispositions are deliberately separate from planning eligibility:
+- `resolved` + `eligible`: records and event chain reconcile and available quantity meets the requested amount;
+- `resolved` + `not_eligible`: records reconcile but accepted unconsumed quantity is insufficient;
+- `indeterminate`: missing lot/receipt, missing current time, or evidence/conversion information is absent;
+- `conflicted` + `not_eligible`: mass balance, product/revision, sequence/parent, duplicate, split, recall, expiry, or overconsumption conflict.
+
+Pure-function tests cover exact quantity conversions, receipt mass balance, listing-not-receipt, event chain identity, consumption, split child records, insufficient quantity, recall/use-by holds and nullable missing-lot reports.
+
+The runtime function is not yet wired to a Holochain coordinator or local encrypted persistence layer. Schema privacy markers do not enforce storage privacy; the caller must keep household receipts/events private and only share consented provenance references.
