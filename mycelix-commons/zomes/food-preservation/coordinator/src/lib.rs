@@ -95,6 +95,318 @@ fn derived_fill_cycle_count(events: &[(ActionHash, ContainerCycleEvent)]) -> u64
         .count() as u64
 }
 
+
+/// Versioned impact factors supplied by a source/region/year-specific LCA factor set.
+/// The factor set is explicit input; this module contains no hard-coded emissions factors.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ContainerTransportImpactFactorV1 {
+    pub mode: ContainerTransportMode,
+    pub mg_co2e_per_tonne_km: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ContainerLifecycleImpactFactorsV1 {
+    pub schema_version: u32,
+    pub factor_set_ref: String,
+    pub geography: String,
+    pub reference_year: u32,
+    pub electricity_mg_co2e_per_wh: u64,
+    pub water_mg_co2e_per_litre: u64,
+    pub detergent_mg_co2e_per_gram: u64,
+    pub end_of_life_mg_co2e_per_container: u64,
+    pub transport_factors: Vec<ContainerTransportImpactFactorV1>,
+    pub evidence: ContainerEvidenceRef,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ContainerImpactErrorCodeV1 {
+    UnsupportedFactorSchema,
+    MissingFactorProvenance,
+    DuplicateTransportFactor,
+    MissingEmbodiedImpact,
+    MissingAcceptedServings,
+    MissingSanitationObservation,
+    MissingTransportObservation,
+    MissingTransportFactor,
+    ArithmeticOverflow,
+    InvalidHistory,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ContainerImpactErrorV1 {
+    pub code: ContainerImpactErrorCodeV1,
+    pub details: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ContainerLifecycleImpactReportV1 {
+    pub factor_set_ref: String,
+    pub geography: String,
+    pub reference_year: u32,
+    pub fill_events: u64,
+    pub accepted_servings: u64,
+    pub empty_container_mass_g: u64,
+    pub embodied_packaging_mg_co2e: u64,
+    pub washing_electricity_mg_co2e: u64,
+    pub washing_water_mg_co2e: u64,
+    pub detergent_mg_co2e: u64,
+    pub logistics_mg_co2e: u64,
+    /// Projected end-of-life impact from the supplied factor set.
+    pub end_of_life_mg_co2e: u64,
+    pub total_packaging_mg_co2e: u64,
+    pub wash_water_ml: u64,
+    pub wash_energy_wh: u64,
+    pub detergent_mass_mg: u64,
+    pub transport_distance_m: u64,
+    /// Exact fixed-point ratios: numerator / denominator.
+    pub mg_co2e_per_accepted_serving: (u64, u64),
+    pub wash_water_ml_per_accepted_serving: (u64, u64),
+    pub wash_energy_wh_per_accepted_serving: (u64, u64),
+}
+
+/// Conservative integer ceiling division: partial units never understate impact.
+fn impact_ceil_div(numerator: u128, denominator: u128) -> Result<u128, ContainerImpactErrorV1> {
+    if denominator == 0 {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+            details: vec!["impact factor denominator cannot be zero".into()],
+        });
+    }
+    let Some(adjusted) = numerator.checked_add(denominator - 1) else {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+            details: vec!["impact ceiling division overflow".into()],
+        });
+    };
+    Ok(adjusted / denominator)
+}
+
+fn impact_mul(values: &[u128]) -> Result<u128, ContainerImpactErrorV1> {
+    values.iter().try_fold(1_u128, |acc, value| {
+        acc.checked_mul(*value).ok_or(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+            details: vec!["impact multiplication overflow".into()],
+        })
+    })
+}
+
+fn impact_sum(target: &mut u128, value: u128) -> Result<(), ContainerImpactErrorV1> {
+    *target = target.checked_add(value).ok_or(ContainerImpactErrorV1 {
+        code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+        details: vec!["impact aggregation overflow".into()],
+    })?;
+    Ok(())
+}
+
+fn impact_u64(value: u128, field: &str) -> Result<u64, ContainerImpactErrorV1> {
+    u64::try_from(value).map_err(|_| ContainerImpactErrorV1 {
+        code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+        details: vec![format!("{field} exceeds u64")],
+    })
+}
+
+/// Validate an external factor set. A valid factor set is not independently
+/// audited merely because it is structurally valid; evidence class is retained.
+pub fn validate_container_impact_factors(
+    factors: &ContainerLifecycleImpactFactorsV1,
+) -> Result<(), ContainerImpactErrorV1> {
+    if factors.schema_version != 1 {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::UnsupportedFactorSchema,
+            details: vec![format!("unsupported impact factor schema {}", factors.schema_version)],
+        });
+    }
+    if factors.factor_set_ref.trim().is_empty()
+        || factors.geography.trim().is_empty()
+        || factors.reference_year == 0
+        || factors.evidence.source_ref.trim().is_empty()
+        || factors.evidence.method_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+        || factors.evidence.calibration_ref.as_deref().is_some_and(|value| value.trim().is_empty())
+    {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::MissingFactorProvenance,
+            details: vec!["factor set, geography, year and evidence references must be populated".into()],
+        });
+    }
+    if factors.transport_factors.iter().enumerate().any(|(index, factor)| {
+        factors.transport_factors[..index].iter().any(|prior| prior.mode == factor.mode)
+    }) {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::DuplicateTransportFactor,
+            details: vec!["transport modes must have one factor each".into()],
+        });
+    }
+    Ok(())
+}
+
+/// Compute packaging-only cradle-to-grave impact for the supplied functional
+/// unit (accepted servings). Required measured/declared observations must be
+/// complete; unknown values cause an error rather than silently becoming zero.
+/// The report preserves exact numerator/denominator ratios and uses ceiling
+/// rounding for unit conversions so integer rounding cannot understate impact.
+pub fn calculate_container_lifecycle_impact(
+    container: &ReusableContainer,
+    container_hash: &ActionHash,
+    events: &[(ActionHash, ContainerCycleEvent)],
+    factors: &ContainerLifecycleImpactFactorsV1,
+) -> Result<ContainerLifecycleImpactReportV1, ContainerImpactErrorV1> {
+    validate_container_impact_factors(factors)?;
+    let checked = validate_container_event_chain(container_hash, events.to_vec()).map_err(|reason| {
+        ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::InvalidHistory,
+            details: vec![reason],
+        }
+    })?;
+
+    let embodied = container.embodied_impact_mg_co2e.ok_or(ContainerImpactErrorV1 {
+        code: ContainerImpactErrorCodeV1::MissingEmbodiedImpact,
+        details: vec!["container requires an embodied-impact value and source reference".into()],
+    })?;
+
+    let mut accepted_servings = 0_u128;
+    let mut fill_events = 0_u128;
+    let mut wash_water_ml = 0_u128;
+    let mut wash_energy_wh = 0_u128;
+    let mut detergent_mass_mg = 0_u128;
+    let mut electricity_impact = 0_u128;
+    let mut water_impact = 0_u128;
+    let mut detergent_impact = 0_u128;
+    let mut logistics_impact = 0_u128;
+    let mut transport_distance_m = 0_u128;
+
+    for (_, event) in &checked {
+        if event.event_kind == ContainerEventKind::Filled {
+            let servings = event.accepted_servings.ok_or(ContainerImpactErrorV1 {
+                code: ContainerImpactErrorCodeV1::MissingAcceptedServings,
+                details: vec!["a Filled event is missing accepted_servings".into()],
+            })?;
+            accepted_servings = accepted_servings.checked_add(u128::from(servings)).ok_or(
+                ContainerImpactErrorV1 {
+                    code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+                    details: vec!["accepted-serving count overflow".into()],
+                },
+            )?;
+            fill_events += 1;
+        }
+
+        if matches!(event.event_kind, ContainerEventKind::Washed | ContainerEventKind::Sanitized) {
+            let observation = event.sanitation.as_ref().ok_or(ContainerImpactErrorV1 {
+                code: ContainerImpactErrorCodeV1::MissingSanitationObservation,
+                details: vec![format!("{:?} event is missing sanitation observations", event.event_kind)],
+            })?;
+            let water_ml = observation.wash_water_ml.ok_or(ContainerImpactErrorV1 {
+                code: ContainerImpactErrorCodeV1::MissingSanitationObservation,
+                details: vec!["wash_water_ml is unknown".into()],
+            })?;
+            let energy_wh = observation.wash_energy_wh.ok_or(ContainerImpactErrorV1 {
+                code: ContainerImpactErrorCodeV1::MissingSanitationObservation,
+                details: vec!["wash_energy_wh is unknown".into()],
+            })?;
+            let detergent_mg = observation.detergent_mass_mg.ok_or(ContainerImpactErrorV1 {
+                code: ContainerImpactErrorCodeV1::MissingSanitationObservation,
+                details: vec!["detergent_mass_mg is unknown".into()],
+            })?;
+            wash_water_ml += u128::from(water_ml);
+            wash_energy_wh += u128::from(energy_wh);
+            detergent_mass_mg += u128::from(detergent_mg);
+            impact_sum(
+                &mut electricity_impact,
+                impact_mul(&[u128::from(energy_wh), u128::from(factors.electricity_mg_co2e_per_wh)])?,
+            )?;
+            impact_sum(
+                &mut water_impact,
+                impact_ceil_div(
+                    impact_mul(&[u128::from(water_ml), u128::from(factors.water_mg_co2e_per_litre)])?,
+                    1_000,
+                )?,
+            )?;
+            impact_sum(
+                &mut detergent_impact,
+                impact_ceil_div(
+                    impact_mul(&[u128::from(detergent_mg), u128::from(factors.detergent_mg_co2e_per_gram)])?,
+                    1_000,
+                )?,
+            )?;
+        }
+
+        if matches!(event.event_kind, ContainerEventKind::Dispatched | ContainerEventKind::Returned) {
+            let distance = event.transport_distance_m.ok_or(ContainerImpactErrorV1 {
+                code: ContainerImpactErrorCodeV1::MissingTransportObservation,
+                details: vec![format!("{:?} event is missing transport_distance_m", event.event_kind)],
+            })?;
+            let mode = event.transport_mode.as_ref().ok_or(ContainerImpactErrorV1 {
+                code: ContainerImpactErrorCodeV1::MissingTransportObservation,
+                details: vec![format!("{:?} event is missing transport_mode", event.event_kind)],
+            })?;
+            let factor = factors.transport_factors.iter().find(|candidate| &candidate.mode == mode)
+                .ok_or(ContainerImpactErrorV1 {
+                    code: ContainerImpactErrorCodeV1::MissingTransportFactor,
+                    details: vec![format!("no impact factor supplied for transport mode {:?}", mode)],
+                })?;
+            transport_distance_m += u128::from(distance);
+            // g * m / 1e9 = tonne-kilometres; factor is mg CO2e / tonne-km.
+            impact_sum(
+                &mut logistics_impact,
+                impact_ceil_div(
+                    impact_mul(&[
+                        u128::from(container.empty_mass_g),
+                        u128::from(distance),
+                        u128::from(factor.mg_co2e_per_tonne_km),
+                    ])?,
+                    1_000_000_000,
+                )?,
+            )?;
+        }
+    }
+
+    if accepted_servings == 0 || fill_events == 0 {
+        return Err(ContainerImpactErrorV1 {
+            code: ContainerImpactErrorCodeV1::MissingAcceptedServings,
+            details: vec!["history contains no accepted servings from Filled events".into()],
+        });
+    }
+
+    let eol = u128::from(factors.end_of_life_mg_co2e_per_container);
+    let total = [
+        u128::from(embodied),
+        electricity_impact,
+        water_impact,
+        detergent_impact,
+        logistics_impact,
+        eol,
+    ]
+    .into_iter()
+    .try_fold(0_u128, |acc, value| acc.checked_add(value).ok_or(ContainerImpactErrorV1 {
+        code: ContainerImpactErrorCodeV1::ArithmeticOverflow,
+        details: vec!["total lifecycle impact overflow".into()],
+    }))?;
+
+    let servings = accepted_servings;
+    Ok(ContainerLifecycleImpactReportV1 {
+        factor_set_ref: factors.factor_set_ref.clone(),
+        geography: factors.geography.clone(),
+        reference_year: factors.reference_year,
+        fill_events: impact_u64(fill_events, "fill events")?,
+        accepted_servings: impact_u64(accepted_servings, "accepted servings")?,
+        empty_container_mass_g: container.empty_mass_g,
+        embodied_packaging_mg_co2e: embodied,
+        washing_electricity_mg_co2e: impact_u64(electricity_impact, "washing electricity impact")?,
+        washing_water_mg_co2e: impact_u64(water_impact, "washing water impact")?,
+        detergent_mg_co2e: impact_u64(detergent_impact, "detergent impact")?,
+        logistics_mg_co2e: impact_u64(logistics_impact, "logistics impact")?,
+        end_of_life_mg_co2e: factors.end_of_life_mg_co2e_per_container,
+        total_packaging_mg_co2e: impact_u64(total, "total packaging impact")?,
+        wash_water_ml: impact_u64(wash_water_ml, "wash water")?,
+        wash_energy_wh: impact_u64(wash_energy_wh, "wash energy")?,
+        detergent_mass_mg: impact_u64(detergent_mass_mg, "detergent mass")?,
+        transport_distance_m: impact_u64(transport_distance_m, "transport distance")?,
+        mg_co2e_per_accepted_serving: (impact_u64(total, "total packaging impact")?, impact_u64(servings, "accepted servings")?),
+        wash_water_ml_per_accepted_serving: (impact_u64(wash_water_ml, "wash water")?, impact_u64(servings, "accepted servings")?),
+        wash_energy_wh_per_accepted_serving: (impact_u64(wash_energy_wh, "wash energy")?, impact_u64(servings, "accepted servings")?),
+    })
+}
+
+
 /// Register a reusable container in the existing food-preservation registry.
 #[hdk_extern]
 pub fn register_reusable_container(container: ReusableContainer) -> ExternResult<Record> {
