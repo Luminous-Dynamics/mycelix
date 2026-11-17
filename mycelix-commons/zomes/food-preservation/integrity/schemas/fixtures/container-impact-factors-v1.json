@@ -45,5 +45,40 @@
       120,
       4
     ]
+  },
+  "single_use_baseline": {
+    "baseline_ref": "fixture:single-use-pouch",
+    "factor_set_ref": "fixture:za-impact-factors-2026",
+    "geography": "ZA-fixture-only",
+    "reference_year": 2026,
+    "packaging_units_numerator": 1,
+    "packaging_units_denominator": 4,
+    "packaging_mass_g_per_unit": 30,
+    "transported_mass_g_per_unit": 1030,
+    "distribution_distance_m_per_unit": 10000,
+    "distribution_mode": "Bicycle",
+    "embodied_impact_mg_co2e_per_unit": 10000,
+    "end_of_life_impact_mg_co2e_per_unit": 200,
+    "evidence": {
+      "source_ref": "fixture:single-use-pouch-source",
+      "method_ref": "fixture:synthetic-factor-method",
+      "calibration_ref": null,
+      "evidence_class": "Simulated"
+    }
+  },
+  "expected_comparison": {
+    "outcome": "SingleUseLower",
+    "reusable_ratio": [
+      79380,
+      4
+    ],
+    "single_use_ratio": [
+      11230,
+      4
+    ],
+    "single_use_mass_ratio_g": [
+      30,
+      4
+    ]
   }
 }
