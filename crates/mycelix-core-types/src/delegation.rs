@@ -875,12 +875,12 @@ mod tests {
     #[test]
     fn parent_epoch_mismatch_fails_closed() {
         let relationship = RelationshipId::derive("test", b"epoch");
-        let parent = Delegation::grant(
+        let parent = Delegation::grant_with_subdelegation(
             DelegationId::derive(relationship, b"parent"),
             relationship, p("alice"), p("broker"),
             ActionScope::named("create-opportunity").unwrap(),
             ResourceScope::named("acme:opportunity:7").unwrap(),
-            DelegationMode::Execute, 100, None, 4, None,
+            DelegationMode::Execute, 100, None, 4, None, true,
         ).unwrap();
         let child = Delegation::grant(
             DelegationId::derive(relationship, b"child"),
