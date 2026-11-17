@@ -160,8 +160,16 @@ pub mod wisdom_engine;
 
 pub use collective_field::*;
 pub use commitment::*;
-pub use consent::*;
-pub use delegation::*;
+pub use consent::{
+    AccessMode, AudienceRef, AuthorityEpoch, Consent, ConsentError, ConsentEvent, ConsentEventKind,
+    ConsentId, ConsentPurpose, ConsentRequest, ConsentStatus, DataClass, DisclosureScope,
+    PrincipalRef as ConsentPrincipalRef,
+};
+pub use delegation::{
+    ActionScope, Delegation, DelegationContext, DelegationError, DelegationEvent,
+    DelegationEventKind, DelegationId, DelegationMode, DelegationStatus, ExecutionDecision,
+    ExecutionRequest, PrincipalRef as DelegationPrincipalRef, ResourceScope,
+};
 pub use epistemic::*;
 pub use harmonic::*;
 pub use k_vector::*;
