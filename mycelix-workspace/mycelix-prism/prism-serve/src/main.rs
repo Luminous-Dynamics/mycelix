@@ -50,6 +50,38 @@ async fn egress_provider_request(
         .await
 }
 
+fn log_egress_receipt(context: &str, receipt: &prism_egress::EgressReceipt) {
+    // Receipts are deliberately metadata-only: no URL path/query, headers,
+    // credentials, request body, or response body enters the audit record.
+    log::info!(
+        "Prism egress receipt context={} authority={} origin={} method={} peer={} authorized={:?} status={} request_bytes={} response_bytes={} redirects={} elapsed_ms={} policy={}",
+        context,
+        receipt.authority,
+        receipt.origin,
+        receipt.method,
+        receipt.remote_peer,
+        receipt.authorized_addresses,
+        receipt.status,
+        receipt.request_body_bytes,
+        receipt.response_body_bytes,
+        receipt.redirect_hops.len(),
+        receipt.elapsed.as_millis(),
+        receipt.policy_version,
+    );
+    for (index, hop) in receipt.redirect_hops.iter().enumerate() {
+        log::info!(
+            "Prism egress redirect context={} hop={} from={} to={} status={} peer={} target_addresses={:?}",
+            context,
+            index + 1,
+            hop.from_origin,
+            hop.to_origin,
+            hop.status,
+            hop.remote_peer,
+            hop.target_addresses,
+        );
+    }
+}
+
 fn upstream_error(
     context: &str,
     error: EgressError,
@@ -141,6 +173,7 @@ async fn proxy_handler(Query(params): Query<ProxyParams>) -> impl IntoResponse {
 
     match egress_request(Method::GET, validated.as_str(), HeaderMap::new(), Vec::new()).await {
         Ok(response) => {
+            log_egress_receipt("proxy", &response.receipt);
             let content_type = response
                 .headers
                 .get(reqwest::header::CONTENT_TYPE)
@@ -172,7 +205,10 @@ async fn ddg_handler(Query(params): Query<DdgParams>) -> impl IntoResponse {
         .append_pair("skip_disambig", "1");
 
     match egress_request(Method::GET, url.as_str(), HeaderMap::new(), Vec::new()).await {
-        Ok(response) => json_response(response.status.as_u16(), response.body).into_response(),
+        Ok(response) => {
+            log_egress_receipt("DuckDuckGo", &response.receipt);
+            json_response(response.status.as_u16(), response.body).into_response()
+        }
         Err(error) => upstream_error("DuckDuckGo", error).into_response(),
     }
 }
@@ -217,7 +253,10 @@ async fn brave_handler(
     )
     .await
     {
-        Ok(response) => json_response(response.status.as_u16(), response.body).into_response(),
+        Ok(response) => {
+            log_egress_receipt("Brave", &response.receipt);
+            json_response(response.status.as_u16(), response.body).into_response()
+        }
         Err(error) => upstream_error("Brave", error).into_response(),
     }
 }
@@ -255,7 +294,10 @@ async fn perplexity_handler(
     )
     .await
     {
-        Ok(response) => json_response(response.status.as_u16(), response.body).into_response(),
+        Ok(response) => {
+            log_egress_receipt("Perplexity", &response.receipt);
+            json_response(response.status.as_u16(), response.body).into_response()
+        }
         Err(error) => upstream_error("Perplexity", error).into_response(),
     }
 }
