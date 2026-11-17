@@ -574,9 +574,12 @@ fn validate_container_transition_fields(
 ) -> ValidateCallbackResult {
     let valid = match (previous.map(|event| event.event_kind.clone()), &current.event_kind) {
         (None, ContainerEventKind::Washed) => current.condition == ContainerCondition::NeedsCleaning,
-        (Some(ContainerEventKind::Emptied | ContainerEventKind::Returned | ContainerEventKind::Damaged | ContainerEventKind::Lost), ContainerEventKind::Washed) => current.condition == ContainerCondition::NeedsCleaning,
+        (Some(ContainerEventKind::Emptied | ContainerEventKind::Returned), ContainerEventKind::Washed) => current.condition == ContainerCondition::NeedsCleaning,
         (Some(ContainerEventKind::Washed), ContainerEventKind::Sanitized) => current.condition == ContainerCondition::Serviceable,
-        (Some(ContainerEventKind::Sanitized), ContainerEventKind::Inspected) => current.condition == ContainerCondition::Serviceable,
+        (Some(ContainerEventKind::Sanitized), ContainerEventKind::Inspected) => matches!(
+            current.condition,
+            ContainerCondition::Serviceable | ContainerCondition::FailedInspection
+        ),
         (Some(ContainerEventKind::Inspected), ContainerEventKind::Filled) => previous.is_some_and(|event| event.condition == ContainerCondition::Serviceable) && current.condition == ContainerCondition::Serviceable,
         (Some(ContainerEventKind::Filled), ContainerEventKind::Sealed) => current.condition == ContainerCondition::Serviceable,
         (Some(ContainerEventKind::Sealed), ContainerEventKind::Dispatched) => current.condition == ContainerCondition::Serviceable,
@@ -585,7 +588,7 @@ fn validate_container_transition_fields(
         (Some(ContainerEventKind::Emptied), ContainerEventKind::Returned) => current.condition == ContainerCondition::NeedsCleaning,
         (Some(previous_kind), ContainerEventKind::Retired) if !matches!(previous_kind, ContainerEventKind::Retired | ContainerEventKind::Lost) => current.condition == ContainerCondition::Retired,
         (Some(previous_kind), ContainerEventKind::Lost) if !matches!(previous_kind, ContainerEventKind::Retired | ContainerEventKind::Lost) => current.condition == ContainerCondition::Lost,
-        (Some(previous_kind), ContainerEventKind::Damaged) if !matches!(previous_kind, ContainerEventKind::Retired | ContainerEventKind::Lost) => current.condition == ContainerCondition::Damaged,
+        (Some(previous_kind), ContainerEventKind::Damaged) if !matches!(previous_kind, ContainerEventKind::Retired | ContainerEventKind::Lost | ContainerEventKind::Damaged) => current.condition == ContainerCondition::Damaged,
         _ => false,
     };
     if valid {
@@ -1032,6 +1035,48 @@ mod tests {
         let premature_fill = lifecycle_event(ContainerEventKind::Filled, ContainerCondition::Serviceable, 2);
         assert!(matches!(
             validate_container_transition_fields(Some(&sanitized), &premature_fill),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn failed_inspection_cannot_be_filled_and_damaged_container_cannot_be_washed() {
+        let sanitized = lifecycle_event(
+            ContainerEventKind::Sanitized,
+            ContainerCondition::Serviceable,
+            1,
+        );
+        let failed_inspection = lifecycle_event(
+            ContainerEventKind::Inspected,
+            ContainerCondition::FailedInspection,
+            2,
+        );
+        let fill = lifecycle_event(
+            ContainerEventKind::Filled,
+            ContainerCondition::Serviceable,
+            3,
+        );
+        assert!(matches!(
+            validate_container_transition_fields(Some(&sanitized), &failed_inspection),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_container_transition_fields(Some(&failed_inspection), &fill),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let damaged = lifecycle_event(
+            ContainerEventKind::Damaged,
+            ContainerCondition::Damaged,
+            3,
+        );
+        let washed = lifecycle_event(
+            ContainerEventKind::Washed,
+            ContainerCondition::NeedsCleaning,
+            4,
+        );
+        assert!(matches!(
+            validate_container_transition_fields(Some(&damaged), &washed),
             ValidateCallbackResult::Invalid(_)
         ));
     }
