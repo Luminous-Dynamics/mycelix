@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/food/ContainerLifecycleImpactFactorsV1.schema.json",
+  "title": "ContainerLifecycleImpactFactorsV1",
+  "description": "Source-linked region/year-specific factors for packaging-only lifecycle impact. No default regional factors are supplied.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "factor_set_ref",
+    "geography",
+    "reference_year",
+    "electricity_mg_co2e_per_wh",
+    "water_mg_co2e_per_litre",
+    "detergent_mg_co2e_per_gram",
+    "end_of_life_mg_co2e_per_container",
+    "transport_factors",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "factor_set_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "geography": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reference_year": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "electricity_mg_co2e_per_wh": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "water_mg_co2e_per_litre": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "detergent_mg_co2e_per_gram": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "end_of_life_mg_co2e_per_container": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "transport_factors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "mg_co2e_per_tonne_km"
+        ],
+        "properties": {
+          "mode": {
+            "enum": [
+              "HumanPowered",
+              "Bicycle",
+              "Motorcycle",
+              "PassengerVehicle",
+              "LightCommercialVehicle",
+              "HeavyGoodsVehicle",
+              "Rail",
+              "Ship",
+              "Air",
+              "Other"
+            ]
+          },
+          "mg_co2e_per_tonne_km": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "evidence": {
+      "$ref": "#/$defs/evidence"
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_ref",
+        "method_ref",
+        "calibration_ref",
+        "evidence_class"
+      ],
+      "properties": {
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "calibration_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "evidence_class": {
+          "enum": [
+            "Declared",
+            "Modelled",
+            "Simulated",
+            "Measured",
+            "IndependentlyAssayed",
+            "IndependentlyQualified"
+          ]
+        }
+      }
+    }
+  }
+}
