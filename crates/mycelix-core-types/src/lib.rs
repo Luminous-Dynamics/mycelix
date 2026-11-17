@@ -147,26 +147,34 @@
 //! - **Wisdom Density**: Has something profound emerged?
 
 pub mod collective_field;
+pub mod commitment;
+pub mod consent;
+pub mod delegation;
 pub mod epistemic;
 pub mod harmonic;
 pub mod k_vector;
 pub mod moral;
 pub mod relationship;
-pub mod commitment;
-pub mod consent;
-pub mod delegation;
 pub mod trust;
 pub mod wisdom_engine;
 
 pub use collective_field::*;
+pub use commitment::*;
+pub use consent::{
+    AccessMode, AudienceRef, AuthorityEpoch, Consent, ConsentError, ConsentEvent, ConsentEventKind,
+    ConsentId, ConsentPurpose, ConsentRequest, ConsentStatus, DataClass, DisclosureScope,
+    PrincipalRef as ConsentPrincipalRef,
+};
+pub use delegation::{
+    ActionScope, Delegation, DelegationContext, DelegationError, DelegationEvent,
+    DelegationEventKind, DelegationId, DelegationMode, DelegationStatus, ExecutionDecision,
+    ExecutionRequest, PrincipalRef as DelegationPrincipalRef, ResourceScope,
+};
 pub use epistemic::*;
 pub use harmonic::*;
 pub use k_vector::*;
 pub use moral::*;
 pub use relationship::*;
-pub use commitment::*;
-pub use consent::*;
-pub use delegation::*;
 pub use trust::*;
 pub use wisdom_engine::*;
 
