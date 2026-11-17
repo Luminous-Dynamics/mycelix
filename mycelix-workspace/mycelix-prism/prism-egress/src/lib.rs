@@ -869,6 +869,20 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rejects_http_post_payload_before_dns_lookup() {
+        let client = PublicEgressClient::default();
+        let result = client
+            .authorize(
+                Method::POST,
+                "http://this-name-should-not-be-resolved.invalid/",
+                HeaderMap::new(),
+                b"payload".to_vec(),
+            )
+            .await;
+        assert!(matches!(result, Err(EgressError::RequestRequiresTls)));
+    }
+
+    #[tokio::test]
     async fn rejects_private_ip_literals_before_transport() {
         let client = PublicEgressClient::default();
         let result = client.authorize(Method::GET, "http://127.0.0.1/", HeaderMap::new(), Vec::new());
