@@ -23,10 +23,10 @@ use std::future::Future;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use thiserror::Error;
-use tokio::sync::{Semaphore, SemaphorePermit};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, SemaphorePermit};
 use url::{Host, Url};
 
 const MAX_CONCURRENT_EGRESS_REQUESTS: usize = 64;
@@ -36,7 +36,11 @@ const DNS_QUEUE_TIMEOUT: Duration = Duration::from_secs(2);
 const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_secs(5);
 const REQUEST_HEADER_OVERHEAD_ALLOWANCE: usize = 512;
 static EGRESS_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_CONCURRENT_EGRESS_REQUESTS);
-static DNS_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_CONCURRENT_DNS_LOOKUPS);
+static DNS_SEMAPHORE: OnceLock<Arc<Semaphore>> = OnceLock::new();
+
+fn dns_semaphore() -> &'static Arc<Semaphore> {
+    DNS_SEMAPHORE.get_or_init(|| Arc::new(Semaphore::new(MAX_CONCURRENT_DNS_LOOKUPS)))
+}
 
 #[derive(Clone, Debug)]
 pub struct EgressLimits {
@@ -224,10 +228,14 @@ pub struct EgressReceipt {
 /// Resolver interface makes DNS policy deterministic under test. Implementations
 /// must return the complete A and AAAA answer set, not only the first address.
 pub trait EgressResolver: Send + Sync {
+    /// Resolve one host while owning the DNS admission permit. Implementations
+    /// that delegate to non-cancellable blocking work must move this permit
+    /// into that work so timeouts cannot release capacity early.
     fn resolve<'a>(
         &'a self,
         host: &'a str,
         port: u16,
+        permit: OwnedSemaphorePermit,
     ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>>;
 }
 
@@ -239,11 +247,20 @@ impl EgressResolver for SystemEgressResolver {
         &'a self,
         host: &'a str,
         port: u16,
+        permit: OwnedSemaphorePermit,
     ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
+        let host = host.to_owned();
         Box::pin(async move {
-            tokio::net::lookup_host((host, port))
-                .await
-                .map(|addresses| addresses.collect())
+            // Tokio's system lookup uses the blocking pool. A started
+            // spawn_blocking task cannot be aborted, so move the owned permit
+            // into the closure and keep it until getaddrinfo actually exits.
+            tokio::task::spawn_blocking(move || {
+                let _permit = permit;
+                std::net::ToSocketAddrs::to_socket_addrs(&(host.as_str(), port))
+                    .map(|addresses| addresses.collect())
+            })
+            .await
+            .map_err(|error| io::Error::other(format!("DNS worker failed: {error}")))?
         })
     }
 }
@@ -351,13 +368,16 @@ impl PublicEgressClient {
         let port = url.port_or_known_default().ok_or(EgressError::PortNotPermitted)?;
 
         // Bound resolver fan-out independently from HTTP execution capacity.
-        let _dns_permit = tokio::time::timeout(DNS_QUEUE_TIMEOUT, DNS_SEMAPHORE.acquire())
-            .await
-            .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
-            .map_err(|_| EgressError::ConcurrencyUnavailable)?;
+        let dns_permit = tokio::time::timeout(
+            DNS_QUEUE_TIMEOUT,
+            dns_semaphore().clone().acquire_owned(),
+        )
+        .await
+        .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
+        .map_err(|_| EgressError::ConcurrencyUnavailable)?;
         let (addresses, is_domain) = tokio::time::timeout(
             DNS_LOOKUP_TIMEOUT,
-            resolve_and_authorize(&url, port, self.resolver.as_ref()),
+            resolve_and_authorize(&url, port, self.resolver.as_ref(), dns_permit),
         )
         .await
         .map_err(|_| EgressError::DnsResolutionTimeout)??;
@@ -678,6 +698,7 @@ async fn resolve_and_authorize(
     url: &Url,
     port: u16,
     resolver: &dyn EgressResolver,
+    dns_permit: OwnedSemaphorePermit,
 ) -> Result<(Vec<SocketAddr>, bool), EgressError> {
     let host = url.host().ok_or(EgressError::MissingHost)?;
     let (mut addresses, is_domain) = match host {
@@ -685,7 +706,7 @@ async fn resolve_and_authorize(
         Host::Ipv6(address) => (vec![SocketAddr::new(IpAddr::V6(address), port)], false),
         Host::Domain(domain) => {
             let resolved = resolver
-                .resolve(domain, port)
+                .resolve(domain, port, dns_permit)
                 .await
                 .map_err(|source| EgressError::DnsResolution {
                     host: domain.to_owned(),
@@ -1017,6 +1038,7 @@ mod tests {
             &'a self,
             _host: &'a str,
             _port: u16,
+            _permit: OwnedSemaphorePermit,
         ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
             self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let answers = self.answers.clone();
