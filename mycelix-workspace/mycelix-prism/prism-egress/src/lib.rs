@@ -159,6 +159,8 @@ pub enum EgressError {
     RedirectLimitExceeded,
     #[error("public-web redirect location is invalid")]
     InvalidRedirectLocation,
+    #[error("redirect response contains multiple Location fields")]
+    AmbiguousRedirectLocation,
     #[error("public-web redirect chain contains a loop")]
     RedirectLoop,
     #[error("HTTPS-to-HTTP redirect downgrade is not permitted")]
@@ -550,6 +552,13 @@ impl PublicEgressClient {
             if authority_may_follow_redirect(capability.authority)
                 && is_followable_redirect(status)
             {
+                let location_values = response_headers
+                    .get_all(reqwest::header::LOCATION)
+                    .iter()
+                    .count();
+                if location_values > 1 {
+                    return Err(EgressError::AmbiguousRedirectLocation);
+                }
                 if let Some(location) = response_headers.get(reqwest::header::LOCATION) {
                     if redirect_count >= MAX_PUBLIC_WEB_REDIRECT_HOPS {
                         return Err(EgressError::RedirectLimitExceeded);
@@ -1211,6 +1220,38 @@ mod tests {
         assert!(!authority_may_follow_redirect(EgressAuthority::Perplexity));
         assert!(!authority_may_follow_redirect(EgressAuthority::WikipediaSummary));
         assert!(!authority_may_follow_redirect(EgressAuthority::WikidataSparql));
+    }
+
+    #[tokio::test]
+    async fn duplicate_location_headers_are_rejected_before_a_second_hop() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            read_test_request(&mut stream).await;
+            stream
+                .write_all(
+                    b"HTTP/1.1 302 Found\\r\\nLocation: https://public.example/first\\r\\nLocation: http://metadata.google.internal/\\r\\nContent-Length: 0\\r\\nConnection: close\\r\\n\\r\\n",
+                )
+                .await
+                .unwrap();
+        });
+
+        let client = PublicEgressClient::default();
+        let url = Url::parse(&format!(
+            "http://response-cap-test.invalid:{}/",
+            address.port()
+        ))
+        .unwrap();
+        let capability = test_capability(url, address, 16);
+        let result = client.execute(capability).await;
+        assert!(matches!(
+            result,
+            Err(EgressError::AmbiguousRedirectLocation)
+        ));
+        server.await.unwrap();
     }
 
     #[tokio::test]
