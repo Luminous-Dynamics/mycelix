@@ -142,7 +142,7 @@ pub struct LadmReferences {
     pub spatial_unit_reference: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorityReference {
     pub source_authority_id: String,
@@ -317,7 +317,7 @@ impl LandRrrReferenceV0 {
             &mut issues,
         );
 
-        let mut authority_ids = HashSet::new();
+        let mut unique_authority_references = HashSet::new();
         for authority in &self.authority_references {
             require(
                 "authority.source_authority_id",
@@ -331,7 +331,7 @@ impl LandRrrReferenceV0 {
                 &authority.source_evidence_reference,
                 &mut issues,
             );
-            if !authority_ids.insert(authority.source_authority_id.as_str()) {
+            if !unique_authority_references.insert(authority.clone()) {
                 issues.push(format!(
                     "duplicate authority reference {}",
                     authority.source_authority_id
@@ -618,6 +618,33 @@ mod tests {
         assert!(issues
             .iter()
             .any(|issue| issue.contains("duplicate consent authorization reference")));
+    }
+
+    #[test]
+    fn exact_duplicate_authority_reference_is_rejected() {
+        let mut value = fixture();
+        let reference = authority_reference("registry-1", AuthorityKind::Registry);
+        value.claim_basis = vec![ClaimBasis::AdministrativeRecord];
+        value.authority_references = vec![reference.clone(), reference];
+        let issues = value
+            .validate_structural()
+            .expect_err("exact duplicate authority reference must be rejected");
+        assert!(issues
+            .iter()
+            .any(|issue| issue.contains("duplicate authority reference")));
+    }
+
+    #[test]
+    fn one_issuer_may_have_multiple_distinct_scoped_authority_references() {
+        let mut value = fixture();
+        value.claim_basis = vec![ClaimBasis::AdministrativeRecord];
+        let first = authority_reference("registry-1", AuthorityKind::Registry);
+        let mut second = first.clone();
+        second.scope_reference = "urn:synthetic:authority-scope:registry-1:distinct".into();
+        second.source_evidence_reference =
+            "urn:synthetic:authority-evidence:registry-1:distinct".into();
+        value.authority_references = vec![first, second];
+        assert_eq!(value.validate_structural(), Ok(()));
     }
 
     #[test]
