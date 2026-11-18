@@ -1310,6 +1310,315 @@ fn ipv6_in_prefix(ip: &Ipv6Addr, network: [u16; 8], prefix: u8) -> bool {
 mod tests {
     use super::*;
 
+    #[derive(Clone, Debug)]
+    enum WireDnsRecord {
+        A(std::net::Ipv4Addr, u32),
+        Aaaa(std::net::Ipv6Addr, u32),
+        Cname(String, u32),
+    }
+
+    #[derive(Clone, Debug)]
+    enum WireDnsAnswer {
+        Records(Vec<WireDnsRecord>),
+        NxDomain,
+        ServFail,
+    }
+
+    #[derive(Default)]
+    struct WireDnsFixtureState {
+        answers: std::collections::HashMap<String, WireDnsAnswer>,
+        observed_queries: Vec<(String, u16)>,
+    }
+
+    struct WireDnsFixture {
+        address: SocketAddr,
+        state: Arc<std::sync::Mutex<WireDnsFixtureState>>,
+        server: tokio::task::JoinHandle<()>,
+    }
+
+    impl WireDnsFixture {
+        async fn start() -> Self {
+            let socket = tokio::net::UdpSocket::bind("127.0.0.1:0")
+                .await
+                .expect("bind hermetic DNS fixture");
+            let address = socket.local_addr().expect("DNS fixture address");
+            let state = Arc::new(std::sync::Mutex::new(WireDnsFixtureState::default()));
+            let server_state = Arc::clone(&state);
+            let server = tokio::spawn(async move {
+                let mut request = [0u8; 4096];
+                loop {
+                    let (length, peer) = match socket.recv_from(&mut request).await {
+                        Ok(received) => received,
+                        Err(_) => break,
+                    };
+                    let response = build_wire_dns_response(&request[..length], &server_state);
+                    if let Some(response) = response {
+                        let _ = socket.send_to(&response, peer).await;
+                    }
+                }
+            });
+            Self {
+                address,
+                state,
+                server,
+            }
+        }
+
+        fn set_answer(&self, name: &str, answer: WireDnsAnswer) {
+            let normalized = normalize_wire_dns_name(name);
+            self.state
+                .lock()
+                .expect("DNS fixture state lock")
+                .answers
+                .insert(normalized, answer);
+        }
+
+        fn observed_queries(&self) -> Vec<(String, u16)> {
+            self.state
+                .lock()
+                .expect("DNS fixture state lock")
+                .observed_queries
+                .clone()
+        }
+    }
+
+    impl Drop for WireDnsFixture {
+        fn drop(&mut self) {
+            self.server.abort();
+        }
+    }
+
+    fn normalize_wire_dns_name(name: &str) -> String {
+        let trimmed = name.trim_end_matches('.');
+        if trimmed.is_empty() {
+            ".".to_owned()
+        } else {
+            format!("{}.", trimmed.to_ascii_lowercase())
+        }
+    }
+
+    fn encode_wire_dns_name(name: &str, output: &mut Vec<u8>) -> io::Result<()> {
+        let trimmed = name.trim_end_matches('.');
+        if trimmed.is_empty() {
+            output.push(0);
+            return Ok(());
+        }
+        for label in trimmed.split('.') {
+            if label.is_empty() || label.len() > 63 {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "invalid DNS label in fixture",
+                ));
+            }
+            output.push(label.len() as u8);
+            output.extend_from_slice(label.as_bytes());
+        }
+        output.push(0);
+        Ok(())
+    }
+
+    fn decode_wire_dns_name(packet: &[u8], offset: &mut usize) -> io::Result<String> {
+        let mut labels = Vec::new();
+        let mut cursor = *offset;
+        let mut resume_offset = None;
+        for _ in 0..128 {
+            let length = *packet.get(cursor).ok_or_else(|| {
+                io::Error::new(io::ErrorKind::UnexpectedEof, "truncated DNS name")
+            })?;
+            if length & 0xc0 == 0xc0 {
+                let second = *packet.get(cursor + 1).ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::UnexpectedEof, "truncated DNS pointer")
+                })?;
+                let pointer = (((length & 0x3f) as usize) << 8) | second as usize;
+                if pointer >= packet.len() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "DNS compression pointer is outside packet",
+                    ));
+                }
+                if resume_offset.is_none() {
+                    resume_offset = Some(cursor + 2);
+                }
+                cursor = pointer;
+                continue;
+            }
+            if length & 0xc0 != 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "unsupported DNS label encoding",
+                ));
+            }
+            cursor += 1;
+            if length == 0 {
+                *offset = resume_offset.unwrap_or(cursor);
+                return Ok(if labels.is_empty() {
+                    ".".to_owned()
+                } else {
+                    format!("{}.", labels.join("."))
+                });
+            }
+            let end = cursor.saturating_add(length as usize);
+            let label = packet.get(cursor..end).ok_or_else(|| {
+                io::Error::new(io::ErrorKind::UnexpectedEof, "truncated DNS label")
+            })?;
+            labels.push(String::from_utf8_lossy(label).to_ascii_lowercase());
+            cursor = end;
+        }
+        Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "DNS compression pointer loop or excessive labels",
+        ))
+    }
+
+    fn build_wire_dns_response(
+        packet: &[u8],
+        state: &Arc<std::sync::Mutex<WireDnsFixtureState>>,
+    ) -> Option<Vec<u8>> {
+        if packet.len() < 12 {
+            return None;
+        }
+        let id = [packet[0], packet[1]];
+        let request_flags = u16::from_be_bytes([packet[2], packet[3]]);
+        let question_count = u16::from_be_bytes([packet[4], packet[5]]);
+        if question_count != 1 {
+            return None;
+        }
+        let mut question_offset = 12;
+        let name = decode_wire_dns_name(packet, &mut question_offset).ok()?;
+        let qtype_bytes = packet.get(question_offset..question_offset + 2)?;
+        let query_type = u16::from_be_bytes([qtype_bytes[0], qtype_bytes[1]]);
+        let qclass_bytes = packet.get(question_offset + 2..question_offset + 4)?;
+        let query_class = [qclass_bytes[0], qclass_bytes[1]];
+        let normalized = normalize_wire_dns_name(&name);
+
+        let answer = {
+            let mut state = state.lock().ok()?;
+            state
+                .observed_queries
+                .push((normalized.clone(), query_type));
+            state.answers.get(&normalized).cloned()
+        };
+
+        let (rcode, records) = match answer.unwrap_or(WireDnsAnswer::NxDomain) {
+            WireDnsAnswer::NxDomain => (3u16, Vec::new()),
+            WireDnsAnswer::ServFail => (2u16, Vec::new()),
+            WireDnsAnswer::Records(records) => (0u16, records),
+        };
+
+        let mut answer_bytes = Vec::new();
+        let mut answer_count = 0u16;
+        if rcode == 0 {
+            for record in records {
+                let (record_type, ttl, rdata) = match record {
+                    WireDnsRecord::A(address, ttl) if query_type == 1 => {
+                        (1u16, ttl, address.octets().to_vec())
+                    }
+                    WireDnsRecord::Aaaa(address, ttl) if query_type == 28 => {
+                        (28u16, ttl, address.octets().to_vec())
+                    }
+                    WireDnsRecord::Cname(target, ttl) => {
+                        let mut encoded_target = Vec::new();
+                        if encode_wire_dns_name(&target, &mut encoded_target).is_err() {
+                            continue;
+                        }
+                        (5u16, ttl, encoded_target)
+                    }
+                    _ => continue,
+                };
+                answer_bytes.extend_from_slice(&[0xc0, 0x0c]); // owner = question name
+                answer_bytes.extend_from_slice(&record_type.to_be_bytes());
+                answer_bytes.extend_from_slice(&1u16.to_be_bytes()); // IN
+                answer_bytes.extend_from_slice(&ttl.to_be_bytes());
+                answer_bytes.extend_from_slice(&(rdata.len() as u16).to_be_bytes());
+                answer_bytes.extend_from_slice(&rdata);
+                answer_count = answer_count.saturating_add(1);
+            }
+        }
+
+        let mut response = Vec::with_capacity(12 + packet.len() + answer_bytes.len());
+        response.extend_from_slice(&id);
+        let recursion_desired = request_flags & 0x0100;
+        let flags = 0x8000u16 | 0x0400 | 0x0080 | recursion_desired | rcode;
+        response.extend_from_slice(&flags.to_be_bytes());
+        response.extend_from_slice(&1u16.to_be_bytes()); // QDCOUNT
+        response.extend_from_slice(&answer_count.to_be_bytes());
+        response.extend_from_slice(&0u16.to_be_bytes()); // NSCOUNT
+        response.extend_from_slice(&0u16.to_be_bytes()); // ARCOUNT
+        if encode_wire_dns_name(&name, &mut response).is_err() {
+            return None;
+        }
+        response.extend_from_slice(&query_type.to_be_bytes());
+        response.extend_from_slice(&query_class);
+        response.extend_from_slice(&answer_bytes);
+        Some(response)
+    }
+
+    #[derive(Clone)]
+    struct HickoryWireResolver {
+        resolver: Arc<hickory_resolver::TokioResolver>,
+    }
+
+    impl HickoryWireResolver {
+        fn new(server: SocketAddr) -> Self {
+            use hickory_resolver::config::{
+                ConnectionConfig, LookupIpStrategy, NameServerConfig, ResolveHosts,
+                ResolverConfig, ResolverOpts,
+            };
+            use hickory_resolver::net::runtime::TokioRuntimeProvider;
+
+            let mut connection = ConnectionConfig::udp();
+            connection.port = server.port();
+            let name_server =
+                NameServerConfig::new(server.ip(), true, vec![connection]);
+            let config = ResolverConfig::from_name_servers(vec![name_server]);
+            let mut options = ResolverOpts::default();
+            options.use_hosts_file = ResolveHosts::Never;
+            options.ip_strategy = LookupIpStrategy::Ipv4AndIpv6;
+            options.timeout = Duration::from_secs(1);
+            options.attempts = 1;
+            options.num_concurrent_reqs = 1;
+            let resolver = hickory_resolver::TokioResolver::builder_with_config(
+                config,
+                TokioRuntimeProvider::default(),
+            )
+            .with_options(options)
+            .build()
+            .expect("build resolver pointed only at the loopback DNS fixture");
+            Self {
+                resolver: Arc::new(resolver),
+            }
+        }
+    }
+
+    impl EgressResolver for HickoryWireResolver {
+        fn resolve<'a>(
+            &'a self,
+            host: &'a str,
+            port: u16,
+            permit: OwnedSemaphorePermit,
+        ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
+            Box::pin(async move {
+                // The DNS permit remains held through all A/AAAA and CNAME wire queries.
+                let _permit = permit;
+                let fqdn = format!("{}.", host.trim_end_matches('.'));
+                let lookup = self
+                    .resolver
+                    .lookup_ip(fqdn)
+                    .await
+                    .map_err(|error| io::Error::other(format!("loopback DNS fixture: {error}")))?;
+                Ok(lookup
+                    .iter()
+                    .map(|address| SocketAddr::new(address, port))
+                    .collect())
+            })
+        }
+    }
+
+    fn ip(value: &str) -> IpAddr {
+        value.parse().expect("test IP literal")
+    }
+
+
     fn ip(value: &str) -> IpAddr {
         value.parse().expect("test IP literal")
     }
