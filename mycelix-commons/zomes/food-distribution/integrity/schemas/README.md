@@ -71,3 +71,15 @@ Dispositions are deliberately separate from planning eligibility:
 Pure-function tests cover exact quantity conversions, receipt mass balance, listing-not-receipt, event chain identity, consumption, split child records, insufficient quantity, recall/use-by holds and nullable missing-lot reports.
 
 The runtime function is not yet wired to a Holochain coordinator or local encrypted persistence layer. Schema privacy markers do not enforce storage privacy; the caller must keep household receipts/events private and only share consented provenance references.
+
+## Canonical producer lot entry (integrity-bound V1)
+
+`ProducerLotRecordV1.schema.json` describes the public Holochain entry wrapper:
+- `lot`: the existing `FoodLotProvenanceV1` declaration;
+- `previous_revision`: the action hash of revision N-1, absent only for revision 1.
+
+The Food Distribution integrity zome now registers `ProducerLot` as a distinct entry type and `ProducerToLot` as an index link. The create validator binds `lot.producer_ref` to `did_for_author(action.author())`. Later revisions must resolve a valid previous record, retain the same signed author, lot reference and product reference, and increment exactly by one. Producer lot entries reject update and delete operations; corrections are append-only revisions. Existing mutable `Listing` and `Order` entry behavior is intentionally unchanged.
+
+**Epistemic limit:** this proves that a particular Holochain agent authored a declaration. It does not prove that the agent is a legally registered producer, that the declared physical origin is true, that the material is authentic, or that it is fresh, safe, allergen-free, or suitable. A separate issuer/credential chain is required before describing an agent as an independently verified producer.
+
+Household receipts, pantry quantities, addresses, consumption and disposal remain local-private and are not fields in this public DHT entry. The current coordinator runtime adapter remains a separate follow-up; the integrity record itself does not create a household receipt.
