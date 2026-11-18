@@ -4,6 +4,7 @@ members = [
     "src/core",
     "src/api",
     "src/cli",
+    "land-rrr-reference-gate-harness",
 ]
 exclude = ["apps/leptos"]
 resolver = "2"
