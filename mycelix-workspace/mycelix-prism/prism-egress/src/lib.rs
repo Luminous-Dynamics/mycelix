@@ -19,6 +19,7 @@
 
 pub use reqwest::Method;
 pub use reqwest::header::HeaderMap;
+use bytes::Bytes;
 use reqwest::{Client, StatusCode};
 use std::collections::HashSet;
 use std::future::Future;
@@ -39,8 +40,30 @@ const DNS_QUEUE_TIMEOUT: Duration = Duration::from_secs(2);
 const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_secs(5);
 const REQUEST_HEADER_OVERHEAD_ALLOWANCE: usize = 512;
 const MAX_RESPONSE_HEADER_COUNT: usize = 128;
+const RESPONSE_MEMORY_BUDGET_BYTES: usize = 128 * 1024 * 1024;
+const RESPONSE_MEMORY_PERMIT_UNIT_BYTES: usize = 64 * 1024;
+const RESPONSE_MEMORY_BUDGET_PERMITS: usize =
+    RESPONSE_MEMORY_BUDGET_BYTES / RESPONSE_MEMORY_PERMIT_UNIT_BYTES;
+const RESPONSE_MEMORY_QUEUE_TIMEOUT: Duration = Duration::from_secs(2);
 static EGRESS_SEMAPHORE: Semaphore = Semaphore::const_new(MAX_CONCURRENT_EGRESS_REQUESTS);
 static DNS_SEMAPHORE: OnceLock<Arc<Semaphore>> = OnceLock::new();
+static RESPONSE_MEMORY_SEMAPHORE: OnceLock<Arc<Semaphore>> = OnceLock::new();
+
+fn response_memory_semaphore() -> &'static Arc<Semaphore> {
+    RESPONSE_MEMORY_SEMAPHORE
+        .get_or_init(|| Arc::new(Semaphore::new(RESPONSE_MEMORY_BUDGET_PERMITS)))
+}
+
+/// Reserve the whole logical body budget in fixed 64 KiB units before buffering.
+/// Whole-budget reservations avoid deadlock from multiple streams holding partial
+/// weighted permits while waiting for more memory.
+fn response_memory_permits(body_limit_bytes: usize) -> u32 {
+    let units = body_limit_bytes
+        .max(1)
+        .saturating_add(RESPONSE_MEMORY_PERMIT_UNIT_BYTES - 1)
+        / RESPONSE_MEMORY_PERMIT_UNIT_BYTES;
+    u32::try_from(units).expect("bounded Prism response limit fits in u32 permits")
+}
 
 fn dns_semaphore() -> &'static Arc<Semaphore> {
     DNS_SEMAPHORE.get_or_init(|| Arc::new(Semaphore::new(MAX_CONCURRENT_DNS_LOOKUPS)))
@@ -136,6 +159,10 @@ pub enum EgressError {
     ResponseBodyTooLarge,
     #[error("response headers exceed the configured byte limit")]
     ResponseHeadersTooLarge,
+    #[error("aggregate response-memory budget wait exceeded its limit")]
+    ResponseMemoryBudgetTimeout,
+    #[error("aggregate response-memory budget is unavailable")]
+    ResponseMemoryBudgetUnavailable,
     #[error("transport did not expose the connected peer address")]
     RemotePeerUnavailable,
     #[error("connected peer was not in the authorized DNS snapshot: {0}")]
@@ -239,12 +266,82 @@ pub struct EgressCapability {
     policy_version: &'static str,
 }
 
+/// Owns buffered response bytes and the aggregate-memory lease for their
+/// entire lifetime. Converting this value to Bytes preserves the lease in the
+/// Bytes backing owner, including across shallow Bytes clones and Axum delivery.
+pub struct EgressBody {
+    bytes: Bytes,
+}
+
+struct LeasedResponseBuffer {
+    bytes: Vec<u8>,
+    _memory_permit: OwnedSemaphorePermit,
+}
+
+impl AsRef<[u8]> for LeasedResponseBuffer {
+    fn as_ref(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+
+impl EgressBody {
+    fn new(bytes: Vec<u8>, memory_permit: OwnedSemaphorePermit) -> Self {
+        Self {
+            bytes: Bytes::from_owner(LeasedResponseBuffer {
+                bytes,
+                _memory_permit: memory_permit,
+            }),
+        }
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        self.bytes.as_ref()
+    }
+
+    pub fn len(&self) -> usize {
+        self.bytes.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
+    }
+
+    /// Move the lease-carrying Bytes buffer into the downstream body. The
+    /// reservation is released only after every Bytes clone is dropped.
+    pub fn into_bytes(self) -> Bytes {
+        self.bytes
+    }
+}
+
+impl std::fmt::Debug for EgressBody {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("EgressBody")
+            .field("len", &self.bytes.len())
+            .finish()
+    }
+}
+
+impl AsRef<[u8]> for EgressBody {
+    fn as_ref(&self) -> &[u8] {
+        self.bytes.as_ref()
+    }
+}
+
+impl std::ops::Deref for EgressBody {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.bytes.as_ref()
+    }
+}
+
 /// A bounded response plus a privacy-minimized execution receipt.
 #[derive(Debug)]
 pub struct EgressResponse {
     pub status: StatusCode,
     pub headers: HeaderMap,
-    pub body: Vec<u8>,
+    pub body: EgressBody,
     pub receipt: EgressReceipt,
 }
 
@@ -652,8 +749,23 @@ impl PublicEgressClient {
                 return Err(EgressError::ResponseBodyTooLarge);
             }
 
+            // Reserve the complete body ceiling before allocating or buffering.
+            // This is deliberately not acquired chunk-by-chunk: partial weighted
+            // reservations can deadlock when streams retain memory while waiting
+            // for additional permits.
+            let memory_permits = response_memory_permits(response_body_limit_bytes);
+            let memory_permit = tokio::time::timeout(
+                RESPONSE_MEMORY_QUEUE_TIMEOUT,
+                response_memory_semaphore()
+                    .clone()
+                    .acquire_many_owned(memory_permits),
+            )
+            .await
+            .map_err(|_| EgressError::ResponseMemoryBudgetTimeout)?
+            .map_err(|_| EgressError::ResponseMemoryBudgetUnavailable)?;
+
             let mut response = response;
-            let mut collected = Vec::new();
+            let mut collected = Vec::with_capacity(response_body_limit_bytes);
             while let Some(chunk) = response.chunk().await? {
                 if collected.len().saturating_add(chunk.len()) > response_body_limit_bytes {
                     return Err(EgressError::ResponseBodyTooLarge);
@@ -679,7 +791,7 @@ impl PublicEgressClient {
             return Ok(EgressResponse {
                 status,
                 headers: response_headers,
-                body: collected,
+                body: EgressBody::new(collected, memory_permit),
                 receipt,
             });
         }
@@ -1183,6 +1295,41 @@ mod tests {
     }
 
     #[test]
+    fn response_body_bytes_keep_the_memory_lease_until_all_clones_are_dropped() {
+        let semaphore = Arc::new(Semaphore::new(2));
+        let permit = semaphore.clone().try_acquire_many_owned(2).unwrap();
+        let body = EgressBody::new(b"leased".to_vec(), permit);
+
+        assert_eq!(semaphore.available_permits(), 0);
+        assert_eq!(body.as_slice(), b"leased");
+
+        let bytes = body.into_bytes();
+        let clone = bytes.clone();
+        drop(bytes);
+        assert_eq!(
+            semaphore.available_permits(),
+            0,
+            "a shallow Bytes clone must keep the response-memory lease alive"
+        );
+
+        drop(clone);
+        assert_eq!(
+            semaphore.available_permits(),
+            2,
+            "the lease is released only after the last downstream Bytes owner drops"
+        );
+    }
+
+    #[test]
+    fn response_memory_reservations_use_whole_64kib_units() {
+        assert_eq!(response_memory_permits(0), 1);
+        assert_eq!(response_memory_permits(1), 1);
+        assert_eq!(response_memory_permits(64 * 1024), 1);
+        assert_eq!(response_memory_permits(64 * 1024 + 1), 2);
+        assert_eq!(response_memory_permits(16 * 1024 * 1024), 256);
+    }
+
+    #[test]
     fn reqwest_client_builder_accepts_a_pinned_domain_address_set() {
         let addresses = ["93.184.216.34:443".parse().unwrap()];
         validate_address_set(&addresses).unwrap();
@@ -1404,7 +1551,7 @@ mod tests {
         // Execution must use the exact injected DNS snapshot, connect to that
         // socket, preserve the original hostname in Host, and attest the peer.
         let response = client.execute(capability).await.unwrap();
-        assert_eq!(response.body, b"ok");
+        assert_eq!(response.body.as_slice(), b"ok");
         assert_eq!(response.receipt.authorized_addresses, vec![address]);
         assert_eq!(response.receipt.remote_peer, address);
         assert_eq!(
@@ -1492,7 +1639,7 @@ mod tests {
 
         let response = client.execute(capability).await.unwrap();
         assert_eq!(response.status, StatusCode::OK);
-        assert_eq!(response.body, b"ok");
+        assert_eq!(response.body.as_slice(), b"ok");
         assert_eq!(response.receipt.remote_peer, second_address);
         assert_eq!(response.receipt.authorized_addresses, vec![second_address]);
         assert_eq!(response.receipt.redirect_hops.len(), 1);
@@ -1555,7 +1702,7 @@ mod tests {
         .unwrap();
         let capability = test_capability(url, address, 16);
         let response = client.execute(capability).await.unwrap();
-        assert_eq!(response.body, b"ok");
+        assert_eq!(response.body.as_slice(), b"ok");
         assert_eq!(response.receipt.remote_peer, address);
         assert_eq!(response.receipt.authority, "public-web");
         assert_eq!(response.receipt.authorized_addresses, vec![address]);
@@ -1673,7 +1820,7 @@ mod tests {
             .unwrap();
         let response = client.execute(valid_capability).await.unwrap();
         assert_eq!(response.status, StatusCode::OK);
-        assert_eq!(response.body, b"ok");
+        assert_eq!(response.body.as_slice(), b"ok");
         assert_eq!(response.receipt.remote_peer, address);
 
         let wrong_name_capability = client
