@@ -477,6 +477,67 @@ fn is_sha256(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
+/// The four benchmark dispositions consumed by the land-RRR host boundary.
+///
+/// These values qualify a payload for the next *read-only* stage only. They are
+/// not legal statuses, authority credentials, title states, or authorization
+/// to mutate Mycelix Property or an external registry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TibEvaluationOutcome {
+    StructuralAccept,
+    StructuralReject,
+    ReviewRequired,
+    NotEvaluable,
+}
+
+/// Host action after reading a TIB outcome.
+///
+/// A structural accept only permits further read-only qualification. Every
+/// outcome leaves authoritative land/resource state unchanged. In particular,
+/// unknown currentness, missing evidence and unresolved review must be held
+/// until reconciliation; they must not be converted into success by timeout,
+/// retry, consensus or an AI confidence score.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QualificationDisposition {
+    ContinueReadOnlyQualification,
+    RejectPayload,
+    HoldForReconciliation,
+}
+
+impl QualificationDisposition {
+    /// This reference adapter never authorizes authoritative state mutation.
+    pub const fn allows_authoritative_mutation(self) -> bool {
+        false
+    }
+
+    pub const fn requires_reconciliation(self) -> bool {
+        matches!(self, Self::HoldForReconciliation)
+    }
+
+    pub const fn may_continue_read_only(self) -> bool {
+        matches!(self, Self::ContinueReadOnlyQualification)
+    }
+}
+
+/// Convert a benchmark outcome into a conservative host disposition.
+///
+/// This is a pure policy seam; it is not yet wired into Mycelix Property's
+/// transaction coordinator and does not authenticate the source of an outcome.
+pub const fn qualification_disposition(
+    outcome: TibEvaluationOutcome,
+) -> QualificationDisposition {
+    match outcome {
+        TibEvaluationOutcome::StructuralAccept => {
+            QualificationDisposition::ContinueReadOnlyQualification
+        }
+        TibEvaluationOutcome::StructuralReject => QualificationDisposition::RejectPayload,
+        TibEvaluationOutcome::ReviewRequired | TibEvaluationOutcome::NotEvaluable => {
+            QualificationDisposition::HoldForReconciliation
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -668,5 +729,72 @@ mod tests {
         assert!(issues.iter().any(|issue| {
             issue.contains("record_sha256 must be 64 lowercase hex characters")
         }));
+    }
+}
+
+
+#[cfg(test)]
+mod tib_qualification_policy_tests {
+    use super::*;
+
+    #[test]
+    fn benchmark_outcomes_map_to_conservative_host_dispositions() {
+        assert_eq!(
+            qualification_disposition(TibEvaluationOutcome::StructuralAccept),
+            QualificationDisposition::ContinueReadOnlyQualification
+        );
+        assert_eq!(
+            qualification_disposition(TibEvaluationOutcome::StructuralReject),
+            QualificationDisposition::RejectPayload
+        );
+        assert_eq!(
+            qualification_disposition(TibEvaluationOutcome::ReviewRequired),
+            QualificationDisposition::HoldForReconciliation
+        );
+        assert_eq!(
+            qualification_disposition(TibEvaluationOutcome::NotEvaluable),
+            QualificationDisposition::HoldForReconciliation
+        );
+    }
+
+    #[test]
+    fn no_benchmark_disposition_authorizes_authoritative_mutation() {
+        for outcome in [
+            TibEvaluationOutcome::StructuralAccept,
+            TibEvaluationOutcome::StructuralReject,
+            TibEvaluationOutcome::ReviewRequired,
+            TibEvaluationOutcome::NotEvaluable,
+        ] {
+            assert!(!qualification_disposition(outcome).allows_authoritative_mutation());
+        }
+    }
+
+    #[test]
+    fn review_required_and_not_evaluable_both_hold_for_reconciliation() {
+        for outcome in [
+            TibEvaluationOutcome::ReviewRequired,
+            TibEvaluationOutcome::NotEvaluable,
+        ] {
+            let disposition = qualification_disposition(outcome);
+            assert!(disposition.requires_reconciliation());
+            assert!(!disposition.may_continue_read_only());
+        }
+    }
+
+    #[test]
+    fn structural_accept_only_allows_read_only_qualification() {
+        let disposition =
+            qualification_disposition(TibEvaluationOutcome::StructuralAccept);
+        assert!(disposition.may_continue_read_only());
+        assert!(!disposition.requires_reconciliation());
+        assert!(!disposition.allows_authoritative_mutation());
+    }
+
+    #[test]
+    fn unknown_benchmark_outcomes_fail_to_deserialize() {
+        assert!(
+            serde_json::from_str::<TibEvaluationOutcome>("\"legal_title_confirmed\"")
+                .is_err()
+        );
     }
 }
