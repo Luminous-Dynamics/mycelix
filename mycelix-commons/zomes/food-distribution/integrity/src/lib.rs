@@ -5,7 +5,7 @@
 //! Entry types and validation for local food markets, listings, and orders.
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match, did_for_author};
 
 pub mod food_lot_reconciliation;
 
@@ -85,6 +85,17 @@ pub struct Order {
     pub status: OrderStatus,
 }
 
+/// Immutable public supplier/producer-side lot declaration.
+/// The committing agent is bound to lot.producer_ref in the integrity callback.
+/// This proves authorship of a declaration only, not legal producer status.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct ProducerLotRecordV1 {
+    pub lot: food_lot_reconciliation::FoodLotProvenanceV1,
+    /// Revision N must reference the signed action for revision N-1.
+    pub previous_revision: Option<ActionHash>,
+}
+
 // ============================================================================
 // ENTRY & LINK TYPE REGISTRATION
 // ============================================================================
@@ -96,6 +107,7 @@ pub enum EntryTypes {
     Market(Market),
     Listing(Listing),
     Order(Order),
+    ProducerLot(ProducerLotRecordV1),
 }
 
 #[hdk_link_types]
@@ -103,6 +115,7 @@ pub enum LinkTypes {
     AllMarkets,
     MarketToListing,
     ProducerToListing,
+    ProducerToLot,
     BuyerToOrder,
     ListingToOrder,
     GeoIndex,
@@ -116,13 +129,17 @@ pub enum LinkTypes {
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Market(m) => validate_market(m),
                 EntryTypes::Listing(l) => validate_listing(l),
                 EntryTypes::Order(o) => validate_order(o),
+                EntryTypes::ProducerLot(record) => validate_producer_lot(record, action),
             },
             OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
+                EntryTypes::ProducerLot(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Producer lot declarations are immutable; publish a linked next revision".into(),
+                )),
                 EntryTypes::Market(m) => validate_market(m),
                 EntryTypes::Listing(l) => validate_listing(l),
                 EntryTypes::Order(o) => validate_order(o),
@@ -151,6 +168,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 if tag.0.len() > 256 {
                     return Ok(ValidateCallbackResult::Invalid(
                         "ProducerToListing link tag too long (max 256 bytes)".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            },
+            LinkTypes::ProducerToLot => {
+                if tag.0.len() > 256 {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "ProducerToLot link tag too long (max 256 bytes)".into(),
                     ));
                 }
                 Ok(ValidateCallbackResult::Valid)
@@ -183,6 +208,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(update) => {
+            if matches!(
+                &update,
+                OpUpdate::Entry {
+                    app_entry: EntryTypes::ProducerLot(_),
+                    ..
+                } | OpUpdate::PrivateEntry {
+                    app_entry: EntryTypes::ProducerLot(_),
+                    ..
+                }
+            ) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Producer lot declarations are immutable; publish a linked next revision".into(),
+                ));
+            }
             let action = match &update {
                 OpUpdate::Entry { action, .. }
                 | OpUpdate::PrivateEntry { action, .. }
@@ -198,12 +237,148 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ))
         }
         FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let original_record = must_get_valid_record(action.deletes_address.clone())?;
+            let is_producer_lot = original_record
+                .entry()
+                .to_app_option::<ProducerLotRecordV1>()
+                .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                .is_some();
+            if is_producer_lot {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Producer lot declarations cannot be deleted; supersede them with a linked revision".into(),
+                ));
+            }
             let original = must_get_action(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
                 &action.author,
                 "delete",
             ))
+        }
+    }
+}
+
+fn validate_producer_lot_fields(
+    lot: &food_lot_reconciliation::FoodLotProvenanceV1,
+    action_author: &AgentPubKey,
+) -> Result<(), String> {
+    if lot.schema_version != food_lot_reconciliation::FOOD_LOT_RECONCILIATION_SCHEMA_VERSION {
+        return Err("Unsupported producer lot schema version".into());
+    }
+    let suffix = lot
+        .lot_ref
+        .strip_prefix("mycelix:food-lot:")
+        .ok_or_else(|| "lot_ref must use the canonical mycelix:food-lot namespace".to_string())?;
+    if suffix.is_empty()
+        || suffix.len() > 128
+        || !suffix.as_bytes()[0].is_ascii_lowercase() && !suffix.as_bytes()[0].is_ascii_digit()
+        || !suffix.bytes().all(|byte| {
+            byte.is_ascii_lowercase()
+                || byte.is_ascii_digit()
+                || matches!(byte, b'.' | b'_' | b':' | b'-')
+        })
+    {
+        return Err("lot_ref suffix is empty or outside the canonical identifier alphabet".into());
+    }
+    if lot.revision == 0 {
+        return Err("Producer lot revision must be positive".into());
+    }
+    if lot.product_ref.trim().is_empty() || lot.product_ref.len() > 512 {
+        return Err("product_ref must be non-empty and at most 512 bytes".into());
+    }
+    if lot.producer_ref != did_for_author(action_author) {
+        return Err("producer_ref must equal the canonical DID of the signed Holochain action author".into());
+    }
+    if food_lot_reconciliation::validate_food_lot_quantity(&lot.quantity).is_err() {
+        return Err("Producer lot quantity must be positive, dimensionally valid and exactly representable".into());
+    }
+    if lot.evidence.source_ref.trim().is_empty() || lot.evidence.source_ref.len() > 512 {
+        return Err("Evidence source_ref must be non-empty and at most 512 bytes".into());
+    }
+    match lot.evidence.evidence_class.as_str() {
+        "Declared" | "Attested" | "Modelled" => {}
+        "Measured" => {
+            if lot.evidence.calibration_ref.as_deref().is_none_or(|value| value.trim().is_empty()) {
+                return Err("Measured lot evidence requires a calibration reference".into());
+            }
+        }
+        "IndependentlyAssayed" | "IndependentlyQualified" => {
+            if lot.evidence.method_ref.as_deref().is_none_or(|value| value.trim().is_empty()) {
+                return Err("Independent lot evidence requires a method reference".into());
+            }
+        }
+        _ => return Err("Unsupported producer lot evidence class".into()),
+    }
+    if lot.claim_ceiling != food_lot_reconciliation::FOOD_LOT_PROVENANCE_CLAIM_CEILING {
+        return Err("Producer lot claim ceiling does not match the fixed source-declaration contract".into());
+    }
+    if lot.harvested_at.zip(lot.packed_at).is_some_and(|(harvested, packed)| packed < harvested) {
+        return Err("packed_at cannot precede harvested_at".into());
+    }
+    let origin_time = lot.packed_at.or(lot.harvested_at);
+    if origin_time.is_some_and(|origin| {
+        lot.best_before_at.is_some_and(|best_before| best_before < origin)
+            || lot.use_by_at.is_some_and(|use_by| use_by < origin)
+    }) {
+        return Err("best-before/use-by dates cannot precede the known harvest/packing time".into());
+    }
+    for optional_ref in [
+        lot.supplier_lot_code.as_deref(),
+        lot.listing_ref.as_deref(),
+        lot.origin_ref.as_deref(),
+        lot.handling_ref.as_deref(),
+        lot.evidence.method_ref.as_deref(),
+        lot.evidence.calibration_ref.as_deref(),
+    ] {
+        if optional_ref.is_some_and(|value| value.trim().is_empty() || value.len() > 512) {
+            return Err("Optional producer lot references must be non-empty and at most 512 bytes when present".into());
+        }
+    }
+    Ok(())
+}
+
+fn validate_producer_lot(
+    record: ProducerLotRecordV1,
+    action: EntryCreationAction,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Err(message) = validate_producer_lot_fields(&record.lot, action.author()) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+    match (record.lot.revision, record.previous_revision.as_ref()) {
+        (1, None) => Ok(ValidateCallbackResult::Valid),
+        (1, Some(_)) => Ok(ValidateCallbackResult::Invalid(
+            "The first producer lot revision cannot name a predecessor".into(),
+        )),
+        (_, None) => Ok(ValidateCallbackResult::Invalid(
+            "Every producer lot revision after revision 1 must link its exact predecessor action".into(),
+        )),
+        (revision, Some(previous_hash)) => {
+            let previous_record = must_get_valid_record(previous_hash.clone())?;
+            let previous_author = previous_record.action().author().clone();
+            if previous_author != *action.author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Producer lot revision predecessor must have the same signed author".into(),
+                ));
+            }
+            let previous_entry = previous_record
+                .entry()
+                .to_app_option::<ProducerLotRecordV1>()
+                .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?;
+            let Some(previous) = previous_entry else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Producer lot predecessor action does not contain a canonical producer lot record".into(),
+                ));
+            };
+            if previous.lot.lot_ref != record.lot.lot_ref
+                || previous.lot.product_ref != record.lot.product_ref
+                || previous.lot.producer_ref != record.lot.producer_ref
+                || previous.lot.revision.checked_add(1) != Some(revision)
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Producer lot revision must continue the same lot/product/author at exactly previous revision + 1".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
         }
     }
 }
