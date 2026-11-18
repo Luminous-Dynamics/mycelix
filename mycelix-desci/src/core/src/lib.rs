@@ -69,6 +69,7 @@ pub mod scientific_authority_audit;
 pub mod scientific_credential_governance;
 pub mod scientific_credentials;
 pub mod scientific_events;
+pub mod land_rrr_reference;
 pub mod scientific_governance;
 pub mod scientific_governance_quorum;
 pub mod semantic;
