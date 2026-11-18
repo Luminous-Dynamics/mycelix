@@ -187,4 +187,5 @@ A report is **incomplete** if it lacks raw artifacts, exact versions, negative c
 - Cilium, Layer 3 Policies / DNS-based policies: https://docs.cilium.io/en/stable/security/policy/layer3/
 - Reqwest ClientBuilder: https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html
 - Hyper HTTP/1 client connection Builder: https://docs.rs/hyper/latest/hyper/client/conn/http1/struct.Builder.html
+- Hyper 1.12.0 parser feasibility probe: test-only negative-control and bounded cases exercise max_header_size against a large single response header. This is not production transport migration. Hyper also documents a heap-allocation/performance trade-off when setting max_headers; include it in P1 measurements.
 - eBPF cgroup socket address programs: https://docs.ebpf.io/linux/program-type/BPF_PROG_TYPE_CGROUP_SOCK_ADDR/
