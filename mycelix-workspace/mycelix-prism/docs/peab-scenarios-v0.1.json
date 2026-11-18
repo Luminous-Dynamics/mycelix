@@ -284,9 +284,9 @@
       "title": "HTTP/1 aggregate header-byte limit",
       "setup": "single huge header value and aggregate oversized header block",
       "expected_decision": "deny",
-      "oracle": "parser rejects before unbounded allocation",
-      "source_coverage": "planned",
-      "source_test": null,
+      "oracle": "test-only Hyper client demonstrates that max_header_size rejects an oversized HTTP/1 response before Response reaches application code; production Reqwest transport remains unchanged",
+      "source_coverage": "partial",
+      "source_test": "hyper_preparse_header_byte_limit_rejects_large_single_header_with_negative_control",
       "execution_status": "not_run_exact_head",
       "negative_control_required": true
     },
