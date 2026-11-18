@@ -1655,6 +1655,33 @@ mod tests {
         fn new(server: SocketAddr) -> Self {
             Self { server }
         }
+
+        fn build(&self) -> io::Result<hickory_resolver::TokioResolver> {
+            use hickory_resolver::config::{
+                ConnectionConfig, LookupIpStrategy, NameServerConfig, ResolveHosts,
+                ResolverConfig, ResolverOpts,
+            };
+            use hickory_resolver::net::runtime::TokioRuntimeProvider;
+
+            let mut connection = ConnectionConfig::udp();
+            connection.port = self.server.port();
+            let name_server = NameServerConfig::new(self.server.ip(), true, vec![connection]);
+            let config = ResolverConfig::from_name_servers(vec![name_server]);
+            let mut options = ResolverOpts::default();
+            options.use_hosts_file = ResolveHosts::Never;
+            options.ip_strategy = LookupIpStrategy::Ipv4AndIpv6;
+            options.timeout = Duration::from_secs(1);
+            options.attempts = 1;
+            options.num_concurrent_reqs = 1;
+            options.try_tcp_on_error = true;
+            hickory_resolver::TokioResolver::builder_with_config(
+                config,
+                TokioRuntimeProvider::default(),
+            )
+            .with_options(options)
+            .build()
+            .map_err(|error| io::Error::other(format!("test resolver build: {error}")))
+        }
     }
 
     impl EgressResolver for HickoryWireResolver {
@@ -1665,36 +1692,11 @@ mod tests {
             permit: OwnedSemaphorePermit,
         ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
             Box::pin(async move {
-                use hickory_resolver::config::{
-                    ConnectionConfig, LookupIpStrategy, NameServerConfig, ResolveHosts,
-                    ResolverConfig, ResolverOpts,
-                };
-                use hickory_resolver::net::runtime::TokioRuntimeProvider;
-
                 // A fresh resolver per authorization prevents Hickory's test cache
                 // from hiding a second wire lookup in the rebinding regression.
                 // The production resolver remains the system ToSocketAddrs path.
                 let _permit = permit;
-                let mut connection = ConnectionConfig::udp();
-                connection.port = self.server.port();
-                let name_server =
-                    NameServerConfig::new(self.server.ip(), true, vec![connection]);
-                let config = ResolverConfig::from_name_servers(vec![name_server]);
-                let mut options = ResolverOpts::default();
-                options.use_hosts_file = ResolveHosts::Never;
-                options.ip_strategy = LookupIpStrategy::Ipv4AndIpv6;
-                options.timeout = Duration::from_secs(1);
-                options.attempts = 1;
-                options.num_concurrent_reqs = 1;
-                options.try_tcp_on_error = true;
-                let resolver = hickory_resolver::TokioResolver::builder_with_config(
-                    config,
-                    TokioRuntimeProvider::default(),
-                )
-                .with_options(options)
-                .build()
-                .map_err(|error| io::Error::other(format!("test resolver build: {error}")))?;
-
+                let resolver = self.build()?;
                 let fqdn = format!("{}.", host.trim_end_matches('.'));
                 let lookup = resolver
                     .lookup_ip(fqdn)
@@ -1852,6 +1854,38 @@ mod tests {
         assert!(
             matches!(servfail, Err(EgressError::DnsResolution { .. })),
             "SERVFAIL must fail closed"
+        );
+    }
+
+    #[tokio::test]
+    async fn hermetic_dns_lookup_valid_until_tracks_wire_ttl() {
+        let dns = WireDnsFixture::start().await;
+        dns.set_answer(
+            "ttl.test",
+            WireDnsAnswer::Records(vec![
+                WireDnsRecord::A("93.184.216.34".parse().unwrap(), 5),
+                WireDnsRecord::Aaaa("2606:4700:4700::1111".parse().unwrap(), 5),
+            ]),
+        );
+
+        let resolver = HickoryWireResolver::new(dns.address).build().unwrap();
+        let started = std::time::Instant::now();
+        let lookup = resolver.lookup_ip("ttl.test.").await.unwrap();
+        let valid_until = lookup.valid_until();
+        let remaining = valid_until.saturating_duration_since(started);
+
+        assert!(
+            remaining > Duration::ZERO,
+            "five-second A/AAAA TTL should not be immediately expired"
+        );
+        assert!(
+            remaining <= Duration::from_secs(5),
+            "lookup validity must not exceed the DNS record TTL: {remaining:?}"
+        );
+        assert_eq!(
+            lookup.iter().count(),
+            2,
+            "the dual-stack TTL fixture should return both A and AAAA"
         );
     }
 
