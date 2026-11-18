@@ -1,0 +1,444 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-land-rrr-reference-v0.schema.json",
+  "title": "Mycelix Land Rights, Responsibilities and Restrictions Reference v0",
+  "description": "Non-authoritative Mycelix application payload referencing an external Sol Atlas territorial assertion and its source evidence. It does not register, create, transfer, adjudicate or extinguish land/resource rights.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_uri",
+    "record_id",
+    "record_type",
+    "created_at",
+    "source_assertion",
+    "claim_basis",
+    "rrr",
+    "ladm_references",
+    "authority_references",
+    "dispute_assessment",
+    "access_policy_reference",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.land-rrr-reference.v0"
+    },
+    "schema_uri": {
+      "const": "https://luminousdynamics.io/schemas/mycelix-land-rrr-reference-v0.schema.json"
+    },
+    "record_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "record_type": {
+      "const": "territorial-assertion-reference"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_system",
+        "source_schema",
+        "source_schema_version",
+        "record_reference",
+        "record_sha256",
+        "assertion_id"
+      ],
+      "properties": {
+        "source_system": {
+          "const": "sol-atlas"
+        },
+        "source_schema": {
+          "const": "sol-atlas.territorial-record"
+        },
+        "source_schema_version": {
+          "const": 1
+        },
+        "record_reference": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "assertion_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "claim_basis": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "asserted",
+          "community_attested",
+          "administrative_record",
+          "court_decision",
+          "contractual_instrument",
+          "statutory_instrument"
+        ]
+      }
+    },
+    "rrr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relationship",
+        "generic_interest_kind"
+      ],
+      "properties": {
+        "relationship": {
+          "enum": [
+            "right",
+            "responsibility",
+            "restriction"
+          ]
+        },
+        "generic_interest_kind": {
+          "enum": [
+            "surface_land",
+            "subsurface_mineral",
+            "groundwater",
+            "surface_water",
+            "access",
+            "grazing",
+            "conservation",
+            "cultural_heritage",
+            "servitude",
+            "infrastructure",
+            "other"
+          ]
+        },
+        "source_interest_type_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "source_interest_type_profile_ref": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "generic_interest_kind": {
+                "const": "other"
+              }
+            },
+            "required": [
+              "generic_interest_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "source_interest_type_code",
+              "source_interest_type_profile_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "source_interest_type_code"
+            ]
+          },
+          "then": {
+            "required": [
+              "source_interest_type_profile_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "source_interest_type_profile_ref"
+            ]
+          },
+          "then": {
+            "required": [
+              "source_interest_type_code"
+            ]
+          }
+        }
+      ]
+    },
+    "ladm_references": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "edition",
+        "profile_reference",
+        "spatial_unit_reference"
+      ],
+      "properties": {
+        "edition": {
+          "enum": [
+            "ISO 19152-1:2024",
+            "ISO 19152-2:2025"
+          ]
+        },
+        "profile_reference": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "party_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "group_party_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "basic_administrative_unit_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "spatial_unit_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      }
+    },
+    "authority_references": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/authorityReference"
+      },
+      "uniqueItems": true
+    },
+    "dispute_assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "unassessed",
+            "no_challenge_observed_within_frontier",
+            "challenged",
+            "under_review",
+            "resolved"
+          ]
+        },
+        "source_challenge_assessment_reference": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "frontier_reference": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "scope_reference": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "coverage": {
+          "enum": [
+            "complete_within_declared_frontier",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "searched_source_references": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "challenge_search_report_reference": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "no_challenge_observed_within_frontier"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "source_challenge_assessment_reference",
+              "frontier_reference",
+              "scope_reference",
+              "coverage",
+              "searched_source_references",
+              "challenge_search_report_reference"
+            ],
+            "properties": {
+              "coverage": {
+                "const": "complete_within_declared_frontier"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "external_register_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Reference to an external authority's receipt only. Presence is not a claim that the receipt is authentic, current, legally effective or sufficient.",
+      "required": [
+        "authority_profile_reference",
+        "receipt_reference",
+        "receipt_sha256",
+        "captured_at"
+      ],
+      "properties": {
+        "authority_profile_reference": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "receipt_reference": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "receipt_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "consent_authorization_references": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/consentReference"
+      },
+      "uniqueItems": true
+    },
+    "access_policy_reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "claim_ceiling": {
+      "const": "reference-only-no-legal-effect"
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 5000
+    }
+  },
+  "$defs": {
+    "authorityReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_authority_id",
+        "authority_kind",
+        "jurisdiction",
+        "scope_reference",
+        "source_evidence_reference"
+      ],
+      "properties": {
+        "source_authority_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "authority_kind": {
+          "enum": [
+            "registry",
+            "court_or_tribunal",
+            "statutory_regulator",
+            "customary_institution",
+            "community_governance_body",
+            "contracting_party",
+            "professional_verifier",
+            "other"
+          ]
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "scope_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "source_evidence_reference": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "consentReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_reference",
+        "purpose"
+      ],
+      "properties": {
+        "record_reference": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "purpose": {
+          "enum": [
+            "participation",
+            "measurement",
+            "site_access",
+            "publication",
+            "data_sharing",
+            "other"
+          ]
+        }
+      }
+    }
+  }
+}
