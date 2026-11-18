@@ -138,7 +138,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::Order(o) => validate_order(o),
                 EntryTypes::ProducerLot(record) => {
                     validate_producer_lot(record, EntryCreationAction::Create(action))
-                },
+                }
             },
             OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
                 EntryTypes::ProducerLot(_) => Ok(ValidateCallbackResult::Invalid(
@@ -403,22 +403,19 @@ fn validate_producer_lot_revision_fields(
                 || previous_record.lot.producer_ref != current.lot.producer_ref
             {
                 return Err(
-                    "Producer lot revision predecessor must have the same signed author"
-                        .into(),
+                    "Producer lot revision predecessor must have the same signed author".into(),
                 );
             }
             if previous_record.lot.lot_ref != current.lot.lot_ref
                 || previous_record.lot.product_ref != current.lot.product_ref
             {
                 return Err(
-                    "Producer lot revision must continue the same canonical lot and product"
-                        .into(),
+                    "Producer lot revision must continue the same canonical lot and product".into(),
                 );
             }
             if previous_record.lot.revision.checked_add(1) != Some(current.lot.revision) {
                 return Err(
-                    "Producer lot revision must increment its predecessor by exactly one"
-                        .into(),
+                    "Producer lot revision must increment its predecessor by exactly one".into(),
                 );
             }
             Ok(())
@@ -445,9 +442,7 @@ fn validate_producer_lot(
             previous_entry.map(|entry| (entry, previous_author))
         }
     };
-    let previous_ref = previous
-        .as_ref()
-        .map(|(entry, author)| (entry, author));
+    let previous_ref = previous.as_ref().map(|(entry, author)| (entry, author));
     match validate_producer_lot_revision_fields(&record, action.author(), previous_ref) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
         Err(message) => Ok(ValidateCallbackResult::Invalid(message)),
@@ -1522,8 +1517,12 @@ mod tests {
                 .is_err()
         );
         assert!(
-            validate_producer_lot_revision_fields(&second, &author, Some((&other_product, &author)))
-                .is_err()
+            validate_producer_lot_revision_fields(
+                &second,
+                &author,
+                Some((&other_product, &author))
+            )
+            .is_err()
         );
         assert!(
             validate_producer_lot_revision_fields(&second, &author, Some((&first, &author)))
