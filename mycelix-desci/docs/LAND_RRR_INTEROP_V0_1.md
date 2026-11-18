@@ -57,7 +57,7 @@ The machine-readable schema is:
 - [land-rrr-reference-v0.schema.json](../schemas/land-rrr-reference-v0.schema.json)
 - [synthetic example](../examples/land-rrr-reference-synthetic-v0.json)
 
-The typed Rust payload and structural gate are in `mycelix-desci/src/core/src/land_rrr_reference.rs`, exported by the existing DeSci core library. Thirteen focused unit tests cover the synthetic example, source-interest code/profile pairing, positive composition of distinct claim bases, wrong authority-kind rejection, duplicate claim-basis and consent-reference rejection, duplicate versus distinct scoped authority references, challenge-frontier completeness, external receipt claim-ceiling preservation, schema identity and source digest shape.
+The typed Rust payload and structural gate are in `mycelix-desci/src/core/src/land_rrr_reference.rs`, exported by the existing DeSci core library. Eighteen focused unit tests cover the synthetic example, source-interest code/profile pairing, positive composition of distinct claim bases, wrong authority-kind rejection, duplicate claim-basis and consent-reference rejection, duplicate versus distinct scoped authority references, challenge-frontier completeness, external receipt claim-ceiling preservation, schema identity, source digest shape and the four-outcome TIB qualification policy.
 
 The isolated Cargo harness at `mycelix-desci/land-rrr-reference-gate-harness` compiles that exact source file without building unrelated DeSci core modules. The path-scoped workflow is [land-rrr-reference.yml](../../.github/workflows/land-rrr-reference.yml). Run it locally from the repository root:
 
@@ -70,6 +70,22 @@ cargo clippy --locked --manifest-path mycelix-desci/land-rrr-reference-gate-harn
 The gate checks record structure and authority *kind* pairing. It does not authenticate the issuer, validate legal competence, resolve URI contents, check revocation/currentness, establish registration, prove consent or establish legal effect. It deliberately adds no new event store or zome; a later runtime adapter should carry this payload through the existing signed scientific-event envelope after the host resolves the references and applies the required trust checks.
 
 All objects are closed against undeclared fields. Unknown jurisdictional source codes must be retained as source code plus profile reference. A generic mapping must never silently upgrade an assertion to an official registration or court outcome.
+
+
+## Four-outcome qualification policy seam
+
+The same module now defines `TibEvaluationOutcome` and a pure `qualification_disposition` mapping for the TIB result envelope:
+
+| TIB outcome | Host disposition | Permitted next step |
+|---|---|---|
+| `structural_accept` | `ContinueReadOnlyQualification` | Continue independent, read-only checks only |
+| `structural_reject` | `RejectPayload` | Reject the malformed or invariant-violating payload |
+| `review_required` | `HoldForReconciliation` | Hold dependent operations pending competent review |
+| `not_evaluable` | `HoldForReconciliation` | Hold dependent operations until required source/permission/ground truth is available |
+
+Every disposition explicitly returns `allows_authoritative_mutation() == false`. This adapter cannot set national registration, ownership, transfer, consent or ecological completion state. A structural accept is not an authorization; it merely allows the next read-only qualification stage.
+
+The policy is deliberately a **pure seam, not yet wired into Mycelix Property's transaction coordinator**. The five added tests exercise the outcome mapping, fail-closed holds, no-mutation ceiling and rejection of unknown serialized outcomes. A future integration must enforce this policy at the host command boundary and reconcile unknown/ambiguous transaction outcomes before retrying mutations. This change does not claim to have implemented that runtime integration.
 
 ## Challenge and absence semantics
 
