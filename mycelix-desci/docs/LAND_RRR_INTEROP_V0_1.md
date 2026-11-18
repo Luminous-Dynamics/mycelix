@@ -59,6 +59,14 @@ The machine-readable schema is:
 
 The typed Rust payload and structural gate are in `mycelix-desci/src/core/src/land_rrr_reference.rs`, exported by the existing DeSci core library. Thirteen focused unit tests cover the synthetic example, source-interest code/profile pairing, positive composition of distinct claim bases, wrong authority-kind rejection, duplicate claim-basis and consent-reference rejection, duplicate versus distinct scoped authority references, challenge-frontier completeness, external receipt claim-ceiling preservation, schema identity and source digest shape.
 
+The isolated Cargo harness at `mycelix-desci/land-rrr-reference-gate-harness` compiles that exact source file without building unrelated DeSci core modules. The path-scoped workflow is [land-rrr-reference.yml](../../.github/workflows/land-rrr-reference.yml). Run it locally from the repository root:
+
+```sh
+cargo fmt --locked --manifest-path mycelix-desci/land-rrr-reference-gate-harness/Cargo.toml -- --check
+cargo test --locked --manifest-path mycelix-desci/land-rrr-reference-gate-harness/Cargo.toml --lib
+cargo clippy --locked --manifest-path mycelix-desci/land-rrr-reference-gate-harness/Cargo.toml --all-targets -- -D warnings
+```
+
 The gate checks record structure and authority *kind* pairing. It does not authenticate the issuer, validate legal competence, resolve URI contents, check revocation/currentness, establish registration, prove consent or establish legal effect. It deliberately adds no new event store or zome; a later runtime adapter should carry this payload through the existing signed scientific-event envelope after the host resolves the references and applies the required trust checks.
 
 All objects are closed against undeclared fields. Unknown jurisdictional source codes must be retained as source code plus profile reference. A generic mapping must never silently upgrade an assertion to an official registration or court outcome.
