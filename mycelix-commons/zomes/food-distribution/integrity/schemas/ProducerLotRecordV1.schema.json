@@ -5,8 +5,13 @@
   "description": "Public, immutable producer-lot declaration. Holochain action author is the cryptographic author; the lot producer_ref must equal did_for_author(action.author). This proves authorship only, not legal producer status or food safety.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["lot", "previous_revision"],
+  "required": ["lot", "producer_author", "previous_revision"],
   "properties": {
+    "producer_author": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Canonical Holochain AgentPubKey serialized in the entry. The integrity callback requires exact equality with the Create action signer."
+    },
     "lot": { "$ref": "https://luminousdynamics.io/schemas/food/FoodLotProvenanceV1.schema.json" },
     "previous_revision": {
       "type": ["string", "null"],
