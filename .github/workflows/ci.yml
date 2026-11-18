@@ -471,6 +471,9 @@ jobs:
           require_source 'public_redirect_reauthorizes_and_pins_each_hop_dns_snapshot' "$egress"
           require_source 'normalized.ends_with(".home.arpa")' "$egress"
           require_source 'RESPONSE_MEMORY_BUDGET_BYTES: usize = 128 * 1024 * 1024' "$egress"
+          require_source 'bytes = "=1.12.1"' mycelix-prism/prism-egress/Cargo.toml
+          require_source 'response_memory_budget_available_bytes' "$egress"
+          require_source 'response_memory_budget_reserved_bytes' "$egress"
           require_source 'acquire_many_owned(memory_permits)' "$egress"
           require_source 'Vec::new()' "$egress"
           require_source 'try_reserve_exact(response_body_limit_bytes)' "$egress"
