@@ -155,6 +155,7 @@ pub enum FoodLotReconciliationIssueCodeV1 {
     InvalidClaimCeiling,
     MissingEventQuantity,
     InvalidEvidenceClass,
+    UnsupportedRecordSchemaVersion,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -379,6 +380,9 @@ fn reconcile_event_chain(
     let mut previous_time = 0_u64;
 
     for (index, event) in ordered.iter().enumerate() {
+        if event.schema_version != FOOD_LOT_RECONCILIATION_SCHEMA_VERSION {
+            issue(issues, FoodLotReconciliationIssueCodeV1::UnsupportedRecordSchemaVersion);
+        }
         if !nonempty(&event.event_id)
             || !ids.insert(event.event_id.as_str())
             || !sequences.insert(event.sequence_number)
@@ -445,6 +449,10 @@ fn reconcile_child_splits(
             issue(issues, FoodLotReconciliationIssueCodeV1::InvalidSplitBalance);
             continue;
         };
+        if child.schema_version != FOOD_LOT_RECONCILIATION_SCHEMA_VERSION {
+            issue(issues, FoodLotReconciliationIssueCodeV1::UnsupportedRecordSchemaVersion);
+            continue;
+        }
         if child.product_lot_ref != parent_lot_ref {
             issue(issues, FoodLotReconciliationIssueCodeV1::ProductMismatch);
             continue;
@@ -502,8 +510,10 @@ pub fn reconcile_food_lot(
     if request.as_of == 0 {
         issue(&mut issues, FoodLotReconciliationIssueCodeV1::CurrentTimeUnknown);
     }
-    if request.schema_version != FOOD_LOT_RECONCILIATION_SCHEMA_VERSION
-        || !nonempty(&request.reconciliation_id)
+    if request.schema_version != FOOD_LOT_RECONCILIATION_SCHEMA_VERSION {
+        issue(&mut issues, FoodLotReconciliationIssueCodeV1::UnsupportedRecordSchemaVersion);
+    }
+    if !nonempty(&request.reconciliation_id)
         || !nonempty(&request.ingredient_id)
         || !nonempty(&request.expected_product_ref)
     {
@@ -517,11 +527,10 @@ pub fn reconcile_food_lot(
         issue(&mut issues, FoodLotReconciliationIssueCodeV1::MissingLot);
         return report_from(request, None, None, None, issues, refs);
     };
-    if lot.schema_version != 1
-        || !nonempty(&lot.lot_ref)
-        || !nonempty(&lot.product_ref)
-        || lot.revision == 0
-    {
+    if lot.schema_version != 1 {
+        issue(&mut issues, FoodLotReconciliationIssueCodeV1::UnsupportedRecordSchemaVersion);
+    }
+    if !nonempty(&lot.lot_ref) || !nonempty(&lot.product_ref) || lot.revision == 0 {
         issue(&mut issues, FoodLotReconciliationIssueCodeV1::InvalidQuantityRecord);
     }
     evidence_ref(&lot.evidence, &mut refs, &mut issues);
@@ -540,10 +549,10 @@ pub fn reconcile_food_lot(
         issue(&mut issues, FoodLotReconciliationIssueCodeV1::MissingReceipt);
         return report_from(request, Some(lot), None, None, issues, refs);
     };
-    if receipt.schema_version != 1
-        || !nonempty(&receipt.receipt_id)
-        || receipt.product_lot_ref != lot_ref
-    {
+    if receipt.schema_version != 1 {
+        issue(&mut issues, FoodLotReconciliationIssueCodeV1::UnsupportedRecordSchemaVersion);
+    }
+    if !nonempty(&receipt.receipt_id) || receipt.product_lot_ref != lot_ref {
         issue(&mut issues, FoodLotReconciliationIssueCodeV1::ProductMismatch);
     }
     evidence_ref(&receipt.evidence, &mut refs, &mut issues);
@@ -843,6 +852,29 @@ mod tests {
             evidence: evidence(),
             claim_ceiling: "local event declaration only".to_owned(),
         }
+    }
+
+    #[test]
+    fn unsupported_event_schema_cannot_change_available_quantity() {
+        let mut invalid_request = request();
+        invalid_request.events = vec![event(
+            "event:future",
+            0,
+            None,
+            "Consumed",
+            1_715_000_000,
+            Some(qty(100, "g")),
+            None,
+        )];
+        invalid_request.events[0].schema_version = 2;
+
+        let report = reconcile_food_lot(&invalid_request);
+        assert_eq!(report.disposition, FoodLotReconciliationDispositionV1::Indeterminate);
+        assert_eq!(report.recipe_planning_eligibility, FoodLotPlanningEligibilityV1::Unknown);
+        assert_eq!(report.available_quantity, None);
+        assert!(report.issue_codes.contains(
+            &FoodLotReconciliationIssueCodeV1::UnsupportedRecordSchemaVersion
+        ));
     }
 
     #[test]
