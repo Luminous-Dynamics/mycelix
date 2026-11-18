@@ -136,7 +136,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::Market(m) => validate_market(m),
                 EntryTypes::Listing(l) => validate_listing(l),
                 EntryTypes::Order(o) => validate_order(o),
-                EntryTypes::ProducerLot(record) => validate_producer_lot(record, action),
+                EntryTypes::ProducerLot(record) => {
+                    validate_producer_lot(record, EntryCreationAction::Create(action))
+                },
             },
             OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
                 EntryTypes::ProducerLot(_) => Ok(ValidateCallbackResult::Invalid(
@@ -214,9 +216,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             if matches!(
                 &update,
                 OpUpdate::Entry {
-                    app_entry: EntryTypes::ProducerLot(_),
-                    ..
-                } | OpUpdate::PrivateEntry {
                     app_entry: EntryTypes::ProducerLot(_),
                     ..
                 }
@@ -1043,6 +1042,7 @@ mod tests {
             LinkTypes::AllMarkets
             | LinkTypes::MarketToListing
             | LinkTypes::ProducerToListing
+            | LinkTypes::ProducerToLot
             | LinkTypes::BuyerToOrder
             | LinkTypes::ListingToOrder
             | LinkTypes::GeoIndex => 256,
@@ -1051,6 +1051,7 @@ mod tests {
             LinkTypes::AllMarkets => "AllMarkets",
             LinkTypes::MarketToListing => "MarketToListing",
             LinkTypes::ProducerToListing => "ProducerToListing",
+            LinkTypes::ProducerToLot => "ProducerToLot",
             LinkTypes::BuyerToOrder => "BuyerToOrder",
             LinkTypes::ListingToOrder => "ListingToOrder",
             LinkTypes::GeoIndex => "GeoIndex",
