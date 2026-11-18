@@ -1351,4 +1351,104 @@ mod tests {
             "Product name must be 256 characters or fewer",
         );
     }
+    fn valid_producer_lot(author: &AgentPubKey) -> food_lot_reconciliation::FoodLotProvenanceV1 {
+        food_lot_reconciliation::FoodLotProvenanceV1 {
+            schema_version: 1,
+            lot_ref: "mycelix:food-lot:rice-lot-2026-001".to_owned(),
+            revision: 1,
+            product_ref: "product:rice-brown".to_owned(),
+            producer_ref: did_for_author(author),
+            supplier_lot_code: Some("SUPPLIER-RICE-001".to_owned()),
+            listing_ref: None,
+            origin_ref: None,
+            quantity: food_lot_reconciliation::FoodLotQuantityV1 {
+                dimension: "mass".to_owned(),
+                value: 10_000,
+                decimal_places: 0,
+                unit: "g".to_owned(),
+            },
+            harvested_at: None,
+            packed_at: None,
+            best_before_at: None,
+            use_by_at: None,
+            handling_ref: None,
+            evidence: food_lot_reconciliation::FoodLotEvidenceV1 {
+                source_ref: "producer-declaration:rice-lot-001".to_owned(),
+                evidence_class: "Declared".to_owned(),
+                method_ref: None,
+                calibration_ref: None,
+            },
+            claim_ceiling: food_lot_reconciliation::FOOD_LOT_PROVENANCE_CLAIM_CEILING
+                .to_owned(),
+        }
+    }
+
+    #[test]
+    fn producer_lot_requires_exact_signed_author_did_binding() {
+        let author = fake_agent();
+        let other = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let valid = valid_producer_lot(&author);
+        assert!(validate_producer_lot_fields(&valid, &author).is_ok());
+
+        let forged = valid_producer_lot(&other);
+        assert!(validate_producer_lot_fields(&forged, &author).is_err());
+    }
+
+    #[test]
+    fn producer_lot_requires_positive_exact_quantity_and_supported_schema() {
+        let author = fake_agent();
+        let mut lot = valid_producer_lot(&author);
+        lot.quantity.value = 0;
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+
+        let mut lot = valid_producer_lot(&author);
+        lot.quantity.dimension = "volume".to_owned();
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+
+        let mut lot = valid_producer_lot(&author);
+        lot.schema_version = 2;
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+    }
+
+    #[test]
+    fn producer_lot_rejects_claim_ceiling_and_evidence_class_forgery() {
+        let author = fake_agent();
+        let mut lot = valid_producer_lot(&author);
+        lot.claim_ceiling = "food is safe".to_owned();
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+
+        let mut lot = valid_producer_lot(&author);
+        lot.evidence.evidence_class = "IndependentlyQualified".to_owned();
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+
+        let mut lot = valid_producer_lot(&author);
+        lot.evidence.evidence_class = "Measured".to_owned();
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+    }
+
+    #[test]
+    fn producer_lot_rejects_invalid_identity_and_date_order() {
+        let author = fake_agent();
+        let mut lot = valid_producer_lot(&author);
+        lot.lot_ref = "listing:only-not-a-lot".to_owned();
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+
+        let mut lot = valid_producer_lot(&author);
+        lot.harvested_at = Some(200);
+        lot.packed_at = Some(100);
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+    }
+
+    #[test]
+    fn same_supplier_lot_code_from_different_agents_has_distinct_signed_identity() {
+        let first_author = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let second_author = AgentPubKey::from_raw_36(vec![2u8; 36]);
+        let first = valid_producer_lot(&first_author);
+        let second = valid_producer_lot(&second_author);
+        assert_eq!(first.supplier_lot_code, second.supplier_lot_code);
+        assert_ne!(first.producer_ref, second.producer_ref);
+        assert!(validate_producer_lot_fields(&first, &first_author).is_ok());
+        assert!(validate_producer_lot_fields(&second, &second_author).is_ok());
+    }
+
 }
