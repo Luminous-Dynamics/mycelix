@@ -154,6 +154,7 @@ pub enum FoodLotReconciliationIssueCodeV1 {
     InvalidQuantityRecord,
     InvalidClaimCeiling,
     MissingEventQuantity,
+    InvalidEvidenceClass,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -254,6 +255,17 @@ fn evidence_ref(
     refs: &mut BTreeSet<String>,
     issues: &mut BTreeSet<FoodLotReconciliationIssueCodeV1>,
 ) {
+    if !matches!(
+        evidence.evidence_class.as_str(),
+        "Declared"
+            | "Attested"
+            | "Modelled"
+            | "Measured"
+            | "IndependentlyAssayed"
+            | "IndependentlyQualified"
+    ) {
+        issue(issues, FoodLotReconciliationIssueCodeV1::InvalidEvidenceClass);
+    }
     if nonempty(&evidence.source_ref) {
         refs.insert(evidence.source_ref.clone());
     } else {
@@ -831,6 +843,24 @@ mod tests {
             evidence: evidence(),
             claim_ceiling: "local event declaration only".to_owned(),
         }
+    }
+
+    #[test]
+    fn unknown_evidence_class_cannot_make_a_lot_eligible() {
+        let mut invalid_request = request();
+        invalid_request
+            .lot
+            .as_mut()
+            .expect("fixture lot")
+            .evidence
+            .evidence_class = "untrusted_guess".to_owned();
+
+        let report = reconcile_food_lot(&invalid_request);
+        assert_eq!(report.disposition, FoodLotReconciliationDispositionV1::Indeterminate);
+        assert_eq!(report.recipe_planning_eligibility, FoodLotPlanningEligibilityV1::Unknown);
+        assert!(report
+            .issue_codes
+            .contains(&FoodLotReconciliationIssueCodeV1::InvalidEvidenceClass));
     }
 
     #[test]
