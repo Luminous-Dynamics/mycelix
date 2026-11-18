@@ -38,6 +38,20 @@ assert all(checks.values())
 print("CANONICAL PASS: relational tuple attenuation and downstream subset")
 print("ORDER PASS: reflexive, transitive, antisymmetric modulo semantic equivalence")
 print("SEMANTIC EQUIVALENCE PASS: alias syntax differs but authorization denotation is identical")
-for k in checks:
-    print(k.upper().replace("-"," ")+" NEGATIVE PASS")
+MARKERS = {
+    "cartesian-recombination": "CARTESIAN RECOMBINATION NEGATIVE PASS",
+    "target-currency-correlation": "TARGET CURRENCY CORRELATION NEGATIVE PASS",
+    "operation-argument-correlation": "OPERATION ARGUMENT CORRELATION NEGATIVE PASS",
+    "audience-target-correlation": "AUDIENCE TARGET CORRELATION NEGATIVE PASS",
+    "wildcard-expansion": "WILDCARD EXPANSION NEGATIVE PASS",
+    "capability-set-identity-substitution": "CAPABILITY SET IDENTITY SUBSTITUTION NEGATIVE PASS",
+    "tuple-normalization-substitution": "TUPLE NORMALIZATION SUBSTITUTION NEGATIVE PASS",
+    "profile-widening-unchanged-marginals": "PROFILE WIDENING UNCHANGED MARGINALS NEGATIVE PASS",
+    "effect-outside-relation-inside-marginals": "EFFECT OUTSIDE RELATION INSIDE MARGINALS NEGATIVE PASS",
+    "downstream-relational-subset-bypass": "DOWNSTREAM RELATIONAL SUBSET BYPASS NEGATIVE PASS",
+}
+assert set(checks) == set(MARKERS)
+for control_id, passed in checks.items():
+    assert passed
+    print(MARKERS[control_id])
 print("CARTESIAN SEPARATION PASS: valid marginals do not authorize a recombined tuple")
