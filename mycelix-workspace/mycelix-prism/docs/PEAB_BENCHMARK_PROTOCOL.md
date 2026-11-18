@@ -189,3 +189,35 @@ A report is **incomplete** if it lacks raw artifacts, exact versions, negative c
 - Hyper HTTP/1 client connection Builder: https://docs.rs/hyper/latest/hyper/client/conn/http1/struct.Builder.html
 - Hyper 1.12.0 parser feasibility probe: test-only negative-control and bounded cases exercise max_header_size against a large single response header. This is not production transport migration. Hyper also documents a heap-allocation/performance trade-off when setting max_headers; include it in P1 measurements.
 - eBPF cgroup socket address programs: https://docs.ebpf.io/linux/program-type/BPF_PROG_TYPE_CGROUP_SOCK_ADDR/
+
+
+## 11. Industry behavior details frozen for the initial comparator review (2026-11-18)
+
+The benchmark must compare behavior, not merely configuration names.
+
+### Envoy DFP
+
+The Envoy v1.40.0 DNS cache uses record TTLs subject to a configurable minimum refresh interval (documented default 5 seconds), resolver query timeouts, host-cache TTL/limits and pending-request circuit breakers. The HTTP DFP architecture also documents original-host SNI and SAN verification behavior.
+
+When `resolved_address_filter` removes every new address, Envoy treats the refresh as failed and retains a previous resolved host address. This is a defined stale-cache behavior, not proof of a security defect. PEAB-ENVOY-001 must test a cached-good answer followed by an all-filtered refresh; record cache state, whether old connections remain alive, whether *new* connections can use the stale address, and when host TTL/circuit-breaker behavior evicts it.
+
+### Cilium FQDN policy
+
+Cilium learns IPs from intercepted DNS proxy responses, caches them with DNS TTL semantics and compiles matches into L3 address policy that can be combined with L4 port policy. Its threat model explicitly assumes those intercepted responses come from trusted cluster DNS. Address observations for a domain can be collected from multiple pods managed by a Cilium instance, so the permission scope is not inherently one request/one DNS snapshot.
+
+Cilium also has connection-tracking lifecycle behavior: expired DNS mappings may remain deferred while conntrack determines whether an existing flow uses them. Existing connections can remain allowed, while new connections after the (possibly configured minimum) TTL require fresh DNS state. PEAB-CILIUM-001 must measure active-flow and new-flow behavior around expiry, resolver changes and DNS-proxy/agent restarts.
+
+### Required matched scenarios
+
+- **Cache poisoning/staleness:** cached public answer → new private-only answer → all answers filtered; measure stale cache and active/new connection outcomes.
+- **Expiry race:** DNS TTL 1s, 5s, 30s and 300s; client starts before expiry, during expiry, and after expiry; no silent TTL extension.
+- **Cross-workload learning:** two pods/workloads query the same hostname but receive different answer sets; test whether each workload can use the other's observed address.
+- **Resolver trust:** untrusted DNS server, resolver substitution, DNS proxy restart, truncated UDP/TCP retry and NXDOMAIN/SERVFAIL.
+- **HTTP authority:** same DNS answer set but different Host/SNI, port, redirect target, parent capability and HTTP method; an L3/L4 match must not be mistaken for HTTP authorization.
+- **Existing connection vs new connection:** lease expiry/revocation blocks new socket admission; existing established sessions are measured separately. Kernel connect hooks do not themselves terminate established flows.
+
+### Proposed composition-specific differentiation
+
+The target Prism+Nixward property is a request/hop-scoped resolution lease bound to one parent capability, workload identity and policy generation. Nixward resolves once and supplies the exact complete A/AAAA set; Prism pins its HTTP transport to those same addresses while retaining the hostname for Host/SNI/TLS. Redirects/retries need fresh leases. This is narrower in lifetime/scope than a general workload DNS cache, but its operational cost and security benefit must be demonstrated experimentally.
+
+References: Envoy v1.40.0 DNS cache https://www.envoyproxy.io/docs/envoy/v1.40.0/api-v3/extensions/common/dynamic_forward_proxy/v3/dns_cache.proto ; Envoy HTTP DFP https://www.envoyproxy.io/docs/envoy/v1.40.0/intro/arch_overview/http/http_proxy ; Cilium DNS policy https://docs.cilium.io/en/stable/security/dns/ ; Cilium L7 DNS proxy https://docs.cilium.io/en/stable/security/policy/layer7/ ; Cilium FQDN cache/conntrack lifecycle https://docs.cilium.io/en/latest/contributing/development/debugging/ ; OWASP SSRF https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html
