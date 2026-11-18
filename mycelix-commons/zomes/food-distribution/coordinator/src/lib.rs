@@ -468,6 +468,47 @@ mod tests {
     use super::*;
 
     #[test]
+    fn publish_producer_lot_input_roundtrips_without_client_author_field() {
+        let input = PublishProducerLotInput {
+            lot: FoodLotProvenanceV1 {
+                schema_version: 1,
+                lot_ref: "mycelix:food-lot:rice-lot-001".to_owned(),
+                revision: 1,
+                product_ref: "product:rice-brown".to_owned(),
+                producer_ref: "did:mycelix:agent".to_owned(),
+                supplier_lot_code: Some("SUPPLIER-001".to_owned()),
+                listing_ref: None,
+                origin_ref: None,
+                quantity: FoodLotQuantityV1 {
+                    dimension: "mass".to_owned(),
+                    value: 10_000,
+                    decimal_places: 0,
+                    unit: "g".to_owned(),
+                },
+                harvested_at: None,
+                packed_at: None,
+                best_before_at: None,
+                use_by_at: None,
+                handling_ref: None,
+                evidence: FoodLotEvidenceV1 {
+                    source_ref: "producer-declaration:001".to_owned(),
+                    evidence_class: "Declared".to_owned(),
+                    method_ref: None,
+                    calibration_ref: None,
+                },
+                claim_ceiling: FOOD_LOT_PROVENANCE_CLAIM_CEILING.to_owned(),
+            },
+            previous_revision: None,
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        assert!(!json.contains("producer_author"));
+        assert!(!json.contains("household_receipt"));
+        let decoded: PublishProducerLotInput = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.lot.lot_ref, "mycelix:food-lot:rice-lot-001");
+        assert_eq!(decoded.previous_revision, None);
+    }
+
+    #[test]
     fn update_order_status_input_serde_fulfilled() {
         let input = UpdateOrderStatusInput {
             order_hash: ActionHash::from_raw_36(vec![0xdb; 36]),
