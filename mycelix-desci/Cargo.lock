@@ -2056,6 +2056,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mycelix-desci-land-rrr-gate-harness"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "mycelix-desci-types"
 version = "0.1.0"
 dependencies = [
