@@ -10,6 +10,7 @@ description = "Context-constrained, DNS-pinned, resource-bounded HTTP egress for
 # Keep this transport upgrade scoped to the native egress boundary; other Prism clients
 # remain on the workspace Reqwest version until separately compatibility-tested.
 reqwest = { version = "=0.13.5", features = ["gzip", "brotli", "http2"] }
+bytes = "=1.12.1"
 tokio = { workspace = true }
 url = { workspace = true }
 thiserror = { workspace = true }
