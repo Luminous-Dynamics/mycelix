@@ -405,13 +405,11 @@
           "format": "uri",
           "maxLength": 2048
         },
-        "valid_from": {
+        "valid_time_reference": {
           "type": "string",
-          "format": "date-time"
-        },
-        "valid_until": {
-          "type": "string",
-          "format": "date-time"
+          "format": "uri",
+          "maxLength": 2048,
+          "description": "Reference to a Mycelix typed temporal assertion preserving source precision and valid-time semantics."
         }
       }
     },
