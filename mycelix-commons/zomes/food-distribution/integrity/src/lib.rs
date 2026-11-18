@@ -5,7 +5,7 @@
 //! Entry types and validation for local food markets, listings, and orders.
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match, did_for_author};
 
 pub mod food_lot_reconciliation;
 
@@ -85,6 +85,19 @@ pub struct Order {
     pub status: OrderStatus,
 }
 
+/// Immutable public supplier/producer-side lot declaration.
+/// The committing agent is bound to lot.producer_ref in the integrity callback.
+/// This proves authorship of a declaration only, not legal producer status.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct ProducerLotRecordV1 {
+    pub lot: Box<food_lot_reconciliation::FoodLotProvenanceV1>,
+    /// Typed author identity, checked against the Holochain Create action signer.
+    pub producer_author: AgentPubKey,
+    /// Revision N must reference the signed action for revision N-1.
+    pub previous_revision: Option<ActionHash>,
+}
+
 // ============================================================================
 // ENTRY & LINK TYPE REGISTRATION
 // ============================================================================
@@ -96,6 +109,7 @@ pub enum EntryTypes {
     Market(Market),
     Listing(Listing),
     Order(Order),
+    ProducerLot(ProducerLotRecordV1),
 }
 
 #[hdk_link_types]
@@ -103,6 +117,7 @@ pub enum LinkTypes {
     AllMarkets,
     MarketToListing,
     ProducerToListing,
+    ProducerToLot,
     BuyerToOrder,
     ListingToOrder,
     GeoIndex,
@@ -116,13 +131,20 @@ pub enum LinkTypes {
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Market(m) => validate_market(m),
                 EntryTypes::Listing(l) => validate_listing(l),
                 EntryTypes::Order(o) => validate_order(o),
+                EntryTypes::ProducerLot(record) => {
+                    validate_producer_lot(record, EntryCreationAction::Create(action))
+                }
             },
             OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
+                EntryTypes::ProducerLot(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Producer lot declarations are immutable; publish a linked next revision"
+                        .into(),
+                )),
                 EntryTypes::Market(m) => validate_market(m),
                 EntryTypes::Listing(l) => validate_listing(l),
                 EntryTypes::Order(o) => validate_order(o),
@@ -155,6 +177,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
+            LinkTypes::ProducerToLot => {
+                if tag.0.len() > 256 {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "ProducerToLot link tag too long (max 256 bytes)".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
             LinkTypes::BuyerToOrder => {
                 if tag.0.len() > 256 {
                     return Ok(ValidateCallbackResult::Invalid(
@@ -183,6 +213,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(update) => {
+            if matches!(
+                &update,
+                OpUpdate::Entry {
+                    app_entry: EntryTypes::ProducerLot(_),
+                    ..
+                }
+            ) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Producer lot declarations are immutable; publish a linked next revision"
+                        .into(),
+                ));
+            }
             let action = match &update {
                 OpUpdate::Entry { action, .. }
                 | OpUpdate::PrivateEntry { action, .. }
@@ -198,6 +240,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ))
         }
         FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let original_record = must_get_valid_record(action.deletes_address.clone())?;
+            let is_producer_lot = original_record
+                .entry()
+                .to_app_option::<ProducerLotRecordV1>()
+                .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                .is_some();
+            if is_producer_lot {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Producer lot declarations cannot be deleted; supersede them with a linked revision".into(),
+                ));
+            }
             let original = must_get_action(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
@@ -205,6 +258,194 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 "delete",
             ))
         }
+    }
+}
+
+fn validate_producer_lot_fields(
+    lot: &food_lot_reconciliation::FoodLotProvenanceV1,
+    action_author: &AgentPubKey,
+) -> Result<(), String> {
+    if lot.schema_version != food_lot_reconciliation::FOOD_LOT_RECONCILIATION_SCHEMA_VERSION {
+        return Err("Unsupported producer lot schema version".into());
+    }
+    let suffix = lot
+        .lot_ref
+        .strip_prefix("mycelix:food-lot:")
+        .ok_or_else(|| "lot_ref must use the canonical mycelix:food-lot namespace".to_string())?;
+    if suffix.is_empty()
+        || suffix.len() > 128
+        || !suffix.as_bytes()[0].is_ascii_lowercase() && !suffix.as_bytes()[0].is_ascii_digit()
+        || !suffix.bytes().all(|byte| {
+            byte.is_ascii_lowercase()
+                || byte.is_ascii_digit()
+                || matches!(byte, b'.' | b'_' | b':' | b'-')
+        })
+    {
+        return Err("lot_ref suffix is empty or outside the canonical identifier alphabet".into());
+    }
+    if lot.revision == 0 {
+        return Err("Producer lot revision must be positive".into());
+    }
+    if lot.product_ref.trim().is_empty() || lot.product_ref.len() > 512 {
+        return Err("product_ref must be non-empty and at most 512 bytes".into());
+    }
+    if lot.producer_ref != did_for_author(action_author) {
+        return Err(
+            "producer_ref must equal the canonical DID of the signed Holochain action author"
+                .into(),
+        );
+    }
+    if food_lot_reconciliation::validate_food_lot_quantity(&lot.quantity).is_err() {
+        return Err(
+            "Producer lot quantity must be positive, dimensionally valid and exactly representable"
+                .into(),
+        );
+    }
+    if lot.evidence.source_ref.trim().is_empty() || lot.evidence.source_ref.len() > 512 {
+        return Err("Evidence source_ref must be non-empty and at most 512 bytes".into());
+    }
+    match lot.evidence.evidence_class.as_str() {
+        "Declared" | "Attested" | "Modelled" => {}
+        "Measured" => {
+            if lot
+                .evidence
+                .calibration_ref
+                .as_deref()
+                .is_none_or(|value| value.trim().is_empty())
+            {
+                return Err("Measured lot evidence requires a calibration reference".into());
+            }
+        }
+        "IndependentlyAssayed" | "IndependentlyQualified" => {
+            if lot
+                .evidence
+                .method_ref
+                .as_deref()
+                .is_none_or(|value| value.trim().is_empty())
+            {
+                return Err("Independent lot evidence requires a method reference".into());
+            }
+        }
+        _ => return Err("Unsupported producer lot evidence class".into()),
+    }
+    if lot.claim_ceiling != food_lot_reconciliation::FOOD_LOT_PROVENANCE_CLAIM_CEILING {
+        return Err(
+            "Producer lot claim ceiling does not match the fixed source-declaration contract"
+                .into(),
+        );
+    }
+    if lot
+        .harvested_at
+        .zip(lot.packed_at)
+        .is_some_and(|(harvested, packed)| packed < harvested)
+    {
+        return Err("packed_at cannot precede harvested_at".into());
+    }
+    let origin_time = lot.packed_at.or(lot.harvested_at);
+    if origin_time.is_some_and(|origin| {
+        lot.best_before_at
+            .is_some_and(|best_before| best_before < origin)
+            || lot.use_by_at.is_some_and(|use_by| use_by < origin)
+    }) {
+        return Err(
+            "best-before/use-by dates cannot precede the known harvest/packing time".into(),
+        );
+    }
+    for optional_ref in [
+        lot.supplier_lot_code.as_deref(),
+        lot.listing_ref.as_deref(),
+        lot.origin_ref.as_deref(),
+        lot.handling_ref.as_deref(),
+        lot.evidence.method_ref.as_deref(),
+        lot.evidence.calibration_ref.as_deref(),
+    ] {
+        if optional_ref.is_some_and(|value| value.trim().is_empty() || value.len() > 512) {
+            return Err("Optional producer lot references must be non-empty and at most 512 bytes when present".into());
+        }
+    }
+    Ok(())
+}
+
+fn validate_producer_lot_record_author(
+    record: &ProducerLotRecordV1,
+    action_author: &AgentPubKey,
+) -> Result<(), String> {
+    if record.producer_author != *action_author {
+        return Err(
+            "producer_author must equal the cryptographic author of the Holochain Create action"
+                .into(),
+        );
+    }
+    validate_producer_lot_fields(&record.lot, action_author)
+}
+
+fn validate_producer_lot_revision_fields(
+    current: &ProducerLotRecordV1,
+    current_author: &AgentPubKey,
+    previous: Option<(&ProducerLotRecordV1, &AgentPubKey)>,
+) -> Result<(), String> {
+    match (&current.previous_revision, previous) {
+        (None, None) if current.lot.revision == 1 => Ok(()),
+        (Some(_), _) if current.lot.revision == 1 => {
+            Err("The first producer lot revision cannot name a predecessor".into())
+        }
+        (None, _) => Err(
+            "Every producer lot revision after revision 1 must link its exact predecessor action"
+                .into(),
+        ),
+        (Some(_), None) => Err(
+            "Producer lot predecessor action does not contain a canonical producer lot record"
+                .into(),
+        ),
+        (Some(_), Some((previous_record, previous_author))) => {
+            if previous_author != current_author
+                || previous_record.producer_author != current.producer_author
+                || previous_record.lot.producer_ref != current.lot.producer_ref
+            {
+                return Err(
+                    "Producer lot revision predecessor must have the same signed author".into(),
+                );
+            }
+            if previous_record.lot.lot_ref != current.lot.lot_ref
+                || previous_record.lot.product_ref != current.lot.product_ref
+            {
+                return Err(
+                    "Producer lot revision must continue the same canonical lot and product".into(),
+                );
+            }
+            if previous_record.lot.revision.checked_add(1) != Some(current.lot.revision) {
+                return Err(
+                    "Producer lot revision must increment its predecessor by exactly one".into(),
+                );
+            }
+            Ok(())
+        }
+    }
+}
+
+fn validate_producer_lot(
+    record: ProducerLotRecordV1,
+    action: EntryCreationAction,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Err(message) = validate_producer_lot_record_author(&record, action.author()) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+    let previous = match record.previous_revision.as_ref() {
+        None => None,
+        Some(previous_hash) => {
+            let previous_record = must_get_valid_record(previous_hash.clone())?;
+            let previous_author = previous_record.action().author().clone();
+            let previous_entry = previous_record
+                .entry()
+                .to_app_option::<ProducerLotRecordV1>()
+                .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?;
+            previous_entry.map(|entry| (entry, previous_author))
+        }
+    };
+    let previous_ref = previous.as_ref().map(|(entry, author)| (entry, author));
+    match validate_producer_lot_revision_fields(&record, action.author(), previous_ref) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(message) => Ok(ValidateCallbackResult::Invalid(message)),
     }
 }
 
@@ -823,6 +1064,7 @@ mod tests {
             LinkTypes::AllMarkets
             | LinkTypes::MarketToListing
             | LinkTypes::ProducerToListing
+            | LinkTypes::ProducerToLot
             | LinkTypes::BuyerToOrder
             | LinkTypes::ListingToOrder
             | LinkTypes::GeoIndex => 256,
@@ -831,6 +1073,7 @@ mod tests {
             LinkTypes::AllMarkets => "AllMarkets",
             LinkTypes::MarketToListing => "MarketToListing",
             LinkTypes::ProducerToListing => "ProducerToListing",
+            LinkTypes::ProducerToLot => "ProducerToLot",
             LinkTypes::BuyerToOrder => "BuyerToOrder",
             LinkTypes::ListingToOrder => "ListingToOrder",
             LinkTypes::GeoIndex => "GeoIndex",
@@ -1175,5 +1418,201 @@ mod tests {
             validate_listing(l),
             "Product name must be 256 characters or fewer",
         );
+    }
+    fn valid_producer_lot(author: &AgentPubKey) -> food_lot_reconciliation::FoodLotProvenanceV1 {
+        food_lot_reconciliation::FoodLotProvenanceV1 {
+            schema_version: 1,
+            lot_ref: "mycelix:food-lot:rice-lot-2026-001".to_owned(),
+            revision: 1,
+            product_ref: "product:rice-brown".to_owned(),
+            producer_ref: did_for_author(author),
+            supplier_lot_code: Some("SUPPLIER-RICE-001".to_owned()),
+            listing_ref: None,
+            origin_ref: None,
+            quantity: food_lot_reconciliation::FoodLotQuantityV1 {
+                dimension: "mass".to_owned(),
+                value: 10_000,
+                decimal_places: 0,
+                unit: "g".to_owned(),
+            },
+            harvested_at: None,
+            packed_at: None,
+            best_before_at: None,
+            use_by_at: None,
+            handling_ref: None,
+            evidence: food_lot_reconciliation::FoodLotEvidenceV1 {
+                source_ref: "producer-declaration:rice-lot-001".to_owned(),
+                evidence_class: "Declared".to_owned(),
+                method_ref: None,
+                calibration_ref: None,
+            },
+            claim_ceiling: food_lot_reconciliation::FOOD_LOT_PROVENANCE_CLAIM_CEILING.to_owned(),
+        }
+    }
+
+    fn producer_lot_revision_record(
+        author: &AgentPubKey,
+        revision: u32,
+        previous_revision: Option<ActionHash>,
+    ) -> ProducerLotRecordV1 {
+        let mut lot = valid_producer_lot(author);
+        lot.revision = revision;
+        ProducerLotRecordV1 {
+            lot: Box::new(lot),
+            producer_author: author.clone(),
+            previous_revision,
+        }
+    }
+
+    #[test]
+    fn producer_lot_revision_one_requires_no_predecessor() {
+        let author = fake_agent();
+        let first = producer_lot_revision_record(&author, 1, None);
+        assert!(validate_producer_lot_revision_fields(&first, &author, None).is_ok());
+
+        let forged_first = producer_lot_revision_record(&author, 1, Some(fake_action_hash()));
+        assert!(validate_producer_lot_revision_fields(&forged_first, &author, None).is_err());
+    }
+
+    #[test]
+    fn producer_lot_revision_two_requires_exact_same_author_lot_product_predecessor() {
+        let author = fake_agent();
+        let first = producer_lot_revision_record(&author, 1, None);
+        let second = producer_lot_revision_record(&author, 2, Some(fake_action_hash()));
+        assert!(
+            validate_producer_lot_revision_fields(&second, &author, Some((&first, &author)))
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn producer_lot_revision_rejects_revision_gaps_and_author_changes() {
+        let author = fake_agent();
+        let other = AgentPubKey::from_raw_36(vec![2u8; 36]);
+        let first = producer_lot_revision_record(&author, 1, None);
+        let skipped = producer_lot_revision_record(&author, 3, Some(fake_action_hash()));
+        assert!(
+            validate_producer_lot_revision_fields(&skipped, &author, Some((&first, &author)))
+                .is_err()
+        );
+
+        let second = producer_lot_revision_record(&author, 2, Some(fake_action_hash()));
+        assert!(
+            validate_producer_lot_revision_fields(&second, &author, Some((&first, &other)))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn producer_lot_revision_rejects_cross_lot_and_cross_product_predecessors() {
+        let author = fake_agent();
+        let first = producer_lot_revision_record(&author, 1, None);
+        let mut other_lot = producer_lot_revision_record(&author, 1, None);
+        other_lot.lot.lot_ref = "mycelix:food-lot:another-lot".to_owned();
+        let mut other_product = producer_lot_revision_record(&author, 1, None);
+        other_product.lot.product_ref = "product:other-rice".to_owned();
+        let second = producer_lot_revision_record(&author, 2, Some(fake_action_hash()));
+        assert!(
+            validate_producer_lot_revision_fields(&second, &author, Some((&other_lot, &author)))
+                .is_err()
+        );
+        assert!(
+            validate_producer_lot_revision_fields(
+                &second,
+                &author,
+                Some((&other_product, &author))
+            )
+            .is_err()
+        );
+        assert!(
+            validate_producer_lot_revision_fields(&second, &author, Some((&first, &author)))
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn producer_lot_typed_author_must_equal_signed_action_author() {
+        let author = fake_agent();
+        let other = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let record = ProducerLotRecordV1 {
+            lot: Box::new(valid_producer_lot(&author)),
+            producer_author: author.clone(),
+            previous_revision: None,
+        };
+        assert!(validate_producer_lot_record_author(&record, &author).is_ok());
+
+        let forged = ProducerLotRecordV1 {
+            producer_author: other,
+            ..record
+        };
+        assert!(validate_producer_lot_record_author(&forged, &author).is_err());
+    }
+
+    #[test]
+    fn producer_lot_requires_exact_signed_author_did_binding() {
+        let author = fake_agent();
+        let other = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let valid = valid_producer_lot(&author);
+        assert!(validate_producer_lot_fields(&valid, &author).is_ok());
+
+        let forged = valid_producer_lot(&other);
+        assert!(validate_producer_lot_fields(&forged, &author).is_err());
+    }
+
+    #[test]
+    fn producer_lot_requires_positive_exact_quantity_and_supported_schema() {
+        let author = fake_agent();
+        let mut lot = valid_producer_lot(&author);
+        lot.quantity.value = 0;
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+
+        let mut lot = valid_producer_lot(&author);
+        lot.quantity.dimension = "volume".to_owned();
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+
+        let mut lot = valid_producer_lot(&author);
+        lot.schema_version = 2;
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+    }
+
+    #[test]
+    fn producer_lot_rejects_claim_ceiling_and_evidence_class_forgery() {
+        let author = fake_agent();
+        let mut lot = valid_producer_lot(&author);
+        lot.claim_ceiling = "food is safe".to_owned();
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+
+        let mut lot = valid_producer_lot(&author);
+        lot.evidence.evidence_class = "IndependentlyQualified".to_owned();
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+
+        let mut lot = valid_producer_lot(&author);
+        lot.evidence.evidence_class = "Measured".to_owned();
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+    }
+
+    #[test]
+    fn producer_lot_rejects_invalid_identity_and_date_order() {
+        let author = fake_agent();
+        let mut lot = valid_producer_lot(&author);
+        lot.lot_ref = "listing:only-not-a-lot".to_owned();
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+
+        let mut lot = valid_producer_lot(&author);
+        lot.harvested_at = Some(200);
+        lot.packed_at = Some(100);
+        assert!(validate_producer_lot_fields(&lot, &author).is_err());
+    }
+
+    #[test]
+    fn same_supplier_lot_code_from_different_agents_has_distinct_signed_identity() {
+        let first_author = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let second_author = AgentPubKey::from_raw_36(vec![2u8; 36]);
+        let first = valid_producer_lot(&first_author);
+        let second = valid_producer_lot(&second_author);
+        assert_eq!(first.supplier_lot_code, second.supplier_lot_code);
+        assert_ne!(first.producer_ref, second.producer_ref);
+        assert!(validate_producer_lot_fields(&first, &first_author).is_ok());
+        assert!(validate_producer_lot_fields(&second, &second_author).is_ok());
     }
 }

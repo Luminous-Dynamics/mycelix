@@ -201,6 +201,17 @@ fn issue(
     issues.insert(code);
 }
 
+/// Shared exact quantity validation used by the canonical producer-lot
+/// integrity entry. A zero quantity is not a valid source-declared lot amount.
+pub fn validate_food_lot_quantity(
+    quantity: &FoodLotQuantityV1,
+) -> Result<(), FoodLotReconciliationIssueCodeV1> {
+    if quantity.value == 0 {
+        return Err(FoodLotReconciliationIssueCodeV1::InvalidQuantityRecord);
+    }
+    quantity_to_base(quantity).map(|_| ())
+}
+
 fn quantity_to_base(
     quantity: &FoodLotQuantityV1,
 ) -> Result<(QuantityBase, u128), FoodLotReconciliationIssueCodeV1> {

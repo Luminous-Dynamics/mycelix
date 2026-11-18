@@ -1,0 +1,27 @@
+{
+  "fixture_bundle_id": "food-lot-author-binding-v1",
+  "status": "synthetic_integrity_cases",
+  "claim_ceiling": "Signed agent authorship of a producer lot declaration only; not legal producer authorization, physical origin verification, authenticity, receipt, freshness, food safety or allergen status.",
+  "cases": [
+    {"id":"valid-author-bound-first-revision","expected":"valid","assert":"producer_ref equals did_for_author(the exact Create action author), revision 1 has no predecessor"},
+    {"id":"author-a-claims-producer-b","expected":"invalid","assert":"a DID for another AgentPubKey is rejected by integrity validation"},
+    {"id":"empty-producer-ref","expected":"invalid","assert":"producer_ref must equal canonical author DID"},
+    {"id":"invalid-lot-namespace","expected":"invalid","assert":"lot_ref must use mycelix:food-lot and a bounded canonical identifier"},
+    {"id":"unsupported-schema","expected":"invalid","assert":"only FoodLotProvenanceV1 schema version 1 is accepted"},
+    {"id":"zero-quantity","expected":"invalid","assert":"producer lot quantity must be positive"},
+    {"id":"mass-volume-dimension-mismatch","expected":"invalid","assert":"unit and dimension are checked by the shared exact quantity kernel"},
+    {"id":"unreviewed-evidence-class","expected":"invalid","assert":"evidence classes are an explicit allowlist"},
+    {"id":"measured-without-calibration","expected":"invalid","assert":"Measured requires calibration reference"},
+    {"id":"independent-without-method","expected":"invalid","assert":"IndependentlyAssayed and IndependentlyQualified require method reference"},
+    {"id":"claim-ceiling-escalation","expected":"invalid","assert":"lot cannot claim food safety or product suitability"},
+    {"id":"packed-before-harvest","expected":"invalid","assert":"known date chronology must be coherent"},
+    {"id":"revision-two-without-predecessor","expected":"invalid","assert":"every revision greater than one names a prior signed action"},
+    {"id":"predecessor-other-author","expected":"invalid","assert":"prior action author must match current signed author"},
+    {"id":"predecessor-other-lot-or-product","expected":"invalid","assert":"revision chain cannot cross canonical lot or product identity"},
+    {"id":"revision-gap-or-replay","expected":"invalid","assert":"revision must equal prior revision plus one"},
+    {"id":"update-entry","expected":"invalid","assert":"producer lot record is create-only"},
+    {"id":"delete-entry","expected":"invalid","assert":"producer lot record cannot be deleted"},
+    {"id":"listing-is-not-producer-lot","expected":"distinct-type","assert":"Listing and Order entries are not interchangeable with ProducerLotRecordV1"},
+    {"id":"same-supplier-code-distinct-author","expected":"distinct-records","assert":"same supplier lot code from different signed authors remains distinct"}
+  ]
+}
