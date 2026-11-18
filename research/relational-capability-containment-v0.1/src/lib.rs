@@ -35,6 +35,13 @@ impl ScopeValue {
         Ok(Self::Exact(validate_atom(value.into(), label)?))
     }
 
+    fn validate(self, label: &'static str) -> Result<Self, ScopeError> {
+        match self {
+            Self::Exact(value) => Self::exact(value, label),
+            Self::Any => Ok(Self::Any),
+        }
+    }
+
     /// Construct the wildcard scope value.
     pub const fn any() -> Self {
         Self::Any
@@ -204,21 +211,18 @@ pub struct EffectTuple {
 impl EffectTuple {
     /// Construct one complete effect tuple, validating every exact scope atom.
     pub fn new(spec: EffectTupleSpec) -> Result<Self, ScopeError> {
-        let validate_scope = |value: ScopeValue, label| match value {
-            ScopeValue::Exact(exact) => ScopeValue::exact(exact, label),
-            ScopeValue::Any => Ok(ScopeValue::Any),
-        };
+        let limit = QuantitativeLimit::new(spec.limit.dimension, spec.limit.maximum)?;
 
         Ok(Self {
-            action: validate_scope(spec.action, "action")?,
-            resource: validate_scope(spec.resource, "resource")?,
+            action: spec.action.validate("action")?,
+            resource: spec.resource.validate("resource")?,
             direction: spec.direction,
-            audience: validate_scope(spec.audience, "audience")?,
-            purpose: validate_scope(spec.purpose, "purpose")?,
-            data_class: validate_scope(spec.data_class, "data_class")?,
+            audience: spec.audience.validate("audience")?,
+            purpose: spec.purpose.validate("purpose")?,
+            data_class: spec.data_class.validate("data_class")?,
             mode: spec.mode,
-            operation_binding: validate_scope(spec.operation_binding, "operation_binding")?,
-            limit: spec.limit,
+            operation_binding: spec.operation_binding.validate("operation_binding")?,
+            limit,
         })
     }
 
@@ -583,17 +587,47 @@ mod tests {
             QuantitativeLimit::new("frames", 50).unwrap(),
         );
 
-        let marginal_match = parent.tuples.iter().any(|item| item.action == unauthorized_recombination.action)
-            && parent.tuples.iter().any(|item| item.resource == unauthorized_recombination.resource)
-            && parent.tuples.iter().any(|item| item.direction == unauthorized_recombination.direction)
-            && parent.tuples.iter().any(|item| item.audience == unauthorized_recombination.audience)
-            && parent.tuples.iter().any(|item| item.purpose == unauthorized_recombination.purpose)
-            && parent.tuples.iter().any(|item| item.data_class == unauthorized_recombination.data_class)
-            && parent.tuples.iter().any(|item| item.mode == unauthorized_recombination.mode)
-            && parent.tuples.iter().any(|item| item.operation_binding == unauthorized_recombination.operation_binding)
-            && parent.tuples.iter().any(|item| item.limit.dimension == unauthorized_recombination.limit.dimension);
+        let marginal_match = parent
+            .tuples
+            .iter()
+            .any(|item| item.action == unauthorized_recombination.action)
+            && parent
+                .tuples
+                .iter()
+                .any(|item| item.resource == unauthorized_recombination.resource)
+            && parent
+                .tuples
+                .iter()
+                .any(|item| item.direction == unauthorized_recombination.direction)
+            && parent
+                .tuples
+                .iter()
+                .any(|item| item.audience == unauthorized_recombination.audience)
+            && parent
+                .tuples
+                .iter()
+                .any(|item| item.purpose == unauthorized_recombination.purpose)
+            && parent
+                .tuples
+                .iter()
+                .any(|item| item.data_class == unauthorized_recombination.data_class)
+            && parent
+                .tuples
+                .iter()
+                .any(|item| item.mode == unauthorized_recombination.mode)
+            && parent
+                .tuples
+                .iter()
+                .any(|item| item.operation_binding == unauthorized_recombination.operation_binding)
+            && parent
+                .tuples
+                .iter()
+                .any(|item| item.limit.dimension == unauthorized_recombination.limit.dimension);
 
-        assert!(marginal_match, "each projection independently appears in the parent");
+        assert!(
+            marginal_match,
+            "each projection independently appears in the parent"
+        );
         assert!(
             !parent.allows(&unauthorized_recombination),
             "relational membership must reject the unauthorized cross-product"
@@ -628,6 +662,13 @@ mod tests {
 
         assert!(narrow_child.is_subsumed_by(&broad_parent));
         assert!(!broad_child.is_subsumed_by(&narrow_child));
+
+        let broad_parent_set = CapabilitySetV1::v1(vec![broad_parent]).unwrap();
+        let narrow_child_set = CapabilitySetV1::v1(vec![narrow_child]).unwrap();
+        let broad_child_set = CapabilitySetV1::v1(vec![broad_child]).unwrap();
+        assert!(narrow_child_set.is_subset_of(&broad_parent_set));
+        assert!(narrow_child_set.is_strict_subset_of(&broad_parent_set));
+        assert!(!broad_child_set.is_subset_of(&narrow_child_set));
     }
 
     #[test]
@@ -749,6 +790,23 @@ mod tests {
         );
         assert_eq!(
             QuantitativeLimit::new("", 0),
+            Err(ScopeError::EmptyAtom("limit_dimension"))
+        );
+        assert_eq!(
+            EffectTuple::new(EffectTupleSpec {
+                action: exact("xenia.screen.view"),
+                resource: exact("host-A"),
+                direction: Direction::HostToDelegate,
+                audience: exact("viewer-A"),
+                purpose: exact("remote-support"),
+                data_class: exact("screen-frame"),
+                mode: EffectMode::Execute,
+                operation_binding: exact("screen-frame/v1"),
+                limit: QuantitativeLimit {
+                    dimension: String::new(),
+                    maximum: 100,
+                },
+            }),
             Err(ScopeError::EmptyAtom("limit_dimension"))
         );
     }
