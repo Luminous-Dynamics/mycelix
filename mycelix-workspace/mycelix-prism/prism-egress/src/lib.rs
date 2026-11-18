@@ -1663,9 +1663,15 @@ mod tests {
             };
             use hickory_resolver::net::runtime::TokioRuntimeProvider;
 
-            let mut connection = ConnectionConfig::udp();
-            connection.port = self.server.port();
-            let name_server = NameServerConfig::new(self.server.ip(), true, vec![connection]);
+            let mut udp_connection = ConnectionConfig::udp();
+            udp_connection.port = self.server.port();
+            let mut tcp_connection = ConnectionConfig::tcp();
+            tcp_connection.port = self.server.port();
+            let name_server = NameServerConfig::new(
+                self.server.ip(),
+                true,
+                vec![udp_connection, tcp_connection],
+            );
             let config = ResolverConfig::from_name_servers(vec![name_server]);
             let mut options = ResolverOpts::default();
             options.use_hosts_file = ResolveHosts::Never;
