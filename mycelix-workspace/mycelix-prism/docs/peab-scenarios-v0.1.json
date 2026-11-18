@@ -8,6 +8,7 @@
   "status_vocabulary": {
     "source_coverage": [
       "present",
+      "partial",
       "planned"
     ],
     "execution_status": "not_run_exact_head"
@@ -20,8 +21,8 @@
       "setup": "public A answer with AAAA NODATA",
       "expected_decision": "allow",
       "oracle": "connect peer equals the authorized A socket",
-      "source_coverage": "present",
-      "source_test": "hermetic_dns_wire_fixture_exercises_dual_stack_cname_and_mixed_answer_policy",
+      "source_coverage": "planned",
+      "source_test": null,
       "execution_status": "not_run_exact_head",
       "negative_control_required": true
     },
@@ -147,11 +148,11 @@
     },
     {
       "id": "DNS-012",
-      "family": "dns_answer_policy",
-      "title": "DNS timeout and slow response",
-      "setup": "resolver delays beyond admission/operation deadline",
-      "expected_decision": "deny",
-      "oracle": "deadline is bounded; permit remains held while non-cancellable work remains active",
+      "family": "resolver_admission",
+      "title": "cancellation-safe DNS admission",
+      "setup": "started blocking resolver work continues after the async waiter is cancelled",
+      "expected_decision": "bounded_wait",
+      "oracle": "owned DNS permit remains held until the blocking resolver operation exits",
       "source_coverage": "present",
       "source_test": "cancelled_dns_waiter_keeps_owned_permit_until_blocking_work_exits",
       "execution_status": "not_run_exact_head",
@@ -165,7 +166,7 @@
       "expected_decision": "deny",
       "oracle": "every denied vector is rejected and each allowed vector is explicitly documented",
       "source_coverage": "present",
-      "source_test": "denies_ipv4_non_global_and_special_ranges; denies_ipv6_special_transition_and_non_global_ranges",
+      "source_test": "denies_ipv4_special_and_non_global_ranges; denies_ipv6_special_transition_and_non_global_ranges",
       "execution_status": "not_run_exact_head",
       "negative_control_required": true
     },
@@ -224,8 +225,8 @@
       "setup": "HTTPS downgrade, duplicate Location, malformed Location, loop and hop ceiling",
       "expected_decision": "deny",
       "oracle": "no ambiguous or forbidden next hop is connected",
-      "source_coverage": "present",
-      "source_test": "source tests cover redirect ambiguity, downgrade, loops and hop ceiling",
+      "source_coverage": "partial",
+      "source_test": null,
       "execution_status": "not_run_exact_head",
       "negative_control_required": true
     },
