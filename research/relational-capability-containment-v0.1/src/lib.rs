@@ -1,8 +1,9 @@
 //! Finite reference model for relational capability-set containment.
 //!
-//! This crate deliberately models complete effect tuples, not independent
-//! allow-lists for each tuple column. It is a research oracle for Mycelix
-//! #4852 / #6302 and is not an authority service or runtime policy engine.
+//! This crate models complete effect tuples rather than independent allow-lists
+//! for each tuple column. It is a research oracle for Mycelix #4852 / #6302 and
+//! a cross-language comparison candidate for SOV-AI-AUTH-023 / PR #4867. It is
+//! not an authority service or runtime policy engine.
 
 use std::collections::BTreeSet;
 
@@ -12,8 +13,64 @@ pub const SCHEMA_VERSION_V1: u16 = 1;
 /// Domain separator for the canonical version-1 encoding.
 pub const CANONICAL_DOMAIN_V1: &[u8] = b"mycelix.relational-effect-capability.v1\0";
 
-/// Maximum UTF-8 byte length of one scope atom.
+/// Maximum UTF-8 byte length of one exact scope atom.
 pub const MAX_SCOPE_ATOM_BYTES: usize = 256;
+
+/// A categorical scope value.
+///
+/// Any is a parent-side wildcard. A child wildcard is contained only by a
+/// parent wildcard; an exact child value may be contained by an exact equal
+/// parent or a wildcard parent.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum ScopeValue {
+    /// One exact, versioned identifier.
+    Exact(String),
+    /// All values in this schema-defined field domain.
+    Any,
+}
+
+impl ScopeValue {
+    /// Construct and validate an exact scope value.
+    pub fn exact(value: impl Into<String>, label: &'static str) -> Result<Self, ScopeError> {
+        Ok(Self::Exact(validate_atom(value.into(), label)?))
+    }
+
+    /// Construct the wildcard scope value.
+    pub const fn any() -> Self {
+        Self::Any
+    }
+
+    fn is_subsumed_by(&self, parent: &Self) -> bool {
+        match (self, parent) {
+            (_, Self::Any) => true,
+            (Self::Exact(child), Self::Exact(parent)) => child == parent,
+            (Self::Any, Self::Exact(_)) => false,
+        }
+    }
+
+    fn intersection(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (Self::Any, Self::Any) => Some(Self::Any),
+            (Self::Any, Self::Exact(value)) | (Self::Exact(value), Self::Any) => {
+                Some(Self::Exact(value.clone()))
+            }
+            (Self::Exact(left), Self::Exact(right)) if left == right => {
+                Some(Self::Exact(left.clone()))
+            }
+            (Self::Exact(_), Self::Exact(_)) => None,
+        }
+    }
+
+    fn append_canonical(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Exact(value) => {
+                out.push(0);
+                push_atom(out, value);
+            }
+            Self::Any => out.push(1),
+        }
+    }
+}
 
 /// Direction in which information or control crosses an enforcement boundary.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -52,27 +109,79 @@ impl EffectMode {
             Self::Execute => 1,
         }
     }
+
+    fn is_subsumed_by(self, parent: Self) -> bool {
+        matches!(
+            (self, parent),
+            (Self::Propose, Self::Propose | Self::Execute)
+                | (Self::Execute, Self::Execute)
+        )
+    }
+
+    fn intersection(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Propose, _) | (_, Self::Propose) => Self::Propose,
+            (Self::Execute, Self::Execute) => Self::Execute,
+        }
+    }
+}
+
+/// A quantitative upper bound with an explicit unit/dimension.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct QuantitativeLimit {
+    /// A versioned unit such as bytes, operations, targets, or milliseconds.
+    pub dimension: String,
+    /// Maximum permitted quantity in the declared dimension.
+    pub maximum: u64,
+}
+
+impl QuantitativeLimit {
+    /// Construct a bounded quantity with a validated dimension label.
+    pub fn new(dimension: impl Into<String>, maximum: u64) -> Result<Self, ScopeError> {
+        Ok(Self {
+            dimension: validate_atom(dimension.into(), "limit_dimension")?,
+            maximum,
+        })
+    }
+
+    fn is_subsumed_by(&self, parent: &Self) -> bool {
+        self.dimension == parent.dimension && self.maximum <= parent.maximum
+    }
+
+    fn intersection(&self, other: &Self) -> Option<Self> {
+        (self.dimension == other.dimension).then(|| Self {
+            dimension: self.dimension.clone(),
+            maximum: self.maximum.min(other.maximum),
+        })
+    }
+
+    fn append_canonical(&self, out: &mut Vec<u8>) {
+        push_atom(out, &self.dimension);
+        out.extend_from_slice(&self.maximum.to_be_bytes());
+    }
 }
 
 /// Input fields for one complete capability tuple.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EffectTupleSpec {
     /// Stable action identifier.
-    pub action: String,
-    /// Exact resource identifier.
-    pub resource: String,
+    pub action: ScopeValue,
+    /// Exact resource identifier or parent-side wildcard.
+    pub resource: ScopeValue,
     /// Information/control direction.
     pub direction: Direction,
     /// Relying-party or audience identifier.
-    pub audience: String,
+    pub audience: ScopeValue,
     /// Purpose identifier or owner-qualified purpose reference.
-    pub purpose: String,
+    pub purpose: ScopeValue,
     /// Data-class identifier.
-    pub data_class: String,
+    pub data_class: ScopeValue,
     /// Proposal or execution mode.
     pub mode: EffectMode,
     /// Immutable operation class, schema, or one-shot digest binding.
-    pub operation_binding: String,
+    pub operation_binding: ScopeValue,
+    /// Quantitative ceiling with an explicit unit/dimension.
+    pub limit: QuantitativeLimit,
 }
 
 /// A complete, indivisible capability tuple.
@@ -81,87 +190,83 @@ pub struct EffectTupleSpec {
 /// into independent sets and recombined to manufacture new tuples.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct EffectTuple {
-    action: String,
-    resource: String,
+    action: ScopeValue,
+    resource: ScopeValue,
     direction: Direction,
-    audience: String,
-    purpose: String,
-    data_class: String,
+    audience: ScopeValue,
+    purpose: ScopeValue,
+    data_class: ScopeValue,
     mode: EffectMode,
-    operation_binding: String,
+    operation_binding: ScopeValue,
+    limit: QuantitativeLimit,
 }
 
 impl EffectTuple {
-    /// Construct one complete effect tuple, validating every string atom.
+    /// Construct one complete effect tuple, validating every exact scope atom.
     pub fn new(spec: EffectTupleSpec) -> Result<Self, ScopeError> {
-        let action = validate_atom(spec.action, "action")?;
-        let resource = validate_atom(spec.resource, "resource")?;
-        let audience = validate_atom(spec.audience, "audience")?;
-        let purpose = validate_atom(spec.purpose, "purpose")?;
-        let data_class = validate_atom(spec.data_class, "data_class")?;
-        let operation_binding = validate_atom(spec.operation_binding, "operation_binding")?;
+        let validate_scope = |value: ScopeValue, label| match value {
+            ScopeValue::Exact(exact) => ScopeValue::exact(exact, label),
+            ScopeValue::Any => Ok(ScopeValue::Any),
+        };
 
         Ok(Self {
-            action,
-            resource,
+            action: validate_scope(spec.action, "action")?,
+            resource: validate_scope(spec.resource, "resource")?,
             direction: spec.direction,
-            audience,
-            purpose,
-            data_class,
+            audience: validate_scope(spec.audience, "audience")?,
+            purpose: validate_scope(spec.purpose, "purpose")?,
+            data_class: validate_scope(spec.data_class, "data_class")?,
             mode: spec.mode,
-            operation_binding,
+            operation_binding: validate_scope(spec.operation_binding, "operation_binding")?,
+            limit: spec.limit,
         })
     }
 
-    /// Return the stable action identifier.
-    pub fn action(&self) -> &str {
-        &self.action
+    /// Whether this entire effect tuple is covered by one parent tuple.
+    ///
+    /// This is a relational witness check: all dimensions must be subsumed by
+    /// the same parent tuple. Fields from separate parent tuples cannot be
+    /// combined to create a new authorization.
+    pub fn is_subsumed_by(&self, parent: &Self) -> bool {
+        self.action.is_subsumed_by(&parent.action)
+            && self.resource.is_subsumed_by(&parent.resource)
+            && self.direction == parent.direction
+            && self.audience.is_subsumed_by(&parent.audience)
+            && self.purpose.is_subsumed_by(&parent.purpose)
+            && self.data_class.is_subsumed_by(&parent.data_class)
+            && self.mode.is_subsumed_by(parent.mode)
+            && self
+                .operation_binding
+                .is_subsumed_by(&parent.operation_binding)
+            && self.limit.is_subsumed_by(&parent.limit)
     }
 
-    /// Return the exact resource identifier.
-    pub fn resource(&self) -> &str {
-        &self.resource
-    }
-
-    /// Return the information/control direction.
-    pub const fn direction(&self) -> Direction {
-        self.direction
-    }
-
-    /// Return the relying-party or audience identifier.
-    pub fn audience(&self) -> &str {
-        &self.audience
-    }
-
-    /// Return the purpose identifier or owner-qualified purpose reference.
-    pub fn purpose(&self) -> &str {
-        &self.purpose
-    }
-
-    /// Return the data-class identifier.
-    pub fn data_class(&self) -> &str {
-        &self.data_class
-    }
-
-    /// Return the proposal or execution mode.
-    pub const fn mode(&self) -> EffectMode {
-        self.mode
-    }
-
-    /// Return the immutable operation class, schema, or one-shot digest binding.
-    pub fn operation_binding(&self) -> &str {
-        &self.operation_binding
+    fn intersection(&self, other: &Self) -> Option<Self> {
+        Some(Self {
+            action: self.action.intersection(&other.action)?,
+            resource: self.resource.intersection(&other.resource)?,
+            direction: (self.direction == other.direction).then_some(self.direction)?,
+            audience: self.audience.intersection(&other.audience)?,
+            purpose: self.purpose.intersection(&other.purpose)?,
+            data_class: self.data_class.intersection(&other.data_class)?,
+            mode: self.mode.intersection(other.mode),
+            operation_binding: self
+                .operation_binding
+                .intersection(&other.operation_binding)?,
+            limit: self.limit.intersection(&other.limit)?,
+        })
     }
 
     fn append_canonical(&self, out: &mut Vec<u8>) {
-        push_atom(out, &self.action);
-        push_atom(out, &self.resource);
+        self.action.append_canonical(out);
+        self.resource.append_canonical(out);
         out.push(self.direction.tag());
-        push_atom(out, &self.audience);
-        push_atom(out, &self.purpose);
-        push_atom(out, &self.data_class);
+        self.audience.append_canonical(out);
+        self.purpose.append_canonical(out);
+        self.data_class.append_canonical(out);
         out.push(self.mode.tag());
-        push_atom(out, &self.operation_binding);
+        self.operation_binding.append_canonical(out);
+        self.limit.append_canonical(out);
     }
 }
 
@@ -177,8 +282,8 @@ pub struct CapabilitySetV1 {
 impl CapabilitySetV1 {
     /// Build a versioned relation.
     ///
-    /// Duplicate tuples are rejected instead of being silently normalized.
-    /// An empty relation is valid and represents a deny-all scope.
+    /// Duplicate syntactic tuples are rejected instead of being silently
+    /// normalized. An empty relation is valid and represents a deny-all scope.
     pub fn new(schema_version: u16, tuples: Vec<EffectTuple>) -> Result<Self, ScopeError> {
         if schema_version != SCHEMA_VERSION_V1 {
             return Err(ScopeError::UnsupportedSchemaVersion(schema_version));
@@ -210,33 +315,44 @@ impl CapabilitySetV1 {
 
     /// Whether the exact complete effect tuple is a member of this relation.
     pub fn allows(&self, effect: &EffectTuple) -> bool {
-        self.tuples.contains(effect)
+        self.tuples.iter().any(|grant| effect.is_subsumed_by(grant))
     }
 
-    /// Whether every tuple in self is present in parent.
+    /// Whether every tuple in self has a complete parent witness in parent.
     ///
-    /// This is exact relational inclusion. It does not compare the marginal
-    /// projections of individual tuple columns.
+    /// This is exact relational inclusion with the declared wildcard and
+    /// numeric-bound subsumption semantics.
     pub fn is_subset_of(&self, parent: &Self) -> bool {
-        self.tuples.is_subset(&parent.tuples)
+        self.tuples
+            .iter()
+            .all(|child| parent.tuples.iter().any(|grant| child.is_subsumed_by(grant)))
     }
 
-    /// Whether this relation is a proper subset of parent.
+    /// Whether this relation is a proper semantic subset of parent.
     ///
-    /// Strict attenuation requires non-widening plus at least one removed
-    /// complete tuple. Equality is not attenuation.
+    /// Strict attenuation requires inclusion in one direction and failure of
+    /// inclusion in the reverse direction. Syntactic inequality alone is not
+    /// sufficient when wildcards or different tuple encodings are present.
     pub fn is_strict_subset_of(&self, parent: &Self) -> bool {
-        self.is_subset_of(parent) && self.len() < parent.len()
+        self.is_subset_of(parent) && !parent.is_subset_of(self)
     }
 
     /// Intersection for two authority scopes that are both required.
     ///
-    /// Keep the source grants and their lineage separately for revocation and
-    /// provenance accounting; this derived relation is not a lineage index.
+    /// Intersections are computed tuple-by-tuple. Keep source grants and their
+    /// lineage separately; this derived relation is not a revocation index.
     pub fn required_intersection(&self, other: &Self) -> Self {
-        Self {
-            tuples: self.tuples.intersection(&other.tuples).cloned().collect(),
-        }
+        let tuples = self
+            .tuples
+            .iter()
+            .flat_map(|left| {
+                other
+                    .tuples
+                    .iter()
+                    .filter_map(|right| left.intersection(right))
+            })
+            .collect();
+        Self { tuples }
     }
 
     /// Union for independent alternative grants.
@@ -252,14 +368,14 @@ impl CapabilitySetV1 {
 
     /// Return canonical bytes for the exact relation under schema version 1.
     ///
-    /// Tuples are encoded in sorted order. This defines a deterministic byte
-    /// representation; it does not sign, hash, authenticate, or qualify the
-    /// resulting bytes.
+    /// Tuples are encoded in syntactic sorted order. This defines a deterministic
+    /// encoding, not a unique semantic normal form: wildcard and alias
+    /// normalization equivalence are deliberately outside this model.
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend_from_slice(CANONICAL_DOMAIN_V1);
         out.extend_from_slice(&SCHEMA_VERSION_V1.to_be_bytes());
-        out.extend_from_slice(&(self.tuples.len() as u32).to_be_bytes());
+        out.extend_from_slice(&(self.tuples.len() as u64).to_be_bytes());
         for tuple in &self.tuples {
             tuple.append_canonical(&mut out);
         }
@@ -278,7 +394,7 @@ pub enum ScopeError {
     AtomTooLong(&'static str),
     /// A scope atom contains a control character.
     ControlCharacter(&'static str),
-    /// A relation contains the same complete tuple more than once.
+    /// A relation contains the same complete syntactic tuple more than once.
     DuplicateTuple,
 }
 
@@ -305,105 +421,143 @@ fn push_atom(out: &mut Vec<u8>, value: &str) {
 mod tests {
     use super::*;
 
-    fn effect(spec: EffectTupleSpec) -> EffectTuple {
-        EffectTuple::new(spec).unwrap()
+    fn exact(value: &str) -> ScopeValue {
+        ScopeValue::exact(value, "test").unwrap()
     }
 
-    fn screen_a() -> EffectTuple {
-        effect(EffectTupleSpec {
-            action: "xenia.screen.view".to_string(),
-            resource: "host-A".to_string(),
-            direction: Direction::HostToDelegate,
-            audience: "viewer-A".to_string(),
-            purpose: "remote-support".to_string(),
-            data_class: "screen-frame".to_string(),
-            mode: EffectMode::Execute,
-            operation_binding: "screen-frame/v1".to_string(),
+    fn effect(
+        action: ScopeValue,
+        resource: ScopeValue,
+        direction: Direction,
+        audience: ScopeValue,
+        purpose: ScopeValue,
+        data_class: ScopeValue,
+        mode: EffectMode,
+        operation_binding: ScopeValue,
+        limit: QuantitativeLimit,
+    ) -> EffectTuple {
+        EffectTuple::new(EffectTupleSpec {
+            action,
+            resource,
+            direction,
+            audience,
+            purpose,
+            data_class,
+            mode,
+            operation_binding,
+            limit,
         })
+        .unwrap()
     }
 
-    fn file_b() -> EffectTuple {
-        effect(EffectTupleSpec {
-            action: "xenia.file.receive".to_string(),
-            resource: "host-B".to_string(),
-            direction: Direction::DelegateToHost,
-            audience: "viewer-B".to_string(),
-            purpose: "file-delivery".to_string(),
-            data_class: "file-bytes".to_string(),
-            mode: EffectMode::Execute,
-            operation_binding: "file-transfer/v1".to_string(),
-        })
+    fn screen_a_limit(maximum: u64) -> EffectTuple {
+        effect(
+            exact("xenia.screen.view"),
+            exact("host-A"),
+            Direction::HostToDelegate,
+            exact("viewer-A"),
+            exact("remote-support"),
+            exact("screen-frame"),
+            EffectMode::Execute,
+            exact("screen-frame/v1"),
+            QuantitativeLimit::new("frames", maximum).unwrap(),
+        )
+    }
+
+    fn file_b_limit(maximum: u64) -> EffectTuple {
+        effect(
+            exact("xenia.file.receive"),
+            exact("host-B"),
+            Direction::DelegateToHost,
+            exact("viewer-B"),
+            exact("file-delivery"),
+            exact("file-bytes"),
+            EffectMode::Execute,
+            exact("file-transfer/v1"),
+            QuantitativeLimit::new("bytes", maximum).unwrap(),
+        )
     }
 
     #[test]
     fn exact_complete_tuple_is_required() {
-        let allowed = CapabilitySetV1::v1(vec![screen_a()]).unwrap();
-        assert!(allowed.allows(&screen_a()));
+        let allowed = CapabilitySetV1::v1(vec![screen_a_limit(10)]).unwrap();
+        assert!(allowed.allows(&screen_a_limit(10)));
 
-        let mutations = [
-            effect(EffectTupleSpec {
-                action: "xenia.screen.view".to_string(),
-                resource: "host-A".to_string(),
-                direction: Direction::DelegateToHost,
-                audience: "viewer-A".to_string(),
-                purpose: "remote-support".to_string(),
-                data_class: "screen-frame".to_string(),
-                mode: EffectMode::Execute,
-                operation_binding: "screen-frame/v1".to_string(),
-            }),
-            effect(EffectTupleSpec {
-                action: "xenia.screen.view".to_string(),
-                resource: "host-B".to_string(),
-                direction: Direction::HostToDelegate,
-                audience: "viewer-A".to_string(),
-                purpose: "remote-support".to_string(),
-                data_class: "screen-frame".to_string(),
-                mode: EffectMode::Execute,
-                operation_binding: "screen-frame/v1".to_string(),
-            }),
-            effect(EffectTupleSpec {
-                action: "xenia.screen.view".to_string(),
-                resource: "host-A".to_string(),
-                direction: Direction::HostToDelegate,
-                audience: "viewer-B".to_string(),
-                purpose: "remote-support".to_string(),
-                data_class: "screen-frame".to_string(),
-                mode: EffectMode::Execute,
-                operation_binding: "screen-frame/v1".to_string(),
-            }),
-            effect(EffectTupleSpec {
-                action: "xenia.screen.view".to_string(),
-                resource: "host-A".to_string(),
-                direction: Direction::HostToDelegate,
-                audience: "viewer-A".to_string(),
-                purpose: "file-delivery".to_string(),
-                data_class: "screen-frame".to_string(),
-                mode: EffectMode::Execute,
-                operation_binding: "screen-frame/v1".to_string(),
-            }),
-            effect(EffectTupleSpec {
-                action: "xenia.screen.view".to_string(),
-                resource: "host-A".to_string(),
-                direction: Direction::HostToDelegate,
-                audience: "viewer-A".to_string(),
-                purpose: "remote-support".to_string(),
-                data_class: "file-bytes".to_string(),
-                mode: EffectMode::Execute,
-                operation_binding: "screen-frame/v1".to_string(),
-            }),
-            effect(EffectTupleSpec {
-                action: "xenia.screen.view".to_string(),
-                resource: "host-A".to_string(),
-                direction: Direction::HostToDelegate,
-                audience: "viewer-A".to_string(),
-                purpose: "remote-support".to_string(),
-                data_class: "screen-frame".to_string(),
-                mode: EffectMode::Execute,
-                operation_binding: "different-operation/v1".to_string(),
-            }),
-        ];
+        let changed_direction = effect(
+            exact("xenia.screen.view"),
+            exact("host-A"),
+            Direction::DelegateToHost,
+            exact("viewer-A"),
+            exact("remote-support"),
+            exact("screen-frame"),
+            EffectMode::Execute,
+            exact("screen-frame/v1"),
+            QuantitativeLimit::new("frames", 10).unwrap(),
+        );
+        let changed_resource = effect(
+            exact("xenia.screen.view"),
+            exact("host-B"),
+            Direction::HostToDelegate,
+            exact("viewer-A"),
+            exact("remote-support"),
+            exact("screen-frame"),
+            EffectMode::Execute,
+            exact("screen-frame/v1"),
+            QuantitativeLimit::new("frames", 10).unwrap(),
+        );
+        let changed_audience = effect(
+            exact("xenia.screen.view"),
+            exact("host-A"),
+            Direction::HostToDelegate,
+            exact("viewer-B"),
+            exact("remote-support"),
+            exact("screen-frame"),
+            EffectMode::Execute,
+            exact("screen-frame/v1"),
+            QuantitativeLimit::new("frames", 10).unwrap(),
+        );
+        let changed_purpose = effect(
+            exact("xenia.screen.view"),
+            exact("host-A"),
+            Direction::HostToDelegate,
+            exact("viewer-A"),
+            exact("file-delivery"),
+            exact("screen-frame"),
+            EffectMode::Execute,
+            exact("screen-frame/v1"),
+            QuantitativeLimit::new("frames", 10).unwrap(),
+        );
+        let changed_class = effect(
+            exact("xenia.screen.view"),
+            exact("host-A"),
+            Direction::HostToDelegate,
+            exact("viewer-A"),
+            exact("remote-support"),
+            exact("file-bytes"),
+            EffectMode::Execute,
+            exact("screen-frame/v1"),
+            QuantitativeLimit::new("frames", 10).unwrap(),
+        );
+        let changed_operation = effect(
+            exact("xenia.screen.view"),
+            exact("host-A"),
+            Direction::HostToDelegate,
+            exact("viewer-A"),
+            exact("remote-support"),
+            exact("screen-frame"),
+            EffectMode::Execute,
+            exact("different-operation/v1"),
+            QuantitativeLimit::new("frames", 10).unwrap(),
+        );
 
-        for mutation in mutations {
+        for mutation in [
+            changed_direction,
+            changed_resource,
+            changed_audience,
+            changed_purpose,
+            changed_class,
+            changed_operation,
+        ] {
             assert!(
                 !allowed.allows(&mutation),
                 "one-column mutation must not match a complete tuple"
@@ -413,20 +567,21 @@ mod tests {
 
     #[test]
     fn marginal_projection_cartesian_product_is_a_false_positive() {
-        let parent = CapabilitySetV1::v1(vec![screen_a(), file_b()]).unwrap();
+        let parent = CapabilitySetV1::v1(vec![screen_a_limit(100), file_b_limit(200)]).unwrap();
 
         // Every field in this Frankenstein tuple appears somewhere in the
         // parent relation, but the complete tuple never appeared in it.
-        let unauthorized_recombination = effect(EffectTupleSpec {
-            action: "xenia.screen.view".to_string(),
-            resource: "host-B".to_string(),
-            direction: Direction::HostToDelegate,
-            audience: "viewer-B".to_string(),
-            purpose: "file-delivery".to_string(),
-            data_class: "file-bytes".to_string(),
-            mode: EffectMode::Execute,
-            operation_binding: "screen-frame/v1".to_string(),
-        });
+        let unauthorized_recombination = effect(
+            exact("xenia.screen.view"),
+            exact("host-B"),
+            Direction::HostToDelegate,
+            exact("viewer-B"),
+            exact("file-delivery"),
+            exact("file-bytes"),
+            EffectMode::Execute,
+            exact("screen-frame/v1"),
+            QuantitativeLimit::new("frames", 50).unwrap(),
+        );
 
         let marginal_match = parent.tuples.iter().any(|item| item.action == unauthorized_recombination.action)
             && parent.tuples.iter().any(|item| item.resource == unauthorized_recombination.resource)
@@ -435,7 +590,8 @@ mod tests {
             && parent.tuples.iter().any(|item| item.purpose == unauthorized_recombination.purpose)
             && parent.tuples.iter().any(|item| item.data_class == unauthorized_recombination.data_class)
             && parent.tuples.iter().any(|item| item.mode == unauthorized_recombination.mode)
-            && parent.tuples.iter().any(|item| item.operation_binding == unauthorized_recombination.operation_binding);
+            && parent.tuples.iter().any(|item| item.operation_binding == unauthorized_recombination.operation_binding)
+            && parent.tuples.iter().any(|item| item.limit.dimension == unauthorized_recombination.limit.dimension);
 
         assert!(marginal_match, "each projection independently appears in the parent");
         assert!(
@@ -445,55 +601,117 @@ mod tests {
     }
 
     #[test]
-    fn strict_attenuation_is_complete_tuple_set_inclusion() {
-        let parent = CapabilitySetV1::v1(vec![screen_a(), file_b()]).unwrap();
-        let attenuated = CapabilitySetV1::v1(vec![screen_a()]).unwrap();
-        let equal = CapabilitySetV1::v1(vec![screen_a(), file_b()]).unwrap();
+    fn wildcard_is_parent_subsumption_not_child_expansion() {
+        let broad_parent = effect(
+            exact("xenia.screen.view"),
+            ScopeValue::Any,
+            Direction::HostToDelegate,
+            ScopeValue::Any,
+            exact("remote-support"),
+            exact("screen-frame"),
+            EffectMode::Execute,
+            exact("screen-frame/v1"),
+            QuantitativeLimit::new("frames", 100).unwrap(),
+        );
+        let narrow_child = screen_a_limit(20);
+        let broad_child = effect(
+            exact("xenia.screen.view"),
+            ScopeValue::Any,
+            Direction::HostToDelegate,
+            ScopeValue::Any,
+            exact("remote-support"),
+            exact("screen-frame"),
+            EffectMode::Execute,
+            exact("screen-frame/v1"),
+            QuantitativeLimit::new("frames", 20).unwrap(),
+        );
 
-        assert!(attenuated.is_subset_of(&parent));
-        assert!(attenuated.is_strict_subset_of(&parent));
-        assert!(equal.is_subset_of(&parent));
-        assert!(!equal.is_strict_subset_of(&parent));
+        assert!(narrow_child.is_subsumed_by(&broad_parent));
+        assert!(!broad_child.is_subsumed_by(&narrow_child));
+    }
 
-        let widened = CapabilitySetV1::v1(vec![
-            screen_a(),
-            file_b(),
-            effect(EffectTupleSpec {
-                action: "xenia.clipboard.read".to_string(),
-                resource: "host-A".to_string(),
-                direction: Direction::HostToDelegate,
-                audience: "viewer-A".to_string(),
-                purpose: "remote-support".to_string(),
-                data_class: "clipboard".to_string(),
-                mode: EffectMode::Execute,
-                operation_binding: "clipboard-read/v1".to_string(),
-            }),
-        ])
-        .unwrap();
-        assert!(!widened.is_subset_of(&parent));
-        assert!(!widened.is_strict_subset_of(&parent));
+    #[test]
+    fn quantitative_bounds_attenuate_only_with_matching_dimension() {
+        let parent = CapabilitySetV1::v1(vec![screen_a_limit(100)]).unwrap();
+        let child = CapabilitySetV1::v1(vec![screen_a_limit(50)]).unwrap();
+        let wider = CapabilitySetV1::v1(vec![screen_a_limit(101)]).unwrap();
+
+        assert!(child.is_subset_of(&parent));
+        assert!(!wider.is_subset_of(&parent));
+
+        let wrong_unit = effect(
+            exact("xenia.screen.view"),
+            exact("host-A"),
+            Direction::HostToDelegate,
+            exact("viewer-A"),
+            exact("remote-support"),
+            exact("screen-frame"),
+            EffectMode::Execute,
+            exact("screen-frame/v1"),
+            QuantitativeLimit::new("bytes", 50).unwrap(),
+        );
+        assert!(!CapabilitySetV1::v1(vec![wrong_unit]).unwrap().is_subset_of(&parent));
+    }
+
+    #[test]
+    fn proposal_is_attenuated_by_execute_but_execute_not_by_propose() {
+        let execute = effect(
+            exact("xenia.screen.view"),
+            exact("host-A"),
+            Direction::HostToDelegate,
+            exact("viewer-A"),
+            exact("remote-support"),
+            exact("screen-frame"),
+            EffectMode::Execute,
+            exact("screen-frame/v1"),
+            QuantitativeLimit::new("frames", 100).unwrap(),
+        );
+        let propose = effect(
+            exact("xenia.screen.view"),
+            exact("host-A"),
+            Direction::HostToDelegate,
+            exact("viewer-A"),
+            exact("remote-support"),
+            exact("screen-frame"),
+            EffectMode::Propose,
+            exact("screen-frame/v1"),
+            QuantitativeLimit::new("frames", 100).unwrap(),
+        );
+
+        assert!(propose.is_subsumed_by(&execute));
+        assert!(!execute.is_subsumed_by(&propose));
+    }
+
+    #[test]
+    fn strict_attenuation_is_semantic_not_syntactic() {
+        let broad = CapabilitySetV1::v1(vec![screen_a_limit(100)]).unwrap();
+        let narrow = CapabilitySetV1::v1(vec![screen_a_limit(50)]).unwrap();
+        let semantically_equal = CapabilitySetV1::v1(vec![screen_a_limit(100)]).unwrap();
+
+        assert!(narrow.is_subset_of(&broad));
+        assert!(narrow.is_strict_subset_of(&broad));
+        assert!(!semantically_equal.is_strict_subset_of(&broad));
     }
 
     #[test]
     fn required_bundle_intersects_but_independent_grants_union() {
-        let left = CapabilitySetV1::v1(vec![screen_a(), file_b()]).unwrap();
-        let right = CapabilitySetV1::v1(vec![file_b()]).unwrap();
+        let left = CapabilitySetV1::v1(vec![screen_a_limit(100), file_b_limit(200)]).unwrap();
+        let right = CapabilitySetV1::v1(vec![screen_a_limit(50), file_b_limit(300)]).unwrap();
 
         let required = left.required_intersection(&right);
-        assert_eq!(required.len(), 1);
-        assert!(required.allows(&file_b()));
-        assert!(!required.allows(&screen_a()));
+        assert_eq!(required.len(), 2);
+        assert!(required.allows(&screen_a_limit(50)));
+        assert!(required.allows(&file_b_limit(200)));
 
         let alternatives = left.independent_union(&right);
-        assert_eq!(alternatives.len(), 2);
-        assert!(alternatives.allows(&screen_a()));
-        assert!(alternatives.allows(&file_b()));
+        assert!(alternatives.allows(&screen_a_limit(100)));
+        assert!(alternatives.allows(&file_b_limit(300)));
     }
 
     #[test]
     fn canonical_encoding_is_order_independent_and_domain_separated() {
-        let forward = CapabilitySetV1::v1(vec![screen_a(), file_b()]).unwrap();
-        let reverse = CapabilitySetV1::v1(vec![file_b(), screen_a()]).unwrap();
+        let forward = CapabilitySetV1::v1(vec![screen_a_limit(100), file_b_limit(200)]).unwrap();
+        let reverse = CapabilitySetV1::v1(vec![file_b_limit(200), screen_a_limit(100)]).unwrap();
 
         assert_eq!(forward.canonical_bytes(), reverse.canonical_bytes());
         assert!(forward.canonical_bytes().starts_with(CANONICAL_DOMAIN_V1));
@@ -506,11 +724,11 @@ mod tests {
     #[test]
     fn duplicate_tuples_and_unknown_schema_versions_fail_closed() {
         assert_eq!(
-            CapabilitySetV1::v1(vec![screen_a(), screen_a()]),
+            CapabilitySetV1::v1(vec![screen_a_limit(100), screen_a_limit(100)]),
             Err(ScopeError::DuplicateTuple)
         );
         assert_eq!(
-            CapabilitySetV1::new(99, vec![screen_a()]),
+            CapabilitySetV1::new(99, vec![screen_a_limit(100)]),
             Err(ScopeError::UnsupportedSchemaVersion(99))
         );
     }
@@ -518,43 +736,20 @@ mod tests {
     #[test]
     fn malformed_scope_atoms_fail_closed() {
         assert_eq!(
-            EffectTuple::new(EffectTupleSpec {
-                action: " ".to_string(),
-                resource: "host-A".to_string(),
-                direction: Direction::HostToDelegate,
-                audience: "viewer-A".to_string(),
-                purpose: "remote-support".to_string(),
-                data_class: "screen-frame".to_string(),
-                mode: EffectMode::Execute,
-                operation_binding: "screen-frame/v1".to_string(),
-            }),
+            ScopeValue::exact(" ", "action"),
             Err(ScopeError::EmptyAtom("action"))
         );
         assert_eq!(
-            EffectTuple::new(EffectTupleSpec {
-                action: "xenia.screen.view".to_string(),
-                resource: "host-A".to_string(),
-                direction: Direction::HostToDelegate,
-                audience: "viewer-A".to_string(),
-                purpose: "remote-support".to_string(),
-                data_class: "screen-frame".to_string(),
-                mode: EffectMode::Execute,
-                operation_binding: "bad\noperation".to_string(),
-            }),
-            Err(ScopeError::ControlCharacter("operation_binding"))
+            ScopeValue::exact("bad\nresource", "resource"),
+            Err(ScopeError::ControlCharacter("resource"))
         );
         assert_eq!(
-            EffectTuple::new(EffectTupleSpec {
-                action: "x".repeat(MAX_SCOPE_ATOM_BYTES + 1),
-                resource: "host-A".to_string(),
-                direction: Direction::HostToDelegate,
-                audience: "viewer-A".to_string(),
-                purpose: "remote-support".to_string(),
-                data_class: "screen-frame".to_string(),
-                mode: EffectMode::Execute,
-                operation_binding: "screen-frame/v1".to_string(),
-            }),
+            ScopeValue::exact("x".repeat(MAX_SCOPE_ATOM_BYTES + 1), "action"),
             Err(ScopeError::AtomTooLong("action"))
+        );
+        assert_eq!(
+            QuantitativeLimit::new("", 0),
+            Err(ScopeError::EmptyAtom("limit_dimension"))
         );
     }
 
@@ -562,28 +757,29 @@ mod tests {
     fn empty_relation_is_deny_all() {
         let deny_all = CapabilitySetV1::v1(Vec::new()).unwrap();
         assert!(deny_all.is_empty());
-        assert!(!deny_all.allows(&screen_a()));
-        assert!(deny_all.is_subset_of(&CapabilitySetV1::v1(vec![screen_a()]).unwrap()));
+        assert!(!deny_all.allows(&screen_a_limit(1)));
+        assert!(deny_all.is_subset_of(&CapabilitySetV1::v1(vec![screen_a_limit(1)]).unwrap()));
     }
 
     #[test]
     fn all_256_by_256_eight_tuple_relations_obey_subset_and_composition_laws() {
         let universe = (0..8)
             .map(|index| {
-                effect(EffectTupleSpec {
-                    action: format!("action-{index}"),
-                    resource: format!("resource-{index}"),
-                    direction: if index % 2 == 0 {
+                effect(
+                    exact(&format!("action-{index}")),
+                    exact(&format!("resource-{index}")),
+                    if index % 2 == 0 {
                         Direction::HostToDelegate
                     } else {
                         Direction::DelegateToHost
                     },
-                    audience: format!("audience-{index}"),
-                    purpose: format!("purpose-{index}"),
-                    data_class: format!("class-{index}"),
-                    mode: EffectMode::Execute,
-                    operation_binding: format!("operation-{index}/v1"),
-                })
+                    exact(&format!("audience-{index}")),
+                    exact(&format!("purpose-{index}")),
+                    exact(&format!("class-{index}")),
+                    EffectMode::Execute,
+                    exact(&format!("operation-{index}/v1")),
+                    QuantitativeLimit::new("operations", 100).unwrap(),
+                )
             })
             .collect::<Vec<_>>();
 
