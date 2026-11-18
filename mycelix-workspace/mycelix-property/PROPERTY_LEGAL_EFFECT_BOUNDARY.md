@@ -49,7 +49,7 @@ Before any operation projects an internal land/resource transfer as externally r
 
 The host must hold the operation when the result is review_required, not_evaluable, source currentness is unknown, a source is unavailable, there is an unresolved conflict, or an external operation's outcome is ambiguous. An unknown outcome must be reconciled against the external authority before retrying a mutation. Do not treat timeout, retries, consensus or model confidence as success.
 
-The current Mycelix-DeSci QualificationDisposition / QualificationDecisionPacketV0 code is a pure reference policy and audit-packet model. It is **not yet wired into this Property transaction coordinator**. It does not currently prevent the coordinator from updating internal state. That integration is a separate required work item tracked by [PROP-LEGAL-EFFECT-001](https://github.com/Luminous-Dynamics/mycelix/issues/6320).
+The current Mycelix-DeSci QualificationDisposition / QualificationDecisionPacketV0 code is a pure reference policy and audit-packet model. It is **not yet wired into this Property transaction coordinator**. It does not currently prevent the coordinator from updating internal state. That integration is a separate required work item tracked by [PROP-LEGAL-EFFECT-001 #6319](https://github.com/Luminous-Dynamics/mycelix/issues/6319).
 
 ## 4. Preserve plural rights and non-land asset behavior
 
