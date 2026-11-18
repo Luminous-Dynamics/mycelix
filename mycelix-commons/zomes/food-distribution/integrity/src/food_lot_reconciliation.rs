@@ -1495,8 +1495,8 @@ mod tests {
 
     #[test]
     fn recall_and_use_by_holds_prevent_recipe_eligibility() {
-        let mut request = request();
-        request.events = vec![event(
+        let mut recall_request = request();
+        recall_request.events = vec![event(
             "event:recall",
             0,
             None,
@@ -1505,20 +1505,20 @@ mod tests {
             None,
             None,
         )];
-        let report = reconcile_food_lot(&request);
+        let recall_report = reconcile_food_lot(&recall_request);
         assert_eq!(
-            report.recipe_planning_eligibility,
+            recall_report.recipe_planning_eligibility,
             FoodLotPlanningEligibilityV1::NotEligible
         );
         assert!(
-            report
+            recall_report
                 .issue_codes
                 .contains(&FoodLotReconciliationIssueCodeV1::RecallHold)
         );
 
-        let mut request = request();
-        request.lot.as_mut().unwrap().use_by_at = Some(1_719_000_000);
-        let report = reconcile_food_lot(&request);
+        let mut use_by_request = request();
+        use_by_request.lot.as_mut().unwrap().use_by_at = Some(1_719_000_000);
+        let report = reconcile_food_lot(&use_by_request);
         assert!(
             report
                 .issue_codes
@@ -1528,17 +1528,17 @@ mod tests {
 
     #[test]
     fn ambiguous_and_quarantined_receipts_are_not_eligible() {
-        let mut request = request();
-        request.receipt.as_mut().unwrap().receipt_state = "ambiguous".to_owned();
+        let mut ambiguous_request = request();
+        ambiguous_request.receipt.as_mut().unwrap().receipt_state = "ambiguous".to_owned();
         assert_eq!(
-            reconcile_food_lot(&request).recipe_planning_eligibility,
+            reconcile_food_lot(&ambiguous_request).recipe_planning_eligibility,
             FoodLotPlanningEligibilityV1::NotEligible
         );
 
-        let mut request = request();
-        request.receipt.as_mut().unwrap().receipt_state = "quarantined".to_owned();
+        let mut quarantined_request = request();
+        quarantined_request.receipt.as_mut().unwrap().receipt_state = "quarantined".to_owned();
         assert_eq!(
-            reconcile_food_lot(&request).recipe_planning_eligibility,
+            reconcile_food_lot(&quarantined_request).recipe_planning_eligibility,
             FoodLotPlanningEligibilityV1::NotEligible
         );
     }
@@ -1565,8 +1565,8 @@ mod tests {
 
     #[test]
     fn expired_future_or_regressed_event_times_are_conflicted() {
-        let mut request = request();
-        request.events = vec![
+        let mut regressed_request = request();
+        regressed_request.events = vec![
             event("event:open", 0, None, "Opened", 1_716_000_000, None, None),
             event(
                 "event:consume",
@@ -1579,13 +1579,13 @@ mod tests {
             ),
         ];
         assert_eq!(
-            reconcile_food_lot(&request).disposition,
+            reconcile_food_lot(&regressed_request).disposition,
             FoodLotReconciliationDispositionV1::Conflicted
         );
 
-        let mut request = request();
-        request.as_of = 1_710_000_000;
-        request.events = vec![event(
+        let mut future_request = request();
+        future_request.as_of = 1_710_000_000;
+        future_request.events = vec![event(
             "event:open",
             0,
             None,
@@ -1595,7 +1595,7 @@ mod tests {
             None,
         )];
         assert!(
-            reconcile_food_lot(&request)
+            reconcile_food_lot(&future_request)
                 .issue_codes
                 .contains(&FoodLotReconciliationIssueCodeV1::EventTimeRegression)
         );
@@ -1633,18 +1633,18 @@ mod tests {
 
     #[test]
     fn stale_revision_and_product_mismatch_are_conflicted() {
-        let mut request = request();
-        request.expected_lot_revision = 1;
+        let mut stale_revision_request = request();
+        stale_revision_request.expected_lot_revision = 1;
         assert!(
-            reconcile_food_lot(&request)
+            reconcile_food_lot(&stale_revision_request)
                 .issue_codes
                 .contains(&FoodLotReconciliationIssueCodeV1::StaleLotRevision)
         );
 
-        let mut request = request();
-        request.expected_product_ref = "mycelix:product:other".to_owned();
+        let mut product_mismatch_request = request();
+        product_mismatch_request.expected_product_ref = "mycelix:product:other".to_owned();
         assert!(
-            reconcile_food_lot(&request)
+            reconcile_food_lot(&product_mismatch_request)
                 .issue_codes
                 .contains(&FoodLotReconciliationIssueCodeV1::ProductMismatch)
         );
