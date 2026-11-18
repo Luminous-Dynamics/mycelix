@@ -83,3 +83,17 @@ The Food Distribution integrity zome now registers `ProducerLot` as a distinct e
 **Epistemic limit:** this proves that a particular Holochain agent authored a declaration. It does not prove that the agent is a legally registered producer, that the declared physical origin is true, that the material is authentic, or that it is fresh, safe, allergen-free, or suitable. A separate issuer/credential chain is required before describing an agent as an independently verified producer.
 
 Household receipts, pantry quantities, addresses, consumption and disposal remain local-private and are not fields in this public DHT entry. The current coordinator runtime adapter remains a separate follow-up; the integrity record itself does not create a household receipt.
+
+
+## Producer lot coordinator API V1
+
+The Food Distribution coordinator exposes:
+- `publish_producer_lot`: accepts only the typed lot declaration and an optional predecessor action hash. It derives `producer_author` from `agent_info().agent_initial_pubkey`, creates the immutable public entry, and adds a `ProducerToLot` index link.
+- `get_my_producer_lots`: uses the index for discovery but re-fetches and verifies each actual record's action author, typed `producer_author` and `producer_ref` before returning it.
+- `get_producer_lot_by_action_hash`: reads one exact action and rejects missing entries, wrong entry types, or author/DID mismatch.
+
+The `ProducerToLot` link is an index, not authority. A link alone never makes a record a lot, proves its author, or makes it eligible for a household recipe. Listings and Orders remain different entry types.
+
+These coordinator calls create and read only producer-side public lot declarations. They do not create a Listing, Order, household receipt, pantry/inventory record, consumption event or purchase. Household receipt/event storage remains local-private and is intentionally not exposed by these APIs.
+
+A successful author-bound read still establishes only that a Holochain agent authored the declaration. It does not establish legal producer registration, true geographic origin, product authenticity, freshness, safety, allergen status or suitability.
