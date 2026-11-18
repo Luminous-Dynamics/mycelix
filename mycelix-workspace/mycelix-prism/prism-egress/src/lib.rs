@@ -1595,7 +1595,7 @@ mod tests {
             WireDnsAnswer::Rebinding { first, subsequent } => {
                 (0u16, if query_count == 0 { first } else { subsequent }, false)
             }
-            WireDnsAnswer::TruncatedThenTcp(records) if !tcp => (0u16, Vec::new(), true),
+            WireDnsAnswer::TruncatedThenTcp(_records) if !tcp => (0u16, Vec::new(), true),
             WireDnsAnswer::TruncatedThenTcp(records) => (0u16, records, false),
         };
 
