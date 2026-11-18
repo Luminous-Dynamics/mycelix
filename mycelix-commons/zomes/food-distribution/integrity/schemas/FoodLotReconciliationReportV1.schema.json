@@ -129,6 +129,7 @@
           "current_time_unknown",
           "stale_or_missing_evidence",
           "invalid_evidence_class",
+          "unsupported_record_schema_version",
           "unsupported_exact_conversion",
           "insufficient_quantity",
           "invalid_quantity_record",
