@@ -621,6 +621,44 @@ mod tests {
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
     use tower::ServiceExt;
+    use std::sync::Arc;
+    use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+
+    struct TestLeasedBody {
+        bytes: Vec<u8>,
+        _permit: OwnedSemaphorePermit,
+    }
+
+    impl AsRef<[u8]> for TestLeasedBody {
+        fn as_ref(&self) -> &[u8] {
+            &self.bytes
+        }
+    }
+
+    #[tokio::test]
+    async fn axum_unpolled_downstream_body_holds_memory_lease_until_cancelled() {
+        let memory = Arc::new(Semaphore::new(1));
+        let permit = memory.clone().acquire_owned().await.unwrap();
+        let bytes = bytes::Bytes::from_owner(TestLeasedBody {
+            bytes: b"slow downstream payload".to_vec(),
+            _permit: permit,
+        });
+        let body = Body::from(bytes);
+
+        assert_eq!(
+            memory.available_permits(),
+            0,
+            "an unpolled downstream body must retain its response-memory lease"
+        );
+
+        // Dropping the body models a downstream disconnect/cancellation.
+        drop(body);
+        assert_eq!(
+            memory.available_permits(),
+            1,
+            "cancelling the downstream body must release its retained-memory lease"
+        );
+    }
 
     fn test_dist_dir() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
