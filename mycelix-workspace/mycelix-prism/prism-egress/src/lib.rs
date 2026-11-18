@@ -54,6 +54,23 @@ fn response_memory_semaphore() -> &'static Arc<Semaphore> {
         .get_or_init(|| Arc::new(Semaphore::new(RESPONSE_MEMORY_BUDGET_PERMITS)))
 }
 
+/// Total configured capacity of the process-wide retained response-body budget.
+pub const fn response_memory_budget_bytes() -> usize {
+    RESPONSE_MEMORY_BUDGET_BYTES
+}
+
+/// Snapshot of response-body budget capacity not currently reserved by live bodies.
+pub fn response_memory_budget_available_bytes() -> usize {
+    response_memory_semaphore()
+        .available_permits()
+        .saturating_mul(RESPONSE_MEMORY_PERMIT_UNIT_BYTES)
+}
+
+/// Snapshot of response-body budget currently reserved by in-flight or downstream bodies.
+pub fn response_memory_budget_reserved_bytes() -> usize {
+    RESPONSE_MEMORY_BUDGET_BYTES.saturating_sub(response_memory_budget_available_bytes())
+}
+
 /// Reserve the whole logical body budget in fixed 64 KiB units before buffering.
 /// Whole-budget reservations avoid deadlock from multiple streams holding partial
 /// weighted permits while waiting for more memory.
