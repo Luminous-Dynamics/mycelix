@@ -201,6 +201,15 @@ fn issue(
     issues.insert(code);
 }
 
+pub(super) fn validate_food_lot_quantity(
+    quantity: &FoodLotQuantityV1,
+) -> Result<(), FoodLotReconciliationIssueCodeV1> {
+    if quantity.value == 0 {
+        return Err(FoodLotReconciliationIssueCodeV1::InvalidQuantityRecord);
+    }
+    quantity_to_base(quantity).map(|_| ())
+}
+
 fn quantity_to_base(
     quantity: &FoodLotQuantityV1,
 ) -> Result<(QuantityBase, u128), FoodLotReconciliationIssueCodeV1> {
