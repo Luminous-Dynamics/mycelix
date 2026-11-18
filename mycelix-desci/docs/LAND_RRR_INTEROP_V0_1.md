@@ -27,6 +27,7 @@ The schema sets claim_ceiling to reference-only-no-legal-effect. A trusted host 
 
 - ISO 19152-1:2024 provides the generic LADM concepts: parties, basic administrative units, rights/responsibilities/restrictions, spatial units, sources and versioned objects.
 - ISO 19152-2:2025 provides the land-registration model, including space above and below the surface, surveying and spatial representation.
+- OGC Features and Geometries JSON (JSON-FG), released in May 2026, is an additional feature-payload encoding to test when extended CRS, geometry and feature-class semantics are needed; it does not establish legal boundary status or survey accuracy.
 - Sol Atlas owns the spatial assertion and its geometry/feature references. This Mycelix payload does not copy coordinates or polygons.
 - Mycelix EPI-008 owns typed temporal assertions and evidence-frontier semantics. Use temporal references where source precision is a calendar date, interval, open-ended period or uncertain time; do not coerce source dates into timestamps.
 - Mycelix LAND-STEWARD-001 #5277 / PR #5298 owns the consent-aware landscape project, site access, measurement and publication authorization profile.
@@ -72,6 +73,12 @@ The gate checks record structure and authority *kind* pairing. It does not authe
 All objects are closed against undeclared fields. Unknown jurisdictional source codes must be retained as source code plus profile reference. A generic mapping must never silently upgrade an assertion to an official registration or court outcome.
 
 
+
+## FELA and implementation constraints
+
+The UN-GGIM Sixth Expert Meeting on Land Administration and Management met in Cape Town on 29–30 May 2026 and emphasized bridging frameworks and implementation. FELA spans Governance, Technology and People. A 2026 comparative dataset of 85 jurisdictions reports that its 15-observation Eastern and Southern Sub-Saharan Africa sample (including South Africa, not a South Africa-specific estimate) had 6.7% registry API access, 13.3% cadastre API access and 46.7% registry/cadastre integration. This reinforces the design requirement to handle non-API sources, stale snapshots, offline capture, explicit source frontiers and assisted review. It is not evidence of the current condition of a particular South African register.
+
+Reference: [UN-GGIM FELA meeting material (2026)](https://www.un.org/globalgeospatial/sites/default/files/2026-06/fela.pdf); [2026 comparison of property institutions in 85 jurisdictions](https://doi.org/10.1016/j.worlddev.2026.107354); [OGC JSON-FG announcement (21 May 2026)](https://www.ogc.org/announcement/ogc-releases-the-features-and-geometries-json-json-fg-standard/).
 
 ## Auditable qualification decision packet
 
