@@ -7,6 +7,7 @@
 use food_distribution_integrity::*;
 use hdk::prelude::*;
 use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_bridge_entry_types::did_for_author;
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::records_from_links;
 
@@ -126,6 +127,120 @@ pub fn get_producer_listings(_: ()) -> ExternResult<Vec<Record>> {
         GetStrategy::default(),
     )?;
     records_from_links(links)
+}
+
+// ============================================================================
+// PRODUCER LOT DECLARATIONS (PUBLIC, APPEND-ONLY; NOT HOUSEHOLD INVENTORY)
+// ============================================================================
+
+/// A producer-lot declaration request. Author identity is derived exclusively
+/// from the current Holochain agent; callers cannot nominate another author.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PublishProducerLotInput {
+    pub lot: FoodLotProvenanceV1,
+    pub previous_revision: Option<ActionHash>,
+}
+
+fn verify_producer_lot_record(
+    record: &Record,
+    lot_record: &ProducerLotRecordV1,
+) -> ExternResult<()> {
+    let action_author = record.action().author();
+    if &lot_record.producer_author != action_author
+        || lot_record.lot.producer_ref != did_for_author(action_author)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Producer lot author binding does not match the signed action".into(),
+        )));
+    }
+    Ok(())
+}
+
+/// Publish one public producer-side lot declaration. This creates no listing,
+/// order, household receipt, pantry record or consumption event.
+#[hdk_extern]
+pub fn publish_producer_lot(input: PublishProducerLotInput) -> ExternResult<Record> {
+    let author = agent_info()?.agent_initial_pubkey;
+    if input.lot.producer_ref != did_for_author(&author) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "producer_ref must identify the current signed agent".into(),
+        )));
+    }
+
+    let lot_ref = input.lot.lot_ref.clone();
+    let entry = ProducerLotRecordV1 {
+        lot: Box::new(input.lot),
+        producer_author: author.clone(),
+        previous_revision: input.previous_revision,
+    };
+    let action_hash = create_entry(&EntryTypes::ProducerLot(entry))?;
+    create_link(
+        author,
+        action_hash.clone(),
+        LinkTypes::ProducerToLot,
+        LinkTag(lot_ref.into_bytes()),
+    )?;
+
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Could not retrieve the producer lot declaration just created".into())
+    ))
+}
+
+/// Read all producer-lot declarations indexed for the current agent. The link
+/// is only an index: every target is re-fetched and its signed author/DID binding
+/// is verified before it is returned.
+#[hdk_extern]
+pub fn get_my_producer_lots(_: ()) -> ExternResult<Vec<Record>> {
+    let author = agent_info()?.agent_initial_pubkey;
+    let links = get_links(
+        LinkQuery::try_new(author.clone(), LinkTypes::ProducerToLot)?,
+        GetStrategy::default(),
+    )?;
+    let mut records = Vec::new();
+    let mut seen = std::collections::BTreeSet::new();
+
+    for link in links {
+        let record = match get(link.target.clone(), GetOptions::default())? {
+            Some(record) => record,
+            None => continue,
+        };
+        let entry = record
+            .entry()
+            .to_app_option::<ProducerLotRecordV1>()
+            .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?;
+        let Some(lot_record) = entry else {
+            continue;
+        };
+        if verify_producer_lot_record(&record, &lot_record).is_err()
+            || lot_record.producer_author != author
+        {
+            continue;
+        }
+        let action_hash = record.action_address().clone();
+        if seen.insert(action_hash) {
+            records.push(record);
+        }
+    }
+    records.sort_by(|left, right| left.action_address().cmp(right.action_address()));
+    Ok(records)
+}
+
+/// Read one exact producer-lot action. A Listing, Order, missing record or
+/// mismatched author is an explicit error, never a fallback lot.
+#[hdk_extern]
+pub fn get_producer_lot_by_action_hash(action_hash: ActionHash) -> ExternResult<Record> {
+    let record = get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Producer lot action was not found".into())
+    ))?;
+    let entry = record
+        .entry()
+        .to_app_option::<ProducerLotRecordV1>()
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?;
+    let lot_record = entry.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Requested action is not a canonical ProducerLotRecordV1".into()
+    )))?;
+    verify_producer_lot_record(&record, &lot_record)?;
+    Ok(record)
 }
 
 // ============================================================================
@@ -351,6 +466,47 @@ pub fn get_nearby_distribution(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn publish_producer_lot_input_roundtrips_without_client_author_field() {
+        let input = PublishProducerLotInput {
+            lot: FoodLotProvenanceV1 {
+                schema_version: 1,
+                lot_ref: "mycelix:food-lot:rice-lot-001".to_owned(),
+                revision: 1,
+                product_ref: "product:rice-brown".to_owned(),
+                producer_ref: "did:mycelix:agent".to_owned(),
+                supplier_lot_code: Some("SUPPLIER-001".to_owned()),
+                listing_ref: None,
+                origin_ref: None,
+                quantity: FoodLotQuantityV1 {
+                    dimension: "mass".to_owned(),
+                    value: 10_000,
+                    decimal_places: 0,
+                    unit: "g".to_owned(),
+                },
+                harvested_at: None,
+                packed_at: None,
+                best_before_at: None,
+                use_by_at: None,
+                handling_ref: None,
+                evidence: FoodLotEvidenceV1 {
+                    source_ref: "producer-declaration:001".to_owned(),
+                    evidence_class: "Declared".to_owned(),
+                    method_ref: None,
+                    calibration_ref: None,
+                },
+                claim_ceiling: FOOD_LOT_PROVENANCE_CLAIM_CEILING.to_owned(),
+            },
+            previous_revision: None,
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        assert!(!json.contains("producer_author"));
+        assert!(!json.contains("household_receipt"));
+        let decoded: PublishProducerLotInput = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.lot.lot_ref, "mycelix:food-lot:rice-lot-001");
+        assert_eq!(decoded.previous_revision, None);
+    }
 
     #[test]
     fn update_order_status_input_serde_fulfilled() {

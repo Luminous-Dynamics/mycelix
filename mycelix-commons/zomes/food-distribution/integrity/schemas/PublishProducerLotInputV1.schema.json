@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/food/PublishProducerLotInputV1.schema.json",
+  "title": "PublishProducerLotInputV1",
+  "description": "Coordinator request for a public producer-side lot declaration. The coordinator derives producer_author from agent_info().agent_initial_pubkey. Callers cannot supply author identity, household receipt or pantry state.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lot", "previous_revision"],
+  "properties": {
+    "lot": {
+      "$ref": "https://luminousdynamics.io/schemas/food/FoodLotProvenanceV1.schema.json"
+    },
+    "previous_revision": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Exact action hash of the preceding immutable ProducerLotRecordV1 revision; null only for revision 1."
+    }
+  }
+}
