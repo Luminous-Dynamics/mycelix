@@ -433,3 +433,25 @@ Additional implementation and industry references:
 - Kubernetes NetworkPolicy: https://kubernetes.io/docs/concepts/services-networking/network-policies/ — default-deny egress also blocks DNS until DNS is separately allowed.
 - AWS outbound network security guidance: https://docs.aws.amazon.com/prescriptive-guidance/latest/secure-outbound-network-traffic/ — combines security groups, DNS hostname filtering, and network firewalls.
 
+
+
+## HTTP/1 pre-parse aggregate-header-byte research update
+
+Reqwest exposes a parser-level HTTP/1 header-count limit, but the egress implementation still has no configured aggregate response-header-byte ceiling before parsing. A post-parse 64 KiB check cannot prevent allocations incurred while the parser constructs a large single header value.
+
+A test-only feasibility probe has been added to prism-egress:
+- Hyper 1.12.0, Hyper-util 0.1.21 and http-body-util 0.1.5 are dev-dependencies only; production still uses Reqwest 0.13.5.
+- The local HTTP/1 fixture sends the same >4 KiB single-header response in two cases. The negative control omits max_header_size; the bounded case sets a 1 KiB limit.
+- The intended assertion is that the negative control parses successfully and the bounded Hyper parser rejects before returning a response object.
+- The scenario is tracked as partial source coverage in docs/peab-scenarios-v0.1.json; it remains unexecuted and does not close the production limitation.
+
+Hyper documents max_header_size as a maximum response-header size including the status line, also applied to chunked trailers. Hyper's max_headers option additionally changes response-header storage from a stack buffer to heap allocation and its documentation reports an approximately 5% performance impact. This is a reason to measure the complete transport path, not to assume Hyper is faster or automatically safer in production.
+
+Before any production transport change, prototype and test:
+1. DNS pinning to the full authorized address set without a second lookup or connection-pool cross-authority reuse.
+2. Original hostname preservation for Host, SNI and certificate verification.
+3. HTTP/1 and HTTP/2 parity, ALPN behavior, redirect hop re-authorization and retry disabling.
+4. Connect/operation deadlines, cancellation, response decompression limits and the EgressBody memory lease across downstream handoff.
+5. Slow/aborted server behavior and parser allocation/RSS measurements.
+
+Reference: Hyper 1.12.0 HTTP/1 client connection builder, max_header_size and max_headers: https://docs.rs/hyper/1.12.0/hyper/client/conn/http1/struct.Builder.html
