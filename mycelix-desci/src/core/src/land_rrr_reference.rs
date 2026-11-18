@@ -555,6 +555,273 @@ pub const fn qualification_disposition(outcome: TibEvaluationOutcome) -> Qualifi
     }
 }
 
+pub const LAND_QUALIFICATION_DECISION_PACKET_SCHEMA: &str =
+    "mycelix.land-qualification-decision-packet.v0";
+pub const LAND_QUALIFICATION_DECISION_PACKET_SCHEMA_URI: &str =
+    "https://luminousdynamics.io/schemas/mycelix-land-qualification-decision-packet-v0.schema.json";
+
+/// Dispositions that require an auditable human/external-authority review packet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DecisionPacketOutcome {
+    ReviewRequired,
+    NotEvaluable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DecisionPacketMutationBoundary {
+    ReadOnlyNoAuthoritativeMutation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DecisionPacketFrontierCoverage {
+    CompleteWithinDeclaredScope,
+    Partial,
+    Unavailable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DecisionPacketSourceState {
+    ReferenceOnly,
+    CurrentnessUnverified,
+    Stale,
+    Revoked,
+    Inaccessible,
+    Conflicting,
+    GeometryUnqualified,
+    ProvenanceUnverified,
+    PermissionUnverified,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DecisionPacketReviewDomain {
+    LegalAuthority,
+    LandSurvey,
+    CommunityGovernance,
+    EnvironmentalScience,
+    PrivacyAndDataGovernance,
+    Other,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DecisionPacketTargetSourceRecord {
+    pub record_reference: String,
+    pub record_sha256: String,
+    pub assertion_reference: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DecisionPacketFrontier {
+    pub frontier_reference: String,
+    pub scope: String,
+    pub assessed_at: String,
+    pub coverage: DecisionPacketFrontierCoverage,
+    pub included_source_references: Vec<String>,
+    pub excluded_or_unavailable_source_references: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DecisionPacketSource {
+    pub source_reference: String,
+    pub source_role: String,
+    #[serde(default)]
+    pub snapshot_sha256: Option<String>,
+    #[serde(default)]
+    pub captured_at: Option<String>,
+    pub qualification_state: DecisionPacketSourceState,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DecisionPacketGap {
+    pub gap_id: String,
+    pub severity: String,
+    pub description: String,
+    pub required_evidence_or_action: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DecisionPacketReviewRequirement {
+    pub review_domain: DecisionPacketReviewDomain,
+    pub reviewer_role: String,
+    pub question: String,
+    pub mandatory: bool,
+}
+
+/// Portable explanation of why a territorial operation must remain held.
+///
+/// The packet preserves the evidence frontier, source states, material gaps,
+/// required reviewer competencies and recheck triggers. It is not a legal
+/// decision, title certificate, credential, consent receipt or authorization.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QualificationDecisionPacketV0 {
+    pub schema: String,
+    pub packet_id: String,
+    pub created_at: String,
+    pub policy_reference: String,
+    pub target_operation: String,
+    pub target_source_record: DecisionPacketTargetSourceRecord,
+    pub outcome: DecisionPacketOutcome,
+    pub mutation_boundary: DecisionPacketMutationBoundary,
+    pub frontier: DecisionPacketFrontier,
+    pub sources: Vec<DecisionPacketSource>,
+    pub gaps: Vec<DecisionPacketGap>,
+    pub review_requirements: Vec<DecisionPacketReviewRequirement>,
+    pub recheck_triggers: Vec<String>,
+    #[serde(default)]
+    pub dissent_or_conflict_references: Vec<String>,
+    pub limitations: Vec<String>,
+}
+
+impl QualificationDecisionPacketV0 {
+    /// Check packet structure and internal references only.
+    ///
+    /// This does not resolve source URIs, authenticate any authority, establish
+    /// legal status, prove that a reviewer is competent, or enforce a host
+    /// transaction freeze. The packet is an auditable hold explanation.
+    pub fn validate_structural(&self) -> Result<(), Vec<String>> {
+        let mut issues = Vec::new();
+
+        for (field, value) in [
+            ("schema", self.schema.as_str()),
+            ("packet_id", self.packet_id.as_str()),
+            ("policy_reference", self.policy_reference.as_str()),
+            ("target_operation", self.target_operation.as_str()),
+            ("target_source_record.record_reference", self.target_source_record.record_reference.as_str()),
+            ("target_source_record.assertion_reference", self.target_source_record.assertion_reference.as_str()),
+            ("frontier.frontier_reference", self.frontier.frontier_reference.as_str()),
+            ("frontier.scope", self.frontier.scope.as_str()),
+        ] {
+            require(field, value, &mut issues);
+        }
+
+        if self.schema != LAND_QUALIFICATION_DECISION_PACKET_SCHEMA {
+            issues.push("unsupported qualification decision packet schema".into());
+        }
+        if !is_sha256(&self.target_source_record.record_sha256) {
+            issues.push("target_source_record.record_sha256 must be 64 lowercase hex characters".into());
+        }
+        if DateTime::parse_from_rfc3339(&self.created_at).is_err() {
+            issues.push("created_at must be RFC 3339".into());
+        }
+        if DateTime::parse_from_rfc3339(&self.frontier.assessed_at).is_err() {
+            issues.push("frontier.assessed_at must be RFC 3339".into());
+        }
+        if self.mutation_boundary != DecisionPacketMutationBoundary::ReadOnlyNoAuthoritativeMutation {
+            issues.push("qualification packet must prohibit authoritative mutation".into());
+        }
+
+        let mut source_references = HashSet::new();
+        for source in &self.sources {
+            require("source.source_reference", &source.source_reference, &mut issues);
+            require("source.source_role", &source.source_role, &mut issues);
+            require("source.reason", &source.reason, &mut issues);
+            if !source_references.insert(source.source_reference.as_str()) {
+                issues.push(format!(
+                    "duplicate decision packet source reference {}",
+                    source.source_reference
+                ));
+            }
+            if source
+                .snapshot_sha256
+                .as_deref()
+                .is_some_and(|digest| !is_sha256(digest))
+            {
+                issues.push(format!(
+                    "source {} has an invalid snapshot SHA-256",
+                    source.source_reference
+                ));
+            }
+            if source
+                .captured_at
+                .as_deref()
+                .is_some_and(|timestamp| DateTime::parse_from_rfc3339(timestamp).is_err())
+            {
+                issues.push(format!(
+                    "source {} captured_at must be RFC 3339",
+                    source.source_reference
+                ));
+            }
+            if source.qualification_state == DecisionPacketSourceState::Inaccessible
+                && source.snapshot_sha256.is_some()
+            {
+                issues.push(format!(
+                    "inaccessible source {} must not claim a retrieved snapshot digest",
+                    source.source_reference
+                ));
+            }
+        }
+
+        if self.sources.is_empty() {
+            issues.push("decision packet must include at least one source assessment".into());
+        }
+        if self.gaps.is_empty() {
+            issues.push("decision packet must identify at least one unresolved gap".into());
+        }
+        if self.review_requirements.is_empty() {
+            issues.push("decision packet must identify at least one review requirement".into());
+        }
+        if self.recheck_triggers.is_empty()
+            || self.recheck_triggers.iter().any(|trigger| trigger.trim().is_empty())
+        {
+            issues.push("decision packet must include non-empty recheck triggers".into());
+        }
+        if self.limitations.is_empty()
+            || self.limitations.iter().any(|limitation| limitation.trim().is_empty())
+        {
+            issues.push("decision packet must state its limitations".into());
+        }
+        if self.outcome == DecisionPacketOutcome::NotEvaluable
+            && self.frontier.coverage == DecisionPacketFrontierCoverage::CompleteWithinDeclaredScope
+        {
+            issues.push(
+                "not_evaluable outcome requires partial or unavailable frontier coverage".into(),
+            );
+        }
+
+        let mut gap_ids = HashSet::new();
+        for gap in &self.gaps {
+            require("gap.gap_id", &gap.gap_id, &mut issues);
+            require("gap.severity", &gap.severity, &mut issues);
+            require("gap.description", &gap.description, &mut issues);
+            require(
+                "gap.required_evidence_or_action",
+                &gap.required_evidence_or_action,
+                &mut issues,
+            );
+            if !gap_ids.insert(gap.gap_id.as_str()) {
+                issues.push(format!("duplicate decision packet gap id {}", gap.gap_id));
+            }
+        }
+
+        for review in &self.review_requirements {
+            require("review.reviewer_role", &review.reviewer_role, &mut issues);
+            require("review.question", &review.question, &mut issues);
+        }
+
+        if issues.is_empty() {
+            Ok(())
+        } else {
+            Err(issues)
+        }
+    }
+
+    /// A decision packet is never an authorization to mutate authoritative state.
+    pub const fn allows_authoritative_mutation(&self) -> bool {
+        false
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -837,5 +1104,104 @@ mod tib_qualification_policy_tests {
     #[test]
     fn unknown_benchmark_outcomes_fail_to_deserialize() {
         assert!(serde_json::from_str::<TibEvaluationOutcome>("\"legal_title_confirmed\"").is_err());
+    }
+}
+
+
+#[cfg(test)]
+mod decision_packet_tests {
+    use super::*;
+
+    fn packet() -> QualificationDecisionPacketV0 {
+        serde_json::from_str(include_str!(
+            "../../../examples/land-qualification-decision-packet-synthetic-v0.json"
+        ))
+        .expect("synthetic decision packet must deserialize")
+    }
+
+    #[test]
+    fn synthetic_review_packet_is_structurally_valid_and_never_authorizes_mutation() {
+        let value = packet();
+        assert_eq!(value.validate_structural(), Ok(()));
+        assert!(!value.allows_authoritative_mutation());
+    }
+
+    #[test]
+    fn decision_packet_schema_document_is_valid_and_pins_schema_identity() {
+        let schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../schemas/land-qualification-decision-packet-v0.schema.json"
+        ))
+        .expect("decision packet schema must parse");
+        assert_eq!(
+            schema["$schema"],
+            "https://json-schema.org/draft/2020-12/schema"
+        );
+        assert_eq!(
+            schema["$id"],
+            LAND_QUALIFICATION_DECISION_PACKET_SCHEMA_URI
+        );
+    }
+
+    #[test]
+    fn inaccessible_source_cannot_claim_a_retrieved_snapshot_digest() {
+        let mut value = packet();
+        value.sources[0].qualification_state = DecisionPacketSourceState::Inaccessible;
+        let issues = value
+            .validate_structural()
+            .expect_err("inaccessible source must not carry retrieved snapshot identity");
+        assert!(issues.iter().any(|issue| {
+            issue.contains("must not claim a retrieved snapshot digest")
+        }));
+    }
+
+    #[test]
+    fn duplicate_source_references_are_rejected() {
+        let mut value = packet();
+        value.sources.push(value.sources[0].clone());
+        let issues = value
+            .validate_structural()
+            .expect_err("duplicate source identity must be rejected");
+        assert!(issues
+            .iter()
+            .any(|issue| issue.contains("duplicate decision packet source reference")));
+    }
+
+    #[test]
+    fn not_evaluable_requires_incomplete_frontier_coverage() {
+        let mut value = packet();
+        value.outcome = DecisionPacketOutcome::NotEvaluable;
+        value.frontier.coverage = DecisionPacketFrontierCoverage::CompleteWithinDeclaredScope;
+        let issues = value
+            .validate_structural()
+            .expect_err("not_evaluable cannot claim complete declared coverage");
+        assert!(issues
+            .iter()
+            .any(|issue| issue.contains("not_evaluable outcome requires partial or unavailable frontier coverage")));
+    }
+
+    #[test]
+    fn mutation_authorization_boundary_is_not_deserializable() {
+        let mut raw: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../examples/land-qualification-decision-packet-synthetic-v0.json"
+        ))
+        .expect("synthetic decision packet must parse");
+        raw["mutation_boundary"] = serde_json::Value::String("authoritative_mutation_allowed".into());
+        assert!(
+            serde_json::from_value::<QualificationDecisionPacketV0>(raw).is_err()
+        );
+    }
+
+    #[test]
+    fn review_packet_requires_explicit_reviewers_rechecks_and_limitations() {
+        let mut value = packet();
+        value.review_requirements.clear();
+        value.recheck_triggers.clear();
+        value.limitations.clear();
+        let issues = value
+            .validate_structural()
+            .expect_err("review packet must not omit review and recheck requirements");
+        assert!(issues.iter().any(|issue| issue.contains("at least one review requirement")));
+        assert!(issues.iter().any(|issue| issue.contains("non-empty recheck triggers")));
+        assert!(issues.iter().any(|issue| issue.contains("state its limitations")));
     }
 }
