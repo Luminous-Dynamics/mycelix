@@ -1307,6 +1307,26 @@ mod decision_packet_tests {
     }
 
     #[test]
+    fn not_evaluable_packet_can_record_an_unavailable_source_frontier() {
+        let mut value = packet();
+        value.outcome = DecisionPacketOutcome::NotEvaluable;
+        value.frontier.coverage = DecisionPacketFrontierCoverage::Unavailable;
+        value.frontier.included_source_references.clear();
+        value.frontier.excluded_or_unavailable_source_references.clear();
+        for source in &mut value.sources {
+            source.qualification_state = DecisionPacketSourceState::Inaccessible;
+            source.snapshot_sha256 = None;
+            source.captured_at = None;
+            value
+                .frontier
+                .excluded_or_unavailable_source_references
+                .push(source.source_reference.clone());
+        }
+        assert_eq!(value.validate_structural(), Ok(()));
+        assert!(!value.allows_authoritative_mutation());
+    }
+
+    #[test]
     fn review_packet_requires_explicit_reviewers_rechecks_and_limitations() {
         let mut value = packet();
         value.review_requirements.clear();
