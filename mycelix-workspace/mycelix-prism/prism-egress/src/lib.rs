@@ -1517,7 +1517,7 @@ mod tests {
             let key = (normalized.clone(), query_type);
             let count = state.query_counts.entry(key).or_insert(0);
             let query_count = *count;
-            *count = count.saturating_add(1);
+            *count = (*count).saturating_add(1);
             (state.answers.get(&normalized).cloned(), query_count)
         };
 
