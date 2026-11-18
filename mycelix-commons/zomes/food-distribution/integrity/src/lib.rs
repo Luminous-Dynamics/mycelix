@@ -140,7 +140,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
                 EntryTypes::ProducerLot(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Producer lot declarations are immutable; publish a linked next revision".into(),
+                    "Producer lot declarations are immutable; publish a linked next revision"
+                        .into(),
                 )),
                 EntryTypes::Market(m) => validate_market(m),
                 EntryTypes::Listing(l) => validate_listing(l),
@@ -173,7 +174,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     ));
                 }
                 Ok(ValidateCallbackResult::Valid)
-            },
+            }
             LinkTypes::ProducerToLot => {
                 if tag.0.len() > 256 {
                     return Ok(ValidateCallbackResult::Invalid(
@@ -221,7 +222,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
             ) {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "Producer lot declarations are immutable; publish a linked next revision".into(),
+                    "Producer lot declarations are immutable; publish a linked next revision"
+                        .into(),
                 ));
             }
             let action = match &update {
@@ -289,10 +291,16 @@ fn validate_producer_lot_fields(
         return Err("product_ref must be non-empty and at most 512 bytes".into());
     }
     if lot.producer_ref != did_for_author(action_author) {
-        return Err("producer_ref must equal the canonical DID of the signed Holochain action author".into());
+        return Err(
+            "producer_ref must equal the canonical DID of the signed Holochain action author"
+                .into(),
+        );
     }
     if food_lot_reconciliation::validate_food_lot_quantity(&lot.quantity).is_err() {
-        return Err("Producer lot quantity must be positive, dimensionally valid and exactly representable".into());
+        return Err(
+            "Producer lot quantity must be positive, dimensionally valid and exactly representable"
+                .into(),
+        );
     }
     if lot.evidence.source_ref.trim().is_empty() || lot.evidence.source_ref.len() > 512 {
         return Err("Evidence source_ref must be non-empty and at most 512 bytes".into());
@@ -300,29 +308,49 @@ fn validate_producer_lot_fields(
     match lot.evidence.evidence_class.as_str() {
         "Declared" | "Attested" | "Modelled" => {}
         "Measured" => {
-            if lot.evidence.calibration_ref.as_deref().is_none_or(|value| value.trim().is_empty()) {
+            if lot
+                .evidence
+                .calibration_ref
+                .as_deref()
+                .is_none_or(|value| value.trim().is_empty())
+            {
                 return Err("Measured lot evidence requires a calibration reference".into());
             }
         }
         "IndependentlyAssayed" | "IndependentlyQualified" => {
-            if lot.evidence.method_ref.as_deref().is_none_or(|value| value.trim().is_empty()) {
+            if lot
+                .evidence
+                .method_ref
+                .as_deref()
+                .is_none_or(|value| value.trim().is_empty())
+            {
                 return Err("Independent lot evidence requires a method reference".into());
             }
         }
         _ => return Err("Unsupported producer lot evidence class".into()),
     }
     if lot.claim_ceiling != food_lot_reconciliation::FOOD_LOT_PROVENANCE_CLAIM_CEILING {
-        return Err("Producer lot claim ceiling does not match the fixed source-declaration contract".into());
+        return Err(
+            "Producer lot claim ceiling does not match the fixed source-declaration contract"
+                .into(),
+        );
     }
-    if lot.harvested_at.zip(lot.packed_at).is_some_and(|(harvested, packed)| packed < harvested) {
+    if lot
+        .harvested_at
+        .zip(lot.packed_at)
+        .is_some_and(|(harvested, packed)| packed < harvested)
+    {
         return Err("packed_at cannot precede harvested_at".into());
     }
     let origin_time = lot.packed_at.or(lot.harvested_at);
     if origin_time.is_some_and(|origin| {
-        lot.best_before_at.is_some_and(|best_before| best_before < origin)
+        lot.best_before_at
+            .is_some_and(|best_before| best_before < origin)
             || lot.use_by_at.is_some_and(|use_by| use_by < origin)
     }) {
-        return Err("best-before/use-by dates cannot precede the known harvest/packing time".into());
+        return Err(
+            "best-before/use-by dates cannot precede the known harvest/packing time".into(),
+        );
     }
     for optional_ref in [
         lot.supplier_lot_code.as_deref(),
@@ -344,7 +372,10 @@ fn validate_producer_lot_record_author(
     action_author: &AgentPubKey,
 ) -> Result<(), String> {
     if record.producer_author != *action_author {
-        return Err("producer_author must equal the cryptographic author of the Holochain Create action".into());
+        return Err(
+            "producer_author must equal the cryptographic author of the Holochain Create action"
+                .into(),
+        );
     }
     validate_producer_lot_fields(&record.lot, action_author)
 }
@@ -362,7 +393,8 @@ fn validate_producer_lot(
             "The first producer lot revision cannot name a predecessor".into(),
         )),
         (_, None) => Ok(ValidateCallbackResult::Invalid(
-            "Every producer lot revision after revision 1 must link its exact predecessor action".into(),
+            "Every producer lot revision after revision 1 must link its exact predecessor action"
+                .into(),
         )),
         (revision, Some(previous_hash)) => {
             let previous_record = must_get_valid_record(previous_hash.clone())?;
@@ -1391,8 +1423,7 @@ mod tests {
                 method_ref: None,
                 calibration_ref: None,
             },
-            claim_ceiling: food_lot_reconciliation::FOOD_LOT_PROVENANCE_CLAIM_CEILING
-                .to_owned(),
+            claim_ceiling: food_lot_reconciliation::FOOD_LOT_PROVENANCE_CLAIM_CEILING.to_owned(),
         }
     }
 
@@ -1481,5 +1512,4 @@ mod tests {
         assert!(validate_producer_lot_fields(&first, &first_author).is_ok());
         assert!(validate_producer_lot_fields(&second, &second_author).is_ok());
     }
-
 }
