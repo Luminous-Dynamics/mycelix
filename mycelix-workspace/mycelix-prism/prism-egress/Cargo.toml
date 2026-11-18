@@ -20,3 +20,5 @@ serde_json = { workspace = true }
 # Exercise original-host SNI and certificate-name verification on local TLS sockets.
 rcgen = "=0.14.10"
 tokio-rustls = { version = "=0.26.6", default-features = false, features = ["aws_lc_rs", "tls12"] }
+# Real DNS wire-protocol conformance fixture; production remains on the OS resolver.
+hickory-resolver = { version = "=0.26.3", default-features = false, features = ["tokio"] }
