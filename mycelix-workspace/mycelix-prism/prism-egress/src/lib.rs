@@ -1856,6 +1856,47 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn hermetic_dns_truncation_retries_over_tcp_and_preserves_address_policy() {
+        let dns = WireDnsFixture::start().await;
+        dns.set_answer(
+            "tcp-fallback.test",
+            WireDnsAnswer::TruncatedThenTcp(vec![WireDnsRecord::A(
+                "93.184.216.34".parse().unwrap(),
+                30,
+            )]),
+        );
+
+        let resolver = HickoryWireResolver::new(dns.address);
+        let client = PublicEgressClient::with_resolver(EgressLimits::default(), resolver);
+        let capability = client
+            .authorize(
+                Method::GET,
+                "https://tcp-fallback.test/document",
+                HeaderMap::new(),
+                Vec::new(),
+            )
+            .await
+            .expect("Hickory must retry a truncated UDP reply over TCP");
+
+        assert_eq!(
+            capability.addresses,
+            vec!["93.184.216.34:443".parse().unwrap()]
+        );
+        for query_type in [1, 28] {
+            assert_eq!(
+                dns.query_count("tcp-fallback.test", query_type),
+                1,
+                "the resolver should first query UDP for DNS type {query_type}"
+            );
+            assert_eq!(
+                dns.tcp_query_count("tcp-fallback.test", query_type),
+                1,
+                "a truncated UDP response must retry DNS type {query_type} over TCP"
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn wire_dns_rebinding_after_authorization_cannot_change_the_connected_peer() {
         use std::net::{IpAddr, Ipv6Addr, SocketAddr};
         use tokio::io::AsyncWriteExt;
