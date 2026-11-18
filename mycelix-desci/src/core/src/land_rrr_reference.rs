@@ -765,6 +765,33 @@ impl QualificationDecisionPacketV0 {
             }
         }
 
+        match self.frontier.coverage {
+            DecisionPacketFrontierCoverage::CompleteWithinDeclaredScope => {
+                if included_references.is_empty() || !excluded_references.is_empty() {
+                    issues.push(
+                        "complete frontier requires included sources and no excluded/unavailable sources"
+                            .into(),
+                    );
+                }
+            }
+            DecisionPacketFrontierCoverage::Partial => {
+                if included_references.is_empty() || excluded_references.is_empty() {
+                    issues.push(
+                        "partial frontier requires both included and excluded/unavailable sources"
+                            .into(),
+                    );
+                }
+            }
+            DecisionPacketFrontierCoverage::Unavailable => {
+                if !included_references.is_empty() || excluded_references.is_empty() {
+                    issues.push(
+                        "unavailable frontier requires no included sources and at least one excluded/unavailable source"
+                            .into(),
+                    );
+                }
+            }
+        }
+
         let mut source_references = HashSet::new();
         for source in &self.sources {
             require("source.source_reference", &source.source_reference, &mut issues);
@@ -824,6 +851,14 @@ impl QualificationDecisionPacketV0 {
 
         if self.sources.is_empty() {
             issues.push("decision packet must include at least one source assessment".into());
+        }
+
+        for reference in included_references.iter().chain(excluded_references.iter()) {
+            if !source_references.contains(reference) {
+                issues.push(format!(
+                    "frontier source reference {reference} has no source assessment"
+                ));
+            }
         }
         if self.gaps.is_empty() {
             issues.push("decision packet must identify at least one unresolved gap".into());
@@ -1335,6 +1370,45 @@ mod decision_packet_tests {
         }
         assert_eq!(value.validate_structural(), Ok(()));
         assert!(!value.allows_authoritative_mutation());
+    }
+
+    #[test]
+    fn complete_frontier_rejects_unavailable_sources() {
+        let mut value = packet();
+        value.frontier.coverage = DecisionPacketFrontierCoverage::CompleteWithinDeclaredScope;
+        let issues = value
+            .validate_structural()
+            .expect_err("complete frontier cannot list excluded sources");
+        assert!(issues.iter().any(|issue| {
+            issue.contains("complete frontier requires included sources")
+        }));
+    }
+
+    #[test]
+    fn partial_frontier_requires_both_included_and_unavailable_sources() {
+        let mut value = packet();
+        value.frontier.excluded_or_unavailable_source_references.clear();
+        let issues = value
+            .validate_structural()
+            .expect_err("partial frontier must expose its unavailable sources");
+        assert!(issues
+            .iter()
+            .any(|issue| issue.contains("partial frontier requires both included and excluded")));
+    }
+
+    #[test]
+    fn frontier_cannot_name_a_source_without_a_source_assessment() {
+        let mut value = packet();
+        value
+            .frontier
+            .included_source_references
+            .push("urn:synthetic:unassessed-source".into());
+        let issues = value
+            .validate_structural()
+            .expect_err("frontier source must have a source assessment");
+        assert!(issues
+            .iter()
+            .any(|issue| issue.contains("has no source assessment")));
     }
 
     #[test]
