@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-relational-capability-reference"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Finite reference model for relational capability-set containment"
+
+[lib]
+path = "src/lib.rs"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[workspace]
