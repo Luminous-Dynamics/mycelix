@@ -8,6 +8,10 @@ on:
       - "mycelix-desci/src/core/src/land_rrr_reference.rs"
       - "mycelix-desci/land-rrr-reference-gate-harness/**"
       - "mycelix-desci/schemas/land-rrr-reference-v0.schema.json"
+      - "mycelix-desci/schemas/land-qualification-decision-packet-v0.schema.json"
+undefined
+      - "mycelix-desci/schemas/land-qualification-decision-packet-v0.schema.json"
+undefined
       - "mycelix-desci/examples/land-rrr-reference-synthetic-v0.json"
       - "mycelix-desci/Cargo.toml"
       - "mycelix-desci/Cargo.lock"
