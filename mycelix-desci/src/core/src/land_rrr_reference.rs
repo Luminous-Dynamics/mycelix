@@ -225,7 +225,11 @@ impl LandRrrReferenceV0 {
         require("schema_uri", &self.schema_uri, &mut issues);
         require("record_id", &self.record_id, &mut issues);
         require("record_type", &self.record_type, &mut issues);
-        require("access_policy_reference", &self.access_policy_reference, &mut issues);
+        require(
+            "access_policy_reference",
+            &self.access_policy_reference,
+            &mut issues,
+        );
 
         if self.schema != LAND_RRR_REFERENCE_SCHEMA {
             issues.push("unsupported land RRR schema identifier".into());
@@ -273,7 +277,8 @@ impl LandRrrReferenceV0 {
             issues.push("unsupported Sol Atlas territorial schema version".into());
         }
         if !is_sha256(&self.source_assertion.record_sha256) {
-            issues.push("source_assertion.record_sha256 must be 64 lowercase hex characters".into());
+            issues
+                .push("source_assertion.record_sha256 must be 64 lowercase hex characters".into());
         }
 
         if self.claim_basis.is_empty() {
@@ -301,9 +306,8 @@ impl LandRrrReferenceV0 {
                 );
             }
             (None, None) => {}
-            _ => issues.push(
-                "source interest type code and profile must be supplied together".into(),
-            ),
+            _ => issues
+                .push("source interest type code and profile must be supplied together".into()),
         }
 
         require(
@@ -324,8 +328,16 @@ impl LandRrrReferenceV0 {
                 &authority.source_authority_id,
                 &mut issues,
             );
-            require("authority.jurisdiction", &authority.jurisdiction, &mut issues);
-            require("authority.scope_reference", &authority.scope_reference, &mut issues);
+            require(
+                "authority.jurisdiction",
+                &authority.jurisdiction,
+                &mut issues,
+            );
+            require(
+                "authority.scope_reference",
+                &authority.scope_reference,
+                &mut issues,
+            );
             require(
                 "authority.source_evidence_reference",
                 &authority.source_evidence_reference,
@@ -349,27 +361,35 @@ impl LandRrrReferenceV0 {
         for basis in &self.claim_basis {
             let has_matching_authority = match basis {
                 ClaimBasis::Asserted => true,
-                ClaimBasis::CommunityAttested => self.authority_references.iter().any(|authority| {
-                    matches!(
-                        authority.authority_kind,
-                        AuthorityKind::CustomaryInstitution | AuthorityKind::CommunityGovernanceBody
-                    )
-                }),
-                ClaimBasis::AdministrativeRecord => self.authority_references.iter().any(|authority| {
-                    matches!(
-                        authority.authority_kind,
-                        AuthorityKind::Registry | AuthorityKind::StatutoryRegulator
-                    )
-                }),
-                ClaimBasis::CourtDecision => self.authority_references.iter().any(|authority| {
-                    authority.authority_kind == AuthorityKind::CourtOrTribunal
-                }),
-                ClaimBasis::ContractualInstrument => self.authority_references.iter().any(|authority| {
-                    authority.authority_kind == AuthorityKind::ContractingParty
-                }),
-                ClaimBasis::StatutoryInstrument => self.authority_references.iter().any(|authority| {
-                    authority.authority_kind == AuthorityKind::StatutoryRegulator
-                }),
+                ClaimBasis::CommunityAttested => {
+                    self.authority_references.iter().any(|authority| {
+                        matches!(
+                            authority.authority_kind,
+                            AuthorityKind::CustomaryInstitution
+                                | AuthorityKind::CommunityGovernanceBody
+                        )
+                    })
+                }
+                ClaimBasis::AdministrativeRecord => {
+                    self.authority_references.iter().any(|authority| {
+                        matches!(
+                            authority.authority_kind,
+                            AuthorityKind::Registry | AuthorityKind::StatutoryRegulator
+                        )
+                    })
+                }
+                ClaimBasis::CourtDecision => self
+                    .authority_references
+                    .iter()
+                    .any(|authority| authority.authority_kind == AuthorityKind::CourtOrTribunal),
+                ClaimBasis::ContractualInstrument => self
+                    .authority_references
+                    .iter()
+                    .any(|authority| authority.authority_kind == AuthorityKind::ContractingParty),
+                ClaimBasis::StatutoryInstrument => self
+                    .authority_references
+                    .iter()
+                    .any(|authority| authority.authority_kind == AuthorityKind::StatutoryRegulator),
             };
             if !has_matching_authority {
                 issues.push(format!(
@@ -419,8 +439,7 @@ impl LandRrrReferenceV0 {
                     .any(|reference| reference.trim().is_empty())
             {
                 issues.push(
-                    "no-challenge observation requires non-empty searched source references"
-                        .into(),
+                    "no-challenge observation requires non-empty searched source references".into(),
                 );
             }
         }
@@ -524,9 +543,7 @@ impl QualificationDisposition {
 ///
 /// This is a pure policy seam; it is not yet wired into Mycelix Property's
 /// transaction coordinator and does not authenticate the source of an outcome.
-pub const fn qualification_disposition(
-    outcome: TibEvaluationOutcome,
-) -> QualificationDisposition {
+pub const fn qualification_disposition(outcome: TibEvaluationOutcome) -> QualificationDisposition {
     match outcome {
         TibEvaluationOutcome::StructuralAccept => {
             QualificationDisposition::ContinueReadOnlyQualification
@@ -543,8 +560,10 @@ mod tests {
     use super::*;
 
     fn fixture() -> LandRrrReferenceV0 {
-        serde_json::from_str(include_str!("../../../examples/land-rrr-reference-synthetic-v0.json"))
-            .expect("synthetic land RRR fixture must deserialize")
+        serde_json::from_str(include_str!(
+            "../../../examples/land-rrr-reference-synthetic-v0.json"
+        ))
+        .expect("synthetic land RRR fixture must deserialize")
     }
 
     #[test]
@@ -556,7 +575,9 @@ mod tests {
     fn other_interest_requires_source_code_and_profile() {
         let mut value = fixture();
         value.rrr.source_interest_type_profile_ref = None;
-        let issues = value.validate_structural().expect_err("profile is required");
+        let issues = value
+            .validate_structural()
+            .expect_err("profile is required");
         assert!(issues.iter().any(|issue| {
             issue.contains("source interest type code and profile must be supplied together")
         }));
@@ -566,23 +587,28 @@ mod tests {
     fn community_attestation_requires_a_community_governance_authority_reference() {
         let mut value = fixture();
         value.claim_basis = vec![ClaimBasis::CommunityAttested];
-        let issues = value.validate_structural().expect_err("community authority is required");
-        assert!(issues.iter().any(|issue| {
-            issue.contains("lacks a matching authority-kind reference")
-        }));
+        let issues = value
+            .validate_structural()
+            .expect_err("community authority is required");
+        assert!(
+            issues
+                .iter()
+                .any(|issue| { issue.contains("lacks a matching authority-kind reference") })
+        );
     }
 
     #[test]
     fn no_challenge_observation_requires_complete_frontier_and_report() {
         let mut value = fixture();
-        value.dispute_assessment.state =
-            DisputeAssessmentState::NoChallengeObservedWithinFrontier;
+        value.dispute_assessment.state = DisputeAssessmentState::NoChallengeObservedWithinFrontier;
         let issues = value
             .validate_structural()
             .expect_err("unbounded no-challenge state must be rejected");
-        assert!(issues.iter().any(|issue| {
-            issue.contains("requires complete declared frontier coverage")
-        }));
+        assert!(
+            issues
+                .iter()
+                .any(|issue| { issue.contains("requires complete declared frontier coverage") })
+        );
     }
 
     #[test]
@@ -595,10 +621,7 @@ mod tests {
             captured_at: "2026-11-18T14:00:00Z".into(),
         });
         assert_eq!(value.claim_basis, vec![ClaimBasis::Asserted]);
-        assert_eq!(
-            value.claim_ceiling,
-            LAND_RRR_REFERENCE_CLAIM_CEILING
-        );
+        assert_eq!(value.claim_ceiling, LAND_RRR_REFERENCE_CLAIM_CEILING);
         assert_eq!(value.validate_structural(), Ok(()));
     }
 
@@ -637,10 +660,19 @@ mod tests {
     fn every_non_asserted_claim_basis_rejects_the_wrong_authority_kind() {
         let cases = [
             (ClaimBasis::CommunityAttested, AuthorityKind::Registry),
-            (ClaimBasis::AdministrativeRecord, AuthorityKind::CourtOrTribunal),
+            (
+                ClaimBasis::AdministrativeRecord,
+                AuthorityKind::CourtOrTribunal,
+            ),
             (ClaimBasis::CourtDecision, AuthorityKind::ContractingParty),
-            (ClaimBasis::ContractualInstrument, AuthorityKind::StatutoryRegulator),
-            (ClaimBasis::StatutoryInstrument, AuthorityKind::CommunityGovernanceBody),
+            (
+                ClaimBasis::ContractualInstrument,
+                AuthorityKind::StatutoryRegulator,
+            ),
+            (
+                ClaimBasis::StatutoryInstrument,
+                AuthorityKind::CommunityGovernanceBody,
+            ),
         ];
         for (basis, wrong_kind) in cases {
             let mut value = fixture();
@@ -649,9 +681,11 @@ mod tests {
             let issues = value
                 .validate_structural()
                 .expect_err("wrong authority kind must not satisfy a claim basis");
-            assert!(issues.iter().any(|issue| {
-                issue.contains("lacks a matching authority-kind reference")
-            }));
+            assert!(
+                issues
+                    .iter()
+                    .any(|issue| { issue.contains("lacks a matching authority-kind reference") })
+            );
         }
     }
 
@@ -662,7 +696,11 @@ mod tests {
         let issues = value
             .validate_structural()
             .expect_err("duplicate claim basis must be rejected");
-        assert!(issues.iter().any(|issue| issue.contains("duplicate claim basis")));
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.contains("duplicate claim basis"))
+        );
     }
 
     #[test]
@@ -676,9 +714,11 @@ mod tests {
         let issues = value
             .validate_structural()
             .expect_err("duplicate consent reference must be rejected");
-        assert!(issues
-            .iter()
-            .any(|issue| issue.contains("duplicate consent authorization reference")));
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.contains("duplicate consent authorization reference"))
+        );
     }
 
     #[test]
@@ -690,9 +730,11 @@ mod tests {
         let issues = value
             .validate_structural()
             .expect_err("exact duplicate authority reference must be rejected");
-        assert!(issues
-            .iter()
-            .any(|issue| issue.contains("duplicate authority reference")));
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.contains("duplicate authority reference"))
+        );
     }
 
     #[test]
@@ -725,13 +767,16 @@ mod tests {
     fn invalid_source_digest_is_rejected() {
         let mut value = fixture();
         value.source_assertion.record_sha256 = "not-a-digest".into();
-        let issues = value.validate_structural().expect_err("bad SHA-256 must be rejected");
-        assert!(issues.iter().any(|issue| {
-            issue.contains("record_sha256 must be 64 lowercase hex characters")
-        }));
+        let issues = value
+            .validate_structural()
+            .expect_err("bad SHA-256 must be rejected");
+        assert!(
+            issues.iter().any(|issue| {
+                issue.contains("record_sha256 must be 64 lowercase hex characters")
+            })
+        );
     }
 }
-
 
 #[cfg(test)]
 mod tib_qualification_policy_tests {
@@ -783,8 +828,7 @@ mod tib_qualification_policy_tests {
 
     #[test]
     fn structural_accept_only_allows_read_only_qualification() {
-        let disposition =
-            qualification_disposition(TibEvaluationOutcome::StructuralAccept);
+        let disposition = qualification_disposition(TibEvaluationOutcome::StructuralAccept);
         assert!(disposition.may_continue_read_only());
         assert!(!disposition.requires_reconciliation());
         assert!(!disposition.allows_authoritative_mutation());
@@ -792,9 +836,6 @@ mod tib_qualification_policy_tests {
 
     #[test]
     fn unknown_benchmark_outcomes_fail_to_deserialize() {
-        assert!(
-            serde_json::from_str::<TibEvaluationOutcome>("\"legal_title_confirmed\"")
-                .is_err()
-        );
+        assert!(serde_json::from_str::<TibEvaluationOutcome>("\"legal_title_confirmed\"").is_err());
     }
 }
