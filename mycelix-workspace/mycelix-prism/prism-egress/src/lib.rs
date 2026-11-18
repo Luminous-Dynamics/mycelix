@@ -17,9 +17,9 @@
 //! This crate is intentionally native-only. Do not add it as a dependency of
 //! prism-common, which is also consumed by WASM targets.
 
+use bytes::Bytes;
 pub use reqwest::Method;
 pub use reqwest::header::HeaderMap;
-use bytes::Bytes;
 use reqwest::{Client, StatusCode};
 use std::collections::HashSet;
 use std::future::Future;
@@ -504,10 +504,7 @@ impl PublicEgressClient {
     }
 
     #[cfg(test)]
-    fn with_test_root_certificates(
-        mut self,
-        certificates: Vec<reqwest::Certificate>,
-    ) -> Self {
+    fn with_test_root_certificates(mut self, certificates: Vec<reqwest::Certificate>) -> Self {
         self.test_root_certificates = certificates;
         self
     }
@@ -1365,8 +1362,7 @@ mod tests {
                         Ok(received) => received,
                         Err(_) => break,
                     };
-                    let response =
-                        build_wire_dns_response(&request[..length], &udp_state, false);
+                    let response = build_wire_dns_response(&request[..length], &udp_state, false);
                     if let Some(response) = response {
                         let _ = socket.send_to(&response, peer).await;
                     }
@@ -1592,9 +1588,11 @@ mod tests {
             WireDnsAnswer::NxDomain => (3u16, Vec::new(), false),
             WireDnsAnswer::ServFail => (2u16, Vec::new(), false),
             WireDnsAnswer::Records(records) => (0u16, records, false),
-            WireDnsAnswer::Rebinding { first, subsequent } => {
-                (0u16, if query_count == 0 { first } else { subsequent }, false)
-            }
+            WireDnsAnswer::Rebinding { first, subsequent } => (
+                0u16,
+                if query_count == 0 { first } else { subsequent },
+                false,
+            ),
             WireDnsAnswer::TruncatedThenTcp(_records) if !tcp => (0u16, Vec::new(), true),
             WireDnsAnswer::TruncatedThenTcp(records) => (0u16, records, false),
         };
@@ -1658,8 +1656,8 @@ mod tests {
 
         fn build(&self) -> io::Result<hickory_resolver::TokioResolver> {
             use hickory_resolver::config::{
-                ConnectionConfig, LookupIpStrategy, NameServerConfig, ResolveHosts,
-                ResolverConfig, ResolverOpts,
+                ConnectionConfig, LookupIpStrategy, NameServerConfig, ResolveHosts, ResolverConfig,
+                ResolverOpts,
             };
             use hickory_resolver::net::runtime::TokioRuntimeProvider;
 
@@ -1667,11 +1665,8 @@ mod tests {
             udp_connection.port = self.server.port();
             let mut tcp_connection = ConnectionConfig::tcp();
             tcp_connection.port = self.server.port();
-            let name_server = NameServerConfig::new(
-                self.server.ip(),
-                true,
-                vec![udp_connection, tcp_connection],
-            );
+            let name_server =
+                NameServerConfig::new(self.server.ip(), true, vec![udp_connection, tcp_connection]);
             let config = ResolverConfig::from_name_servers(vec![name_server]);
             let mut options = ResolverOpts::default();
             options.use_hosts_file = ResolveHosts::Never;
@@ -1758,7 +1753,6 @@ mod tests {
     #[tokio::test]
     async fn hermetic_dns_wire_fixture_exercises_dual_stack_cname_and_mixed_answer_policy() {
         use std::net::{Ipv4Addr, Ipv6Addr};
-
         let dns = WireDnsFixture::start().await;
         dns.set_answer(
             "alias.test",
@@ -1772,10 +1766,7 @@ mod tests {
             "target.test",
             WireDnsAnswer::Records(vec![
                 WireDnsRecord::A(Ipv4Addr::new(93, 184, 216, 34), 15),
-                WireDnsRecord::Aaaa(
-                    "2606:4700:4700::1111".parse::<Ipv6Addr>().unwrap(),
-                    15,
-                ),
+                WireDnsRecord::Aaaa("2606:4700:4700::1111".parse::<Ipv6Addr>().unwrap(), 15),
             ]),
         );
         dns.set_answer(
@@ -1945,10 +1936,8 @@ mod tests {
             .await
             .expect("bind authorized IPv4 loopback");
         let authorized_address = authorized_listener.local_addr().unwrap();
-        let rebound_address = SocketAddr::new(
-            IpAddr::V6(Ipv6Addr::LOCALHOST),
-            authorized_address.port(),
-        );
+        let rebound_address =
+            SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), authorized_address.port());
         let attacker_listener = tokio::net::TcpListener::bind(rebound_address)
             .await
             .expect("bind IPv6 rebinding target on same port");
@@ -1956,9 +1945,7 @@ mod tests {
             let (mut stream, peer) = authorized_listener.accept().await.unwrap();
             let request = read_test_request(&mut stream).await;
             stream
-                .write_all(
-                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok",
-                )
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
                 .await
                 .unwrap();
             (peer, request)
@@ -1969,18 +1956,14 @@ mod tests {
         dns.set_answer(
             "rebind.test",
             WireDnsAnswer::Rebinding {
-                first: vec![WireDnsRecord::A(
-                    std::net::Ipv4Addr::LOCALHOST,
-                    0,
-                )],
+                first: vec![WireDnsRecord::A(std::net::Ipv4Addr::LOCALHOST, 0)],
                 // The first lookup of AAAA returns NODATA; a second resolution
                 // changes the host to an IPv6 listener on the same port.
                 subsequent: vec![WireDnsRecord::Aaaa(Ipv6Addr::LOCALHOST, 0)],
             },
         );
         let resolver = HickoryWireResolver::new(dns.address);
-        let client =
-            PublicEgressClient::with_test_resolver(EgressLimits::default(), resolver);
+        let client = PublicEgressClient::with_test_resolver(EgressLimits::default(), resolver);
         let url = format!("http://rebind.test:{}/probe", authorized_address.port());
 
         let capability = client
@@ -1994,7 +1977,10 @@ mod tests {
         let response = client.execute(capability).await.unwrap();
         assert_eq!(response.body.as_slice(), b"ok");
         assert_eq!(response.receipt.remote_peer, authorized_address);
-        assert_eq!(response.receipt.authorized_addresses, vec![authorized_address]);
+        assert_eq!(
+            response.receipt.authorized_addresses,
+            vec![authorized_address]
+        );
 
         let (observed_peer, request) = authorized_server.await.unwrap();
         assert_eq!(observed_peer, authorized_address);
@@ -2029,9 +2015,7 @@ mod tests {
             let (mut stream, peer) = listener.accept().await.unwrap();
             let request = read_test_request(&mut stream).await;
             stream
-                .write_all(
-                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok",
-                )
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
                 .await
                 .unwrap();
             (peer, request)
@@ -2040,16 +2024,12 @@ mod tests {
         let dns = WireDnsFixture::start().await;
         dns.set_answer(
             "pinned.test",
-            WireDnsAnswer::Records(vec![WireDnsRecord::A(
-                std::net::Ipv4Addr::LOCALHOST,
-                30,
-            )]),
+            WireDnsAnswer::Records(vec![WireDnsRecord::A(std::net::Ipv4Addr::LOCALHOST, 30)]),
         );
         let resolver = HickoryWireResolver::new(dns.address);
         // The loopback/non-default-port exception is available only in cfg(test).
         // DNS itself is still resolved over real UDP and pinned through Reqwest.
-        let client =
-            PublicEgressClient::with_test_resolver(EgressLimits::default(), resolver);
+        let client = PublicEgressClient::with_test_resolver(EgressLimits::default(), resolver);
         let url = format!("http://pinned.test:{}/probe", peer_address.port());
         let capability = client
             .authorize(Method::GET, &url, HeaderMap::new(), Vec::new())
@@ -2362,9 +2342,7 @@ mod tests {
             let (mut stream, _) = second_listener.accept().await.unwrap();
             let request = read_test_request(&mut stream).await;
             stream
-                .write_all(
-                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok",
-                )
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
                 .await
                 .unwrap();
             request
@@ -2451,7 +2429,6 @@ mod tests {
         assert_eq!(response.receipt.response_body_limit_bytes, 16);
         server.await.unwrap();
     }
-
 
     #[derive(Debug)]
     struct SniRecordingResolver {
@@ -2549,11 +2526,8 @@ mod tests {
         });
 
         let test_resolver = LoopbackResolver::default();
-        let client = PublicEgressClient::with_test_resolver(
-            EgressLimits::default(),
-            test_resolver,
-        )
-        .with_test_root_certificates(vec![valid_root, wrong_name_root]);
+        let client = PublicEgressClient::with_test_resolver(EgressLimits::default(), test_resolver)
+            .with_test_root_certificates(vec![valid_root, wrong_name_root]);
 
         let valid_url = format!("https://prism-tls.test:{}/probe", address.port());
         let valid_capability = client
