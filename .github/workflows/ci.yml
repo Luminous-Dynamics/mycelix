@@ -485,6 +485,8 @@ jobs:
           require_source 'body: EgressBody' mycelix-prism/prism-serve/src/main.rs
           require_source 'response.body.into_bytes()' mycelix-prism/prism-proxy/src/main.rs
           require_source 'response.body.into_bytes()' mycelix-prism/prism-serve/src/main.rs
+          require_source 'axum_unpolled_downstream_body_holds_memory_lease_until_cancelled' mycelix-prism/prism-serve/src/main.rs
+          require_source 'bytes = "=1.12.1"' mycelix-prism/prism-serve/Cargo.toml
           require_source 'pinned_tls_uses_original_hostname_for_sni_and_certificate_verification' "$egress"
           require_source 'tokio-rustls = { version = "=0.26.6"' mycelix-prism/prism-egress/Cargo.toml
           require_source 'rcgen = "=0.14.10"' mycelix-prism/prism-egress/Cargo.toml
