@@ -392,6 +392,31 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Validate PEAB scenario manifest and source references
+        run: |
+          cd mycelix-workspace
+          manifest=mycelix-prism/docs/peab-scenarios-v0.1.json
+          jq -e '
+            .schema == "org.luminousdynamics.peab.scenario-manifest.v1" and
+            .version == "0.1.0" and
+            (.scenarios | length == 31) and
+            (([.scenarios[].id] | unique | length) == 31) and
+            all(.scenarios[]; .negative_control_required == true) and
+            all(.scenarios[]; (.source_coverage == "present" or .source_coverage == "partial" or .source_coverage == "planned")) and
+            all(.scenarios[]; if .source_coverage == "planned" then .source_test == null else true end) and
+            all(.scenarios[]; if .execution_status == "not_run_exact_head" then .execution_evidence == null else ((.execution_status == "passed" or .execution_status == "failed" or .execution_status == "skipped") and (.execution_evidence | type == "object") and (.execution_evidence.head_sha | type == "string") and (.execution_evidence.run_id | type == "number") and (.execution_evidence.job_id | type == "number")) end)
+          ' "$manifest" > /dev/null
+
+          while IFS= read -r reference; do
+            IFS=';' read -r -a test_names <<< "$reference"
+            for test_name in "${test_names[@]}"; do
+              test_name="$(printf '%s' "$test_name" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+              if ! grep -R -Fq "fn ${test_name}(" mycelix-prism --include='*.rs' --exclude-dir=target; then
+                echo "PEAB source reference is not present: ${test_name}"
+                exit 1
+              fi
+            done
+          done < <(jq -r '.scenarios[] | select(.source_test != null) | .source_test' "$manifest")
       - name: Install system dependencies (winit/vello GUI deps for prism-shell, webkit for prism-tauri)
         run: |
           sudo apt-get update
