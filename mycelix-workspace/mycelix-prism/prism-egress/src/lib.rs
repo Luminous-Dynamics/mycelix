@@ -2632,9 +2632,9 @@ mod tests {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let response = {
-            let mut bytes = b"HTTP/1.1 200 OK\\r\\nX-Prism-Large: ".to_vec();
+            let mut bytes = b"HTTP/1.1 200 OK\r\nX-Prism-Large: ".to_vec();
             bytes.extend(std::iter::repeat_n(b'v', 4096));
-            bytes.extend_from_slice(b"\\r\\nContent-Length: 0\\r\\nConnection: close\\r\\n\\r\\n");
+            bytes.extend_from_slice(b"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
             bytes
         };
 
