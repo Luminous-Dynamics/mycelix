@@ -1489,6 +1489,8 @@ mod tests {
         let query_type = u16::from_be_bytes([qtype_bytes[0], qtype_bytes[1]]);
         let qclass_bytes = packet.get(question_offset + 2..question_offset + 4)?;
         let query_class = [qclass_bytes[0], qclass_bytes[1]];
+        let question_end = question_offset.checked_add(4)?;
+        let original_question = packet.get(12..question_end)?;
         let normalized = normalize_wire_dns_name(&name);
 
         let answer = {
@@ -1544,11 +1546,9 @@ mod tests {
         response.extend_from_slice(&answer_count.to_be_bytes());
         response.extend_from_slice(&0u16.to_be_bytes()); // NSCOUNT
         response.extend_from_slice(&0u16.to_be_bytes()); // ARCOUNT
-        if encode_wire_dns_name(&name, &mut response).is_err() {
-            return None;
-        }
-        response.extend_from_slice(&query_type.to_be_bytes());
-        response.extend_from_slice(&query_class);
+        // Echo the exact original question bytes, including 0x20 case randomization.
+        response.extend_from_slice(original_question);
+        let _ = (query_type, query_class);
         response.extend_from_slice(&answer_bytes);
         Some(response)
     }
@@ -1613,11 +1613,6 @@ mod tests {
             })
         }
     }
-
-    fn ip(value: &str) -> IpAddr {
-        value.parse().expect("test IP literal")
-    }
-
 
     fn ip(value: &str) -> IpAddr {
         value.parse().expect("test IP literal")
