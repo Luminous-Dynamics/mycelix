@@ -1,0 +1,15 @@
+{
+  "schema": "mycelix.evidence-attestation-universal-semantic-adapter-soundness-control-matrix.v1",
+  "controls": [
+    {"id":"monotonicity-sampled-only","tla_invariant":"MonotonicityDomainExact","alloy_assertion":"CanonicalAggregate","alloy_witness":"monotonicity_sampled_onlyWitness","reference_marker":"MONOTONICITY SAMPLED ONLY NEGATIVE PASS"},
+    {"id":"monotonicity-violation-outside-sample","tla_invariant":"MonotoneUniversal","alloy_assertion":"CanonicalAggregate","alloy_witness":"monotonicity_violation_outside_sampleWitness","reference_marker":"MONOTONICITY VIOLATION OUTSIDE SAMPLE NEGATIVE PASS"},
+    {"id":"undeclared-adapter-domain","tla_invariant":"AdapterDomainExact","alloy_assertion":"CanonicalAggregate","alloy_witness":"undeclared_adapter_domainWitness","reference_marker":"UNDECLARED ADAPTER DOMAIN NEGATIVE PASS"},
+    {"id":"schema-semantic-type-substitution","tla_invariant":"SemanticTypeExact","alloy_assertion":"CanonicalAggregate","alloy_witness":"schema_semantic_type_substitutionWitness","reference_marker":"SCHEMA SEMANTIC TYPE SUBSTITUTION NEGATIVE PASS"},
+    {"id":"unit-conversion-expansion","tla_invariant":"UnitRuleExact","alloy_assertion":"CanonicalAggregate","alloy_witness":"unit_conversion_expansionWitness","reference_marker":"UNIT CONVERSION EXPANSION NEGATIVE PASS"},
+    {"id":"lossy-redaction-reconstitution","tla_invariant":"NoReconstitution","alloy_assertion":"CanonicalAggregate","alloy_witness":"lossy_redaction_reconstitutionWitness","reference_marker":"LOSSY REDACTION RECONSTITUTION NEGATIVE PASS"},
+    {"id":"adapter-implementation-substitution","tla_invariant":"TransformImplementationExact","alloy_assertion":"CanonicalAggregate","alloy_witness":"adapter_implementation_substitutionWitness","reference_marker":"ADAPTER IMPLEMENTATION SUBSTITUTION NEGATIVE PASS"},
+    {"id":"external-dependency-substitution","tla_invariant":"ExternalDependencyExact","alloy_assertion":"CanonicalAggregate","alloy_witness":"external_dependency_substitutionWitness","reference_marker":"EXTERNAL DEPENDENCY SUBSTITUTION NEGATIVE PASS"},
+    {"id":"partial-adapter-success","tla_invariant":"AdapterStatusExact","alloy_assertion":"CanonicalAggregate","alloy_witness":"partial_adapter_successWitness","reference_marker":"PARTIAL ADAPTER SUCCESS NEGATIVE PASS"},
+    {"id":"domain-precondition-bypass","tla_invariant":"AdapterPreconditionExact","alloy_assertion":"CanonicalAggregate","alloy_witness":"domain_precondition_bypassWitness","reference_marker":"DOMAIN PRECONDITION BYPASS NEGATIVE PASS"}
+  ]
+}

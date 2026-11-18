@@ -1,0 +1,109 @@
+{
+  "schema": "mycelix.sovereignty-role-review-lifecycle-formal-qualification-profile.v1",
+  "profile_id": "SOV-AI-ROLE-REVIEW-LIFECYCLE-FORMAL-QUAL-001-V1",
+  "status": "candidate-verification-profile",
+  "authority": "non-authoritative",
+  "semantic_subject": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "source_branch": "sov-ai-formal-v5-role-review-lifecycle-subject-clean",
+    "head_sha": "210a002472fd1be4e35fd5183bf1ffb2e42031a6",
+    "tree_sha": "e418fce5ca5b2b20ef08afbe40a7bcefb76d8087"
+  },
+  "models": {
+    "tla": {
+      "path": "mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV2.tla",
+      "git_blob_sha": "3ab8d9f010654f490cccf11449d837f2ace7a372",
+      "config_path": "mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV2.cfg",
+      "config_git_blob_sha": "5030447e7750cd59f5e9f87c833bc61bf99c812f",
+      "invariants": [
+        "TypeOK",
+        "RoleConcentrationRequiresFinding",
+        "FullControlRequiresIndependentExternalReview",
+        "ReviewerRoleDisjointness",
+        "ReviewHistoryPreserved"
+      ]
+    },
+    "negative_tla": {
+      "path": "mycelix-governance/specs/ArtificialSovereigntyRoleConcentrationV2NegativeControls.tla",
+      "git_blob_sha": "a1eb3de7a1734c31ee6a627eae1c43728de8db5f",
+      "controls": {
+        "role-conflict": "RoleConcentrationRequiresFinding",
+        "full-control-review": "FullControlRequiresIndependentExternalReview",
+        "self-review-full-control": "FullControlRequiresIndependentExternalReview",
+        "same-role-review-full-control": "FullControlRequiresIndependentExternalReview",
+        "reviewer-role-drift": "ReviewerRoleDisjointness"
+      }
+    },
+    "alloy": {
+      "path": "mycelix-governance/specs/alloy/ArtificialSovereigntyRoleConcentrationV2.als",
+      "git_blob_sha": "c4f9df2fc274d4f8604131f8b9d657ee318a335c",
+      "solver": "SAT4J",
+      "bitwidth": 4,
+      "expected_sat": [
+        "ConcentratedRolesWithFinding",
+        "FullControlWithIndependentReview",
+        "ClosedReviewReleasesRoleLock"
+      ],
+      "expected_unsat_runs": [
+        "SelfReviewOnlyFullControl",
+        "SameRoleReviewerFullControl",
+        "ReviewerRoleDriftState"
+      ],
+      "expected_unsat_checks": [
+        "RoleConcentrationRequiresFindingInvariant",
+        "FullControlRequiresIndependentReviewInvariant",
+        "ActiveReviewRoleDisjointnessInvariant"
+      ],
+      "scope": {
+        "overall": 4,
+        "Subject": 4,
+        "Role": 4,
+        "Review": 4,
+        "int": 4
+      }
+    },
+    "reference": {
+      "path": "mycelix-governance/tools/formal/sovereignty_role_review_lifecycle_reference.py",
+      "git_blob_sha": "6540865b6f9c20e8d1fadc38999e3250e52444ea"
+    },
+    "rationale": {
+      "path": "docs/research/ROLE_REVIEW_LIFECYCLE_RATIONALE_V1.md"
+    }
+  },
+  "theorem": {
+    "statement": "During an active qualification review, the reviewer must be a distinct subject that holds none of the qualification-path roles. Concentrated role holding requires an explicit conflict finding. Closing the review releases the role lock while preserving review history.",
+    "roles": [
+      "Operator",
+      "Verifier",
+      "EvidenceArchive",
+      "Adjudicator"
+    ],
+    "active_review_independence": "reviewer != subject AND reviewer holds none of the qualification-path roles",
+    "lifecycle": "active review -> role lock; close -> role lock released; review history preserved"
+  },
+  "claim_contract": {
+    "candidate_only": true,
+    "requires": [
+      "exact subject SHA/tree and model/config/reference blobs",
+      "bounded TLA+ canonical result with all invariants",
+      "all profiled TLA+ negative controls",
+      "all profiled Alloy SAT witnesses",
+      "all profiled Alloy UNSAT runs/checks",
+      "bounded reference canonical and negative outputs",
+      "positive closed-review role reacquisition witness",
+      "reviewer-role drift is rejected while the review is active",
+      "no permanent role incapacity is inferred after review closure"
+    ],
+    "bounded_result_is_not_unbounded_proof": true,
+    "formal_result_is_not_runtime_qualification": true,
+    "qualification_is_not_external_recognition": true
+  },
+  "nonclaims": [
+    "No current AI is recognized as sovereign.",
+    "No legal personhood, citizenship, political standing, or runtime authority is established.",
+    "No universal organizational separation-of-duties rule is established.",
+    "No claim is made that a multi-role institution is unlawful.",
+    "No production implementation refinement is established.",
+    "No unbounded theorem is established by the finite model."
+  ]
+}

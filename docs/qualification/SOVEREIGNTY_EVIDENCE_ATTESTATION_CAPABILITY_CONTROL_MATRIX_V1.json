@@ -1,0 +1,57 @@
+{
+  "schema": "mycelix.evidence-attestation-capability-attenuation-control-matrix.v1",
+  "controls": [
+    {
+      "id": "resource-expansion",
+      "boundary": "authorized evidence transition cannot add authority for an unclaimed resource",
+      "tla_invariant": "ResourceScopeAttenuated",
+      "tla_control": "resource-expansion",
+      "alloy_witness": "ResourceExpansionWitness",
+      "alloy_assertion": "ResourceScopeNeverExceedsClaim",
+      "alloy_mutant_fact": "ClaimResourceBounded",
+      "reference_markers": [
+        "ISOLATION PASS: resource expansion leaves grant provenance valid",
+        "NEGATIVE PASS: resource attenuation violation detected"
+      ]
+    },
+    {
+      "id": "action-expansion",
+      "boundary": "authorized evidence transition cannot add authority for an unclaimed action",
+      "tla_invariant": "ActionScopeAttenuated",
+      "tla_control": "action-expansion",
+      "alloy_witness": "ActionExpansionWitness",
+      "alloy_assertion": "ActionScopeNeverExceedsClaim",
+      "alloy_mutant_fact": "ClaimActionBounded",
+      "reference_markers": [
+        "ISOLATION PASS: action expansion leaves grant provenance valid",
+        "NEGATIVE PASS: action attenuation violation detected"
+      ]
+    },
+    {
+      "id": "audience-expansion",
+      "boundary": "authorized evidence transition cannot add authority for an unclaimed audience",
+      "tla_invariant": "AudienceScopeAttenuated",
+      "tla_control": "audience-expansion",
+      "alloy_witness": "AudienceExpansionWitness",
+      "alloy_assertion": "AudienceScopeNeverExceedsClaim",
+      "alloy_mutant_fact": "ClaimAudienceBounded",
+      "reference_markers": [
+        "ISOLATION PASS: audience expansion leaves grant provenance valid",
+        "NEGATIVE PASS: audience attenuation violation detected"
+      ]
+    },
+    {
+      "id": "expiry-expansion",
+      "boundary": "authorized evidence transition cannot extend authority beyond claim expiry",
+      "tla_invariant": "ExpiryScopeAttenuated",
+      "tla_control": "expiry-expansion",
+      "alloy_witness": "ExpiryExpansionWitness",
+      "alloy_assertion": "ExpiryScopeNeverExceedsClaim",
+      "alloy_mutant_fact": "ClaimExpiryBounded",
+      "reference_markers": [
+        "ISOLATION PASS: expiry extension leaves grant provenance valid",
+        "NEGATIVE PASS: expiry attenuation violation detected"
+      ]
+    }
+  ]
+}
