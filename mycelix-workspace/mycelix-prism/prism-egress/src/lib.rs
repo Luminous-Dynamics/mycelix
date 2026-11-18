@@ -765,7 +765,10 @@ impl PublicEgressClient {
             .map_err(|_| EgressError::ResponseMemoryBudgetUnavailable)?;
 
             let mut response = response;
-            let mut collected = Vec::with_capacity(response_body_limit_bytes);
+            let mut collected = Vec::new();
+            collected
+                .try_reserve_exact(response_body_limit_bytes)
+                .map_err(|_| EgressError::ResponseMemoryBudgetUnavailable)?;
             while let Some(chunk) = response.chunk().await? {
                 if collected.len().saturating_add(chunk.len()) > response_body_limit_bytes {
                     return Err(EgressError::ResponseBodyTooLarge);
