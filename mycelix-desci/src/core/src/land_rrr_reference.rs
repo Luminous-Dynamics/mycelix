@@ -21,7 +21,7 @@ pub const LAND_RRR_REFERENCE_SCHEMA_URI: &str =
     "https://luminousdynamics.io/schemas/mycelix-land-rrr-reference-v0.schema.json";
 pub const LAND_RRR_REFERENCE_CLAIM_CEILING: &str = "reference-only-no-legal-effect";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ClaimBasis {
     Asserted,
@@ -95,7 +95,7 @@ pub enum ChallengeCoverage {
     Unavailable,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConsentPurpose {
     Participation,
@@ -279,6 +279,12 @@ impl LandRrrReferenceV0 {
         if self.claim_basis.is_empty() {
             issues.push("claim_basis must contain at least one basis".into());
         }
+        let mut claim_bases = HashSet::new();
+        for basis in &self.claim_basis {
+            if !claim_bases.insert(*basis) {
+                issues.push(format!("duplicate claim basis {:?}", basis));
+            }
+        }
 
         match (
             self.rrr.source_interest_type_code.as_deref(),
@@ -438,12 +444,16 @@ impl LandRrrReferenceV0 {
             }
         }
 
+        let mut consent_references = HashSet::new();
         for consent in &self.consent_authorization_references {
             require(
                 "consent_authorization_reference.record_reference",
                 &consent.record_reference,
                 &mut issues,
             );
+            if !consent_references.insert((consent.record_reference.as_str(), consent.purpose)) {
+                issues.push("duplicate consent authorization reference".into());
+            }
         }
 
         if issues.is_empty() {
