@@ -309,6 +309,18 @@ Measure p50/p95/p99 added latency and per-redirect-hop cost; DNS lookup count, A
 
 The in-flight decoded-chunk overshoot must be measured separately: Prism refuses to append a chunk that would exceed its cap, but Reqwest may already have delivered that chunk to the application. Set no performance superiority claim until all baselines are matched and measurements are reproducible.
 
+#### Aggregate retained-memory safety (new qualification blocker)
+
+The current global request semaphore is not an aggregate response-memory bound. It is released when `execute` returns, while the returned `Vec<u8>` may remain resident as a proxy/server response is sent to a slow downstream client. At the configured maxima, 64 simultaneously executing responses could each collect 16 MiB (1 GiB of active body buffers), and bodies retained after `execute` returns are not counted by that semaphore. Actual peak memory must be measured; this arithmetic is an upper-bound scenario, not an observed result.
+
+The next implementation should introduce a **weighted response-memory lease**:
+- Reserve a bounded byte budget before the upstream body is buffered. Start with reservation of the configured success-body ceiling (or a small set of reviewed size classes), not arbitrary incremental chunk permits; partial weighted acquisition can deadlock when many requests each hold a fraction and all wait for more.
+- Transfer the lease into an owned response-body type, not a local variable in `execute`. Keep it alive while the response is queued or streamed to the downstream consumer, and release it only after the body is fully drained or the downstream cancels/drops the body stream.
+- Make ingestion callers hold the same lease until parsing/hash computation is complete. Keep error bodies on their distinct 64 KiB limit and ensure failed/aborted requests release all reservations.
+- Expose counters for bytes reserved, bytes retained, reservation wait/reject time, response lifetime, downstream drain/cancel, and peak concurrent leases. Add a slow-reader test proving that completed upstream requests do not free the memory budget while their downstream bodies remain unread.
+
+Initial PEAB gate: total retained response memory must never exceed the configured process budget (proposed starting profile: 128 MiB), including bodies waiting on downstream delivery; no deadlock, no lease leak after cancellation, and no hidden bypass through an alternate response helper. The budget should be configurable only downward by application policy and should be benchmarked against both throughput and p99 queue latency.
+
 Initial performance goals are hypotheses to validate, not current results:
 - p95 overhead below 10% against matched Reqwest for warm, connection-reusable same-origin traffic once safe pooling exists;
 - p99 queue admission below 100 ms at 50 concurrent requests under the target deployment profile;
@@ -370,6 +382,7 @@ The current draft branch includes the typed `prism-egress` transport and the fol
 - The Symthaea Unix-socket response frame is capped at 64 KiB and must be newline-terminated. Missing, null, or malformed Symthaea `safe` metadata maps to `false`.
 - CI source checks require the pinned transport, explicit retry disabling, duplicate-redirect rejection, gzip-budget regression test, end-to-end DNS-to-peer test, per-hop redirect DNS re-authorization test, HTTP/1 parser header-count limit, and reviewed direct-client inventory. The root Cargo workspace explicitly excludes `mycelix-prism/docs` so the broad Prism member glob only discovers actual crates.
 - The CI changed-path detector now runs on draft PRs, allowing the affected Prism package job to run without enabling unrelated cluster tests; global formatting and aggregate merge-summary gates remain draft-gated.
+- `prism-egress` now includes a local TLS/SNI regression fixture: a server selects a matching certificate for `prism-tls.test`, then presents a separately trusted certificate with a wrong SAN; the matching request must succeed through the pinned peer and the wrong-name request must fail. TLS trust roots are injected only in `cfg(test)` builds.
 
 These remain source-level controls until the exact branch head is compiled and tested. The latest recorded workflow on the current feature line was skipped; no passing Cargo, formatting, clippy, or adversarial runtime result is claimed. Do not interpret the presence of unit tests as evidence that they have passed.
 ## Source references
@@ -395,6 +408,8 @@ These references inform the design; they do not constitute verification of Prism
 - IANA IPv4 Special-Purpose Address Registry: https://www.iana.org/assignments/iana-ipv4-special-registry — authoritative address-block attributes include destination validity and global reachability.
 - IANA IPv6 Special-Purpose Address Registry: https://www.iana.org/assignments/iana-ipv6-special-registry — equivalent IPv6 registry.
 - Reqwest 0.13.5 ClientBuilder: https://docs.rs/reqwest/0.13.5/reqwest/struct.ClientBuilder.html — documents `resolve_to_addrs`, `http1_max_headers`, redirect policy, and retry configuration.
+- tokio-rustls 0.26.6: https://docs.rs/tokio-rustls/0.26.6/tokio_rustls/ — local test-only rustls TLS server adapter.
+- rcgen 0.14.10: https://docs.rs/rcgen/0.14.10/rcgen/ — deterministic local certificate generation for the SNI/name-verification regression.
 - Reqwest 0.13.5 release metadata: https://docs.rs/crate/reqwest/0.13.5 — declares Rust 1.85 as its minimum supported compiler; the exact workspace toolchain and dependency graph still require exact-head compilation.
 - Reqwest overview: https://docs.rs/reqwest/latest/reqwest/ — documents automatic redirect defaults and system proxy environment behavior.
 
