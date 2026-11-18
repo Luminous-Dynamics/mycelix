@@ -492,6 +492,9 @@ jobs:
           require_source 'ResolveHosts::Never' "$egress"
           require_source 'hermetic_dns_wire_fixture_exercises_dual_stack_cname_and_mixed_answer_policy' "$egress"
           require_source 'hermetic_dns_wire_fixture_drives_pinned_http_socket_and_peer_receipt' "$egress"
+          require_source 'wire_dns_rebinding_after_authorization_cannot_change_the_connected_peer' "$egress"
+          require_source 'query_count("rebind.test", 1)' "$egress"
+          require_source 'query_count("rebind.test", 28)' "$egress"
           require_source 'bytes = "=1.12.1"' mycelix-prism/prism-serve/Cargo.toml
           require_source 'pinned_tls_uses_original_hostname_for_sni_and_certificate_verification' "$egress"
           require_source 'tokio-rustls = { version = "=0.26.6"' mycelix-prism/prism-egress/Cargo.toml
