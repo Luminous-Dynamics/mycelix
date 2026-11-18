@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "mycelix-commons/zomes/food-distribution/integrity/**"
+      - "mycelix-commons/zomes/food-distribution/coordinator/**"
       - "tools/food-lot-reconciliation-harness/**"
       - ".github/workflows/food-lot-reconciliation.yml"
   workflow_dispatch:
@@ -51,6 +52,15 @@ jobs:
 
       - name: Run strict production integrity zome Clippy
         run: cargo clippy --manifest-path mycelix-commons/Cargo.toml -p food_distribution_integrity --lib -- -D warnings
+
+      - name: Check production coordinator formatting
+        run: cargo fmt --manifest-path mycelix-commons/Cargo.toml --package food_distribution -- --check
+
+      - name: Run production coordinator tests
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml -p food_distribution --lib
+
+      - name: Run strict production coordinator Clippy
+        run: cargo clippy --manifest-path mycelix-commons/Cargo.toml -p food_distribution --lib -- -D warnings
 
       - name: Check formatting
         run: cargo fmt --manifest-path tools/food-lot-reconciliation-harness/Cargo.toml --all -- --check
