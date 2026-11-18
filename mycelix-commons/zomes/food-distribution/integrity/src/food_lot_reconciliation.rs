@@ -910,6 +910,26 @@ mod tests {
     }
 
     #[test]
+    fn local_privacy_scope_serializes_as_the_schema_literal() {
+        let mut valid_request = request();
+        valid_request.events = vec![event(
+            "event:open",
+            0,
+            None,
+            "Opened",
+            1_715_000_000,
+            None,
+            None,
+        )];
+        let encoded = serde_json::to_value(&valid_request).expect("request serializes");
+        assert_eq!(encoded["receipt"]["privacy_scope"], FOOD_LOT_LOCAL_PRIVACY_SCOPE);
+        assert_eq!(
+            encoded["events"][0]["privacy_scope"],
+            FOOD_LOT_LOCAL_PRIVACY_SCOPE
+        );
+    }
+
+    #[test]
     fn nested_claim_ceilings_and_private_scope_are_enforced() {
         let mut bad_lot_claim = request();
         bad_lot_claim
@@ -1020,7 +1040,42 @@ mod tests {
             "../schemas/fixtures/food-lot-reconciliation-v1.json"
         )).expect("fixture manifest must parse");
         assert_eq!(request_schema["$schema"], "https://json-schema.org/draft/2020-12/schema");
+        let lot_schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../schemas/FoodLotProvenanceV1.schema.json"
+        )).expect("lot schema must parse");
+        let receipt_schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../schemas/FoodLotHouseholdReceiptV1.schema.json"
+        )).expect("receipt schema must parse");
+        let event_schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../schemas/FoodLotHouseholdEventV1.schema.json"
+        )).expect("event schema must parse");
+        assert_eq!(request_schema["$schema"], "https://json-schema.org/draft/2020-12/schema");
         assert_eq!(report_schema["$schema"], "https://json-schema.org/draft/2020-12/schema");
+        assert_eq!(
+            lot_schema["properties"]["claim_ceiling"]["const"],
+            FOOD_LOT_PROVENANCE_CLAIM_CEILING
+        );
+        assert_eq!(
+            receipt_schema["properties"]["claim_ceiling"]["const"],
+            FOOD_LOT_HOUSEHOLD_RECEIPT_CLAIM_CEILING
+        );
+        assert_eq!(
+            event_schema["properties"]["claim_ceiling"]["const"],
+            FOOD_LOT_HOUSEHOLD_EVENT_CLAIM_CEILING
+        );
+        assert_eq!(
+            receipt_schema["properties"]["privacy_scope"]["const"],
+            FOOD_LOT_LOCAL_PRIVACY_SCOPE
+        );
+        assert_eq!(
+            event_schema["properties"]["privacy_scope"]["const"],
+            FOOD_LOT_LOCAL_PRIVACY_SCOPE
+        );
+        assert!(report_schema["properties"]["issue_codes"]["items"]["enum"]
+            .as_array()
+            .expect("issue codes enum")
+            .iter()
+            .any(|code| code == "invalid_privacy_scope"));
         let cases = fixtures["cases"].as_array().expect("cases array");
         let ids: BTreeSet<&str> = cases
             .iter()
