@@ -541,6 +541,98 @@ mod tests {
         assert_eq!(value.validate_structural(), Ok(()));
     }
 
+    fn authority_reference(id: &str, kind: AuthorityKind) -> AuthorityReference {
+        AuthorityReference {
+            source_authority_id: id.into(),
+            authority_kind: kind,
+            jurisdiction: "ZA".into(),
+            scope_reference: format!("urn:synthetic:authority-scope:{id}"),
+            source_evidence_reference: format!("urn:synthetic:authority-evidence:{id}"),
+            valid_time_reference: Some(format!("urn:synthetic:valid-time:{id}")),
+        }
+    }
+
+    #[test]
+    fn all_authority_bases_can_coexist_without_being_collapsed() {
+        let mut value = fixture();
+        value.claim_basis = vec![
+            ClaimBasis::CommunityAttested,
+            ClaimBasis::AdministrativeRecord,
+            ClaimBasis::CourtDecision,
+            ClaimBasis::ContractualInstrument,
+            ClaimBasis::StatutoryInstrument,
+        ];
+        value.authority_references = vec![
+            authority_reference("community", AuthorityKind::CommunityGovernanceBody),
+            authority_reference("registry", AuthorityKind::Registry),
+            authority_reference("court", AuthorityKind::CourtOrTribunal),
+            authority_reference("contract", AuthorityKind::ContractingParty),
+            authority_reference("regulator", AuthorityKind::StatutoryRegulator),
+        ];
+        assert_eq!(value.validate_structural(), Ok(()));
+    }
+
+    #[test]
+    fn every_non_asserted_claim_basis_rejects_the_wrong_authority_kind() {
+        let cases = [
+            (ClaimBasis::CommunityAttested, AuthorityKind::Registry),
+            (ClaimBasis::AdministrativeRecord, AuthorityKind::CourtOrTribunal),
+            (ClaimBasis::CourtDecision, AuthorityKind::ContractingParty),
+            (ClaimBasis::ContractualInstrument, AuthorityKind::StatutoryRegulator),
+            (ClaimBasis::StatutoryInstrument, AuthorityKind::CommunityGovernanceBody),
+        ];
+        for (basis, wrong_kind) in cases {
+            let mut value = fixture();
+            value.claim_basis = vec![basis];
+            value.authority_references = vec![authority_reference("wrong-kind", wrong_kind)];
+            let issues = value
+                .validate_structural()
+                .expect_err("wrong authority kind must not satisfy a claim basis");
+            assert!(issues.iter().any(|issue| {
+                issue.contains("lacks a matching authority-kind reference")
+            }));
+        }
+    }
+
+    #[test]
+    fn duplicate_claim_bases_are_rejected() {
+        let mut value = fixture();
+        value.claim_basis = vec![ClaimBasis::Asserted, ClaimBasis::Asserted];
+        let issues = value
+            .validate_structural()
+            .expect_err("duplicate claim basis must be rejected");
+        assert!(issues.iter().any(|issue| issue.contains("duplicate claim basis")));
+    }
+
+    #[test]
+    fn duplicate_consent_authorization_references_are_rejected() {
+        let mut value = fixture();
+        let reference = ConsentAuthorizationReference {
+            record_reference: "urn:synthetic:consent:publication".into(),
+            purpose: ConsentPurpose::Publication,
+        };
+        value.consent_authorization_references = vec![reference.clone(), reference];
+        let issues = value
+            .validate_structural()
+            .expect_err("duplicate consent reference must be rejected");
+        assert!(issues
+            .iter()
+            .any(|issue| issue.contains("duplicate consent authorization reference")));
+    }
+
+    #[test]
+    fn schema_document_is_valid_json_and_pins_the_expected_schema_id() {
+        let schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../schemas/land-rrr-reference-v0.schema.json"
+        ))
+        .expect("land RRR JSON Schema document must parse");
+        assert_eq!(
+            schema["$schema"],
+            "https://json-schema.org/draft/2020-12/schema"
+        );
+        assert_eq!(schema["$id"], LAND_RRR_REFERENCE_SCHEMA_URI);
+    }
+
     #[test]
     fn invalid_source_digest_is_rejected() {
         let mut value = fixture();
