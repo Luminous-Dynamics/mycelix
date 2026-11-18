@@ -32,6 +32,8 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
       - name: Static alignment
+        env:
+          PYTHONPYCACHEPREFIX: ${{ runner.temp }}/relational-capability-pycache
         run: |
           set -euo pipefail
           python3 -m py_compile mycelix-governance/tools/formal/relational_capability_containment_reference.py mycelix-governance/tools/formal/test_relational_capability_containment_matrix.py mycelix-governance/tools/formal/run_relational_capability_containment_matrix.py
