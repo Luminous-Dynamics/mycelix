@@ -1578,38 +1578,12 @@ mod tests {
 
     #[derive(Clone)]
     struct HickoryWireResolver {
-        resolver: Arc<hickory_resolver::TokioResolver>,
+        server: SocketAddr,
     }
 
     impl HickoryWireResolver {
         fn new(server: SocketAddr) -> Self {
-            use hickory_resolver::config::{
-                ConnectionConfig, LookupIpStrategy, NameServerConfig, ResolveHosts,
-                ResolverConfig, ResolverOpts,
-            };
-            use hickory_resolver::net::runtime::TokioRuntimeProvider;
-
-            let mut connection = ConnectionConfig::udp();
-            connection.port = server.port();
-            let name_server =
-                NameServerConfig::new(server.ip(), true, vec![connection]);
-            let config = ResolverConfig::from_name_servers(vec![name_server]);
-            let mut options = ResolverOpts::default();
-            options.use_hosts_file = ResolveHosts::Never;
-            options.ip_strategy = LookupIpStrategy::Ipv4AndIpv6;
-            options.timeout = Duration::from_secs(1);
-            options.attempts = 1;
-            options.num_concurrent_reqs = 1;
-            let resolver = hickory_resolver::TokioResolver::builder_with_config(
-                config,
-                TokioRuntimeProvider::default(),
-            )
-            .with_options(options)
-            .build()
-            .expect("build resolver pointed only at the loopback DNS fixture");
-            Self {
-                resolver: Arc::new(resolver),
-            }
+            Self { server }
         }
     }
 
@@ -1621,11 +1595,37 @@ mod tests {
             permit: OwnedSemaphorePermit,
         ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
             Box::pin(async move {
-                // The DNS permit remains held through all A/AAAA and CNAME wire queries.
+                use hickory_resolver::config::{
+                    ConnectionConfig, LookupIpStrategy, NameServerConfig, ResolveHosts,
+                    ResolverConfig, ResolverOpts,
+                };
+                use hickory_resolver::net::runtime::TokioRuntimeProvider;
+
+                // A fresh resolver per authorization prevents Hickory's test cache
+                // from hiding a second wire lookup in the rebinding regression.
+                // The production resolver remains the system ToSocketAddrs path.
                 let _permit = permit;
+                let mut connection = ConnectionConfig::udp();
+                connection.port = self.server.port();
+                let name_server =
+                    NameServerConfig::new(self.server.ip(), true, vec![connection]);
+                let config = ResolverConfig::from_name_servers(vec![name_server]);
+                let mut options = ResolverOpts::default();
+                options.use_hosts_file = ResolveHosts::Never;
+                options.ip_strategy = LookupIpStrategy::Ipv4AndIpv6;
+                options.timeout = Duration::from_secs(1);
+                options.attempts = 1;
+                options.num_concurrent_reqs = 1;
+                let resolver = hickory_resolver::TokioResolver::builder_with_config(
+                    config,
+                    TokioRuntimeProvider::default(),
+                )
+                .with_options(options)
+                .build()
+                .map_err(|error| io::Error::other(format!("test resolver build: {error}")))?;
+
                 let fqdn = format!("{}.", host.trim_end_matches('.'));
-                let lookup = self
-                    .resolver
+                let lookup = resolver
                     .lookup_ip(fqdn)
                     .await
                     .map_err(|error| io::Error::other(format!("loopback DNS fixture: {error}")))?;
@@ -1811,9 +1811,7 @@ mod tests {
                 .unwrap();
             (peer, request)
         });
-        let attacker = tokio::spawn(async move {
-            attacker_listener.accept().await
-        });
+
 
         let dns = WireDnsFixture::start().await;
         dns.set_answer(
@@ -1862,7 +1860,7 @@ mod tests {
             "execution must not re-resolve AAAA after capability authorization"
         );
         assert!(
-            tokio::time::timeout(Duration::from_millis(100), attacker)
+            tokio::time::timeout(Duration::from_millis(100), attacker_listener.accept())
                 .await
                 .is_err(),
             "the attacker at the changed DNS address must receive no connection"
