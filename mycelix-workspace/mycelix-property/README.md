@@ -4,12 +4,16 @@
 
 ## Overview
 
-Mycelix Property provides decentralized property registry infrastructure including immutable ownership records, title transfers with escrow, dispute resolution, and commons management for shared resources.
+Mycelix Property provides application-level records and coordination for assets, agreements, transfers, disputes and commons management. For land and natural-resource use, it is an internal evidence and workflow system; it is not a national cadastral/deeds registry, adjudicator or source of legal title.
+
+> [!IMPORTANT]
+> **Mycelix Property is an application-level ledger, not a national deeds registry or a source of legal title.** Its Property, Transfer and TitleDeed entries describe state recorded inside Mycelix. A completed internal transfer or generated TitleDeed does not, by itself, prove registration, legal effectiveness, transferability of customary/informal rights, valid community consent, or the absence of competing claims. Those questions remain governed by applicable external law, competent institutions and affected communities. See [PROPERTY_LEGAL_EFFECT_BOUNDARY.md](./PROPERTY_LEGAL_EFFECT_BOUNDARY.md) before using the land/resource flows for real-world decisions.
+
 
 ## Zomes
 
 ### registry
-Immutable ownership records:
+Internal application records (not proof of external registration):
 - Property registration with geospatial anchoring
 - Title deed management
 - Ownership history chain
@@ -17,11 +21,11 @@ Immutable ownership records:
 - Property metadata and attachments
 
 ### transfer
-Title transfer with escrow:
+Internal transfer workflow with escrow (not proof of a legally effective land transfer):
 - Transfer initiation and acceptance
 - Multi-party escrow
 - Condition verification
-- Automatic completion
+- Conditional internal completion (external legal effect is not inferred)
 - Rollback on failure
 
 ### disputes
@@ -47,11 +51,11 @@ mycelix-property/
 │   └── dna.yaml              # DNA manifest
 ├── zomes/
 │   ├── registry/
-│   │   ├── integrity/        # Title validation
-│   │   └── coordinator/      # Registry management
+│   │   ├── integrity/        # Internal record validation
+│   │   └── coordinator/      # Internal registry projection
 │   ├── transfer/
 │   │   ├── integrity/        # Transfer validation
-│   │   └── coordinator/      # Escrow and completion
+│   │   └── coordinator/      # Escrow and internal workflow completion
 │   ├── disputes/
 │   │   ├── integrity/        # Dispute validation
 │   │   └── coordinator/      # Claim resolution
