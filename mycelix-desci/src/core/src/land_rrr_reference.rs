@@ -280,11 +280,6 @@ impl LandRrrReferenceV0 {
             issues.push("claim_basis must contain at least one basis".into());
         }
 
-        require(
-            "rrr.source_interest_type_code/profile_pair",
-            "",
-            &mut Vec::new(),
-        );
         match (
             self.rrr.source_interest_type_code.as_deref(),
             self.rrr.source_interest_type_profile_ref.as_deref(),
@@ -339,38 +334,42 @@ impl LandRrrReferenceV0 {
             if authority
                 .valid_time_reference
                 .as_deref()
-                .is_some_and(str::is_empty)
+                .is_some_and(|reference| reference.trim().is_empty())
             {
                 issues.push("authority.valid_time_reference must not be empty".into());
             }
         }
 
         for basis in &self.claim_basis {
-            let required_kind = match basis {
-                ClaimBasis::Asserted => None,
-                ClaimBasis::CommunityAttested => Some(&[
-                    AuthorityKind::CustomaryInstitution,
-                    AuthorityKind::CommunityGovernanceBody,
-                ][..]),
-                ClaimBasis::AdministrativeRecord => Some(&[
-                    AuthorityKind::Registry,
-                    AuthorityKind::StatutoryRegulator,
-                ][..]),
-                ClaimBasis::CourtDecision => Some(&[AuthorityKind::CourtOrTribunal][..]),
-                ClaimBasis::ContractualInstrument => Some(&[AuthorityKind::ContractingParty][..]),
-                ClaimBasis::StatutoryInstrument => Some(&[AuthorityKind::StatutoryRegulator][..]),
+            let has_matching_authority = match basis {
+                ClaimBasis::Asserted => true,
+                ClaimBasis::CommunityAttested => self.authority_references.iter().any(|authority| {
+                    matches!(
+                        authority.authority_kind,
+                        AuthorityKind::CustomaryInstitution | AuthorityKind::CommunityGovernanceBody
+                    )
+                }),
+                ClaimBasis::AdministrativeRecord => self.authority_references.iter().any(|authority| {
+                    matches!(
+                        authority.authority_kind,
+                        AuthorityKind::Registry | AuthorityKind::StatutoryRegulator
+                    )
+                }),
+                ClaimBasis::CourtDecision => self.authority_references.iter().any(|authority| {
+                    authority.authority_kind == AuthorityKind::CourtOrTribunal
+                }),
+                ClaimBasis::ContractualInstrument => self.authority_references.iter().any(|authority| {
+                    authority.authority_kind == AuthorityKind::ContractingParty
+                }),
+                ClaimBasis::StatutoryInstrument => self.authority_references.iter().any(|authority| {
+                    authority.authority_kind == AuthorityKind::StatutoryRegulator
+                }),
             };
-            if let Some(kinds) = required_kind {
-                if !self
-                    .authority_references
-                    .iter()
-                    .any(|authority| kinds.contains(&authority.authority_kind))
-                {
-                    issues.push(format!(
-                        "claim basis {:?} lacks a matching authority-kind reference",
-                        basis
-                    ));
-                }
+            if !has_matching_authority {
+                issues.push(format!(
+                    "claim basis {:?} lacks a matching authority-kind reference",
+                    basis
+                ));
             }
         }
 
