@@ -1,6 +1,6 @@
 # LAND-RRR Interoperability v0.1
 
-**Status:** draft schema and mapping specification; no runtime adapter or legal-effect claim  
+**Status:** draft schema, mapping specification and typed structural preflight; no runtime event adapter, authenticated authority integration or legal-effect claim  
 **Owner:** Mycelix / DeSci evidence integration  
 **Tracked by:** [LAND-RRR-INTEROP-001 #6315](https://github.com/Luminous-Dynamics/mycelix/issues/6315)  
 **Upstream contract:** [Sol Atlas PR #936](https://github.com/Luminous-Dynamics/sol-atlas-leptos/pull/936)  
@@ -50,12 +50,16 @@ The schema sets claim_ceiling to reference-only-no-legal-effect. A trusted host 
 | Mycelix consent/access decisions | consent_authorization_references + access_policy_reference | Reference existing records; no duplicate consent ledger |
 | stewardship obligations | existing landscape stewardship profile | Reuse the current commitment/observation/acceptance model rather than cloning it here |
 
-## Schema
+## Schema and structural preflight
 
 The machine-readable schema is:
 
 - [land-rrr-reference-v0.schema.json](../schemas/land-rrr-reference-v0.schema.json)
 - [synthetic example](../examples/land-rrr-reference-synthetic-v0.json)
+
+The typed Rust payload and structural gate are in `mycelix-desci/src/core/src/land_rrr_reference.rs`, exported by the existing DeSci core library. Six focused unit tests cover the synthetic example, source-interest code/profile pairing, community authority-kind requirement, challenge-frontier completeness, external receipt claim-ceiling preservation, and source digest shape.
+
+The gate checks record structure and authority *kind* pairing. It does not authenticate the issuer, validate legal competence, resolve URI contents, check revocation/currentness, establish registration, prove consent or establish legal effect. It deliberately adds no new event store or zome; a later runtime adapter should carry this payload through the existing signed scientific-event envelope after the host resolves the references and applies the required trust checks.
 
 All objects are closed against undeclared fields. Unknown jurisdictional source codes must be retained as source code plus profile reference. A generic mapping must never silently upgrade an assertion to an official registration or court outcome.
 
