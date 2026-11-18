@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/food/ProducerLotRecordV1.schema.json",
+  "title": "ProducerLotRecordV1",
+  "description": "Public, immutable producer-lot declaration. Holochain action author is the cryptographic author; the lot producer_ref must equal did_for_author(action.author). This proves authorship only, not legal producer status or food safety.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lot", "previous_revision"],
+  "properties": {
+    "lot": { "$ref": "https://luminousdynamics.io/schemas/food/FoodLotProvenanceV1.schema.json" },
+    "previous_revision": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Holochain ActionHash of revision N-1. Null only for revision 1. The integrity callback loads the valid prior record and checks same author, lot_ref, product_ref and sequential revision."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "lot": { "properties": { "revision": { "const": 1 } }, "required": ["revision"] } },
+        "required": ["lot"]
+      },
+      "then": { "properties": { "previous_revision": { "type": "null" } } }
+    },
+    {
+      "if": {
+        "properties": { "lot": { "properties": { "revision": { "minimum": 2 } }, "required": ["revision"] } },
+        "required": ["lot"]
+      },
+      "then": { "properties": { "previous_revision": { "type": "string", "minLength": 1 } } }
+    }
+  ]
+}
