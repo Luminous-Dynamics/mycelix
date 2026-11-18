@@ -48,7 +48,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Check formatting
-        run: cargo fmt --locked --manifest-path mycelix-desci/land-rrr-reference-gate-harness/Cargo.toml -- --check
+        run: cargo fmt --manifest-path mycelix-desci/land-rrr-reference-gate-harness/Cargo.toml -- --check
 
       - name: Run isolated structural tests
         run: cargo test --locked --manifest-path mycelix-desci/land-rrr-reference-gate-harness/Cargo.toml --lib
