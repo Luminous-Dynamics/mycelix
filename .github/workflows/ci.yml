@@ -486,6 +486,12 @@ jobs:
           require_source 'response.body.into_bytes()' mycelix-prism/prism-proxy/src/main.rs
           require_source 'response.body.into_bytes()' mycelix-prism/prism-serve/src/main.rs
           require_source 'axum_unpolled_downstream_body_holds_memory_lease_until_cancelled' mycelix-prism/prism-serve/src/main.rs
+          require_source 'hickory-resolver = { version = "=0.26.3"' mycelix-prism/prism-egress/Cargo.toml
+          require_source 'struct WireDnsFixture' "$egress"
+          require_source 'ConnectionConfig::udp()' "$egress"
+          require_source 'ResolveHosts::Never' "$egress"
+          require_source 'hermetic_dns_wire_fixture_exercises_dual_stack_cname_and_mixed_answer_policy' "$egress"
+          require_source 'hermetic_dns_wire_fixture_drives_pinned_http_socket_and_peer_receipt' "$egress"
           require_source 'bytes = "=1.12.1"' mycelix-prism/prism-serve/Cargo.toml
           require_source 'pinned_tls_uses_original_hostname_for_sni_and_certificate_verification' "$egress"
           require_source 'tokio-rustls = { version = "=0.26.6"' mycelix-prism/prism-egress/Cargo.toml
