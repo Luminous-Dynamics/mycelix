@@ -1320,6 +1320,10 @@ mod tests {
     #[derive(Clone, Debug)]
     enum WireDnsAnswer {
         Records(Vec<WireDnsRecord>),
+        Rebinding {
+            first: Vec<WireDnsRecord>,
+            subsequent: Vec<WireDnsRecord>,
+        },
         NxDomain,
         ServFail,
     }
@@ -1328,6 +1332,7 @@ mod tests {
     struct WireDnsFixtureState {
         answers: std::collections::HashMap<String, WireDnsAnswer>,
         observed_queries: Vec<(String, u16)>,
+        query_counts: std::collections::HashMap<(String, u16), usize>,
     }
 
     struct WireDnsFixture {
@@ -1379,6 +1384,17 @@ mod tests {
                 .expect("DNS fixture state lock")
                 .observed_queries
                 .clone()
+        }
+
+        fn query_count(&self, name: &str, query_type: u16) -> usize {
+            let key = (normalize_wire_dns_name(name), query_type);
+            self.state
+                .lock()
+                .expect("DNS fixture state lock")
+                .query_counts
+                .get(&key)
+                .copied()
+                .unwrap_or(0)
         }
     }
 
@@ -1493,18 +1509,25 @@ mod tests {
         let original_question = packet.get(12..question_end)?;
         let normalized = normalize_wire_dns_name(&name);
 
-        let answer = {
+        let (answer, query_count) = {
             let mut state = state.lock().ok()?;
             state
                 .observed_queries
                 .push((normalized.clone(), query_type));
-            state.answers.get(&normalized).cloned()
+            let key = (normalized.clone(), query_type);
+            let count = state.query_counts.entry(key).or_insert(0);
+            let query_count = *count;
+            *count = count.saturating_add(1);
+            (state.answers.get(&normalized).cloned(), query_count)
         };
 
         let (rcode, records) = match answer.unwrap_or(WireDnsAnswer::NxDomain) {
             WireDnsAnswer::NxDomain => (3u16, Vec::new()),
             WireDnsAnswer::ServFail => (2u16, Vec::new()),
             WireDnsAnswer::Records(records) => (0u16, records),
+            WireDnsAnswer::Rebinding { first, subsequent } => {
+                (0u16, if query_count == 0 { first } else { subsequent })
+            }
         };
 
         let mut answer_bytes = Vec::new();
@@ -1758,6 +1781,91 @@ mod tests {
         assert!(
             matches!(servfail, Err(EgressError::DnsResolution { .. })),
             "SERVFAIL must fail closed"
+        );
+    }
+
+    #[tokio::test]
+    async fn wire_dns_rebinding_after_authorization_cannot_change_the_connected_peer() {
+        use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+        use tokio::io::AsyncWriteExt;
+
+        let authorized_listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind authorized IPv4 loopback");
+        let authorized_address = authorized_listener.local_addr().unwrap();
+        let rebound_address = SocketAddr::new(
+            IpAddr::V6(Ipv6Addr::LOCALHOST),
+            authorized_address.port(),
+        );
+        let attacker_listener = tokio::net::TcpListener::bind(rebound_address)
+            .await
+            .expect("bind IPv6 rebinding target on same port");
+        let authorized_server = tokio::spawn(async move {
+            let (mut stream, peer) = authorized_listener.accept().await.unwrap();
+            let request = read_test_request(&mut stream).await;
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok",
+                )
+                .await
+                .unwrap();
+            (peer, request)
+        });
+        let attacker = tokio::spawn(async move {
+            attacker_listener.accept().await
+        });
+
+        let dns = WireDnsFixture::start().await;
+        dns.set_answer(
+            "rebind.test",
+            WireDnsAnswer::Rebinding {
+                first: vec![WireDnsRecord::A(
+                    std::net::Ipv4Addr::LOCALHOST,
+                    0,
+                )],
+                // The first lookup of AAAA returns NODATA; a second resolution
+                // changes the host to an IPv6 listener on the same port.
+                subsequent: vec![WireDnsRecord::Aaaa(Ipv6Addr::LOCALHOST, 0)],
+            },
+        );
+        let resolver = HickoryWireResolver::new(dns.address);
+        let client =
+            PublicEgressClient::with_test_resolver(EgressLimits::default(), resolver);
+        let url = format!("http://rebind.test:{}/probe", authorized_address.port());
+
+        let capability = client
+            .authorize(Method::GET, &url, HeaderMap::new(), Vec::new())
+            .await
+            .unwrap();
+        assert_eq!(capability.addresses, vec![authorized_address]);
+        assert_eq!(dns.query_count("rebind.test", 1), 1);
+        assert_eq!(dns.query_count("rebind.test", 28), 1);
+
+        let response = client.execute(capability).await.unwrap();
+        assert_eq!(response.body.as_slice(), b"ok");
+        assert_eq!(response.receipt.remote_peer, authorized_address);
+        assert_eq!(response.receipt.authorized_addresses, vec![authorized_address]);
+
+        let (observed_peer, request) = authorized_server.await.unwrap();
+        assert_eq!(observed_peer, authorized_address);
+        let request = String::from_utf8_lossy(&request);
+        assert!(request.contains(&format!("Host: rebind.test:{}", authorized_address.port())));
+
+        assert_eq!(
+            dns.query_count("rebind.test", 1),
+            1,
+            "execution must not re-resolve A after capability authorization"
+        );
+        assert_eq!(
+            dns.query_count("rebind.test", 28),
+            1,
+            "execution must not re-resolve AAAA after capability authorization"
+        );
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), attacker)
+                .await
+                .is_err(),
+            "the attacker at the changed DNS address must receive no connection"
         );
     }
 
