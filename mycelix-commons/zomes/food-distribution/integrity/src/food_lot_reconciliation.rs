@@ -203,7 +203,7 @@ fn issue(
 
 /// Shared exact quantity validation used by the canonical producer-lot
 /// integrity entry. A zero quantity is not a valid source-declared lot amount.
-pub(super) fn validate_food_lot_quantity(
+pub fn validate_food_lot_quantity(
     quantity: &FoodLotQuantityV1,
 ) -> Result<(), FoodLotReconciliationIssueCodeV1> {
     if quantity.value == 0 {
