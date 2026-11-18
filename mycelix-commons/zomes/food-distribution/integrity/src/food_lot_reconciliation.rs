@@ -314,15 +314,15 @@ fn evidence_ref(
             FoodLotReconciliationIssueCodeV1::StaleOrMissingEvidence,
         );
     }
-    if let Some(method) = &evidence.method_ref {
-        if nonempty(method) {
-            refs.insert(method.clone());
-        }
+    if let Some(method) = &evidence.method_ref
+        && nonempty(method)
+    {
+        refs.insert(method.clone());
     }
-    if let Some(calibration) = &evidence.calibration_ref {
-        if nonempty(calibration) {
-            refs.insert(calibration.clone());
-        }
+    if let Some(calibration) = &evidence.calibration_ref
+        && nonempty(calibration)
+    {
+        refs.insert(calibration.clone());
     }
 }
 
@@ -442,7 +442,7 @@ fn reconcile_event_chain(
         {
             issue(issues, FoodLotReconciliationIssueCodeV1::DuplicateEvent);
         }
-        if u64::try_from(index).map_or(true, |expected| event.sequence_number != expected) {
+        if u64::try_from(index) != Ok(event.sequence_number) {
             issue(issues, FoodLotReconciliationIssueCodeV1::EventSequenceGap);
         }
         if event.receipt_id != receipt_id {
@@ -880,8 +880,8 @@ pub fn reconcile_food_lot(
         Some(value) => base_to_quantity(base_kind, value).ok(),
         None => None,
     };
-    if required.is_err() {
-        issue(&mut issues, required.unwrap_err());
+    if let Err(error) = &required {
+        issue(&mut issues, *error);
     } else if let (Ok((required_kind, required_value)), Some(remaining)) = (required, remaining) {
         if required_kind != base_kind {
             issue(
