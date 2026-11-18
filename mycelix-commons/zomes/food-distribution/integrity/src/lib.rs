@@ -92,6 +92,8 @@ pub struct Order {
 #[derive(Clone, PartialEq)]
 pub struct ProducerLotRecordV1 {
     pub lot: food_lot_reconciliation::FoodLotProvenanceV1,
+    /// Typed author identity, checked against the Holochain Create action signer.
+    pub producer_author: AgentPubKey,
     /// Revision N must reference the signed action for revision N-1.
     pub previous_revision: Option<ActionHash>,
 }
@@ -337,11 +339,21 @@ fn validate_producer_lot_fields(
     Ok(())
 }
 
+fn validate_producer_lot_record_author(
+    record: &ProducerLotRecordV1,
+    action_author: &AgentPubKey,
+) -> Result<(), String> {
+    if record.producer_author != *action_author {
+        return Err("producer_author must equal the cryptographic author of the Holochain Create action".into());
+    }
+    validate_producer_lot_fields(&record.lot, action_author)
+}
+
 fn validate_producer_lot(
     record: ProducerLotRecordV1,
     action: EntryCreationAction,
 ) -> ExternResult<ValidateCallbackResult> {
-    if let Err(message) = validate_producer_lot_fields(&record.lot, action.author()) {
+    if let Err(message) = validate_producer_lot_record_author(&record, action.author()) {
         return Ok(ValidateCallbackResult::Invalid(message));
     }
     match (record.lot.revision, record.previous_revision.as_ref()) {
@@ -369,7 +381,8 @@ fn validate_producer_lot(
                     "Producer lot predecessor action does not contain a canonical producer lot record".into(),
                 ));
             };
-            if previous.lot.lot_ref != record.lot.lot_ref
+            if previous.producer_author != record.producer_author
+                || previous.lot.lot_ref != record.lot.lot_ref
                 || previous.lot.product_ref != record.lot.product_ref
                 || previous.lot.producer_ref != record.lot.producer_ref
                 || previous.lot.revision.checked_add(1) != Some(revision)
@@ -1381,6 +1394,24 @@ mod tests {
             claim_ceiling: food_lot_reconciliation::FOOD_LOT_PROVENANCE_CLAIM_CEILING
                 .to_owned(),
         }
+    }
+
+    #[test]
+    fn producer_lot_typed_author_must_equal_signed_action_author() {
+        let author = fake_agent();
+        let other = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let record = ProducerLotRecordV1 {
+            lot: valid_producer_lot(&author),
+            producer_author: author.clone(),
+            previous_revision: None,
+        };
+        assert!(validate_producer_lot_record_author(&record, &author).is_ok());
+
+        let forged = ProducerLotRecordV1 {
+            producer_author: other,
+            ..record
+        };
+        assert!(validate_producer_lot_record_author(&forged, &author).is_err());
     }
 
     #[test]
