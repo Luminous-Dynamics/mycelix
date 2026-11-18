@@ -57,7 +57,7 @@ The machine-readable schema is:
 - [land-rrr-reference-v0.schema.json](../schemas/land-rrr-reference-v0.schema.json)
 - [synthetic example](../examples/land-rrr-reference-synthetic-v0.json)
 
-The typed Rust payload and structural gate are in `mycelix-desci/src/core/src/land_rrr_reference.rs`, exported by the existing DeSci core library. Eighteen focused unit tests cover the synthetic example, source-interest code/profile pairing, positive composition of distinct claim bases, wrong authority-kind rejection, duplicate claim-basis and consent-reference rejection, duplicate versus distinct scoped authority references, challenge-frontier completeness, external receipt claim-ceiling preservation, schema identity, source digest shape and the four-outcome TIB qualification policy.
+The typed Rust payload and structural gate are in `mycelix-desci/src/core/src/land_rrr_reference.rs`, exported by the existing DeSci core library. Twenty-five focused unit tests cover the synthetic example, source-interest code/profile pairing, positive composition of distinct claim bases, wrong authority-kind rejection, duplicate claim-basis and consent-reference rejection, duplicate versus distinct scoped authority references, challenge-frontier completeness, external receipt claim-ceiling preservation, schema identity, source digest shape and the four-outcome TIB qualification policy.
 
 The isolated Cargo harness at `mycelix-desci/land-rrr-reference-gate-harness` compiles that exact source file without building unrelated DeSci core modules. The path-scoped workflow is [land-rrr-reference.yml](../../.github/workflows/land-rrr-reference.yml). Run it locally from the repository root:
 
@@ -71,6 +71,19 @@ The gate checks record structure and authority *kind* pairing. It does not authe
 
 All objects are closed against undeclared fields. Unknown jurisdictional source codes must be retained as source code plus profile reference. A generic mapping must never silently upgrade an assertion to an official registration or court outcome.
 
+
+
+## Auditable qualification decision packet
+
+The machine-readable packet contract is:
+- [land-qualification-decision-packet-v0.schema.json](../schemas/land-qualification-decision-packet-v0.schema.json)
+- [synthetic review-required example](../examples/land-qualification-decision-packet-synthetic-v0.json)
+
+A `QualificationDecisionPacketV0` preserves the exact source record reference and digest, the declared evidence frontier and coverage, source-by-source qualification states, material gaps, required reviewer competencies/questions, recheck triggers, dissent references and explicit limitations. It distinguishes an unavailable source from a retrieved snapshot; an inaccessible source cannot claim a snapshot digest. A `not_evaluable` packet cannot claim complete coverage of its declared frontier.
+
+The typed structural validator is intentionally narrow. It does not resolve source references, authenticate issuers, determine reviewer competence, establish legal effect or prove that a source search is complete. It records *why the host must hold* and what evidence/review would allow reconciliation.
+
+The only mutation boundary in the packet schema is `read_only_no_authoritative_mutation`; the Rust enum cannot deserialize an affirmative mutation grant. This is a packet contract and test seam, not a live Property transaction-coordinator gate. The current code does not automatically enforce these holds at a Property write boundary.
 
 ## Four-outcome qualification policy seam
 
