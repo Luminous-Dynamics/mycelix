@@ -2624,6 +2624,76 @@ mod tests {
         server.await.unwrap();
     }
 
+    async fn hyper_client_accepts_response_header_block(max_header_size: Option<usize>) -> bool {
+        use hyper::client::conn::http1::Builder;
+        use hyper_util::rt::TokioIo;
+        use tokio::io::AsyncWriteExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let response = {
+            let mut bytes = b"HTTP/1.1 200 OK\\r\\nX-Prism-Large: ".to_vec();
+            bytes.extend(std::iter::repeat_n(b'v', 4096));
+            bytes.extend_from_slice(b"\\r\\nContent-Length: 0\\r\\nConnection: close\\r\\n\\r\\n");
+            bytes
+        };
+
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            read_test_request(&mut stream).await;
+            stream.write_all(&response).await.unwrap();
+        });
+
+        let stream = tokio::net::TcpStream::connect(address).await.unwrap();
+        let mut builder = Builder::new();
+        // Keep the field-count setting identical so the control isolates
+        // the aggregate response-header-byte limit.
+        builder.max_headers(MAX_RESPONSE_HEADER_COUNT);
+        if let Some(limit) = max_header_size {
+            builder.max_header_size(limit);
+        }
+
+        let (mut sender, connection) = builder
+            .handshake(TokioIo::new(stream))
+            .await
+            .expect("Hyper HTTP/1 client handshake");
+        let driver = tokio::spawn(async move {
+            let _ = connection.await;
+        });
+        let request = hyper::Request::builder()
+            .method("GET")
+            .uri("http://prism-hyper-header-limit.test/probe")
+            .header(hyper::header::HOST, "prism-hyper-header-limit.test")
+            .body(http_body_util::Empty::<Bytes>::new())
+            .expect("valid Hyper test request");
+        let accepted = tokio::time::timeout(Duration::from_secs(2), sender.send_request(request))
+            .await
+            .is_ok_and(|result| result.is_ok());
+
+        drop(sender);
+        let _ = driver.await;
+        server.await.unwrap();
+        accepted
+    }
+
+    #[tokio::test]
+    async fn hyper_preparse_header_byte_limit_rejects_large_single_header_with_negative_control() {
+        // Negative control: the same >4 KiB response header is accepted when
+        // no aggregate header-byte cap is configured.
+        assert!(
+            hyper_client_accepts_response_header_block(None).await,
+            "the negative control should accept the oversized response header"
+        );
+
+        // Hyper documents this as a parser-level limit that includes the
+        // HTTP status line. The over-limit response must fail before a
+        // Response<Incoming> reaches application code.
+        assert!(
+            !hyper_client_accepts_response_header_block(Some(1024)).await,
+            "Hyper must reject a response header block above 1 KiB"
+        );
+    }
+
     #[tokio::test]
     async fn declared_oversized_content_length_is_rejected_before_body_read() {
         use tokio::io::AsyncWriteExt;
