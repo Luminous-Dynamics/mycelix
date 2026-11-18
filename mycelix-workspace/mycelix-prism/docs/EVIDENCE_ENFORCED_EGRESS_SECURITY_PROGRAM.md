@@ -455,3 +455,14 @@ Before any production transport change, prototype and test:
 5. Slow/aborted server behavior and parser allocation/RSS measurements.
 
 Reference: Hyper 1.12.0 HTTP/1 client connection builder, max_header_size and max_headers: https://docs.rs/hyper/1.12.0/hyper/client/conn/http1/struct.Builder.html
+
+
+## Cross-repository parent address-scope update
+
+Nixward PR #162 now adds an owner-bound `AddressScopePolicy` to the parent `NetworkCapability` (Network Covenant schema v2):
+- Hostname capabilities must explicitly select `PublicUnicastOnly` or an exact canonical `ExplicitCidrs` set; the hostname string itself grants no address class.
+- The scope is part of the parent capability digest.
+- The resolution-lease validator requires its address-policy digest to match the parent capability and rejects the complete address set if any A/AAAA address is outside that scope.
+- Explicit LAN/private destinations remain a distinct owner-approved profile; they do not alter Prism PublicWeb or Symthaea Browser defaults.
+
+Prism PEAB now adds SCOPE-001..003 to cover parent digest substitution, mixed-answer rejection and narrowly scoped LAN CIDRs. BROW-001..002 capture the separate Chromium workload boundary. These are cross-repository conformance requirements, not evidence that the resolver broker, signing service, BPF map writer or Chromium resolver proxy exists. All five new PEAB cases remain unrun.

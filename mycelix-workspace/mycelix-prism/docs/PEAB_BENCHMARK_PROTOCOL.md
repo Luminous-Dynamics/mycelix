@@ -61,6 +61,11 @@ Every scenario must have a stable ID, deterministic fixture, expected decision, 
 | Ambient path escape | HTTP(S)_PROXY/ALL_PROXY, environment changes, proxy credentials, alternate resolver, IPv4/IPv6, direct socket from same cgroup | No unapproved destination or proxy connection |
 | DNS cache semantics | Envoy cached good answer then all-new answers filtered; expiry, DNS failure, stale cache and refresh races | Exact answer/cache used and any stale address retained; classify behavior, do not presume |
 | Deployment escape | A second process/native client in the workload attempts a denied connect; DNS bypass attempt; alternate egress route | Network policy blocks the escape even when application policy is bypassed |
+| Parent authority scope | Substitute resolution-lease scope digest; mix public/private A/AAAA answers; attempt an out-of-scope private CIDR | Lease matches the exact owner-authorized parent capability and every resolved address fits the parent scope |
+| Browser workload networking | Chromium redirects, subresources, workers, WebSockets, WebRTC/UDP, QUIC and alternate DNS | Kernel workload policy blocks unapproved sockets independently of CDP action receipts |
+
+
+The resolved-address scope is owner authority, not a property inferred from DNS. Every hostname parent capability must bind an explicit address scope (public-unicast-only or exact approved CIDRs); the short-lived resolution lease must carry the matching scope digest and all returned addresses must fit it. For integrated HTTP, the same exact address set must be consumed by Prism's pinned transport and Nixward's workload enforcement. Chromium is a separate client with its own resolver and subresource network stack; Prism's Reqwest transport does not mediate it.
 
 The DNS lab should extend the existing loopback UDP/TCP fixture and preserve its A/AAAA query-count assertions. Include deterministic event schedules rather than sleeps wherever possible. For races that require timing, capture monotonic timestamps and repeat with seeded interleavings.
 

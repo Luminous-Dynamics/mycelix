@@ -399,7 +399,7 @@ jobs:
           jq -e '
             .schema == "org.luminousdynamics.peab.scenario-manifest.v1" and
             .version == "0.1.0" and
-            (.scenarios | length == 31) and
+            (.scenarios | length == 36) and
             (([.scenarios[].id] | unique | length) == 31) and
             all(.scenarios[]; .negative_control_required == true) and
             all(.scenarios[]; (.source_coverage == "present" or .source_coverage == "partial" or .source_coverage == "planned")) and
