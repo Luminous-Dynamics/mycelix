@@ -13,7 +13,7 @@ use axum::http::header::HeaderValue;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use prism_common::ssrf::validate_proxy_url;
-use prism_egress::{EgressAuthority, EgressError, PublicEgressClient};
+use prism_egress::{EgressAuthority, EgressBody, EgressError, PublicEgressClient};
 use reqwest::{Method, header::HeaderMap};
 use std::sync::Arc;
 use std::time::Duration;
@@ -110,7 +110,9 @@ fn upstream_error(context: &str, error: EgressError) -> axum::response::Response
         | EgressError::Http(_) => (StatusCode::BAD_GATEWAY, "Upstream request failed"),
         EgressError::CapabilityExpired
         | EgressError::ConcurrencyQueueTimeout
-        | EgressError::ConcurrencyUnavailable => (
+        | EgressError::ConcurrencyUnavailable
+        | EgressError::ResponseMemoryBudgetTimeout
+        | EgressError::ResponseMemoryBudgetUnavailable => (
             StatusCode::SERVICE_UNAVAILABLE,
             "Egress capacity is unavailable",
         ),
@@ -139,7 +141,7 @@ fn upstream_error(context: &str, error: EgressError) -> axum::response::Response
     (status, message).into_response()
 }
 
-fn json_response(status: u16, body: Vec<u8>) -> axum::response::Response<axum::body::Body> {
+fn json_response(status: u16, body: EgressBody) -> axum::response::Response<axum::body::Body> {
     axum::response::Response::builder()
         .status(status)
         .header("content-type", "application/json")
@@ -190,7 +192,7 @@ async fn proxy_handler(Query(params): Query<ProxyParams>) -> impl IntoResponse {
                 .status(response.status.as_u16())
                 .header(axum::http::header::CONTENT_TYPE, content_type)
                 .header("x-prism-proxied", "true")
-                .body(axum::body::Body::from(response.body))
+                .body(axum::body::Body::from(response.body.into_bytes()))
                 .unwrap_or_else(|_| internal_error_response())
                 .into_response()
         }
