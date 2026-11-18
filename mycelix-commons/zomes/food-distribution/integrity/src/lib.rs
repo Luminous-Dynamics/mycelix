@@ -379,6 +379,53 @@ fn validate_producer_lot_record_author(
     validate_producer_lot_fields(&record.lot, action_author)
 }
 
+fn validate_producer_lot_revision_fields(
+    current: &ProducerLotRecordV1,
+    current_author: &AgentPubKey,
+    previous: Option<(&ProducerLotRecordV1, &AgentPubKey)>,
+) -> Result<(), String> {
+    match (&current.previous_revision, previous) {
+        (None, None) if current.lot.revision == 1 => Ok(()),
+        (Some(_), _) if current.lot.revision == 1 => {
+            Err("The first producer lot revision cannot name a predecessor".into())
+        }
+        (None, _) => Err(
+            "Every producer lot revision after revision 1 must link its exact predecessor action"
+                .into(),
+        ),
+        (Some(_), None) => Err(
+            "Producer lot predecessor action does not contain a canonical producer lot record"
+                .into(),
+        ),
+        (Some(_), Some((previous_record, previous_author))) => {
+            if previous_author != current_author
+                || previous_record.producer_author != current.producer_author
+                || previous_record.lot.producer_ref != current.lot.producer_ref
+            {
+                return Err(
+                    "Producer lot revision predecessor must have the same signed author"
+                        .into(),
+                );
+            }
+            if previous_record.lot.lot_ref != current.lot.lot_ref
+                || previous_record.lot.product_ref != current.lot.product_ref
+            {
+                return Err(
+                    "Producer lot revision must continue the same canonical lot and product"
+                        .into(),
+                );
+            }
+            if previous_record.lot.revision.checked_add(1) != Some(current.lot.revision) {
+                return Err(
+                    "Producer lot revision must increment its predecessor by exactly one"
+                        .into(),
+                );
+            }
+            Ok(())
+        }
+    }
+}
+
 fn validate_producer_lot(
     record: ProducerLotRecordV1,
     action: EntryCreationAction,
@@ -386,44 +433,24 @@ fn validate_producer_lot(
     if let Err(message) = validate_producer_lot_record_author(&record, action.author()) {
         return Ok(ValidateCallbackResult::Invalid(message));
     }
-    match (record.lot.revision, record.previous_revision.as_ref()) {
-        (1, None) => Ok(ValidateCallbackResult::Valid),
-        (1, Some(_)) => Ok(ValidateCallbackResult::Invalid(
-            "The first producer lot revision cannot name a predecessor".into(),
-        )),
-        (_, None) => Ok(ValidateCallbackResult::Invalid(
-            "Every producer lot revision after revision 1 must link its exact predecessor action"
-                .into(),
-        )),
-        (revision, Some(previous_hash)) => {
+    let previous = match record.previous_revision.as_ref() {
+        None => None,
+        Some(previous_hash) => {
             let previous_record = must_get_valid_record(previous_hash.clone())?;
             let previous_author = previous_record.action().author().clone();
-            if previous_author != *action.author() {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Producer lot revision predecessor must have the same signed author".into(),
-                ));
-            }
             let previous_entry = previous_record
                 .entry()
                 .to_app_option::<ProducerLotRecordV1>()
                 .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?;
-            let Some(previous) = previous_entry else {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Producer lot predecessor action does not contain a canonical producer lot record".into(),
-                ));
-            };
-            if previous.producer_author != record.producer_author
-                || previous.lot.lot_ref != record.lot.lot_ref
-                || previous.lot.product_ref != record.lot.product_ref
-                || previous.lot.producer_ref != record.lot.producer_ref
-                || previous.lot.revision.checked_add(1) != Some(revision)
-            {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Producer lot revision must continue the same lot/product/author at exactly previous revision + 1".into(),
-                ));
-            }
-            Ok(ValidateCallbackResult::Valid)
+            previous_entry.map(|entry| (entry, previous_author))
         }
+    };
+    let previous_ref = previous
+        .as_ref()
+        .map(|(entry, author)| (entry, author));
+    match validate_producer_lot_revision_fields(&record, action.author(), previous_ref) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(message) => Ok(ValidateCallbackResult::Invalid(message)),
     }
 }
 
@@ -1426,6 +1453,82 @@ mod tests {
             },
             claim_ceiling: food_lot_reconciliation::FOOD_LOT_PROVENANCE_CLAIM_CEILING.to_owned(),
         }
+    }
+
+    fn producer_lot_revision_record(
+        author: &AgentPubKey,
+        revision: u32,
+        previous_revision: Option<ActionHash>,
+    ) -> ProducerLotRecordV1 {
+        let mut lot = valid_producer_lot(author);
+        lot.revision = revision;
+        ProducerLotRecordV1 {
+            lot,
+            producer_author: author.clone(),
+            previous_revision,
+        }
+    }
+
+    #[test]
+    fn producer_lot_revision_one_requires_no_predecessor() {
+        let author = fake_agent();
+        let first = producer_lot_revision_record(&author, 1, None);
+        assert!(validate_producer_lot_revision_fields(&first, &author, None).is_ok());
+
+        let forged_first = producer_lot_revision_record(&author, 1, Some(fake_action_hash()));
+        assert!(validate_producer_lot_revision_fields(&forged_first, &author, None).is_err());
+    }
+
+    #[test]
+    fn producer_lot_revision_two_requires_exact_same_author_lot_product_predecessor() {
+        let author = fake_agent();
+        let first = producer_lot_revision_record(&author, 1, None);
+        let second = producer_lot_revision_record(&author, 2, Some(fake_action_hash()));
+        assert!(
+            validate_producer_lot_revision_fields(&second, &author, Some((&first, &author)))
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn producer_lot_revision_rejects_revision_gaps_and_author_changes() {
+        let author = fake_agent();
+        let other = AgentPubKey::from_raw_36(vec![2u8; 36]);
+        let first = producer_lot_revision_record(&author, 1, None);
+        let skipped = producer_lot_revision_record(&author, 3, Some(fake_action_hash()));
+        assert!(
+            validate_producer_lot_revision_fields(&skipped, &author, Some((&first, &author)))
+                .is_err()
+        );
+
+        let second = producer_lot_revision_record(&author, 2, Some(fake_action_hash()));
+        assert!(
+            validate_producer_lot_revision_fields(&second, &author, Some((&first, &other)))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn producer_lot_revision_rejects_cross_lot_and_cross_product_predecessors() {
+        let author = fake_agent();
+        let first = producer_lot_revision_record(&author, 1, None);
+        let mut other_lot = producer_lot_revision_record(&author, 1, None);
+        other_lot.lot.lot_ref = "mycelix:food-lot:another-lot".to_owned();
+        let mut other_product = producer_lot_revision_record(&author, 1, None);
+        other_product.lot.product_ref = "product:other-rice".to_owned();
+        let second = producer_lot_revision_record(&author, 2, Some(fake_action_hash()));
+        assert!(
+            validate_producer_lot_revision_fields(&second, &author, Some((&other_lot, &author)))
+                .is_err()
+        );
+        assert!(
+            validate_producer_lot_revision_fields(&second, &author, Some((&other_product, &author)))
+                .is_err()
+        );
+        assert!(
+            validate_producer_lot_revision_fields(&second, &author, Some((&first, &author)))
+                .is_ok()
+        );
     }
 
     #[test]
