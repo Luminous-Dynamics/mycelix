@@ -1658,6 +1658,166 @@ mod tests {
         assert_eq!(response_memory_permits(16 * 1024 * 1024), 256);
     }
 
+    #[tokio::test]
+    async fn hermetic_dns_wire_fixture_exercises_dual_stack_cname_and_mixed_answer_policy() {
+        use std::net::{Ipv4Addr, Ipv6Addr};
+
+        let dns = WireDnsFixture::start().await;
+        dns.set_answer(
+            "alias.test",
+            WireDnsAnswer::Records(vec![WireDnsRecord::Cname("middle.test.".to_owned(), 30)]),
+        );
+        dns.set_answer(
+            "middle.test",
+            WireDnsAnswer::Records(vec![WireDnsRecord::Cname("target.test.".to_owned(), 20)]),
+        );
+        dns.set_answer(
+            "target.test",
+            WireDnsAnswer::Records(vec![
+                WireDnsRecord::A(Ipv4Addr::new(93, 184, 216, 34), 15),
+                WireDnsRecord::Aaaa(
+                    "2606:4700:4700::1111".parse::<Ipv6Addr>().unwrap(),
+                    15,
+                ),
+            ]),
+        );
+        dns.set_answer(
+            "mixed.test",
+            WireDnsAnswer::Records(vec![
+                WireDnsRecord::A(Ipv4Addr::new(93, 184, 216, 34), 30),
+                WireDnsRecord::Aaaa("fd00::1".parse::<Ipv6Addr>().unwrap(), 30),
+            ]),
+        );
+        dns.set_answer("missing.test", WireDnsAnswer::NxDomain);
+        dns.set_answer("servfail.test", WireDnsAnswer::ServFail);
+
+        let resolver = HickoryWireResolver::new(dns.address);
+        let client = PublicEgressClient::with_resolver(EgressLimits::default(), resolver);
+
+        let capability = client
+            .authorize(
+                Method::GET,
+                "https://alias.test/document",
+                HeaderMap::new(),
+                Vec::new(),
+            )
+            .await
+            .expect("real A/AAAA and chained CNAME wire responses should authorize");
+        assert_eq!(
+            capability.addresses,
+            vec![
+                "93.184.216.34:443".parse().unwrap(),
+                "[2606:4700:4700::1111]:443".parse().unwrap(),
+            ]
+        );
+
+        let queries = dns.observed_queries();
+        for name in ["alias.test.", "middle.test.", "target.test."] {
+            assert!(
+                queries.contains(&(name.to_owned(), 1)),
+                "fixture did not receive an A query for {name}: {queries:?}"
+            );
+            assert!(
+                queries.contains(&(name.to_owned(), 28)),
+                "fixture did not receive an AAAA query for {name}: {queries:?}"
+            );
+        }
+
+        let mixed = client
+            .authorize(
+                Method::GET,
+                "https://mixed.test/document",
+                HeaderMap::new(),
+                Vec::new(),
+            )
+            .await;
+        assert!(
+            matches!(mixed, Err(EgressError::AddressNotPermitted(_))),
+            "one prohibited AAAA answer must reject the complete mixed DNS set: {mixed:?}"
+        );
+        let mixed_queries = dns.observed_queries();
+        assert!(mixed_queries.contains(&("mixed.test.".to_owned(), 1)));
+        assert!(mixed_queries.contains(&("mixed.test.".to_owned(), 28)));
+
+        let missing = client
+            .authorize(
+                Method::GET,
+                "https://missing.test/document",
+                HeaderMap::new(),
+                Vec::new(),
+            )
+            .await;
+        assert!(
+            matches!(missing, Err(EgressError::DnsResolution { .. })),
+            "NXDOMAIN must fail closed instead of producing an empty or partial grant"
+        );
+
+        let servfail = client
+            .authorize(
+                Method::GET,
+                "https://servfail.test/document",
+                HeaderMap::new(),
+                Vec::new(),
+            )
+            .await;
+        assert!(
+            matches!(servfail, Err(EgressError::DnsResolution { .. })),
+            "SERVFAIL must fail closed"
+        );
+    }
+
+    #[tokio::test]
+    async fn hermetic_dns_wire_fixture_drives_pinned_http_socket_and_peer_receipt() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let peer_address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, peer) = listener.accept().await.unwrap();
+            let request = read_test_request(&mut stream).await;
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok",
+                )
+                .await
+                .unwrap();
+            (peer, request)
+        });
+
+        let dns = WireDnsFixture::start().await;
+        dns.set_answer(
+            "pinned.test",
+            WireDnsAnswer::Records(vec![WireDnsRecord::A(
+                std::net::Ipv4Addr::LOCALHOST,
+                30,
+            )]),
+        );
+        let resolver = HickoryWireResolver::new(dns.address);
+        // The loopback/non-default-port exception is available only in cfg(test).
+        // DNS itself is still resolved over real UDP and pinned through Reqwest.
+        let client =
+            PublicEgressClient::with_test_resolver(EgressLimits::default(), resolver);
+        let url = format!("http://pinned.test:{}/probe", peer_address.port());
+        let capability = client
+            .authorize(Method::GET, &url, HeaderMap::new(), Vec::new())
+            .await
+            .unwrap();
+        assert_eq!(capability.addresses, vec![peer_address]);
+
+        let response = client.execute(capability).await.unwrap();
+        assert_eq!(response.body.as_slice(), b"ok");
+        assert_eq!(response.receipt.authorized_addresses, vec![peer_address]);
+        assert_eq!(response.receipt.remote_peer, peer_address);
+
+        let (observed_peer, request) = server.await.unwrap();
+        assert_eq!(observed_peer, peer_address);
+        let request = String::from_utf8_lossy(&request);
+        assert!(request.contains(&format!("Host: pinned.test:{}", peer_address.port())));
+        let queries = dns.observed_queries();
+        assert!(queries.contains(&("pinned.test.".to_owned(), 1)));
+        assert!(queries.contains(&("pinned.test.".to_owned(), 28)));
+    }
+
     #[test]
     fn reqwest_client_builder_accepts_a_pinned_domain_address_set() {
         let addresses = ["93.184.216.34:443".parse().unwrap()];
