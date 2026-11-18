@@ -639,11 +639,20 @@ pub struct DecisionPacketSource {
     pub reason: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DecisionPacketSeverity {
+    Critical,
+    High,
+    Medium,
+    Low,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DecisionPacketGap {
     pub gap_id: String,
-    pub severity: String,
+    pub severity: DecisionPacketSeverity,
     pub description: String,
     pub required_evidence_or_action: String,
 }
@@ -721,6 +730,31 @@ impl QualificationDecisionPacketV0 {
             issues.push("qualification packet must prohibit authoritative mutation".into());
         }
 
+        let mut included_references = HashSet::new();
+        for reference in &self.frontier.included_source_references {
+            require("frontier.included_source_references[]", reference, &mut issues);
+            if !included_references.insert(reference.as_str()) {
+                issues.push(format!("duplicate included source reference {reference}"));
+            }
+        }
+
+        let mut excluded_references = HashSet::new();
+        for reference in &self.frontier.excluded_or_unavailable_source_references {
+            require(
+                "frontier.excluded_or_unavailable_source_references[]",
+                reference,
+                &mut issues,
+            );
+            if !excluded_references.insert(reference.as_str()) {
+                issues.push(format!("duplicate excluded/unavailable source reference {reference}"));
+            }
+            if included_references.contains(reference.as_str()) {
+                issues.push(format!(
+                    "source reference {reference} cannot be both included and excluded/unavailable"
+                ));
+            }
+        }
+
         let mut source_references = HashSet::new();
         for source in &self.sources {
             require("source.source_reference", &source.source_reference, &mut issues);
@@ -760,6 +794,22 @@ impl QualificationDecisionPacketV0 {
                     source.source_reference
                 ));
             }
+            if source.qualification_state == DecisionPacketSourceState::Inaccessible
+                && !excluded_references.contains(source.source_reference.as_str())
+            {
+                issues.push(format!(
+                    "inaccessible source {} must be listed as excluded/unavailable in the frontier",
+                    source.source_reference
+                ));
+            }
+            if source.qualification_state != DecisionPacketSourceState::Inaccessible
+                && !included_references.contains(source.source_reference.as_str())
+            {
+                issues.push(format!(
+                    "assessed source {} must be listed as included in the frontier",
+                    source.source_reference
+                ));
+            }
         }
 
         if self.sources.is_empty() {
@@ -771,10 +821,13 @@ impl QualificationDecisionPacketV0 {
         if self.review_requirements.is_empty() {
             issues.push("decision packet must identify at least one review requirement".into());
         }
+        let mut recheck_triggers = HashSet::new();
         if self.recheck_triggers.is_empty()
-            || self.recheck_triggers.iter().any(|trigger| trigger.trim().is_empty())
+            || self.recheck_triggers.iter().any(|trigger| {
+                trigger.trim().is_empty() || !recheck_triggers.insert(trigger.as_str())
+            })
         {
-            issues.push("decision packet must include non-empty recheck triggers".into());
+            issues.push("decision packet must include unique, non-empty recheck triggers".into());
         }
         if self.limitations.is_empty()
             || self.limitations.iter().any(|limitation| limitation.trim().is_empty())
