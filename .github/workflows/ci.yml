@@ -496,6 +496,7 @@ jobs:
           require_source 'WireDnsAnswer::Rebinding' "$egress"
           require_source 'A fresh resolver per authorization prevents its internal cache' "$egress"
           require_source 'try_tcp_on_error = true' "$egress"
+          require_source 'let mut tcp_connection = ConnectionConfig::tcp()' "$egress"
           require_source 'tcp_query_count("tcp-fallback.test", query_type)' "$egress"
           require_source 'hermetic_dns_truncation_retries_over_tcp_and_preserves_address_policy' "$egress"
           require_source 'query_count("rebind.test", 1)' "$egress"
