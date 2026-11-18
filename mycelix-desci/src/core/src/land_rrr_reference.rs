@@ -855,7 +855,7 @@ impl QualificationDecisionPacketV0 {
         let mut gap_ids = HashSet::new();
         for gap in &self.gaps {
             require("gap.gap_id", &gap.gap_id, &mut issues);
-            require("gap.severity", &gap.severity, &mut issues);
+            // The closed DecisionPacketSeverity enum enforces the allowed vocabulary.
             require("gap.description", &gap.description, &mut issues);
             require(
                 "gap.required_evidence_or_action",
