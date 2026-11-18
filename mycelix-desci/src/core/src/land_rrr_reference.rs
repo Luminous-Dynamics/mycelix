@@ -1245,6 +1245,68 @@ mod decision_packet_tests {
     }
 
     #[test]
+    fn inaccessible_sources_must_be_excluded_from_the_declared_frontier() {
+        let mut value = packet();
+        let source_reference = value.sources[0].source_reference.clone();
+        value.sources[0].qualification_state = DecisionPacketSourceState::Inaccessible;
+        value.sources[0].snapshot_sha256 = None;
+        value
+            .frontier
+            .included_source_references
+            .retain(|reference| reference != &source_reference);
+        value
+            .frontier
+            .excluded_or_unavailable_source_references
+            .push(source_reference.clone());
+        assert_eq!(value.validate_structural(), Ok(()));
+
+        value
+            .frontier
+            .included_source_references
+            .push(source_reference);
+        let issues = value
+            .validate_structural()
+            .expect_err("a source cannot be included and inaccessible at once");
+        assert!(issues
+            .iter()
+            .any(|issue| issue.contains("cannot be both included and excluded/unavailable")));
+    }
+
+    #[test]
+    fn duplicate_recheck_triggers_are_rejected() {
+        let mut value = packet();
+        value.recheck_triggers.push(value.recheck_triggers[0].clone());
+        let issues = value
+            .validate_structural()
+            .expect_err("recheck triggers must be unique");
+        assert!(issues
+            .iter()
+            .any(|issue| issue.contains("unique, non-empty recheck triggers")));
+    }
+
+    #[test]
+    fn gap_severity_is_a_closed_vocabulary() {
+        let mut raw: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../examples/land-qualification-decision-packet-synthetic-v0.json"
+        ))
+        .expect("synthetic decision packet must parse");
+        raw["gaps"][0]["severity"] = serde_json::Value::String("urgent".into());
+        assert!(serde_json::from_value::<QualificationDecisionPacketV0>(raw).is_err());
+    }
+
+    #[test]
+    fn every_assessed_source_must_be_accounted_for_by_the_frontier() {
+        let mut value = packet();
+        value.frontier.included_source_references.pop();
+        let issues = value
+            .validate_structural()
+            .expect_err("unaccounted source must be rejected");
+        assert!(issues
+            .iter()
+            .any(|issue| issue.contains("must be listed as included in the frontier")));
+    }
+
+    #[test]
     fn review_packet_requires_explicit_reviewers_rechecks_and_limitations() {
         let mut value = packet();
         value.review_requirements.clear();
