@@ -1,0 +1,119 @@
+{
+  "schema": "mycelix.land-qualification-decision-packet.v0",
+  "packet_id": "urn:mycelix:land-review-packet:synthetic-za-001",
+  "created_at": "2026-11-18T18:00:00Z",
+  "policy_reference": "https://luminousdynamics.io/policies/land-rrr-read-only-qualification-v0",
+  "target_operation": "project_land_right_change_to_authoritative_state",
+  "target_source_record": {
+    "record_reference": "urn:tib:synthetic:territorial-record:za-001",
+    "record_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "assertion_reference": "assertion-mineral-interest-001"
+  },
+  "outcome": "review_required",
+  "mutation_boundary": "read_only_no_authoritative_mutation",
+  "frontier": {
+    "frontier_reference": "urn:tib:synthetic:frontier:za-001:2026-11-18",
+    "scope": "The synthetic review covers the supplied mining-right assertion, one historical registry snapshot, one opaque community-governance reference and one spatial-unit reference. It does not claim complete coverage of all registries, courts, customary institutions or affected persons.",
+    "assessed_at": "2026-11-18T18:00:00Z",
+    "coverage": "partial",
+    "included_source_references": [
+      "urn:tib:synthetic:source:registry-snapshot-001",
+      "urn:tib:synthetic:source:community-governance-reference-001",
+      "urn:tib:synthetic:source:spatial-feature-001"
+    ],
+    "excluded_or_unavailable_source_references": [
+      "urn:tib:synthetic:source:current-register-state",
+      "urn:tib:synthetic:source:authority-revocation-index",
+      "urn:tib:synthetic:source:independent-survey"
+    ]
+  },
+  "sources": [
+    {
+      "source_reference": "urn:tib:synthetic:source:registry-snapshot-001",
+      "source_role": "historical mining-right register extract",
+      "snapshot_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "captured_at": "2025-07-01T00:00:00Z",
+      "qualification_state": "stale",
+      "reason": "The only supplied registry snapshot predates the requested operation and is not proof of current register state."
+    },
+    {
+      "source_reference": "urn:tib:synthetic:source:community-governance-reference-001",
+      "source_role": "opaque community governance reference",
+      "qualification_state": "permission_unverified",
+      "reason": "The reference is present, but its mandate, decision process, scope and publication permission have not been verified."
+    },
+    {
+      "source_reference": "urn:tib:synthetic:source:spatial-feature-001",
+      "source_role": "surface and subsurface spatial-unit reference",
+      "qualification_state": "geometry_unqualified",
+      "reason": "The supplied feature does not include independently reviewed survey method, vertical datum or uncertainty fit for the proposed operation."
+    },
+    {
+      "source_reference": "urn:tib:synthetic:source:authority-revocation-index",
+      "source_role": "authority currentness and revocation source",
+      "qualification_state": "inaccessible",
+      "reason": "No currentness or revocation source was available within this declared frontier."
+    }
+  ],
+  "gaps": [
+    {
+      "gap_id": "AUTHORITY.CURRENTNESS.001",
+      "severity": "critical",
+      "description": "The competence, jurisdictional scope and current status of the referenced decision authority are not established.",
+      "required_evidence_or_action": "Obtain an authoritative, current issuer and delegation record; have a qualified South African practitioner assess legal competence and scope."
+    },
+    {
+      "gap_id": "TENURE.COMMUNITY.MANDATE.001",
+      "severity": "critical",
+      "description": "The community governance reference does not establish representative mandate or whether all affected rights-holders have been identified.",
+      "required_evidence_or_action": "Use a community-approved process and reviewer chosen through the relevant governance arrangements; preserve dissent and excluded-party concerns."
+    },
+    {
+      "gap_id": "SPATIAL.VERTICAL.001",
+      "severity": "high",
+      "description": "The spatial reference is not qualified for the proposed subsurface interest and may not represent the legally relevant volume.",
+      "required_evidence_or_action": "Obtain an appropriately qualified survey and spatial representation, including CRS, vertical datum, effective date and uncertainty."
+    },
+    {
+      "gap_id": "REGISTER.CURRENTNESS.001",
+      "severity": "high",
+      "description": "The registry snapshot is historical and cannot establish the current state of applications, transfers, restrictions or challenges.",
+      "required_evidence_or_action": "Obtain a current source snapshot or official response and bind its exact version and capture time."
+    }
+  ],
+  "review_requirements": [
+    {
+      "review_domain": "legal_authority",
+      "reviewer_role": "South African land and mineral-rights legal practitioner",
+      "question": "Which authority is competent for this specific operation and jurisdiction, and what current instrument establishes its scope and status?",
+      "mandatory": true
+    },
+    {
+      "review_domain": "land_survey",
+      "reviewer_role": "Appropriately registered land survey / geomatics professional",
+      "question": "Does the source geometry represent the relevant surface or subsurface space, and are its CRS, vertical datum and uncertainty fit for this use?",
+      "mandatory": true
+    },
+    {
+      "review_domain": "community_governance",
+      "reviewer_role": "Reviewer selected under the affected community's own governance process",
+      "question": "Which affected rights-holders, mandates, dissenting positions and purpose-specific data permissions must be preserved?",
+      "mandatory": true
+    }
+  ],
+  "recheck_triggers": [
+    "A current registry extract or official register response becomes available.",
+    "A relevant court, tribunal, regulator or customary-governance decision is received.",
+    "The authority reference is renewed, suspended or revoked.",
+    "A qualified spatial survey or vertical-datum record is added.",
+    "The affected community governance process records a new mandate, challenge or withdrawal."
+  ],
+  "dissent_or_conflict_references": [
+    "urn:tib:synthetic:challenge:community-002"
+  ],
+  "limitations": [
+    "Synthetic example only; no real land, community, party, registry or authority is represented.",
+    "This packet does not determine title, mining-right validity, statutory consent, representative legitimacy or the outcome of any legal process.",
+    "The packet records a review hold only. It is not yet integrated with the Mycelix Property transaction coordinator."
+  ]
+}
