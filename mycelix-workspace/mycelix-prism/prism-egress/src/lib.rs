@@ -1324,6 +1324,7 @@ mod tests {
             first: Vec<WireDnsRecord>,
             subsequent: Vec<WireDnsRecord>,
         },
+        TruncatedThenTcp(Vec<WireDnsRecord>),
         NxDomain,
         ServFail,
     }
@@ -1333,12 +1334,14 @@ mod tests {
         answers: std::collections::HashMap<String, WireDnsAnswer>,
         observed_queries: Vec<(String, u16)>,
         query_counts: std::collections::HashMap<(String, u16), usize>,
+        tcp_query_counts: std::collections::HashMap<(String, u16), usize>,
     }
 
     struct WireDnsFixture {
         address: SocketAddr,
         state: Arc<std::sync::Mutex<WireDnsFixtureState>>,
-        server: tokio::task::JoinHandle<()>,
+        udp_server: tokio::task::JoinHandle<()>,
+        tcp_server: tokio::task::JoinHandle<()>,
     }
 
     impl WireDnsFixture {
@@ -1347,25 +1350,71 @@ mod tests {
                 .await
                 .expect("bind hermetic DNS fixture");
             let address = socket.local_addr().expect("DNS fixture address");
+            // TCP and UDP may share the same numeric port. A truncated UDP
+            // response is retried against this TCP listener by Hickory.
+            let tcp_listener = tokio::net::TcpListener::bind(address)
+                .await
+                .expect("bind DNS TCP fallback listener on the UDP port");
             let state = Arc::new(std::sync::Mutex::new(WireDnsFixtureState::default()));
-            let server_state = Arc::clone(&state);
-            let server = tokio::spawn(async move {
+
+            let udp_state = Arc::clone(&state);
+            let udp_server = tokio::spawn(async move {
                 let mut request = [0u8; 4096];
                 loop {
                     let (length, peer) = match socket.recv_from(&mut request).await {
                         Ok(received) => received,
                         Err(_) => break,
                     };
-                    let response = build_wire_dns_response(&request[..length], &server_state);
+                    let response =
+                        build_wire_dns_response(&request[..length], &udp_state, false);
                     if let Some(response) = response {
                         let _ = socket.send_to(&response, peer).await;
                     }
                 }
             });
+
+            let tcp_state = Arc::clone(&state);
+            let tcp_server = tokio::spawn(async move {
+                use tokio::io::{AsyncReadExt, AsyncWriteExt};
+                loop {
+                    let (mut stream, _) = match tcp_listener.accept().await {
+                        Ok(accepted) => accepted,
+                        Err(_) => break,
+                    };
+                    let server_state = Arc::clone(&tcp_state);
+                    tokio::spawn(async move {
+                        let mut length_bytes = [0u8; 2];
+                        if stream.read_exact(&mut length_bytes).await.is_err() {
+                            return;
+                        }
+                        let message_length = u16::from_be_bytes(length_bytes) as usize;
+                        if message_length == 0 || message_length > 4096 {
+                            return;
+                        }
+                        let mut request = vec![0u8; message_length];
+                        if stream.read_exact(&mut request).await.is_err() {
+                            return;
+                        }
+                        if let Some(response) =
+                            build_wire_dns_response(&request, &server_state, true)
+                        {
+                            if response.len() > u16::MAX as usize {
+                                return;
+                            }
+                            let mut frame = Vec::with_capacity(response.len() + 2);
+                            frame.extend_from_slice(&(response.len() as u16).to_be_bytes());
+                            frame.extend_from_slice(&response);
+                            let _ = stream.write_all(&frame).await;
+                        }
+                    });
+                }
+            });
+
             Self {
                 address,
                 state,
-                server,
+                udp_server,
+                tcp_server,
             }
         }
 
@@ -1396,11 +1445,23 @@ mod tests {
                 .copied()
                 .unwrap_or(0)
         }
+
+        fn tcp_query_count(&self, name: &str, query_type: u16) -> usize {
+            let key = (normalize_wire_dns_name(name), query_type);
+            self.state
+                .lock()
+                .expect("DNS fixture state lock")
+                .tcp_query_counts
+                .get(&key)
+                .copied()
+                .unwrap_or(0)
+        }
     }
 
     impl Drop for WireDnsFixture {
         fn drop(&mut self) {
-            self.server.abort();
+            self.udp_server.abort();
+            self.tcp_server.abort();
         }
     }
 
@@ -1489,6 +1550,7 @@ mod tests {
     fn build_wire_dns_response(
         packet: &[u8],
         state: &Arc<std::sync::Mutex<WireDnsFixtureState>>,
+        tcp: bool,
     ) -> Option<Vec<u8>> {
         if packet.len() < 12 {
             return None;
@@ -1515,19 +1577,26 @@ mod tests {
                 .observed_queries
                 .push((normalized.clone(), query_type));
             let key = (normalized.clone(), query_type);
-            let count = state.query_counts.entry(key).or_insert(0);
+            let counts = if tcp {
+                &mut state.tcp_query_counts
+            } else {
+                &mut state.query_counts
+            };
+            let count = counts.entry(key).or_insert(0);
             let query_count = *count;
             *count = (*count).saturating_add(1);
             (state.answers.get(&normalized).cloned(), query_count)
         };
 
-        let (rcode, records) = match answer.unwrap_or(WireDnsAnswer::NxDomain) {
-            WireDnsAnswer::NxDomain => (3u16, Vec::new()),
-            WireDnsAnswer::ServFail => (2u16, Vec::new()),
-            WireDnsAnswer::Records(records) => (0u16, records),
+        let (rcode, records, truncated) = match answer.unwrap_or(WireDnsAnswer::NxDomain) {
+            WireDnsAnswer::NxDomain => (3u16, Vec::new(), false),
+            WireDnsAnswer::ServFail => (2u16, Vec::new(), false),
+            WireDnsAnswer::Records(records) => (0u16, records, false),
             WireDnsAnswer::Rebinding { first, subsequent } => {
-                (0u16, if query_count == 0 { first } else { subsequent })
+                (0u16, if query_count == 0 { first } else { subsequent }, false)
             }
+            WireDnsAnswer::TruncatedThenTcp(records) if !tcp => (0u16, Vec::new(), true),
+            WireDnsAnswer::TruncatedThenTcp(records) => (0u16, records, false),
         };
 
         let mut answer_bytes = Vec::new();
@@ -1563,7 +1632,8 @@ mod tests {
         let mut response = Vec::with_capacity(12 + packet.len() + answer_bytes.len());
         response.extend_from_slice(&id);
         let recursion_desired = request_flags & 0x0100;
-        let flags = 0x8000u16 | 0x0400 | 0x0080 | recursion_desired | rcode;
+        let truncated_flag = if truncated { 0x0200 } else { 0 };
+        let flags = 0x8000u16 | 0x0400 | 0x0080 | recursion_desired | truncated_flag | rcode;
         response.extend_from_slice(&flags.to_be_bytes());
         response.extend_from_slice(&1u16.to_be_bytes()); // QDCOUNT
         response.extend_from_slice(&answer_count.to_be_bytes());
@@ -1616,6 +1686,7 @@ mod tests {
                 options.timeout = Duration::from_secs(1);
                 options.attempts = 1;
                 options.num_concurrent_reqs = 1;
+                options.try_tcp_on_error = true;
                 let resolver = hickory_resolver::TokioResolver::builder_with_config(
                     config,
                     TokioRuntimeProvider::default(),
