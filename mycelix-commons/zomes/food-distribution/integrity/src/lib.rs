@@ -91,7 +91,7 @@ pub struct Order {
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct ProducerLotRecordV1 {
-    pub lot: food_lot_reconciliation::FoodLotProvenanceV1,
+    pub lot: Box<food_lot_reconciliation::FoodLotProvenanceV1>,
     /// Typed author identity, checked against the Holochain Create action signer.
     pub producer_author: AgentPubKey,
     /// Revision N must reference the signed action for revision N-1.
@@ -1458,7 +1458,7 @@ mod tests {
         let mut lot = valid_producer_lot(author);
         lot.revision = revision;
         ProducerLotRecordV1 {
-            lot,
+            lot: Box::new(lot),
             producer_author: author.clone(),
             previous_revision,
         }
@@ -1535,7 +1535,7 @@ mod tests {
         let author = fake_agent();
         let other = AgentPubKey::from_raw_36(vec![1u8; 36]);
         let record = ProducerLotRecordV1 {
-            lot: valid_producer_lot(&author),
+            lot: Box::new(valid_producer_lot(&author)),
             producer_author: author.clone(),
             previous_revision: None,
         };
