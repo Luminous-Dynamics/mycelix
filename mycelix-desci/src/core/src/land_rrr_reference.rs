@@ -706,8 +706,14 @@ impl QualificationDecisionPacketV0 {
             ("packet_id", self.packet_id.as_str()),
             ("policy_reference", self.policy_reference.as_str()),
             ("target_operation", self.target_operation.as_str()),
-            ("target_source_record.record_reference", self.target_source_record.record_reference.as_str()),
-            ("target_source_record.assertion_reference", self.target_source_record.assertion_reference.as_str()),
+            (
+                "target_source_record.record_reference",
+                self.target_source_record.record_reference.as_str(),
+            ),
+            (
+                "target_source_record.assertion_reference",
+                self.target_source_record.assertion_reference.as_str(),
+            ),
             ("frontier.frontier_reference", self.frontier.frontier_reference.as_str()),
             ("frontier.scope", self.frontier.scope.as_str()),
         ] {
@@ -718,7 +724,9 @@ impl QualificationDecisionPacketV0 {
             issues.push("unsupported qualification decision packet schema".into());
         }
         if !is_sha256(&self.target_source_record.record_sha256) {
-            issues.push("target_source_record.record_sha256 must be 64 lowercase hex characters".into());
+            issues.push(
+                "target_source_record.record_sha256 must be 64 lowercase hex characters".into(),
+            );
         }
         if DateTime::parse_from_rfc3339(&self.created_at).is_err() {
             issues.push("created_at must be RFC 3339".into());
@@ -726,7 +734,9 @@ impl QualificationDecisionPacketV0 {
         if DateTime::parse_from_rfc3339(&self.frontier.assessed_at).is_err() {
             issues.push("frontier.assessed_at must be RFC 3339".into());
         }
-        if self.mutation_boundary != DecisionPacketMutationBoundary::ReadOnlyNoAuthoritativeMutation {
+        if self.mutation_boundary
+            != DecisionPacketMutationBoundary::ReadOnlyNoAuthoritativeMutation
+        {
             issues.push("qualification packet must prohibit authoritative mutation".into());
         }
 
@@ -1227,9 +1237,9 @@ mod decision_packet_tests {
         let issues = value
             .validate_structural()
             .expect_err("not_evaluable cannot claim complete declared coverage");
-        assert!(issues
-            .iter()
-            .any(|issue| issue.contains("not_evaluable outcome requires partial or unavailable frontier coverage")));
+        assert!(issues.iter().any(|issue| {
+            issue.contains("not_evaluable outcome requires partial or unavailable frontier coverage")
+        }));
     }
 
     #[test]
@@ -1238,7 +1248,8 @@ mod decision_packet_tests {
             "../../../examples/land-qualification-decision-packet-synthetic-v0.json"
         ))
         .expect("synthetic decision packet must parse");
-        raw["mutation_boundary"] = serde_json::Value::String("authoritative_mutation_allowed".into());
+        raw["mutation_boundary"] =
+            serde_json::Value::String("authoritative_mutation_allowed".into());
         assert!(
             serde_json::from_value::<QualificationDecisionPacketV0>(raw).is_err()
         );
