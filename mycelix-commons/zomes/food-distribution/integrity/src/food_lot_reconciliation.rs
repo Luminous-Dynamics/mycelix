@@ -13,6 +13,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 pub const FOOD_LOT_RECONCILIATION_SCHEMA_VERSION: u32 = 1;
+pub const FOOD_LOT_PROVENANCE_CLAIM_CEILING: &str =
+    "Supplier/producer lot identity and source-declared quantity only; not proof of household receipt, freshness, food safety, allergen status or suitability.";
+pub const FOOD_LOT_HOUSEHOLD_RECEIPT_CLAIM_CEILING: &str =
+    "Local receipt observation only; does not establish supplier truth, freshness, food safety, allergen status or suitability.";
+pub const FOOD_LOT_HOUSEHOLD_EVENT_CLAIM_CEILING: &str =
+    "Local append-only lot accounting event only; not food-safety or suitability determination.";
+pub const FOOD_LOT_LOCAL_PRIVACY_SCOPE: &str = "local_private";
 pub const FOOD_LOT_RECONCILIATION_CLAIM_CEILING: &str =
     "Read-only reconciliation of submitted lot, receipt, quantity and event declarations as of the stated time; not proof of physical inventory, freshness, food safety, allergen status, suitability, or authority to purchase, consume, transfer, discard or actuate.";
 
@@ -71,7 +78,7 @@ pub struct FoodLotHouseholdReceiptV1 {
     pub received_quantity: FoodLotQuantityV1,
     pub accepted_quantity: Option<FoodLotQuantityV1>,
     pub rejected_quantity: Option<FoodLotQuantityV1>,
-    pub privacy_scope: serde_json::Value,
+    pub privacy_scope: String,
     pub evidence: FoodLotEvidenceV1,
     pub claim_ceiling: String,
 }
@@ -87,7 +94,7 @@ pub struct FoodLotHouseholdEventV1 {
     pub occurred_at: u64,
     pub quantity: Option<FoodLotQuantityV1>,
     pub child_receipt_id: Option<String>,
-    pub privacy_scope: serde_json::Value,
+    pub privacy_scope: String,
     pub evidence: FoodLotEvidenceV1,
     pub claim_ceiling: String,
 }
@@ -153,6 +160,7 @@ pub enum FoodLotReconciliationIssueCodeV1 {
     InsufficientQuantity,
     InvalidQuantityRecord,
     InvalidClaimCeiling,
+    InvalidPrivacyScope,
     MissingEventQuantity,
     InvalidEvidenceClass,
     UnsupportedRecordSchemaVersion,
@@ -317,6 +325,7 @@ fn is_conflict(code: FoodLotReconciliationIssueCodeV1) -> bool {
             | FoodLotReconciliationIssueCodeV1::DeclaredUseByElapsed
             | FoodLotReconciliationIssueCodeV1::InvalidQuantityRecord
             | FoodLotReconciliationIssueCodeV1::InvalidClaimCeiling
+            | FoodLotReconciliationIssueCodeV1::InvalidPrivacyScope
     )
 }
 
@@ -382,6 +391,12 @@ fn reconcile_event_chain(
     for (index, event) in ordered.iter().enumerate() {
         if event.schema_version != FOOD_LOT_RECONCILIATION_SCHEMA_VERSION {
             issue(issues, FoodLotReconciliationIssueCodeV1::UnsupportedRecordSchemaVersion);
+        }
+        if event.claim_ceiling != FOOD_LOT_HOUSEHOLD_EVENT_CLAIM_CEILING {
+            issue(issues, FoodLotReconciliationIssueCodeV1::InvalidClaimCeiling);
+        }
+        if event.privacy_scope != FOOD_LOT_LOCAL_PRIVACY_SCOPE {
+            issue(issues, FoodLotReconciliationIssueCodeV1::InvalidPrivacyScope);
         }
         if !nonempty(&event.event_id)
             || !ids.insert(event.event_id.as_str())
@@ -451,6 +466,14 @@ fn reconcile_child_splits(
         };
         if child.schema_version != FOOD_LOT_RECONCILIATION_SCHEMA_VERSION {
             issue(issues, FoodLotReconciliationIssueCodeV1::UnsupportedRecordSchemaVersion);
+            continue;
+        }
+        if child.claim_ceiling != FOOD_LOT_HOUSEHOLD_RECEIPT_CLAIM_CEILING {
+            issue(issues, FoodLotReconciliationIssueCodeV1::InvalidClaimCeiling);
+            continue;
+        }
+        if child.privacy_scope != FOOD_LOT_LOCAL_PRIVACY_SCOPE {
+            issue(issues, FoodLotReconciliationIssueCodeV1::InvalidPrivacyScope);
             continue;
         }
         if child.product_lot_ref != parent_lot_ref {
@@ -534,6 +557,9 @@ pub fn reconcile_food_lot(
         issue(&mut issues, FoodLotReconciliationIssueCodeV1::InvalidQuantityRecord);
     }
     evidence_ref(&lot.evidence, &mut refs, &mut issues);
+    if lot.claim_ceiling != FOOD_LOT_PROVENANCE_CLAIM_CEILING {
+        issue(&mut issues, FoodLotReconciliationIssueCodeV1::InvalidClaimCeiling);
+    }
     if lot.revision != request.expected_lot_revision {
         issue(&mut issues, FoodLotReconciliationIssueCodeV1::StaleLotRevision);
     }
@@ -556,6 +582,12 @@ pub fn reconcile_food_lot(
         issue(&mut issues, FoodLotReconciliationIssueCodeV1::ProductMismatch);
     }
     evidence_ref(&receipt.evidence, &mut refs, &mut issues);
+    if receipt.claim_ceiling != FOOD_LOT_HOUSEHOLD_RECEIPT_CLAIM_CEILING {
+        issue(&mut issues, FoodLotReconciliationIssueCodeV1::InvalidClaimCeiling);
+    }
+    if receipt.privacy_scope != FOOD_LOT_LOCAL_PRIVACY_SCOPE {
+        issue(&mut issues, FoodLotReconciliationIssueCodeV1::InvalidPrivacyScope);
+    }
     if receipt.received_at == 0
         || (request.as_of > 0 && receipt.received_at > request.as_of)
     {
@@ -806,7 +838,7 @@ mod tests {
                 use_by_at: Some(1_850_000_000),
                 handling_ref: None,
                 evidence: evidence(),
-                claim_ceiling: "producer lot declaration only".to_owned(),
+                claim_ceiling: FOOD_LOT_PROVENANCE_CLAIM_CEILING.to_owned(),
             }),
             receipt: Some(FoodLotHouseholdReceiptV1 {
                 schema_version: 1,
@@ -818,9 +850,9 @@ mod tests {
                 received_quantity: qty(2, "kg"),
                 accepted_quantity: Some(qty(1_900, "g")),
                 rejected_quantity: Some(qty(100, "g")),
-                privacy_scope: serde_json::json!({"storage":"local_private"}),
+                privacy_scope: FOOD_LOT_LOCAL_PRIVACY_SCOPE.to_owned(),
                 evidence: evidence(),
-                claim_ceiling: "local receipt declaration only".to_owned(),
+                claim_ceiling: FOOD_LOT_HOUSEHOLD_RECEIPT_CLAIM_CEILING.to_owned(),
             }),
             events: vec![],
             child_receipts: vec![],
@@ -848,9 +880,9 @@ mod tests {
             occurred_at: at,
             quantity,
             child_receipt_id: child.map(str::to_owned),
-            privacy_scope: serde_json::json!({"storage":"local_private"}),
+            privacy_scope: FOOD_LOT_LOCAL_PRIVACY_SCOPE.to_owned(),
             evidence: evidence(),
-            claim_ceiling: "local event declaration only".to_owned(),
+            claim_ceiling: FOOD_LOT_HOUSEHOLD_EVENT_CLAIM_CEILING.to_owned(),
         }
     }
 
@@ -875,6 +907,52 @@ mod tests {
         assert!(report.issue_codes.contains(
             &FoodLotReconciliationIssueCodeV1::UnsupportedRecordSchemaVersion
         ));
+    }
+
+    #[test]
+    fn nested_claim_ceilings_and_private_scope_are_enforced() {
+        let mut bad_lot_claim = request();
+        bad_lot_claim
+            .lot
+            .as_mut()
+            .expect("fixture lot")
+            .claim_ceiling = "fully qualified and food safe".to_owned();
+        let lot_report = reconcile_food_lot(&bad_lot_claim);
+        assert_eq!(lot_report.disposition, FoodLotReconciliationDispositionV1::Conflicted);
+        assert!(lot_report
+            .issue_codes
+            .contains(&FoodLotReconciliationIssueCodeV1::InvalidClaimCeiling));
+
+        let mut bad_receipt_scope = request();
+        bad_receipt_scope
+            .receipt
+            .as_mut()
+            .expect("fixture receipt")
+            .privacy_scope = "shared_dht".to_owned();
+        let receipt_report = reconcile_food_lot(&bad_receipt_scope);
+        assert_eq!(receipt_report.disposition, FoodLotReconciliationDispositionV1::Conflicted);
+        assert_eq!(receipt_report.recipe_planning_eligibility, FoodLotPlanningEligibilityV1::NotEligible);
+        assert_eq!(receipt_report.available_quantity, None);
+        assert!(receipt_report
+            .issue_codes
+            .contains(&FoodLotReconciliationIssueCodeV1::InvalidPrivacyScope));
+
+        let mut bad_event_ceiling = request();
+        bad_event_ceiling.events = vec![event(
+            "event:open",
+            0,
+            None,
+            "Opened",
+            1_715_000_000,
+            None,
+            None,
+        )];
+        bad_event_ceiling.events[0].claim_ceiling = "household food safety verified".to_owned();
+        let event_report = reconcile_food_lot(&bad_event_ceiling);
+        assert_eq!(event_report.disposition, FoodLotReconciliationDispositionV1::Conflicted);
+        assert!(event_report
+            .issue_codes
+            .contains(&FoodLotReconciliationIssueCodeV1::InvalidClaimCeiling));
     }
 
     #[test]
