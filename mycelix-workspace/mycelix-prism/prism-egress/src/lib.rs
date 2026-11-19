@@ -311,6 +311,8 @@ pub struct EgressCapability {
     body: Vec<u8>,
     addresses: Vec<SocketAddr>,
     is_domain: bool,
+    resolution_lease_digest: Option<String>,
+    resolver_snapshot_digest: Option<String>,
     expires_at: std::time::Instant,
     max_response_body_bytes: usize,
     max_error_response_body_bytes: usize,
@@ -421,11 +423,17 @@ pub struct RedirectHopReceipt {
     pub status: u16,
     pub authorized_addresses: Vec<SocketAddr>,
     pub authorized_address_set_digest: String,
+    /// Signed Nixward resolution-lease payload digest, when supplied by a
+    /// trusted resolver adapter. Distinct from the resolver transcript digest.
+    pub resolution_lease_digest: Option<String>,
+    pub resolver_snapshot_digest: Option<String>,
     pub remote_peer: SocketAddr,
     pub tls_identity: Option<TlsIdentityReceipt>,
     pub http_version: String,
     pub target_addresses: Vec<SocketAddr>,
     pub target_address_set_digest: String,
+    pub target_resolution_lease_digest: Option<String>,
+    pub target_resolver_snapshot_digest: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -809,18 +817,27 @@ impl PublicEgressClient {
             ),
             Host::Ipv4(_) | Host::Ipv6(_) => None,
         };
-        let (addresses, is_domain) = tokio::time::timeout(
+        let resolution = tokio::time::timeout(
             DNS_LOOKUP_TIMEOUT,
             resolve_and_authorize(
                 &url,
                 port,
                 self.resolver.as_ref(),
                 dns_permit,
+                logical_request_id,
+                redirect_hop,
                 allow_test_destinations,
             ),
         )
         .await
         .map_err(|_| EgressError::DnsResolutionTimeout)??;
+        let local_expiry = std::time::Instant::now() + self.limits.capability_ttl;
+        let expires_at = resolution
+            .valid_until
+            .map_or(local_expiry, |valid_until| valid_until.min(local_expiry));
+        if expires_at <= std::time::Instant::now() {
+            return Err(EgressError::ResolutionLeaseExpired);
+        }
 
         Ok(EgressCapability {
             url,
@@ -831,9 +848,11 @@ impl PublicEgressClient {
             method,
             headers,
             body,
-            addresses,
-            is_domain,
-            expires_at: std::time::Instant::now() + self.limits.capability_ttl,
+            addresses: resolution.addresses,
+            is_domain: resolution.is_domain,
+            resolution_lease_digest: resolution.resolution_lease_digest,
+            resolver_snapshot_digest: resolution.resolver_snapshot_digest,
+            expires_at,
             max_response_body_bytes: self.limits.max_response_body_bytes,
             max_error_response_body_bytes: self.limits.max_error_response_body_bytes,
             connect_timeout: self.limits.connect_timeout,
@@ -1504,41 +1523,100 @@ fn collect_unique_addresses_bounded(
     unique.into_iter().collect()
 }
 
+#[derive(Clone, Debug)]
+struct AuthorizedResolution {
+    addresses: Vec<SocketAddr>,
+    is_domain: bool,
+    valid_until: Option<std::time::Instant>,
+    resolution_lease_digest: Option<String>,
+    resolver_snapshot_digest: Option<String>,
+}
+
 async fn resolve_and_authorize(
     url: &Url,
     port: u16,
     resolver: &dyn EgressResolver,
     dns_permit: Option<OwnedSemaphorePermit>,
+    logical_request_id: &str,
+    redirect_hop: u8,
     allow_test_destinations: bool,
-) -> Result<(Vec<SocketAddr>, bool), EgressError> {
+) -> Result<AuthorizedResolution, EgressError> {
     let host = url.host().ok_or(EgressError::MissingHost)?;
-    let (mut addresses, is_domain) = match host {
-        Host::Ipv4(address) => (vec![SocketAddr::new(IpAddr::V4(address), port)], false),
-        Host::Ipv6(address) => (vec![SocketAddr::new(IpAddr::V6(address), port)], false),
+    let hostname = url.host_str().ok_or(EgressError::MissingHost)?;
+    let (snapshot, is_domain) = match host {
+        Host::Ipv4(address) => (
+            EgressResolutionSnapshot::from_system_resolver(
+                hostname,
+                port,
+                logical_request_id,
+                redirect_hop,
+                vec![SocketAddr::new(IpAddr::V4(address), port)],
+            ),
+            false,
+        ),
+        Host::Ipv6(address) => (
+            EgressResolutionSnapshot::from_system_resolver(
+                hostname,
+                port,
+                logical_request_id,
+                redirect_hop,
+                vec![SocketAddr::new(IpAddr::V6(address), port)],
+            ),
+            false,
+        ),
         Host::Domain(domain) => {
             let permit = dns_permit.ok_or(EgressError::DnsCapacityUnavailable)?;
-            let resolved = resolver
-                .resolve(domain, port, permit)
+            let snapshot = resolver
+                .resolve(domain, port, logical_request_id, redirect_hop, permit)
                 .await
                 .map_err(|source| EgressError::DnsResolution {
                     host: domain.to_owned(),
                     source,
                 })?;
-            (resolved, true)
+            (snapshot, true)
         }
     };
 
+    if snapshot.hostname != hostname
+        || snapshot.port != port
+        || snapshot.logical_request_id != logical_request_id
+        || snapshot.redirect_hop != redirect_hop
+    {
+        return Err(EgressError::ResolutionSnapshotMismatch);
+    }
+    if snapshot
+        .valid_until
+        .is_some_and(|valid_until| valid_until <= std::time::Instant::now())
+    {
+        return Err(EgressError::ResolutionLeaseExpired);
+    }
+
+    let mut addresses = snapshot.addresses;
     if addresses.is_empty() {
-        return Err(EgressError::EmptyAddressSet(
-            url.host_str().unwrap_or_default().to_owned(),
-        ));
+        return Err(EgressError::EmptyAddressSet(hostname.to_owned()));
     }
     addresses.sort_unstable();
     addresses.dedup();
+    if addresses.len() > MAX_DNS_ANSWER_ADDRESSES {
+        return Err(EgressError::DnsAnswerSetTooLarge);
+    }
+
+    if let Some(expected_digest) = snapshot.address_set_digest.as_deref() {
+        if canonical_address_set_digest(&addresses) != expected_digest {
+            return Err(EgressError::ResolutionAddressSetDigestMismatch);
+        }
+    }
     if !allow_test_destinations {
         validate_address_set(&addresses)?;
     }
-    Ok((addresses, is_domain))
+
+    Ok(AuthorizedResolution {
+        addresses,
+        is_domain,
+        valid_until: snapshot.valid_until,
+        resolution_lease_digest: snapshot.resolution_lease_digest,
+        resolver_snapshot_digest: snapshot.resolver_snapshot_digest,
+    })
 }
 
 /// Deny the complete DNS answer set if any returned address is unsafe.
