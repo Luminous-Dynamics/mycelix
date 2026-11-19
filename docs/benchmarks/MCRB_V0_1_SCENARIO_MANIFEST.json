@@ -838,6 +838,254 @@
         "verifier-version",
         "scenario-result"
       ]
+    },
+    {
+      "id": "MCRB-17",
+      "scenario_id": "multi-function-capability-revocation-regression",
+      "objective": "Reproduce and qualify revocation of multi-function zome-call grants on the exact released Holochain runtime, including reissued identical grants.",
+      "actors": [
+        "grant-administrator",
+        "grantee-agent",
+        "protected-effect-observer"
+      ],
+      "hard_invariants": [
+        "zero-protected-effects-after-revocation-acknowledgement-barrier",
+        "multi-function-grant-denied-after-revoke",
+        "revoking-one-grant-does-not-disable-a-distinct-reissued-grant",
+        "all-function-list-permutations-have-identical-revocation-semantics"
+      ],
+      "fault_injection": [
+        "three-function-capability-grant",
+        "function-list-order-permutation",
+        "revocation-during-in-flight-call",
+        "repeated-revoke",
+        "identical-content-grant-reissued-after-revocation",
+        "stale-capability-secret"
+      ],
+      "required_metrics": [
+        "revocation_ack_to_denial_ms",
+        "post_revocation_authorized_effect_count",
+        "multi_function_stale_grant_accept_count",
+        "reissued_grant_false_denial_count",
+        "revocation_observation_lag_ms"
+      ],
+      "upstream_references": [
+        "https://github.com/holochain/holochain/issues/6071",
+        "https://github.com/holochain/holochain/pull/6063"
+      ],
+      "qualification_blocking": true,
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "released-runtime-version",
+        "lair-version",
+        "kitsune2-version",
+        "happ-and-dna-hashes",
+        "scenario-parameters",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-18",
+      "scenario_id": "high-cardinality-gossip-convergence",
+      "objective": "Prove that two peers with large divergent DHT operation sets can complete gossip exchanges and converge without SQLite bind-limit failures.",
+      "actors": [
+        "peer-a",
+        "peer-b",
+        "independent-dht-observer"
+      ],
+      "hard_invariants": [
+        "all-expected-ops-converge",
+        "no-persistent-too-many-sql-variables-failure",
+        "storage-arcs-progress-beyond-empty",
+        "published-records-have-eligible-storage-peers"
+      ],
+      "fault_injection": [
+        "more-than-10922-missing-op-ids-per-peer",
+        "more-than-15000-divergent-ops",
+        "default-100-mib-gossip-budget",
+        "one-mib-gossip-budget",
+        "peer-restart-mid-convergence",
+        "repeated-gossip-exchange-failure"
+      ],
+      "required_metrics": [
+        "offered_op_id_count",
+        "missing_op_id_count",
+        "gossip_exchange_failure_count",
+        "sql_variable_limit_error_count",
+        "storage_arc_progress_ms",
+        "dht_convergence_ms",
+        "no_peers_for_location_publish_count",
+        "network_bytes"
+      ],
+      "upstream_references": [
+        "https://github.com/holochain/holochain/issues/6062"
+      ],
+      "qualification_blocking": true,
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "released-runtime-version",
+        "lair-version",
+        "kitsune2-version",
+        "happ-and-dna-hashes",
+        "scenario-parameters",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-19",
+      "scenario_id": "time-slice-query-and-idle-conductor-regression",
+      "objective": "Measure DHT time-slice query cost, conductor startup and scheduled idle CPU at increasing operation counts, including the reported 15-minute update cadence.",
+      "actors": [
+        "conductor-under-test",
+        "host-resource-observer",
+        "independent-dht-observer"
+      ],
+      "hard_invariants": [
+        "conductor-eventually-idles-under-no-request-load",
+        "dht-update-does-not-starve-cell-startup",
+        "time-slice-query-cost-is-reported-by-op-count",
+        "no-unbounded-periodic-full-core-work"
+      ],
+      "fault_injection": [
+        "19000-ops",
+        "100000-ops",
+        "multiple-cells-same-dna",
+        "conductor-restart",
+        "quarter-hour-update-boundary",
+        "empty-network-no-peer-load"
+      ],
+      "required_metrics": [
+        "conductor_startup_ms",
+        "time_slice_update_duration_ms",
+        "time_slice_query_count",
+        "sqlite_read_bytes",
+        "idle_cpu_percent",
+        "full_core_burst_duration_ms",
+        "cell_not_running_duration_ms",
+        "ops_in_store"
+      ],
+      "upstream_references": [
+        "https://github.com/holochain/holochain/issues/6066"
+      ],
+      "qualification_blocking": true,
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "released-runtime-version",
+        "lair-version",
+        "kitsune2-version",
+        "happ-and-dna-hashes",
+        "scenario-parameters",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-20",
+      "scenario_id": "wasmer-module-cache-memory-plateau",
+      "objective": "Determine whether repeated cell genesis, module eviction/reload and idle periods cause unbounded retained Wasmer machine-code memory.",
+      "actors": [
+        "conductor-under-test",
+        "cell-installer",
+        "host-resource-observer"
+      ],
+      "hard_invariants": [
+        "memory-growth-after-warmup-is-bounded",
+        "cell-install-churn-does-not-cause-unbounded-retained-module-memory",
+        "restart-baseline-is-recorded-separately",
+        "resource-envelope-is-measured-on-exact-runtime"
+      ],
+      "fault_injection": [
+        "repeated-cell-install",
+        "same-dna-multiple-agents",
+        "module-cache-eviction",
+        "one-hour-idle-interval",
+        "zome-reload-after-eviction",
+        "long-running-conductor"
+      ],
+      "required_metrics": [
+        "rss_bytes_by_elapsed_time",
+        "rss_delta_per_cell",
+        "rss_delta_per_idle_hour",
+        "wasm_module_load_count",
+        "module_cache_eviction_count",
+        "rss_reclaimed_after_restart",
+        "peak_rss_bytes"
+      ],
+      "upstream_references": [
+        "https://github.com/holochain/holochain/issues/6064"
+      ],
+      "qualification_blocking": true,
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "released-runtime-version",
+        "lair-version",
+        "kitsune2-version",
+        "happ-and-dna-hashes",
+        "scenario-parameters",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-21",
+      "scenario_id": "lair-large-key-inventory-and-restore",
+      "objective": "Verify app install and public source-chain restore with an existing agent key when Lair contains a large key inventory.",
+      "actors": [
+        "lair-keystore",
+        "conductor-under-test",
+        "restore-network",
+        "independent-identity-observer"
+      ],
+      "hard_invariants": [
+        "existing-agent-key-install-succeeds-at-supported-key-count",
+        "restore-uses-the-original-agent-key",
+        "no-connection-aborted-or-partial-install",
+        "awaiting-restore-is-not-reported-as-enabled"
+      ],
+      "fault_injection": [
+        "3-existing-keys",
+        "40-existing-keys",
+        "41-existing-keys",
+        "80-existing-keys",
+        "120-existing-keys",
+        "explicit-agent-key-install",
+        "restore-from-dht-with-explicit-agent-key"
+      ],
+      "required_metrics": [
+        "lair_list_public_keys_response_bytes",
+        "app_install_success_rate",
+        "app_install_duration_ms",
+        "restore_duration_ms",
+        "connection_aborted_count",
+        "agent_key_identity_match"
+      ],
+      "upstream_references": [
+        "https://github.com/holochain/holochain/issues/6065",
+        "https://blog.holochain.org/dev-pulse-157-holochain-0-7-1-brings-chain-restore-direct-signal-security/"
+      ],
+      "qualification_blocking": true,
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "released-runtime-version",
+        "lair-version",
+        "kitsune2-version",
+        "happ-and-dna-hashes",
+        "scenario-parameters",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
     }
   ],
   "receipt_schema": "MCRB_V0_1_RUN_RECEIPT.schema.json",
