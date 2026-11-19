@@ -49,15 +49,16 @@ struct ManifestInfo {
 struct CallSite {
     source_path: String,
     line: usize,
-    owner_manifest: Option<String>,
-    owner_happ_name: Option<String>,
-    caller_roles: Vec<String>,
-    owner_role_dna_paths: BTreeMap<String, String>,
-    owner_manifest_git_blob_sha: Option<String>,
+    nearest_manifest_context: Option<String>,
+    nearest_manifest_happ_name: Option<String>,
+    context_roles: Vec<String>,
+    context_role_dna_paths: BTreeMap<String, String>,
+    context_manifest_git_blob_sha: Option<String>,
+    source_to_dna_identity: String,
     target_role: Option<String>,
     target_expression: String,
     classification: String,
-    target_present_in_owner_profile: bool,
+    target_declared_in_nearest_manifest_context: bool,
     target_present_elsewhere: bool,
     matching_role_name_profiles: Vec<String>,
     caveat: String,
@@ -290,7 +291,7 @@ fn discover_manifests(
     Ok((manifests, errors))
 }
 
-fn find_owner_manifest<'a>(
+fn find_nearest_manifest<'a>(
     source: &Path,
     manifests: &'a [ManifestInfo],
 ) -> Option<&'a ManifestInfo> {
@@ -331,32 +332,32 @@ fn audit_source_file(
     let mut visitor = OtherRoleVisitor::new(&const_collector.values);
     visitor.visit_file(&syntax);
 
-    let owner = find_owner_manifest(source, manifests);
-    let owner_roles = owner
+    let context = find_nearest_manifest(source, manifests);
+    let context_roles = context
         .map(|manifest| manifest.role_names.clone())
         .unwrap_or_default();
 
     let call_count = visitor.calls.len();
     let mut results = Vec::new();
     for (line, target_role, expression) in visitor.calls {
-        let (classification, target_present_in_owner_profile, target_present_elsewhere, matching) =
-            match (owner, target_role.as_deref()) {
+        let (classification, target_declared_in_context, target_present_elsewhere, matching) =
+            match (context, target_role.as_deref()) {
                 (None, _) => ("source-owner-unresolved", false, false, Vec::new()),
                 (Some(_), None) => ("dynamic-unresolved", false, false, Vec::new()),
-                (Some(owner), Some(target)) if owner.role_names.contains(target) => {
-                    ("same-happ-valid", true, true, vec![owner.name.clone()])
+                (Some(context), Some(target)) if context.role_names.contains(target) => {
+                    ("nearest-manifest-declared", true, true, vec![context.name.clone()])
                 }
-                (Some(_owner), Some(target)) => {
+                (Some(_context), Some(target)) => {
                     let target_elsewhere = manifests
                         .iter()
                         .any(|manifest| manifest.role_names.contains(target));
-                    let matching = matching_role_name_profiles(&owner_roles, target, manifests);
+                    let matching = matching_role_name_profiles(&context_roles, target, manifests);
                     if !matching.is_empty() {
                         ("profile-dependent-candidate", false, target_elsewhere, matching)
                     } else if target_elsewhere {
-                        ("cross-installed-happ-or-source-mapping-unresolved", false, true, Vec::new())
+                        ("cross-profile-or-source-mapping-unresolved", false, true, Vec::new())
                     } else {
-                        ("missing-role", false, false, Vec::new())
+                        ("missing-role-candidate", false, false, Vec::new())
                     }
                 }
             };
@@ -364,18 +365,19 @@ fn audit_source_file(
         results.push(CallSite {
             source_path: relative_path(root, source),
             line,
-            owner_manifest: owner.map(|manifest| relative_path(root, &manifest.path)),
-            owner_happ_name: owner.map(|manifest| manifest.name.clone()),
-            caller_roles: owner_roles.iter().cloned().collect(),
-            owner_role_dna_paths: owner.map(|manifest| manifest.dna_paths.clone()).unwrap_or_default(),
-            owner_manifest_git_blob_sha: owner.and_then(|manifest| manifest.git_blob_sha.clone()),
+            nearest_manifest_context: context.map(|manifest| relative_path(root, &manifest.path)),
+            nearest_manifest_happ_name: context.map(|manifest| manifest.name.clone()),
+            context_roles: context_roles.iter().cloned().collect(),
+            context_role_dna_paths: context.map(|manifest| manifest.dna_paths.clone()).unwrap_or_default(),
+            context_manifest_git_blob_sha: context.and_then(|manifest| manifest.git_blob_sha.clone()),
+            source_to_dna_identity: "not-proven".to_string(),
             target_role,
             target_expression: expression,
             classification: classification.to_string(),
-            target_present_in_owner_profile,
+            target_declared_in_nearest_manifest_context: target_declared_in_context,
             target_present_elsewhere,
             matching_role_name_profiles: matching,
-            caveat: "Role-name overlap is only a candidate mapping; it does not prove that the caller's DNA artifact is byte-identical to the role installed by another profile.".to_string(),
+            caveat: "Nearest-manifest context is not proof of source-to-DNA ownership. Role-name overlap in another profile is only a candidate mapping and does not prove DNA artifact identity.".to_string(),
         });
     }
 
@@ -429,8 +431,8 @@ pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
         }
 
         source_file_count += 1;
-        let owner = find_owner_manifest(entry.path(), &manifests);
-        if owner.is_some() {
+        let context = find_nearest_manifest(entry.path(), &manifests);
+        if context.is_some() {
             mapped_source_file_count += 1;
         } else {
             unscoped_source_file_count += 1;
@@ -472,9 +474,9 @@ pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
         "scope": {
             "manifest_count": manifests.len(),
             "rust_source_file_count": source_file_count,
-            "source_owner_mapped_file_count": mapped_source_file_count,
-            "source_owner_unmapped_file_count": unscoped_source_file_count,
-            "source_owner_mapping_coverage": if source_file_count == 0 {
+            "nearest_manifest_context_file_count": mapped_source_file_count,
+            "without_nearest_manifest_context_file_count": unscoped_source_file_count,
+            "nearest_manifest_context_coverage": if source_file_count == 0 {
                 0.0
             } else {
                 mapped_source_file_count as f64 / source_file_count as f64
@@ -492,7 +494,7 @@ pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
         "raw_text_only_occurrence_files": raw_text_only_files,
         "classification_counts": counts,
         "call_sites": call_sites,
-        "claim_ceiling": "Advisory inventory only. Role-name overlap does not prove DNA artifact identity; unmapped source roots and dynamic targets remain unresolved."
+        "claim_ceiling": "Advisory inventory only. Nearest-manifest context does not prove source-to-DNA ownership. Role-name overlap does not prove DNA artifact identity; unmapped roots and dynamic targets remain unresolved."
     }))
 }
 
