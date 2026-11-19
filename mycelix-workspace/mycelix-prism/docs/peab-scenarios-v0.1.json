@@ -701,12 +701,12 @@
     {
       "id": "OBS-008",
       "family": "observer_integrity",
-      "title": "duplicate kernel socket identity invalidates event reconciliation",
-      "setup": "two distinct event sequence numbers carry the same socket cookie inside one observer generation",
+      "title": "duplicate observer event sequence is rejected while socket-cookie reuse remains valid",
+      "setup": "duplicate event sequence appears in one observer generation; positive control repeats a socket cookie under distinct event sequences",
       "expected_decision": "incomplete",
-      "oracle": "socket identity collision/replay makes the observer snapshot incomplete; events must not be merged into one action",
+      "oracle": "duplicate generation-scoped event sequences invalidate the snapshot; repeated socket cookies with distinct sequences remain valid socket-lifecycle observations",
       "source_coverage": "partial",
-      "source_test": "duplicate_socket_cookie_invalidates_event_identity",
+      "source_test": "duplicate_event_sequence_invalidates_observer_completeness; same_socket_cookie_with_distinct_sequences_is_not_a_duplicate_event",
       "execution_status": "not_run_exact_head",
       "negative_control_required": true,
       "execution_evidence": null

@@ -14,7 +14,7 @@ The model uses workload identity, a bounded monotonic action interval, observer 
 
 It deliberately does not invent a shared capability ID in a kernel event. Until a transport or broker can produce a trustworthy shared socket identity, an event falling inside multiple same-workload action intervals is ambiguous. It is never assigned by nearest timestamp, event order, or best-effort guessing.
 
-One action may produce multiple connect attempts (for example, address racing). Those attempts may reconcile only when the action is the unique candidate for every event, each event has a unique socket cookie, every attempted peer is in the authorized peer set, and the peer selected by the application appears as an allowed kernel event. A socket event cannot be consumed by two application receipts.
+One action may produce multiple connect attempts (for example, address racing). Those attempts may reconcile only when the action is the unique candidate for every event, each event has a unique generation-scoped sequence (socket cookies identify sockets and may legitimately repeat across lifecycle observations), every attempted peer is in the authorized peer set, and the peer selected by the application appears as an allowed kernel event. A socket event cannot be consumed by two application receipts.
 
 ## Evidence outcomes
 

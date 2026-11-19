@@ -46,7 +46,7 @@ struct ObserverWindow {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum IncompleteReason {
     ObserverCoverageGap, EventLoss, EventSequenceGap, DuplicateSocketIdentity,
-    ObserverGenerationMismatch, MissingKernelEvent, AmbiguousCorrelation,
+    ObserverGenerationMismatch, DuplicateEventSequence, MissingKernelEvent, AmbiguousCorrelation,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -89,9 +89,9 @@ fn observer_integrity_error(
     if events.iter().any(|e| e.generation != observer.generation) {
         return Some(IncompleteReason::ObserverGenerationMismatch);
     }
-    let mut cookies = HashSet::new();
-    if events.iter().any(|e| !cookies.insert(e.socket_cookie)) {
-        return Some(IncompleteReason::DuplicateSocketIdentity);
+    let mut event_sequences = HashSet::new();
+    if events.iter().any(|e| !event_sequences.insert(e.sequence)) {
+        return Some(IncompleteReason::DuplicateEventSequence);
     }
     match (events.is_empty(), observer.last_sequence) {
         (true, None) => {}
@@ -115,6 +115,9 @@ fn observer_integrity_error(
 fn reconcile(
     observer: ObserverWindow, receipts: &[ApplicationReceipt], events: &[KernelConnectEvent],
 ) -> ReconciliationReport {
+    let mut ordered_events = events.to_vec();
+    ordered_events.sort_by_key(|event| event.sequence);
+    let events = ordered_events.as_slice();
     let observed: Vec<u64> = events.iter().map(|e| e.sequence).collect();
     if let Some(reason) = observer_integrity_error(observer, receipts, events) {
         return ReconciliationReport {
@@ -305,22 +308,35 @@ fn denied_before_connect_reconciles_only_when_no_kernel_event_exists() {
 
 
 #[test]
-fn duplicate_socket_cookie_invalidates_event_identity() {
-    let receipt = connected_receipt("duplicate-cookie", 100, 200);
-    let mut events = [
+fn duplicate_event_sequence_invalidates_observer_completeness() {
+    let receipt = connected_receipt("duplicate-sequence", 100, 200);
+    let events = [
         event(8, 140, peer(10, 443)),
-        event(9, 160, peer(11, 443)),
+        event(8, 160, peer(11, 443)),
     ];
-    events[1].socket_cookie = events[0].socket_cookie;
-    let report = reconcile(observer(8, Some(9)), &[receipt], &events);
+    let report = reconcile(observer(8, Some(8)), &[receipt], &events);
 
     assert!(!report.independently_qualified());
     assert_eq!(
         report.observer_error,
-        Some(IncompleteReason::DuplicateSocketIdentity)
+        Some(IncompleteReason::DuplicateEventSequence)
     );
     assert_eq!(
         report.outcomes[0].1,
-        ActionOutcome::Incomplete(IncompleteReason::DuplicateSocketIdentity)
+        ActionOutcome::Incomplete(IncompleteReason::DuplicateEventSequence)
     );
+}
+
+#[test]
+fn same_socket_cookie_with_distinct_sequences_is_not_a_duplicate_event() {
+    let receipt = connected_receipt("same-socket-two-events", 100, 200);
+    let mut events = [
+        event(8, 140, peer(10, 443)),
+        event(9, 160, peer(10, 443)),
+    ];
+    events[1].socket_cookie = events[0].socket_cookie;
+    let report = reconcile(observer(8, Some(9)), &[receipt], &events);
+
+    assert!(report.independently_qualified());
+    assert_eq!(report.outcomes[0].1, ActionOutcome::ReconciledConnected);
 }

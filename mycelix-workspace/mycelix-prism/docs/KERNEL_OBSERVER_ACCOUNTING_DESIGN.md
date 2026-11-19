@@ -14,13 +14,13 @@ Each record should carry:
 
 - observer boot/session identity and monotonically increasing attach generation;
 - hook/program identity and protocol family (connect4/connect6, UDP sendmsg, packet egress);
-- monotonically assigned attempt sequence within its observer generation;
+- monotonically assigned attempt sequence within its observer generation (unique per event; socket cookies may repeat across lifecycle records);
 - monotonic kernel timestamp;
 - cgroup/workload identity and an identity-generation or equivalent anti-reuse context;
 - socket identity where the hook exposes it, destination address/port, family, protocol, and kernel verdict;
 - policy/map generation and a compact reason code.
 
-The event sequence is an attempt sequence, not just a ring-buffer publication sequence. Allocate it before the ring reservation attempt. If reservation fails, a later published record will expose the hole; a separately readable loss counter records the failure reason. The snapshot must also publish the attempt high-watermark so loss of the final event is detectable even when no later event exists.
+The event sequence is an attempt sequence, not just a ring-buffer publication sequence. Sequence uniqueness is scoped by observer generation; socket cookies are socket-lifecycle identifiers and must not be treated as unique event IDs, because one socket can appear in more than one observation. Allocate it before the ring reservation attempt. If reservation fails, a later published record will expose the hole; a separately readable loss counter records the failure reason. The snapshot must also publish the attempt high-watermark so loss of the final event is detectable even when no later event exists.
 
 Sequence allocation before reservation can differ from reservation/publication order under concurrency. Consumers must sort/validate by attempt sequence, not infer causal order from ring-buffer delivery order. If global atomic sequence contention is too expensive, per-CPU or sharded sequences can be benchmarked, but the evidence model must then preserve per-shard monotonicity and refuse unsupported cross-shard ordering claims.
 
@@ -95,7 +95,7 @@ Only a complete and unambiguous join can become independently corroborated. No m
 
 ## 8. PEAB work items
 
-- OBS-001..008 qualify incomplete evidence, ambiguity, uniqueness and identity integrity at the reference-model layer.
+- OBS-001..008 qualify incomplete evidence, ambiguity, generation-scoped event-sequence uniqueness, and socket-cookie lifecycle semantics at the reference-model layer.
 - OBS-009 is planned: force interior and terminal ring-buffer reservation failures, prove the out-of-band counters and high-watermark reveal the loss, then verify the result remains incomplete.
 - KERNEL-008..010 separate connect/sendmsg policy from packet-egress behavior and established-flow treatment.
 - Compare global, per-CPU and sharded ring topologies under identical workloads before choosing a production design.
