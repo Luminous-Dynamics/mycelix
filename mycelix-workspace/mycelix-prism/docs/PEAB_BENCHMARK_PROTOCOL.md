@@ -333,3 +333,10 @@ The PEAB scenario manifest is now included at compile time by `prism-egress` tes
 The current draft Nixward PR #162 now implements the same address-set byte encoder and BLAKE3 derive-key context as Prism, with the shared 38-byte IPv4+IPv6 golden vector in both codebases. Nixward uses scope ID zero for its lease-v1 bare `IpAddr` values. Nixward also exposes the digest as a correlation helper on `NetworkResolutionLeaseV1`. This is source-level cross-repository alignment—not a live resolver broker, signed IPC transaction, kernel map writer, or runtime enforcement integration. Both code changes and their golden tests remain unexecuted pending their own exact-head validation.
 
 Related bridge work: https://github.com/Luminous-Dynamics/nixward/pull/162
+
+
+### Per-hop TLS and HTTP protocol evidence
+
+Each successful hop now records the HTTP protocol version reported by Reqwest and an optional TLS identity result. For HTTPS, the receipt records the URL reference identity, the hostname used for SNI when the URL host is a DNS name, and the fact that the configured Reqwest certificate/hostname verifier allowed a response. IP-literal HTTPS has no DNS SNI name but still records its reference identity. Plain HTTP has no TLS identity object. Redirect-hop receipts retain the same fields independently for the hop being left; the final receipt describes the final response.
+
+This is application-level transport evidence, not a certificate-chain fingerprint, pinning proof, remote attestation, or kernel observation. It is only emitted after Reqwest returns a response; invalid TLS identity produces an error and no successful receipt. TLS-003 describes the source-level assertions; it remains unexecuted until exact-head test evidence exists.
