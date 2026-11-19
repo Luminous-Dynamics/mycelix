@@ -1181,6 +1181,21 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "TXN-014",
+      "family": "cross_plane_transaction",
+      "title": "journal time and policy-generation tampering is detected",
+      "setup": "mutate observed_at_unix_ms or active_policy_generation after a Nixward journal record is created without recomputing the record digest",
+      "expected_decision": "journal_digest_mismatch_and_conflict",
+      "oracle": "timestamps and policy generation are included in the journal record hash; any post-creation mutation invalidates the record and places the reducer in Conflict",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "journal_detects_timestamp_and_policy_generation_tampering",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
