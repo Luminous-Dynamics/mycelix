@@ -56,6 +56,7 @@ pub struct QopsReport {
     pub run_id: String,
     pub scenario_id: String,
     pub offer_ledger_digest_sha256: String,
+    pub scenario_contract_digest_sha256: String,
     pub offer_ledger_entry_count: usize,
     pub generator_digest_sha256: String,
     pub workload_manifest_digest_sha256: String,
@@ -191,6 +192,7 @@ pub fn compute_qops(
         run_id: ledger.run_id().to_string(),
         scenario_id: ledger.scenario_id().to_string(),
         offer_ledger_digest_sha256: ledger.ledger_digest_sha256().to_string(),
+        scenario_contract_digest_sha256: ledger.scenario_contract_digest_sha256().to_string(),
         offer_ledger_entry_count: offered_operations,
         generator_digest_sha256: ledger.generator_digest_sha256().to_string(),
         workload_manifest_digest_sha256: ledger.workload_manifest_digest_sha256().to_string(),
@@ -220,7 +222,7 @@ mod tests {
         CrossHostTimingStatus, Percentiles,
         offer_ledger::{
             OfferLedgerEntry, OfferLedgerEnvelope, OFFER_LEDGER_SCHEMA_VERSION,
-            calculate_offer_ledger_digest, verify_offer_ledger,
+            calculate_offer_ledger_digest, embedded_scenario_manifest_digest, verify_offer_ledger,
         },
     };
     use sha2::{Digest, Sha256};
@@ -248,6 +250,7 @@ mod tests {
             run_id: run_id.clone(),
             scenario_id: scenario_id.clone(),
             measurement_window_id: "window-1".to_string(),
+            scenario_contract_digest_sha256: embedded_scenario_manifest_digest(),
             requires_cross_host_visibility: cross_host_required,
             workload_manifest_digest_sha256: manifest.clone(),
             generator_digest_sha256: generator.clone(),
@@ -333,6 +336,7 @@ mod tests {
         assert_eq!(report.offer_ledger_entry_count, 5);
         assert!(!report.cross_host_measurement_required);
         assert_eq!(report.offer_ledger_digest_sha256, ledger.ledger_digest_sha256());
+        assert_eq!(report.scenario_contract_digest_sha256, ledger.scenario_contract_digest_sha256());
     }
 
     #[test]
