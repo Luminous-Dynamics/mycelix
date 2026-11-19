@@ -1388,6 +1388,8 @@
     "outcome_policy": "exactly-one-terminal-outcome-per-offer-or-explicitly-missing",
     "measurement_clock": "monotonic-clock-id-and-epoch-bound-ticks",
     "generator_authenticity": "separate-signed-runner-or-orchestrator-receipt-required",
-    "claim_ceiling": "digest-validity proves internal ledger consistency, not independent generator or runner honesty"
+    "claim_ceiling": "digest-validity proves internal ledger consistency, not independent generator or runner honesty",
+    "cross_host_requirement_source": "selected-scenario.qops_requires_cross_host_visibility",
+    "cross_host_requirement_binding": "the boolean is copied into the offer-ledger envelope and committed into the canonical ledger digest; QOPS reads it only from VerifiedOfferLedger"
   }
 }
