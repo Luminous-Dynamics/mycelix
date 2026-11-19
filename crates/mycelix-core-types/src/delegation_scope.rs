@@ -234,6 +234,15 @@ impl BudgetLimitsV1 {
         self.rate_limit
     }
 
+    const fn is_unbounded(self) -> bool {
+        self.max_duration_ms.is_none()
+            && self.max_operations.is_none()
+            && self.max_bytes.is_none()
+            && self.max_concurrent.is_none()
+            && self.max_targets.is_none()
+            && self.rate_limit.is_none()
+    }
+
     /// Whether these limits are no wider than the parent's limits.
     pub fn is_no_wider_than(&self, parent: &Self) -> bool {
         optional_max_is_no_wider(self.max_duration_ms, parent.max_duration_ms)
@@ -310,6 +319,7 @@ impl TypedDelegationScopeV1 {
         let resources = canonicalize_identifiers(resources, "resources")?;
         let audiences = canonicalize_identifiers(audiences, "audiences")?;
         let directions = canonicalize_directions(directions)?;
+        let budgets = budgets.filter(|budget| !budget.is_unbounded());
 
         Ok(Self {
             actions,
@@ -838,6 +848,32 @@ mod tests {
         );
         assert!(child.is_strictly_no_wider_than(&parent));
         assert!(!parent.is_no_wider_than(&child));
+    }
+
+    #[test]
+    fn all_unbounded_budget_normalizes_to_absent_and_is_not_attenuation() {
+        let parent = scope(
+            vec!["xenia.file.send"],
+            vec!["host/a"],
+            vec!["viewer/one"],
+            vec![DataDirectionV1::OwnerToDelegate],
+            OperationBindingV1::AnyWithinProfile,
+            None,
+        );
+        let empty_budget = BudgetLimitsV1::new(None, None, None, None, None, None);
+        let child = scope(
+            vec!["xenia.file.send"],
+            vec!["host/a"],
+            vec!["viewer/one"],
+            vec![DataDirectionV1::OwnerToDelegate],
+            OperationBindingV1::AnyWithinProfile,
+            Some(empty_budget),
+        );
+
+        assert_eq!(child.budgets(), None);
+        assert!(child.is_no_wider_than(&parent));
+        assert!(!child.is_strictly_attenuated_by(&parent));
+        assert_eq!(child.canonical_bytes(), parent.canonical_bytes());
     }
 
     #[test]
