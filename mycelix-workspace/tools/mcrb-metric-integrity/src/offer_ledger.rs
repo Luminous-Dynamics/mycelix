@@ -194,7 +194,7 @@ fn canonical_offer_ledger_bytes(envelope: &OfferLedgerEnvelope) -> Vec<u8> {
 }
 
 
-fn embedded_scenario_manifest_digest() -> String {
+pub fn embedded_scenario_manifest_digest() -> String {
     let digest = Sha256::digest(EMBEDDED_SCENARIO_MANIFEST.as_bytes());
     let mut hex = String::with_capacity(64);
     for byte in digest {
