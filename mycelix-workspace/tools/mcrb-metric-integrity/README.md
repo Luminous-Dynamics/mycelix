@@ -66,7 +66,7 @@ QOPS counts only outcomes classified as QualifiedSuccess under the scenario-spec
 
 Correct denials are not business successes. Unknown and failed outcomes remain in the offered denominator. An unoffered operation cannot enter the numerator. Missing, duplicate or unexpected samples suppress the rate. A duplicate external effect, failed hard-correctness gate or non-Valid metric-integrity report suppresses all performance rates.
 
-The QOPS API no longer accepts a caller-supplied expected-operation-ID vector or caller-supplied measurement duration. It consumes the opaque verified ledger and derives both values itself. This prevents the reducer caller from omitting failed offers after observing workload outcomes.
+The QOPS API no longer accepts a caller-supplied expected-operation-ID vector, caller-supplied measurement duration or caller-supplied cross-host requirement. It consumes the opaque verified ledger and derives these values itself. The cross-host requirement is copied from the selected scenario contract into the offer-ledger envelope and committed by the canonical digest, so a caller cannot downgrade a remote-visibility scenario to local-only after the run.
 
 Scenario-specific remote visibility is frozen in the scenario manifest:
 - local/offline-first scenarios may keep cross-host timing as NotEvaluated when their contract does not require remote visibility;
