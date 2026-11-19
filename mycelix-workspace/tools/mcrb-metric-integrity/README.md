@@ -70,7 +70,7 @@ Neither cross-host metric integrity nor QOPS alone proves that source events, ru
 
 ## Tests and execution state
 
-The source contains 34 authored Rust unit tests across local duration, cross-host interval and QOPS logic. This count is source inventory, not an execution result.
+The source contains 36 authored Rust unit tests across local duration, cross-host interval and QOPS logic. This count is source inventory, not an execution result.
 
 No exact-head Cargo test, rustfmt, Clippy, live conductor, DHT convergence, provider-effect observation or production qualification is claimed until the corresponding exact-head workflow and runtime evidence complete successfully.
 
@@ -83,3 +83,6 @@ QOPS input includes an explicit cross-host-measurement requirement sourced from 
 - If the scenario requires peer visibility/convergence, QOPS is invalid unless the metric-integrity report has CrossHostTimingStatus::Valid and cross_host_aggregate_eligible=true.
 
 The caller must not decide this dynamically after observing the run. The requirement is part of the scenario's versioned contract and is copied into the run receipt.
+
+
+The QOPS input includes cross_host_measurement_required, sourced from the frozen scenario manifest. When true, the reducer requires cross-host status Valid and cross_host_aggregate_eligible=true. When false, local-first workflows may leave cross-host timing NotEvaluated.
