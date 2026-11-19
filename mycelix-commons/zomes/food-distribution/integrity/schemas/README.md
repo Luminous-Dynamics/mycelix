@@ -1,6 +1,6 @@
 # Food Lot Provenance and Household Receipt V1 — Draft Contract
 
-**Status:** draft schema/fixture contract only. Not wired into the Holochain zome; no production storage, receipt processing or household inventory integration is implemented.
+**Status:** draft schemas/fixtures, pure reconciliation kernel, and an integrity-level create-only producer lot entry are implemented on the current feature stack. A coordinator read/query endpoint, canonical revision lookup index, household-private receipt/event runtime, consent enforcement and inventory integration are not implemented.
 
 ## Why this is separate
 
@@ -14,6 +14,21 @@ Do not conflate:
 - a household's received portion of that lot;
 - a food-preservation processing batch;
 - a reusable-container lifecycle event.
+
+## Signed producer provenance entry
+
+`FoodLotProvenanceEntryV1.schema.json` wraps the producer-side `FoodLotProvenanceV1` declaration with an optional exact Holochain predecessor action hash. The integrity `EntryTypes::FoodLotProvenance` variant is appended after existing variants to preserve their existing entry indices.
+
+The integrity create validator:
+- derives the canonical `did:mycelix:<agent>` from the signed Create action author using the existing `mycelix-bridge-entry-types::did_for_author` helper;
+- requires `producer_ref` to match that author with `require_did_is_author`;
+- rejects malformed lot IDs, non-positive or dimensionally inconsistent quantity, unsupported evidence classes, missing calibration/method references, invalid date ordering and claim-ceiling changes;
+- makes provenance entries immutable on update and delete;
+- requires revision 1 to have no predecessor, and each later revision to reference an existing previous `FoodLotProvenanceEntryV1` action with the same lot/product/producer and exactly the immediately prior revision number.
+
+This proves that the lot declaration was signed by the agent whose Mycelix DID appears in `producer_ref`, and that the revision references a valid prior declaration. It does **not** prove legal producer registration, licensing, certification, physical existence of the lot, product authenticity, freshness, food safety, allergen status or household receipt. A future on-behalf-of submission must use a separately validated delegation witness; the V1 owner-binding rule must not be bypassed.
+
+The current implementation has not yet added the coordinator read path or a latest-revision lookup index. A predecessor pointer proves a local chain edge but does not by itself prove that no competing successor exists; a resolver must detect forks when enumerating the lot's revision set.
 
 ## Three contracts
 
