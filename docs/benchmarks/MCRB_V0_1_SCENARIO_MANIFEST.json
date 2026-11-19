@@ -150,6 +150,36 @@
       "id": "oracle_mismatch_count",
       "unit": "count",
       "aggregation": "sum"
+    },
+    {
+      "id": "offered_operations_per_second",
+      "unit": "operations/s",
+      "aggregation": "offered-load-rate"
+    },
+    {
+      "id": "qualified_success_fraction",
+      "unit": "fraction",
+      "aggregation": "qualified-successes-divided-by-offered"
+    },
+    {
+      "id": "correct_authorization_denials",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "unexpected_authorization_denials",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "unknown_outcomes",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "duplicate_external_effects",
+      "unit": "count",
+      "aggregation": "sum"
     }
   ],
   "hard_gates": [
@@ -839,5 +869,26 @@
       "unique-operation-samples-per-peer",
       "same-logical-operation-may-be-observed-by-multiple-peers"
     ]
+  },
+  "qualified_operations_policy": {
+    "name": "Qualified Operations Per Second",
+    "formula": "qualified_successful_operations_with_verified_authority_provenance_peer_visibility_and_effect_receipt / fixed_measurement_window_seconds",
+    "invalid_when": [
+      "any_hard_correctness_gate_fails",
+      "metric_integrity_status_not_valid"
+    ],
+    "required_companion_metrics": [
+      "offered_operations_per_second",
+      "qualified_success_fraction",
+      "correct_authorization_denials",
+      "unexpected_authorization_denials",
+      "unknown_outcomes",
+      "duplicate_external_effects",
+      "p50_latency_ms",
+      "p95_latency_ms",
+      "p99_latency_ms"
+    ],
+    "no_silent_attempt_exclusion": true,
+    "denials_count_as_business_success": false
   }
 }
