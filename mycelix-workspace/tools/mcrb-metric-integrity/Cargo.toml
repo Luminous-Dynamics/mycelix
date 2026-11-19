@@ -1,0 +1,13 @@
+[workspace]
+resolver = "3"
+
+[package]
+name = "mycelix-mcrb-metric-integrity"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Fail-closed metric integrity checks for Mycelix Coordination and Recovery Benchmark"
+
+[lib]
+path = "src/lib.rs"
