@@ -6,13 +6,13 @@
 
 This crate enumerates assignments for a finite batch of tasks across a small set of workers. It applies declared regional permissions and aggregate CPU, memory and GPU constraints.
 
-It reports a Pareto frontier over five separate dimensions:
+It reports a Pareto frontier over seven separate optimization dimensions:
 
 1. estimated compute cost (micro-USD from declared worker rate cards);
 2. remote input bytes;
 3. number of distinct failure domains used;
 4. number of distinct declared operator identities;
-5. maximum normalized resource pressure.
+5. peak CPU utilization;\n6. peak memory utilization;\n7. peak GPU-slot utilization.
 
 It also reports the number of regions used as descriptive metadata, but region count is deliberately excluded from Pareto dominance. More geographic spread is not universally better: jurisdiction, egress, latency and policy may make concentration preferable. Permitted-region declarations remain hard constraints.
 
@@ -50,4 +50,4 @@ The expected Pareto frontier deliberately preserves both:
 The oracle must not silently pick one by collapsing economics, data locality and failure-domain diversity into a single unexplained weight.
 
 
-The reported diversity values are caller-declared identifiers only, not proof of independent control, physical fault containment or legal data residency.
+The reported diversity values are caller-declared identifiers only, not proof of independent control, physical fault containment or legal data residency. Separate pressure dimensions prevent a CPU bottleneck and a memory bottleneck from being treated as interchangeable 100% utilization.
