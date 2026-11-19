@@ -3327,20 +3327,18 @@ mod tests {
         server.await.unwrap();
     }
 
-    async fn hyper_client_accepts_response_header_block(max_header_size: Option<usize>) -> bool {
+    async fn hyper_client_accepts_raw_response(
+        max_header_size: Option<usize>,
+        response: Vec<u8>,
+        consume_body: bool,
+    ) -> bool {
+        use http_body_util::BodyExt;
         use hyper::client::conn::http1::Builder;
         use hyper_util::rt::TokioIo;
         use tokio::io::AsyncWriteExt;
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
-        let response = {
-            let mut bytes = b"HTTP/1.1 200 OK\r\nX-Prism-Large: ".to_vec();
-            bytes.extend(std::iter::repeat_n(b'v', 4096));
-            bytes.extend_from_slice(b"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
-            bytes
-        };
-
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
             read_test_request(&mut stream).await;
@@ -3349,8 +3347,8 @@ mod tests {
 
         let stream = tokio::net::TcpStream::connect(address).await.unwrap();
         let mut builder = Builder::new();
-        // Keep the field-count setting identical so the control isolates
-        // the aggregate response-header-byte limit.
+        // Keep the field-count setting identical so these experiments isolate
+        // aggregate header bytes, including chunked trailers.
         builder.max_headers(MAX_RESPONSE_HEADER_COUNT);
         if let Some(limit) = max_header_size {
             builder.max_header_size(limit);
@@ -3369,14 +3367,36 @@ mod tests {
             .header(hyper::header::HOST, "prism-hyper-header-limit.test")
             .body(http_body_util::Empty::<Bytes>::new())
             .expect("valid Hyper test request");
-        let accepted = tokio::time::timeout(Duration::from_secs(2), sender.send_request(request))
+        let response = tokio::time::timeout(
+            Duration::from_secs(2),
+            sender.send_request(request),
+        )
+        .await;
+
+        let accepted = match response {
+            Ok(Ok(response)) if consume_body => tokio::time::timeout(
+                Duration::from_secs(2),
+                response.into_body().collect(),
+            )
             .await
-            .is_ok_and(|result| result.is_ok());
+            .is_ok_and(|result| result.is_ok()),
+            Ok(Ok(_)) => true,
+            _ => false,
+        };
 
         drop(sender);
         let _ = driver.await;
         server.await.unwrap();
         accepted
+    }
+
+    async fn hyper_client_accepts_response_header_block(
+        max_header_size: Option<usize>,
+    ) -> bool {
+        let mut response = b"HTTP/1.1 200 OK\r\nX-Prism-Large: ".to_vec();
+        response.extend(std::iter::repeat_n(b'v', 4096));
+        response.extend_from_slice(b"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        hyper_client_accepts_raw_response(max_header_size, response, false).await
     }
 
     #[tokio::test]
@@ -3394,6 +3414,53 @@ mod tests {
         assert!(
             !hyper_client_accepts_response_header_block(Some(1024)).await,
             "Hyper must reject a response header block above 1 KiB"
+        );
+    }
+
+    #[tokio::test]
+    async fn hyper_preparse_header_byte_limit_rejects_aggregate_small_headers_with_negative_control() {
+        let mut oversized = b"HTTP/1.1 200 OK\r\n".to_vec();
+        for index in 0..12 {
+            // Each individual field is small; only their aggregate exceeds 1 KiB.
+            oversized.extend_from_slice(
+                format!("X-Prism-{index}: {}\r\n", "v".repeat(112)).as_bytes(),
+            );
+        }
+        oversized.extend_from_slice(b"Content-Length: 0\r\nConnection: close\r\n\r\n");
+
+        assert!(
+            hyper_client_accepts_raw_response(None, oversized.clone(), false).await,
+            "the uncapped negative control must accept the aggregate header block"
+        );
+        assert!(
+            !hyper_client_accepts_raw_response(Some(1024), oversized, false).await,
+            "the capped parser must reject many individually small fields above 1 KiB total"
+        );
+
+        let mut below_limit = b"HTTP/1.1 200 OK\r\nX-Prism-Small: ".to_vec();
+        below_limit.extend(std::iter::repeat_n(b's', 256));
+        below_limit.extend_from_slice(b"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        assert!(
+            hyper_client_accepts_raw_response(Some(1024), below_limit, false).await,
+            "a valid response below the configured byte cap must remain accepted"
+        );
+    }
+
+    #[tokio::test]
+    async fn hyper_preparse_header_byte_limit_rejects_oversized_chunked_trailers_with_negative_control() {
+        let mut chunked = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n0\r\nX-Prism-Trailer: ".to_vec();
+        chunked.extend(std::iter::repeat_n(b't', 2048));
+        chunked.extend_from_slice(b"\r\n\r\n");
+
+        // Trailer parsing occurs while the response body is consumed, so this
+        // probe must drain the body to exercise the same parser limit.
+        assert!(
+            hyper_client_accepts_raw_response(None, chunked.clone(), true).await,
+            "the uncapped negative control must accept the oversized trailer"
+        );
+        assert!(
+            !hyper_client_accepts_raw_response(Some(1024), chunked, true).await,
+            "the parser must reject chunked trailers above the configured byte cap"
         );
     }
 

@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "status": "specification_only",
   "generated_at_utc": "2026-11-19",
-  "execution_note": "No scenario in this manifest is marked as runner-executed. source_coverage records source presence only, not compilation or runtime success. Reference-model tests do not establish production kernel-observer or enforcement behavior.",
+  "execution_note": "No scenario in this manifest is marked as runner-executed. source_coverage records source presence only, not compilation or runtime success. Hyper parser probes are test-only feasibility work; production egress remains on Reqwest until transport-equivalence qualification passes.",
   "status_vocabulary": {
     "source_coverage": [
       "present",
@@ -308,7 +308,7 @@
       "expected_decision": "deny",
       "oracle": "test-only Hyper client demonstrates that max_header_size rejects an oversized HTTP/1 response before Response reaches application code; production Reqwest transport remains unchanged",
       "source_coverage": "partial",
-      "source_test": "hyper_preparse_header_byte_limit_rejects_large_single_header_with_negative_control",
+      "source_test": "hyper_preparse_header_byte_limit_rejects_large_single_header_with_negative_control; hyper_preparse_header_byte_limit_rejects_aggregate_small_headers_with_negative_control; hyper_preparse_header_byte_limit_rejects_oversized_chunked_trailers_with_negative_control",
       "execution_status": "not_run_exact_head",
       "negative_control_required": true,
       "execution_evidence": null
@@ -322,6 +322,32 @@
       "oracle": "HTTP/2 protocol parser rejects above configured bound",
       "source_coverage": "planned",
       "source_test": null,
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "HTTP-005",
+      "family": "parser_resource_limits",
+      "title": "HTTP/1 chunked trailer byte limit",
+      "setup": "chunked response terminates with a trailer field larger than configured max_header_size",
+      "expected_decision": "deny",
+      "oracle": "uncapped negative control consumes trailer; capped Hyper parser fails while the body is drained",
+      "source_coverage": "partial",
+      "source_test": "hyper_preparse_header_byte_limit_rejects_oversized_chunked_trailers_with_negative_control",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "HTTP-004",
+      "family": "parser_resource_limits",
+      "title": "HTTP/1 many individually small headers exceed aggregate byte cap",
+      "setup": "multiple response header fields each remain below parser cap but together exceed configured aggregate byte limit",
+      "expected_decision": "deny",
+      "oracle": "uncapped negative control succeeds; capped Hyper parser rejects before Response reaches application code; below-cap control succeeds",
+      "source_coverage": "partial",
+      "source_test": "hyper_preparse_header_byte_limit_rejects_aggregate_small_headers_with_negative_control",
       "execution_status": "not_run_exact_head",
       "negative_control_required": true,
       "execution_evidence": null
