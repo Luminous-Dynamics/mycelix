@@ -469,3 +469,12 @@ The authored tests now cover valid derived distributions, outlier preservation, 
 This is a source-level increment only. The exact branch head has not yet passed Cargo tests or Clippy. Cross-host DHT convergence remains **not qualified**: the verifier still needs matched publish/first-valid-observation events, record-digest binding, calibration validity and uncertainty intervals from both hosts under #6335.
 
 Do not claim the 13 authored tests passed until the exact-head workflow proves it.
+
+
+## 20. Cross-host uncertainty-interval primitive
+
+The metric-integrity candidate now includes a separate `cross_host` calculation primitive. It accepts a publisher/observer event pair bound to the same operation ID and record digest, along with separate calibration records for each peer.
+
+The calculation corrects each host's local wall-clock event timestamp by its signed offset, adds clock uncertainty conservatively, verifies each event falls within its calibration validity window, and returns a non-negative latency interval. A point estimate is withheld when the corrected center is negative or combined uncertainty exceeds the predeclared tolerance.
+
+This is a useful step beyond subtracting two uncorrected timestamps, but it is not yet a full cross-host qualification path. The pure helper is not yet wired into `MeasurementBatch` or the canonical run receipt; calibration/event records are still caller-supplied and have not been bound to signed raw artifacts, and pair uniqueness/completeness still need integration. MCRB-16 and the cross-host latency claim remain unqualified until that integration and exact-head tests pass.
