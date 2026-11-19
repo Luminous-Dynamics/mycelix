@@ -36,6 +36,7 @@ pub struct OfferLedgerEnvelope {
     pub run_id: String,
     pub scenario_id: String,
     pub measurement_window_id: String,
+    pub requires_cross_host_visibility: bool,
     pub workload_manifest_digest_sha256: String,
     pub generator_digest_sha256: String,
     pub parameter_set_digest_sha256: String,
@@ -92,6 +93,7 @@ pub struct VerifiedOfferLedger {
     run_id: String,
     scenario_id: String,
     measurement_window_id: String,
+    requires_cross_host_visibility: bool,
     generator_digest_sha256: String,
     workload_manifest_digest_sha256: String,
     parameter_set_digest_sha256: String,
@@ -109,6 +111,7 @@ impl VerifiedOfferLedger {
     pub fn run_id(&self) -> &str { &self.run_id }
     pub fn scenario_id(&self) -> &str { &self.scenario_id }
     pub fn measurement_window_id(&self) -> &str { &self.measurement_window_id }
+    pub fn requires_cross_host_visibility(&self) -> bool { self.requires_cross_host_visibility }
     pub fn generator_digest_sha256(&self) -> &str { &self.generator_digest_sha256 }
     pub fn workload_manifest_digest_sha256(&self) -> &str { &self.workload_manifest_digest_sha256 }
     pub fn parameter_set_digest_sha256(&self) -> &str { &self.parameter_set_digest_sha256 }
@@ -147,6 +150,7 @@ fn canonical_offer_ledger_bytes(envelope: &OfferLedgerEnvelope) -> Vec<u8> {
     push_string(&mut bytes, &envelope.run_id);
     push_string(&mut bytes, &envelope.scenario_id);
     push_string(&mut bytes, &envelope.measurement_window_id);
+    bytes.push(u8::from(envelope.requires_cross_host_visibility));
     push_string(&mut bytes, &envelope.workload_manifest_digest_sha256);
     push_string(&mut bytes, &envelope.generator_digest_sha256);
     push_string(&mut bytes, &envelope.parameter_set_digest_sha256);
@@ -275,6 +279,7 @@ pub fn verify_offer_ledger(
         run_id: envelope.run_id.clone(),
         scenario_id: envelope.scenario_id.clone(),
         measurement_window_id: envelope.measurement_window_id.clone(),
+        requires_cross_host_visibility: envelope.requires_cross_host_visibility,
         generator_digest_sha256: envelope.generator_digest_sha256.clone(),
         workload_manifest_digest_sha256: envelope.workload_manifest_digest_sha256.clone(),
         parameter_set_digest_sha256: envelope.parameter_set_digest_sha256.clone(),
@@ -316,6 +321,7 @@ mod tests {
             run_id: run_id.clone(),
             scenario_id: scenario_id.clone(),
             measurement_window_id: "window-1".to_string(),
+            requires_cross_host_visibility: true,
             workload_manifest_digest_sha256: manifest.clone(),
             generator_digest_sha256: generator.clone(),
             parameter_set_digest_sha256: params.clone(),
