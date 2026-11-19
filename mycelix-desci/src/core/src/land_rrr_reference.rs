@@ -190,6 +190,20 @@ pub struct ConsentAuthorizationReference {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct SpatialQualificationReference {
+    pub source_system: String,
+    pub schema: String,
+    pub schema_uri: String,
+    pub record_reference: String,
+    pub record_id: String,
+    pub record_sha256: String,
+    /// Fixed to reference-only; spatial preflight is not legal registration.
+    pub claim_ceiling: String,
+}
+
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LandRrrReferenceV0 {
     pub schema: String,
     pub schema_uri: String,
@@ -200,6 +214,8 @@ pub struct LandRrrReferenceV0 {
     pub claim_basis: Vec<ClaimBasis>,
     pub rrr: RrrReference,
     pub ladm_references: LadmReferences,
+    #[serde(default)]
+    pub spatial_qualification_reference: Option<SpatialQualificationReference>,
     pub authority_references: Vec<AuthorityReference>,
     pub dispute_assessment: DisputeAssessment,
     #[serde(default)]
@@ -460,6 +476,40 @@ impl LandRrrReferenceV0 {
             }
             if DateTime::parse_from_rfc3339(&receipt.captured_at).is_err() {
                 issues.push("external receipt captured_at must be RFC 3339".into());
+            }
+        }
+
+        if let Some(spatial) = &self.spatial_qualification_reference {
+            for (field, value) in [
+                ("spatial_qualification_reference.source_system", spatial.source_system.as_str()),
+                ("spatial_qualification_reference.schema", spatial.schema.as_str()),
+                ("spatial_qualification_reference.schema_uri", spatial.schema_uri.as_str()),
+                ("spatial_qualification_reference.record_reference", spatial.record_reference.as_str()),
+                ("spatial_qualification_reference.record_id", spatial.record_id.as_str()),
+            ] {
+                require(field, value, &mut issues);
+            }
+            if spatial.source_system != "sol-atlas" {
+                issues.push("spatial qualification source_system must be sol-atlas".into());
+            }
+            if spatial.schema != "luminous.territorial-spatial-qualification.v0" {
+                issues.push("unsupported Sol Atlas spatial qualification schema".into());
+            }
+            if spatial.schema_uri
+                != "https://luminousdynamics.io/schemas/territorial-spatial-qualification-v0.schema.json"
+            {
+                issues.push("unexpected Sol Atlas spatial qualification schema URI".into());
+            }
+            if !is_sha256(&spatial.record_sha256) {
+                issues.push(
+                    "spatial qualification record digest must be 64 lowercase hex characters".into(),
+                );
+            }
+            if spatial.claim_ceiling != "reference_only_no_legal_effect" {
+                issues.push(
+                    "spatial qualification reference must retain reference_only_no_legal_effect ceiling"
+                        .into(),
+                );
             }
         }
 
@@ -974,6 +1024,63 @@ mod tests {
                 .iter()
                 .any(|issue| { issue.contains("requires complete declared frontier coverage") })
         );
+    }
+
+    #[test]
+    fn spatial_qualification_reference_is_exact_and_non_authoritative() {
+        let mut value = fixture();
+        value.spatial_qualification_reference = Some(SpatialQualificationReference {
+            source_system: "sol-atlas".into(),
+            schema: "luminous.territorial-spatial-qualification.v0".into(),
+            schema_uri: "https://luminousdynamics.io/schemas/territorial-spatial-qualification-v0.schema.json".into(),
+            record_reference: "urn:sol-atlas:spatial-qualification:record-001".into(),
+            record_id: "synthetic-3d-record-001".into(),
+            record_sha256: "a".repeat(64),
+            claim_ceiling: "reference_only_no_legal_effect".into(),
+        });
+        assert_eq!(value.validate_structural(), Ok(()));
+        assert_eq!(
+            value.claim_ceiling,
+            LAND_RRR_REFERENCE_CLAIM_CEILING
+        );
+    }
+
+    #[test]
+    fn spatial_qualification_reference_rejects_digest_and_claim_ceiling_mismatch() {
+        let mut value = fixture();
+        value.spatial_qualification_reference = Some(SpatialQualificationReference {
+            source_system: "sol-atlas".into(),
+            schema: "luminous.territorial-spatial-qualification.v0".into(),
+            schema_uri: "https://luminousdynamics.io/schemas/territorial-spatial-qualification-v0.schema.json".into(),
+            record_reference: "urn:sol-atlas:spatial-qualification:record-002".into(),
+            record_id: "synthetic-3d-record-002".into(),
+            record_sha256: "not-a-digest".into(),
+            claim_ceiling: "legal_title_confirmed".into(),
+        });
+        let issues = value
+            .validate_structural()
+            .expect_err("invalid digest and legal-status promotion must be rejected");
+        assert!(issues.iter().any(|issue| issue.contains("spatial qualification record digest")));
+        assert!(issues.iter().any(|issue| issue.contains("reference_only_no_legal_effect")));
+    }
+
+    #[test]
+    fn spatial_qualification_reference_rejects_unknown_source_schema() {
+        let mut value = fixture();
+        value.spatial_qualification_reference = Some(SpatialQualificationReference {
+            source_system: "other-system".into(),
+            schema: "unknown.spatial.v9".into(),
+            schema_uri: "urn:unknown:schema".into(),
+            record_reference: "urn:unknown:record".into(),
+            record_id: "record-003".into(),
+            record_sha256: "b".repeat(64),
+            claim_ceiling: "reference_only_no_legal_effect".into(),
+        });
+        let issues = value
+            .validate_structural()
+            .expect_err("unknown spatial source/schema must be rejected");
+        assert!(issues.iter().any(|issue| issue.contains("source_system must be sol-atlas")));
+        assert!(issues.iter().any(|issue| issue.contains("unsupported Sol Atlas spatial qualification schema")));
     }
 
     #[test]
