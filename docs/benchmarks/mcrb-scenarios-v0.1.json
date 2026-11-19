@@ -69,7 +69,12 @@
     "workload_seed",
     "run_id",
     "raw_trace_digests",
-    "verifier_version"
+    "verifier_version",
+    "clock_source",
+    "clock_sync_method",
+    "cross_host_clock_offset_ms",
+    "clock_uncertainty_ms",
+    "monotonic_duration_source"
   ],
   "statistical_protocol": {
     "minimum_independent_repetitions": 5,
@@ -650,6 +655,63 @@
         "zero_stale_head_qualification",
         "all_claims_bind_exact_artifacts"
       ]
+    },
+    {
+      "id": "MCRB-16",
+      "name": "clock and metric integrity",
+      "class": "measurement-assurance",
+      "upstream_wind_tunnel_scenarios": [
+        "dht_sync_lag",
+        "chain_head_delay"
+      ],
+      "question": "Are source timestamps, monotonic durations, per-peer samples and aggregate metrics internally consistent and plausible?",
+      "topology": {
+        "agents": 10,
+        "roles": 1,
+        "peer_profile": "distributed-multi-host"
+      },
+      "operations": [
+        "record local monotonic durations",
+        "record host clock source and sync offset",
+        "collect peer-level lag samples",
+        "reconcile sent/received counts",
+        "validate aggregate eligibility"
+      ],
+      "failure_injection": [
+        "large wall-clock skew",
+        "clock step during run",
+        "negative timestamp delta",
+        "overflow timestamp",
+        "missing peer sample",
+        "counter mismatch"
+      ],
+      "metrics": [
+        "negative_duration_count",
+        "non_finite_duration_count",
+        "extreme_out_of_run_duration_count",
+        "peer_clock_offset_ms",
+        "clock_uncertainty_ms",
+        "send_receive_counter_mismatch_count",
+        "aggregate_rejection_count"
+      ],
+      "hard_invariants": [
+        "no_invalid_duration_in_performance_claim",
+        "outliers_preserved_and_classified",
+        "aggregate_requires_valid_peer_samples",
+        "measurement_invalid_blocks_performance_claim"
+      ]
     }
-  ]
+  ],
+  "metric_quality_policy": {
+    "require_monotonic_local_durations": true,
+    "require_clock_source_and_sync_method": true,
+    "require_cross_host_offset_and_uncertainty": true,
+    "reject_negative_or_non_finite_durations": true,
+    "preserve_and_classify_outliers": true,
+    "silently_trim_or_clamp_outliers": false,
+    "require_per_peer_distributions": true,
+    "aggregate_only_after_member_sample_validation": true,
+    "reject_unreconciled_send_receive_counts": true,
+    "invalid_metrics_block_performance_claims": true
+  }
 }
