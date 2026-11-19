@@ -66,6 +66,8 @@ pub struct OfferLedgerExpectation {
     pub generator_digest_sha256: String,
     pub seed: String,
     pub expected_entry_count: usize,
+    /// Digest committed in the frozen run plan before workload dispatch.
+    pub expected_ledger_digest_sha256: String,
     pub measurement_window: OfferMeasurementWindow,
 }
 
@@ -155,6 +157,7 @@ pub enum OfferLedgerError {
     OfferOutsideMeasurementWindow(usize),
     OfferScheduleReversed(usize),
     LedgerDigestMismatch,
+    FrozenLedgerDigestMismatch,
     Serialization(String),
     NonCanonicalArtifact,
 }
@@ -495,6 +498,12 @@ pub fn verify_offer_ledger(
     if computed_digest != ledger.digest_sha256 {
         return Err(OfferLedgerError::LedgerDigestMismatch);
     }
+    if !is_sha256_digest(&expected.expected_ledger_digest_sha256) {
+        return Err(OfferLedgerError::InvalidDigest("frozen expected ledger digest"));
+    }
+    if computed_digest != expected.expected_ledger_digest_sha256 {
+        return Err(OfferLedgerError::FrozenLedgerDigestMismatch);
+    }
 
     let canonical_artifact = serialize_offer_ledger_json(ledger)?;
     let raw_artifact_digest_sha256 = sha256_hex(&canonical_artifact);
@@ -582,6 +591,7 @@ mod tests {
             generator_digest_sha256: GENERATOR_DIGEST.to_string(),
             seed: SEED.to_string(),
             expected_entry_count: count,
+            expected_ledger_digest_sha256: ledger_with_count(count).digest_sha256,
             measurement_window: window(),
         }
     }
@@ -752,6 +762,29 @@ mod tests {
         assert_ne!(
             first.digest_sha256,
             sha256_hex(first.digest_sha256.as_bytes())
+        );
+    }
+
+    #[test]
+    fn same_count_resealed_ledger_cannot_replace_frozen_offer_set() {
+        let mut ledger = ledger_with_count(5);
+        ledger.entries[0].request_digest_sha256 =
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_string();
+        // Recompute the deterministic operation ID so this is a structurally
+        // valid but different offer set. The frozen run-plan digest must reject it.
+        ledger.entries[0].operation_id = operation_id_for_offer(
+            &ledger.run_id,
+            &ledger.scenario_id,
+            &ledger.workload_manifest_digest_sha256,
+            &ledger.generator_digest_sha256,
+            &ledger.seed,
+            ledger.entries[0].sequence,
+            &ledger.entries[0].request_digest_sha256,
+        );
+        ledger = ledger.seal();
+        assert_eq!(
+            verify_offer_ledger(&ledger, &expectation(5)).unwrap_err(),
+            OfferLedgerError::FrozenLedgerDigestMismatch
         );
     }
 
