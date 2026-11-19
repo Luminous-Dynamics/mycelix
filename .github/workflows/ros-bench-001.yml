@@ -1,0 +1,64 @@
+name: ROS-BENCH-001 reference corpus
+
+on:
+  push:
+    branches:
+      - research/ros-bench-001-executable-corpus-v0.1
+    paths:
+      - "benchmarks/authorization/ros-bench-001/**"
+      - "tools/ros-bench-001/**"
+      - ".github/workflows/ros-bench-001.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "benchmarks/authorization/ros-bench-001/**"
+      - "tools/ros-bench-001/**"
+      - ".github/workflows/ros-bench-001.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ros-bench-001-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  QUALIFIED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  exact-head-corpus:
+    name: Exact-head authorization reference corpus
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact checkout
+        run: test "$(git rev-parse HEAD)" = "${QUALIFIED_SHA}"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.1
+          components: rustfmt, clippy
+
+      - name: Assert pinned toolchain
+        run: |
+          test "$(rustc --version | awk '{print $2}')" = "1.96.1"
+          cargo --version
+          rustfmt --version
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/ros-bench-001/Cargo.toml --all -- --check
+
+      - name: Execute frozen authorization corpus
+        run: cargo test --manifest-path tools/ros-bench-001/Cargo.toml
+
+      - name: Run strict Clippy
+        run: cargo clippy --manifest-path tools/ros-bench-001/Cargo.toml --all-targets -- -D warnings
