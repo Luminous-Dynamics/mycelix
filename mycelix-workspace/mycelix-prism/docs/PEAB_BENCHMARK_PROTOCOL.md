@@ -542,3 +542,5 @@ Current Cilium 1.21.0-dev docs explicitly separate the per-endpoint DNS cache fr
 Envoy v1.40.0 DFP exposes counters for DNS attempts/success/failure/timeout, address changes, pending request overflow and addresses removed by `resolved_address_filter`. PEAB should use those counters as comparator observability, not merely infer behavior from response codes. Official reference: https://www.envoyproxy.io/docs/envoy/v1.40.0/configuration/http/http_filters/dynamic_forward_proxy_filter
 
 Keep deployment profile versions, resolver fixtures, host-cache state and metric snapshots in each run bundle. No result is comparable unless the competing policy/cache semantics are recorded explicitly.
+
+PEAB adds TXN-014 for Nixward journal metadata integrity. The hash-chained record now commits to the event, sequence, prior head, observation timestamp and active policy generation. Nixward's new negative control mutates either observation field after record creation and expects `JournalDigestMismatch` plus terminal `Conflict`. This remains partial cross-repository source coverage and unexecuted.
