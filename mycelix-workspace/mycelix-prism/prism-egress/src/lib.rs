@@ -2921,7 +2921,11 @@ mod tests {
         assert_eq!(hop.logical_request_id, logical_request_id);
         assert_eq!(hop.redirect_hop, 2);
         assert_eq!(hop.logical_request_id, response.receipt.logical_request_id);
-        assert_eq!(hop.redirect_hop, 0);
+        assert_eq!(
+            hop.redirect_hop + 1,
+            response.receipt.redirect_hop,
+            "each followed redirect advances the logical hop index exactly once"
+        );
         assert_eq!(
             hop.from_origin,
             format!("http://prism-redirect.test:{}", first_address.port())
