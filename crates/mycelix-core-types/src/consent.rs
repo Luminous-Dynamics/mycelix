@@ -130,6 +130,19 @@ impl ConsentId {
         Self(*h.finalize().as_bytes())
     }
 
+    /// Derive the immutable consent identity from the canonical authority bytes.
+    ///
+    /// Mutable status and lifecycle events are deliberately excluded; a revoke
+    /// changes consent state, not the identity of the grant that was revoked.
+    pub fn derive_content_bound(consent: &Consent) -> Self {
+        let canonical = consent.canonical_bytes();
+        let mut h = blake3::Hasher::new();
+        h.update(b"mycelix.consent-id.v1\0");
+        h.update(&(canonical.len() as u64).to_le_bytes());
+        h.update(&canonical);
+        Self(*h.finalize().as_bytes())
+    }
+
     pub const fn as_bytes(&self) -> &[u8; 32] { &self.0 }
 }
 
@@ -162,7 +175,7 @@ impl Consent {
     /// Canonical immutable authority content used for identity binding.
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        out.extend_from_slice(b"mycelix.consent-content.v1\\0");
+        out.extend_from_slice(b"mycelix.consent-content.v1\0");
         out.extend_from_slice(self.relationship_id.as_bytes());
         canonical_principal(&mut out, &self.grantor);
         canonical_principal(&mut out, &self.audience.principal);
@@ -387,6 +400,37 @@ mod tests {
         let actor = participant("did", "alice");
         c.revoke(&actor, 150, 7).unwrap();
         assert_eq!(c.status, ConsentStatus::Revoked);
+    }
+
+    #[test]
+    fn content_bound_identity_matches_v1_known_answer_vector() {
+        let relationship = RelationshipId::from_seed([0x11; 32]);
+        let grantor = participant("did", "alice");
+        let audience = AudienceRef::principal(participant("did", "bob"));
+        let consent = Consent::grant(
+            ConsentId([0; 32]),
+            relationship,
+            grantor,
+            audience,
+            ConsentPurpose::named("relationship-support").unwrap(),
+            scope(AccessMode::Disclose, DataClass::Contact, "email"),
+            100,
+            Some(200),
+            7,
+        )
+        .unwrap();
+
+        assert_eq!(
+            consent.id.as_bytes(),
+            &[
+                0x20, 0xca, 0x14, 0xd4, 0x25, 0x7c, 0xd1, 0xe6,
+                0xe2, 0xe6, 0x1a, 0xff, 0xb4, 0xbb, 0x08, 0xe2,
+                0xf1, 0x6e, 0x94, 0xd2, 0xb8, 0x83, 0xe2, 0x43,
+                0xd6, 0x76, 0xe3, 0x45, 0xcd, 0x67, 0xe2, 0xbe,
+            ]
+        );
+        assert_eq!(consent.id, ConsentId::derive_content_bound(&consent));
+        assert_eq!(consent.validate_identity(), Ok(()));
     }
 
     #[test]
