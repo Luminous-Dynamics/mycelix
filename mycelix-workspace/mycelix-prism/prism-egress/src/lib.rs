@@ -160,6 +160,8 @@ pub enum EgressError {
     EmptyAddressSet(String),
     #[error("resolution lease expired before request authorization")]
     ResolutionLeaseExpired,
+    #[error("resolution lease lifetime exceeds the five-second v1 ceiling")]
+    ResolutionLeaseLifetimeTooLong,
     #[error("resolution snapshot does not match requested host, port, logical ID or hop")]
     ResolutionSnapshotMismatch,
     #[error("resolution snapshot address-set digest does not match its socket set")]
@@ -471,7 +473,7 @@ pub struct EgressReceipt {
 /// This value is a transport input, not a signature. The Nixward adapter must
 /// verify the signed lease, parent capability, workload/cgroup binding, replay
 /// nonce and resolver provenance before constructing it with
-/// `from_verified_nixward_lease`. Prism independently checks request/hop
+/// `from_preverified_nixward_lease`. Prism independently checks request/hop
 /// identity, hostname, port, expiry, address policy and the canonical set digest.
 #[derive(Clone, Debug)]
 pub struct EgressResolutionSnapshot {
@@ -510,13 +512,17 @@ impl EgressResolutionSnapshot {
         }
     }
 
-    /// Construct from a Nixward lease that the resolver adapter has already
+    /// Construct from a Nixward lease that a trusted adapter has already
     /// cryptographically verified and bound to the calling workload/policy.
     ///
-    /// This constructor validates field shape and digest consistency; it does
-    /// not verify a signature or establish caller/cgroup identity by itself.
+    /// "Preverified" is a caller contract, not a cryptographic type guarantee:
+    /// this crate validates shape, canonical address order, the shared address
+    /// digest and the five-second lifetime ceiling, but does not verify the
+    /// resolver signature, parent capability, replay ledger or cgroup identity.
+    /// Only expose this constructor to a broker adapter that has completed
+    /// those checks; do not wrap arbitrary caller-provided JSON with it.
     #[allow(clippy::too_many_arguments)]
-    pub fn from_verified_nixward_lease(
+    pub fn from_preverified_nixward_lease(
         hostname: impl Into<String>,
         port: u16,
         logical_request_id: impl Into<String>,
@@ -537,14 +543,27 @@ impl EgressResolutionSnapshot {
         if hostname.is_empty() || port == 0 || redirect_hop > MAX_PUBLIC_WEB_REDIRECT_HOPS as u8 {
             return Err(EgressError::ResolutionSnapshotMismatch);
         }
-        if addresses.is_empty() || addresses.len() > MAX_DNS_ANSWER_ADDRESSES {
+        if addresses.is_empty() {
             return Err(EgressError::EmptyAddressSet(hostname));
+        }
+        if addresses.len() > MAX_DNS_ANSWER_ADDRESSES {
+            return Err(EgressError::DnsAnswerSetTooLarge);
         }
         if addresses.iter().any(|address| address.port() != port) {
             return Err(EgressError::ResolutionSnapshotMismatch);
         }
-        if valid_until <= std::time::Instant::now() {
+        let now = std::time::Instant::now();
+        if valid_until <= now {
             return Err(EgressError::ResolutionLeaseExpired);
+        }
+        if valid_until.duration_since(now) > Duration::from_secs(5) {
+            return Err(EgressError::ResolutionLeaseLifetimeTooLong);
+        }
+        let mut canonical_addresses = addresses.clone();
+        canonical_addresses.sort_unstable();
+        canonical_addresses.dedup();
+        if canonical_addresses != addresses {
+            return Err(EgressError::ResolutionSnapshotMismatch);
         }
         for digest in [
             address_set_digest.as_str(),
@@ -3809,7 +3828,7 @@ mod tests {
         let resolver_snapshot_digest = "22".repeat(32);
         let valid_until = std::time::Instant::now() + Duration::from_secs(4);
 
-        let snapshot = EgressResolutionSnapshot::from_verified_nixward_lease(
+        let snapshot = EgressResolutionSnapshot::from_preverified_nixward_lease(
             "prism-lease.test",
             443,
             logical_request_id,
@@ -3867,6 +3886,149 @@ mod tests {
         );
     }
 
+    #[test]
+    fn preverified_nixward_snapshot_rejects_address_digest_substitution_and_noncanonical_sets() {
+        let logical_request_id = "0123456789abcdef0123456789abcdef";
+        let addresses = socket_addresses(&[
+            "93.184.216.34:443",
+            "[2606:4700:4700::1111]:443",
+        ]);
+        let valid_until = std::time::Instant::now() + Duration::from_secs(4);
+        let wrong_digest = canonical_address_set_digest(&socket_addresses(&["1.1.1.1:443"]));
+
+        assert!(matches!(
+            EgressResolutionSnapshot::from_preverified_nixward_lease(
+                "prism-lease.test",
+                443,
+                logical_request_id,
+                0,
+                addresses.clone(),
+                valid_until,
+                wrong_digest,
+                "11".repeat(32),
+                "22".repeat(32),
+            ),
+            Err(EgressError::ResolutionAddressSetDigestMismatch)
+        ));
+
+        let mut unsorted = addresses.clone();
+        unsorted.reverse();
+        assert!(matches!(
+            EgressResolutionSnapshot::from_preverified_nixward_lease(
+                "prism-lease.test",
+                443,
+                logical_request_id,
+                0,
+                unsorted,
+                valid_until,
+                canonical_address_set_digest(&addresses),
+                "11".repeat(32),
+                "22".repeat(32),
+            ),
+            Err(EgressError::ResolutionSnapshotMismatch)
+        ));
+    }
+
+    #[tokio::test]
+    async fn nixward_snapshot_cannot_be_replayed_across_logical_ids_or_hops() {
+        let request_id = "0123456789abcdef0123456789abcdef";
+        let different_id = "fedcba9876543210fedcba9876543210";
+        let addresses = socket_addresses(&["93.184.216.34:443"]);
+        let address_digest = canonical_address_set_digest(&addresses);
+        let valid_until = std::time::Instant::now() + Duration::from_secs(4);
+
+        let wrong_id_snapshot = EgressResolutionSnapshot::from_preverified_nixward_lease(
+            "prism-lease.test",
+            443,
+            different_id,
+            0,
+            addresses.clone(),
+            valid_until,
+            address_digest.clone(),
+            "11".repeat(32),
+            "22".repeat(32),
+        )
+        .unwrap();
+        let id_client = PublicEgressClient::with_resolver(
+            EgressLimits::default(),
+            LeaseSnapshotResolver {
+                snapshot: wrong_id_snapshot,
+                requests: Arc::new(std::sync::Mutex::new(Vec::new())),
+            },
+        );
+        let wrong_id = id_client
+            .authorize_with_authority_and_correlation(
+                EgressAuthority::PublicWeb,
+                Method::GET,
+                "https://prism-lease.test/",
+                HeaderMap::new(),
+                Vec::new(),
+                request_id,
+                0,
+            )
+            .await;
+        assert!(matches!(
+            wrong_id,
+            Err(EgressError::ResolutionSnapshotMismatch)
+        ));
+
+        let wrong_hop_snapshot = EgressResolutionSnapshot::from_preverified_nixward_lease(
+            "prism-lease.test",
+            443,
+            request_id,
+            1,
+            addresses,
+            valid_until,
+            address_digest,
+            "11".repeat(32),
+            "22".repeat(32),
+        )
+        .unwrap();
+        let hop_client = PublicEgressClient::with_resolver(
+            EgressLimits::default(),
+            LeaseSnapshotResolver {
+                snapshot: wrong_hop_snapshot,
+                requests: Arc::new(std::sync::Mutex::new(Vec::new())),
+            },
+        );
+        let wrong_hop = hop_client
+            .authorize_with_authority_and_correlation(
+                EgressAuthority::PublicWeb,
+                Method::GET,
+                "https://prism-lease.test/",
+                HeaderMap::new(),
+                Vec::new(),
+                request_id,
+                0,
+            )
+            .await;
+        assert!(matches!(
+            wrong_hop,
+            Err(EgressError::ResolutionSnapshotMismatch)
+        ));
+    }
+
+    #[test]
+    fn preverified_nixward_snapshot_enforces_five_second_lifetime_ceiling() {
+        let address: SocketAddr = "93.184.216.34:443".parse().unwrap();
+        let addresses = vec![address];
+        let result = EgressResolutionSnapshot::from_preverified_nixward_lease(
+            "prism-lease.test",
+            443,
+            "0123456789abcdef0123456789abcdef",
+            0,
+            addresses.clone(),
+            std::time::Instant::now() + Duration::from_secs(6),
+            canonical_address_set_digest(&addresses),
+            "11".repeat(32),
+            "22".repeat(32),
+        );
+        assert!(matches!(
+            result,
+            Err(EgressError::ResolutionLeaseLifetimeTooLong)
+        ));
+    }
+
     #[tokio::test]
     async fn nixward_resolution_lease_expiry_blocks_late_execution_before_socket() {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -3874,7 +4036,7 @@ mod tests {
         let logical_request_id = "0123456789abcdef0123456789abcdef";
         let addresses = vec![address];
         let valid_until = std::time::Instant::now() + Duration::from_secs(1);
-        let snapshot = EgressResolutionSnapshot::from_verified_nixward_lease(
+        let snapshot = EgressResolutionSnapshot::from_preverified_nixward_lease(
             "prism-lease-expiry.test",
             address.port(),
             logical_request_id,
@@ -3939,7 +4101,7 @@ mod tests {
         let address_set_digest = canonical_address_set_digest(&addresses);
         let resolution_lease_digest = "11".repeat(32);
         let resolver_snapshot_digest = "22".repeat(32);
-        let snapshot = EgressResolutionSnapshot::from_verified_nixward_lease(
+        let snapshot = EgressResolutionSnapshot::from_preverified_nixward_lease(
             "prism-lease-execution.test",
             address.port(),
             logical_request_id,
@@ -4008,7 +4170,7 @@ mod tests {
         let addresses = socket_addresses(&["93.184.216.34:443"]);
         let address_set_digest = canonical_address_set_digest(&addresses);
 
-        let wrong_digest = EgressResolutionSnapshot::from_verified_nixward_lease(
+        let wrong_digest = EgressResolutionSnapshot::from_preverified_nixward_lease(
             "prism-lease.test",
             443,
             logical_request_id,
@@ -4024,7 +4186,7 @@ mod tests {
             Err(EgressError::ResolutionAddressSetDigestMismatch)
         ));
 
-        let wrong_port = EgressResolutionSnapshot::from_verified_nixward_lease(
+        let wrong_port = EgressResolutionSnapshot::from_preverified_nixward_lease(
             "prism-lease.test",
             8443,
             logical_request_id,
@@ -4040,7 +4202,7 @@ mod tests {
             Err(EgressError::ResolutionSnapshotMismatch)
         ));
 
-        let expired = EgressResolutionSnapshot::from_verified_nixward_lease(
+        let expired = EgressResolutionSnapshot::from_preverified_nixward_lease(
             "prism-lease.test",
             443,
             logical_request_id,
@@ -4056,7 +4218,7 @@ mod tests {
             Err(EgressError::ResolutionLeaseExpired)
         ));
 
-        let wrong_request = EgressResolutionSnapshot::from_verified_nixward_lease(
+        let wrong_request = EgressResolutionSnapshot::from_preverified_nixward_lease(
             "other-prism-lease.test",
             443,
             "fedcba9876543210fedcba9876543210",
