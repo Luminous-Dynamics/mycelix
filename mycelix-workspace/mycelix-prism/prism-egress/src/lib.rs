@@ -384,6 +384,20 @@ pub struct EgressResponse {
     pub receipt: EgressReceipt,
 }
 
+/// Application-observed TLS identity outcome for one HTTPS hop.
+///
+/// This records the URL reference identity and expected SNI name after Reqwest
+/// returned a response. It does not contain the certificate chain/fingerprint
+/// and is not independent kernel or cryptographic attestation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TlsIdentityReceipt {
+    pub reference_identity: String,
+    pub sni_hostname: Option<String>,
+    /// True only because a successful HTTPS response was returned by the
+    /// configured Reqwest TLS verifier for this URL reference identity.
+    pub certificate_identity_verified: bool,
+}
+
 #[derive(Clone, Debug)]
 pub struct RedirectHopReceipt {
     pub from_origin: String,
@@ -392,6 +406,8 @@ pub struct RedirectHopReceipt {
     pub authorized_addresses: Vec<SocketAddr>,
     pub authorized_address_set_digest: String,
     pub remote_peer: SocketAddr,
+    pub tls_identity: Option<TlsIdentityReceipt>,
+    pub http_version: String,
     pub target_addresses: Vec<SocketAddr>,
     pub target_address_set_digest: String,
 }
@@ -407,6 +423,8 @@ pub struct EgressReceipt {
     /// This is a correlation digest, not a signature or resolver attestation.
     pub authorized_address_set_digest: String,
     pub remote_peer: SocketAddr,
+    pub tls_identity: Option<TlsIdentityReceipt>,
+    pub http_version: String,
     pub status: u16,
     pub request_body_bytes: usize,
     pub response_body_bytes: usize,
@@ -718,6 +736,11 @@ impl PublicEgressClient {
 
             let remote_peer =
                 validate_connected_peer(&capability.addresses, response.remote_addr())?;
+            // A successful HTTPS response means Reqwest's configured TLS
+            // verifier accepted the URL reference identity. Record only that
+            // application-level result; do not imply certificate attestation.
+            let tls_identity = tls_identity_receipt(&capability.url);
+            let http_version = format!("{:?}", response.version());
             let status = response.status();
             let response_headers = response.headers().clone();
             if response_header_bytes(&response_headers) > 64 * 1024
@@ -778,6 +801,8 @@ impl PublicEgressClient {
                         authorized_addresses,
                         authorized_address_set_digest,
                         remote_peer,
+                        tls_identity,
+                        http_version,
                         target_addresses,
                         target_address_set_digest,
                     });
@@ -832,6 +857,8 @@ impl PublicEgressClient {
                 authorized_addresses,
                 authorized_address_set_digest,
                 remote_peer,
+                tls_identity,
+                http_version,
                 status: status.as_u16(),
                 request_body_bytes,
                 response_body_bytes: collected.len(),
@@ -1064,6 +1091,22 @@ fn validate_request_headers(headers: &HeaderMap) -> Result<(), EgressError> {
         }
     }
     Ok(())
+}
+
+fn tls_identity_receipt(url: &Url) -> Option<TlsIdentityReceipt> {
+    if url.scheme() != "https" {
+        return None;
+    }
+    let reference_identity = url.host_str()?.to_owned();
+    let sni_hostname = match url.host()? {
+        Host::Domain(domain) => Some(domain.to_owned()),
+        Host::Ipv4(_) | Host::Ipv6(_) => None,
+    };
+    Some(TlsIdentityReceipt {
+        reference_identity,
+        sni_hostname,
+        certificate_identity_verified: true,
+    })
 }
 
 fn sanitized_origin(url: &Url) -> String {
@@ -2559,6 +2602,9 @@ mod tests {
             response.receipt.authorized_address_set_digest,
             canonical_address_set_digest(&[second_address])
         );
+        assert!(hop.tls_identity.is_none(), "plain HTTP redirect has no TLS identity");
+        assert!(!hop.http_version.is_empty());
+        assert!(response.receipt.tls_identity.is_none());
 
         let resolver_calls = resolver.calls.lock().expect("resolver call lock").clone();
         assert_eq!(
@@ -2725,6 +2771,15 @@ mod tests {
         assert_eq!(response.status, StatusCode::OK);
         assert_eq!(response.body.as_slice(), b"ok");
         assert_eq!(response.receipt.remote_peer, address);
+        let tls_receipt = response
+            .receipt
+            .tls_identity
+            .as_ref()
+            .expect("HTTPS response records verified TLS identity");
+        assert_eq!(tls_receipt.reference_identity, "prism-tls.test");
+        assert_eq!(tls_receipt.sni_hostname.as_deref(), Some("prism-tls.test"));
+        assert!(tls_receipt.certificate_identity_verified);
+        assert!(!response.receipt.http_version.is_empty());
 
         let wrong_name_capability = client
             .authorize(Method::GET, &valid_url, HeaderMap::new(), Vec::new())
