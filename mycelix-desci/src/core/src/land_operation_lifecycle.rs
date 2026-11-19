@@ -1107,6 +1107,18 @@ mod tests {
     }
 
     #[test]
+    fn synthetic_timeout_unknown_example_is_valid_and_blocks_reconciliation() {
+        let value: LandOperationLifecycleV0 = serde_json::from_str(include_str!(
+            "../../../examples/land-operation-lifecycle-timeout-unknown-v0.json"
+        ))
+        .expect("timeout-unknown example must deserialize");
+        assert_eq!(value.validate_structural(), Ok(()));
+        assert!(value.requires_reconciliation());
+        assert!(!value.allows_authoritative_mutation());
+        assert_eq!(value.attempt_history.len(), 1);
+    }
+
+    #[test]
     fn no_phase_in_this_reference_model_authorizes_authoritative_mutation() {
         let mut value = lifecycle();
         assert!(!value.allows_authoritative_mutation());
