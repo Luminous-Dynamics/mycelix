@@ -336,7 +336,7 @@ mod tests {
 
     #[test]
     fn a_smaller_outcome_set_cannot_reduce_the_offer_denominator() {
-        let ledger = verified_ledger();
+        let ledger = verified_ledger(false);
         let mut input = valid_input();
         input.outcomes.truncate(4);
         let report = compute_qops(&ledger, &input, &valid_integrity());
