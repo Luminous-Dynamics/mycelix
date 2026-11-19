@@ -268,6 +268,7 @@ mod tests {
                 monotonic_clock_id: clock_id.clone(),
                 monotonic_clock_epoch: epoch.clone(),
                 operation_class: "workflow".to_string(),
+                requires_idempotency_key: false,
                 generator_digest_sha256: generator.clone(),
                 workload_manifest_digest_sha256: manifest.clone(),
                 parameter_set_digest_sha256: params.clone(),
