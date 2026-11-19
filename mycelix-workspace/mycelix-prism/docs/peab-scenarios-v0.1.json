@@ -775,6 +775,66 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "LEASE-005",
+      "family": "resolution_lease_replay",
+      "title": "same resolution lease nonce is consumed once across re-signing and restart",
+      "setup": "consume a valid signed Nixward resolution lease, then re-sign the same nonce or alter lease contents and attempt consumption after process restart",
+      "expected_decision": "second_consumption_denied",
+      "oracle": "stable replay identity is derived from the lease nonce rather than signature/challenge timestamp; duplicate or mutated re-signature cannot authorize a second Prism snapshot or kernel generation",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "resolution_lease_nonce_is_one_shot_even_when_the_same_lease_is_resigned; replay_key_is_one_shot_and_persistent; consume_verified_binds_and_persistently_burns_the_exact_signature",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "LEASE-006",
+      "family": "parent_authority_binding",
+      "title": "resolution lease preserves exact parent workload and policy generation",
+      "setup": "change hostname, port, workload identity, parent capability, authority lease, or policy generation while reusing a previously valid request scope",
+      "expected_decision": "deny_scope_substitution",
+      "oracle": "the signed resolution lease remains bound to exact parent capability, owner authority, workload and current policy generation; no substituted lease can enter Prism or kernel staging",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "lease_binds_exact_parent_policy_capability_and_authority_lease; lease_rejects_hostname_port_workload_and_generation_widening; lease_rejects_stale_policy_generation",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "LEASE-007",
+      "family": "resolution_lease_lifecycle",
+      "title": "resolution lease never outlives DNS or parent-authority validity",
+      "setup": "set lease expiry after resolver validity or parent lease expiry, and exercise at/after the effective expiry boundary",
+      "expected_decision": "deny_expired_or_overlong_lease",
+      "oracle": "lease validity cannot exceed the DNS-validity or parent-authority window; equality and post-expiry consumption fail closed; Prism capability expiry is no later than the verified effective deadline",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "lease_rejects_expiry_beyond_dns_validity_or_parent_lease; lease_fails_closed_at_and_after_expiry",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "LEASE-008",
+      "family": "resolution_lease_authenticity",
+      "title": "resolution lease is bound to exact signer action audience and workload identity",
+      "setup": "reuse a valid signature with a different signer key, authority action, resolver audience, Holon/workload identity or lease subject",
+      "expected_decision": "deny_invalid_issuer_or_audience",
+      "oracle": "only the dedicated verified resolver action and audience bound to the exact lease subject and workload can produce a resolution snapshot; Prism does not treat a digest as signature verification",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "signed_resolution_lease_is_bound_to_exact_lease_signer_action_audience_and_holon",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
