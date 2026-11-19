@@ -36,8 +36,8 @@ fn scenario_manifest_and_schema_agree_on_offer_ledger_policy() {
     );
     assert_eq!(
         schema["properties"]["offer_ledger_policy"]["properties"]
-            ["cross_host_requirement_source"],
-        json_string("string")
+            ["cross_host_requirement_source"]["type"],
+        "string"
     );
 
     let scenarios = manifest["scenarios"].as_array().unwrap();
@@ -135,6 +135,3 @@ fn run_receipt_binds_the_verified_ledger_and_scenario_visibility_policy() {
     );
 }
 
-fn json_string(value: &str) -> Value {
-    Value::String(value.to_string())
-}
