@@ -11,6 +11,8 @@ use std::collections::BTreeSet;
 
 pub const OFFER_LEDGER_SCHEMA_VERSION: &str = "mycelix-mcrb-offer-ledger-v0.1";
 const DOMAIN_SEPARATOR: &[u8] = b"MYCELIX-MCRB-OFFER-LEDGER\0v0.1\0";
+const EMBEDDED_SCENARIO_MANIFEST: &str =
+    include_str!("../../../../docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.json");
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OfferLedgerEntry {
@@ -36,6 +38,7 @@ pub struct OfferLedgerEnvelope {
     pub run_id: String,
     pub scenario_id: String,
     pub measurement_window_id: String,
+    pub scenario_contract_digest_sha256: String,
     pub requires_cross_host_visibility: bool,
     pub workload_manifest_digest_sha256: String,
     pub generator_digest_sha256: String,
@@ -63,6 +66,11 @@ pub enum OfferLedgerIssue {
     InvalidWorkloadManifestDigest,
     InvalidGeneratorDigest,
     InvalidParameterSetDigest,
+    InvalidScenarioContractDigest,
+    ScenarioContractDigestMismatch { expected: String, actual: String },
+    EmbeddedScenarioManifestInvalid,
+    UnknownScenarioInEmbeddedManifest(String),
+    ScenarioVisibilityPolicyMismatch { scenario_id: String, expected: bool, actual: bool },
     InvalidWindowBounds,
     InvalidTickFrequency,
     WindowDurationOverflow,
@@ -93,6 +101,7 @@ pub struct VerifiedOfferLedger {
     run_id: String,
     scenario_id: String,
     measurement_window_id: String,
+    scenario_contract_digest_sha256: String,
     requires_cross_host_visibility: bool,
     generator_digest_sha256: String,
     workload_manifest_digest_sha256: String,
@@ -111,6 +120,7 @@ impl VerifiedOfferLedger {
     pub fn run_id(&self) -> &str { &self.run_id }
     pub fn scenario_id(&self) -> &str { &self.scenario_id }
     pub fn measurement_window_id(&self) -> &str { &self.measurement_window_id }
+    pub fn scenario_contract_digest_sha256(&self) -> &str { &self.scenario_contract_digest_sha256 }
     pub fn requires_cross_host_visibility(&self) -> bool { self.requires_cross_host_visibility }
     pub fn generator_digest_sha256(&self) -> &str { &self.generator_digest_sha256 }
     pub fn workload_manifest_digest_sha256(&self) -> &str { &self.workload_manifest_digest_sha256 }
@@ -150,6 +160,7 @@ fn canonical_offer_ledger_bytes(envelope: &OfferLedgerEnvelope) -> Vec<u8> {
     push_string(&mut bytes, &envelope.run_id);
     push_string(&mut bytes, &envelope.scenario_id);
     push_string(&mut bytes, &envelope.measurement_window_id);
+    push_string(&mut bytes, &envelope.scenario_contract_digest_sha256);
     bytes.push(u8::from(envelope.requires_cross_host_visibility));
     push_string(&mut bytes, &envelope.workload_manifest_digest_sha256);
     push_string(&mut bytes, &envelope.generator_digest_sha256);
@@ -182,6 +193,32 @@ fn canonical_offer_ledger_bytes(envelope: &OfferLedgerEnvelope) -> Vec<u8> {
     bytes
 }
 
+
+fn embedded_scenario_manifest_digest() -> String {
+    let digest = Sha256::digest(EMBEDDED_SCENARIO_MANIFEST.as_bytes());
+    let mut hex = String::with_capacity(64);
+    for byte in digest {
+        use std::fmt::Write as _;
+        let _ = write!(&mut hex, "{byte:02x}");
+    }
+    hex
+}
+
+fn expected_scenario_visibility(scenario_id: &str) -> Result<bool, OfferLedgerIssue> {
+    let manifest: serde_json::Value = serde_json::from_str(EMBEDDED_SCENARIO_MANIFEST)
+        .map_err(|_| OfferLedgerIssue::EmbeddedScenarioManifestInvalid)?;
+    let scenarios = manifest["scenarios"]
+        .as_array()
+        .ok_or(OfferLedgerIssue::EmbeddedScenarioManifestInvalid)?;
+    let scenario = scenarios
+        .iter()
+        .find(|scenario| scenario["scenario_id"].as_str() == Some(scenario_id))
+        .ok_or_else(|| OfferLedgerIssue::UnknownScenarioInEmbeddedManifest(scenario_id.to_string()))?;
+    scenario["qops_requires_cross_host_visibility"]
+        .as_bool()
+        .ok_or(OfferLedgerIssue::EmbeddedScenarioManifestInvalid)
+}
+
 /// Compute the canonical, domain-separated SHA-256 digest for an offer ledger.
 /// This proves internal consistency, not generator/orchestrator authenticity.
 pub fn calculate_offer_ledger_digest(envelope: &OfferLedgerEnvelope) -> String {
@@ -211,6 +248,25 @@ pub fn verify_offer_ledger(
     if !valid_sha256_hex(&envelope.workload_manifest_digest_sha256) { issues.push(OfferLedgerIssue::InvalidWorkloadManifestDigest); }
     if !valid_sha256_hex(&envelope.generator_digest_sha256) { issues.push(OfferLedgerIssue::InvalidGeneratorDigest); }
     if !valid_sha256_hex(&envelope.parameter_set_digest_sha256) { issues.push(OfferLedgerIssue::InvalidParameterSetDigest); }
+    if !valid_sha256_hex(&envelope.scenario_contract_digest_sha256) { issues.push(OfferLedgerIssue::InvalidScenarioContractDigest); }
+    let expected_contract_digest = embedded_scenario_manifest_digest();
+    if envelope.scenario_contract_digest_sha256 != expected_contract_digest {
+        issues.push(OfferLedgerIssue::ScenarioContractDigestMismatch {
+            expected: expected_contract_digest,
+            actual: envelope.scenario_contract_digest_sha256.clone(),
+        });
+    }
+    match expected_scenario_visibility(&envelope.scenario_id) {
+        Ok(expected) if expected != envelope.requires_cross_host_visibility => {
+            issues.push(OfferLedgerIssue::ScenarioVisibilityPolicyMismatch {
+                scenario_id: envelope.scenario_id.clone(),
+                expected,
+                actual: envelope.requires_cross_host_visibility,
+            });
+        }
+        Ok(_) => {}
+        Err(issue) => issues.push(issue),
+    }
     if envelope.measurement_end_ticks <= envelope.measurement_start_ticks { issues.push(OfferLedgerIssue::InvalidWindowBounds); }
     if envelope.ticks_per_second == 0 { issues.push(OfferLedgerIssue::InvalidTickFrequency); }
     if envelope.entries.is_empty() { issues.push(OfferLedgerIssue::EmptyOfferLedger); }
@@ -279,6 +335,7 @@ pub fn verify_offer_ledger(
         run_id: envelope.run_id.clone(),
         scenario_id: envelope.scenario_id.clone(),
         measurement_window_id: envelope.measurement_window_id.clone(),
+        scenario_contract_digest_sha256: envelope.scenario_contract_digest_sha256.clone(),
         requires_cross_host_visibility: envelope.requires_cross_host_visibility,
         generator_digest_sha256: envelope.generator_digest_sha256.clone(),
         workload_manifest_digest_sha256: envelope.workload_manifest_digest_sha256.clone(),
@@ -321,6 +378,7 @@ mod tests {
             run_id: run_id.clone(),
             scenario_id: scenario_id.clone(),
             measurement_window_id: "window-1".to_string(),
+            scenario_contract_digest_sha256: embedded_scenario_manifest_digest(),
             requires_cross_host_visibility: true,
             workload_manifest_digest_sha256: manifest.clone(),
             generator_digest_sha256: generator.clone(),
@@ -385,6 +443,41 @@ mod tests {
         envelope.ledger_digest_sha256 = changed_digest;
         let verified = verify_offer_ledger(&envelope).unwrap();
         assert!(!verified.requires_cross_host_visibility());
+    }
+
+    #[test]
+    fn remote_visibility_policy_cannot_be_downgraded_even_with_a_recomputed_ledger_digest() {
+        let mut envelope = valid_envelope(); // MCRB-03 requires remote visibility in the embedded contract.
+        envelope.requires_cross_host_visibility = false;
+        envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
+        assert!(verify_offer_ledger(&envelope)
+            .unwrap_err()
+            .contains(&OfferLedgerIssue::ScenarioVisibilityPolicyMismatch {
+                scenario_id: "MCRB-03".into(),
+                expected: true,
+                actual: false,
+            }));
+    }
+
+    #[test]
+    fn stale_scenario_contract_digest_is_rejected() {
+        let mut envelope = valid_envelope();
+        envelope.scenario_contract_digest_sha256 = digest("stale-scenario-contract");
+        envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
+        assert!(verify_offer_ledger(&envelope)
+            .unwrap_err()
+            .iter()
+            .any(|issue| matches!(issue, OfferLedgerIssue::ScenarioContractDigestMismatch { .. })));
+    }
+
+    #[test]
+    fn unknown_scenario_id_is_rejected_against_embedded_contract() {
+        let mut envelope = valid_envelope();
+        envelope.scenario_id = "MCRB-UNKNOWN".into();
+        envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
+        assert!(verify_offer_ledger(&envelope)
+            .unwrap_err()
+            .contains(&OfferLedgerIssue::UnknownScenarioInEmbeddedManifest("MCRB-UNKNOWN".into())));
     }
 
     #[test]
