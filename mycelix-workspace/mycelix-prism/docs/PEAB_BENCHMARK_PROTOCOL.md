@@ -376,3 +376,6 @@ The new local pinned-HTTP integration test supplies a structurally valid snapsho
 ### Lease expiry between authorization and execution
 
 LEASE-004 adds a local time-of-use regression: Prism receives a valid short-lived resolution snapshot, issues the capability, waits until the snapshot deadline passes, and then attempts execution. The expected result is \`CapabilityExpired\` before transport creation/connect, so authorization cannot be replayed after the DNS/lease validity window has elapsed. The test uses a loopback-only test destination and does not require an external resolver or live Nixward service. It remains unexecuted until exact-head CI runs.
+
+
+Nixward PR #162 now exposes \`NetworkResolutionLeaseV1::socket_addresses()\` and \`effective_valid_until_unix()\` to make the adapter mapping explicit: first validate the signed lease/parent/workload/replay state, then map each canonical \`IpAddr\` to \`SocketAddr(ip, lease.port)\`, obtain the earlier lease/DNS Unix deadline, and convert the remaining validity to a local monotonic deadline. The adapter must sample wall-clock time immediately before the monotonic conversion and must not round validity upward. These helpers are committed on the Nixward draft branch but are not a runtime adapter or IPC implementation.
