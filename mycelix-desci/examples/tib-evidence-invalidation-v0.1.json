@@ -1,0 +1,583 @@
+{
+  "suite_id": "TIB-EVIDENCE-INVALIDATION-001",
+  "suite_version": "0.1.0",
+  "description": "Synthetic cross-system test vectors for append-only evidence correction, revocation, challenge and transitive invalidation propagation.",
+  "data_classification": "synthetic_non_personal",
+  "claim_ceiling": "reference-only-no-legal-effect",
+  "scenarios": [
+    {
+      "scenario_id": "EVI-001",
+      "description": "Source correction invalidates every transitive dependent but not an unrelated interest",
+      "nodes": [
+        {
+          "node_reference": "source:registry-extract:v1",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "depends_on": []
+        },
+        {
+          "node_reference": "assertion:surface-right:v1",
+          "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "depends_on": [
+            "source:registry-extract:v1"
+          ]
+        },
+        {
+          "node_reference": "authority-assessment:v1",
+          "content_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "depends_on": [
+            "assertion:surface-right:v1"
+          ]
+        },
+        {
+          "node_reference": "read-model:external-status:v1",
+          "content_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "depends_on": [
+            "authority-assessment:v1"
+          ]
+        },
+        {
+          "node_reference": "unrelated:water-interest:v1",
+          "content_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "depends_on": []
+        }
+      ],
+      "initial_invalidations": [],
+      "steps": [
+        {
+          "root_reference": "source:registry-extract:v1",
+          "invalidation_event_reference": "event:correction:001",
+          "reason": "issuer corrected registry extract"
+        }
+      ],
+      "expected_affected_by_step": [
+        [
+          "assertion:surface-right:v1",
+          "authority-assessment:v1",
+          "read-model:external-status:v1",
+          "source:registry-extract:v1"
+        ]
+      ],
+      "expected_error_by_step": [
+        null
+      ],
+      "expected_invalidated": [
+        "assertion:surface-right:v1",
+        "authority-assessment:v1",
+        "read-model:external-status:v1",
+        "source:registry-extract:v1"
+      ],
+      "expected_current": [
+        "unrelated:water-interest:v1"
+      ],
+      "expected_cause_counts": {
+        "source:registry-extract:v1": 1,
+        "assertion:surface-right:v1": 1,
+        "authority-assessment:v1": 1,
+        "read-model:external-status:v1": 1
+      },
+      "expected_record_count": 4,
+      "expected_final_validation": "valid"
+    },
+    {
+      "scenario_id": "EVI-002",
+      "description": "Late community challenge invalidates an assertion and downstream assessments without invalidating its upstream source",
+      "nodes": [
+        {
+          "node_reference": "source:registry-extract:v1",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "depends_on": []
+        },
+        {
+          "node_reference": "assertion:surface-right:v1",
+          "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "depends_on": [
+            "source:registry-extract:v1"
+          ]
+        },
+        {
+          "node_reference": "authority-assessment:v1",
+          "content_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "depends_on": [
+            "assertion:surface-right:v1"
+          ]
+        },
+        {
+          "node_reference": "read-model:external-status:v1",
+          "content_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "depends_on": [
+            "authority-assessment:v1"
+          ]
+        },
+        {
+          "node_reference": "unrelated:water-interest:v1",
+          "content_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "depends_on": []
+        }
+      ],
+      "initial_invalidations": [],
+      "steps": [
+        {
+          "root_reference": "assertion:surface-right:v1",
+          "invalidation_event_reference": "event:challenge:002",
+          "reason": "late community challenge filed"
+        }
+      ],
+      "expected_affected_by_step": [
+        [
+          "assertion:surface-right:v1",
+          "authority-assessment:v1",
+          "read-model:external-status:v1"
+        ]
+      ],
+      "expected_error_by_step": [
+        null
+      ],
+      "expected_invalidated": [
+        "assertion:surface-right:v1",
+        "authority-assessment:v1",
+        "read-model:external-status:v1"
+      ],
+      "expected_current": [
+        "source:registry-extract:v1",
+        "unrelated:water-interest:v1"
+      ],
+      "expected_cause_counts": {
+        "assertion:surface-right:v1": 1,
+        "authority-assessment:v1": 1,
+        "read-model:external-status:v1": 1
+      },
+      "expected_record_count": 3,
+      "expected_final_validation": "valid"
+    },
+    {
+      "scenario_id": "EVI-003",
+      "description": "Independent source correction and later challenge preserve two causes on downstream projections",
+      "nodes": [
+        {
+          "node_reference": "source:registry-extract:v1",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "depends_on": []
+        },
+        {
+          "node_reference": "assertion:surface-right:v1",
+          "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "depends_on": [
+            "source:registry-extract:v1"
+          ]
+        },
+        {
+          "node_reference": "authority-assessment:v1",
+          "content_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "depends_on": [
+            "assertion:surface-right:v1"
+          ]
+        },
+        {
+          "node_reference": "read-model:external-status:v1",
+          "content_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "depends_on": [
+            "authority-assessment:v1"
+          ]
+        },
+        {
+          "node_reference": "unrelated:water-interest:v1",
+          "content_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "depends_on": []
+        }
+      ],
+      "initial_invalidations": [],
+      "steps": [
+        {
+          "root_reference": "source:registry-extract:v1",
+          "invalidation_event_reference": "event:correction:003",
+          "reason": "registry extract corrected"
+        },
+        {
+          "root_reference": "assertion:surface-right:v1",
+          "invalidation_event_reference": "event:challenge:004",
+          "reason": "new challenge filed"
+        }
+      ],
+      "expected_affected_by_step": [
+        [
+          "assertion:surface-right:v1",
+          "authority-assessment:v1",
+          "read-model:external-status:v1",
+          "source:registry-extract:v1"
+        ],
+        [
+          "assertion:surface-right:v1",
+          "authority-assessment:v1",
+          "read-model:external-status:v1"
+        ]
+      ],
+      "expected_error_by_step": [
+        null,
+        null
+      ],
+      "expected_invalidated": [
+        "assertion:surface-right:v1",
+        "authority-assessment:v1",
+        "read-model:external-status:v1",
+        "source:registry-extract:v1"
+      ],
+      "expected_current": [
+        "unrelated:water-interest:v1"
+      ],
+      "expected_cause_counts": {
+        "source:registry-extract:v1": 1,
+        "assertion:surface-right:v1": 2,
+        "authority-assessment:v1": 2,
+        "read-model:external-status:v1": 2
+      },
+      "expected_record_count": 7,
+      "expected_final_validation": "valid"
+    },
+    {
+      "scenario_id": "EVI-004",
+      "description": "Replaying the same event is idempotent and cannot duplicate records",
+      "nodes": [
+        {
+          "node_reference": "source:registry-extract:v1",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "depends_on": []
+        },
+        {
+          "node_reference": "assertion:surface-right:v1",
+          "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "depends_on": [
+            "source:registry-extract:v1"
+          ]
+        },
+        {
+          "node_reference": "authority-assessment:v1",
+          "content_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "depends_on": [
+            "assertion:surface-right:v1"
+          ]
+        },
+        {
+          "node_reference": "read-model:external-status:v1",
+          "content_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "depends_on": [
+            "authority-assessment:v1"
+          ]
+        },
+        {
+          "node_reference": "unrelated:water-interest:v1",
+          "content_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "depends_on": []
+        }
+      ],
+      "initial_invalidations": [],
+      "steps": [
+        {
+          "root_reference": "source:registry-extract:v1",
+          "invalidation_event_reference": "event:correction:005",
+          "reason": "source correction replay"
+        },
+        {
+          "root_reference": "source:registry-extract:v1",
+          "invalidation_event_reference": "event:correction:005",
+          "reason": "source correction replay"
+        }
+      ],
+      "expected_affected_by_step": [
+        [
+          "assertion:surface-right:v1",
+          "authority-assessment:v1",
+          "read-model:external-status:v1",
+          "source:registry-extract:v1"
+        ],
+        [
+          "assertion:surface-right:v1",
+          "authority-assessment:v1",
+          "read-model:external-status:v1",
+          "source:registry-extract:v1"
+        ]
+      ],
+      "expected_error_by_step": [
+        null,
+        null
+      ],
+      "expected_invalidated": [
+        "assertion:surface-right:v1",
+        "authority-assessment:v1",
+        "read-model:external-status:v1",
+        "source:registry-extract:v1"
+      ],
+      "expected_current": [
+        "unrelated:water-interest:v1"
+      ],
+      "expected_cause_counts": {
+        "source:registry-extract:v1": 1,
+        "assertion:surface-right:v1": 1,
+        "authority-assessment:v1": 1,
+        "read-model:external-status:v1": 1
+      },
+      "expected_record_count": 4,
+      "expected_final_validation": "valid"
+    },
+    {
+      "scenario_id": "EVI-005",
+      "description": "A partial invalidation event that omits dependents is structurally rejected",
+      "nodes": [
+        {
+          "node_reference": "source:registry-extract:v1",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "depends_on": []
+        },
+        {
+          "node_reference": "assertion:surface-right:v1",
+          "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "depends_on": [
+            "source:registry-extract:v1"
+          ]
+        },
+        {
+          "node_reference": "authority-assessment:v1",
+          "content_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "depends_on": [
+            "assertion:surface-right:v1"
+          ]
+        },
+        {
+          "node_reference": "read-model:external-status:v1",
+          "content_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "depends_on": [
+            "authority-assessment:v1"
+          ]
+        },
+        {
+          "node_reference": "unrelated:water-interest:v1",
+          "content_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "depends_on": []
+        }
+      ],
+      "initial_invalidations": [
+        {
+          "invalidation_event_reference": "event:partial:006",
+          "root_reference": "source:registry-extract:v1",
+          "affected_reference": "source:registry-extract:v1",
+          "reason": "partial root only"
+        }
+      ],
+      "steps": [
+        {
+          "root_reference": "source:registry-extract:v1",
+          "invalidation_event_reference": "event:next:006",
+          "reason": "attempt to extend partial index"
+        }
+      ],
+      "expected_affected_by_step": [
+        []
+      ],
+      "expected_error_by_step": [
+        "invalid_graph"
+      ],
+      "expected_invalidated": [
+        "source:registry-extract:v1"
+      ],
+      "expected_current": [
+        "assertion:surface-right:v1",
+        "authority-assessment:v1",
+        "read-model:external-status:v1",
+        "unrelated:water-interest:v1"
+      ],
+      "expected_cause_counts": {
+        "source:registry-extract:v1": 1
+      },
+      "expected_record_count": 1,
+      "expected_final_validation": "invalid"
+    },
+    {
+      "scenario_id": "EVI-006",
+      "description": "A dependency cycle blocks invalidation before any mutation",
+      "nodes": [
+        {
+          "node_reference": "cycle:a",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "depends_on": [
+            "cycle:b"
+          ]
+        },
+        {
+          "node_reference": "cycle:b",
+          "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "depends_on": [
+            "cycle:a"
+          ]
+        }
+      ],
+      "initial_invalidations": [],
+      "steps": [
+        {
+          "root_reference": "cycle:a",
+          "invalidation_event_reference": "event:cycle:007",
+          "reason": "cycle negative control"
+        }
+      ],
+      "expected_affected_by_step": [
+        []
+      ],
+      "expected_error_by_step": [
+        "invalid_graph"
+      ],
+      "expected_invalidated": [],
+      "expected_current": [
+        "cycle:a",
+        "cycle:b"
+      ],
+      "expected_cause_counts": {},
+      "expected_record_count": 0,
+      "expected_final_validation": "invalid"
+    },
+    {
+      "scenario_id": "EVI-007",
+      "description": "An unknown invalidation root is rejected without mutation",
+      "nodes": [
+        {
+          "node_reference": "source:registry-extract:v1",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "depends_on": []
+        },
+        {
+          "node_reference": "assertion:surface-right:v1",
+          "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "depends_on": [
+            "source:registry-extract:v1"
+          ]
+        },
+        {
+          "node_reference": "authority-assessment:v1",
+          "content_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "depends_on": [
+            "assertion:surface-right:v1"
+          ]
+        },
+        {
+          "node_reference": "read-model:external-status:v1",
+          "content_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "depends_on": [
+            "authority-assessment:v1"
+          ]
+        },
+        {
+          "node_reference": "unrelated:water-interest:v1",
+          "content_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "depends_on": []
+        }
+      ],
+      "initial_invalidations": [],
+      "steps": [
+        {
+          "root_reference": "source:does-not-exist",
+          "invalidation_event_reference": "event:unknown-root:008",
+          "reason": "unknown source"
+        }
+      ],
+      "expected_affected_by_step": [
+        []
+      ],
+      "expected_error_by_step": [
+        "unknown_root"
+      ],
+      "expected_invalidated": [],
+      "expected_current": [
+        "assertion:surface-right:v1",
+        "authority-assessment:v1",
+        "read-model:external-status:v1",
+        "source:registry-extract:v1",
+        "unrelated:water-interest:v1"
+      ],
+      "expected_cause_counts": {},
+      "expected_record_count": 0,
+      "expected_final_validation": "valid"
+    },
+    {
+      "scenario_id": "EVI-008",
+      "description": "An invalidation event identifier cannot be reused for another root",
+      "nodes": [
+        {
+          "node_reference": "source:registry-extract:v1",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "depends_on": []
+        },
+        {
+          "node_reference": "assertion:surface-right:v1",
+          "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "depends_on": [
+            "source:registry-extract:v1"
+          ]
+        },
+        {
+          "node_reference": "authority-assessment:v1",
+          "content_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "depends_on": [
+            "assertion:surface-right:v1"
+          ]
+        },
+        {
+          "node_reference": "read-model:external-status:v1",
+          "content_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "depends_on": [
+            "authority-assessment:v1"
+          ]
+        },
+        {
+          "node_reference": "unrelated:water-interest:v1",
+          "content_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "depends_on": []
+        }
+      ],
+      "initial_invalidations": [],
+      "steps": [
+        {
+          "root_reference": "source:registry-extract:v1",
+          "invalidation_event_reference": "event:reuse:009",
+          "reason": "root source corrected"
+        },
+        {
+          "root_reference": "assertion:surface-right:v1",
+          "invalidation_event_reference": "event:reuse:009",
+          "reason": "different root under same event"
+        }
+      ],
+      "expected_affected_by_step": [
+        [
+          "assertion:surface-right:v1",
+          "authority-assessment:v1",
+          "read-model:external-status:v1",
+          "source:registry-extract:v1"
+        ],
+        []
+      ],
+      "expected_error_by_step": [
+        null,
+        "event_reference_conflict"
+      ],
+      "expected_invalidated": [
+        "assertion:surface-right:v1",
+        "authority-assessment:v1",
+        "read-model:external-status:v1",
+        "source:registry-extract:v1"
+      ],
+      "expected_current": [
+        "unrelated:water-interest:v1"
+      ],
+      "expected_cause_counts": {
+        "source:registry-extract:v1": 1,
+        "assertion:surface-right:v1": 1,
+        "authority-assessment:v1": 1,
+        "read-model:external-status:v1": 1
+      },
+      "expected_record_count": 4,
+      "expected_final_validation": "valid"
+    }
+  ],
+  "non_claims": [
+    "No real landholder, institution, registry or community is represented.",
+    "Correct invalidation propagation does not adjudicate the underlying right or legal effect.",
+    "The reference graph is rebuildable and does not itself deliver invalidations into external systems."
+  ]
+}

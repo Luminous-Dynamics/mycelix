@@ -1,0 +1,19 @@
+{
+  "schema": "mycelix.land-operation-lifecycle.v0",
+  "operation_id": "urn:mycelix:synthetic-land-operation:timeout-001",
+  "operation_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "idempotency_key": "stable-operation-key-001",
+  "phase": {
+    "state": "outcome_unknown",
+    "attempt_id": "attempt-001",
+    "idempotency_key": "stable-operation-key-001"
+  },
+  "attempt_history": [
+    {
+      "attempt_id": "attempt-001",
+      "idempotency_key": "stable-operation-key-001",
+      "status": "outcome_unknown",
+      "reconciliation_reference": null
+    }
+  ]
+}

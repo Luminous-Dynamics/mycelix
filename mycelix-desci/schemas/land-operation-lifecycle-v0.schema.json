@@ -1,0 +1,383 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-land-operation-lifecycle-v0.schema.json",
+  "title": "Mycelix Land Operation Lifecycle v0",
+  "description": "Fail-closed reference state for an external-authority-dependent land/resource operation. No state authorizes authoritative title or registry mutation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "operation_id",
+    "operation_sha256",
+    "idempotency_key",
+    "phase",
+    "attempt_history"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.land-operation-lifecycle.v0"
+    },
+    "operation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "operation_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "idempotency_key": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "phase": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "const": "prepared"
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/attemptPhase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "previous_attempt_id",
+            "idempotency_key",
+            "reconciliation_reference",
+            "retry_semantics_reference"
+          ],
+          "properties": {
+            "state": {
+              "const": "retry_eligible"
+            },
+            "previous_attempt_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "idempotency_key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reconciliation_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "retry_semantics_reference": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "attempt_id",
+            "receipt_reference",
+            "receipt_sha256",
+            "captured_at"
+          ],
+          "properties": {
+            "state": {
+              "const": "receipt_observed"
+            },
+            "attempt_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "receipt_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "receipt_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "captured_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "attempt_id",
+            "receipt_reference",
+            "receipt_sha256",
+            "captured_at",
+            "authority_profile_reference",
+            "qualification_reference",
+            "verifier_reference",
+            "qualification_sha256"
+          ],
+          "properties": {
+            "state": {
+              "const": "external_status_qualified"
+            },
+            "attempt_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "receipt_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "receipt_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "captured_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "authority_profile_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "qualification_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "verifier_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "qualification_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "attempt_id",
+            "receipt_reference",
+            "receipt_sha256",
+            "projection_reference",
+            "projection_scope_reference",
+            "authority_profile_reference",
+            "qualification_reference",
+            "verifier_reference",
+            "qualification_sha256"
+          ],
+          "properties": {
+            "state": {
+              "const": "external_status_projected"
+            },
+            "attempt_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "receipt_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "receipt_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "projection_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "projection_scope_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "authority_profile_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "qualification_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "verifier_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "qualification_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "attempt_id",
+            "receipt_reference",
+            "receipt_sha256",
+            "projection_reference",
+            "invalidation_evidence_reference",
+            "reason"
+          ],
+          "properties": {
+            "state": {
+              "const": "external_status_invalidated"
+            },
+            "attempt_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "receipt_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "receipt_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "projection_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "invalidation_evidence_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "reason",
+            "decision_packet_reference"
+          ],
+          "properties": {
+            "state": {
+              "const": "held"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            },
+            "decision_packet_reference": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "reason"
+          ],
+          "properties": {
+            "state": {
+              "const": "rejected"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "attempt_history": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/attempt"
+      }
+    }
+  },
+  "$defs": {
+    "attemptPhase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "attempt_id",
+        "idempotency_key"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "submitted",
+            "outcome_unknown"
+          ]
+        },
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt_id",
+        "idempotency_key",
+        "status",
+        "reconciliation_reference"
+      ],
+      "properties": {
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "submitted",
+            "outcome_unknown",
+            "confirmed_not_committed",
+            "receipt_observed",
+            "reconciliation_conflict"
+          ]
+        },
+        "reconciliation_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "schema": "mycelix.land-rrr-reference.v0",
+  "schema_uri": "https://luminousdynamics.io/schemas/mycelix-land-rrr-reference-v0.schema.json",
+  "record_id": "synthetic-land-rrr-reference-0001",
+  "record_type": "territorial-assertion-reference",
+  "created_at": "2026-11-18T14:00:00Z",
+  "source_assertion": {
+    "source_system": "sol-atlas",
+    "source_schema": "sol-atlas.territorial-record",
+    "source_schema_version": 1,
+    "record_reference": "urn:synthetic:sol-atlas:territorial-record:0001",
+    "record_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "assertion_id": "assertion-surface-interest-0001"
+  },
+  "claim_basis": [
+    "asserted"
+  ],
+  "rrr": {
+    "relationship": "right",
+    "generic_interest_kind": "other",
+    "source_interest_type_code": "SYNTHETIC_COMMUNITY_USE_RIGHT",
+    "source_interest_type_profile_ref": "urn:synthetic:jurisdiction-profile:za-community-tenure-v0"
+  },
+  "ladm_references": {
+    "edition": "ISO 19152-1:2024",
+    "profile_reference": "urn:synthetic:ladm-profile:za-v0",
+    "party_reference": "urn:synthetic:party:community-0001",
+    "group_party_reference": "urn:synthetic:group-party:community-0001",
+    "spatial_unit_reference": "urn:synthetic:spatial-unit:site-0001"
+  },
+  "authority_references": [],
+  "dispute_assessment": {
+    "state": "unassessed"
+  },
+  "consent_authorization_references": [
+    {
+      "record_reference": "urn:synthetic:landscape-measurement-authorization:site-0001",
+      "purpose": "measurement"
+    },
+    {
+      "record_reference": "urn:synthetic:landscape-measurement-authorization:site-0001",
+      "purpose": "site_access"
+    },
+    {
+      "record_reference": "urn:synthetic:landscape-measurement-authorization:site-0001",
+      "purpose": "publication"
+    }
+  ],
+  "access_policy_reference": "urn:synthetic:mycelix:access-policy:community-controlled",
+  "claim_ceiling": "reference-only-no-legal-effect",
+  "notes": "Synthetic, non-personal example. The purpose-tagged references resolve to one LAND-STEWARD measurement-authorization record. Its measurement consent is granted and site access is authorized, but publication consent is not-requested and policy is private. The existence of the publication reference does not grant publication permission. No real land right, title, authority or community is represented. The optional spatial qualification reference pins an exact Sol Atlas metadata record; it does not copy geometry and cannot promote the RRR claim to legal effect.",
+  "spatial_qualification_reference": {
+    "source_system": "sol-atlas",
+    "schema": "luminous.territorial-spatial-qualification.v0",
+    "schema_uri": "https://luminousdynamics.io/schemas/territorial-spatial-qualification-v0.schema.json",
+    "record_reference": "urn:synthetic:sol-atlas:spatial-qualification:record-001",
+    "record_id": "synthetic-3d-record-001",
+    "record_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "claim_ceiling": "reference_only_no_legal_effect"
+  }
+}

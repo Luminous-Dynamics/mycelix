@@ -1,0 +1,73 @@
+name: Land RRR and operation lifecycle structural gate
+
+on:
+  push:
+    branches:
+      - research/land-rrr-interop-v0-1
+    paths:
+      - "mycelix-desci/src/core/src/land_rrr_reference.rs"
+      - "mycelix-desci/src/core/src/land_operation_lifecycle.rs"
+      - "mycelix-desci/examples/evidence-invalidation-graph-synthetic-v0.json"
+      - "mycelix-desci/examples/tib-evidence-invalidation-v0.1.json"
+      - "mycelix-desci/schemas/evidence-invalidation-graph-v0.schema.json"
+      - "mycelix-desci/src/core/src/evidence_invalidation.rs"
+      - "mycelix-desci/land-rrr-reference-gate-harness/**"
+      - "mycelix-desci/schemas/land-rrr-reference-v0.schema.json"
+      - "mycelix-desci/schemas/land-qualification-decision-packet-v0.schema.json"
+      - "mycelix-desci/schemas/land-operation-lifecycle-v0.schema.json"
+      - "mycelix-desci/examples/land-rrr-reference-synthetic-v0.json"
+      - "mycelix-desci/examples/land-qualification-decision-packet-synthetic-v0.json"
+      - "mycelix-desci/examples/land-operation-lifecycle-timeout-unknown-v0.json"
+      - "mycelix-desci/examples/land-operation-lifecycle-sequences-v0.json"
+      - "mycelix-desci/Cargo.toml"
+      - "mycelix-desci/Cargo.lock"
+      - ".github/workflows/land-rrr-reference.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "mycelix-desci/src/core/src/land_rrr_reference.rs"
+      - "mycelix-desci/src/core/src/land_operation_lifecycle.rs"
+      - "mycelix-desci/land-rrr-reference-gate-harness/**"
+      - "mycelix-desci/schemas/land-rrr-reference-v0.schema.json"
+      - "mycelix-desci/schemas/land-qualification-decision-packet-v0.schema.json"
+      - "mycelix-desci/schemas/land-operation-lifecycle-v0.schema.json"
+      - "mycelix-desci/examples/land-rrr-reference-synthetic-v0.json"
+      - "mycelix-desci/examples/land-qualification-decision-packet-synthetic-v0.json"
+      - "mycelix-desci/examples/land-operation-lifecycle-timeout-unknown-v0.json"
+      - "mycelix-desci/examples/land-operation-lifecycle-sequences-v0.json"
+      - "mycelix-desci/Cargo.toml"
+      - "mycelix-desci/Cargo.lock"
+      - ".github/workflows/land-rrr-reference.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: land-rrr-reference-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  structural:
+    name: Compile and test actual DeSci source modules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-desci/land-rrr-reference-gate-harness/Cargo.toml -- --check
+
+      - name: Run isolated source tests
+        run: cargo test --locked --manifest-path mycelix-desci/land-rrr-reference-gate-harness/Cargo.toml --lib
+
+      - name: Run Clippy
+        run: cargo clippy --locked --manifest-path mycelix-desci/land-rrr-reference-gate-harness/Cargo.toml --all-targets -- -D warnings

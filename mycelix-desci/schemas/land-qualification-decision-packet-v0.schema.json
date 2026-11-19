@@ -1,0 +1,360 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-land-qualification-decision-packet-v0.schema.json",
+  "title": "Mycelix Land Qualification Decision Packet v0",
+  "description": "A review and reconciliation packet documenting why a territorial assertion cannot proceed beyond read-only qualification. It is not a legal decision, title certificate or mutation authorization.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "packet_id",
+    "created_at",
+    "policy_reference",
+    "target_operation",
+    "target_source_record",
+    "outcome",
+    "mutation_boundary",
+    "frontier",
+    "sources",
+    "gaps",
+    "review_requirements",
+    "recheck_triggers",
+    "limitations"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.land-qualification-decision-packet.v0"
+    },
+    "packet_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "policy_reference": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 2048
+    },
+    "target_operation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "target_source_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_reference",
+        "record_sha256",
+        "assertion_reference"
+      ],
+      "properties": {
+        "record_reference": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "assertion_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "outcome": {
+      "enum": [
+        "review_required",
+        "not_evaluable"
+      ]
+    },
+    "mutation_boundary": {
+      "const": "read_only_no_authoritative_mutation"
+    },
+    "frontier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frontier_reference",
+        "scope",
+        "assessed_at",
+        "coverage",
+        "included_source_references",
+        "excluded_or_unavailable_source_references"
+      ],
+      "properties": {
+        "frontier_reference": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "assessed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "coverage": {
+          "enum": [
+            "complete_within_declared_scope",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "included_source_references": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "uniqueItems": true
+        },
+        "excluded_or_unavailable_source_references": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_reference",
+          "source_role",
+          "qualification_state",
+          "reason"
+        ],
+        "properties": {
+          "source_reference": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "source_role": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "snapshot_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "qualification_state": {
+            "enum": [
+              "reference_only",
+              "currentness_unverified",
+              "stale",
+              "revoked",
+              "inaccessible",
+              "conflicting",
+              "geometry_unqualified",
+              "provenance_unverified",
+              "permission_unverified"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "qualification_state": {
+                  "const": "inaccessible"
+                }
+              },
+              "required": [
+                "qualification_state"
+              ]
+            },
+            "then": {
+              "not": {
+                "required": [
+                  "snapshot_sha256"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gap_id",
+          "severity",
+          "description",
+          "required_evidence_or_action"
+        ],
+        "properties": {
+          "gap_id": {
+            "type": "string",
+            "pattern": "^[A-Z0-9][A-Z0-9._-]{2,127}$"
+          },
+          "severity": {
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "required_evidence_or_action": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      }
+    },
+    "review_requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "review_domain",
+          "reviewer_role",
+          "question",
+          "mandatory"
+        ],
+        "properties": {
+          "review_domain": {
+            "enum": [
+              "legal_authority",
+              "land_survey",
+              "community_governance",
+              "environmental_science",
+              "privacy_and_data_governance",
+              "other"
+            ]
+          },
+          "reviewer_role": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "mandatory": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "recheck_triggers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      },
+      "uniqueItems": true
+    },
+    "dissent_or_conflict_references": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri",
+        "maxLength": 2048
+      },
+      "uniqueItems": true
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "not_evaluable"
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "frontier": {
+            "properties": {
+              "coverage": {
+                "enum": [
+                  "partial",
+                  "unavailable"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "review_required"
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "review_requirements": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}
