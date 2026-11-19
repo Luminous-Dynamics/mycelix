@@ -64,7 +64,7 @@ pub struct ValidationReport {
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum PacketError {
-    #[error("packet schema must be {PACKET_SCHEMA}")]
+    #[error("packet schema is not AeroComponentBuildPacketV1")]
     WrongSchema,
     #[error("packet, component, or configuration identity is empty or malformed")]
     InvalidIdentity,
@@ -289,6 +289,7 @@ pub fn validate_packet(
         &packet.component,
         Some(&packet.configuration),
     )?;
+    require_method(&packet.build_evidence, &packet.process_plan.reference)?;
     require_ref(&packet.build_evidence, &packet.design_definition.reference)?;
     require_ref(&packet.build_evidence, &packet.process_plan.reference)?;
     require_ref(&packet.build_evidence, &packet.material_batch)?;
@@ -624,5 +625,11 @@ mod tests {
     fn structural_success_is_not_an_acceptance_or_release_state() {
         let report = validate_packet(&fixture()).expect("valid fixture");
         assert_eq!(report.disposition, PacketDisposition::StructurallyComplete);
+    }
+
+    #[test]
+    fn checked_in_fixture_replays() {
+        let packet: ComponentBuildPacketV1 = serde_json::from_str(include_str!("../fixtures/nonflight_coupon_packet_v1.json")).expect("fixture JSON");
+        assert_eq!(validate_packet(&packet).expect("valid fixture").disposition, PacketDisposition::StructurallyComplete);
     }
 }
