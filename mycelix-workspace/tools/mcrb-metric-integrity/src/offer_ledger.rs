@@ -441,6 +441,15 @@ mod tests {
     }
 
     #[test]
+    fn missing_idempotency_key_is_rejected_for_external_effect_offers() {
+        let mut envelope = valid_envelope();
+        envelope.entries[2].idempotency_key = None;
+        envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
+        assert!(verify_offer_ledger(&envelope).unwrap_err()
+            .contains(&OfferLedgerIssue::MissingIdempotencyKeyForExternalEffect(2)));
+    }
+
+    #[test]
     fn idempotency_key_may_be_absent_for_non_mutating_operations() {
         let mut envelope = valid_envelope();
         envelope.entries[0].idempotency_key = None;
