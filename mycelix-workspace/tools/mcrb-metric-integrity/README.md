@@ -39,7 +39,7 @@ Every expected offered operation must have exactly one terminal outcome. The red
 
 Correct denials are not business successes. Unknown and failed outcomes remain in the offered-operation denominator. An unoffered operation cannot enter the numerator. Missing, duplicate or unexpected samples suppress the rate. A duplicate external effect, failed hard-correctness gate or non-Valid metric-integrity report suppresses all performance rates.
 
-The reducer consumes the actual IntegrityReport, not a caller-provided metric-valid boolean. The offered-operation ID list must still be bound to an independently generated append-only offer ledger, workload source digest, seed and measurement-window identity; the reducer cannot prove a caller did not fabricate a smaller expected set.
+The reducer consumes the actual IntegrityReport, not a caller-provided metric-valid boolean. The denominator now comes from a `VerifiedOfferLedger`, not a caller-supplied `expected_operation_ids` vector. The verifier checks the ledger against a frozen `OfferLedgerExpectation`, derives each operation ID from the run/scenario/workload/generator/seed/sequence/request-digest tuple, verifies contiguous sequence numbers and the canonical SHA-256 ledger digest, and derives the measurement duration from raw monotonic ticks.
 
 ## Public API
 
@@ -86,3 +86,31 @@ The caller must not decide this dynamically after observing the run. The require
 
 
 The QOPS input includes cross_host_measurement_required, sourced from the frozen scenario manifest. When true, the reducer requires cross-host status Valid and cross_host_aggregate_eligible=true. When false, local-first workflows may leave cross-host timing NotEvaluated.
+
+
+## Offer-first denominator integrity
+
+The offer ledger is generated and sealed before operation outcomes are observed. Each entry carries a contiguous sequence number, deterministic operation ID, request digest, optional idempotency key and scheduled monotonic tick.
+
+The verifier checks the ledger against a frozen expectation containing the exact run ID, scenario ID, workload-manifest digest, generator digest, seed, expected offer count and monotonic measurement window. A shortened ledger cannot shrink the denominator because the expected count is not read from the ledger itself. Reordered, duplicated, mutated, out-of-window or cross-run entries are rejected.
+
+The SHA-256 digest uses a domain-separated, length-prefixed binary encoding. It does not hash unordered JSON serialization. QOPS receives only the `VerifiedOfferLedger` type, whose fields are private; it derives both operation IDs and the measurement window from that verified value.
+
+Important limitation: a content hash proves internal consistency, not scheduler honesty or actual dispatch. The ledger artifact, generator binary/source digest, frozen scenario manifest, runner identity and raw dispatch events must still be bound independently in the run receipt. The verifier cannot prove that a malicious scheduler actually sent every request merely because its ledger is self-consistent.
+
+## Offer ledger API
+
+A workload generator creates an `OfferLedger`, derives each operation ID with `operation_id_for_offer`, then calls `seal()` to compute the content digest. The runner must obtain `OfferLedgerExpectation` from the frozen scenario/run plan and call `verify_offer_ledger`. Only the returned `VerifiedOfferLedger` is accepted by `QopsInput`.
+
+```rust
+let verified = verify_offer_ledger(&ledger, &frozen_expectation)?;
+let input = QopsInput {
+    offer_ledger: verified,
+    outcomes,
+    hard_correctness_gates_passed,
+    cross_host_measurement_required,
+};
+let report = compute_qops(&input, &metric_integrity);
+```
+
+The expectation must not be copied from the ledger itself. The run receipt now records the run/scenario identity, frozen workload and generator digests, seed, clock/window identity, monotonic bounds, entry count, canonical ledger digest and raw artifact digest.
