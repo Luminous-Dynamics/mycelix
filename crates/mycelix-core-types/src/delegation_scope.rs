@@ -156,8 +156,12 @@ impl RateLimitV1 {
             return self.max_events <= parent.max_events;
         }
 
-        let segments = parent.window_ms / self.window_ms
-            + u64::from(parent.window_ms % self.window_ms != 0);
+        let remainder = if parent.window_ms % self.window_ms == 0 {
+            0
+        } else {
+            1
+        };
+        let segments = parent.window_ms / self.window_ms + remainder;
         segments
             .checked_mul(self.max_events)
             .is_some_and(|worst_case| worst_case <= parent.max_events)
