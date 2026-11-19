@@ -44,13 +44,13 @@
       "id": "postgresql-single-writer-outbox",
       "class": "centralized-architecture-baseline",
       "direct_comparison": "same-intent-slice-only",
-      "notes": "Report its centralized authority and consistency semantics; do not imply peer-authority equivalence."
+      "notes": "Generic semantics profile; instantiate as the frozen PostgreSQL 18.6 or current 18.7 pgbench profile below. Report centralized authority and consistency semantics; do not imply peer-authority equivalence."
     },
     {
       "id": "hyperledger-fabric-caliper",
       "class": "permissioned-ledger-baseline",
       "direct_comparison": "same-intent-slice-only",
-      "notes": "Pin version-matched Caliper, endorsement policy and ordering/finality settings."
+      "notes": "Pin Fabric version, Caliper version, connector and endorsement/orderer policy. Current Caliper project docs list Fabric v2.x, but README marks the Network SDK and Gateway SDK integrations deprecated; verify supported connector path before using the result."
     },
     {
       "id": "libp2p-iroh-ipfs",
@@ -63,6 +63,18 @@
       "class": "crdt-collaboration-component",
       "direct_comparison": "component-only",
       "notes": "Compare offline document editing, conflict-free merge and convergence; not identity authority, revocation, legal consent or external-effect finality."
+    },
+    {
+      "id": "postgresql-18.6-pgbench",
+      "class": "frozen-centralized-architecture-baseline",
+      "direct_comparison": "same-intent-slice-only",
+      "notes": "Retain the v0.1 ADR's PostgreSQL 18.6 baseline as a frozen historical comparison. Publish exact image/binary digest, custom pgbench script and outbox transaction contract."
+    },
+    {
+      "id": "postgresql-18.7-pgbench",
+      "class": "current-centralized-architecture-candidate",
+      "direct_comparison": "same-intent-slice-only",
+      "notes": "PostgreSQL 18.7 was released 12 November 2026. Pin exact image/binary digest and use custom transaction scripts for the workflow; do not treat default TPC-B-like output as application equivalence."
     }
   ],
   "metrics": [
@@ -819,7 +831,24 @@
     ],
     "add_application_semantic_scenarios": true,
     "never_compare_unmatched_runtime_versions": true,
-    "never_claim_upstream_metric_as_mycelix_application_qualification": true
+    "never_claim_upstream_metric_as_mycelix_application_qualification": true,
+    "wind_tunnel_compatibility": {
+      "status": "holochain-0.7.1-not-established-by-public-compatibility-matrix",
+      "observed_wind_tunnel_release": "v0.7.1",
+      "observed_published_compatibility_pair": "Holochain 0.6.3 / Kitsune2 0.4.1",
+      "observed_pinned_holochain_0_7_report": "Holochain 0.7.0 with 30 nodes; does not establish 0.7.1 compatibility",
+      "roadmap_snapshot_date": "2026-11-17",
+      "roadmap_wind_tunnel_for_0_7_completion": "77 percent (23/30 points)",
+      "required_before_0_7_1_use": [
+        "pin exact Wind Tunnel release or commit",
+        "pin exact Holochain 0.7.1 binary SHA and Kitsune2 graph",
+        "build the Wind Tunnel scenario graph against Holochain 0.7.1",
+        "run fresh-conductor smoke scenarios for app install, zome call, DHT sync and remote/direct signal",
+        "bind every run to exact runtime and raw artifacts",
+        "keep Wind Tunnel substrate metrics separate from Mycelix semantic qualification"
+      ],
+      "interim_policy": "Use Wind Tunnel methodology and compatible scenarios as reference. Port or adapt only after exact 0.7.1 build and smoke qualification; do not infer compatibility from Wind Tunnel's own 0.7.1 release tag."
+    }
   },
   "measurement_quality": {
     "require_monotonic_local_durations": true,
@@ -872,7 +901,7 @@
   },
   "qualified_operations_policy": {
     "name": "Qualified Operations Per Second",
-    "formula": "qualified_successful_operations_with_verified_authority_provenance_peer_visibility_and_effect_receipt / fixed_measurement_window_seconds",
+    "formula": "count(operations that satisfy the complete scenario-specific contract for verified authority, provenance, required peer visibility/freshness, and verified external-effect receipt when applicable) / fixed_measurement_window_seconds",
     "invalid_when": [
       "any_hard_correctness_gate_fails",
       "metric_integrity_status_not_valid"
@@ -886,7 +915,8 @@
       "duplicate_external_effects",
       "p50_latency_ms",
       "p95_latency_ms",
-      "p99_latency_ms"
+      "p99_latency_ms",
+      "qualified_operations_per_second"
     ],
     "no_silent_attempt_exclusion": true,
     "denials_count_as_business_success": false
