@@ -489,6 +489,71 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "OBS-001",
+      "family": "independent_observer_integrity",
+      "title": "connect-event buffer overflow invalidates observer completeness",
+      "setup": "deliberately saturate the BPF ring buffer or perf buffer while generating known connect events",
+      "expected_decision": "incomplete",
+      "oracle": "lost-event counters are surfaced and any run with observer loss is marked incomplete; absence of observed unauthorized events cannot be reported as zero",
+      "source_coverage": "planned",
+      "source_test": null,
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "OBS-002",
+      "family": "independent_observer_integrity",
+      "title": "concurrent connect events correlate unambiguously to capabilities",
+      "setup": "concurrent processes issue overlapping destination tuples while socket cookies, cgroup generations and intent correlation tokens are exercised",
+      "expected_decision": "unambiguous_or_incomplete",
+      "oracle": "every accepted correlation has a unique workload generation and socket identity; ambiguous or missing joins invalidate the evidence record rather than being guessed",
+      "source_coverage": "planned",
+      "source_test": null,
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "KERNEL-002",
+      "family": "deployment_escape",
+      "title": "inherited or passed socket cannot inherit a new request capability",
+      "setup": "a second process receives an already-connected socket through fork or SCM_RIGHTS and attempts an unauthorized HTTP exchange",
+      "expected_decision": "deny_or_explicitly_classify_existing_flow",
+      "oracle": "the system does not treat possession of an established file descriptor as a fresh authorized connect; workload policy or protocol-aware mediation blocks unauthorized use, otherwise the residual is explicitly recorded",
+      "source_coverage": "planned",
+      "source_test": null,
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "KERNEL-003",
+      "family": "connection_lifecycle",
+      "title": "capability expiry distinguishes new connects from established flows",
+      "setup": "establish a permitted flow, expire or revoke its capability, then attempt a new connect and continue the existing flow",
+      "expected_decision": "new_connect_denied_existing_flow_separately_measured",
+      "oracle": "new socket admission requires a fresh capability; established-flow continuation is measured and is never misreported as blocked by a connect hook alone",
+      "source_coverage": "planned",
+      "source_test": null,
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "POOL-001",
+      "family": "connection_pool_authority",
+      "title": "pooled connection reuse requires exact authority-scope compatibility",
+      "setup": "reuse candidate connections across changed DNS-set digest, policy generation, TLS identity, authority, port and workload scope",
+      "expected_decision": "reuse_only_on_exact_compatible_scope",
+      "oracle": "a connection cannot be reused across mismatched authority, address-set, TLS identity, policy version or expiry; rejected reuse is recorded as a fresh-authorization requirement",
+      "source_coverage": "planned",
+      "source_test": null,
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
