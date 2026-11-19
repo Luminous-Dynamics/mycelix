@@ -57,6 +57,12 @@
       "class": "network-or-storage-component",
       "direct_comparison": "component-only",
       "notes": "Not an application-authority comparator unless validation, authorization, privacy and recovery semantics are built above it."
+    },
+    {
+      "id": "yjs-automerge",
+      "class": "crdt-collaboration-component",
+      "direct_comparison": "component-only",
+      "notes": "Compare offline document editing, conflict-free merge and convergence; not identity authority, revocation, legal consent or external-effect finality."
     }
   ],
   "metrics": [
@@ -672,7 +678,135 @@
         "verifier-version",
         "scenario-result"
       ]
+    },
+    {
+      "id": "MCRB-15",
+      "scenario_id": "qualification-receipt-tamper-and-stale-head",
+      "objective": "Prove that altered artifacts, stale source heads and incomplete run evidence cannot be promoted as qualified results.",
+      "actors": [
+        "benchmark-runner",
+        "independent-verifier",
+        "release-steward"
+      ],
+      "hard_invariants": [
+        "zero-tampered-receipt-acceptance",
+        "zero-stale-head-qualification",
+        "all-claims-bind-exact-artifacts"
+      ],
+      "fault_injection": [
+        "artifact-digest-mismatch",
+        "stale-source-head",
+        "missing-required-scenario",
+        "missing-workflow-job",
+        "superseded-run-replay",
+        "wrong-verifier-digest"
+      ],
+      "required_metrics": [
+        "tampered_receipt_accepted_count",
+        "stale_head_qualification_count",
+        "incomplete_receipt_accepted_count",
+        "receipt_verification_latency_ms"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "manifest-digest",
+        "raw-artifact-digests",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-16",
+      "scenario_id": "clock-and-metric-integrity",
+      "objective": "Ensure distributed timing, peer-level samples and aggregates are internally consistent before performance claims are allowed.",
+      "actors": [
+        "benchmark-runner",
+        "peer-observers",
+        "independent-verifier"
+      ],
+      "hard_invariants": [
+        "no-invalid-duration-in-performance-claim",
+        "outliers-preserved-and-classified",
+        "aggregate-requires-valid-peer-samples",
+        "measurement-invalid-blocks-performance-claim"
+      ],
+      "fault_injection": [
+        "large-wall-clock-skew",
+        "clock-step-during-run",
+        "negative-duration",
+        "non-finite-duration",
+        "overflow-timestamp",
+        "missing-peer-sample",
+        "send-receive-counter-mismatch"
+      ],
+      "required_metrics": [
+        "clock_offset_ms",
+        "clock_uncertainty_ms",
+        "negative_duration_count",
+        "non_finite_duration_count",
+        "out_of_run_duration_count",
+        "missing_peer_sample_count",
+        "send_receive_counter_mismatch_count",
+        "aggregate_rejection_count"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "host-clock-observations",
+        "per-peer-raw-samples",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
     }
   ],
-  "receipt_schema": "MCRB_V0_1_RUN_RECEIPT.schema.json"
+  "receipt_schema": "MCRB_V0_1_RUN_RECEIPT.schema.json",
+  "harness_layers": [
+    {
+      "id": "substrate-runtime",
+      "name": "Holochain Wind Tunnel",
+      "purpose": "Reuse version-pinned substrate scenarios for DHT synchronization, zome calls, validation receipts, remote signals and host telemetry."
+    },
+    {
+      "id": "application-semantics",
+      "name": "Mycelix MCRB semantic layer",
+      "purpose": "Qualify author/authority correctness, revocation, privacy, idempotent effects, migration, recovery and evidence receipts."
+    }
+  ],
+  "wind_tunnel_reuse_policy": {
+    "use_existing_runtime_harness": true,
+    "version_specific_scenario_mapping_required": true,
+    "required_substrate_dimensions": [
+      "DHT synchronization/convergence",
+      "zome call latency",
+      "validation receipts",
+      "remote/direct signals",
+      "peer topology/churn",
+      "host CPU/memory/disk telemetry"
+    ],
+    "add_application_semantic_scenarios": true,
+    "never_compare_unmatched_runtime_versions": true,
+    "never_claim_upstream_metric_as_mycelix_application_qualification": true
+  },
+  "measurement_quality": {
+    "require_monotonic_local_durations": true,
+    "require_clock_source_and_sync_method": true,
+    "require_cross_host_offset_and_uncertainty": true,
+    "reject_negative_non_finite_or_out_of_run_durations": true,
+    "preserve_and_classify_outliers": true,
+    "silently_trim_or_clamp_outliers": false,
+    "require_per_peer_distributions": true,
+    "aggregate_only_after_member_samples_validate": true,
+    "require_send_receive_counter_reconciliation": true,
+    "invalid_measurements_block_performance_claims": true,
+    "run_statuses": [
+      "application-fail",
+      "measurement-invalid",
+      "infrastructure-incomplete",
+      "qualified"
+    ]
+  }
 }
