@@ -419,7 +419,9 @@ fn audit_source_file(
         });
     }
 
-    Ok((results, raw_contains_other_role && call_count == 0))
+    let textual_occurrences = text.matches("OtherRole").count();
+    let unmatched_textual_occurrences = textual_occurrences.saturating_sub(call_count);
+    Ok((results, unmatched_textual_occurrences, raw_contains_other_role && call_count == 0))
 }
 
 pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
@@ -437,7 +439,9 @@ pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
     let mut mapped_source_file_count = 0usize;
     let mut unscoped_source_file_count = 0usize;
     let mut call_sites = Vec::new();
-    let mut raw_text_only_files = Vec::new();
+    let mut unmatched_text_files = Vec::new();
+    let mut ast_callsite_count = 0usize;
+    let mut unmatched_textual_occurrence_count = 0usize;
     let mut parse_errors = Vec::new();
 
     let walker = WalkDir::new(root)
@@ -477,9 +481,15 @@ pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
         }
 
         match audit_source_file(root, entry.path(), &manifests) {
-            Ok((sites, raw_only)) => {
-                if raw_only {
-                    raw_text_only_files.push(relative_path(root, entry.path()));
+            Ok((sites, unmatched_text_count, raw_only)) => {
+                ast_callsite_count += sites.len();
+                unmatched_textual_occurrence_count += unmatched_text_count;
+                if unmatched_text_count > 0 || raw_only {
+                    unmatched_text_files.push(json!({
+                        "path": relative_path(root, entry.path()),
+                        "unmatched_textual_occurrence_count": unmatched_text_count,
+                        "review_note": "May include comments, strings, macros or syntax not represented as a direct AST call; manual review required."
+                    }));
                 }
                 call_sites.extend(sites);
             }
@@ -529,7 +539,9 @@ pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
         })).collect::<Vec<_>>(),
         "manifest_errors": manifest_errors,
         "parse_errors": parse_errors,
-        "raw_text_only_occurrence_files": raw_text_only_files,
+        "ast_otherrole_callsite_count": ast_callsite_count,
+        "unmatched_textual_occurrence_count": unmatched_textual_occurrence_count,
+        "unmatched_text_files": unmatched_text_files,
         "classification_counts": counts,
         "call_sites": call_sites,
         "claim_ceiling": "Advisory inventory only. Nearest-manifest context does not prove source-to-DNA ownership. Role-name overlap does not prove DNA artifact identity; unmapped roots and dynamic targets remain unresolved."
