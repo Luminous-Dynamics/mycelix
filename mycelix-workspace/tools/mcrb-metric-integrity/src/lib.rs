@@ -4,8 +4,9 @@
 //! pinned per-host clock identity/epoch/frequency. Caller-supplied duration
 //! values are deliberately not accepted as the source of truth.
 //!
-//! This crate does not yet qualify cross-host publish/observe latency. That
-//! requires matched event digests and uncertainty-bounded clock calibration.
+//! Cross-host publish/observe intervals are calculated from matched event
+//! digests and uncertainty-bounded clock calibration. The pure verifier does
+//! not authenticate clock sources or event origins; receipt provenance remains separate.
 
 use std::collections::{BTreeMap, BTreeSet};
 
