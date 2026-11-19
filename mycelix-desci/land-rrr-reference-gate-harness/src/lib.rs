@@ -4,3 +4,6 @@
 
 #[path = "../../src/core/src/land_rrr_reference.rs"]
 pub mod land_rrr_reference;
+
+#[path = "../../src/core/src/land_operation_lifecycle.rs"]
+pub mod land_operation_lifecycle;
