@@ -45,4 +45,6 @@ The expected Pareto frontier deliberately preserves both:
 - lower estimated cost, 10 GiB remote movement, one failure domain.
 
 The oracle must not silently pick one by collapsing economics, data locality and failure-domain diversity into a single unexplained weight.
-\n\nThe frontier now reports failure-domain, operator-identity and region diversity separately. These are counts of caller-declared identifiers, not proof of independent control, physical fault containment, or legal data residency. A multi-tenant operator may expose multiple failure-domain labels; the Pareto output keeps that distinction visible. Region diversity is descriptive only; permitted-region declarations remain hard constraints.\n
+
+
+The frontier now reports failure-domain, operator-identity and region diversity separately. These are counts of caller-declared identifiers, not proof of independent control, physical fault containment, or legal data residency. A multi-tenant operator may expose multiple failure-domain labels; the Pareto output keeps that distinction visible. Region diversity is descriptive only; permitted-region declarations remain hard constraints.
