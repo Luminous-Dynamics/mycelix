@@ -542,7 +542,10 @@
         "caller_supplied_operation_denominator_allowed",
         "require_append_only_sequence",
         "require_canonical_sha256_digest",
-        "require_runner_attestation_for_execution_claim"
+        "require_runner_attestation_for_execution_claim",
+        "expected_ledger_digest_from_frozen_plan",
+        "verify_ledger_digest_against_pre_dispatch_commitment",
+        "plan_attestation_required_for_executed_pass"
       ],
       "properties": {
         "name": {
@@ -593,6 +596,15 @@
           "const": true
         },
         "require_runner_attestation_for_execution_claim": {
+          "const": true
+        },
+        "expected_ledger_digest_from_frozen_plan": {
+          "const": true
+        },
+        "verify_ledger_digest_against_pre_dispatch_commitment": {
+          "const": true
+        },
+        "plan_attestation_required_for_executed_pass": {
           "const": true
         }
       }
