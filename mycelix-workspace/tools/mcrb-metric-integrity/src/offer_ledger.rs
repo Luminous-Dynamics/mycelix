@@ -376,6 +376,18 @@ mod tests {
     }
 
     #[test]
+    fn remote_visibility_policy_is_committed_into_the_offer_ledger_digest() {
+        let mut envelope = valid_envelope();
+        let original_digest = envelope.ledger_digest_sha256.clone();
+        envelope.requires_cross_host_visibility = false;
+        let changed_digest = calculate_offer_ledger_digest(&envelope);
+        assert_ne!(original_digest, changed_digest);
+        envelope.ledger_digest_sha256 = changed_digest;
+        let verified = verify_offer_ledger(&envelope).unwrap();
+        assert!(!verified.requires_cross_host_visibility());
+    }
+
+    #[test]
     fn truncation_cannot_hide_an_offer_from_count_or_digest() {
         let mut envelope = valid_envelope();
         envelope.entries.pop();
