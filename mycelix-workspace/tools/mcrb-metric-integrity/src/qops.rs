@@ -36,6 +36,8 @@ pub struct QopsInput {
     pub measurement_window_ns: u64,
     /// Result of independent scenario-specific correctness gates.
     pub hard_correctness_gates_passed: bool,
+    /// True only when the scenario contract requires remote visibility/convergence.
+    pub cross_host_measurement_required: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,6 +55,7 @@ pub enum QopsIssue {
     ZeroMeasurementWindow,
     HardCorrectnessGateFailed,
     MetricIntegrityNotValid,
+    CrossHostMetricIntegrityNotValid,
     EmptySampleOperationId(usize),
     UnexpectedOperationSample(String),
     DuplicateOutcomeSample(String),
@@ -108,6 +111,12 @@ pub fn compute_qops(input: &QopsInput, metric_integrity: &IntegrityReport) -> Qo
         || !metric_integrity.issues.is_empty()
     {
         push_unique(&mut issues, QopsIssue::MetricIntegrityNotValid);
+    }
+    if input.cross_host_measurement_required
+        && (metric_integrity.cross_host_status != super::CrossHostTimingStatus::Valid
+            || !metric_integrity.cross_host_aggregate_eligible)
+    {
+        push_unique(&mut issues, QopsIssue::CrossHostMetricIntegrityNotValid);
     }
 
     for operation_id in &input.expected_operation_ids {
@@ -256,6 +265,7 @@ mod tests {
             ],
             measurement_window_ns: 1_000_000_000,
             hard_correctness_gates_passed: true,
+            cross_host_measurement_required: false,
         }
     }
 
@@ -351,4 +361,27 @@ mod tests {
         assert_eq!(empty.status, QopsStatus::Invalid);
         assert!(empty.qualified_operations_per_second.is_none());
     }
+
+    #[test]
+    fn required_cross_host_visibility_cannot_use_local_only_metrics() {
+        let mut input = valid_input();
+        input.cross_host_measurement_required = true;
+        let report = compute_qops(&input, &valid_integrity());
+        assert_eq!(report.status, QopsStatus::Invalid);
+        assert!(report.issues.contains(&QopsIssue::CrossHostMetricIntegrityNotValid));
+        assert!(report.qualified_operations_per_second.is_none());
+    }
+
+    #[test]
+    fn required_cross_host_visibility_accepts_only_valid_cross_host_batch() {
+        let mut input = valid_input();
+        input.cross_host_measurement_required = true;
+        let mut integrity = valid_integrity();
+        integrity.cross_host_status = super::super::CrossHostTimingStatus::Valid;
+        integrity.cross_host_aggregate_eligible = true;
+        let report = compute_qops(&input, &integrity);
+        assert_eq!(report.status, QopsStatus::Eligible);
+        assert_eq!(report.qualified_operations_per_second, Some(2.0));
+    }
+
 }
