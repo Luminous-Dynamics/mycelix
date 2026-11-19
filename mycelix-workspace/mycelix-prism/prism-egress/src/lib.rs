@@ -537,6 +537,12 @@ impl EgressResolutionSnapshot {
         if hostname.is_empty() || port == 0 || redirect_hop > MAX_PUBLIC_WEB_REDIRECT_HOPS as u8 {
             return Err(EgressError::ResolutionSnapshotMismatch);
         }
+        if addresses.is_empty() || addresses.len() > MAX_DNS_ANSWER_ADDRESSES {
+            return Err(EgressError::EmptyAddressSet(hostname));
+        }
+        if addresses.iter().any(|address| address.port() != port) {
+            return Err(EgressError::ResolutionSnapshotMismatch);
+        }
         if valid_until <= std::time::Instant::now() {
             return Err(EgressError::ResolutionLeaseExpired);
         }
@@ -1605,6 +1611,9 @@ async fn resolve_and_authorize(
     }
 
     let mut addresses = snapshot.addresses;
+    if addresses.iter().any(|address| address.port() != port) {
+        return Err(EgressError::ResolutionSnapshotMismatch);
+    }
     if addresses.is_empty() {
         return Err(EgressError::EmptyAddressSet(hostname.to_owned()));
     }
