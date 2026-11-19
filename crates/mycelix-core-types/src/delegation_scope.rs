@@ -244,9 +244,6 @@ impl BudgetLimitsV1 {
             && optional_rate_is_no_wider(self.rate_limit, parent.rate_limit)
     }
 
-    fn is_strictly_no_wider_than(&self, parent: &Self) -> bool {
-        self.is_no_wider_than(parent) && self != parent
-    }
 }
 
 fn optional_max_is_no_wider<T: Copy + Ord>(child: Option<T>, parent: Option<T>) -> bool {
@@ -629,6 +626,33 @@ mod tests {
         assert_eq!(first.digest(), second.digest());
         assert!(first.canonical_bytes().starts_with(SCOPE_DOMAIN));
         assert_eq!(first.schema_version(), 1);
+    }
+
+    #[test]
+    fn canonical_encoding_matches_v1_known_answer_vector() {
+        let value = scope(
+            vec!["a"],
+            vec!["r"],
+            vec!["v"],
+            vec![DataDirectionV1::OwnerToDelegate],
+            OperationBindingV1::AnyWithinProfile,
+            None,
+        );
+        let actual = value
+            .canonical_bytes()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        let expected = concat!(
+            "6d7963656c69782e726f733030352e74797065642d73636f70652e7631000001",
+            "00000001000000016100000001000000017200000001000000017600000001",
+            "000001010101010101010101010101010101010101010101010101010101010101",
+            "0202020202020202020202020202020202020202020202020202020202020202",
+            "0303030303030303030303030303030303030303030303030303030303030303",
+            "0000"
+        );
+        assert_eq!(actual, expected);
+        assert_eq!(value.canonical_bytes().len(), 162);
     }
 
     #[test]
