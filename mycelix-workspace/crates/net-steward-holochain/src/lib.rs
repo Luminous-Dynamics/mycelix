@@ -1,5 +1,7 @@
 use net_steward_discovery::{ClaimFilter, FederationTransport};
-use net_steward_schema::{ClaimEnvelope, DidBindingResolver, DidAgentBinding, PeerPostureClaim};
+use net_steward_schema::{
+    ClaimEnvelope, DidAgentBinding, DidBindingResolver, PeerPostureClaim,
+};
 
 /// A not-yet-implemented Holochain transport.
 ///
@@ -23,7 +25,7 @@ impl MycelixHolochainTransport {
 
     fn unavailable(&self, operation: &str) -> String {
         format!(
-            "Unavailable: Holochain transport operation '{operation}' is not implemented              (role='{}', zome='{}'); no network I/O was attempted",
+            "Unavailable: operation '{operation}' is not implemented for role='{}', zome='{}'; no network I/O was attempted",
             self.role_id, self.zome_name
         )
     }
@@ -81,7 +83,7 @@ impl MycelixHolochainIdentityResolver {
 impl DidBindingResolver for MycelixHolochainIdentityResolver {
     fn resolve_binding(&self, _issuer_did: &str) -> Result<Option<DidAgentBinding>, String> {
         Err(format!(
-            "Unavailable: Holochain DID binding resolver is not implemented              (role='{}', zome='{}'); no identity binding was asserted",
+            "Unavailable: DID binding resolver is not implemented for role='{}', zome='{}'; no identity binding was asserted",
             self.role_id, self.zome_name
         ))
     }
