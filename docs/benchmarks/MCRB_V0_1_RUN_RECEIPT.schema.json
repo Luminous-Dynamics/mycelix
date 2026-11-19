@@ -878,20 +878,41 @@
     },
     {
       "if": {
-        "properties": {
-          "qops": {
+        "allOf": [
+          {
             "properties": {
-              "cross_host_measurement_required": {
-                "const": true
+              "qops": {
+                "properties": {
+                  "status": {
+                    "const": "eligible"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
               }
             },
             "required": [
-              "cross_host_measurement_required"
+              "qops"
+            ]
+          },
+          {
+            "properties": {
+              "qops": {
+                "properties": {
+                  "cross_host_measurement_required": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "cross_host_measurement_required"
+                ]
+              }
+            },
+            "required": [
+              "qops"
             ]
           }
-        },
-        "required": [
-          "qops"
         ]
       },
       "then": {
