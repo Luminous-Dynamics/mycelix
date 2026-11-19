@@ -1136,6 +1136,51 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "TXN-011",
+      "family": "cross_plane_transaction",
+      "title": "journal mutation time and active policy generation are hash-bound",
+      "setup": "attempt nonce/map/switch mutation at the exact lease expiry or with a stale policy generation; tamper the record timestamp or generation after digest creation",
+      "expected_decision": "reject_out_of_window_or_tampered_mutation",
+      "oracle": "mutation records are accepted only within all authority windows and exact current policy generation; observation timestamp and policy generation are included in the hashed journal binding",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "journal_rejects_new_mutations_at_exact_lease_expiry; journal_rejects_mutation_when_policy_generation_has_changed",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "TXN-012",
+      "family": "cross_plane_transaction",
+      "title": "delayed exact switch reconciliation after expiry never authorizes execution",
+      "setup": "record an unknown generation switch before lease expiry, then read back the exact target map after lease expiry",
+      "expected_decision": "expired_active_non_executable",
+      "oracle": "the reducer records ExpiredActive, exposes a revocation requirement, and never treats the target map as eligible for new flows",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "delayed_switch_reconciliation_after_expiry_is_recorded_but_never_executable",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "TXN-013",
+      "family": "live_execution_identity",
+      "title": "flow admission requires exact cgroup BPF map generation and active lease",
+      "setup": "keep the transaction state active while varying runtime cgroup identity, loaded BPF object digest, active map generation, payload digest and lease expiry",
+      "expected_decision": "admit_only_on_exact_live_runtime_match",
+      "oracle": "new flow is eligible only when time, policy generation, active map generation, map payload digest, cgroup identity and BPF program digest all match the transaction",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "execution_gate_requires_fresh_exact_active_map_and_live_authority",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
