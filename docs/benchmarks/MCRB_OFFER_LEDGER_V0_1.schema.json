@@ -9,6 +9,7 @@
     "run_id",
     "scenario_id",
     "measurement_window_id",
+    "requires_cross_host_visibility",
     "workload_manifest_digest_sha256",
     "generator_digest_sha256",
     "parameter_set_digest_sha256",
@@ -164,6 +165,9 @@
     "ledger_digest_sha256": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
+    },
+    "requires_cross_host_visibility": {
+      "type": "boolean"
     }
   }
 }
