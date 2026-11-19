@@ -21,12 +21,12 @@ The packet stores external artefact references and metadata only. No standards p
 
 ## Required lineage
 
-1. Design definition and requirement identities.
+1. Component definition, serialized physical-unit identity, exact configuration and requirement identities.
 2. Manufacturing process-plan artifact, material batch/lot, machine and tooling.
-3. Active as-run build observation bound to the component and exact configuration.
-4. Inspection plan, instrument, active calibration evidence, QIF result artifact and inspection evidence.
-5. Test plan, instrument, active calibration evidence, test result artifact and test evidence.
-6. Exact evidence references joining build → inspection → test.
+3. Active as-run build observation bound to the serialized unit and exact configuration.
+4. Inspection plan, instrument, calibration evidence valid at the inspection event time, QIF result artifact and inspection evidence.
+5. Test plan, instrument, calibration evidence valid at the test event time, test result artifact and test evidence.
+6. Exact evidence references joining build → inspection → test, with test time not preceding inspection time.
 
 Primary evidence must use the same component and configuration. Calibration evidence is bound to its exact instrument and must be active, but is scoped to its own calibration configuration.
 
@@ -39,6 +39,9 @@ Primary evidence must use the same component and configuration. Calibration evid
 - Inspection evidence must reference build evidence, inspection plan/instrument, instrument calibration evidence and a QIF artifact.
 - Test evidence must reference build and inspection evidence, test plan/instrument, instrument calibration evidence and a test result artifact.
 - Primary evidence and calibration evidence must be active and pass the existing typed evidence structural validator.
+- Calibration validity uses the half-open interval [valid_from, valid_until); the calibration record must be the exact referenced evidence record and must cover the declared measurement time.
+- The serialized physical unit is distinct from the component definition. Build, inspection and test claims bind to that unit; the build record also links back to its component definition.
+- The recorded times are replay metadata only; this packet does not establish clock accuracy or synchronization.
 - Unknown, contradicted or missing records never become positive completeness.
 
 ## Matched evaluation
