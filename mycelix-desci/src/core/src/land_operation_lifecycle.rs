@@ -345,7 +345,8 @@ impl LandOperationLifecycleV0 {
                             };
                         } else {
                             self.phase = LandOperationPhase::Held {
-                                reason: "external endpoint does not establish safe same-key retry semantics".into(),
+                                reason: "external endpoint does not establish safe same-key retry semantics"
+                                    .into(),
                                 decision_packet_reference: None,
                             };
                         }
@@ -701,7 +702,9 @@ impl LandOperationLifecycleV0 {
                     || verifier_reference.trim().is_empty()
                     || !is_sha256(qualification_sha256)
                 {
-                    issues.push("qualified status lacks valid receipt or qualification references".into());
+                    issues.push(
+                        "qualified status lacks valid receipt or qualification references".into(),
+                    );
                 }
             }
             LandOperationPhase::ExternalStatusProjected {
@@ -756,7 +759,10 @@ impl LandOperationLifecycleV0 {
                     || invalidation_evidence_reference.trim().is_empty()
                     || reason.trim().is_empty()
                 {
-                    issues.push("invalidated external status must retain its source and invalidation evidence".into());
+                    issues.push(
+                        "invalidated external status must retain its source and invalidation evidence"
+                            .into(),
+                    );
                 }
             }
             LandOperationPhase::Held {
@@ -768,7 +774,9 @@ impl LandOperationLifecycleV0 {
                         .as_deref()
                         .is_some_and(|reference| reference.trim().is_empty())
                 {
-                    issues.push("held phase requires a reason and valid optional packet reference".into());
+                    issues.push(
+                        "held phase requires a reason and valid optional packet reference".into(),
+                    );
                 }
             }
             LandOperationPhase::Rejected { reason } => {
