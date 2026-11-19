@@ -13,4 +13,5 @@ description = "Fail-closed metric integrity checks for Mycelix Coordination and 
 path = "src/lib.rs"
 
 [dependencies]
+serde = { version = "1.0", features = ["derive"] }
 sha2 = "0.10"
