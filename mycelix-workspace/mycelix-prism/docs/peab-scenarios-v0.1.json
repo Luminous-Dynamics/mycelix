@@ -949,6 +949,48 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "RESLEASE-001",
+      "family": "cross_plane_snapshot",
+      "title": "preverified Nixward snapshot rejects address-set substitution and noncanonical ordering",
+      "setup": "construct a snapshot with a different address digest or permuted/duplicated socket records",
+      "expected_decision": "reject_before_transport",
+      "oracle": "Prism refuses digest mismatch and noncanonical address ordering before it can mint a request capability",
+      "source_coverage": "present",
+      "source_test": "preverified_nixward_snapshot_rejects_address_digest_substitution_and_noncanonical_sets",
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "RESLEASE-002",
+      "family": "cross_plane_snapshot",
+      "title": "Nixward snapshot cannot be replayed across logical request IDs or redirect hops",
+      "setup": "return a valid-digest snapshot whose logical_request_id or redirect_hop differs from the requesting capability",
+      "expected_decision": "reject_before_transport",
+      "oracle": "hostname, port, logical request ID and hop must all match exactly; no capability is issued for a mismatched snapshot",
+      "source_coverage": "present",
+      "source_test": "nixward_snapshot_cannot_be_replayed_across_logical_ids_or_hops",
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "RESLEASE-003",
+      "family": "cross_plane_snapshot",
+      "title": "Nixward v1 resolution lease cannot outlive its five-second maximum",
+      "setup": "adapter attempts to provide a monotonic validity deadline more than five seconds in the future",
+      "expected_decision": "reject_before_transport",
+      "oracle": "Prism rejects an overlong preverified lease deadline rather than relying solely on a caller-supplied TTL",
+      "source_coverage": "present",
+      "source_test": "preverified_nixward_snapshot_enforces_five_second_lifetime_ceiling",
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
