@@ -33,3 +33,25 @@ The tool does not inspect DNA bundle bytes, infer application semantics, resolve
 ## Dependency note
 
 Uses the maintained YAML organization fork `yaml_serde` rather than the archived `serde_yaml` crate. The tool is standalone and is not a Holochain production dependency.
+
+
+## Advisory topology inventory
+
+The tool also exposes an AST-based inventory mode:
+
+```bash
+cargo run --manifest-path mycelix-workspace/tools/platform-registry-audit/Cargo.toml -- --audit-otherrole > otherrole-topology-report.json
+```
+
+This scans Rust source with Syn, inventories `CallTargetCell::OtherRole(...)`, resolves string literals and unique simple string constants, and reports dynamic expressions as unresolved. It discovers hApp manifests and records their exact Git blob SHA when available.
+
+Important interpretation limits:
+
+- A nearest ancestor `happ.yaml` is only a **source context hint**. It does not prove the Rust source is included in one of that manifest's DNA bundles.
+- A role name declared in the nearest manifest is reported as `nearest-manifest-declared`, not as a proven runtime-valid bridge.
+- A matching role name in another manifest is only a candidate. It does not prove the caller DNA is the same artifact or is deployed in that profile.
+- Dynamic role expressions and source roots with no nearest manifest remain unresolved.
+- Macro-generated references and parse errors are reported separately; the inventory is advisory and must not be presented as complete source-to-DNA coverage.
+- The report does not currently resolve every Rust source module into a compiled WASM zome or verify DNA byte identity.
+
+This is intentionally not a global role-name allowlist. A later, independently qualified source-to-DNA ownership map is required before this inventory can become a hard deployment gate.
