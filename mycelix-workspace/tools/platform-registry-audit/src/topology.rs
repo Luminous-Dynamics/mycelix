@@ -540,6 +540,22 @@ pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
 mod tests {
     use super::*;
 
+    fn manifest_info(name: &str, roles: &[&str]) -> ManifestInfo {
+        let role_names = roles.iter().map(|role| (*role).to_string()).collect();
+        let dna_paths = roles
+            .iter()
+            .map(|role| ((*role).to_string(), format!("./{role}.dna")))
+            .collect();
+        ManifestInfo {
+            path: PathBuf::from(format!("{name}/happ.yaml")),
+            root: PathBuf::from(name),
+            name: name.to_string(),
+            role_names,
+            dna_paths,
+            git_blob_sha: None,
+        }
+    }
+
     #[test]
     fn literal_other_role_argument_is_resolved() {
         let syntax: File = syn::parse_file(
@@ -592,4 +608,79 @@ mod tests {
         assert_eq!(visitor.calls.len(), 1);
         assert!(visitor.calls[0].1.is_none());
     }
+
+    #[test]
+    fn nearest_manifest_declaration_is_not_called_runtime_valid() {
+        let context = manifest_info("fabrication", &["fabrication", "identity"]);
+        let result = classify_target(Some(&context), Some("identity"), &[context.clone()]);
+        assert_eq!(result.classification, "nearest-manifest-declared");
+        assert!(result.declared_in_context);
+        assert_eq!(result.matching_profile_candidates, vec!["fabrication"]);
+    }
+
+    #[test]
+    fn matching_role_names_in_another_profile_are_only_candidates() {
+        let context = manifest_info("fabrication-standalone", &["fabrication"]);
+        let candidate = manifest_info("unified", &["fabrication", "identity"]);
+        let manifests = vec![context.clone(), candidate];
+        let result = classify_target(Some(&context), Some("identity"), &manifests);
+        assert_eq!(result.classification, "profile-dependent-candidate");
+        assert!(!result.declared_in_context);
+        assert!(result.present_elsewhere);
+        assert_eq!(result.matching_profile_candidates, vec!["unified"]);
+    }
+
+    #[test]
+    fn target_elsewhere_without_caller_role_overlap_stays_unresolved() {
+        let context = manifest_info("fabrication-standalone", &["fabrication"]);
+        let other = manifest_info("identity-app", &["identity"]);
+        let result = classify_target(Some(&context), Some("identity"), &[context.clone(), other]);
+        assert_eq!(
+            result.classification,
+            "cross-profile-or-source-mapping-unresolved"
+        );
+        assert!(!result.declared_in_context);
+        assert!(result.present_elsewhere);
+        assert!(result.matching_profile_candidates.is_empty());
+    }
+
+    #[test]
+    fn absent_target_is_only_a_missing_role_candidate() {
+        let context = manifest_info("fabrication-standalone", &["fabrication"]);
+        let result = classify_target(Some(&context), Some("unknown"), &[context]);
+        assert_eq!(result.classification, "missing-role-candidate");
+        assert!(!result.present_elsewhere);
+    }
+
+    #[test]
+    fn source_without_manifest_context_is_not_assigned_an_owner() {
+        let result = classify_target(None, Some("identity"), &[]);
+        assert_eq!(result.classification, "source-context-unresolved");
+        assert!(!result.declared_in_context);
+    }
+
+    #[test]
+    fn ambiguous_or_dynamic_target_is_not_guessed() {
+        let context = manifest_info("fabrication-standalone", &["fabrication"]);
+        let result = classify_target(Some(&context), None, &[context]);
+        assert_eq!(result.classification, "dynamic-unresolved");
+        assert!(!result.declared_in_context);
+    }
+
+    #[test]
+    fn unrelated_function_named_otherrole_is_not_counted_as_holochain_dispatch() {
+        let syntax: File = syn::parse_file(
+            r#"
+            fn f() {
+                helper::OtherRole("identity");
+            }
+            "#,
+        )
+        .unwrap();
+        let constants = BTreeMap::new();
+        let mut visitor = OtherRoleVisitor::new(&constants);
+        visitor.visit_file(&syntax);
+        assert!(visitor.calls.is_empty());
+    }
+
 }
