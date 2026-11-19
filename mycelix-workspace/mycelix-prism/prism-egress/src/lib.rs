@@ -1187,13 +1187,11 @@ enum CanonicalSocketAddress {
     },
 }
 
-/// Compute a stable, domain-separated digest for a complete socket-address set.
+/// Return the canonical binary encoding of a complete socket-address set.
 ///
-/// The canonical encoding sorts and deduplicates by address family, raw address
-/// bytes, port, and IPv6 scope ID. It intentionally excludes IPv6 flowinfo.
-/// This digest supports cross-plane correlation; it does not authenticate the
-/// resolver, lease issuer, kernel observer, or application receipt.
-pub fn canonical_address_set_digest(addresses: &[SocketAddr]) -> String {
+/// Records sort and deduplicate by address family, raw address bytes,
+/// destination port, and IPv6 scope ID. IPv6 flowinfo is intentionally excluded.
+pub fn canonical_address_set_encoding(addresses: &[SocketAddr]) -> Vec<u8> {
     let mut canonical: Vec<CanonicalSocketAddress> = addresses
         .iter()
         .map(|address| match address {
@@ -1211,28 +1209,36 @@ pub fn canonical_address_set_digest(addresses: &[SocketAddr]) -> String {
     canonical.sort_unstable();
     canonical.dedup();
 
-    let mut hasher = blake3::Hasher::new_derive_key("org.luminousdynamics.prism.address-set.v1");
-    hasher.update(&(canonical.len() as u64).to_be_bytes());
-
+    let mut encoded = Vec::with_capacity(8 + canonical.len() * 23);
+    encoded.extend_from_slice(&(canonical.len() as u64).to_be_bytes());
     for address in canonical {
         match address {
             CanonicalSocketAddress::V4 { ip, port } => {
-                hasher.update(&[4]);
-                hasher.update(&ip);
-                hasher.update(&port.to_be_bytes());
+                encoded.push(4);
+                encoded.extend_from_slice(&ip);
+                encoded.extend_from_slice(&port.to_be_bytes());
             }
             CanonicalSocketAddress::V6 { ip, port, scope_id } => {
-                hasher.update(&[6]);
-                hasher.update(&ip);
-                hasher.update(&port.to_be_bytes());
-                hasher.update(&scope_id.to_be_bytes());
+                encoded.push(6);
+                encoded.extend_from_slice(&ip);
+                encoded.extend_from_slice(&port.to_be_bytes());
+                encoded.extend_from_slice(&scope_id.to_be_bytes());
             }
         }
     }
-
-    hasher.finalize().to_hex().to_string()
+    encoded
 }
 
+/// Compute a stable, domain-separated digest for a complete socket-address set.
+///
+/// This digest supports cross-plane correlation; it does not authenticate the
+/// resolver, lease issuer, kernel observer, or application receipt.
+pub fn canonical_address_set_digest(addresses: &[SocketAddr]) -> String {
+    let encoded = canonical_address_set_encoding(addresses);
+    let mut hasher = blake3::Hasher::new_derive_key("org.luminousdynamics.prism.address-set.v1");
+    hasher.update(&encoded);
+    hasher.finalize().to_hex().to_string()
+}
 fn collect_unique_addresses_bounded(
     addresses: impl IntoIterator<Item = SocketAddr>,
 ) -> Vec<SocketAddr> {
@@ -2204,6 +2210,21 @@ mod tests {
             }
         }
         request
+    }
+
+    #[test]
+    fn canonical_address_set_encoding_matches_cross_language_golden_vector() {
+        let ipv4: SocketAddr = "93.184.216.34:443".parse().unwrap();
+        let ipv6: SocketAddr = "[2606:4700:4700::1111]:443".parse().unwrap();
+        assert_eq!(
+            canonical_address_set_encoding(&[ipv6, ipv4]),
+            vec![
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, // count = 2
+                0x04, 0x5d, 0xb8, 0xd8, 0x22, 0x01, 0xbb, // IPv4 + 443
+                0x06, 0x26, 0x06, 0x47, 0x00, 0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x11, 0x11, 0x01, 0xbb, 0x00, 0x00, 0x00, 0x00, // IPv6 + 443 + scope 0
+            ]
+        );
     }
 
     #[test]
