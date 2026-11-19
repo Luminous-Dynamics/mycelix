@@ -33,6 +33,12 @@ The schema sets claim_ceiling to reference-only-no-legal-effect. A trusted host 
 - Mycelix LAND-STEWARD-001 #5277 / PR #5298 owns the consent-aware landscape project, site access, measurement and publication authorization profile.
 - Mycelix CIVOS-EVIDENCE-001 #5709 owns rights-aware claims, provenance, corrections, disputes, supersession, revocation and restricted knowledge semantics.
 
+### 3D spatial qualification reference
+
+The optional `spatial_qualification_reference` points to an exact Sol Atlas `SpatialQualificationRecordV0` using its schema identity, schema URI, record reference, record ID and SHA-256. It carries no coordinates, mesh or geometry payload. The Sol Atlas record remains the source of spatial metadata, survey references, coordinate-operation lineage, topology assessment and overlap state.
+
+A reference can be structurally present while its source is unavailable, stale, revoked or not yet reviewed. The Mycelix validator checks only the source/schema identifiers, non-empty references, SHA-256 shape and fixed `reference_only_no_legal_effect` ceiling. The trusted host must resolve the exact content, compare its digest, evaluate its disposition and evidence frontier, and block dependent projections when the result is `review_required` or `not_evaluable`. A Sol Atlas `structural_accept` still does not prove registry authenticity or legal title.
+
 ## Data mapping
 
 | Sol Atlas source | Mycelix representation | Rule |
