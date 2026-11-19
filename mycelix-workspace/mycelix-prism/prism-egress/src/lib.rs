@@ -158,6 +158,14 @@ pub enum EgressError {
     },
     #[error("DNS returned no addresses for {0}")]
     EmptyAddressSet(String),
+    #[error("resolution lease expired before request authorization")]
+    ResolutionLeaseExpired,
+    #[error("resolution snapshot does not match requested host, port, logical ID or hop")]
+    ResolutionSnapshotMismatch,
+    #[error("resolution snapshot address-set digest does not match its socket set")]
+    ResolutionAddressSetDigestMismatch,
+    #[error("resolution lease or resolver snapshot digest is malformed")]
+    InvalidResolutionDigest,
     #[error("DNS answer set exceeded the configured address count limit")]
     DnsAnswerSetTooLarge,
     #[error("DNS lookup exceeded its time limit")]
@@ -447,18 +455,126 @@ pub struct EgressReceipt {
     pub redirect_hops: Vec<RedirectHopReceipt>,
 }
 
-/// Resolver interface makes DNS policy deterministic under test. Implementations
-/// must return the complete A and AAAA answer set, not only the first address.
-trait EgressResolver: Send + Sync {
-    /// Resolve one host while owning the DNS admission permit. Implementations
-    /// that delegate to non-cancellable blocking work must move this permit
-    /// into that work so timeouts cannot release capacity early.
+/// Complete address and provenance snapshot produced for one logical request hop.
+///
+/// This value is a transport input, not a signature. The Nixward adapter must
+/// verify the signed lease, parent capability, workload/cgroup binding, replay
+/// nonce and resolver provenance before constructing it with
+/// `from_verified_nixward_lease`. Prism independently checks request/hop
+/// identity, hostname, port, expiry, address policy and the canonical set digest.
+#[derive(Clone, Debug)]
+pub struct EgressResolutionSnapshot {
+    hostname: String,
+    port: u16,
+    logical_request_id: String,
+    redirect_hop: u8,
+    addresses: Vec<SocketAddr>,
+    valid_until: Option<std::time::Instant>,
+    address_set_digest: Option<String>,
+    resolution_lease_digest: Option<String>,
+    resolver_snapshot_digest: Option<String>,
+}
+
+impl EgressResolutionSnapshot {
+    /// Construct a snapshot from the operating-system resolver. The OS API does
+    /// not expose authoritative TTL, CNAME or DNSSEC provenance, so those fields
+    /// remain absent and Prism applies its own short capability lifetime.
+    pub fn from_system_resolver(
+        hostname: impl Into<String>,
+        port: u16,
+        logical_request_id: impl Into<String>,
+        redirect_hop: u8,
+        addresses: Vec<SocketAddr>,
+    ) -> Self {
+        Self {
+            hostname: hostname.into(),
+            port,
+            logical_request_id: logical_request_id.into(),
+            redirect_hop,
+            addresses,
+            valid_until: None,
+            address_set_digest: None,
+            resolution_lease_digest: None,
+            resolver_snapshot_digest: None,
+        }
+    }
+
+    /// Construct from a Nixward lease that the resolver adapter has already
+    /// cryptographically verified and bound to the calling workload/policy.
+    ///
+    /// This constructor validates field shape and digest consistency; it does
+    /// not verify a signature or establish caller/cgroup identity by itself.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_verified_nixward_lease(
+        hostname: impl Into<String>,
+        port: u16,
+        logical_request_id: impl Into<String>,
+        redirect_hop: u8,
+        addresses: Vec<SocketAddr>,
+        valid_until: std::time::Instant,
+        address_set_digest: impl Into<String>,
+        resolution_lease_digest: impl Into<String>,
+        resolver_snapshot_digest: impl Into<String>,
+    ) -> Result<Self, EgressError> {
+        let hostname = hostname.into();
+        let logical_request_id = logical_request_id.into();
+        let address_set_digest = address_set_digest.into();
+        let resolution_lease_digest = resolution_lease_digest.into();
+        let resolver_snapshot_digest = resolver_snapshot_digest.into();
+
+        validate_logical_request_id(&logical_request_id)?;
+        if hostname.is_empty() || port == 0 || redirect_hop > MAX_PUBLIC_WEB_REDIRECT_HOPS as u8 {
+            return Err(EgressError::ResolutionSnapshotMismatch);
+        }
+        if valid_until <= std::time::Instant::now() {
+            return Err(EgressError::ResolutionLeaseExpired);
+        }
+        for digest in [
+            address_set_digest.as_str(),
+            resolution_lease_digest.as_str(),
+            resolver_snapshot_digest.as_str(),
+        ] {
+            if !is_lower_hex_digest(digest) {
+                return Err(EgressError::InvalidResolutionDigest);
+            }
+        }
+        if canonical_address_set_digest(&addresses) != address_set_digest {
+            return Err(EgressError::ResolutionAddressSetDigestMismatch);
+        }
+
+        Ok(Self {
+            hostname,
+            port,
+            logical_request_id,
+            redirect_hop,
+            addresses,
+            valid_until: Some(valid_until),
+            address_set_digest: Some(address_set_digest),
+            resolution_lease_digest: Some(resolution_lease_digest),
+            resolver_snapshot_digest: Some(resolver_snapshot_digest),
+        })
+    }
+}
+
+/// Resolver interface makes DNS policy deterministic under test and permits a
+/// trusted external lease broker to supply the exact request/hop snapshot.
+///
+/// Implementations must return the complete A and AAAA answer set. A
+/// lease-backed implementation must verify the signed Nixward lease and its
+/// owner/workload scope before constructing an EgressResolutionSnapshot.
+pub trait EgressResolver: Send + Sync {
+    /// Resolve one host for exactly one logical request hop while owning the
+    /// DNS admission permit. Implementations that delegate to non-cancellable
+    /// blocking work must move this permit into that work so cancellation cannot
+    /// release capacity early.
     fn resolve<'a>(
         &'a self,
         host: &'a str,
         port: u16,
+        logical_request_id: &'a str,
+        redirect_hop: u8,
         permit: OwnedSemaphorePermit,
-    ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>>;
+    ) -> Pin<Box<dyn Future<Output = io::Result<EgressResolutionSnapshot>> + Send + 'a>>;
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -489,13 +605,26 @@ impl EgressResolver for SystemEgressResolver {
         &'a self,
         host: &'a str,
         port: u16,
+        logical_request_id: &'a str,
+        redirect_hop: u8,
         permit: OwnedSemaphorePermit,
-    ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
+    ) -> Pin<Box<dyn Future<Output = io::Result<EgressResolutionSnapshot>> + Send + 'a>> {
         let host = host.to_owned();
-        Box::pin(spawn_blocking_dns_with_permit(permit, move || {
-            std::net::ToSocketAddrs::to_socket_addrs(&(host.as_str(), port))
-                .map(collect_unique_addresses_bounded)
-        }))
+        let logical_request_id = logical_request_id.to_owned();
+        Box::pin(async move {
+            let addresses = spawn_blocking_dns_with_permit(permit, move || {
+                std::net::ToSocketAddrs::to_socket_addrs(&(host.as_str(), port))
+                    .map(collect_unique_addresses_bounded)
+            })
+            .await?;
+            Ok(EgressResolutionSnapshot::from_system_resolver(
+                host,
+                port,
+                logical_request_id,
+                redirect_hop,
+                addresses,
+            ))
+        })
     }
 }
 
@@ -537,7 +666,13 @@ impl PublicEgressClient {
         Self::with_resolver(limits, SystemEgressResolver)
     }
 
-    fn with_resolver<R>(limits: EgressLimits, resolver: R) -> Self
+    /// Construct a client with an explicit resolution authority.
+    ///
+    /// A custom resolver is part of the trusted computing base. For Nixward
+    /// integration, it must verify signed resolution leases before returning a
+    /// snapshot; Prism then independently checks the exact request/hop binding,
+    /// address set, expiry and digest.
+    pub fn with_resolver<R>(limits: EgressLimits, resolver: R) -> Self
     where
         R: EgressResolver + 'static,
     {
@@ -1155,6 +1290,13 @@ fn validate_logical_request_id(value: &str) -> Result<(), EgressError> {
         return Err(EgressError::InvalidLogicalRequestId);
     }
     Ok(())
+}
+
+fn is_lower_hex_digest(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn tls_identity_receipt(url: &Url) -> Option<TlsIdentityReceipt> {
