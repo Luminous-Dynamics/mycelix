@@ -12,7 +12,9 @@ It reports a Pareto frontier over seven separate optimization dimensions:
 2. remote input bytes;
 3. number of distinct failure domains used;
 4. number of distinct declared operator identities;
-5. peak CPU utilization;\n6. peak memory utilization;\n7. peak GPU-slot utilization.
+5. peak CPU utilization;
+6. peak memory utilization;
+7. peak GPU-slot utilization.
 
 It also reports the number of regions used as descriptive metadata, but region count is deliberately excluded from Pareto dominance. More geographic spread is not universally better: jurisdiction, egress, latency and policy may make concentration preferable. Permitted-region declarations remain hard constraints.
 
