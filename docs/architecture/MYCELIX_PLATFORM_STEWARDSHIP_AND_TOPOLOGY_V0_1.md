@@ -190,3 +190,19 @@ Canonical source lineage matters: the public repository is synchronized from the
 - An MCRB benchmark plan with frozen scenarios, metrics and claim rules.
 - A separately tracked fail-closed implementation plan for the Net Steward Holochain transport placeholders.
 - No new DNA until a measurable boundary justifies it.
+
+
+## Cross-hApp topology audit: OtherRole is a local installation contract
+
+Holochain `CallTargetCell::OtherRole(role)` is a bridge call to another cell in the same agent's installed hApp. It is not a global service lookup and does not call a separately installed hApp. The exact hApp manifest therefore determines whether a call target exists for a given deployment.
+
+Holochain's documentation distinguishes bridge calls between cells within one hApp from client/orchestrator-mediated interaction with other applications. A client may bridge separate app APIs, but that is a different trust and correctness boundary.
+
+This motivates [PLAT-TOPOLOGY-AUDIT-001 #6334](https://github.com/Luminous-Dynamics/mycelix/issues/6334), a source-aware Rust AST audit. It will map each `OtherRole` call site to its caller DNA and every deployment profile containing that DNA, then classify the target as same-hApp-valid, profile-dependent, cross-installed-hApp-invalid, missing, dynamic-unresolved or source-owner-unresolved.
+
+The audit must not use a global list of all Mycelix role names. It must also not fail closed on an incomplete source-to-DNA map by pretending the map is complete. Report attribution coverage, unknowns and per-profile resolution before promoting the audit to a hard gate.
+
+A concrete precursor is [#4249](https://github.com/Luminous-Dynamics/mycelix/issues/4249): the Fabrication hApp declares only the `fabrication` role while selected bridge/verification call sites target Identity, Commons and Knowledge. Those targets may exist in the unified hApp, but that alone does not make them reachable from the standalone Fabrication hApp.
+
+The eventual registry receipt should bind caller path, caller DNA, hApp profile, exact target role/zome/function, source SHA and manifest digests. A source-level mock or successful compile is not runtime proof that the installed topology contains the target cell.
+
