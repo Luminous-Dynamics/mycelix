@@ -1,0 +1,2296 @@
+{
+  "schema": "mycelix.housing_amenity_commons_benchmark",
+  "version": "0.1.0",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6328",
+  "qualification_state": "SYNTHETIC_FIXTURE_NOT_RUN_NOT_QUALIFIED",
+  "policy": {
+    "synthetic_only": true,
+    "currency": "ZAR",
+    "money_minor_unit": "cent",
+    "disposition_precedence": [
+      "INVALID",
+      "BLOCK",
+      "UNKNOWN",
+      "ACCEPT"
+    ],
+    "aggregate_score_permitted": false
+  },
+  "functional_units": [
+    {
+      "id": "workshop_access_hour",
+      "amenity_class": "WORKSHOP",
+      "service": "safe access to equipped workshop capability",
+      "unit": "usable workshop-hour",
+      "denominator": "one scheduled hour with declared equipment and qualified operator availability",
+      "aggregation_rule": "DO_NOT_AGGREGATE_WITH_UNLIKE_SERVICE_UNITS"
+    },
+    {
+      "id": "community_room_hour",
+      "amenity_class": "COMMUNITY_ROOM",
+      "service": "accessible community room availability",
+      "unit": "accessible room-hour",
+      "denominator": "one hour of commissioned, accessible room availability for the declared beneficiary group",
+      "aggregation_rule": "DO_NOT_AGGREGATE_WITH_UNLIKE_SERVICE_UNITS"
+    },
+    {
+      "id": "guest_suite_night",
+      "amenity_class": "GUEST_SUITE",
+      "service": "cleaned and accepted guest accommodation",
+      "unit": "accepted guest-suite night",
+      "denominator": "one night available and accepted after cleaning and readiness checks",
+      "aggregation_rule": "DO_NOT_AGGREGATE_WITH_UNLIKE_SERVICE_UNITS"
+    },
+    {
+      "id": "laundry_machine_hour",
+      "amenity_class": "LAUNDRY",
+      "service": "available laundry equipment service",
+      "unit": "machine-hour",
+      "denominator": "one hour of safe, operable machine availability with declared water and energy dependencies",
+      "aggregation_rule": "DO_NOT_AGGREGATE_WITH_UNLIKE_SERVICE_UNITS"
+    },
+    {
+      "id": "greenhouse_produce_kg",
+      "amenity_class": "GREENHOUSE",
+      "service": "edible produce meeting a declared quality class",
+      "unit": "kg accepted edible produce",
+      "denominator": "one measured kilogram of produce accepted under a declared crop, quality and loss protocol",
+      "aggregation_rule": "DO_NOT_AGGREGATE_WITH_UNLIKE_SERVICE_UNITS"
+    },
+    {
+      "id": "pool_lane_hour",
+      "amenity_class": "POOL",
+      "service": "qualified pool access",
+      "unit": "pool-lane-hour",
+      "denominator": "one hour of qualified pool availability with current water, operator and safety evidence",
+      "aggregation_rule": "DO_NOT_AGGREGATE_WITH_UNLIKE_SERVICE_UNITS"
+    },
+    {
+      "id": "energy_kwh_delivered",
+      "amenity_class": "ENERGY_ASSET",
+      "service": "electricity delivered at a declared service boundary",
+      "unit": "kWh delivered",
+      "denominator": "one metered kWh delivered at the declared voltage, availability and quality boundary",
+      "aggregation_rule": "DO_NOT_AGGREGATE_WITH_UNLIKE_SERVICE_UNITS"
+    },
+    {
+      "id": "water_m3_qualified",
+      "amenity_class": "WATER_ASSET",
+      "service": "water delivered for a declared end use and quality class",
+      "unit": "m3 qualified water",
+      "denominator": "one metered cubic metre accepted at the declared source, treatment, quality and end-use boundary",
+      "aggregation_rule": "DO_NOT_AGGREGATE_WITH_UNLIKE_SERVICE_UNITS"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "HAC-001",
+      "scenario": "Fully evidenced shared workshop with service capacity, authority and reserve adequacy",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "ACCEPT",
+        "reason_codes": []
+      }
+    },
+    {
+      "case_id": "HAC-002",
+      "scenario": "Legal common-property or lease rights reference missing",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "MISSING",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "LEGAL_RIGHTS_MISSING"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-003",
+      "scenario": "Beneficiary constituency is not declared",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "MISSING",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "BENEFICIARY_SCOPE_MISSING"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-004",
+      "scenario": "Purpose guardian is absent from the authority map",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "MISSING",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "PURPOSE_GUARDIAN_MISSING"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-005",
+      "scenario": "Operator authority has been revoked",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "REVOKED",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "OPERATOR_AUTHORITY_REVOKED"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-006",
+      "scenario": "Service capacity receipt is missing",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "MISSING",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "SERVICE_RECEIPT_MISSING"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-007",
+      "scenario": "Service capacity receipt is stale",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "STALE",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "SERVICE_RECEIPT_STALE"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-008",
+      "scenario": "Service capacity receipt refers to a different site or revision scope",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "WRONG_SCOPE",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "SERVICE_RECEIPT_WRONG_SCOPE"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-009",
+      "scenario": "Requested demand exceeds qualified capacity",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 13,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 13,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "CAPACITY_EXCEEDED"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-010",
+      "scenario": "Two reservations reuse the same reservation identity",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": true,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "INVALID",
+        "reason_codes": [
+          "DUPLICATE_RESERVATION_ID"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-011",
+      "scenario": "Access policy is in conflict and cannot be resolved from the supplied authority",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "CONFLICT",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "ACCESS_POLICY_CONFLICT"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-012",
+      "scenario": "Financial contribution is used to purchase priority contrary to the declared access floor",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": true,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "CONTRIBUTION_BASED_PRIORITY"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-013",
+      "scenario": "A selected resident accessibility requirement is not met",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": false,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "ACCESSIBILITY_FLOOR_FAILED"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-014",
+      "scenario": "Facility is closed for maintenance while reservations remain active",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "CLOSED_FOR_MAINTENANCE",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 4,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "FACILITY_CLOSED_WITH_RESERVATIONS"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-015",
+      "scenario": "Required inspection evidence is stale",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "STALE"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "INSPECTION_STALE"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-016",
+      "scenario": "Inspection records a failed required condition",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "FAILED"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "INSPECTION_FAILED"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-017",
+      "scenario": "Approved operating budget is below the declared annual operating cost",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 700000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "OPERATING_BUDGET_SHORTFALL"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-018",
+      "scenario": "Restricted reserve balance is below the dated replacement liability",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 100000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "RESERVE_SHORTFALL"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-019",
+      "scenario": "Same reserve balance is counted as both operating cash and capital replacement backing",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": true,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "INVALID",
+        "reason_codes": [
+          "RESERVE_DOUBLE_COUNTED"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-020",
+      "scenario": "Required hardship policy evidence is missing",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "MISSING"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "HARDSHIP_POLICY_MISSING"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-021",
+      "scenario": "Adopted hardship policy is not applied to the assessed charge",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_APPLIED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "HARDSHIP_POLICY_NOT_APPLIED"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-022",
+      "scenario": "A critical maintenance backlog remains unresolved",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "CRITICAL",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "CRITICAL_MAINTENANCE_BACKLOG"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-023",
+      "scenario": "Work order is complete but no service-restoration receipt exists",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "MISSING",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "RESTORATION_EVIDENCE_MISSING"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-024",
+      "scenario": "Operator handback is incomplete after the current operator exits",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "INCOMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "HANDOVER_INCOMPLETE"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-025",
+      "scenario": "Asset sale is proposed without the required constitutional approval",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "SALE",
+          "constitutional_approval_state": "MISSING",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "CONSTITUTIONAL_APPROVAL_MISSING",
+          "UNAUTHORIZED_ASSET_ACTION"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-026",
+      "scenario": "Required asset lock has been removed",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": false
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "ASSET_LOCK_REMOVED"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-027",
+      "scenario": "Local water or environmental restriction profile is stale",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "GREENHOUSE",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "greenhouse_produce_kg",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "STALE",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "RESTRICTION_PROFILE_STALE"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-028",
+      "scenario": "The declared operating use is prohibited by the current source-bound restriction profile",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "POOL",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "pool_lane_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PROHIBITED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "DECLARED_USE_PROHIBITED"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-029",
+      "scenario": "External restriction and declared use cannot be reconciled",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "UNKNOWN"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "DECLARED_USE_UNKNOWN"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-030",
+      "scenario": "Public projection exposes private household usage history",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": true
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "PRIVATE_USAGE_DATA_EXPOSED"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-031",
+      "scenario": "Decision authority is not evidenced for the proposed operational action",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "MISSING"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "DECISION_AUTHORITY_MISSING"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-032",
+      "scenario": "A current access-policy version is missing",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "OPERATIONAL",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "MISSING",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "UNKNOWN",
+        "reason_codes": [
+          "ACCESS_POLICY_MISSING"
+        ]
+      }
+    },
+    {
+      "case_id": "HAC-033",
+      "scenario": "Asset has not been commissioned for the declared service",
+      "synthetic": true,
+      "inputs": {
+        "asset": {
+          "asset_id": "amenity-001",
+          "revision": "rev-1",
+          "amenity_class": "WORKSHOP",
+          "site_rights_state": "VALID",
+          "beneficiary_scope_state": "VALID",
+          "asset_lock_required": true
+        },
+        "authority": {
+          "purpose_guardian_state": "VALID",
+          "steward_state": "VALID",
+          "operator_state": "VALID",
+          "decision_authority_state": "VALID"
+        },
+        "service": {
+          "functional_unit_id": "workshop_access_hour",
+          "capacity": 12,
+          "demand": 8,
+          "capacity_receipt_state": "VALID",
+          "operational_state": "NOT_COMMISSIONED",
+          "inspection_state": "VALID"
+        },
+        "access": {
+          "reserved_demand": 8,
+          "duplicate_reservation_id": false,
+          "policy_state": "VALID",
+          "contribution_based_priority": false,
+          "accessibility_requirements_declared": true,
+          "accessibility_floor_met": true,
+          "private_usage_data_exposed": false
+        },
+        "finance": {
+          "cost_model_state": "VALID",
+          "annual_operating_budget_cents": 1200000,
+          "annual_operating_cost_cents": 900000,
+          "reserve_balance_cents": 600000,
+          "replacement_liability_cents": 500000,
+          "reserve_double_counted": false,
+          "hardship_policy_state": "NOT_REQUIRED"
+        },
+        "maintenance": {
+          "critical_backlog": "NONE",
+          "restoration_receipt_state": "NOT_REQUIRED",
+          "operator_handover_state": "COMPLETE"
+        },
+        "governance": {
+          "action": "NONE",
+          "constitutional_approval_state": "NOT_REQUIRED",
+          "asset_lock_preserved": true
+        },
+        "external_constraints": {
+          "restriction_profile_state": "VALID",
+          "declared_use_state": "PERMITTED"
+        }
+      },
+      "expected": {
+        "disposition": "BLOCK",
+        "reason_codes": [
+          "FACILITY_NOT_COMMISSIONED"
+        ]
+      }
+    }
+  ]
+}
