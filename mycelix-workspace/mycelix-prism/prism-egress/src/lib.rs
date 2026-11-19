@@ -3890,6 +3890,22 @@ mod tests {
             Err(EgressError::ResolutionSnapshotMismatch)
         ));
 
+        let expired = EgressResolutionSnapshot::from_verified_nixward_lease(
+            "prism-lease.test",
+            443,
+            logical_request_id,
+            0,
+            addresses.clone(),
+            std::time::Instant::now() - Duration::from_secs(1),
+            address_set_digest.clone(),
+            "11".repeat(32),
+            "22".repeat(32),
+        );
+        assert!(matches!(
+            expired,
+            Err(EgressError::ResolutionLeaseExpired)
+        ));
+
         let wrong_request = EgressResolutionSnapshot::from_verified_nixward_lease(
             "other-prism-lease.test",
             443,
