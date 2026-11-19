@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-evidence-invalidation-graph-v0.schema.json",
+  "title": "Mycelix Evidence Invalidation Dependency Graph v0",
+  "description": "A rebuildable dependency index over canonical evidence references. Invalidation records are append-only and propagate source corrections, revocations or challenges to derived records.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "nodes",
+    "invalidations"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.evidence-invalidation-graph.v0"
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "invalidations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/invalidation"
+      }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_reference",
+        "content_sha256",
+        "depends_on"
+      ],
+      "properties": {
+        "node_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "invalidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invalidation_event_reference",
+        "root_reference",
+        "affected_reference",
+        "reason"
+      ],
+      "properties": {
+        "invalidation_event_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "root_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "affected_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    }
+  }
+}
