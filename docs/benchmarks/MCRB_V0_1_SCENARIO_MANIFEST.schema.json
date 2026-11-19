@@ -21,7 +21,8 @@
     "measurement_quality",
     "metric_integrity_verifier",
     "qualified_operations_policy",
-    "offer_ledger_policy"
+    "offer_ledger_policy",
+    "correctness_gate_attestation_policy"
   ],
   "properties": {
     "schema_version": {
@@ -480,7 +481,10 @@
         "status",
         "output_states",
         "metrics",
-        "policy"
+        "policy",
+        "known_limitations",
+        "follow_up_issue",
+        "cross_host_claim_status"
       ],
       "properties": {
         "crate_path": {
@@ -496,7 +500,8 @@
           "enum": [
             "planned",
             "source-and-tests-authored-ci-pending",
-            "qualified-exact-head"
+            "qualified-exact-head",
+            "raw-monotonic-duration-and-cross-host-interval-logic-integrated-in-pure-batch-verifier-not-runtime-qualified"
           ]
         },
         "output_states": {
@@ -523,6 +528,23 @@
             "type": "string"
           },
           "minItems": 1
+        },
+        "known_limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "follow_up_issue": {
+          "type": "string"
+        },
+        "cross_host_claim_status": {
+          "enum": [
+            "not-qualified",
+            "implemented-in-pure-batch-verifier-not-exact-head-tested-or-runtime-qualified",
+            "qualified-exact-head"
+          ]
         }
       }
     },
@@ -535,7 +557,10 @@
         "invalid_when",
         "required_companion_metrics",
         "no_silent_attempt_exclusion",
-        "denials_count_as_business_success"
+        "denials_count_as_business_success",
+        "hard_correctness_gate_attestation",
+        "gate_attestation_requirement",
+        "gate_attestation_authenticity_boundary"
       ],
       "properties": {
         "name": {
@@ -569,6 +594,18 @@
           "minLength": 1
         },
         "independent_authenticity_requirement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hard_correctness_gate_attestation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gate_attestation_requirement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gate_attestation_authenticity_boundary": {
           "type": "string",
           "minLength": 1
         }
@@ -634,6 +671,74 @@
           "type": "string"
         },
         "cross_host_requirement_binding": {
+          "type": "string"
+        }
+      }
+    },
+    "correctness_gate_attestation_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "attestation_schema_version",
+        "status",
+        "signature_algorithm",
+        "canonical_encoding",
+        "required_gate_set_source",
+        "context_binding",
+        "evidence_binding",
+        "signer_policy",
+        "receipt_fields",
+        "follow_up_issue",
+        "claim_ceiling"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "mycelix-mcrb-gate-policy-v0.1"
+        },
+        "attestation_schema_version": {
+          "const": "mycelix-mcrb-gate-attestation-v0.1"
+        },
+        "status": {
+          "enum": [
+            "proposed",
+            "source-authored-not-exact-head-tested",
+            "qualified-exact-head"
+          ]
+        },
+        "signature_algorithm": {
+          "const": "Ed25519 strict verification"
+        },
+        "canonical_encoding": {
+          "type": "string"
+        },
+        "required_gate_set_source": {
+          "type": "string"
+        },
+        "context_binding": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "evidence_binding": {
+          "type": "string"
+        },
+        "signer_policy": {
+          "type": "string"
+        },
+        "receipt_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "follow_up_issue": {
+          "type": "string"
+        },
+        "claim_ceiling": {
           "type": "string"
         }
       }
