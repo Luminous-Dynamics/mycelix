@@ -343,3 +343,6 @@ It enforces workload-declared duration limits; monotonic local clocks; named clo
 
 Unit tests are authored for valid distributions, preserved outliers, NaN/negative/out-of-window durations, missing peers, excessive clock uncertainty, counter overflow/shortfall, wall-clock duration misuse, duplicate operation IDs and empty runs. The exact-path Rust workflow is part of this PR. **The code has not yet been compiled or tested by a runner**; the source is a candidate verifier, not a qualified benchmark component.
 
+
+
+The verifier treats an operation identifier as unique **within an observer peer**, not globally: the same logical publication may legitimately be observed by several peers, while duplicate samples from the same peer are rejected. Both cases have dedicated unit-test fixtures.
