@@ -1,0 +1,38 @@
+name: Federated compute placement oracle
+
+on:
+  push:
+    branches: [research/federated-compute-placement-oracle-v0-1-2026-11-19]
+    paths:
+      - "mycelix-workspace/tools/compute-placement-oracle-v0.1/**"
+      - ".github/workflows/compute-placement-oracle-v0-1.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/tools/compute-placement-oracle-v0.1/**"
+      - ".github/workflows/compute-placement-oracle-v0-1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compute-placement-oracle-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-oracle:
+    name: Format, tests and strict Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.1
+        with:
+          components: rustfmt, clippy
+      - name: Formatting
+        run: cargo fmt --manifest-path mycelix-workspace/tools/compute-placement-oracle-v0.1/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path mycelix-workspace/tools/compute-placement-oracle-v0.1/Cargo.toml --locked
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path mycelix-workspace/tools/compute-placement-oracle-v0.1/Cargo.toml --locked --all-targets -- -D warnings
