@@ -371,3 +371,8 @@ The API is an integration seam, not a live Prism↔Nixward broker. No signed IPC
 ### Lease provenance through the application receipt
 
 The new local pinned-HTTP integration test supplies a structurally valid snapshot produced by the trusted-adapter constructor, authorizes an exact request/hop, executes against the snapshot's loopback socket in a test-only destination profile, and checks that the final application receipt preserves the logical request ID, address-set digest, resolution-lease payload digest, resolver snapshot digest and observed peer. It also checks that the correlation ID is absent from outbound HTTP request bytes. This test does not verify a Nixward signature or exercise a live broker: the fixture represents a snapshot after the external adapter's cryptographic and parent/workload checks. LEASE-003 records the source-level assertion and remains unexecuted at exact head.
+
+
+### Lease expiry between authorization and execution
+
+LEASE-004 adds a local time-of-use regression: Prism receives a valid short-lived resolution snapshot, issues the capability, waits until the snapshot deadline passes, and then attempts execution. The expected result is \`CapabilityExpired\` before transport creation/connect, so authorization cannot be replayed after the DNS/lease validity window has elapsed. The test uses a loopback-only test destination and does not require an external resolver or live Nixward service. It remains unexecuted until exact-head CI runs.
