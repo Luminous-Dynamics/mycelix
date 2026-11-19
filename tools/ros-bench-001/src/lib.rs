@@ -11,6 +11,13 @@ use std::fmt;
 pub const CORPUS: &str =
     include_str!("../../../benchmarks/authorization/ros-bench-001/cases.tsv");
 
+const HEADER: &str = concat!(
+    "case_id|source_current|authority_known|identity_bound|scope_bound|",
+    "action_bound|resource_bound|purpose_bound|audience_bound|",
+    "within_validity|not_revoked|parent_chain_valid|depth_within_limit|",
+    "nonce_fresh|mutation_id_unique|expected",
+);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Decision {
     Allow,
@@ -88,9 +95,7 @@ fn parse_bool(line: usize, column: &'static str, raw: &str) -> Result<bool, Corp
 pub fn parse_corpus(source: &str) -> Result<Vec<Case>, CorpusError> {
     let mut lines = source.lines().filter(|line| !line.trim().is_empty());
     let header = lines.next().ok_or(CorpusError::MissingHeader)?;
-    if header
-        != "case_id|source_current|authority_known|identity_bound|scope_bound|action_bound|resource_bound|purpose_bound|audience_bound|within_validity|not_revoked|parent_chain_valid|depth_within_limit|nonce_fresh|mutation_id_unique|expected"
-    {
+    if header != HEADER {
         return Err(CorpusError::MissingHeader);
     }
 
