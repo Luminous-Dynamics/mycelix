@@ -346,6 +346,7 @@ fn report_attestation_set_digest(attestations: &[GateAttestation]) -> String {
 /// A caller-created key set is not an independent trust decision.
 pub fn verify_gate_attestations(
     policy: &GateVerifierPolicy,
+    pinned_trust_policy_digest_sha256: &str,
     attestations: &[GateAttestation],
 ) -> GateVerificationReport {
     let policy_digest = gate_verifier_policy_digest(policy);
@@ -354,6 +355,14 @@ pub fn verify_gate_attestations(
 
     if policy.schema_version != GATE_POLICY_SCHEMA_VERSION {
         push_unique(&mut issues, GateVerificationIssue::UnsupportedPolicySchema);
+    }
+    // This pin must be loaded from an operator-owned trust source that the
+    // workload runner cannot rewrite. A policy digest supplied by the same
+    // untrusted runner as the attestations is not an independent trust root.
+    if !valid_hex(pinned_trust_policy_digest_sha256, 32)
+        || pinned_trust_policy_digest_sha256 != policy_digest
+    {
+        push_unique(&mut issues, GateVerificationIssue::InvalidPolicyDigest);
     }
     if policy.policy_id.trim().is_empty() {
         push_unique(&mut issues, GateVerificationIssue::EmptyPolicyId);
@@ -646,7 +655,7 @@ mod tests {
     fn verifies_all_frozen_scenario_gates_and_binds_the_trust_policy() {
         let (policy, key) = policy_and_key();
         let attestations = complete_attestations(&policy, &key, GateOutcome::Pass);
-        let report = verify_gate_attestations(&policy, &attestations);
+        let report = verify_gate_attestations(&policy, &gate_verifier_policy_digest(&policy), &attestations);
         assert_eq!(report.status(), GateVerificationStatus::VerifiedPass);
         assert_eq!(report.required_gate_count(), 2);
         assert_eq!(report.passed_gate_count(), 2);
@@ -705,8 +714,19 @@ mod tests {
         let (policy, key) = policy_and_key();
         let mut attestations = complete_attestations(&policy, &key, GateOutcome::Pass);
         attestations[0].verifier_key_id = "unknown-key".to_string();
-        let report = verify_gate_attestations(&policy, &attestations);
+        let pin = gate_verifier_policy_digest(&policy);
+        let report = verify_gate_attestations(&policy, &pin, &attestations);
         assert_eq!(report.status(), GateVerificationStatus::Invalid);
         assert!(report.issues().contains(&GateVerificationIssue::UnknownVerifierKey("unknown-key".into())));
+    }
+
+    #[test]
+    fn caller_cannot_replace_the_out_of_band_trust_policy_pin() {
+        let (policy, key) = policy_and_key();
+        let attestations = complete_attestations(&policy, &key, GateOutcome::Pass);
+        let wrong_pin = "0".repeat(64);
+        let report = verify_gate_attestations(&policy, &wrong_pin, &attestations);
+        assert_eq!(report.status(), GateVerificationStatus::Invalid);
+        assert!(report.issues().contains(&GateVerificationIssue::InvalidPolicyDigest));
     }
 }
