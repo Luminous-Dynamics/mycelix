@@ -562,6 +562,7 @@
             "run_id",
             "scenario_id",
             "measurement_window_id",
+            "scenario_contract_digest_sha256",
             "requires_cross_host_visibility",
             "digest_sha256",
             "entry_count",
@@ -622,6 +623,10 @@
             },
             "requires_cross_host_visibility": {
               "type": "boolean"
+            },
+            "scenario_contract_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
             }
           }
         },
