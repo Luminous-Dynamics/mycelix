@@ -501,6 +501,54 @@
       "mutation": "One owner verifier or authority output is absent from the composite trace.",
       "expected_disposition": "INCOMPLETE_NOT_PASS",
       "case_index": 38
+    },
+    {
+      "case_id": "eskom_idr_contract_6s_profile_match",
+      "category": "Positive",
+      "mutation": "Synthetic authorized 10 MW load provider has special metering and full measured response within 6 seconds sustained 10 minutes.",
+      "expected_disposition": "PASS_PRODUCT_PROFILE_ONLY"
+    },
+    {
+      "case_id": "sawem_instantaneous_reserve_10s_profile_match",
+      "category": "Positive",
+      "mutation": "Synthetic registered Trading Unit meets SAWEM Market Code ten-second response and ten-minute sustain definition.",
+      "expected_disposition": "PASS_MARKET_CODE_PROFILE_ONLY"
+    },
+    {
+      "case_id": "eskom_idr_and_sawem_profiles_conflated",
+      "category": "Negative",
+      "mutation": "A single ten-second response is submitted against an Eskom six-second IDR contract.",
+      "expected_disposition": "REJECT_PRODUCT_PROFILE_MISMATCH"
+    },
+    {
+      "case_id": "supplemental_dr_profile_short_sustain",
+      "category": "Negative",
+      "mutation": "Supplemental DR offer sustains only 90 minutes where the published programme requires two hours.",
+      "expected_disposition": "REJECT_SERVICE_DURATION"
+    },
+    {
+      "case_id": "thirty_minute_meter_claims_six_second_service",
+      "category": "Unknown",
+      "mutation": "30-minute interval metering is the only evidence supplied for a six-second IDR response.",
+      "expected_disposition": "METERING_EVIDENCE_INSUFFICIENT"
+    },
+    {
+      "case_id": "ten_mw_product_without_aggregator_authority",
+      "category": "Negative",
+      "mutation": "Individual site offers less than 10 MW but is represented as qualifying for a 10 MW product without a valid aggregator/participant contract.",
+      "expected_disposition": "REJECT_CAPACITY_AND_AUTHORITY"
+    },
+    {
+      "case_id": "pre_feasibility_grid_headroom_as_dr_capacity",
+      "category": "Negative",
+      "mutation": "Ngqura/Durban spare substation estimate is promoted to dispatchable, contracted flexible load MW.",
+      "expected_disposition": "REJECT_EVIDENCE_CLASS"
+    },
+    {
+      "case_id": "emergency_load_reduction_as_voluntary_dr",
+      "category": "Negative",
+      "mutation": "NRS 048-9 emergency load reduction is represented as a voluntary contracted DR offer.",
+      "expected_disposition": "REJECT_AUTHORITY_AND_PRODUCT_CLASS"
     }
   ],
   "owner_contracts": {
@@ -559,7 +607,7 @@
     ],
     "prohibited_scalar_winner": true
   },
-  "case_count": 38,
+  "case_count": 46,
   "heat_partitions_by_policy": [
     {
       "policy_id": "baseline-inflexible",
@@ -593,6 +641,63 @@
       "recovery_heat_residual_kw": 0,
       "it_heat_residual_kw": 0,
       "claim": "Synthetic heat partition only; no RO SEC, water-quality or environmental compliance credit."
+    }
+  ],
+  "south_african_flexibility_products": [
+    {
+      "product_id": "eskom-instantaneous-demand-response",
+      "provider": "Eskom Distribution",
+      "source": "https://www.eskom.co.za/distribution/instantaneous-demand-response-programme/",
+      "evidence_class": "published_programme_description",
+      "profile": {
+        "minimum_entry_mw": 10,
+        "full_response_seconds": 6,
+        "sustain_minutes": 10,
+        "maximum_events_per_day": 3,
+        "metering": "special metering requirements",
+        "payment": "standby only per public page"
+      },
+      "requirement": "Exact participant contract, baseline, special metering and current eligibility remain required."
+    },
+    {
+      "product_id": "sawem-instantaneous-reserve-demand-side",
+      "provider": "NTCSA / SAWEM",
+      "source": "https://www.ntcsa.co.za/wp-content/uploads/2026/02/Market-Code-v2.3.pdf",
+      "evidence_class": "market_code_rev_2_3_february_2026_definition",
+      "profile": {
+        "full_response_seconds": 10,
+        "sustain_minutes": 10,
+        "resource_type": "generation or demand-side managed load"
+      },
+      "requirement": "Exact Trading Unit registration, market implementation status, qualification and performance evidence remain required."
+    },
+    {
+      "product_id": "ntcsa-supplemental-demand-response",
+      "provider": "NTCSA",
+      "source": "https://www.ntcsa.co.za/supplemental-demand-response-programme-2/",
+      "evidence_class": "published_programme_description",
+      "profile": {
+        "notice_minutes": [
+          30,
+          360
+        ],
+        "minimum_entry": "greater of 500 kW or 15% of average plant demand",
+        "sustain_minutes": 120,
+        "frequency": "once per day under published description",
+        "metering": "30-minute interval remote metering",
+        "payment": "standby plus energy"
+      },
+      "requirement": "Exact participant contract, baseline, meter and current eligibility remain required."
+    },
+    {
+      "product_id": "nrs-048-9-emergency-load-reduction",
+      "provider": "System Operator / utility authority under applicable NRS 048-9 arrangements",
+      "source": "https://www.kaya959.co.za/wp-content/uploads/2024/04/NERSA-Approved-Version-of-NRS-048-9-2023-Edition-3.pdf",
+      "evidence_class": "emergency_load_reduction_code_of_practice",
+      "profile": {
+        "type": "mandatory emergency load reduction / restoration"
+      },
+      "requirement": "Not a voluntary market DR product and not a self-authorized scheduler action."
     }
   ]
 }
