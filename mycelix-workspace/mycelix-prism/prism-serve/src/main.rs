@@ -621,8 +621,8 @@ mod tests {
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
     use std::sync::Arc;
-    use tower::ServiceExt;
     use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+    use tower::ServiceExt;
 
     struct TestLeasedBody {
         bytes: Vec<u8>,
