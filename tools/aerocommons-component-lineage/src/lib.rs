@@ -100,25 +100,32 @@ fn valid_ref(reference: &ArtifactRef) -> bool {
     !reference.id.trim().is_empty() && !reference.kind.trim().is_empty()
 }
 
-fn contains_ref(evidence: &AeroEvidenceV1, required: &ArtifactRef) -> bool {
-    evidence.inputs.iter().any(|item| item == required)
-        || evidence.basis.iter().any(|item| item == required)
-        || evidence.toolchain.iter().any(|item| item == required)
-}
-
-fn require_ref(
-    evidence: &AeroEvidenceV1,
+fn require_member(
+    references: &[ArtifactRef],
+    evidence_id: &str,
     required: &ArtifactRef,
 ) -> Result<(), PacketError> {
-    if contains_ref(evidence, required) {
+    if references.iter().any(|item| item == required) {
         Ok(())
     } else {
         Err(PacketError::MissingEvidenceReference {
-            evidence_id: evidence.evidence_id.clone(),
+            evidence_id: evidence_id.to_owned(),
             reference_id: required.id.clone(),
             reference_kind: required.kind.clone(),
         })
     }
+}
+
+fn require_input(evidence: &AeroEvidenceV1, required: &ArtifactRef) -> Result<(), PacketError> {
+    require_member(&evidence.inputs, &evidence.evidence_id, required)
+}
+
+fn require_basis(evidence: &AeroEvidenceV1, required: &ArtifactRef) -> Result<(), PacketError> {
+    require_member(&evidence.basis, &evidence.evidence_id, required)
+}
+
+fn require_toolchain(evidence: &AeroEvidenceV1, required: &ArtifactRef) -> Result<(), PacketError> {
+    require_member(&evidence.toolchain, &evidence.evidence_id, required)
 }
 
 fn validate_content_artifact(
@@ -290,11 +297,11 @@ pub fn validate_packet(
         Some(&packet.configuration),
     )?;
     require_method(&packet.build_evidence, &packet.process_plan.reference)?;
-    require_ref(&packet.build_evidence, &packet.design_definition.reference)?;
-    require_ref(&packet.build_evidence, &packet.process_plan.reference)?;
-    require_ref(&packet.build_evidence, &packet.material_batch)?;
+    require_input(&packet.build_evidence, &packet.design_definition.reference)?;
+    require_input(&packet.build_evidence, &packet.process_plan.reference)?;
+    require_input(&packet.build_evidence, &packet.material_batch)?;
     for requirement in &packet.requirements {
-        if !packet.build_evidence.basis.iter().any(|item| item == requirement) {
+        if require_basis(&packet.build_evidence, requirement).is_err() {
             return Err(PacketError::MissingEvidenceReference {
                 evidence_id: packet.build_evidence.evidence_id.clone(),
                 reference_id: requirement.id.clone(),
@@ -302,9 +309,9 @@ pub fn validate_packet(
             });
         }
     }
-    require_ref(&packet.build_evidence, &packet.machine)?;
+    require_toolchain(&packet.build_evidence, &packet.machine)?;
     for tooling in &packet.tooling {
-        require_ref(&packet.build_evidence, tooling)?;
+        require_toolchain(&packet.build_evidence, tooling)?;
     }
 
     validate_evidence_record(
@@ -327,7 +334,7 @@ pub fn validate_packet(
         evidence_ref(&packet.inspection_calibration),
         packet.inspection_result.reference.clone(),
     ] {
-        require_ref(&packet.inspection_evidence, &required)?;
+        require_input(&packet.inspection_evidence, &required)?;
     }
 
     validate_evidence_record(
@@ -351,7 +358,7 @@ pub fn validate_packet(
         evidence_ref(&packet.test_calibration),
         packet.test_result.reference.clone(),
     ] {
-        require_ref(&packet.test_evidence, &required)?;
+        require_input(&packet.test_evidence, &required)?;
     }
 
     let required_references = packet.requirements.len() + packet.tooling.len() + 15;
@@ -546,6 +553,14 @@ mod tests {
     fn missing_material_lineage_is_rejected() {
         let mut packet = fixture();
         packet.build_evidence.inputs.retain(|item| item != &packet.material_batch);
+        assert!(matches!(validate_packet(&packet), Err(PacketError::MissingEvidenceReference { .. })));
+    }
+
+    #[test]
+    fn a_reference_in_the_wrong_evidence_role_is_rejected() {
+        let mut packet = fixture();
+        packet.build_evidence.inputs.retain(|item| item != &packet.design_definition.reference);
+        packet.build_evidence.basis.push(packet.design_definition.reference.clone());
         assert!(matches!(validate_packet(&packet), Err(PacketError::MissingEvidenceReference { .. })));
     }
 
