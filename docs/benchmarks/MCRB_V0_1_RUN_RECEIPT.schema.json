@@ -356,7 +356,10 @@
         "unmatched_cross_host_event_count",
         "cross_host_latency_lower_bound_ms",
         "cross_host_latency_upper_bound_ms",
-        "point_latency_emitted_count"
+        "point_latency_emitted_count",
+        "monotonic_clock_id_mismatch_count",
+        "reversed_monotonic_tick_count",
+        "invalid_ticks_per_second_count"
       ],
       "properties": {
         "status": {
@@ -470,6 +473,18 @@
           "minimum": 0
         },
         "point_latency_emitted_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "monotonic_clock_id_mismatch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reversed_monotonic_tick_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid_ticks_per_second_count": {
           "type": "integer",
           "minimum": 0
         }
