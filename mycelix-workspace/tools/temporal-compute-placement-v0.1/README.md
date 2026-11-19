@@ -13,7 +13,7 @@ Each task occupies its assigned worker over the half-open interval [start_ms, en
 - adjacent intervals can reuse the same resource capacity;
 - overlapping intervals consume aggregate CPU, memory and GPU capacity simultaneously.
 
-An exact sweep-line check evaluates every relevant interval boundary. A placement is feasible only when every intermediate resource state fits the worker's declared capacity. The reported peak resource pressure is the maximum across every worker, resource type and time segment.
+An exact sweep-line check evaluates every relevant interval boundary. A placement is feasible only when every intermediate resource state fits the worker's declared capacity. The reported peak CPU, memory and GPU pressures are computed independently across every worker and time segment. They are not collapsed into one maximum, because a CPU-bound placement and a memory-bound placement are different trade-offs.
 
 ## Optimization and descriptive fields
 
@@ -22,7 +22,7 @@ The exact small-instance Pareto frontier uses five objective dimensions:
 2. remote input bytes;
 3. distinct declared failure-domain IDs;
 4. distinct declared operator IDs;
-5. peak normalized CPU/memory/GPU pressure over time.
+5. peak CPU pressure over time;\n6. peak memory pressure over time;\n7. peak GPU-slot pressure over time.
 
 The number of regions used is reported as descriptive metadata but excluded from Pareto dominance and preference ordering. Hard permitted-region policy is enforced independently. Diversity labels do not prove independent operators, physical failure isolation or legal residency.
 
@@ -30,7 +30,7 @@ Search limits are explicit. If the node or frontier bound is reached, the result
 
 ## Known-answer and adversarial suite
 
-The unit tests cover adjacent interval reuse, overlapping overcommit rejection, nested intervals with simultaneous end/start events, hard region constraints, invalid windows, search budget exhaustion, frontier limits, deterministic input order and duration-sensitive cost.
+The ten authored unit tests cover adjacent interval reuse, overlapping overcommit rejection, nested intervals with simultaneous end/start events, hard region constraints, invalid windows, search budget exhaustion, frontier limits, deterministic input order, duration-sensitive cost, and a CPU-vs-memory bottleneck counterexample that preserves both non-dominated alternatives.
 
 The JSON fixture is synthetic and demonstrates that two adjacent tasks each requiring the worker's full capacity can be placed on the same worker without overlap.
 
