@@ -369,7 +369,13 @@
         "cross_host_interval_count",
         "cross_host_point_latency_emitted_count",
         "cross_host_calibration_invalid_count",
-        "event_pair_digest_mismatch_count"
+        "event_pair_digest_mismatch_count",
+        "raw_monotonic_tick_samples",
+        "cross_host_calibrations",
+        "cross_host_event_pairs",
+        "cross_host_aggregate_eligible",
+        "maximum_point_uncertainty_ms",
+        "clock_evidence_artifact_digest_sha256"
       ],
       "properties": {
         "status": {
@@ -397,7 +403,11 @@
               "sync_method",
               "offset_ms",
               "uncertainty_ms",
-              "local_duration_clock"
+              "local_duration_clock",
+              "monotonic_clock_id",
+              "monotonic_clock_epoch",
+              "ticks_per_second",
+              "clock_observation_artifact_digest_sha256"
             ],
             "properties": {
               "host_id": {
@@ -418,6 +428,22 @@
               },
               "local_duration_clock": {
                 "const": "monotonic"
+              },
+              "monotonic_clock_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "monotonic_clock_epoch": {
+                "type": "string",
+                "minLength": 1
+              },
+              "ticks_per_second": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "clock_observation_artifact_digest_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
               }
             }
           }
@@ -513,6 +539,195 @@
         "event_pair_digest_mismatch_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "raw_monotonic_tick_samples": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "peer_id",
+              "operation_id",
+              "monotonic_clock_id",
+              "monotonic_clock_epoch",
+              "start_ticks",
+              "end_ticks",
+              "sample_artifact_digest_sha256"
+            ],
+            "properties": {
+              "peer_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "operation_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "monotonic_clock_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "monotonic_clock_epoch": {
+                "type": "string",
+                "minLength": 1
+              },
+              "start_ticks": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "end_ticks": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sample_artifact_digest_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        },
+        "cross_host_calibrations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "peer_id",
+              "calibration_id",
+              "offset_ms",
+              "uncertainty_ms",
+              "valid_from_unix_ms",
+              "valid_until_unix_ms",
+              "calibration_artifact_digest_sha256",
+              "calibrator_key_id",
+              "calibration_signature_ed25519_hex"
+            ],
+            "properties": {
+              "peer_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "calibration_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "offset_ms": {
+                "type": "number"
+              },
+              "uncertainty_ms": {
+                "type": "number",
+                "minimum": 0
+              },
+              "valid_from_unix_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "valid_until_unix_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "calibration_artifact_digest_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "calibrator_key_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "calibration_signature_ed25519_hex": {
+                "type": "string",
+                "pattern": "^[a-fA-F0-9]{128}$"
+              }
+            }
+          }
+        },
+        "cross_host_event_pairs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation_id",
+              "record_digest_sha256",
+              "publisher_peer_id",
+              "observer_peer_id",
+              "publisher_calibration_id",
+              "observer_calibration_id",
+              "published_at_local_unix_ms",
+              "first_valid_observation_at_local_unix_ms",
+              "publish_event_artifact_digest_sha256",
+              "observation_event_artifact_digest_sha256",
+              "event_pair_verifier_key_id",
+              "publish_event_signature_ed25519_hex",
+              "observation_event_signature_ed25519_hex"
+            ],
+            "properties": {
+              "operation_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "record_digest_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "publisher_peer_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "observer_peer_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "publisher_calibration_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "observer_calibration_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "published_at_local_unix_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "first_valid_observation_at_local_unix_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "publish_event_artifact_digest_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "observation_event_artifact_digest_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "event_pair_verifier_key_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "publish_event_signature_ed25519_hex": {
+                "type": "string",
+                "pattern": "^[a-fA-F0-9]{128}$"
+              },
+              "observation_event_signature_ed25519_hex": {
+                "type": "string",
+                "pattern": "^[a-fA-F0-9]{128}$"
+              }
+            }
+          }
+        },
+        "cross_host_aggregate_eligible": {
+          "type": "boolean"
+        },
+        "maximum_point_uncertainty_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "clock_evidence_artifact_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
       }
     },
@@ -534,7 +749,6 @@
         "missing_outcomes",
         "unexpected_outcome_samples",
         "duplicate_outcome_samples",
-        "hard_correctness_gates_passed",
         "metric_integrity_status",
         "offered_operations_per_second",
         "qualified_operations_per_second",
@@ -543,7 +757,8 @@
         "cross_host_status",
         "cross_host_aggregate_eligible",
         "offer_ledger_verification_status",
-        "offer_ledger_issues"
+        "offer_ledger_issues",
+        "gate_verification"
       ],
       "properties": {
         "status": {
@@ -722,9 +937,6 @@
           "type": "integer",
           "minimum": 0
         },
-        "hard_correctness_gates_passed": {
-          "type": "boolean"
-        },
         "metric_integrity_status": {
           "enum": [
             "valid",
@@ -781,6 +993,88 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "gate_verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "policy_id",
+            "trust_policy_digest_sha256",
+            "attestation_set_digest_sha256",
+            "source_sha",
+            "runtime_identity_digest_sha256",
+            "required_gate_count",
+            "accepted_attestation_count",
+            "distinct_signer_count",
+            "passed_gate_count",
+            "failed_gate_count",
+            "incomplete_gate_count",
+            "attestation_artifact_digest_sha256",
+            "verifier_version"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "verified-pass",
+                "failed",
+                "incomplete",
+                "invalid"
+              ]
+            },
+            "policy_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "trust_policy_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "attestation_set_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "source_sha": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}$"
+            },
+            "runtime_identity_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "required_gate_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "accepted_attestation_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "distinct_signer_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "passed_gate_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failed_gate_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "incomplete_gate_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "attestation_artifact_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "verifier_version": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         }
       }
@@ -870,9 +1164,6 @@
               "duplicate_external_effects": {
                 "const": 0
               },
-              "hard_correctness_gates_passed": {
-                "const": true
-              },
               "metric_integrity_status": {
                 "const": "valid"
               },
@@ -888,6 +1179,32 @@
                 "type": "number",
                 "minimum": 0,
                 "maximum": 1
+              },
+              "gate_verification": {
+                "properties": {
+                  "status": {
+                    "const": "verified-pass"
+                  },
+                  "required_gate_count": {
+                    "minimum": 1
+                  },
+                  "failed_gate_count": {
+                    "const": 0
+                  },
+                  "incomplete_gate_count": {
+                    "const": 0
+                  },
+                  "passed_gate_count": {
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "status",
+                  "required_gate_count",
+                  "passed_gate_count",
+                  "failed_gate_count",
+                  "incomplete_gate_count"
+                ]
               }
             },
             "required": [
@@ -895,11 +1212,11 @@
               "unexpected_outcome_samples",
               "duplicate_outcome_samples",
               "duplicate_external_effects",
-              "hard_correctness_gates_passed",
               "metric_integrity_status",
               "qualified_operations_per_second",
               "offered_operations_per_second",
-              "qualified_success_fraction"
+              "qualified_success_fraction",
+              "gate_verification"
             ]
           }
         }
@@ -1003,6 +1320,59 @@
             "required": [
               "cross_host_status",
               "cross_host_aggregate_eligible"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "qops": {
+            "properties": {
+              "status": {
+                "const": "eligible"
+              },
+              "cross_host_measurement_required": {
+                "const": true
+              }
+            },
+            "required": [
+              "status",
+              "cross_host_measurement_required"
+            ]
+          }
+        },
+        "required": [
+          "qops"
+        ]
+      },
+      "then": {
+        "properties": {
+          "metric_integrity": {
+            "properties": {
+              "cross_host_status": {
+                "const": "valid"
+              },
+              "cross_host_aggregate_eligible": {
+                "const": true
+              },
+              "host_clock_observations": {
+                "minItems": 2
+              },
+              "cross_host_calibrations": {
+                "minItems": 2
+              },
+              "cross_host_event_pairs": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "cross_host_status",
+              "cross_host_aggregate_eligible",
+              "host_clock_observations",
+              "cross_host_calibrations",
+              "cross_host_event_pairs"
             ]
           }
         }
