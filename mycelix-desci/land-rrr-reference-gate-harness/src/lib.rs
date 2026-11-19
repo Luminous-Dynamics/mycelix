@@ -7,3 +7,6 @@ pub mod land_rrr_reference;
 
 #[path = "../../src/core/src/land_operation_lifecycle.rs"]
 pub mod land_operation_lifecycle;
+
+#[path = "../../src/core/src/evidence_invalidation.rs"]
+pub mod evidence_invalidation;
