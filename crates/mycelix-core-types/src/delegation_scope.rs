@@ -264,7 +264,6 @@ fn optional_rate_is_no_wider(
 ) -> bool {
     match (child, parent) {
         (_, None) => true,
-        (Some(_), None) => true,
         (None, Some(_)) => false,
         (Some(child), Some(parent)) => child.is_no_wider_than(parent),
     }
