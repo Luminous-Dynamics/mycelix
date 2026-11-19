@@ -533,7 +533,10 @@
         "metric_integrity_status",
         "offered_operations_per_second",
         "qualified_operations_per_second",
-        "qualified_success_fraction"
+        "qualified_success_fraction",
+        "cross_host_measurement_required",
+        "cross_host_status",
+        "cross_host_aggregate_eligible"
       ],
       "properties": {
         "status": {
@@ -691,6 +694,20 @@
           ],
           "minimum": 0,
           "maximum": 1
+        },
+        "cross_host_measurement_required": {
+          "type": "boolean"
+        },
+        "cross_host_status": {
+          "enum": [
+            "valid",
+            "invalid",
+            "incomplete",
+            "not-evaluated"
+          ]
+        },
+        "cross_host_aggregate_eligible": {
+          "type": "boolean"
         }
       }
     }
@@ -854,6 +871,43 @@
               "offered_operations_per_second",
               "qualified_operations_per_second",
               "qualified_success_fraction"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "qops": {
+            "properties": {
+              "cross_host_measurement_required": {
+                "const": true
+              }
+            },
+            "required": [
+              "cross_host_measurement_required"
+            ]
+          }
+        },
+        "required": [
+          "qops"
+        ]
+      },
+      "then": {
+        "properties": {
+          "qops": {
+            "properties": {
+              "cross_host_status": {
+                "const": "valid"
+              },
+              "cross_host_aggregate_eligible": {
+                "const": true
+              }
+            },
+            "required": [
+              "cross_host_status",
+              "cross_host_aggregate_eligible"
             ]
           }
         }
