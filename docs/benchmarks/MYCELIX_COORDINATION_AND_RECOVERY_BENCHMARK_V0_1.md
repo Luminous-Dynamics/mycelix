@@ -219,3 +219,82 @@ MCRB supplies a common coordination/resilience workload and reporting contract. 
 ## 11. Claim ceiling
 
 This document defines a proposed benchmark. It contains no measured Mycelix result, no industry ranking, no proof of superior throughput, no production readiness claim and no Holochain 0.7.1 runtime qualification.
+
+
+## 12. Reuse Holochain Wind Tunnel as the runtime measurement layer
+
+MCRB should not recreate a second peer-network performance lab.
+
+Holochain's published Wind Tunnel work already describes scenarios for app installation, zome calls, DHT synchronization, validation receipts, remote signals and different validation/topology configurations. Its published 2026 status also describes geographically distributed test machines and host metrics such as CPU, memory and disk I/O. The public Wind Tunnel report format includes a DHT sync-lag scenario that measures the interval between a peer publishing a record and other peers observing it.
+
+Use a two-layer design:
+
+### Layer A — substrate/runtime measurements
+
+Consume or reproduce the relevant Wind Tunnel scenarios for the exact Holochain version under test:
+
+- peer discovery and connectivity;
+- DHT sync lag and remote visibility;
+- zome-call and app-install latency;
+- validation-receipt workflows;
+- remote/direct signal transport and delivery;
+- validation load, resource consumption and churn.
+
+Keep the upstream run ID, scenario version, peer topology, runtime version and raw artifact digests. Do not compare a 0.6.1 historical Wind Tunnel report with a 0.7.1 run as if it were a matched experiment; rerun the same scenario definition on both exact runtime generations.
+
+### Layer B — Mycelix application semantics
+
+Add Mycelix-specific behavior around the runtime events:
+
+- did the expected source author and capability authorize this operation?
+- did a stale, expired, revoked or wrong-scope grant ever authorize a protected effect?
+- did all expected agents observe the same eligible records after convergence?
+- did duplicate/replayed requests cause more than one external effect?
+- did unknown outcomes trigger reconciliation rather than blind retry?
+- did private source-chain data remain private across gossip, signals, logs and projections?
+- could records and workflow state be recovered with correct identity and provenance?
+- did every reported PASS bind to the same runtime, bundle and source head?
+
+This is where Mycelix can contribute something beyond a raw substrate performance report: a reproducible measure of **qualified coordination**, not just network activity.
+
+References for harness authors:
+
+- Holochain Wind Tunnel overview: https://blog.holochain.org/wind-tunnel-seeing-inside-the-storm/
+- Example public DHT sync-lag report: https://holochain.github.io/wind-tunnel/run.20260212014621.b34bbc7f77fcf7dc00c385e4b6b5d5d015b4e55f.html
+- Holochain 0.7.1 upgrade guide and DirectSignal/grant requirements: https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/
+
+## 13. Industry comparison: compare the right semantic layer
+
+The benchmark should publish a comparison matrix rather than one vendor leaderboard.
+
+| Comparator | What it measures well | Valid Mycelix comparison | What it does not prove |
+|---|---|---|---|
+| Holochain Wind Tunnel | DHT, peer, zome, validation, signal and host operating envelope | Direct substrate-level comparison across exact runtime versions | Application authorization, revocation correctness, private-data containment or business-effect uniqueness |
+| PostgreSQL 18 + outbox | Centralized ACID transaction/query baseline; pgbench supports built-in and custom SQL workloads | Same application workflow implemented with one authoritative transactional service and a replayable outbox | Peer-authored autonomy or decentralized validation |
+| Hyperledger Fabric 2.x + Caliper | Permissioned-ledger workload benchmarking; success rate, throughput, latency and resource use | Multi-organization endorsement/commit workflows with matched policy and payload size | Holochain's agent-centric validation semantics or offline-first operation |
+| Yjs / Automerge | Collaborative CRDT data convergence and conflict-free merges | Document-editing and merge behavior, offline editing and sync overhead | Identity authority, legal consent, transaction finality or external effect execution |
+| Iroh / IPFS | Transport or content-addressed dissemination components | Blob transfer, relay/path quality and content retrieval | Application-level authorization, DHT validation or qualified state transitions |
+
+PostgreSQL comparison should use custom transaction scripts as well as the default pgbench workloads; the default pgbench scenario is TPC-B-like and its documentation warns against treating replaying the exact same run as a general statistical method. Use independent randomized repetitions for performance estimates while preserving a seed for bug reproduction.
+
+Hyperledger Caliper's current README lists Fabric v2.X as its supported blockchain connector and success rate, read/write throughput, latency and resource consumption as performance indicators. Record that version and connector limitation in the comparison report. Caliper is a useful methodology and a Fabric baseline where semantics are matched, not proof that Caliper supports every ledger or that the Fabric and Holochain models are equivalent.
+
+Yjs/Automerge comparisons are component-level CRDT comparisons. They are useful for collaboration and offline merge workloads, but must not be scored as a substitute for cryptographic authorship, capability enforcement, revocation or irreversible side effects.
+
+## 14. Statistical and publication protocol
+
+- Run at least 5 independent repetitions for smoke/qualification comparisons and preferably 10 or more for headline performance claims; report the actual count, median, dispersion and confidence interval.
+- Randomize run order or use balanced ordering to reduce warm-cache, thermal and background-load bias.
+- Preserve per-operation samples or a documented sampling policy; report tail latency rather than only the average.
+- Separate offered load from achieved throughput. Record scheduled arrival rate, client concurrency, skipped requests, retries and backpressure.
+- Publish the workload code, raw traces or an access-controlled reproducibility package, manifest hashes and analysis scripts.
+- Use paired comparisons only when the scenarios, payload, topology, hardware, load controller and correctness contract are sufficiently equivalent.
+- Never average away a correctness failure, peer-specific failure, partition condition or low-connectivity cohort.
+- Publish confidence intervals and per-peer distributions when aggregation could hide an outlier, slow peer or unfair impact.
+
+### Candidate performance gate after baseline
+
+Once the exact 0.6.1 baseline exists, define a bounded migration non-regression gate for each workload, not a single aggregate score. A reasonable **proposed decision threshold** for routine workflows is to require 0.7.1 p95 latency and resource-per-qualified-operation to remain within 10% of the matched 0.6.1 baseline, unless a deliberate trade-off is documented and approved. This is a review threshold to test, not an existing result or a promise that 0.7.1 will meet it.
+
+For new capabilities where no baseline exists, publish the first measured operating envelope, then set a user-facing SLO from actual workflow needs. Do not manufacture universal DHT convergence or recovery SLOs from a small synthetic lab.
+
