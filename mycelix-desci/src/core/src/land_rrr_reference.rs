@@ -1087,6 +1087,27 @@ mod tests {
     }
 
     #[test]
+    fn land_rrr_uses_separate_purpose_refs_without_granting_publication() {
+        let value = fixture();
+        assert_eq!(value.consent_authorization_references.len(), 3);
+        assert!(value
+            .consent_authorization_references
+            .iter()
+            .any(|reference| reference.purpose == ConsentPurpose::Measurement));
+        assert!(value
+            .consent_authorization_references
+            .iter()
+            .any(|reference| reference.purpose == ConsentPurpose::SiteAccess));
+        assert!(value
+            .consent_authorization_references
+            .iter()
+            .any(|reference| reference.purpose == ConsentPurpose::Publication));
+        assert_eq!(value.validate_structural(), Ok(()));
+        // These are opaque references only. They do not prove the source
+        // authorization is current, signed, unrevoked, or suitable to publish.
+    }
+
+    #[test]
     fn exact_duplicate_authority_reference_is_rejected() {
         let mut value = fixture();
         let reference = authority_reference("registry-1", AuthorityKind::Registry);
