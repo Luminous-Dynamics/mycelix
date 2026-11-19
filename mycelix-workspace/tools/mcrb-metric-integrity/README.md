@@ -1,104 +1,75 @@
-# MCRB Metric Integrity Verifier
 
-This dependency-free Rust library validates measurement batches before the Mycelix Coordination and Recovery Benchmark (MCRB) emits aggregate performance metrics.
+# MCRB Metric Integrity and QOPS
 
-## Local duration contract
+Rust-first validation primitives for the Mycelix Coordination and Recovery Benchmark.
 
-The verifier does **not** accept a caller-supplied `duration_ms` as the source of truth.
+This crate contains three independent measurement gates:
 
-Each `DurationSample` carries:
+1. local per-peer duration integrity from raw monotonic ticks;
+2. cross-host publish/first-valid-observation timing as uncertainty-bounded intervals;
+3. Qualified Operations Per Second (QOPS) accounting from complete offered-operation IDs and terminal outcomes.
 
-- peer ID and logical operation ID;
-- monotonic clock ID;
-- monotonic clock epoch / boot generation;
-- raw monotonic `start_ticks` and `end_ticks`.
+It is a measurement/verifier component, not a runtime adapter, workload generator, clock authority, source-attestation service or external-effect observer.
 
-Each peer's `ClockObservation` carries the same clock ID/epoch and its declared tick frequency. The verifier checks identity and epoch equality, rejects reversed ticks and zero frequency, and derives elapsed nanoseconds using integer arithmetic before converting to milliseconds for percentile calculation.
+## Local duration integrity
 
-The supplied duration is not trusted, so the benchmark cannot make an operation appear faster by submitting a smaller duration value than the raw ticks imply.
+The verifier derives durations from raw monotonic start/end ticks and requires the sample clock ID and clock epoch to match the peer's declared clock observation.
 
-## Invariants
+It rejects reversed ticks, zero tick frequency, clock ID/epoch mismatches, wall-clock duration declarations, missing peer clock observations, incomplete peer/counter coverage, duplicate per-peer operation IDs, unexpected peers, non-finite or beyond-window durations, and invalid clock uncertainty values.
 
-- Local durations are derived from raw monotonic start/end ticks.
-- The sample clock ID and epoch must match the peer's declared clock.
-- A sample cannot cross a clock epoch / reboot boundary.
-- Reversed ticks and zero tick frequency invalidate the batch.
-- Missing peer observations or incomplete counters make the batch incomplete.
-- Unknown peers, duplicate peer clocks, empty operation IDs and duplicate per-peer operation IDs are rejected.
-- Outliers inside the declared duration window are preserved and reported by their original sample indexes. They are not trimmed, clipped or silently excluded.
-- Aggregate p50/p95/p99 values are emitted only when the full batch is valid and complete.
-- Global and per-peer distributions are calculated from the derived durations, not from a caller-provided duration field.
-
-## Use
-
-The API accepts a workload-specific maximum duration, outlier threshold and wall-clock uncertainty limit. These are explicit experiment parameters, not universal Mycelix defaults.
-
-```rust
-let report = mycelix_mcrb_metric_integrity::validate_batch(&config, &batch);
-if report.aggregate_eligible {
-    let percentiles = report.percentiles.expect("valid batches have percentiles");
-    // Bind percentiles, raw tick samples and report to the run receipt.
-} else {
-    // Preserve all raw ticks and issues; do not publish a performance claim.
-}
-```
-
-## Status meanings
-
-- `Valid`: all required peers, clock identities/epochs, derived durations and counters are coherent.
-- `Incomplete`: coverage or expected observations are missing; no aggregate is eligible.
-- `Invalid`: an impossible or out-of-contract measurement was observed; no aggregate is eligible.
-
-## Remaining limitation: cross-host convergence timing
-
-The current crate now independently derives **local** durations from monotonic ticks. It does not yet pair a publisher's record event with each peer's first valid observation by record digest, nor derive uncertainty-bounded cross-host latency intervals from both hosts' wall-clock calibration.
-
-Therefore this crate can support local per-peer duration distributions once exact-head validation passes, but it must not yet be used to claim independently qualified cross-host DHT convergence latency.
-
-Follow-up: [MCRB-TIME-001 #6335](https://github.com/Luminous-Dynamics/mycelix/issues/6335).
-
-## Validation state
-
-Thirteen unit tests are authored for local tick derivation, preserved outliers, reversed ticks, clock identity/epoch mismatch, invalid frequency, duration bounds, peer coverage, clock uncertainty metadata, counter mismatch, wall-clock declaration, duplicate operation IDs, multi-peer observation and empty runs.
-
-No exact-head Cargo test or Clippy pass is claimed until the GitHub workflow completes successfully. Do not use this crate as an external qualification verifier until its implementation and run-receipt binding are independently reviewed.
-
-
-## Raw monotonic tick implementation status
-
-The current branch implementation has moved beyond the earlier caller-supplied `duration_ms` placeholder:
-
-- `DurationSample` now stores `start_ticks`, `end_ticks`, `monotonic_clock_id` and `monotonic_clock_epoch`.
-- `ClockObservation` supplies the matching clock identity/epoch and nonzero `ticks_per_second`.
-- The verifier derives milliseconds from the raw tick delta using integer nanosecond arithmetic.
-- Mismatched clock IDs/epochs, reversed ticks and zero frequency invalidate the batch.
-- Percentiles and outlier classification use derived values. The caller no longer supplies a duration value that can be substituted into aggregation.
-
-This source change is not yet Cargo-tested or Clippy-qualified on the exact branch head.
-
-
-## Cross-host timing primitive
-
-A separate pure calculation module is now available at `src/cross_host.rs`:
-
-- `WallClockCalibration` binds a peer ID, calibration ID, signed offset, uncertainty and validity window.
-- `PublishObserveEventPair` binds one operation and record digest to a publisher event and a first-valid-observation event on a distinct peer.
-- `derive_latency_interval` corrects both local timestamps by their respective offsets, adds uncertainty conservatively, returns lower/upper bounds, and emits a point estimate only when the combined uncertainty is within the configured threshold.
-- It rejects empty digests, self-observation, wrong peer/calibration identity, stale calibration windows, invalid calibration values and event ordering that is impossible even under the uncertainty bounds.
-
-The helper is **not yet wired into `MeasurementBatch` or the canonical run-receipt emitter**. Its calibration/event inputs are still caller-supplied and need authenticated artifact binding and uniqueness/completeness checks. Therefore it is an implemented calculation primitive, not yet a qualified cross-host DHT convergence verifier.
-
-The current source contains 20 authored tests across local tick derivation and cross-host interval calculations. Exact-head Cargo tests/Clippy remain pending.
-
+Outliers inside the declared valid duration window are preserved and reported by their original sample indexes. They are not trimmed, clipped, winsorized or silently excluded. Aggregate p50/p95/p99 values are emitted only when the full local batch is valid and complete. Per-peer distributions are retained so a slow peer is not hidden by pooling.
 
 ## Cross-host publish/observe timing
 
-The verifier now treats local and cross-host measurements as separate gates:
+The cross-host validator requires an exact expected tuple: logical operation ID, record digest, publisher peer and observer peer.
 
-- Local durations are derived only from per-peer monotonic tick pairs, pinned clock IDs/epochs and nonzero tick frequencies.
-- Cross-host publication/first-valid-observation pairs must match the expected operation ID, record digest, publisher and observer.
-- Each host must have one unique calibration bound to the peer and calibration ID; calibration validity windows are checked.
-- Cross-host latency is reported as an uncertainty interval. A point estimate is withheld when the combined clock uncertainty exceeds the configured threshold.
-- Local-only batches report cross-host timing as `NotEvaluated`, never as PASS. Cross-host incompleteness does not fabricate zero-latency observations.
+It requires one calibration per participating peer, checks calibration identity and validity windows, rejects missing/duplicate/unexpected event pairs, and uses both clock offsets with combined uncertainty to derive a latency interval.
 
-The library validates measurement integrity only. It does not attest that clocks, event origins or calibration artifacts are authentic; the caller must bind those to signed/raw run evidence.
+A point estimate is emitted only when combined uncertainty is within the declared limit. A local-only batch reports cross-host timing as NotEvaluated, not PASS. Cross-host incomplete/invalid state is separate from local per-peer duration status.
+
+The helper validates calculations and structural consistency only. It does not authenticate the clock source, calibrator, event origin, record digest or run identity. These inputs must be bound to signed/raw artifacts in the run receipt before a cross-host result can support a benchmark claim.
+
+## Qualified Operations Per Second (QOPS)
+
+QOPS counts only outcomes classified as QualifiedSuccess under the scenario-specific contract:
+
+    QOPS = qualified_successes / fixed_measurement_window_seconds
+
+Every expected offered operation must have exactly one terminal outcome. The reducer reports qualified success, correct denial, unexpected denial, known failure, unknown outcome and duplicate external effect.
+
+Correct denials are not business successes. Unknown and failed outcomes remain in the offered-operation denominator. An unoffered operation cannot enter the numerator. Missing, duplicate or unexpected samples suppress the rate. A duplicate external effect, failed hard-correctness gate or non-Valid metric-integrity report suppresses all performance rates.
+
+The reducer consumes the actual IntegrityReport, not a caller-provided metric-valid boolean. The offered-operation ID list must still be bound to an independently generated append-only offer ledger, workload source digest, seed and measurement-window identity; the reducer cannot prove a caller did not fabricate a smaller expected set.
+
+## Public API
+
+    let report = compute_qops(&input, &metric_integrity);
+    if report.status == QopsStatus::Eligible {
+        let qops = report.qualified_operations_per_second.expect("eligible QOPS");
+        // Bind QOPS and all outcome counts to the exact run receipt.
+    } else {
+        // Preserve issues and withhold performance rates.
+    }
+
+Build the verifier from the standalone workspace:
+
+    cargo test --manifest-path mycelix-workspace/tools/mcrb-metric-integrity/Cargo.toml
+    cargo clippy --manifest-path mycelix-workspace/tools/mcrb-metric-integrity/Cargo.toml --all-targets -- -D warnings
+
+## Status and claim limits
+
+- Local Valid means required local peer clocks, durations and counters are coherent.
+- Local Incomplete means expected observations/samples/counters are missing.
+- Local Invalid means an impossible or out-of-contract measurement was observed.
+- Cross-host NotEvaluated is not PASS.
+- QOPS Eligible means the expected offered-ID set is fully classified, hard correctness gates passed, and the supplied metric-integrity report is Valid.
+- QOPS Incomplete means outcome coverage is incomplete.
+- QOPS Invalid means malformed/duplicate/unoffered outcomes or a non-compensatory gate failed.
+
+Neither cross-host metric integrity nor QOPS alone proves that source events, run metadata, workload manifests, clock calibrations or external effects are authentic. The receipt verifier must bind those sources independently.
+
+## Tests and execution state
+
+The source contains 34 authored Rust unit tests across local duration, cross-host interval and QOPS logic. This count is source inventory, not an execution result.
+
+No exact-head Cargo test, rustfmt, Clippy, live conductor, DHT convergence, provider-effect observation or production qualification is claimed until the corresponding exact-head workflow and runtime evidence complete successfully.
