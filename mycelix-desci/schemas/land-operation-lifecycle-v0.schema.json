@@ -58,7 +58,8 @@
             "state",
             "previous_attempt_id",
             "idempotency_key",
-            "reconciliation_reference"
+            "reconciliation_reference",
+            "retry_semantics_reference"
           ],
           "properties": {
             "state": {
@@ -73,6 +74,10 @@
               "minLength": 1
             },
             "reconciliation_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "retry_semantics_reference": {
               "type": "string",
               "minLength": 1
             }
