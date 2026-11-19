@@ -8,7 +8,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::{CrossHostTimingStatus, IntegrityReport, IntegrityStatus, Percentiles};
+use super::{IntegrityReport, IntegrityStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OperationOutcome {
@@ -215,6 +215,7 @@ pub fn compute_qops(input: &QopsInput, metric_integrity: &IntegrityReport) -> Qo
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::{CrossHostTimingStatus, Percentiles};
 
     fn sample(id: &str, outcome: OperationOutcome) -> OperationOutcomeSample {
         OperationOutcomeSample {
