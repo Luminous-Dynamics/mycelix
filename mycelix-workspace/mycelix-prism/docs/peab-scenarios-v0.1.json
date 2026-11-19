@@ -762,6 +762,19 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "LEASE-004",
+      "family": "resolution_lease_lifecycle",
+      "title": "resolution lease expiry between authorization and execution blocks socket use",
+      "setup": "authorize while a short Nixward resolution snapshot is valid, allow it to expire, then attempt execution",
+      "expected_decision": "deny_before_connect",
+      "oracle": "execute returns CapabilityExpired and the authorized destination receives no connection after the lease deadline",
+      "source_coverage": "present",
+      "source_test": "nixward_resolution_lease_expiry_blocks_late_execution_before_socket",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
