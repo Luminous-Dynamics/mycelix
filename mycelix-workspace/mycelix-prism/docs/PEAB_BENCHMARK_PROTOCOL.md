@@ -554,3 +554,7 @@ The benchmark must report two separate outcomes:
 2. **Existing-flow treatment:** whether packets on an already-established socket continue, are dropped, or are revoked after lease expiry or descriptor transfer.
 
 A passing connect hook test cannot be used as evidence for the second outcome. The three new scenarios remain partial/planned source coverage and `not_run_exact_head`.
+
+### Explicit protocol coverage (Nixward V40)
+
+PEAB adds KERNEL-011 and KERNEL-012 for two unsupported-policy cases discovered in the V40 compiler review. The V40 backend now only compiles explicit TCP and UDP capabilities. ICMP and wildcard `Any` remain unresolved and block activation eligibility; a generic protocol label cannot be treated as proof that a matching kernel hook exists. These are partial cross-repository source cases, not executed evidence.
