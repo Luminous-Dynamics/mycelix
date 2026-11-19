@@ -370,7 +370,14 @@
         "aggregate_only_after_member_samples_validate",
         "require_send_receive_counter_reconciliation",
         "invalid_measurements_block_performance_claims",
-        "run_statuses"
+        "run_statuses",
+        "require_raw_monotonic_tick_pairs",
+        "derive_local_duration_from_tick_delta",
+        "require_clock_epoch_identity_per_sample",
+        "require_publish_observe_event_pairing_for_cross_host_convergence",
+        "require_cross_host_uncertainty_interval",
+        "forbid_cross_host_point_latency_without_uncertainty_bound",
+        "cross_host_timing_claim_status"
       ],
       "properties": {
         "require_monotonic_local_durations": {
@@ -414,6 +421,27 @@
             ]
           },
           "minItems": 4
+        },
+        "require_raw_monotonic_tick_pairs": {
+          "const": true
+        },
+        "derive_local_duration_from_tick_delta": {
+          "const": true
+        },
+        "require_clock_epoch_identity_per_sample": {
+          "const": true
+        },
+        "require_publish_observe_event_pairing_for_cross_host_convergence": {
+          "const": true
+        },
+        "require_cross_host_uncertainty_interval": {
+          "const": true
+        },
+        "forbid_cross_host_point_latency_without_uncertainty_bound": {
+          "const": true
+        },
+        "cross_host_timing_claim_status": {
+          "const": "not-qualified-until-mcrb-time-001"
         }
       }
     },
