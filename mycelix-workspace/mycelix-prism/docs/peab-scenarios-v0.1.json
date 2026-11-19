@@ -684,6 +684,19 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "TLS-003",
+      "family": "tls_identity",
+      "title": "application receipt binds verified TLS reference identity and protocol",
+      "setup": "execute one valid HTTPS request and one HTTP redirect chain",
+      "expected_decision": "record_https_identity_and_leave_http_unset",
+      "oracle": "HTTPS receipt records URL reference identity, expected SNI name and successful configured certificate-identity verification; plain HTTP records no TLS identity; every redirect hop retains its own protocol and TLS result",
+      "source_coverage": "present",
+      "source_test": "pinned_tls_uses_original_hostname_for_sni_and_certificate_verification",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
