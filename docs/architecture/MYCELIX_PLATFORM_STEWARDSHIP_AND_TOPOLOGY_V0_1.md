@@ -206,3 +206,6 @@ A concrete precursor is [#4249](https://github.com/Luminous-Dynamics/mycelix/iss
 
 The eventual registry receipt should bind caller path, caller DNA, hApp profile, exact target role/zome/function, source SHA and manifest digests. A source-level mock or successful compile is not runtime proof that the installed topology contains the target cell.
 
+
+
+The versioned report contract is in `docs/architecture/MYCELIX_OTHERROLE_TOPOLOGY_AUDIT_V0_1.schema.json`. CI generates and uploads the advisory report, but only checks its structural envelope; a successful report build is not proof of runtime-valid inter-DNA calls.
