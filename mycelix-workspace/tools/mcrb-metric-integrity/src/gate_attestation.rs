@@ -424,8 +424,10 @@ pub fn verify_gate_attestations(
     let mut all_signers = BTreeSet::new();
 
     for (index, attestation) in attestations.iter().enumerate() {
+        let mut context_valid = true;
         if attestation.schema_version != GATE_ATTESTATION_SCHEMA_VERSION {
             push_unique(&mut issues, GateVerificationIssue::UnsupportedAttestationSchema(index));
+            context_valid = false;
         }
         if !required.contains(&attestation.gate_id) {
             push_unique(&mut issues, GateVerificationIssue::UnexpectedGate(attestation.gate_id.clone()));
@@ -443,24 +445,31 @@ pub fn verify_gate_attestations(
         }
         if attestation.run_id != policy.run_id {
             push_unique(&mut issues, GateVerificationIssue::RunIdMismatch(attestation.gate_id.clone()));
+            context_valid = false;
         }
         if attestation.scenario_id != policy.scenario_id {
             push_unique(&mut issues, GateVerificationIssue::ScenarioIdMismatch(attestation.gate_id.clone()));
+            context_valid = false;
         }
         if attestation.scenario_contract_digest_sha256 != policy.scenario_contract_digest_sha256 {
             push_unique(&mut issues, GateVerificationIssue::ScenarioContractMismatch(attestation.gate_id.clone()));
+            context_valid = false;
         }
         if attestation.source_sha != policy.source_sha {
             push_unique(&mut issues, GateVerificationIssue::SourceShaMismatch(attestation.gate_id.clone()));
+            context_valid = false;
         }
         if attestation.runtime_identity_digest_sha256 != policy.runtime_identity_digest_sha256 {
             push_unique(&mut issues, GateVerificationIssue::RuntimeIdentityMismatch(attestation.gate_id.clone()));
+            context_valid = false;
         }
         if attestation.verifier_version.trim().is_empty() {
             push_unique(&mut issues, GateVerificationIssue::EmptyVerifierVersion(attestation.gate_id.clone()));
+            context_valid = false;
         }
         if attestation.evidence_artifact_digests_sha256.is_empty() {
             push_unique(&mut issues, GateVerificationIssue::EmptyEvidenceDigestSet(attestation.gate_id.clone()));
+            context_valid = false;
         }
         let mut evidence_seen = BTreeSet::new();
         for digest in &attestation.evidence_artifact_digests_sha256 {
@@ -469,15 +478,25 @@ pub fn verify_gate_attestations(
                     &mut issues,
                     GateVerificationIssue::InvalidEvidenceDigest(attestation.gate_id.clone(), digest.clone()),
                 );
+                context_valid = false;
             }
         }
-        if verify_attestation_signature(attestation, &signer_keys).is_ok() {
-            accepted_attestation_count += 1;
-            all_signers.insert(attestation.verifier_key_id.clone());
-            gate_signers.entry(attestation.gate_id.clone()).or_default().insert(attestation.verifier_key_id.clone());
-            gate_outcomes.entry(attestation.gate_id.clone()).or_default().insert(attestation.outcome);
-        } else if let Err(issue) = verify_attestation_signature(attestation, &signer_keys) {
-            push_unique(&mut issues, issue);
+
+        match verify_attestation_signature(attestation, &signer_keys) {
+            Ok(()) if context_valid => {
+                accepted_attestation_count += 1;
+                all_signers.insert(attestation.verifier_key_id.clone());
+                gate_signers
+                    .entry(attestation.gate_id.clone())
+                    .or_default()
+                    .insert(attestation.verifier_key_id.clone());
+                gate_outcomes
+                    .entry(attestation.gate_id.clone())
+                    .or_default()
+                    .insert(attestation.outcome);
+            }
+            Ok(()) => {}
+            Err(issue) => push_unique(&mut issues, issue),
         }
     }
 
@@ -524,8 +543,10 @@ pub fn verify_gate_attestations(
                 | GateVerificationIssue::GateFailed(_)
         )
     });
-    let status = if invalid || failed_gate_count > 0 {
+    let status = if invalid {
         GateVerificationStatus::Invalid
+    } else if failed_gate_count > 0 {
+        GateVerificationStatus::Failed
     } else if incomplete_gate_count > 0 {
         GateVerificationStatus::Incomplete
     } else {
@@ -647,7 +668,7 @@ mod tests {
             attestation(&policy, &key, &gates[1], GateOutcome::Fail),
         ];
         let report = verify_gate_attestations(&policy, &attestations);
-        assert_eq!(report.status(), GateVerificationStatus::Invalid);
+        assert_eq!(report.status(), GateVerificationStatus::Failed);
         assert_eq!(report.failed_gate_count(), 1);
         attestations.clear();
     }
