@@ -331,6 +331,7 @@ mod tests {
         assert_eq!(report.qualified_operations_per_second, Some(0.4));
         assert_eq!(report.qualified_success_fraction, Some(0.4));
         assert_eq!(report.offer_ledger_entry_count, 5);
+        assert!(!report.cross_host_measurement_required);
         assert_eq!(report.offer_ledger_digest_sha256, ledger.ledger_digest_sha256());
     }
 
@@ -410,6 +411,7 @@ mod tests {
         let input = valid_input();
         let report = compute_qops(&ledger, &input, &valid_integrity());
         assert_eq!(report.status, QopsStatus::Invalid);
+        assert!(report.cross_host_measurement_required);
         assert!(report.issues.contains(&QopsIssue::CrossHostMetricIntegrityNotValid));
         assert!(report.qualified_operations_per_second.is_none());
     }
@@ -423,6 +425,7 @@ mod tests {
         integrity.cross_host_aggregate_eligible = true;
         let report = compute_qops(&ledger, &input, &integrity);
         assert_eq!(report.status, QopsStatus::Eligible);
+        assert!(report.cross_host_measurement_required);
         assert_eq!(report.qualified_operations_per_second, Some(0.4));
     }
 }
