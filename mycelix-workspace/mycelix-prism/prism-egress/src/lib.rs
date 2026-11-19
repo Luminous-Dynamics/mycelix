@@ -2504,6 +2504,7 @@ mod tests {
         ))
         .unwrap();
         let capability = test_capability(url, address, 16);
+        let logical_request_id = capability.logical_request_id.clone();
         let result = client.execute(capability).await;
         assert!(matches!(result, Err(EgressError::BlockedHost)));
         server.await.unwrap();
@@ -2742,7 +2743,7 @@ mod tests {
             "Host: prism-metadata-redirect.test:{}",
             address.port()
         )));
-        assert!(!first_request.contains("logical_request_id"));
+        assert!(!first_request.contains(&logical_request_id));
     }
 
     #[tokio::test]
