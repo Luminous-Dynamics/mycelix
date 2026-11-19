@@ -292,6 +292,7 @@ mod tests {
             generator_digest_sha256: GENERATOR_DIGEST.to_string(),
             seed: SEED.to_string(),
             expected_entry_count: 5,
+            expected_ledger_digest_sha256: ledger.digest_sha256.clone(),
             measurement_window,
         };
 
