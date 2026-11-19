@@ -58,6 +58,18 @@ pub enum LandOperationPhase {
         receipt_sha256: String,
         projection_reference: String,
         projection_scope_reference: String,
+        authority_profile_reference: String,
+        qualification_reference: String,
+        verifier_reference: String,
+        qualification_sha256: String,
+    },
+    ExternalStatusInvalidated {
+        attempt_id: String,
+        receipt_reference: String,
+        receipt_sha256: String,
+        projection_reference: String,
+        invalidation_evidence_reference: String,
+        reason: String,
     },
     Held {
         reason: String,
@@ -144,6 +156,10 @@ pub enum LandOperationCommand {
     ProjectExternalStatus {
         projection_reference: String,
         projection_scope_reference: String,
+    },
+    InvalidateExternalStatusProjection {
+        invalidation_evidence_reference: String,
+        reason: String,
     },
     Hold {
         reason: String,
@@ -330,7 +346,7 @@ impl LandOperationLifecycleV0 {
                         } else {
                             self.phase = LandOperationPhase::Held {
                                 reason: "external endpoint does not establish safe same-key retry semantics".into(),
-                                decision_packet_reference: Some(reconciliation_reference),
+                                decision_packet_reference: None,
                             };
                         }
                         Ok(())
@@ -353,7 +369,7 @@ impl LandOperationLifecycleV0 {
                             Some(reconciliation_reference.clone());
                         self.phase = LandOperationPhase::Held {
                             reason,
-                            decision_packet_reference: Some(reconciliation_reference),
+                            decision_packet_reference: None,
                         };
                         Ok(())
                     }
@@ -438,19 +454,28 @@ impl LandOperationLifecycleV0 {
                     attempt_id,
                     receipt_reference,
                     receipt_sha256,
-                    _captured_at,
+                    authority_profile_reference,
+                    qualification_reference,
+                    verifier_reference,
+                    qualification_sha256,
                 ) = match &self.phase {
                     LandOperationPhase::ExternalStatusQualified {
                         attempt_id,
                         receipt_reference,
                         receipt_sha256,
-                        captured_at,
+                        authority_profile_reference,
+                        qualification_reference,
+                        verifier_reference,
+                        qualification_sha256,
                         ..
                     } => (
                         attempt_id.clone(),
                         receipt_reference.clone(),
                         receipt_sha256.clone(),
-                        captured_at.clone(),
+                        authority_profile_reference.clone(),
+                        qualification_reference.clone(),
+                        verifier_reference.clone(),
+                        qualification_sha256.clone(),
                     ),
                     _ => return Err(LandOperationTransitionError::InvalidTransition),
                 };
@@ -462,6 +487,46 @@ impl LandOperationLifecycleV0 {
                     receipt_sha256,
                     projection_reference,
                     projection_scope_reference,
+                    authority_profile_reference,
+                    qualification_reference,
+                    verifier_reference,
+                    qualification_sha256,
+                };
+                Ok(())
+            }
+            LandOperationCommand::InvalidateExternalStatusProjection {
+                invalidation_evidence_reference,
+                reason,
+            } => {
+                let (
+                    attempt_id,
+                    receipt_reference,
+                    receipt_sha256,
+                    projection_reference,
+                ) = match &self.phase {
+                    LandOperationPhase::ExternalStatusProjected {
+                        attempt_id,
+                        receipt_reference,
+                        receipt_sha256,
+                        projection_reference,
+                        ..
+                    } => (
+                        attempt_id.clone(),
+                        receipt_reference.clone(),
+                        receipt_sha256.clone(),
+                        projection_reference.clone(),
+                    ),
+                    _ => return Err(LandOperationTransitionError::InvalidTransition),
+                };
+                require_non_empty(&invalidation_evidence_reference)?;
+                require_non_empty(&reason)?;
+                self.phase = LandOperationPhase::ExternalStatusInvalidated {
+                    attempt_id,
+                    receipt_reference,
+                    receipt_sha256,
+                    projection_reference,
+                    invalidation_evidence_reference,
+                    reason,
                 };
                 Ok(())
             }
@@ -509,6 +574,14 @@ impl LandOperationLifecycleV0 {
             self.phase,
             LandOperationPhase::OutcomeUnknown { .. }
                 | LandOperationPhase::Held { .. }
+                | LandOperationPhase::ExternalStatusInvalidated { .. }
+        )
+    }
+
+    pub const fn external_status_projection_is_current(&self) -> bool {
+        matches!(
+            self.phase,
+            LandOperationPhase::ExternalStatusProjected { .. }
         )
     }
 
@@ -637,6 +710,10 @@ impl LandOperationLifecycleV0 {
                 receipt_sha256,
                 projection_reference,
                 projection_scope_reference,
+                authority_profile_reference,
+                qualification_reference,
+                verifier_reference,
+                qualification_sha256,
             } => {
                 self.check_last_attempt(
                     attempt_id,
@@ -648,8 +725,38 @@ impl LandOperationLifecycleV0 {
                     || !is_sha256(receipt_sha256)
                     || projection_reference.trim().is_empty()
                     || projection_scope_reference.trim().is_empty()
+                    || authority_profile_reference.trim().is_empty()
+                    || qualification_reference.trim().is_empty()
+                    || verifier_reference.trim().is_empty()
+                    || !is_sha256(qualification_sha256)
                 {
-                    issues.push("external status projection lacks a scoped source reference".into());
+                    issues.push(
+                        "external status projection lacks a scoped receipt and qualification lineage"
+                            .into(),
+                    );
+                }
+            }
+            LandOperationPhase::ExternalStatusInvalidated {
+                attempt_id,
+                receipt_reference,
+                receipt_sha256,
+                projection_reference,
+                invalidation_evidence_reference,
+                reason,
+            } => {
+                self.check_last_attempt(
+                    attempt_id,
+                    self.idempotency_key.as_deref().unwrap_or(""),
+                    SubmissionAttemptStatus::ReceiptObserved,
+                    &mut issues,
+                );
+                if receipt_reference.trim().is_empty()
+                    || !is_sha256(receipt_sha256)
+                    || projection_reference.trim().is_empty()
+                    || invalidation_evidence_reference.trim().is_empty()
+                    || reason.trim().is_empty()
+                {
+                    issues.push("invalidated external status must retain its source and invalidation evidence".into());
                 }
             }
             LandOperationPhase::Held {
@@ -701,6 +808,7 @@ fn is_closed_phase(phase: &LandOperationPhase) -> bool {
         LandOperationPhase::Held { .. }
             | LandOperationPhase::Rejected { .. }
             | LandOperationPhase::ExternalStatusProjected { .. }
+            | LandOperationPhase::ExternalStatusInvalidated { .. }
     )
 }
 
@@ -1059,6 +1167,76 @@ mod tests {
         assert!(!value.allows_authoritative_mutation());
         assert!(!value.may_record_external_status_projection());
         assert_eq!(value.validate_structural(), Ok(()));
+    }
+
+    #[test]
+    fn projection_retains_receipt_authority_and_verifier_lineage() {
+        let mut value = lifecycle();
+        qualify(&mut value);
+        value
+            .apply(LandOperationCommand::ProjectExternalStatus {
+                projection_reference: "urn:synthetic:projection:002".into(),
+                projection_scope_reference: "urn:synthetic:scope:permit-status".into(),
+            })
+            .unwrap();
+        match &value.phase {
+            LandOperationPhase::ExternalStatusProjected {
+                authority_profile_reference,
+                qualification_reference,
+                verifier_reference,
+                qualification_sha256,
+                ..
+            } => {
+                assert_eq!(
+                    authority_profile_reference,
+                    "urn:synthetic:authority-profile:001"
+                );
+                assert_eq!(qualification_reference, "urn:synthetic:qualification:001");
+                assert_eq!(verifier_reference, "urn:synthetic:verifier:001");
+                assert_eq!(qualification_sha256, &"c".repeat(64));
+            }
+            other => panic!("unexpected lifecycle phase: {other:?}"),
+        }
+        assert!(value.external_status_projection_is_current());
+        assert_eq!(value.validate_structural(), Ok(()));
+    }
+
+    #[test]
+    fn later_correction_or_challenge_invalidates_projected_status() {
+        let mut value = lifecycle();
+        qualify(&mut value);
+        value
+            .apply(LandOperationCommand::ProjectExternalStatus {
+                projection_reference: "urn:synthetic:projection:003".into(),
+                projection_scope_reference: "urn:synthetic:scope:water-permit-status".into(),
+            })
+            .unwrap();
+        value
+            .apply(LandOperationCommand::InvalidateExternalStatusProjection {
+                invalidation_evidence_reference: "urn:synthetic:late-challenge:003".into(),
+                reason: "a later challenge changes the current evidence frontier".into(),
+            })
+            .unwrap();
+        assert!(matches!(
+            value.phase,
+            LandOperationPhase::ExternalStatusInvalidated { .. }
+        ));
+        assert!(!value.external_status_projection_is_current());
+        assert!(value.requires_reconciliation());
+        assert!(!value.allows_authoritative_mutation());
+        assert_eq!(value.validate_structural(), Ok(()));
+    }
+
+    #[test]
+    fn invalidation_cannot_be_applied_before_a_projection_exists() {
+        let mut value = lifecycle();
+        assert_eq!(
+            value.apply(LandOperationCommand::InvalidateExternalStatusProjection {
+                invalidation_evidence_reference: "urn:synthetic:challenge:early".into(),
+                reason: "challenge before projection".into(),
+            }),
+            Err(LandOperationTransitionError::InvalidTransition)
+        );
     }
 
     #[test]
