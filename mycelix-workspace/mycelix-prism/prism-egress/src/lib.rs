@@ -450,6 +450,9 @@ pub struct EgressReceipt {
     /// Canonical BLAKE3 digest of the complete authorized IP:port set.
     /// This is a correlation digest, not a signature or resolver attestation.
     pub authorized_address_set_digest: String,
+    /// Signed Nixward resolution-lease payload digest when externally verified.
+    pub resolution_lease_digest: Option<String>,
+    pub resolver_snapshot_digest: Option<String>,
     pub remote_peer: SocketAddr,
     pub tls_identity: Option<TlsIdentityReceipt>,
     pub http_version: String,
@@ -1005,11 +1008,19 @@ impl PublicEgressClient {
                         status: status.as_u16(),
                         authorized_addresses,
                         authorized_address_set_digest,
+                        resolution_lease_digest: capability.resolution_lease_digest.clone(),
+                        resolver_snapshot_digest: capability.resolver_snapshot_digest.clone(),
                         remote_peer,
                         tls_identity,
                         http_version,
                         target_addresses,
                         target_address_set_digest,
+                        target_resolution_lease_digest: next_capability
+                            .resolution_lease_digest
+                            .clone(),
+                        target_resolver_snapshot_digest: next_capability
+                            .resolver_snapshot_digest
+                            .clone(),
                     });
 
                     capability = next_capability;
@@ -1063,6 +1074,8 @@ impl PublicEgressClient {
                 method: method_name,
                 authorized_addresses,
                 authorized_address_set_digest,
+                resolution_lease_digest: capability.resolution_lease_digest.clone(),
+                resolver_snapshot_digest: capability.resolver_snapshot_digest.clone(),
                 remote_peer,
                 tls_identity,
                 http_version,
@@ -2119,8 +2132,10 @@ mod tests {
             &'a self,
             host: &'a str,
             port: u16,
+            logical_request_id: &'a str,
+            redirect_hop: u8,
             permit: OwnedSemaphorePermit,
-        ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
+        ) -> Pin<Box<dyn Future<Output = io::Result<EgressResolutionSnapshot>> + Send + 'a>> {
             Box::pin(async move {
                 // A fresh resolver per authorization prevents Hickory's test cache
                 // from hiding a second wire lookup in the rebinding regression.
@@ -2132,10 +2147,17 @@ mod tests {
                     .lookup_ip(fqdn)
                     .await
                     .map_err(|error| io::Error::other(format!("loopback DNS fixture: {error}")))?;
-                Ok(lookup
+                let addresses = lookup
                     .iter()
                     .map(|address| SocketAddr::new(address, port))
-                    .collect())
+                    .collect();
+                Ok(EgressResolutionSnapshot::from_system_resolver(
+                    host,
+                    port,
+                    logical_request_id,
+                    redirect_hop,
+                    addresses,
+                ))
             })
         }
     }
@@ -2512,6 +2534,8 @@ mod tests {
             body: Vec::new(),
             addresses: vec![address],
             is_domain: true,
+            resolution_lease_digest: None,
+            resolver_snapshot_digest: None,
             expires_at: std::time::Instant::now() + Duration::from_secs(30),
             max_response_body_bytes,
             max_error_response_body_bytes: 64 * 1024,
@@ -2807,13 +2831,22 @@ mod tests {
             &'a self,
             host: &'a str,
             port: u16,
+            logical_request_id: &'a str,
+            redirect_hop: u8,
             _permit: OwnedSemaphorePermit,
-        ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
+        ) -> Pin<Box<dyn Future<Output = io::Result<EgressResolutionSnapshot>> + Send + 'a>> {
             let host = host.to_owned();
+            let logical_request_id = logical_request_id.to_owned();
             let calls = Arc::clone(&self.calls);
             Box::pin(async move {
-                calls.lock().expect("resolver call lock").push((host, port));
-                Ok(vec![SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port)])
+                calls.lock().expect("resolver call lock").push((host.clone(), port));
+                Ok(EgressResolutionSnapshot::from_system_resolver(
+                    host,
+                    port,
+                    logical_request_id,
+                    redirect_hop,
+                    vec![SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port)],
+                ))
             })
         }
     }
@@ -3653,30 +3686,54 @@ mod tests {
     impl EgressResolver for RebindingResolver {
         fn resolve<'a>(
             &'a self,
-            _host: &'a str,
-            _port: u16,
+            host: &'a str,
+            port: u16,
+            logical_request_id: &'a str,
+            redirect_hop: u8,
             _permit: OwnedSemaphorePermit,
-        ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
+        ) -> Pin<Box<dyn Future<Output = io::Result<EgressResolutionSnapshot>> + Send + 'a>> {
             let call = self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let answers = if call == 0 {
                 self.first_answers.clone()
             } else {
                 self.subsequent_answers.clone()
             };
-            Box::pin(async move { Ok(answers) })
+            let hostname = host.to_owned();
+            let logical_request_id = logical_request_id.to_owned();
+            Box::pin(async move {
+                Ok(EgressResolutionSnapshot::from_system_resolver(
+                    hostname,
+                    port,
+                    logical_request_id,
+                    redirect_hop,
+                    answers,
+                ))
+            })
         }
     }
 
     impl EgressResolver for StaticResolver {
         fn resolve<'a>(
             &'a self,
-            _host: &'a str,
-            _port: u16,
+            host: &'a str,
+            port: u16,
+            logical_request_id: &'a str,
+            redirect_hop: u8,
             _permit: OwnedSemaphorePermit,
-        ) -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>> {
+        ) -> Pin<Box<dyn Future<Output = io::Result<EgressResolutionSnapshot>> + Send + 'a>> {
             self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let answers = self.answers.clone();
-            Box::pin(async move { Ok(answers) })
+            let hostname = host.to_owned();
+            let logical_request_id = logical_request_id.to_owned();
+            Box::pin(async move {
+                Ok(EgressResolutionSnapshot::from_system_resolver(
+                    hostname,
+                    port,
+                    logical_request_id,
+                    redirect_hop,
+                    answers,
+                ))
+            })
         }
     }
 
