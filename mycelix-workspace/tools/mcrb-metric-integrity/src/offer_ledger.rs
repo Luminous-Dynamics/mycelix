@@ -353,11 +353,20 @@ mod tests {
         let envelope = valid_envelope();
         let verified = verify_offer_ledger(&envelope).unwrap();
         assert_eq!(verified.entry_count(), 3);
-        assert_eq!(verified.operation_ids(), ["op-1", "op-2", "op-3"]);
+        assert_eq!(verified.operation_ids().iter().map(String::as_str).collect::<Vec<_>>(), vec!["op-1", "op-2", "op-3"]);
         assert_eq!(verified.measurement_window_ns(), 10_000_000_000);
         assert_eq!(verified.run_id(), "run-001");
         assert_eq!(verified.scenario_id(), "MCRB-03");
-        assert_eq!(verified.ledger_digest_sha256(), envelope.ledger_digest_sha256);
+        assert_eq!(verified.ledger_digest_sha256(), envelope.ledger_digest_sha256.as_str());
+    }
+
+    #[test]
+    fn serde_round_trip_preserves_canonical_offer_ledger() {
+        let envelope = valid_envelope();
+        let bytes = serde_json::to_vec(&envelope).unwrap();
+        let decoded: OfferLedgerEnvelope = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(decoded, envelope);
+        assert!(verify_offer_ledger(&decoded).is_ok());
     }
 
     #[test]
