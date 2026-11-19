@@ -842,7 +842,7 @@
     {
       "id": "MCRB-17",
       "scenario_id": "multi-function-capability-revocation-regression",
-      "objective": "Reproduce and qualify revocation of multi-function zome-call grants on the exact released Holochain runtime, including reissued identical grants.",
+      "objective": "Reproduce the Holochain 0.7.x multi-function grant revocation behavior and verify that runtime-level grant handling composes safely with Mycelix's owner-native trajectory-wide revocation, one-shot consumption and effect-boundary contracts.",
       "actors": [
         "grant-administrator",
         "grantee-agent",
@@ -871,7 +871,10 @@
       ],
       "upstream_references": [
         "https://github.com/holochain/holochain/issues/6071",
-        "https://github.com/holochain/holochain/pull/6063"
+        "https://github.com/holochain/holochain/pull/6063",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/6236",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/6193",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/6189"
       ],
       "qualification_blocking": true,
       "status": "proposed-not-executed",
