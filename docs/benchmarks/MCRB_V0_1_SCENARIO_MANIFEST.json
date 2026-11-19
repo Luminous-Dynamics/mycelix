@@ -690,7 +690,7 @@
     {
       "id": "MCRB-14",
       "scenario_id": "deployment-profile-composition",
-      "objective": "Verify unified/resilience role composition and target-call completeness",
+      "objective": "Verify each static OtherRole call site against the actual deployment profile(s) containing its caller DNA; distinguish same-hApp bridge calls from separate-app orchestration.",
       "actors": [
         "agent-a",
         "agent-b",
@@ -698,24 +698,39 @@
       ],
       "hard_invariants": [
         "manifest-snapshot-matches",
-        "all-target-roles-declared",
+        "every-qualified-otherrole-target-present-in-same-profile",
+        "profile-dependent-call-sites-explicit",
+        "dynamic-targets-not-assumed-valid",
+        "unmapped-source-ownership-reported",
         "no-hidden-role-assumption"
       ],
       "fault_injection": [
         "missing-dna-artifact",
         "stale-registry-snapshot",
-        "undeclared-otherrole"
+        "undeclared-otherrole",
+        "target-exists-only-in-another-happ",
+        "dynamic-role-expression",
+        "caller-dna-profile-ownership-unknown",
+        "duplicate-role-name"
       ],
       "required_metrics": [
         "role_coverage",
         "undeclared_target_count",
-        "manifest_drift_count"
+        "manifest_drift_count",
+        "otherrole_callsite_count",
+        "source_owner_mapping_coverage",
+        "profile_dependent_call_count",
+        "cross_installed_happ_invalid_count",
+        "dynamic_target_count",
+        "unmapped_source_owner_count"
       ],
       "status": "proposed-not-executed",
       "evidence_required": [
         "exact-source-sha",
         "runtime-identity",
         "topology-manifest-digest",
+        "otherrole-callsite-inventory-digest",
+        "profile-attribution-report-digest",
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
