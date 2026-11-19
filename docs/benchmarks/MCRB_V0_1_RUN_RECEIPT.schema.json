@@ -517,7 +517,6 @@
       "required": [
         "status",
         "offer_ledger",
-        "measurement_window",
         "offered_operations",
         "classified_outcomes",
         "qualified_successes",
@@ -563,14 +562,8 @@
             "scenario_id",
             "workload_manifest_digest_sha256",
             "seed",
-            "measurement_window_id",
-            "clock_source",
-            "monotonic_clock_id",
-            "monotonic_clock_epoch",
-            "start_ticks",
-            "end_ticks",
-            "ticks_per_second",
-            "artifact_digest_sha256"
+            "artifact_digest_sha256",
+            "measurement_window"
           ],
           "properties": {
             "digest_sha256": {
@@ -604,85 +597,57 @@
               "type": "string",
               "minLength": 1
             },
-            "measurement_window_id": {
-              "type": "string",
-              "minLength": 1
-            },
-            "clock_source": {
-              "type": "string",
-              "minLength": 1
-            },
-            "monotonic_clock_id": {
-              "type": "string",
-              "minLength": 1
-            },
-            "monotonic_clock_epoch": {
-              "type": "string",
-              "minLength": 1
-            },
-            "start_ticks": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "end_ticks": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "ticks_per_second": {
-              "type": "integer",
-              "minimum": 1
-            },
             "artifact_digest_sha256": {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$"
-            }
-          }
-        },
-        "measurement_window": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "window_id",
-            "clock_source",
-            "monotonic_clock_id",
-            "monotonic_clock_epoch",
-            "start_ticks",
-            "end_ticks",
-            "ticks_per_second",
-            "window_ns"
-          ],
-          "properties": {
-            "window_id": {
-              "type": "string",
-              "minLength": 1
             },
-            "clock_source": {
-              "type": "string",
-              "minLength": 1
-            },
-            "monotonic_clock_id": {
-              "type": "string",
-              "minLength": 1
-            },
-            "monotonic_clock_epoch": {
-              "type": "string",
-              "minLength": 1
-            },
-            "start_ticks": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "end_ticks": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "ticks_per_second": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "window_ns": {
-              "type": "integer",
-              "minimum": 1
+            "measurement_window": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "window_id",
+                "clock_source",
+                "monotonic_clock_id",
+                "monotonic_clock_epoch",
+                "start_ticks",
+                "end_ticks",
+                "ticks_per_second",
+                "window_ns"
+              ],
+              "properties": {
+                "window_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "clock_source": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "monotonic_clock_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "monotonic_clock_epoch": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "start_ticks": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "end_ticks": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "ticks_per_second": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "window_ns": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
             }
           }
         },
