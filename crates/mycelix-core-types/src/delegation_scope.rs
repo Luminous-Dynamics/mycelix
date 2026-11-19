@@ -256,7 +256,6 @@ impl BudgetLimitsV1 {
     fn is_strictly_no_wider_than(&self, parent: &Self) -> bool {
         self.is_no_wider_than(parent) && self != parent
     }
-
 }
 
 fn optional_max_is_no_wider<T: Copy + Ord>(child: Option<T>, parent: Option<T>) -> bool {
@@ -267,10 +266,7 @@ fn optional_max_is_no_wider<T: Copy + Ord>(child: Option<T>, parent: Option<T>) 
     }
 }
 
-fn optional_rate_is_no_wider(
-    child: Option<RateLimitV1>,
-    parent: Option<RateLimitV1>,
-) -> bool {
+fn optional_rate_is_no_wider(child: Option<RateLimitV1>, parent: Option<RateLimitV1>) -> bool {
     match (child, parent) {
         (_, None) => true,
         (None, Some(_)) => false,
@@ -460,7 +456,9 @@ fn optional_budget_is_strictly_no_wider(
 }
 
 fn is_string_subset(child: &[String], parent: &[String]) -> bool {
-    child.iter().all(|value| parent.binary_search(value).is_ok())
+    child
+        .iter()
+        .all(|value| parent.binary_search(value).is_ok())
 }
 
 fn is_direction_subset(child: &[DataDirectionV1], parent: &[DataDirectionV1]) -> bool {
@@ -640,7 +638,10 @@ mod tests {
             vec!["xenia.file.send", "xenia.screen.view"],
             vec!["host/b", "host/a"],
             vec!["viewer/b", "viewer/a"],
-            vec![DataDirectionV1::OwnerToDelegate, DataDirectionV1::DelegateToOwner],
+            vec![
+                DataDirectionV1::OwnerToDelegate,
+                DataDirectionV1::DelegateToOwner,
+            ],
             OperationBindingV1::AnyWithinProfile,
             None,
         );
@@ -648,7 +649,10 @@ mod tests {
             vec!["xenia.screen.view", "xenia.file.send"],
             vec!["host/a", "host/b"],
             vec!["viewer/a", "viewer/b"],
-            vec![DataDirectionV1::DelegateToOwner, DataDirectionV1::OwnerToDelegate],
+            vec![
+                DataDirectionV1::DelegateToOwner,
+                DataDirectionV1::OwnerToDelegate,
+            ],
             OperationBindingV1::AnyWithinProfile,
             None,
         );
@@ -711,7 +715,10 @@ mod tests {
             vec!["a", "b"],
             vec!["host/a", "host/b"],
             vec!["viewer/a", "viewer/b"],
-            vec![DataDirectionV1::OwnerToDelegate, DataDirectionV1::DelegateToOwner],
+            vec![
+                DataDirectionV1::OwnerToDelegate,
+                DataDirectionV1::DelegateToOwner,
+            ],
             OperationBindingV1::AnyWithinProfile,
             None,
         );
@@ -933,8 +940,7 @@ mod tests {
                 let child = RateLimitV1::new(child_events, child_window).unwrap();
                 for parent_window in 1..=4 {
                     for parent_events in 0..=3 {
-                        let parent =
-                            RateLimitV1::new(parent_events, parent_window).unwrap();
+                        let parent = RateLimitV1::new(parent_events, parent_window).unwrap();
                         if child.is_no_wider_than(parent) {
                             for trace in &traces {
                                 if allows(child, trace) {
