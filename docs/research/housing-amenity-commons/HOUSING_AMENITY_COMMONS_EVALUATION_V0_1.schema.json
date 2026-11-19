@@ -1,0 +1,528 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/housing-amenity-commons/HOUSING_AMENITY_COMMONS_EVALUATION_V0_1.schema.json",
+  "title": "Mycelix Housing Amenity Commons Benchmark v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "tracking_issue",
+    "qualification_state",
+    "policy",
+    "functional_units",
+    "cases"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.housing_amenity_commons_benchmark"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "tracking_issue": {
+      "const": "https://github.com/Luminous-Dynamics/mycelix/issues/6328"
+    },
+    "qualification_state": {
+      "const": "SYNTHETIC_FIXTURE_NOT_RUN_NOT_QUALIFIED"
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "synthetic_only",
+        "currency",
+        "money_minor_unit",
+        "disposition_precedence",
+        "aggregate_score_permitted"
+      ],
+      "properties": {
+        "synthetic_only": {
+          "const": true
+        },
+        "currency": {
+          "const": "ZAR"
+        },
+        "money_minor_unit": {
+          "const": "cent"
+        },
+        "disposition_precedence": {
+          "const": [
+            "INVALID",
+            "BLOCK",
+            "UNKNOWN",
+            "ACCEPT"
+          ]
+        },
+        "aggregate_score_permitted": {
+          "const": false
+        }
+      }
+    },
+    "functional_units": {
+      "type": "array",
+      "minItems": 7,
+      "items": {
+        "$ref": "#/$defs/functional_unit"
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 20,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "functional_unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "amenity_class",
+        "service",
+        "unit",
+        "denominator",
+        "aggregation_rule"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]+$"
+        },
+        "amenity_class": {
+          "type": "string",
+          "minLength": 2
+        },
+        "service": {
+          "type": "string",
+          "minLength": 5
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "denominator": {
+          "type": "string",
+          "minLength": 5
+        },
+        "aggregation_rule": {
+          "const": "DO_NOT_AGGREGATE_WITH_UNLIKE_SERVICE_UNITS"
+        }
+      }
+    },
+    "state": {
+      "enum": [
+        "VALID",
+        "MISSING",
+        "STALE",
+        "DISPUTED",
+        "REVOKED",
+        "WRONG_SCOPE",
+        "CONFLICT",
+        "FAILED",
+        "NOT_REQUIRED"
+      ]
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "scenario",
+        "synthetic",
+        "inputs",
+        "expected"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^HAC-[0-9]{3}$"
+        },
+        "scenario": {
+          "type": "string",
+          "minLength": 8
+        },
+        "synthetic": {
+          "const": true
+        },
+        "inputs": {
+          "$ref": "#/$defs/inputs"
+        },
+        "expected": {
+          "$ref": "#/$defs/expected"
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "authority",
+        "service",
+        "access",
+        "finance",
+        "maintenance",
+        "governance",
+        "external_constraints"
+      ],
+      "properties": {
+        "asset": {
+          "$ref": "#/$defs/asset"
+        },
+        "authority": {
+          "$ref": "#/$defs/authority"
+        },
+        "service": {
+          "$ref": "#/$defs/service"
+        },
+        "access": {
+          "$ref": "#/$defs/access"
+        },
+        "finance": {
+          "$ref": "#/$defs/finance"
+        },
+        "maintenance": {
+          "$ref": "#/$defs/maintenance"
+        },
+        "governance": {
+          "$ref": "#/$defs/governance"
+        },
+        "external_constraints": {
+          "$ref": "#/$defs/external_constraints"
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset_id",
+        "revision",
+        "amenity_class",
+        "site_rights_state",
+        "beneficiary_scope_state",
+        "asset_lock_required"
+      ],
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "minLength": 3
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amenity_class": {
+          "enum": [
+            "COMMUNITY_ROOM",
+            "WORKSHOP",
+            "GUEST_SUITE",
+            "LAUNDRY",
+            "GREENHOUSE",
+            "POOL",
+            "GYM",
+            "ENERGY_ASSET",
+            "WATER_ASSET"
+          ]
+        },
+        "site_rights_state": {
+          "$ref": "#/$defs/state"
+        },
+        "beneficiary_scope_state": {
+          "$ref": "#/$defs/state"
+        },
+        "asset_lock_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "purpose_guardian_state",
+        "steward_state",
+        "operator_state",
+        "decision_authority_state"
+      ],
+      "properties": {
+        "purpose_guardian_state": {
+          "$ref": "#/$defs/state"
+        },
+        "steward_state": {
+          "$ref": "#/$defs/state"
+        },
+        "operator_state": {
+          "$ref": "#/$defs/state"
+        },
+        "decision_authority_state": {
+          "$ref": "#/$defs/state"
+        }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "functional_unit_id",
+        "capacity",
+        "demand",
+        "capacity_receipt_state",
+        "operational_state",
+        "inspection_state"
+      ],
+      "properties": {
+        "functional_unit_id": {
+          "type": "string",
+          "minLength": 3
+        },
+        "capacity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "demand": {
+          "type": "number",
+          "minimum": 0
+        },
+        "capacity_receipt_state": {
+          "$ref": "#/$defs/state"
+        },
+        "operational_state": {
+          "enum": [
+            "OPERATIONAL",
+            "CLOSED_FOR_MAINTENANCE",
+            "NOT_COMMISSIONED"
+          ]
+        },
+        "inspection_state": {
+          "$ref": "#/$defs/state"
+        }
+      }
+    },
+    "access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reserved_demand",
+        "duplicate_reservation_id",
+        "policy_state",
+        "contribution_based_priority",
+        "accessibility_requirements_declared",
+        "accessibility_floor_met",
+        "private_usage_data_exposed"
+      ],
+      "properties": {
+        "reserved_demand": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duplicate_reservation_id": {
+          "type": "boolean"
+        },
+        "policy_state": {
+          "$ref": "#/$defs/state"
+        },
+        "contribution_based_priority": {
+          "type": "boolean"
+        },
+        "accessibility_requirements_declared": {
+          "type": "boolean"
+        },
+        "accessibility_floor_met": {
+          "type": "boolean"
+        },
+        "private_usage_data_exposed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "finance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cost_model_state",
+        "annual_operating_budget_cents",
+        "annual_operating_cost_cents",
+        "reserve_balance_cents",
+        "replacement_liability_cents",
+        "reserve_double_counted",
+        "hardship_policy_state"
+      ],
+      "properties": {
+        "cost_model_state": {
+          "$ref": "#/$defs/state"
+        },
+        "annual_operating_budget_cents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "annual_operating_cost_cents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reserve_balance_cents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "replacement_liability_cents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reserve_double_counted": {
+          "type": "boolean"
+        },
+        "hardship_policy_state": {
+          "enum": [
+            "NOT_REQUIRED",
+            "APPLIED",
+            "MISSING",
+            "NOT_APPLIED"
+          ]
+        }
+      }
+    },
+    "maintenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "critical_backlog",
+        "restoration_receipt_state",
+        "operator_handover_state"
+      ],
+      "properties": {
+        "critical_backlog": {
+          "enum": [
+            "NONE",
+            "NON_CRITICAL",
+            "CRITICAL"
+          ]
+        },
+        "restoration_receipt_state": {
+          "$ref": "#/$defs/state"
+        },
+        "operator_handover_state": {
+          "enum": [
+            "COMPLETE",
+            "INCOMPLETE",
+            "MISSING",
+            "NOT_APPLICABLE"
+          ]
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "constitutional_approval_state",
+        "asset_lock_preserved"
+      ],
+      "properties": {
+        "action": {
+          "enum": [
+            "NONE",
+            "SALE",
+            "ENCUMBRANCE",
+            "PURPOSE_CHANGE",
+            "LEVY_CHANGE",
+            "ACCESS_POLICY_CHANGE",
+            "RESERVE_WITHDRAWAL"
+          ]
+        },
+        "constitutional_approval_state": {
+          "$ref": "#/$defs/state"
+        },
+        "asset_lock_preserved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "external_constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "restriction_profile_state",
+        "declared_use_state"
+      ],
+      "properties": {
+        "restriction_profile_state": {
+          "$ref": "#/$defs/state"
+        },
+        "declared_use_state": {
+          "enum": [
+            "PERMITTED",
+            "PROHIBITED",
+            "UNKNOWN"
+          ]
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "disposition",
+        "reason_codes"
+      ],
+      "properties": {
+        "disposition": {
+          "enum": [
+            "ACCEPT",
+            "UNKNOWN",
+            "BLOCK",
+            "INVALID"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "LEGAL_RIGHTS_MISSING",
+              "LEGAL_RIGHTS_DISPUTED",
+              "BENEFICIARY_SCOPE_MISSING",
+              "PURPOSE_GUARDIAN_MISSING",
+              "STEWARD_AUTHORITY_MISSING",
+              "OPERATOR_AUTHORITY_MISSING",
+              "OPERATOR_AUTHORITY_REVOKED",
+              "DECISION_AUTHORITY_MISSING",
+              "SERVICE_RECEIPT_MISSING",
+              "SERVICE_RECEIPT_STALE",
+              "SERVICE_RECEIPT_WRONG_SCOPE",
+              "CAPACITY_EXCEEDED",
+              "DUPLICATE_RESERVATION_ID",
+              "ACCESS_POLICY_MISSING",
+              "ACCESS_POLICY_CONFLICT",
+              "CONTRIBUTION_BASED_PRIORITY",
+              "ACCESSIBILITY_FLOOR_FAILED",
+              "FACILITY_CLOSED_WITH_RESERVATIONS",
+              "FACILITY_NOT_COMMISSIONED",
+              "INSPECTION_STALE",
+              "INSPECTION_FAILED",
+              "COST_MODEL_MISSING",
+              "OPERATING_BUDGET_SHORTFALL",
+              "RESERVE_SHORTFALL",
+              "RESERVE_DOUBLE_COUNTED",
+              "HARDSHIP_POLICY_MISSING",
+              "HARDSHIP_POLICY_NOT_APPLIED",
+              "RESTORATION_EVIDENCE_MISSING",
+              "CRITICAL_MAINTENANCE_BACKLOG",
+              "HANDOVER_INCOMPLETE",
+              "CONSTITUTIONAL_APPROVAL_MISSING",
+              "UNAUTHORIZED_ASSET_ACTION",
+              "ASSET_LOCK_REMOVED",
+              "RESTRICTION_PROFILE_STALE",
+              "DECLARED_USE_UNKNOWN",
+              "DECLARED_USE_PROHIBITED",
+              "PRIVATE_USAGE_DATA_EXPOSED"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
