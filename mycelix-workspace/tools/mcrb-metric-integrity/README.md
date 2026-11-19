@@ -62,3 +62,16 @@ Follow-up: [MCRB-TIME-001 #6335](https://github.com/Luminous-Dynamics/mycelix/is
 Thirteen unit tests are authored for local tick derivation, preserved outliers, reversed ticks, clock identity/epoch mismatch, invalid frequency, duration bounds, peer coverage, clock uncertainty metadata, counter mismatch, wall-clock declaration, duplicate operation IDs, multi-peer observation and empty runs.
 
 No exact-head Cargo test or Clippy pass is claimed until the GitHub workflow completes successfully. Do not use this crate as an external qualification verifier until its implementation and run-receipt binding are independently reviewed.
+
+
+## Raw monotonic tick implementation status
+
+The current branch implementation has moved beyond the earlier caller-supplied `duration_ms` placeholder:
+
+- `DurationSample` now stores `start_ticks`, `end_ticks`, `monotonic_clock_id` and `monotonic_clock_epoch`.
+- `ClockObservation` supplies the matching clock identity/epoch and nonzero `ticks_per_second`.
+- The verifier derives milliseconds from the raw tick delta using integer nanosecond arithmetic.
+- Mismatched clock IDs/epochs, reversed ticks and zero frequency invalidate the batch.
+- Percentiles and outlier classification use derived values. The caller no longer supplies a duration value that can be substituted into aggregation.
+
+This source change is not yet Cargo-tested or Clippy-qualified on the exact branch head.
