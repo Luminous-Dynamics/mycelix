@@ -3873,4 +3873,100 @@ mod tests {
         headers.insert("x-test", "long-value");
         assert!(request_header_bytes(&headers) >= "x-test".len() + "long-value".len());
     }
+
+    #[test]
+    fn peab_manifest_contract_is_enforced_by_the_rust_test_suite() {
+        const MANIFEST: &str = include_str!("../../docs/peab-scenarios-v0.1.json");
+        let manifest: serde_json::Value =
+            serde_json::from_str(MANIFEST).expect("PEAB scenario manifest must be valid JSON");
+
+        assert_eq!(
+            manifest["schema"],
+            "org.luminousdynamics.peab.scenario-manifest.v1"
+        );
+        assert_eq!(manifest["version"], "0.1.0");
+        assert_eq!(manifest["status"], "specification_only");
+
+        let scenarios = manifest["scenarios"]
+            .as_array()
+            .expect("PEAB scenarios must be an array");
+        assert!(
+            scenarios.len() >= 31,
+            "PEAB manifest must retain its minimum scenario corpus"
+        );
+
+        let mut ids = std::collections::HashSet::new();
+        for scenario in scenarios {
+            let id = scenario["id"]
+                .as_str()
+                .filter(|id| !id.trim().is_empty())
+                .expect("every PEAB scenario needs a non-empty stable ID");
+            assert!(ids.insert(id), "duplicate PEAB scenario ID: {id}");
+            assert_eq!(
+                scenario["negative_control_required"],
+                true,
+                "scenario {id} must declare a negative control"
+            );
+
+            let coverage = scenario["source_coverage"]
+                .as_str()
+                .expect("scenario coverage must be a string");
+            assert!(
+                matches!(coverage, "present" | "partial" | "planned"),
+                "scenario {id} has invalid source coverage {coverage:?}"
+            );
+
+            match coverage {
+                "planned" => assert!(
+                    scenario["source_test"].is_null(),
+                    "planned scenario {id} cannot claim a source test"
+                ),
+                "present" => assert!(
+                    scenario["source_test"]
+                        .as_str()
+                        .is_some_and(|name| !name.trim().is_empty()),
+                    "source-present scenario {id} must name its source test"
+                ),
+                "partial" => {
+                    assert!(
+                        scenario["source_test"].is_null()
+                            || scenario["source_test"]
+                                .as_str()
+                                .is_some_and(|name| !name.trim().is_empty()),
+                        "partial scenario {id} must use null or a non-empty source-test list"
+                    );
+                }
+                _ => unreachable!("coverage vocabulary was checked above"),
+            }
+
+            let execution_status = scenario["execution_status"]
+                .as_str()
+                .expect("scenario execution status must be a string");
+            if execution_status == "not_run_exact_head" {
+                assert!(
+                    scenario["execution_evidence"].is_null(),
+                    "unrun scenario {id} cannot carry execution evidence"
+                );
+            } else {
+                assert!(
+                    matches!(execution_status, "passed" | "failed" | "skipped"),
+                    "scenario {id} has unsupported execution status {execution_status:?}"
+                );
+                let evidence = &scenario["execution_evidence"];
+                assert!(evidence.is_object(), "scenario {id} needs an evidence object");
+                assert!(
+                    evidence["head_sha"].as_str().is_some_and(|value| !value.is_empty()),
+                    "scenario {id} evidence must bind an exact head SHA"
+                );
+                assert!(
+                    evidence["run_id"].as_u64().is_some(),
+                    "scenario {id} evidence must bind a workflow run ID"
+                );
+                assert!(
+                    evidence["job_id"].as_u64().is_some(),
+                    "scenario {id} evidence must bind a workflow job ID"
+                );
+            }
+        }
+    }
 }
