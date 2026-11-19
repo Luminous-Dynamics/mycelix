@@ -57,3 +57,6 @@ The result is placement feasibility over caller-supplied resource and time decla
     cargo fmt --manifest-path mycelix-workspace/tools/temporal-compute-placement-v0.1/Cargo.toml -- --check
     cargo test --manifest-path mycelix-workspace/tools/temporal-compute-placement-v0.1/Cargo.toml --locked
     cargo clippy --manifest-path mycelix-workspace/tools/temporal-compute-placement-v0.1/Cargo.toml --locked --all-targets -- -D warnings
+
+
+The test suite includes an exhaustive bounded cross-check against a separate integer-slot occupancy scan; it evaluates every integer slot directly instead of reproducing the event-sweep algorithm.
