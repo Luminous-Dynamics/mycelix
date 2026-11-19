@@ -1,0 +1,563 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/food/FoodLotHouseholdEventV1.schema.json",
+  "title": "FoodLotHouseholdEventV1",
+  "description": "Append-only household-local lot event. Sequence/parent chain is local and private; forks/gaps block subsequent quantity mutations pending reconciliation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "receipt_id",
+    "previous_event_ref",
+    "sequence_number",
+    "event_kind",
+    "occurred_at",
+    "quantity",
+    "child_receipt_id",
+    "privacy_scope",
+    "evidence",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "receipt_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "previous_event_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "sequence_number": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "event_kind": {
+      "enum": [
+        "Opened",
+        "Split",
+        "Consumed",
+        "RecallNoticeReceived",
+        "Expired",
+        "Discarded",
+        "Reconciled"
+      ]
+    },
+    "occurred_at": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "quantity": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dimension",
+            "value",
+            "decimal_places",
+            "unit"
+          ],
+          "properties": {
+            "dimension": {
+              "enum": [
+                "mass",
+                "volume",
+                "count"
+              ]
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "decimal_places": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 6
+            },
+            "unit": {
+              "enum": [
+                "mg",
+                "g",
+                "kg",
+                "mL",
+                "L",
+                "count",
+                "piece"
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "dimension": {
+                    "const": "mass"
+                  }
+                },
+                "required": [
+                  "dimension"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "unit": {
+                    "enum": [
+                      "mg",
+                      "g",
+                      "kg"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "dimension": {
+                    "const": "volume"
+                  }
+                },
+                "required": [
+                  "dimension"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "unit": {
+                    "enum": [
+                      "mL",
+                      "L"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "dimension": {
+                    "const": "count"
+                  }
+                },
+                "required": [
+                  "dimension"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "unit": {
+                    "enum": [
+                      "count",
+                      "piece"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "child_receipt_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "privacy_scope": {
+      "const": "local_private"
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_ref",
+        "evidence_class",
+        "method_ref",
+        "calibration_ref"
+      ],
+      "properties": {
+        "source_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "evidence_class": {
+          "enum": [
+            "Declared",
+            "Attested",
+            "Modelled",
+            "Measured",
+            "IndependentlyAssayed",
+            "IndependentlyQualified"
+          ]
+        },
+        "method_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "calibration_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidence_class": {
+                "const": "Measured"
+              }
+            },
+            "required": [
+              "evidence_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "calibration_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evidence_class": {
+                "enum": [
+                  "IndependentlyAssayed",
+                  "IndependentlyQualified"
+                ]
+              }
+            },
+            "required": [
+              "evidence_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "method_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "claim_ceiling": {
+      "const": "Local append-only lot accounting event only; not food-safety or suitability determination."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "sequence_number": {
+            "const": 0
+          }
+        },
+        "required": [
+          "sequence_number"
+        ]
+      },
+      "then": {
+        "properties": {
+          "previous_event_ref": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "previous_event_ref": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "const": "Split"
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "quantity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "dimension",
+              "value",
+              "decimal_places",
+              "unit"
+            ],
+            "properties": {
+              "dimension": {
+                "enum": [
+                  "mass",
+                  "volume",
+                  "count"
+                ]
+              },
+              "value": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "decimal_places": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              },
+              "unit": {
+                "enum": [
+                  "mg",
+                  "g",
+                  "kg",
+                  "mL",
+                  "L",
+                  "count",
+                  "piece"
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "dimension": {
+                      "const": "mass"
+                    }
+                  },
+                  "required": [
+                    "dimension"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "unit": {
+                      "enum": [
+                        "mg",
+                        "g",
+                        "kg"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "dimension": {
+                      "const": "volume"
+                    }
+                  },
+                  "required": [
+                    "dimension"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "unit": {
+                      "enum": [
+                        "mL",
+                        "L"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "dimension": {
+                      "const": "count"
+                    }
+                  },
+                  "required": [
+                    "dimension"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "unit": {
+                      "enum": [
+                        "count",
+                        "piece"
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "child_receipt_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_kind": {
+            "enum": [
+              "Consumed",
+              "Discarded"
+            ]
+          }
+        },
+        "required": [
+          "event_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "quantity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "dimension",
+              "value",
+              "decimal_places",
+              "unit"
+            ],
+            "properties": {
+              "dimension": {
+                "enum": [
+                  "mass",
+                  "volume",
+                  "count"
+                ]
+              },
+              "value": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "decimal_places": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              },
+              "unit": {
+                "enum": [
+                  "mg",
+                  "g",
+                  "kg",
+                  "mL",
+                  "L",
+                  "count",
+                  "piece"
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "dimension": {
+                      "const": "mass"
+                    }
+                  },
+                  "required": [
+                    "dimension"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "unit": {
+                      "enum": [
+                        "mg",
+                        "g",
+                        "kg"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "dimension": {
+                      "const": "volume"
+                    }
+                  },
+                  "required": [
+                    "dimension"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "unit": {
+                      "enum": [
+                        "mL",
+                        "L"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "dimension": {
+                      "const": "count"
+                    }
+                  },
+                  "required": [
+                    "dimension"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "unit": {
+                      "enum": [
+                        "count",
+                        "piece"
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

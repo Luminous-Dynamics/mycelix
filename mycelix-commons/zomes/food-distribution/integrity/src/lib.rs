@@ -7,6 +7,8 @@
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
+pub mod food_lot_reconciliation;
+
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct Anchor(pub String);

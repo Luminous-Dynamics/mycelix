@@ -1,0 +1,206 @@
+{
+  "fixture_bundle_id": "food-lot-provenance-receipts-v1",
+  "status": "synthetic_contract_fixtures_only",
+  "cases": [
+    {
+      "case_id": "producer-lot-exact-mass",
+      "record_type": "provenance",
+      "payload": {
+        "schema_version": 1,
+        "lot_ref": "mycelix:food-lot:producer-42-tomato-2026-11-17-a",
+        "revision": 1,
+        "product_ref": "mycelix:product:tomato-roma",
+        "producer_ref": "did:mycelix:producer-42",
+        "supplier_lot_code": "LOT-2026-1117-A",
+        "listing_ref": "holochain:listing:fixture-001",
+        "origin_ref": "mycelix:plot:tomato-block-3",
+        "quantity": {
+          "dimension": "mass",
+          "value": 25000,
+          "decimal_places": 0,
+          "unit": "g"
+        },
+        "harvested_at": 1794873600,
+        "packed_at": 1794877200,
+        "best_before_at": 1795309200,
+        "use_by_at": null,
+        "handling_ref": "fixture:chilled-handling-v1",
+        "evidence": {
+          "source_ref": "fixture:receipt-scale-01",
+          "evidence_class": "Measured",
+          "method_ref": "fixture:weighing-protocol-v1",
+          "calibration_ref": "fixture:scale-cal-01"
+        },
+        "claim_ceiling": "Supplier/producer lot identity and source-declared quantity only; not proof of household receipt, freshness, food safety, allergen status or suitability."
+      },
+      "expected": "valid_structure"
+    },
+    {
+      "case_id": "household-partial-receipt",
+      "record_type": "receipt",
+      "payload": {
+        "schema_version": 1,
+        "receipt_id": "local-receipt-001",
+        "product_lot_ref": "mycelix:food-lot:producer-42-tomato-2026-11-17-a",
+        "source_order_ref": "local-order-ref:opaque-001",
+        "received_at": 1794890000,
+        "receipt_state": "partial",
+        "received_quantity": {
+          "dimension": "mass",
+          "value": 5000,
+          "decimal_places": 0,
+          "unit": "g"
+        },
+        "accepted_quantity": {
+          "dimension": "mass",
+          "value": 4800,
+          "decimal_places": 0,
+          "unit": "g"
+        },
+        "rejected_quantity": {
+          "dimension": "mass",
+          "value": 200,
+          "decimal_places": 0,
+          "unit": "g"
+        },
+        "privacy_scope": "local_private",
+        "evidence": {
+          "source_ref": "fixture:receipt-scale-01",
+          "evidence_class": "Measured",
+          "method_ref": "fixture:weighing-protocol-v1",
+          "calibration_ref": "fixture:scale-cal-01"
+        },
+        "claim_ceiling": "Local receipt observation only; does not establish supplier truth, freshness, food safety, allergen status or suitability."
+      },
+      "expected": "valid_structure"
+    },
+    {
+      "case_id": "household-consumption-event",
+      "record_type": "event",
+      "payload": {
+        "schema_version": 1,
+        "event_id": "local-event-002",
+        "receipt_id": "local-receipt-001",
+        "previous_event_ref": "local-event-001",
+        "sequence_number": 1,
+        "event_kind": "Consumed",
+        "occurred_at": 1794893600,
+        "quantity": {
+          "dimension": "mass",
+          "value": 1250,
+          "decimal_places": 0,
+          "unit": "g"
+        },
+        "child_receipt_id": null,
+        "privacy_scope": "local_private",
+        "evidence": {
+          "source_ref": "fixture:receipt-scale-01",
+          "evidence_class": "Measured",
+          "method_ref": "fixture:weighing-protocol-v1",
+          "calibration_ref": "fixture:scale-cal-01"
+        },
+        "claim_ceiling": "Local append-only lot accounting event only; not food-safety or suitability determination."
+      },
+      "expected": "valid_structure"
+    },
+    {
+      "case_id": "same-supplier-code-different-producer",
+      "record_type": "provenance",
+      "payload": {
+        "schema_version": 1,
+        "lot_ref": "mycelix:food-lot:producer-99-tomato-2026-11-17-a",
+        "revision": 1,
+        "product_ref": "mycelix:product:tomato-roma",
+        "producer_ref": "did:mycelix:producer-99",
+        "supplier_lot_code": "LOT-2026-1117-A",
+        "listing_ref": "holochain:listing:fixture-001",
+        "origin_ref": "mycelix:plot:tomato-block-3",
+        "quantity": {
+          "dimension": "mass",
+          "value": 25000,
+          "decimal_places": 0,
+          "unit": "g"
+        },
+        "harvested_at": 1794873600,
+        "packed_at": 1794877200,
+        "best_before_at": 1795309200,
+        "use_by_at": null,
+        "handling_ref": "fixture:chilled-handling-v1",
+        "evidence": {
+          "source_ref": "fixture:receipt-scale-01",
+          "evidence_class": "Measured",
+          "method_ref": "fixture:weighing-protocol-v1",
+          "calibration_ref": "fixture:scale-cal-01"
+        },
+        "claim_ceiling": "Supplier/producer lot identity and source-declared quantity only; not proof of household receipt, freshness, food safety, allergen status or suitability."
+      },
+      "expected": "distinct_canonical_lot"
+    },
+    {
+      "case_id": "volume-lot-cannot-satisfy-mass-recipe",
+      "record_type": "cross_record_assertion",
+      "payload": {
+        "supplier_quantity": {
+          "dimension": "volume",
+          "value": 5,
+          "decimal_places": 0,
+          "unit": "L"
+        },
+        "recipe_quantity": {
+          "dimension": "mass",
+          "value": 5,
+          "decimal_places": 0,
+          "unit": "kg"
+        }
+      },
+      "expected": "indeterminate_no_density_inference"
+    },
+    {
+      "case_id": "ambiguous-receipt-not-allocatable",
+      "record_type": "receipt_state",
+      "payload": {
+        "receipt_state": "ambiguous",
+        "allocation_permitted": false
+      },
+      "expected": "blocked_until_reconciled"
+    },
+    {
+      "case_id": "event-sequence-gap",
+      "record_type": "event_chain",
+      "payload": {
+        "previous_sequence": 2,
+        "next_sequence": 4
+      },
+      "expected": "blocked_until_reconciled"
+    },
+    {
+      "case_id": "recall-notice-holds-lot",
+      "record_type": "event_kind",
+      "payload": {
+        "event_kind": "RecallNoticeReceived",
+        "allocation_permitted": false
+      },
+      "expected": "quarantine_pending_authoritative_disposition"
+    },
+    {
+      "case_id": "household-address-is-not-publishable",
+      "record_type": "privacy_negative_control",
+      "payload": {
+        "privacy_scope": "local_private",
+        "household_address": "REDACTED_TEST_ONLY"
+      },
+      "expected": "schema_reject_additional_property"
+    },
+    {
+      "case_id": "float-quantity-is-rejected",
+      "record_type": "quantity_negative_control",
+      "payload": {
+        "dimension": "mass",
+        "value": 1.25,
+        "decimal_places": 0,
+        "unit": "kg"
+      },
+      "expected": "schema_reject_non_integer"
+    }
+  ]
+}

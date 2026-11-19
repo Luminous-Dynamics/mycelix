@@ -1,0 +1,327 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/food/FoodLotProvenanceV1.schema.json",
+  "title": "FoodLotProvenanceV1",
+  "description": "Supplier/producer-side lot identity and source declarations. Does not represent household receipt, inventory quantity, freshness, food safety or suitability.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lot_ref",
+    "revision",
+    "product_ref",
+    "producer_ref",
+    "supplier_lot_code",
+    "listing_ref",
+    "origin_ref",
+    "quantity",
+    "harvested_at",
+    "packed_at",
+    "best_before_at",
+    "use_by_at",
+    "handling_ref",
+    "evidence",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "lot_ref": {
+      "type": "string",
+      "pattern": "^mycelix:food-lot:[a-z0-9][a-z0-9._:-]{0,127}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "product_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "producer_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "supplier_lot_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "listing_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "origin_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "quantity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "value",
+        "decimal_places",
+        "unit"
+      ],
+      "properties": {
+        "dimension": {
+          "enum": [
+            "mass",
+            "volume",
+            "count"
+          ]
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "decimal_places": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        },
+        "unit": {
+          "enum": [
+            "mg",
+            "g",
+            "kg",
+            "mL",
+            "L",
+            "count",
+            "piece"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "dimension": {
+                "const": "mass"
+              }
+            },
+            "required": [
+              "dimension"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "mg",
+                  "g",
+                  "kg"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "dimension": {
+                "const": "volume"
+              }
+            },
+            "required": [
+              "dimension"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "mL",
+                  "L"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "dimension": {
+                "const": "count"
+              }
+            },
+            "required": [
+              "dimension"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "count",
+                  "piece"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "harvested_at": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "packed_at": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "best_before_at": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "use_by_at": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "handling_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_ref",
+        "evidence_class",
+        "method_ref",
+        "calibration_ref"
+      ],
+      "properties": {
+        "source_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "evidence_class": {
+          "enum": [
+            "Declared",
+            "Attested",
+            "Modelled",
+            "Measured",
+            "IndependentlyAssayed",
+            "IndependentlyQualified"
+          ]
+        },
+        "method_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "calibration_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidence_class": {
+                "const": "Measured"
+              }
+            },
+            "required": [
+              "evidence_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "calibration_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evidence_class": {
+                "enum": [
+                  "IndependentlyAssayed",
+                  "IndependentlyQualified"
+                ]
+              }
+            },
+            "required": [
+              "evidence_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "method_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "claim_ceiling": {
+      "const": "Supplier/producer lot identity and source-declared quantity only; not proof of household receipt, freshness, food safety, allergen status or suitability."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "use_by_at": {
+            "type": "integer"
+          },
+          "best_before_at": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "use_by_at",
+          "best_before_at"
+        ]
+      },
+      "then": {
+        "description": "Runtime validation must enforce use_by_at is not earlier than packed_at or harvested_at where both are known."
+      }
+    }
+  ]
+}
