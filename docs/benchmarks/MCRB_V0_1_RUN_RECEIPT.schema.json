@@ -286,7 +286,8 @@
       "required": [
         "raw_trace_digests",
         "log_digests",
-        "artifact_digests"
+        "artifact_digests",
+        "offer_ledger_artifact_digest_sha256"
       ],
       "properties": {
         "raw_trace_digests": {
@@ -306,6 +307,10 @@
           "items": {
             "type": "string"
           }
+        },
+        "offer_ledger_artifact_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
       }
     },
@@ -536,7 +541,9 @@
         "qualified_success_fraction",
         "cross_host_measurement_required",
         "cross_host_status",
-        "cross_host_aggregate_eligible"
+        "cross_host_aggregate_eligible",
+        "offer_ledger_verification_status",
+        "offer_ledger_issues"
       ],
       "properties": {
         "status": {
@@ -551,11 +558,35 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
+            "schema_version",
+            "run_id",
+            "scenario_id",
+            "measurement_window_id",
             "digest_sha256",
             "entry_count",
-            "generator_digest_sha256"
+            "generator_digest_sha256",
+            "workload_manifest_digest_sha256",
+            "parameter_set_digest_sha256",
+            "monotonic_clock_id",
+            "monotonic_clock_epoch",
+            "artifact_digest_sha256"
           ],
           "properties": {
+            "schema_version": {
+              "const": "mycelix-mcrb-offer-ledger-v0.1"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "scenario_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "measurement_window_id": {
+              "type": "string",
+              "minLength": 1
+            },
             "digest_sha256": {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$"
@@ -565,6 +596,26 @@
               "minimum": 1
             },
             "generator_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "workload_manifest_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "parameter_set_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "monotonic_clock_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "monotonic_clock_epoch": {
+              "type": "string",
+              "minLength": 1
+            },
+            "artifact_digest_sha256": {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$"
             }
@@ -708,6 +759,20 @@
         },
         "cross_host_aggregate_eligible": {
           "type": "boolean"
+        },
+        "offer_ledger_verification_status": {
+          "enum": [
+            "valid",
+            "invalid",
+            "incomplete",
+            "not-evaluated"
+          ]
+        },
+        "offer_ledger_issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     }
