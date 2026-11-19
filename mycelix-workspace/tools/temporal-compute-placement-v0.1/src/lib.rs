@@ -823,6 +823,139 @@ mod tests {
         assert_eq!(report.status, SolveStatus::Incomplete);
     }
 
+    fn reference_integer_slot_scan(tasks: &[Task], worker: &Worker) -> Option<ResourcePressure> {
+        let horizon = tasks.iter().map(|task| task.end_ms).max().unwrap_or(0);
+        let mut peak = ResourcePressure::default();
+
+        for slot in 0..horizon {
+            let mut cpu_used = 0_u64;
+            let mut memory_used = 0_u64;
+            let mut gpu_used = 0_u32;
+
+            for task in tasks.iter().filter(|task| {
+                task.start_ms <= slot && slot < task.end_ms
+            }) {
+                cpu_used = cpu_used.checked_add(task.cpu_millis)?;
+                memory_used = memory_used.checked_add(task.memory_mib)?;
+                gpu_used = gpu_used.checked_add(task.gpu_slots)?;
+            }
+
+            if cpu_used > worker.cpu_millis
+                || memory_used > worker.memory_mib
+                || gpu_used > worker.gpu_slots
+            {
+                return None;
+            }
+
+            let cpu_ppm = (u128::from(cpu_used) * 1_000_000
+                + u128::from(worker.cpu_millis) - 1)
+                / u128::from(worker.cpu_millis);
+            let memory_ppm = (u128::from(memory_used) * 1_000_000
+                + u128::from(worker.memory_mib) - 1)
+                / u128::from(worker.memory_mib);
+            let gpu_ppm = if worker.gpu_slots == 0 {
+                0
+            } else {
+                (u128::from(gpu_used) * 1_000_000
+                    + u128::from(worker.gpu_slots) - 1)
+                    / u128::from(worker.gpu_slots)
+            };
+
+            peak.cpu_ppm = peak.cpu_ppm.max(cpu_ppm as u64);
+            peak.memory_ppm = peak.memory_ppm.max(memory_ppm as u64);
+            peak.gpu_ppm = peak.gpu_ppm.max(gpu_ppm as u64);
+        }
+        Some(peak)
+    }
+
+    #[test]
+    fn event_sweep_matches_independent_integer_slot_oracle_exhaustively() {
+        // Integer endpoints mean occupancy is constant on each [slot, slot+1).
+        // This oracle checks every slot directly and does not sort/sweep events.
+        let intervals = [
+            (0, 1),
+            (0, 2),
+            (0, 3),
+            (1, 2),
+            (1, 3),
+            (2, 3),
+        ];
+        let mut w = worker(2);
+        w.memory_mib = 2;
+        w.gpu_slots = 1;
+
+        for (first_start, first_end) in intervals {
+            for (second_start, second_end) in intervals {
+                for first_cpu in 1..=2 {
+                    for second_cpu in 1..=2 {
+                        for first_memory in 1..=2 {
+                            for second_memory in 1..=2 {
+                                for first_gpu in 0..=1 {
+                                    for second_gpu in 0..=1 {
+                                        let mut first = task(
+                                            "first",
+                                            first_start,
+                                            first_end,
+                                            first_cpu,
+                                        );
+                                        first.memory_mib = first_memory;
+                                        first.gpu_slots = first_gpu;
+
+                                        let mut second = task(
+                                            "second",
+                                            second_start,
+                                            second_end,
+                                            second_cpu,
+                                        );
+                                        second.memory_mib = second_memory;
+                                        second.gpu_slots = second_gpu;
+
+                                        let expected = reference_integer_slot_scan(
+                                            &[first.clone(), second.clone()],
+                                            &w,
+                                        );
+                                        let report = solve_exact(
+                                            &problem(
+                                                vec![w.clone()],
+                                                vec![first.clone(), second.clone()],
+                                            ),
+                                            SolveLimits::default(),
+                                        )
+                                        .unwrap();
+
+                                        match expected {
+                                            None => assert_eq!(
+                                                report.status,
+                                                SolveStatus::Infeasible,
+                                                "unexpected feasible result for {first:?} / {second:?}"
+                                            ),
+                                            Some(peak) => {
+                                                assert_eq!(report.status, SolveStatus::Optimal);
+                                                assert_eq!(report.feasible_assignments, 1);
+                                                assert_eq!(
+                                                    report.frontier[0].peak_cpu_pressure_ppm,
+                                                    peak.cpu_ppm
+                                                );
+                                                assert_eq!(
+                                                    report.frontier[0].peak_memory_pressure_ppm,
+                                                    peak.memory_ppm
+                                                );
+                                                assert_eq!(
+                                                    report.frontier[0].peak_gpu_pressure_ppm,
+                                                    peak.gpu_ppm
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn time_window_duration_drives_estimated_cost() {
         let short = problem(vec![worker(1_000)], vec![task("short", 0, 3_600_000, 1_000)]);
