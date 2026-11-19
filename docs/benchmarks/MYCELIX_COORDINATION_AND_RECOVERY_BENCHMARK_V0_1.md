@@ -563,3 +563,10 @@ The run-receipt schema now requires a first-class QOPS record containing:
 The Rust reducer checks outcome coverage against the supplied expected-ID set. The receipt must additionally bind that set to the append-only offered-operation ledger and the exact workload generator/seed. A schema-valid receipt is not, by itself, proof that the offered ledger is complete: the independent verifier must recompute the ledger digest, confirm its entry count, verify the monotonic window and reconcile outcome IDs against that ledger.
 
 QOPS eligibility requires a valid metric-integrity report, all declared hard correctness gates passing, complete one-to-one outcome coverage and zero duplicate external effects. For invalid, incomplete or not-evaluated QOPS, all performance-rate fields must be null rather than zero or a misleading partial rate.
+
+
+### QOPS local-first versus remote qualification
+
+Every versioned scenario now declares qops_requires_cross_host_visibility. This prevents a runner from deciding after the experiment whether remote observations were necessary.
+
+For scenarios with this flag false, a local-only result may qualify if all other scenario requirements pass; cross-host timing remains NotEvaluated. For scenarios with the flag true, QOPS requires valid complete cross-host event pairs and calibrated clocks. The receipt records the flag, cross-host status and aggregate eligibility. A remote-observation workload cannot claim QOPS based on local write latency alone.
