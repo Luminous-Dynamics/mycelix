@@ -1,0 +1,268 @@
+{
+  "suite_id": "TIB-PROPERTY-STATE-TRANSITIONS-001",
+  "suite_version": "0.1.0",
+  "corpus_kind": "executable_reference_policy_vectors",
+  "data_classification": "synthetic_non_personal",
+  "source_corpus_reference": "https://github.com/Luminous-Dynamics/sol-atlas-leptos/blob/research/territorial-rights-evidence-v0-1/benchmarks/territorial-integrity/tib-property-state-transitions-v0.1.json",
+  "invariants": [
+    "unknown_outcome_blocks_retry",
+    "stable_idempotency_key_is_preserved",
+    "safe_retry_requires_reconciliation_and_endpoint_semantics_reference",
+    "external_receipt_requires_separate_authority_qualification",
+    "projection_retains_receipt_and_verifier_lineage",
+    "later_correction_or_challenge_invalidates_projection",
+    "no_phase_authorizes_authoritative_mutation"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "SEQ-001",
+      "source_scenario_id": "TIB-PT-001",
+      "operation_id": "urn:mycelix:synthetic-land-operation:001",
+      "operation_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "commands": [
+        {
+          "command": "hold",
+          "reason": "internal completion does not prove external registration",
+          "decision_packet_reference": "urn:synthetic:packet:001"
+        }
+      ],
+      "expected_phase": "held",
+      "expected_error": null,
+      "expected_authoritative_mutation": false
+    },
+    {
+      "scenario_id": "SEQ-002",
+      "source_scenario_id": "TIB-PT-002",
+      "operation_id": "urn:mycelix:synthetic-land-operation:002",
+      "operation_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "commands": [
+        {
+          "command": "submit",
+          "attempt_id": "attempt-002",
+          "idempotency_key": "stable-key-002"
+        },
+        {
+          "command": "observe_receipt",
+          "receipt_reference": "urn:synthetic:receipt:002",
+          "receipt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "captured_at": "2026-11-19T04:00:00Z"
+        },
+        {
+          "command": "hold",
+          "reason": "issuer competence and jurisdiction are not independently qualified",
+          "decision_packet_reference": "urn:synthetic:packet:002"
+        }
+      ],
+      "expected_phase": "held",
+      "expected_error": null,
+      "expected_authoritative_mutation": false
+    },
+    {
+      "scenario_id": "SEQ-003",
+      "source_scenario_id": "TIB-PT-003",
+      "operation_id": "urn:mycelix:synthetic-land-operation:003",
+      "operation_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "commands": [
+        {
+          "command": "submit",
+          "attempt_id": "attempt-003",
+          "idempotency_key": "stable-key-003"
+        },
+        {
+          "command": "observe_receipt",
+          "receipt_reference": "urn:synthetic:receipt:003",
+          "receipt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "captured_at": "2026-11-19T04:00:00Z"
+        },
+        {
+          "command": "hold",
+          "reason": "registry source snapshot is stale",
+          "decision_packet_reference": "urn:synthetic:packet:003"
+        }
+      ],
+      "expected_phase": "held",
+      "expected_error": null,
+      "expected_authoritative_mutation": false
+    },
+    {
+      "scenario_id": "SEQ-004",
+      "source_scenario_id": "TIB-PT-004",
+      "operation_id": "urn:mycelix:synthetic-land-operation:004",
+      "operation_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "commands": [
+        {
+          "command": "submit",
+          "attempt_id": "attempt-004",
+          "idempotency_key": "stable-key-004"
+        },
+        {
+          "command": "observe_receipt",
+          "receipt_reference": "urn:synthetic:receipt:004",
+          "receipt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "captured_at": "2026-11-19T04:00:00Z"
+        },
+        {
+          "command": "qualify_external_status",
+          "authority_profile_reference": "urn:synthetic:authority-profile:004",
+          "qualification_reference": "urn:synthetic:qualification:004",
+          "verifier_reference": "urn:synthetic:verifier:004",
+          "qualification_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        {
+          "command": "project_external_status",
+          "projection_reference": "urn:synthetic:projection:004",
+          "projection_scope_reference": "urn:synthetic:scope:004"
+        },
+        {
+          "command": "invalidate_external_status_projection",
+          "invalidation_evidence_reference": "urn:synthetic:late-evidence:004",
+          "reason": "authority revocation is received before downstream projection"
+        }
+      ],
+      "expected_phase": "external_status_invalidated",
+      "expected_error": null,
+      "expected_authoritative_mutation": false
+    },
+    {
+      "scenario_id": "SEQ-005",
+      "source_scenario_id": "TIB-PT-005",
+      "operation_id": "urn:mycelix:synthetic-land-operation:005",
+      "operation_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "commands": [
+        {
+          "command": "submit",
+          "attempt_id": "attempt-005",
+          "idempotency_key": "stable-key-005"
+        },
+        {
+          "command": "mark_outcome_unknown"
+        }
+      ],
+      "expected_phase": "outcome_unknown",
+      "expected_error": null,
+      "expected_authoritative_mutation": false
+    },
+    {
+      "scenario_id": "SEQ-006",
+      "source_scenario_id": "TIB-PT-006",
+      "operation_id": "urn:mycelix:synthetic-land-operation:006",
+      "operation_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "commands": [
+        {
+          "command": "submit",
+          "attempt_id": "attempt-006",
+          "idempotency_key": "stable-key-006"
+        },
+        {
+          "command": "observe_receipt",
+          "receipt_reference": "urn:synthetic:receipt:006",
+          "receipt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "captured_at": "2026-11-19T04:00:00Z"
+        },
+        {
+          "command": "qualify_external_status",
+          "authority_profile_reference": "urn:synthetic:authority-profile:006",
+          "qualification_reference": "urn:synthetic:qualification:006",
+          "verifier_reference": "urn:synthetic:verifier:006",
+          "qualification_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        {
+          "command": "project_external_status",
+          "projection_reference": "urn:synthetic:projection:006",
+          "projection_scope_reference": "urn:synthetic:scope:006"
+        },
+        {
+          "command": "invalidate_external_status_projection",
+          "invalidation_evidence_reference": "urn:synthetic:late-evidence:006",
+          "reason": "late community challenge changes the evidence frontier"
+        }
+      ],
+      "expected_phase": "external_status_invalidated",
+      "expected_error": null,
+      "expected_authoritative_mutation": false
+    },
+    {
+      "scenario_id": "SEQ-007",
+      "source_scenario_id": "TIB-PT-007",
+      "operation_id": "urn:mycelix:synthetic-land-operation:007",
+      "operation_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "commands": [
+        {
+          "command": "submit",
+          "attempt_id": "attempt-007",
+          "idempotency_key": "stable-key-007"
+        },
+        {
+          "command": "observe_receipt",
+          "receipt_reference": "urn:synthetic:receipt:007",
+          "receipt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "captured_at": "2026-11-19T04:00:00Z"
+        },
+        {
+          "command": "hold",
+          "reason": "surface parcel is not a qualified subsurface volume",
+          "decision_packet_reference": "urn:synthetic:packet:007"
+        }
+      ],
+      "expected_phase": "held",
+      "expected_error": null,
+      "expected_authoritative_mutation": false
+    },
+    {
+      "scenario_id": "SEQ-008",
+      "source_scenario_id": "TIB-PT-008",
+      "operation_id": "urn:mycelix:synthetic-land-operation:008",
+      "operation_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "commands": [
+        {
+          "command": "submit",
+          "attempt_id": "attempt-008",
+          "idempotency_key": "stable-key-008"
+        },
+        {
+          "command": "observe_receipt",
+          "receipt_reference": "urn:synthetic:receipt:008",
+          "receipt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "captured_at": "2026-11-19T04:00:00Z"
+        },
+        {
+          "command": "hold",
+          "reason": "issuer delegation does not cover the requested decision type",
+          "decision_packet_reference": "urn:synthetic:packet:008"
+        }
+      ],
+      "expected_phase": "held",
+      "expected_error": null,
+      "expected_authoritative_mutation": false
+    },
+    {
+      "scenario_id": "SEQ-009",
+      "source_scenario_id": "TIB-PT-009",
+      "operation_id": "urn:mycelix:synthetic-land-operation:009",
+      "operation_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "commands": [
+        {
+          "command": "submit",
+          "attempt_id": "attempt-009",
+          "idempotency_key": "stable-key-009"
+        },
+        {
+          "command": "mark_outcome_unknown"
+        },
+        {
+          "command": "submit",
+          "attempt_id": "attempt-009-retry",
+          "idempotency_key": "stable-key-009-retry"
+        }
+      ],
+      "expected_phase": "outcome_unknown",
+      "expected_error": "invalid_transition",
+      "expected_authoritative_mutation": false
+    }
+  ],
+  "non_claims": [
+    "All cases are synthetic and do not represent real persons, communities, registries or property.",
+    "Passing these pure reference-policy vectors does not prove Property host integration or legal effect.",
+    "External receipt signatures, authority competence, revocation state and endpoint behavior are not cryptographically authenticated by this corpus."
+  ]
+}
