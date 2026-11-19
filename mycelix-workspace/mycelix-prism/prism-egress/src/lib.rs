@@ -3963,6 +3963,54 @@ mod tests {
         assert!(matches!(result, Err(EgressError::CapabilityExpired)));
     }
 
+    #[tokio::test]
+    async fn caller_correlation_id_is_preserved_and_hop_ceiling_fails_before_dns() {
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let resolver = StaticResolver {
+            answers: socket_addresses(&["93.184.216.34:443"]),
+            calls: Arc::clone(&calls),
+        };
+        let client = PublicEgressClient::with_resolver(EgressLimits::default(), resolver);
+        let logical_request_id = "0123456789abcdef0123456789abcdef";
+
+        let capability = client
+            .authorize_with_authority_and_correlation(
+                EgressAuthority::PublicWeb,
+                Method::GET,
+                "https://correlation-prism.test/",
+                HeaderMap::new(),
+                Vec::new(),
+                logical_request_id,
+                2,
+            )
+            .await
+            .unwrap();
+        assert_eq!(capability.logical_request_id, logical_request_id);
+        assert_eq!(capability.redirect_hop, 2);
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+
+        let rejected = client
+            .authorize_with_authority_and_correlation(
+                EgressAuthority::PublicWeb,
+                Method::GET,
+                "https://correlation-prism.test/",
+                HeaderMap::new(),
+                Vec::new(),
+                logical_request_id,
+                (MAX_PUBLIC_WEB_REDIRECT_HOPS + 1) as u8,
+            )
+            .await;
+        assert!(matches!(
+            rejected,
+            Err(EgressError::LogicalRequestHopOutOfRange)
+        ));
+        assert_eq!(
+            calls.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "invalid hop metadata must be rejected before DNS"
+        );
+    }
+
     #[test]
     fn logical_request_id_requires_exact_lowercase_hex_and_valid_hop() {
         assert!(validate_logical_request_id("0123456789abcdef0123456789abcdef").is_ok());
