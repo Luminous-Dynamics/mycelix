@@ -8,6 +8,7 @@
     "schema",
     "packet_id",
     "component",
+    "physical_unit",
     "configuration",
     "design_definition",
     "requirements",
@@ -19,11 +20,13 @@
     "inspection_plan",
     "inspection_instrument",
     "inspection_calibration",
+    "inspection_calibration_validity",
     "inspection_result",
     "inspection_evidence",
     "test_plan",
     "test_instrument",
     "test_calibration",
+    "test_calibration_validity",
     "test_result",
     "test_evidence"
   ],
@@ -99,6 +102,15 @@
     },
     "test_evidence": {
       "$ref": "#/$defs/evidence"
+    },
+    "physical_unit": {
+      "$ref": "#/$defs/ref"
+    },
+    "inspection_calibration_validity": {
+      "$ref": "#/$defs/calibration_validity"
+    },
+    "test_calibration_validity": {
+      "$ref": "#/$defs/calibration_validity"
     }
   },
   "$defs": {
@@ -326,6 +338,33 @@
         },
         "provenance": {
           "$ref": "#/$defs/refs"
+        }
+      }
+    },
+    "calibration_validity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence",
+        "valid_from_unix_ms",
+        "valid_until_unix_ms",
+        "used_at_unix_ms"
+      ],
+      "properties": {
+        "evidence": {
+          "$ref": "#/$defs/ref"
+        },
+        "valid_from_unix_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "valid_until_unix_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "used_at_unix_ms": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     }
