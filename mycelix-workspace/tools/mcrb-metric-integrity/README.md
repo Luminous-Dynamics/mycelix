@@ -89,3 +89,16 @@ A separate pure calculation module is now available at `src/cross_host.rs`:
 The helper is **not yet wired into `MeasurementBatch` or the canonical run-receipt emitter**. Its calibration/event inputs are still caller-supplied and need authenticated artifact binding and uniqueness/completeness checks. Therefore it is an implemented calculation primitive, not yet a qualified cross-host DHT convergence verifier.
 
 The current source contains 20 authored tests across local tick derivation and cross-host interval calculations. Exact-head Cargo tests/Clippy remain pending.
+
+
+## Cross-host publish/observe timing
+
+The verifier now treats local and cross-host measurements as separate gates:
+
+- Local durations are derived only from per-peer monotonic tick pairs, pinned clock IDs/epochs and nonzero tick frequencies.
+- Cross-host publication/first-valid-observation pairs must match the expected operation ID, record digest, publisher and observer.
+- Each host must have one unique calibration bound to the peer and calibration ID; calibration validity windows are checked.
+- Cross-host latency is reported as an uncertainty interval. A point estimate is withheld when the combined clock uncertainty exceeds the configured threshold.
+- Local-only batches report cross-host timing as `NotEvaluated`, never as PASS. Cross-host incompleteness does not fabricate zero-latency observations.
+
+The library validates measurement integrity only. It does not attest that clocks, event origins or calibration artifacts are authentic; the caller must bind those to signed/raw run evidence.
