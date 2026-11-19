@@ -41,7 +41,7 @@ Only the second can corroborate a denied-before-connect receipt.
 
 ## Executable coverage
 
-The dependency-free test file prism-egress/tests/evidence_reconciliation_model.rs runs as part of cargo test -p prism-egress. It covers a valid positive control, event-buffer loss, overlapping actions, an orphan kernel event, a missing kernel event, detach/reattach gaps, sequence gaps, an unauthorized peer, and pre-connect denial.
+The dependency-free test file prism-egress/tests/evidence_reconciliation_model.rs runs as part of cargo test -p prism-egress. It covers a valid positive control, event-buffer loss (including a missing terminal event exposed by the attempt high-watermark), overlapping actions, an orphan kernel event, a missing kernel event, detach/reattach gaps, sequence gaps, an unauthorized peer, and pre-connect denial.
 
 PEAB entries OBS-001 through OBS-007 classify this as **partial source coverage**. These tests do not establish that a kernel observer, cgroup policy, or production receipt integration exists or works.
 

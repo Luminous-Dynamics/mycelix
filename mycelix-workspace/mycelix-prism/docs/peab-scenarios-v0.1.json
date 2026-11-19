@@ -524,7 +524,7 @@
       "expected_decision": "incomplete",
       "oracle": "lost-event counters are surfaced and any run with observer loss is marked incomplete; absence of observed unauthorized events cannot be reported as zero",
       "source_coverage": "partial",
-      "source_test": "observer_event_loss_never_produces_complete_reconciliation",
+      "source_test": "observer_event_loss_never_produces_complete_reconciliation; terminal_attempt_sequence_hole_invalidates_observer_window",
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true

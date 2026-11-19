@@ -340,3 +340,19 @@ fn same_socket_cookie_with_distinct_sequences_is_not_a_duplicate_event() {
     assert!(report.independently_qualified());
     assert_eq!(report.outcomes[0].1, ActionOutcome::ReconciledConnected);
 }
+
+
+#[test]
+fn terminal_attempt_sequence_hole_invalidates_observer_window() {
+    let receipt = connected_receipt("lost-terminal-event", 100, 200);
+    // The final event was lost after sequence allocation. The attempt
+    // high-watermark still reports sequence 9 even though only 8 was drained.
+    let report = reconcile(observer(8, Some(9)), &[receipt], &[event(8, 150, peer(10, 443))]);
+
+    assert!(!report.independently_qualified());
+    assert_eq!(report.observer_error, Some(IncompleteReason::EventSequenceGap));
+    assert_eq!(
+        report.outcomes[0].1,
+        ActionOutcome::Incomplete(IncompleteReason::EventSequenceGap)
+    );
+}
