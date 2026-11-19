@@ -113,6 +113,10 @@ pub struct PlacementCandidate {
     pub remote_input_bytes: u128,
     /// Count of distinct failure domains used, not a probability of availability.
     pub distinct_failure_domains: usize,
+    /// Count of declared operator identities; not proof of independent control.
+    pub distinct_operators: usize,
+    /// Count of regions used; hard data-residency policy remains a separate constraint.
+    pub distinct_regions: usize,
     /// Maximum CPU, memory, or GPU utilization across workers, in parts per million.
     pub max_resource_pressure_ppm: u64,
 }
@@ -283,10 +287,14 @@ fn dominates(left: &PlacementCandidate, right: &PlacementCandidate) -> bool {
     let no_worse = left.estimated_cost_microusd <= right.estimated_cost_microusd
         && left.remote_input_bytes <= right.remote_input_bytes
         && left.distinct_failure_domains >= right.distinct_failure_domains
+        && left.distinct_operators >= right.distinct_operators
+        && left.distinct_regions >= right.distinct_regions
         && left.max_resource_pressure_ppm <= right.max_resource_pressure_ppm;
     let strictly_better = left.estimated_cost_microusd < right.estimated_cost_microusd
         || left.remote_input_bytes < right.remote_input_bytes
         || left.distinct_failure_domains > right.distinct_failure_domains
+        || left.distinct_operators > right.distinct_operators
+        || left.distinct_regions > right.distinct_regions
         || left.max_resource_pressure_ppm < right.max_resource_pressure_ppm;
     no_worse && strictly_better
 }
@@ -295,6 +303,8 @@ fn same_metrics(left: &PlacementCandidate, right: &PlacementCandidate) -> bool {
     left.estimated_cost_microusd == right.estimated_cost_microusd
         && left.remote_input_bytes == right.remote_input_bytes
         && left.distinct_failure_domains == right.distinct_failure_domains
+        && left.distinct_operators == right.distinct_operators
+        && left.distinct_regions == right.distinct_regions
         && left.max_resource_pressure_ppm == right.max_resource_pressure_ppm
 }
 
@@ -308,6 +318,8 @@ fn sort_frontier(frontier: &mut [PlacementCandidate]) {
                     .distinct_failure_domains
                     .cmp(&left.distinct_failure_domains)
             })
+            .then_with(|| right.distinct_operators.cmp(&left.distinct_operators))
+            .then_with(|| right.distinct_regions.cmp(&left.distinct_regions))
             .then_with(|| {
                 left.max_resource_pressure_ppm
                     .cmp(&right.max_resource_pressure_ppm)
@@ -370,6 +382,8 @@ impl SearchState<'_> {
         let mut estimated_cost_microusd = 0_u128;
         let mut remote_input_bytes = 0_u128;
         let mut failure_domains = BTreeSet::new();
+        let mut operators = BTreeSet::new();
+        let mut regions = BTreeSet::new();
         let mut assignments = Vec::with_capacity(self.chosen.len());
         for (task_index, worker_index) in &self.chosen {
             let task = self.tasks[*task_index];
@@ -383,6 +397,8 @@ impl SearchState<'_> {
                     .ok_or(SolveError::ArithmeticOverflow)?;
             }
             failure_domains.insert(worker.failure_domain_id.as_str());
+            operators.insert(worker.operator_id.as_str());
+            regions.insert(worker.region_id.as_str());
             assignments.push(Assignment {
                 task_id: task.task_id.clone(),
                 worker_id: worker.worker_id.clone(),
@@ -407,6 +423,8 @@ impl SearchState<'_> {
             estimated_cost_microusd,
             remote_input_bytes,
             distinct_failure_domains: failure_domains.len(),
+            distinct_operators: operators.len(),
+            distinct_regions: regions.len(),
             max_resource_pressure_ppm,
         };
 
@@ -575,6 +593,8 @@ mod tests {
             .unwrap();
         assert_eq!(local_diverse.estimated_cost_microusd, 8_500);
         assert_eq!(local_diverse.distinct_failure_domains, 2);
+        assert_eq!(local_diverse.distinct_operators, 2);
+        assert_eq!(local_diverse.distinct_regions, 2);
 
         let low_cost_remote = report
             .frontier
@@ -584,6 +604,22 @@ mod tests {
         assert_eq!(low_cost_remote.estimated_cost_microusd, 5_500);
         assert_eq!(low_cost_remote.remote_input_bytes, 10 * 1_024_u128.pow(3));
         assert_eq!(low_cost_remote.distinct_failure_domains, 1);
+        assert_eq!(low_cost_remote.distinct_operators, 1);
+        assert_eq!(low_cost_remote.distinct_regions, 1);
+    }
+
+
+    #[test]
+    fn distinct_failure_domains_do_not_imply_distinct_operators() {
+        let mut problem = example_problem();
+        problem.workers[1].operator_id = problem.workers[0].operator_id.clone();
+        let report = solve_exact(&problem, SolveLimits::default()).unwrap();
+        let diverse = report.frontier.iter()
+            .find(|candidate| candidate.remote_input_bytes == 0)
+            .unwrap();
+        assert_eq!(diverse.distinct_failure_domains, 2);
+        assert_eq!(diverse.distinct_operators, 1);
+        assert_eq!(diverse.distinct_regions, 2);
     }
 
     #[test]
