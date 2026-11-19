@@ -414,6 +414,46 @@ fn is_sha256(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::Deserialize;
+    use std::collections::HashMap;
+
+    #[derive(Deserialize)]
+    struct InvalidationCorpus {
+        suite_id: String,
+        suite_version: String,
+        scenarios: Vec<InvalidationScenario>,
+    }
+
+    #[derive(Deserialize)]
+    struct InvalidationScenario {
+        scenario_id: String,
+        nodes: Vec<EvidenceDependencyNode>,
+        initial_invalidations: Vec<EvidenceInvalidationRecord>,
+        steps: Vec<InvalidationStep>,
+        expected_affected_by_step: Vec<Vec<String>>,
+        expected_error_by_step: Vec<Option<String>>,
+        expected_invalidated: Vec<String>,
+        expected_current: Vec<String>,
+        expected_cause_counts: HashMap<String, usize>,
+        expected_record_count: usize,
+        expected_final_validation: String,
+    }
+
+    #[derive(Deserialize)]
+    struct InvalidationStep {
+        root_reference: String,
+        invalidation_event_reference: String,
+        reason: String,
+    }
+
+    fn error_name(error: EvidenceInvalidationError) -> &'static str {
+        match error {
+            EvidenceInvalidationError::InvalidInput => "invalid_input",
+            EvidenceInvalidationError::UnknownRoot => "unknown_root",
+            EvidenceInvalidationError::EventReferenceConflict => "event_reference_conflict",
+            EvidenceInvalidationError::InvalidGraph => "invalid_graph",
+        }
+    }
 
     fn node(reference: &str, dependencies: &[&str], digest: char) -> EvidenceDependencyNode {
         EvidenceDependencyNode {
@@ -431,6 +471,110 @@ mod tests {
             node("read-model:external-status:v1", &["authority-assessment:v1"], 'd'),
             node("unrelated:water-interest:v1", &[], 'e'),
         ])
+    }
+
+    #[test]
+    fn tib_evidence_invalidation_corpus_is_executable_and_deterministic() {
+        let corpus: InvalidationCorpus = serde_json::from_str(include_str!(
+            "../../../examples/tib-evidence-invalidation-v0.1.json"
+        ))
+        .expect("TIB evidence invalidation corpus must deserialize");
+        assert_eq!(corpus.suite_id, "TIB-EVIDENCE-INVALIDATION-001");
+        assert_eq!(corpus.suite_version, "0.1.0");
+        assert_eq!(corpus.scenarios.len(), 8);
+
+        for scenario in corpus.scenarios {
+            let mut graph = EvidenceDependencyGraphV0 {
+                schema: EVIDENCE_INVALIDATION_SCHEMA.into(),
+                nodes: scenario.nodes,
+                invalidations: scenario.initial_invalidations,
+            };
+            assert_eq!(
+                scenario.steps.len(),
+                scenario.expected_affected_by_step.len(),
+                "affected-step vector length mismatch for {}",
+                scenario.scenario_id
+            );
+            assert_eq!(
+                scenario.steps.len(),
+                scenario.expected_error_by_step.len(),
+                "error-step vector length mismatch for {}",
+                scenario.scenario_id
+            );
+
+            for (index, step) in scenario.steps.into_iter().enumerate() {
+                let result = graph.invalidate_from(
+                    &step.root_reference,
+                    &step.invalidation_event_reference,
+                    &step.reason,
+                );
+                match scenario.expected_error_by_step[index].as_deref() {
+                    Some(expected_error) => {
+                        let error = result.expect_err("scenario should reject this step");
+                        assert_eq!(
+                            error_name(error),
+                            expected_error,
+                            "unexpected error in {} step {}",
+                            scenario.scenario_id,
+                            index
+                        );
+                    }
+                    None => {
+                        let affected = result.expect("scenario should apply this step");
+                        assert_eq!(
+                            affected,
+                            scenario.expected_affected_by_step[index],
+                            "wrong affected set in {} step {}",
+                            scenario.scenario_id,
+                            index
+                        );
+                    }
+                }
+            }
+
+            let mut invalidated = graph
+                .nodes
+                .iter()
+                .filter(|node| !graph.is_current(&node.node_reference))
+                .map(|node| node.node_reference.clone())
+                .collect::<Vec<_>>();
+            invalidated.sort();
+            let mut current = graph
+                .nodes
+                .iter()
+                .filter(|node| graph.is_current(&node.node_reference))
+                .map(|node| node.node_reference.clone())
+                .collect::<Vec<_>>();
+            current.sort();
+
+            assert_eq!(invalidated, scenario.expected_invalidated, "invalidated set for {}", scenario.scenario_id);
+            assert_eq!(current, scenario.expected_current, "current set for {}", scenario.scenario_id);
+            assert_eq!(
+                graph.invalidations.len(),
+                scenario.expected_record_count,
+                "invalidation record count for {}",
+                scenario.scenario_id
+            );
+            for (node_reference, expected_count) in scenario.expected_cause_counts {
+                assert_eq!(
+                    graph.invalidation_causes(&node_reference).len(),
+                    expected_count,
+                    "cause count for {node_reference} in {}",
+                    scenario.scenario_id
+                );
+            }
+            let actual_validation = if graph.validate_structural().is_ok() {
+                "valid"
+            } else {
+                "invalid"
+            };
+            assert_eq!(
+                actual_validation,
+                scenario.expected_final_validation,
+                "final graph validation for {}",
+                scenario.scenario_id
+            );
+        }
     }
 
     #[test]
