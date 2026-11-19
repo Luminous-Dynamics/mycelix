@@ -50,7 +50,7 @@ Canonical bytes use:
 - explicit operation-binding and optional-budget tags;
 - unsigned big-endian numeric budget fields.
 
-Identifier collections reject empties, duplicates, ASCII whitespace/control characters, non-ASCII strings, values longer than 256 bytes, and more than 1,024 entries. The constructor normalizes ordering before encoding. The Rust module includes a fixed 162-byte known-answer vector and field-mutation digest test.
+Identifier collections reject empties, duplicates, ASCII whitespace/control characters, non-ASCII strings, values longer than 256 bytes, and more than 1,024 entries. The constructor normalizes ordering before encoding. The Rust module includes a fixed 150-byte known-answer vector and field-mutation digest test.
 
 The canonical encoding is a content-binding primitive only. It does not authenticate the issuing principal, establish the authority epoch, prove record currentness, or validate a parent chain.
 
