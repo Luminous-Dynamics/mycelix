@@ -186,7 +186,11 @@ impl EvidenceDependencyGraphV0 {
                 ));
             }
 
-            if issues.is_empty()
+            let root_exists = by_reference.contains_key(invalidation.root_reference.as_str());
+            let affected_exists =
+                by_reference.contains_key(invalidation.affected_reference.as_str());
+            if root_exists
+                && affected_exists
                 && invalidation.root_reference != invalidation.affected_reference
                 && !self.depends_transitively_on(
                     invalidation.affected_reference.as_str(),
@@ -198,6 +202,33 @@ impl EvidenceDependencyGraphV0 {
                     "invalidated node {} does not depend on root {}",
                     invalidation.affected_reference, invalidation.root_reference
                 ));
+            }
+        }
+
+        if issues.is_empty() {
+            // Each event must propagate to the root and every transitive
+            // dependent. Partial propagation would leave stale projections
+            // looking current after their source has been invalidated.
+            for (event_reference, (root_reference, _reason)) in &event_roots {
+                for node in &self.nodes {
+                    let expected_affected = node.node_reference == *root_reference
+                        || self.depends_transitively_on(
+                            node.node_reference.as_str(),
+                            root_reference,
+                            &by_reference,
+                        );
+                    if expected_affected
+                        && !event_affected.contains(&(
+                            *event_reference,
+                            node.node_reference.as_str(),
+                        ))
+                    {
+                        issues.push(format!(
+                            "invalidation event {} omits dependent node {}",
+                            event_reference, node.node_reference
+                        ));
+                    }
+                }
             }
         }
 
@@ -558,6 +589,21 @@ mod tests {
         assert!(issues
             .iter()
             .any(|issue| issue.contains("does not depend on root")));
+    }
+
+    #[test]
+    fn invalidation_index_rejects_partial_downstream_propagation() {
+        let mut value = graph();
+        value.invalidations.push(EvidenceInvalidationRecord {
+            invalidation_event_reference: "event:partial:001".into(),
+            root_reference: "source:registry-extract:v1".into(),
+            affected_reference: "source:registry-extract:v1".into(),
+            reason: "source was corrected".into(),
+        });
+        let issues = value.validate_structural().unwrap_err();
+        assert!(issues
+            .iter()
+            .any(|issue| issue.contains("omits dependent node")));
     }
 
     #[test]
