@@ -2894,8 +2894,17 @@ mod tests {
         let client =
             PublicEgressClient::with_test_resolver(EgressLimits::default(), resolver.clone());
         let first_url = format!("http://prism-redirect.test:{}/start", first_address.port());
+        let logical_request_id = "0123456789abcdef0123456789abcdef";
         let capability = client
-            .authorize(Method::GET, &first_url, HeaderMap::new(), Vec::new())
+            .authorize_with_authority_and_correlation(
+                EgressAuthority::PublicWeb,
+                Method::GET,
+                &first_url,
+                HeaderMap::new(),
+                Vec::new(),
+                logical_request_id,
+                2,
+            )
             .await
             .unwrap();
 
@@ -2905,10 +2914,12 @@ mod tests {
         assert_eq!(response.receipt.remote_peer, second_address);
         assert_eq!(response.receipt.authorized_addresses, vec![second_address]);
         assert_eq!(response.receipt.redirect_hops.len(), 1);
-        assert_eq!(response.receipt.logical_request_id.len(), 32);
-        assert_eq!(response.receipt.redirect_hop, 1);
+        assert_eq!(response.receipt.logical_request_id, logical_request_id);
+        assert_eq!(response.receipt.redirect_hop, 3);
 
         let hop = &response.receipt.redirect_hops[0];
+        assert_eq!(hop.logical_request_id, logical_request_id);
+        assert_eq!(hop.redirect_hop, 2);
         assert_eq!(hop.logical_request_id, response.receipt.logical_request_id);
         assert_eq!(hop.redirect_hop, 0);
         assert_eq!(
