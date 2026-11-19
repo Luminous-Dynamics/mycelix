@@ -710,6 +710,19 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "PRIV-001",
+      "family": "privacy_minimization",
+      "title": "internal correlation ID is not sent to the remote HTTP authority",
+      "setup": "execute a multi-hop redirect chain with an opaque logical_request_id and inspect every outbound request",
+      "expected_decision": "correlation_id_local_only",
+      "oracle": "the ID is present in application receipts for correlation but absent from all outbound HTTP request bytes and headers",
+      "source_coverage": "present",
+      "source_test": "public_redirect_reauthorizes_and_pins_each_hop_dns_snapshot",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
