@@ -1,0 +1,37 @@
+{
+  "schema": "mycelix.evidence-invalidation-graph.v0",
+  "nodes": [
+    {
+      "node_reference": "source:registry-extract:v1",
+      "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "depends_on": []
+    },
+    {
+      "node_reference": "assertion:surface-right:v1",
+      "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "depends_on": [
+        "source:registry-extract:v1"
+      ]
+    },
+    {
+      "node_reference": "authority-assessment:v1",
+      "content_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "depends_on": [
+        "assertion:surface-right:v1"
+      ]
+    },
+    {
+      "node_reference": "read-model:external-status:v1",
+      "content_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "depends_on": [
+        "authority-assessment:v1"
+      ]
+    },
+    {
+      "node_reference": "unrelated:water-interest:v1",
+      "content_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "depends_on": []
+    }
+  ],
+  "invalidations": []
+}
