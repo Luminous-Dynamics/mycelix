@@ -2,9 +2,9 @@
 //!
 //! This module deliberately does not claim a complete source-to-DNA mapping.
 //! It discovers static call sites, associates a source file with the deepest
-//! ancestor hApp manifest when possible, and classifies profile-dependent cases
+//! nearest ancestor hApp manifest as a context hint, and classifies profile-dependent cases
 //! as candidates rather than asserting that matching role names prove DNA
-//! identity. Findings remain advisory until mapping coverage is qualified.
+//! identity. Findings remain advisory until mapping coverage is qualified. The nearest manifest is not proof of source-to-DNA ownership.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -107,7 +107,7 @@ impl<'ast> Visit<'ast> for OtherRoleVisitor<'_> {
             Expr::Path(ExprPath { path, .. }) => path
                 .segments
                 .last()
-                .map(|segment| segment.ident == "OtherRole")
+                .map(|segment| segment.ident == "OtherRole" && path.segments.iter().any(|segment| segment.ident == "CallTargetCell"))
                 .unwrap_or(false),
             _ => false,
         };
@@ -319,6 +319,63 @@ fn matching_role_name_profiles(
         .collect()
 }
 
+#[derive(Debug)]
+struct TargetClassification {
+    classification: &'static str,
+    declared_in_context: bool,
+    present_elsewhere: bool,
+    matching_profile_candidates: Vec<String>,
+}
+
+fn classify_target(
+    context: Option<&ManifestInfo>,
+    target_role: Option<&str>,
+    manifests: &[ManifestInfo],
+) -> TargetClassification {
+    match (context, target_role) {
+        (None, _) => TargetClassification {
+            classification: "source-context-unresolved",
+            declared_in_context: false,
+            present_elsewhere: false,
+            matching_profile_candidates: Vec::new(),
+        },
+        (Some(_), None) => TargetClassification {
+            classification: "dynamic-unresolved",
+            declared_in_context: false,
+            present_elsewhere: false,
+            matching_profile_candidates: Vec::new(),
+        },
+        (Some(context), Some(target)) if context.role_names.contains(target) => {
+            TargetClassification {
+                classification: "nearest-manifest-declared",
+                declared_in_context: true,
+                present_elsewhere: true,
+                matching_profile_candidates: vec![context.name.clone()],
+            }
+        }
+        (Some(context), Some(target)) => {
+            let present_elsewhere = manifests
+                .iter()
+                .any(|manifest| manifest.role_names.contains(target));
+            let candidates =
+                matching_role_name_profiles(&context.role_names, target, manifests);
+            let classification = if !candidates.is_empty() {
+                "profile-dependent-candidate"
+            } else if present_elsewhere {
+                "cross-profile-or-source-mapping-unresolved"
+            } else {
+                "missing-role-candidate"
+            };
+            TargetClassification {
+                classification,
+                declared_in_context: false,
+                present_elsewhere,
+                matching_profile_candidates: candidates,
+            }
+        }
+    }
+}
+
 fn audit_source_file(
     root: &Path,
     source: &Path,
@@ -340,27 +397,8 @@ fn audit_source_file(
     let call_count = visitor.calls.len();
     let mut results = Vec::new();
     for (line, target_role, expression) in visitor.calls {
-        let (classification, target_declared_in_context, target_present_elsewhere, matching) =
-            match (context, target_role.as_deref()) {
-                (None, _) => ("source-owner-unresolved", false, false, Vec::new()),
-                (Some(_), None) => ("dynamic-unresolved", false, false, Vec::new()),
-                (Some(context), Some(target)) if context.role_names.contains(target) => {
-                    ("nearest-manifest-declared", true, true, vec![context.name.clone()])
-                }
-                (Some(_context), Some(target)) => {
-                    let target_elsewhere = manifests
-                        .iter()
-                        .any(|manifest| manifest.role_names.contains(target));
-                    let matching = matching_role_name_profiles(&context_roles, target, manifests);
-                    if !matching.is_empty() {
-                        ("profile-dependent-candidate", false, target_elsewhere, matching)
-                    } else if target_elsewhere {
-                        ("cross-profile-or-source-mapping-unresolved", false, true, Vec::new())
-                    } else {
-                        ("missing-role-candidate", false, false, Vec::new())
-                    }
-                }
-            };
+        let target_classification =
+            classify_target(context, target_role.as_deref(), manifests);
 
         results.push(CallSite {
             source_path: relative_path(root, source),
@@ -373,8 +411,8 @@ fn audit_source_file(
             source_to_dna_identity: "not-proven".to_string(),
             target_role,
             target_expression: expression,
-            classification: classification.to_string(),
-            target_declared_in_nearest_manifest_context: target_declared_in_context,
+            classification: target_classification.classification.to_string(),
+            target_declared_in_nearest_manifest_context: target_classification.declared_in_context,
             target_present_elsewhere,
             matching_role_name_profiles: matching,
             caveat: "Nearest-manifest context is not proof of source-to-DNA ownership. Role-name overlap in another profile is only a candidate mapping and does not prove DNA artifact identity.".to_string(),
