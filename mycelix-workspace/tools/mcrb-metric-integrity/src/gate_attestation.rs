@@ -670,7 +670,7 @@ mod tests {
         let (policy, key) = policy_and_key();
         let mut attestations = complete_attestations(&policy, &key, GateOutcome::Pass);
         attestations.pop();
-        let report = verify_gate_attestations(&policy, &attestations);
+        let report = verify_gate_attestations(&policy, &gate_verifier_policy_digest(&policy), &attestations);
         assert_eq!(report.status(), GateVerificationStatus::Incomplete);
         assert_eq!(report.incomplete_gate_count(), 1);
     }
@@ -683,7 +683,7 @@ mod tests {
             attestation(&policy, &key, &gates[0], GateOutcome::Pass),
             attestation(&policy, &key, &gates[1], GateOutcome::Fail),
         ];
-        let report = verify_gate_attestations(&policy, &attestations);
+        let report = verify_gate_attestations(&policy, &gate_verifier_policy_digest(&policy), &attestations);
         assert_eq!(report.status(), GateVerificationStatus::Failed);
         assert_eq!(report.failed_gate_count(), 1);
         attestations.clear();
@@ -694,7 +694,7 @@ mod tests {
         let (policy, key) = policy_and_key();
         let mut attestations = complete_attestations(&policy, &key, GateOutcome::Pass);
         attestations[0].evidence_artifact_digests_sha256[0] = "c".repeat(64);
-        let report = verify_gate_attestations(&policy, &attestations);
+        let report = verify_gate_attestations(&policy, &gate_verifier_policy_digest(&policy), &attestations);
         assert_eq!(report.status(), GateVerificationStatus::Invalid);
         assert!(report.issues().contains(&GateVerificationIssue::InvalidSignature(attestations[0].gate_id.clone())));
     }
@@ -704,7 +704,7 @@ mod tests {
         let (policy, key) = policy_and_key();
         let mut attestations = complete_attestations(&policy, &key, GateOutcome::Pass);
         attestations[0].source_sha = "d".repeat(40);
-        let report = verify_gate_attestations(&policy, &attestations);
+        let report = verify_gate_attestations(&policy, &gate_verifier_policy_digest(&policy), &attestations);
         assert_eq!(report.status(), GateVerificationStatus::Invalid);
         assert!(report.issues().contains(&GateVerificationIssue::SourceShaMismatch(attestations[0].gate_id.clone())));
     }
