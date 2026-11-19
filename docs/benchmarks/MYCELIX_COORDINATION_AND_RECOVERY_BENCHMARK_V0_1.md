@@ -458,3 +458,14 @@ Until [MCRB-TIME-001 #6335](https://github.com/Luminous-Dynamics/mycelix/issues/
 
 MCRB-16 now includes raw monotonic tick-pair, clock-epoch, matched event/record-digest and uncertainty-interval controls. The run-receipt schema requires the corresponding integrity fields. This is a deliberate claim ceiling, not a reason to wait before doing source-level work on the other MCRB scenarios.
 
+
+
+## 19. Local tick-derived timing implementation update
+
+The MCRB metric-integrity candidate now represents local duration samples as raw monotonic start/end ticks, clock ID and clock epoch. The verifier derives duration from the tick delta and the declared nonzero tick frequency; it no longer accepts a caller-supplied `duration_ms` field as the value used for percentile aggregation.
+
+The authored tests now cover valid derived distributions, outlier preservation, reversed ticks, clock-ID mismatch, clock-epoch mismatch, zero tick frequency, derived duration outside the declared window, missing peer samples, clock uncertainty metadata, counter overflow/shortfall, wall-clock declaration, duplicate peer/operation samples, cross-peer observation of the same logical operation and empty batches.
+
+This is a source-level increment only. The exact branch head has not yet passed Cargo tests or Clippy. Cross-host DHT convergence remains **not qualified**: the verifier still needs matched publish/first-valid-observation events, record-digest binding, calibration validity and uncertainty intervals from both hosts under #6335.
+
+Do not claim the 13 authored tests passed until the exact-head workflow proves it.
