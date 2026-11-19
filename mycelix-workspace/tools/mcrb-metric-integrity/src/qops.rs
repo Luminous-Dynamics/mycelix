@@ -29,7 +29,6 @@ pub struct OperationOutcomeSample {
 pub struct QopsInput {
     pub outcomes: Vec<OperationOutcomeSample>,
     pub hard_correctness_gates_passed: bool,
-    pub cross_host_measurement_required: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,6 +62,7 @@ pub struct QopsReport {
     pub parameter_set_digest_sha256: String,
     pub measurement_window_id: String,
     pub measurement_window_ns: u64,
+    pub cross_host_measurement_required: bool,
     pub offered_operations: usize,
     pub classified_outcomes: usize,
     pub qualified_successes: usize,
@@ -106,7 +106,7 @@ pub fn compute_qops(
     {
         push_unique(&mut issues, QopsIssue::MetricIntegrityNotValid);
     }
-    if input.cross_host_measurement_required
+    if ledger.requires_cross_host_visibility()
         && (metric_integrity.cross_host_status != super::CrossHostTimingStatus::Valid
             || !metric_integrity.cross_host_aggregate_eligible)
     {
@@ -197,6 +197,7 @@ pub fn compute_qops(
         parameter_set_digest_sha256: ledger.parameter_set_digest_sha256().to_string(),
         measurement_window_id: ledger.measurement_window_id().to_string(),
         measurement_window_ns: ledger.measurement_window_ns(),
+        cross_host_measurement_required: ledger.requires_cross_host_visibility(),
         offered_operations,
         classified_outcomes,
         qualified_successes,
@@ -234,9 +235,9 @@ mod tests {
         hex
     }
 
-    fn verified_ledger() -> VerifiedOfferLedger {
+    fn verified_ledger(cross_host_required: bool) -> VerifiedOfferLedger {
         let run_id = "run-001".to_string();
-        let scenario_id = "MCRB-03".to_string();
+        let scenario_id = if cross_host_required { "MCRB-03" } else { "MCRB-01" }.to_string();
         let generator = digest("generator");
         let manifest = digest("manifest");
         let params = digest("params");
@@ -247,6 +248,7 @@ mod tests {
             run_id: run_id.clone(),
             scenario_id: scenario_id.clone(),
             measurement_window_id: "window-1".to_string(),
+            requires_cross_host_visibility: cross_host_required,
             workload_manifest_digest_sha256: manifest.clone(),
             generator_digest_sha256: generator.clone(),
             parameter_set_digest_sha256: params.clone(),
@@ -311,13 +313,12 @@ mod tests {
                 sample("op-5", OperationOutcome::Failed),
             ],
             hard_correctness_gates_passed: true,
-            cross_host_measurement_required: false,
         }
     }
 
     #[test]
     fn qops_counts_only_qualified_successes_and_uses_verified_offer_denominator() {
-        let ledger = verified_ledger();
+        let ledger = verified_ledger(false);
         let report = compute_qops(&ledger, &valid_input(), &valid_integrity());
         assert_eq!(report.status, QopsStatus::Eligible);
         assert_eq!(report.offered_operations, 5);
@@ -406,8 +407,8 @@ mod tests {
     #[test]
     fn required_cross_host_visibility_cannot_use_local_only_metrics() {
         let ledger = verified_ledger();
-        let mut input = valid_input();
-        input.cross_host_measurement_required = true;
+        let ledger = verified_ledger(true);
+        let input = valid_input();
         let report = compute_qops(&ledger, &input, &valid_integrity());
         assert_eq!(report.status, QopsStatus::Invalid);
         assert!(report.issues.contains(&QopsIssue::CrossHostMetricIntegrityNotValid));
