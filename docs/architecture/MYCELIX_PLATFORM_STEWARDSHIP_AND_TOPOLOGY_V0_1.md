@@ -171,6 +171,12 @@ The current migration programme already has the appropriate workstreams:
 
 The migration should be a 0.7.1 qualification, not a blind bump to 0.7.0. Holochain's official 0.6-to-0.7 guide documents the Action/FlatOp model change, transition to Iroh/QUIC, DNA-hash changes and absence of an in-place conductor database migration. The 0.7.1 release notes additionally require explicit DirectSignal capabilities and account for 0.7.0/0.7.1 signal incompatibility and capability-grant changes.
 
+There is an important upstream maturity distinction: the 5 November 2026 Dev Pulse says the 0.7.1 tools, libraries and documentation have been updated/tested and are ready for development, while the 17 November roadmap still classifies the 0.7.x line as beta and lists Wind Tunnel infrastructure, workflow tuning, core stability and local-first confirmation among ongoing work. Treat 0.7.1 as the correct migration candidate, not as an automatic production-readiness claim.
+
+The 0.7.1 `restore_from_dht` path is not a complete backup strategy: upstream documents that it requires the old agent's private key in Lair, restores public data only, waits in `AwaitingRestore` until all cell chains restore, and then requires an explicit `enable_app`. Private source-chain data, key backup and application-level export/import remain separate recovery obligations.
+
+Upstream references: [0.6 to 0.7 upgrade guide](https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/), [Dev Pulse 157](https://blog.holochain.org/dev-pulse-157-holochain-0-7-1-brings-chain-restore-direct-signal-security/), and [Holochain roadmap](https://www.holochain.org/roadmap/).
+
 The Pulse 0.7.1 evaluation branch is a candidate, not a qualified runtime. The inspected manifest pins HDK/HDI 0.7.1/0.8.1, while the inspected Cargo.lock still resolves important Holochain packages to 0.7.0. Its Nix flake also references a mutable Holonix branch and a Kitsune2 tag that must be reconciled against the exact 0.7.1 profile before qualification. No exact-head compile, WASM, DNA pack or fresh-conductor result is claimed here.
 
 Canonical source lineage matters: the public repository is synchronized from the private umbrella monorepo. Do not make a public-only change to canonical source files that the exporter can overwrite. This proposal is deliberately additive and public; canonical registry generation must be integrated with the exporter after source ownership is resolved.
