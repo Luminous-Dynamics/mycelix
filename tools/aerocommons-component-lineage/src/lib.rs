@@ -21,12 +21,22 @@ pub struct ContentArtifactV1 {
     pub format_id: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CalibrationValidityV1 {
+    pub evidence: ArtifactRef,
+    pub valid_from_unix_ms: u64,
+    pub valid_until_unix_ms: u64,
+    pub used_at_unix_ms: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ComponentBuildPacketV1 {
     pub schema: String,
     pub packet_id: String,
     pub component: ArtifactRef,
+    pub physical_unit: ArtifactRef,
     pub configuration: ArtifactRef,
     pub design_definition: ContentArtifactV1,
     pub requirements: Vec<ArtifactRef>,
@@ -38,11 +48,13 @@ pub struct ComponentBuildPacketV1 {
     pub inspection_plan: ArtifactRef,
     pub inspection_instrument: ArtifactRef,
     pub inspection_calibration: AeroEvidenceV1,
+    pub inspection_calibration_validity: CalibrationValidityV1,
     pub inspection_result: ContentArtifactV1,
     pub inspection_evidence: AeroEvidenceV1,
     pub test_plan: ArtifactRef,
     pub test_instrument: ArtifactRef,
     pub test_calibration: AeroEvidenceV1,
+    pub test_calibration_validity: CalibrationValidityV1,
     pub test_result: ContentArtifactV1,
     pub test_evidence: AeroEvidenceV1,
 }
@@ -94,6 +106,10 @@ pub enum PacketError {
     },
     #[error("evidence method does not match the required method: {0}")]
     WrongEvidenceMethod(String),
+    #[error("calibration evidence is not valid at the linked measurement time: {0}")]
+    CalibrationWindowInvalid(String),
+    #[error("test event precedes the inspection event")]
+    NonMonotonicTestTime,
 }
 
 fn valid_ref(reference: &ArtifactRef) -> bool {
@@ -212,6 +228,22 @@ fn evidence_ref(evidence: &AeroEvidenceV1) -> ArtifactRef {
     }
 }
 
+fn validate_calibration_window(
+    window: &CalibrationValidityV1,
+    evidence: &AeroEvidenceV1,
+) -> Result<(), PacketError> {
+    if window.evidence != evidence_ref(evidence)
+        || window.valid_from_unix_ms >= window.valid_until_unix_ms
+        || window.used_at_unix_ms < window.valid_from_unix_ms
+        || window.used_at_unix_ms >= window.valid_until_unix_ms
+    {
+        return Err(PacketError::CalibrationWindowInvalid(
+            evidence.evidence_id.clone(),
+        ));
+    }
+    Ok(())
+}
+
 /// Validate the packet's structural identity and evidence joins.
 ///
 /// This function never decides whether the part passed inspection or testing.
@@ -223,8 +255,11 @@ pub fn validate_packet(
     }
     if packet.packet_id.trim().is_empty()
         || !valid_ref(&packet.component)
+        || !valid_ref(&packet.physical_unit)
         || !valid_ref(&packet.configuration)
         || packet.component.kind != "component"
+        || packet.physical_unit.kind != "physical_unit"
+        || packet.physical_unit.id == packet.component.id
         || packet.configuration.kind != "configuration"
         || !valid_ref(&packet.material_batch)
         || packet.material_batch.kind != "material_batch"
@@ -293,10 +328,11 @@ pub fn validate_packet(
     validate_evidence_record(
         &packet.build_evidence,
         ClaimKind::Observation,
-        &packet.component,
+        &packet.physical_unit,
         Some(&packet.configuration),
     )?;
     require_method(&packet.build_evidence, &packet.process_plan.reference)?;
+    require_input(&packet.build_evidence, &packet.component)?;
     require_input(&packet.build_evidence, &packet.design_definition.reference)?;
     require_input(&packet.build_evidence, &packet.process_plan.reference)?;
     require_input(&packet.build_evidence, &packet.material_batch)?;
@@ -320,10 +356,14 @@ pub fn validate_packet(
         &packet.inspection_instrument,
         None,
     )?;
+    validate_calibration_window(
+        &packet.inspection_calibration_validity,
+        &packet.inspection_calibration,
+    )?;
     validate_evidence_record(
         &packet.inspection_evidence,
         ClaimKind::Inspection,
-        &packet.component,
+        &packet.physical_unit,
         Some(&packet.configuration),
     )?;
     require_method(&packet.inspection_evidence, &packet.inspection_plan)?;
@@ -343,10 +383,16 @@ pub fn validate_packet(
         &packet.test_instrument,
         None,
     )?;
+    validate_calibration_window(&packet.test_calibration_validity, &packet.test_calibration)?;
+    if packet.test_calibration_validity.used_at_unix_ms
+        < packet.inspection_calibration_validity.used_at_unix_ms
+    {
+        return Err(PacketError::NonMonotonicTestTime);
+    }
     validate_evidence_record(
         &packet.test_evidence,
         ClaimKind::Test,
-        &packet.component,
+        &packet.physical_unit,
         Some(&packet.configuration),
     )?;
     require_method(&packet.test_evidence, &packet.test_plan)?;
@@ -361,7 +407,7 @@ pub fn validate_packet(
         require_input(&packet.test_evidence, &required)?;
     }
 
-    let required_references = packet.requirements.len() + packet.tooling.len() + 15;
+    let required_references = packet.requirements.len() + packet.tooling.len() + 16;
     Ok(ValidationReport {
         disposition: PacketDisposition::StructurallyComplete,
         packet_id: packet.packet_id.clone(),
@@ -429,6 +475,7 @@ mod tests {
 
     fn fixture() -> ComponentBuildPacketV1 {
         let component = reference("component:coupon-001", "component");
+        let physical_unit = reference("physical-unit:coupon-001-serial-0001", "physical_unit");
         let configuration = reference("configuration:coupon-001-r1", "configuration");
         let design = content(1, "design_definition", "ISO_10303_242:2025", "application/step");
         let process = content(2, "manufacturing_process_plan", "AERO_PROCESS_PLAN_V1", "application/json");
@@ -447,10 +494,10 @@ mod tests {
         let build = evidence(
             "evidence:build-01",
             ClaimKind::Observation,
-            component.clone(),
+            physical_unit.clone(),
             configuration.clone(),
             Some(process.reference.clone()),
-            vec![design.reference.clone(), process.reference.clone(), material.clone()],
+            vec![component.clone(), design.reference.clone(), process.reference.clone(), material.clone()],
             vec![requirement_a.clone(), requirement_b.clone()],
             vec![machine.clone(), tooling.clone()],
         );
@@ -467,7 +514,7 @@ mod tests {
         let inspection = evidence(
             "evidence:inspection-01",
             ClaimKind::Inspection,
-            component.clone(),
+            physical_unit.clone(),
             configuration.clone(),
             Some(inspection_plan.clone()),
             vec![
@@ -493,7 +540,7 @@ mod tests {
         let test = evidence(
             "evidence:test-01",
             ClaimKind::Test,
-            component.clone(),
+            physical_unit.clone(),
             configuration.clone(),
             Some(test_plan.clone()),
             vec![
@@ -512,6 +559,7 @@ mod tests {
             schema: PACKET_SCHEMA.into(),
             packet_id: "packet:coupon-001-r1".into(),
             component,
+            physical_unit,
             configuration,
             design_definition: design,
             requirements: vec![requirement_a, requirement_b],
@@ -522,11 +570,23 @@ mod tests {
             build_evidence: build,
             inspection_plan,
             inspection_instrument,
+            inspection_calibration_validity: CalibrationValidityV1 {
+                evidence: evidence_ref(&inspection_calibration),
+                valid_from_unix_ms: 1_800_000_000_000,
+                valid_until_unix_ms: 1_900_000_000_000,
+                used_at_unix_ms: 1_850_000_000_000,
+            },
             inspection_calibration,
             inspection_result,
             inspection_evidence: inspection,
             test_plan,
             test_instrument,
+            test_calibration_validity: CalibrationValidityV1 {
+                evidence: evidence_ref(&test_calibration),
+                valid_from_unix_ms: 1_800_000_000_000,
+                valid_until_unix_ms: 1_900_000_000_000,
+                used_at_unix_ms: 1_850_000_010_000,
+            },
             test_calibration,
             test_result,
             test_evidence: test,
@@ -640,6 +700,29 @@ mod tests {
     fn structural_success_is_not_an_acceptance_or_release_state() {
         let report = validate_packet(&fixture()).expect("valid fixture");
         assert_eq!(report.disposition, PacketDisposition::StructurallyComplete);
+    }
+
+    #[test]
+    fn calibration_must_cover_actual_measurement_time() {
+        let mut packet = fixture();
+        packet.inspection_calibration_validity.used_at_unix_ms =
+            packet.inspection_calibration_validity.valid_until_unix_ms;
+        assert!(matches!(validate_packet(&packet), Err(PacketError::CalibrationWindowInvalid(_))));
+    }
+
+    #[test]
+    fn test_event_must_follow_inspection_event() {
+        let mut packet = fixture();
+        packet.test_calibration_validity.used_at_unix_ms =
+            packet.inspection_calibration_validity.used_at_unix_ms - 1;
+        assert!(matches!(validate_packet(&packet), Err(PacketError::NonMonotonicTestTime)));
+    }
+
+    #[test]
+    fn physical_unit_is_distinct_from_component_definition() {
+        let mut packet = fixture();
+        packet.physical_unit = packet.component.clone();
+        assert!(matches!(validate_packet(&packet), Err(PacketError::InvalidIdentity)));
     }
 
     #[test]
