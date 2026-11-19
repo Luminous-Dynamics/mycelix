@@ -549,6 +549,18 @@
       "category": "Negative",
       "mutation": "NRS 048-9 emergency load reduction is represented as a voluntary contracted DR offer.",
       "expected_disposition": "REJECT_AUTHORITY_AND_PRODUCT_CLASS"
+    },
+    {
+      "case_id": "adjacent_private_solar_bess_assumed_port_capacity",
+      "category": "Negative",
+      "mutation": "Add Coega Steels private 7 MWp PV and 50 MWh BESS to the TNPA port/data-centre dispatch portfolio based only on geographic proximity.",
+      "expected_disposition": "REJECT_UNPROVEN_RESOURCE_JOIN"
+    },
+    {
+      "case_id": "adjacent_private_bess_missing_commissioning_and_power",
+      "category": "Unknown",
+      "mutation": "Treat a 50 MWh BESS reported as nearing commissioning as dispatchable reserve without commissioned status, MW rating, usable energy, SOC, meter and dispatch rights.",
+      "expected_disposition": "DATA_INCOMPLETE_NO_RESERVE_CREDIT"
     }
   ],
   "owner_contracts": {
@@ -607,7 +619,7 @@
     ],
     "prohibited_scalar_winner": true
   },
-  "case_count": 46,
+  "case_count": 48,
   "heat_partitions_by_policy": [
     {
       "policy_id": "baseline-inflexible",
@@ -698,6 +710,37 @@
         "type": "mandatory emergency load reduction / restoration"
       },
       "requirement": "Not a voluntary market DR product and not a self-authorized scheduler action."
+    }
+  ],
+  "adjacent_industrial_assets": [
+    {
+      "asset_id": "coega-steels-private-energy-assets-2026-10",
+      "owner": "Coega Steels / Fedgroup energy asset arrangement",
+      "location": "Coega Special Economic Zone, separate private industrial site",
+      "evidence_sources": [
+        "https://www.bizcommunity.com/PressOffice/PressRelease.aspx?ai=272996&cid=752422",
+        "https://www.engineeringnews.co.za/article/fedgroup-funds-renewable-energy-infrastructure-for-coega-steels-new-rolling-mill-2026-10-30",
+        "https://thenational.co.za/news/2026-11-06-fedgroup-backs-coega-steels-energy-expansion-amid-rising-power-demand/"
+      ],
+      "reported": {
+        "solar_pv_mwp": 7,
+        "solar_generation_kwh_to_2026_10_30": 6000000,
+        "bess_energy_mwh": 50,
+        "bess_status": "reported_nearing_commissioning_as_of_2026_10_30",
+        "future_solar_mwp": 19.8,
+        "future_solar_target": "2027-end",
+        "future_solar_funding": "not_finalized_as_reported_2026-11-06"
+      },
+      "unknowns": {
+        "exact_pcc_or_meter_boundary": null,
+        "interval_solar_meter_data_and_calibration": null,
+        "bess_power_rating_and_usable_energy": null,
+        "bess_commissioning_and_operating_status": null,
+        "state_of_charge_and_dispatch_availability": null,
+        "wheeling_export_or_shared_network_rights": null,
+        "aggregation_or_demand_response_contract": null
+      },
+      "rule": "Do not include in port-city shared dispatch, reserve or resilience capacity without exact resource join, as-built/commissioning, meter, participant authority and network/contract rights."
     }
   ]
 }
