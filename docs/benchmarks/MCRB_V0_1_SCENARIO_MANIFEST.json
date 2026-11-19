@@ -1299,8 +1299,7 @@
         "receipt-verifier-version",
         "scenario-result"
       ],
-      "qops_requires_cross_host_visibility": false,
-      "related_issue": "#6346"
+      "qops_requires_cross_host_visibility": false
     }
   ],
   "receipt_schema": "MCRB_V0_1_RUN_RECEIPT.schema.json",
