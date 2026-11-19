@@ -558,3 +558,5 @@ A passing connect hook test cannot be used as evidence for the second outcome. T
 ### Explicit protocol coverage (Nixward V40)
 
 PEAB adds KERNEL-011 and KERNEL-012 for two unsupported-policy cases discovered in the V40 compiler review. The V40 backend now only compiles explicit TCP and UDP capabilities. ICMP and wildcard `Any` remain unresolved and block activation eligibility; a generic protocol label cannot be treated as proof that a matching kernel hook exists. These are partial cross-repository source cases, not executed evidence.
+
+PEAB adds KERNEL-013 for the deserialized-plan path. The Nixward V40 validator now rejects ICMP/Any rule values independently of the capability compiler, so a manually constructed or deserialized plan cannot bypass unresolved-protocol handling. This is partial external source coverage and remains unexecuted.
