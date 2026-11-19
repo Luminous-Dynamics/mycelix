@@ -440,3 +440,21 @@ The MCRB runtime adapter must be an independently qualified integration, with an
 
 Version freshness is part of benchmark validity: a comparator profile must state whether it is a frozen historical baseline or a current supported candidate. Do not silently upgrade one side of a matched experiment.
 
+
+
+## 18. Measurement-integrity claim ceiling — MCRB-TIME-001
+
+The current `mycelix-mcrb-metric-integrity` implementation is an intermediate structural gate, not yet an independent clock-evidence verifier.
+
+Its current `DurationSample` contains a caller-supplied duration value, and its `ClockObservation` contains caller-supplied clock metadata. It cannot yet recompute elapsed time from raw monotonic start/end ticks, prove a clock epoch remained stable within the sample, or independently pair a publish event with the first valid remote-observation event by record digest.
+
+Until [MCRB-TIME-001 #6335](https://github.com/Luminous-Dynamics/mycelix/issues/6335) is implemented and exact-head qualified:
+
+- global/per-peer percentiles may be used only for local sample distributions under the existing basic integrity contract;
+- do not call the clock metadata independently attested;
+- do not claim independently qualified cross-host DHT convergence latency from caller-supplied duration values;
+- cross-host latency must include lower/upper uncertainty bounds derived from the source and observation hosts' calibration;
+- if the uncertainty interval is wider than the predeclared tolerance, classify the measurement invalid/incomplete and withhold the point-latency claim.
+
+MCRB-16 now includes raw monotonic tick-pair, clock-epoch, matched event/record-digest and uncertainty-interval controls. The run-receipt schema requires the corresponding integrity fields. This is a deliberate claim ceiling, not a reason to wait before doing source-level work on the other MCRB scenarios.
+
