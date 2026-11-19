@@ -32,8 +32,21 @@
   "dispute_assessment": {
     "state": "unassessed"
   },
-  "consent_authorization_references": [],
+  "consent_authorization_references": [
+    {
+      "record_reference": "urn:synthetic:landscape-measurement-authorization:site-0001",
+      "purpose": "measurement"
+    },
+    {
+      "record_reference": "urn:synthetic:landscape-measurement-authorization:site-0001",
+      "purpose": "site_access"
+    },
+    {
+      "record_reference": "urn:synthetic:landscape-measurement-authorization:site-0001",
+      "purpose": "publication"
+    }
+  ],
   "access_policy_reference": "urn:synthetic:mycelix:access-policy:community-controlled",
   "claim_ceiling": "reference-only-no-legal-effect",
-  "notes": "Synthetic, non-personal example. No real land right, title, authority or community is represented."
+  "notes": "Synthetic, non-personal example. The purpose-tagged references resolve to one LAND-STEWARD measurement-authorization record. Its measurement consent is granted and site access is authorized, but publication consent is not-requested and policy is private. The existence of the publication reference does not grant publication permission. No real land right, title, authority or community is represented."
 }
