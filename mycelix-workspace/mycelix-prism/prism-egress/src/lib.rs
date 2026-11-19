@@ -2368,6 +2368,10 @@ mod tests {
         let response = client.execute(capability).await.unwrap();
         assert_eq!(response.body.as_slice(), b"ok");
         assert_eq!(response.receipt.authorized_addresses, vec![address]);
+        assert_eq!(
+            response.receipt.authorized_address_set_digest,
+            canonical_address_set_digest(&[address])
+        );
         assert_eq!(response.receipt.remote_peer, address);
         assert_eq!(
             resolver.calls.load(std::sync::atomic::Ordering::SeqCst),
@@ -2468,7 +2472,20 @@ mod tests {
         );
         assert_eq!(hop.status, StatusCode::FOUND.as_u16());
         assert_eq!(hop.remote_peer, first_address);
+        assert_eq!(hop.authorized_addresses, vec![first_address]);
+        assert_eq!(
+            hop.authorized_address_set_digest,
+            canonical_address_set_digest(&[first_address])
+        );
         assert_eq!(hop.target_addresses, vec![second_address]);
+        assert_eq!(
+            hop.target_address_set_digest,
+            canonical_address_set_digest(&[second_address])
+        );
+        assert_eq!(
+            response.receipt.authorized_address_set_digest,
+            canonical_address_set_digest(&[second_address])
+        );
 
         let resolver_calls = resolver.calls.lock().expect("resolver call lock").clone();
         assert_eq!(
@@ -2519,6 +2536,10 @@ mod tests {
         assert_eq!(response.receipt.remote_peer, address);
         assert_eq!(response.receipt.authority, "public-web");
         assert_eq!(response.receipt.authorized_addresses, vec![address]);
+        assert_eq!(
+            response.receipt.authorized_address_set_digest,
+            canonical_address_set_digest(&[address])
+        );
         assert_eq!(response.receipt.response_body_limit_bytes, 16);
         server.await.unwrap();
     }
