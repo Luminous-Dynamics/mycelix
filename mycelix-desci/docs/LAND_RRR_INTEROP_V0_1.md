@@ -146,6 +146,7 @@ The module `evidence_invalidation.rs` adds a deterministic dependency index over
 Artifacts:
 - [Evidence invalidation graph JSON Schema](../schemas/evidence-invalidation-graph-v0.schema.json)
 - [Synthetic dependency graph example](../examples/evidence-invalidation-graph-synthetic-v0.json)
+- [Eight-case TIB invalidation corpus](../examples/tib-evidence-invalidation-v0.1.json)
 - [Rust reference implementation](../src/core/src/evidence_invalidation.rs)
 
 The graph is a **rebuildable index**, not a second evidence ledger. It stores references and dependency edges; canonical source events remain in the owning Mycelix or external system. Invalidation appends causal records and does not delete or rewrite source evidence or historical derived records.
@@ -156,7 +157,7 @@ The operation is deterministic and idempotent for the same event/root/reason. Mu
 
 **Important boundary:** this index marks records as no longer current for downstream reliance. It does not itself revoke a legal right, modify a national register, delete a community record, retract a published copy, or provide access-control enforcement. The host still needs to notify dependent systems and apply each owner's correction, disclosure and appeal process.
 
-The focused harness now includes 33 RRR/decision-packet tests, 27 lifecycle tests and 14 invalidation-graph tests: **74 Rust tests in three production source modules**, plus the table-driven nine-scenario TIB transition vector test within the lifecycle module. This is test inventory, not a passing CI claim.
+The focused harness now includes 33 RRR/decision-packet tests, 27 lifecycle tests and 15 invalidation-graph/corpus tests: **75 Rust tests in three production source modules**, plus the table-driven nine-scenario TIB transition vector test within the lifecycle module. This is test inventory, not a passing CI claim.
 
 ## Challenge and absence semantics
 
