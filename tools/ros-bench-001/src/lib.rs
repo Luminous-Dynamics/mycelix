@@ -259,25 +259,26 @@ mod tests {
             mutation_id_unique: true,
         };
 
-        let mut mutations: Vec<(&str, Box<dyn Fn(&mut AuthorizationFacts)>)> = vec![
-            ("identity", Box::new(|f| f.identity_bound = false)),
-            ("scope", Box::new(|f| f.scope_bound = false)),
-            ("action", Box::new(|f| f.action_bound = false)),
-            ("resource", Box::new(|f| f.resource_bound = false)),
-            ("purpose", Box::new(|f| f.purpose_bound = false)),
-            ("audience", Box::new(|f| f.audience_bound = false)),
-            ("validity", Box::new(|f| f.within_validity = false)),
-            ("revocation", Box::new(|f| f.not_revoked = false)),
-            ("parent", Box::new(|f| f.parent_chain_valid = false)),
-            ("depth", Box::new(|f| f.depth_within_limit = false)),
-            ("nonce", Box::new(|f| f.nonce_fresh = false)),
-            ("mutation", Box::new(|f| f.mutation_id_unique = false)),
-        ];
-        for (name, mutate) in mutations.drain(..) {
-            let mut facts = baseline.clone();
-            mutate(&mut facts);
-            assert_eq!(evaluate(&facts), Decision::Deny, "{name}");
+        macro_rules! assert_denied_after {
+            ($field:ident) => {{
+                let mut facts = baseline.clone();
+                facts.$field = false;
+                assert_eq!(evaluate(&facts), Decision::Deny, stringify!($field));
+            }};
         }
+
+        assert_denied_after!(identity_bound);
+        assert_denied_after!(scope_bound);
+        assert_denied_after!(action_bound);
+        assert_denied_after!(resource_bound);
+        assert_denied_after!(purpose_bound);
+        assert_denied_after!(audience_bound);
+        assert_denied_after!(within_validity);
+        assert_denied_after!(not_revoked);
+        assert_denied_after!(parent_chain_valid);
+        assert_denied_after!(depth_within_limit);
+        assert_denied_after!(nonce_fresh);
+        assert_denied_after!(mutation_id_unique);
     }
 
     #[test]
