@@ -824,7 +824,9 @@
       "per_peer_p50_p95_p99",
       "raw_sample_count",
       "outlier_sample_indexes",
-      "aggregate_eligible"
+      "aggregate_eligible",
+      "per_peer_percentiles",
+      "duplicate_peer_operation_sample_count"
     ],
     "policy": [
       "no_aggregate_when_invalid_or_incomplete",
@@ -833,7 +835,9 @@
       "explicit_clock_source_and_sync_uncertainty",
       "peer_coverage",
       "counter_reconciliation",
-      "unique_operation_ids"
+      "unique_operation_ids",
+      "unique-operation-samples-per-peer",
+      "same-logical-operation-may-be-observed-by-multiple-peers"
     ]
   }
 }
