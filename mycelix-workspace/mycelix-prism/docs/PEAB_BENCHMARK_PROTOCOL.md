@@ -239,3 +239,79 @@ A cgroup connect hook observes or controls a new connect operation. It does not,
 Connection pooling is a separate research track, not an automatic optimization. A future pool may reuse a connection only when the complete compatibility key is equal: scheme/authority/port, workload and trust context, authorized address-set digest, verified TLS identity, policy generation and expiry/lifecycle state. A changed DNS snapshot or policy generation must not silently inherit an old socket's authorization. Measure the cost of this rule against both no pooling and a conventional authority-keyed pool; report cold and warm results separately.
 
 New planned PEAB cases: OBS-001 (buffer overflow invalidates observer completeness), OBS-002 (unambiguous concurrent event correlation), KERNEL-002 (inherited/passed sockets), KERNEL-003 (established versus new connection lifecycle), and POOL-001 (exact-scope connection reuse). These are planned cases, not implemented tests or passing results. The manifest intentionally keeps their source coverage as `planned` and execution evidence null.
+
+## 13. Evidence reconciliation and the network-action transaction
+
+The composed Prism/Nixward path should be treated as a **distributed, fail-closed network-action transaction**, not as one boolean authorization check. It crosses independent authorities and failure domains: owner policy, resolver, broker/replay ledger, kernel map generation, HTTP transport, TLS verifier, observer and durable evidence store.
+
+### 13.1 Evidence states
+
+Do not collapse all outcomes into success/failure. Each hop has one of these explicit evidence states:
+
+| State | Meaning | Permitted conclusion |
+|---|---|---|
+| PENDING | Intent or lease exists; execution is not yet reconciled | No execution claim |
+| MATCHED | Prism and Nixward records correlate; observer interval is complete; address, workload, policy generation and peer agree | Corroborated execution for the measured hop |
+| DENIED | Authority or kernel policy denied the action and the relevant observation window is complete | Denial for that attempted action |
+| UNMATCHED | Kernel event exists without a durable application receipt, or vice versa | Investigation/reconciliation required |
+| INCOMPLETE | Observer loss, detach gap, missing clock/sequence boundary or ambiguous correlation | No zero-violation or complete-execution claim |
+| CONFLICT | Records disagree on capability, lease, workload, generation, address set or peer | Quarantine the hop; never select the more favorable record |
+
+MATCHED requires both planes; a Prism receipt alone is an application assertion, while a cgroup connect event alone is not proof of a completed TCP handshake, TLS identity or HTTP response. DENIED must be scoped to an explicit attempted action and complete observation interval. An absent event is not proof of no event if the observer was not demonstrably complete.
+
+### 13.2 Transaction stages
+
+1. **Prepare authority:** verify the owner-authorized parent capability, exact workload identity, protocol, port and address-scope digest.
+2. **Resolve:** the trusted resolver obtains the complete A/AAAA/CNAME result and validity interval; classify the complete set under the parent scope.
+3. **Issue lease:** canonicalize and digest the lease; bind resolver identity, request/hop identity, parent and workload/policy generations; sign only with the dedicated resolver action/audience.
+4. **Consume nonce:** atomically consume the stable one-shot lease nonce in the durable replay ledger. A challenge timestamp must not create a new replay identity for the same lease.
+5. **Stage enforcement:** write the exact IP+port set into an inactive kernel-map generation and read back/verify its contents and cgroup binding.
+6. **Commit enforcement:** atomically activate the generation. If the result is unknown, query the active generation and transaction record before retrying. Unknown outcome means no new grant.
+7. **Execute HTTP:** Prism consumes the request capability, pins the client to the exact leased addresses, preserves the original hostname for Host/SNI/certificate validation, and checks the actual peer. Redirects and retries require fresh hop leases.
+8. **Observe independently:** Nixward records socket-admission and packet-level enforcement observations separately from the Prism receipt.
+9. **Reconcile:** join by opaque request/hop, lease/capability digest, workload/cgroup generation, kernel socket identity where supported, and a bounded correlation record. Do not rely on destination tuple plus wall-clock timestamp alone under concurrency.
+10. **Close lifecycle:** expire/revoke the lease, release response-memory reservations only after final ownership ends, and persist a terminal evidence state. Existing flows and new socket admission are separate revocation questions.
+
+### 13.3 Crash consistency and unknown outcomes
+
+Inject a crash after every mutation boundary: nonce consumption, inactive-map write, map readback, active-generation switch, socket connect, response receipt creation, and durable receipt publication. The test oracle must distinguish:
+
+- **Known not committed:** safe to retry only with the same transaction state and no broadened authority.
+- **Known committed:** continue or report the committed generation/result.
+- **Unknown:** reconcile authoritative state before any retry; do not issue a fresh nonce or a broader capability simply because the response was lost.
+
+Keep the previous known-good static deny-by-default network policy active until the new dynamic generation is proven active. A partially staged generation must remain inert. A successful userspace write is not proof that the kernel is enforcing the intended contents.
+
+### 13.4 Observer completeness and packet enforcement
+
+Cgroup connect hooks are useful for connection admission attempts. They are not a complete record of every packet emitted by a workload. The test matrix must separately cover:
+
+- TCP IPv4 and IPv6 connect attempts;
+- UDP IPv4 and IPv6 sendmsg paths;
+- packet-level cgroup egress enforcement;
+- inherited and SCM_RIGHTS-passed connected descriptors;
+- process/cgroup moves, socket lifetime and existing flows;
+- observer detach, ring/perf buffer loss, restart and sequence discontinuity.
+
+For a TCP-only HTTP(S) lease, UDP/QUIC remains denied unless a distinct protocol capability and enforcement profile are approved. A packet-level egress hook is a separate enforcement/measurement mechanism; it does not replace TLS or HTTP authority validation. Validate the actual kernel attach type and socket attribution on every supported kernel family.
+
+A run is observer-complete only when attach/detach generations, covered time interval, event sequence and kernel loss counters are recorded and reconciled. If any are missing or report loss, mark the affected interval INCOMPLETE, not zero unauthorized connections.
+
+### 13.5 Comparative findings that must become PEAB tests
+
+**Envoy Dynamic Forward Proxy:** v1.40.0 resolved_address_filter removes matching IPs from a DNS response. When all addresses are filtered, resolution is treated as failure and the host retains a previously resolved address. PEAB must distinguish existing pooled connections from new connections to that retained address, record host-cache state and test expiry/recovery. This is documented behavior to characterize, not a vulnerability assertion.
+
+**Cilium FQDN policy:** current 1.20.x documentation describes DNS-proxy learning and TTL-aware address policy, but also documents that IPs from DNS responses to all pods managed by a Cilium instance can be allowed for a matching FQDN. Its tofqdns-min-ttl setting can deliberately extend the effective lifetime beyond a shorter authoritative TTL. PEAB must test endpoint-specific answer divergence, agent-wide learning and effective minimum TTL rather than treating an FQDN rule as a request-scoped lease. These semantics are useful deployment controls, but they have a different permission scope from a one-request/one-hop capability.
+
+### 13.6 New PEAB cases
+
+The manifest adds planned cases for cross-endpoint Cilium DNS scope, Cilium minimum-TTL extension, UDP sendmsg bypass, passed connected descriptors, unmatched application/kernel evidence, observer detach gaps, and the lack of authoritative TTL/CNAME provenance in a generic OS resolver result. All remain not_run_exact_head with null execution evidence until implemented and executed.
+
+References:
+- Envoy v1.40.0 DNS cache resolved_address_filter: https://www.envoyproxy.io/docs/envoy/v1.40.0/api-v3/extensions/common/dynamic_forward_proxy/v3/dns_cache.proto
+- Cilium FQDN/DNS proxy trust and address learning: https://docs.cilium.io/en/stable/security/dns/ and https://docs.cilium.io/en/stable/security/policy/layer7/
+- Cilium TTL and endpoint cache configuration: https://docs.cilium.io/en/stable/helm-reference/ and https://docs.cilium.io/en/latest/contributing/development/debugging/
+- Linux cgroup socket-address connect/sendmsg attach types: https://docs.ebpf.io/linux/program-type/BPF_PROG_TYPE_CGROUP_SOCK_ADDR/
+- Linux cgroup packet egress enforcement: https://docs.ebpf.io/linux/program-type/BPF_PROG_TYPE_CGROUP_SKB/
+- Hyper HTTP/1 client parser header-size limit: https://docs.rs/hyper/latest/src/hyper/client/conn/http1.rs.html
+- OWASP SSRF Prevention Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html
