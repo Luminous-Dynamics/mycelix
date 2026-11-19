@@ -107,6 +107,38 @@ Every disposition explicitly returns `allows_authoritative_mutation() == false`.
 
 The policy is deliberately a **pure seam, not yet wired into Mycelix Property's transaction coordinator**. The five added tests exercise the outcome mapping, fail-closed holds, no-mutation ceiling and rejection of unknown serialized outcomes. A future integration must enforce this policy at the host command boundary and reconcile unknown/ambiguous transaction outcomes before retrying mutations. This change does not claim to have implemented that runtime integration.
 
+## External land operation lifecycle
+
+The additional reference module `land_operation_lifecycle.rs` specifies the operational boundary between a Mycelix internal workflow and an external authority. It is deliberately separate from `LandRrrReferenceV0`: a payload can be structurally valid while a real-world operation remains blocked.
+
+Artifacts:
+- [Lifecycle JSON Schema](../schemas/land-operation-lifecycle-v0.schema.json)
+- [Synthetic timeout-unknown example](../examples/land-operation-lifecycle-timeout-unknown-v0.json)
+- [Executable TIB sequence vectors](../examples/land-operation-lifecycle-sequences-v0.json)
+- [Sol Atlas nine-scenario transition corpus](https://github.com/Luminous-Dynamics/sol-atlas-leptos/blob/research/territorial-rights-evidence-v0-1/benchmarks/territorial-integrity/tib-property-state-transitions-v0.1.json)
+
+The pure transition sequence is:
+
+| Phase | Meaning | Safe next action |
+|---|---|---|
+| `prepared` | Operation is locally prepared, not yet externally submitted | Submit once with a stable idempotency key |
+| `submitted` | An identified attempt was sent | Record a response or mark outcome unknown |
+| `outcome_unknown` | Timeout/transport result did not establish commit or non-commit | Reconcile the original request; no retry |
+| `retry_eligible` | Reconciliation confirms non-commit and same-key retry semantics have an evidence reference | Retry with the original idempotency key and a new attempt ID |
+| `receipt_observed` | Exact receipt reference, digest and capture time are recorded | Independently qualify issuer/scope/currentness |
+| `external_status_qualified` | Authority profile, qualification record, verifier and qualification digest are referenced | Project only the scoped externally reported status |
+| `external_status_projected` | A limited internal read-model projection was recorded with full receipt and verifier lineage | Remain alert to later correction, challenge or revocation |
+| `external_status_invalidated` | New evidence invalidates the prior projection | Hold downstream reliance and reconcile the new evidence |
+| `held` / `rejected` | Operation is frozen or payload is rejected | No automatic retry or promotion |
+
+A `ConfirmedNotCommitted` reconciliation is insufficient by itself to unlock retry: it must also carry a reference to the external endpoint's idempotency contract or equivalent evidence that reusing the same key is safe. A boolean supplied by a caller is not enough. If the endpoint cannot establish this, the operation is held.
+
+The model preserves every submission attempt and reconciliation reference. A timed-out operation cannot be resubmitted while unknown; a later challenge, correction or revocation can invalidate a previously recorded status projection. The projected state retains the exact authority profile, qualification, verifier and digest that justified the projection.
+
+The source contains 27 lifecycle tests; with 33 land-RRR structural/qualification tests, the focused harness now has **60 source tests**. Nine frozen TIB sequence vectors are also exercised by one table-driven Rust test. These are implementation tests, not yet a claim of passing exact-head CI.
+
+**Hard boundary:** no phase in this module authorizes authoritative title, ownership, payment, transfer, consent or external registry mutation. `external_status_projected` means a scoped read-model projection of what a qualified external source reported; it is not a legal conclusion. The model is not yet wired into Mycelix Property's live transfer coordinator. Issue [PROP-LEGAL-EFFECT-001 #6319](https://github.com/Luminous-Dynamics/mycelix/issues/6319) owns that host-level integration.
+
 ## Challenge and absence semantics
 
 The payload permits these independent dispute assessment states:
