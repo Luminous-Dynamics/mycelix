@@ -32,7 +32,9 @@ Search limits are explicit. If the node or frontier bound is reached, the result
 
 ## Known-answer and adversarial suite
 
-The ten authored unit tests cover adjacent interval reuse, overlapping overcommit rejection, nested intervals with simultaneous end/start events, hard region constraints, invalid windows, search budget exhaustion, frontier limits, deterministic input order, duration-sensitive cost, and a CPU-vs-memory bottleneck counterexample that preserves both non-dominated alternatives.
+The eleven authored unit tests cover adjacent interval reuse, overlapping overcommit rejection, nested intervals with simultaneous end/start events, hard region constraints, invalid windows, search budget exhaustion, frontier limits, deterministic input order, duration-sensitive cost, and a CPU-vs-memory bottleneck counterexample that preserves both non-dominated alternatives.
+
+A twelfth validation layer is included as one exhaustive test: 2,304 two-task cases (six intervals per task across a three-slot horizon, multiplied by all CPU/RAM/GPU requirement combinations). It compares the event-sweep solver against an independent integer-slot occupancy scan that directly checks each [slot, slot+1) interval. It compares feasibility and peak CPU, memory and GPU pressure. The reference scan does not use event sorting or the production sweep routine.
 
 The JSON fixture is synthetic and demonstrates that two adjacent tasks each requiring the worker's full capacity can be placed on the same worker without overlap.
 
