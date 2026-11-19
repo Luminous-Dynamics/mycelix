@@ -315,6 +315,7 @@ pub struct EgressCapability {
     is_domain: bool,
     resolution_lease_digest: Option<String>,
     resolver_snapshot_digest: Option<String>,
+    phase_timing: EgressPhaseTiming,
     expires_at: std::time::Instant,
     max_response_body_bytes: usize,
     max_error_response_body_bytes: usize,
@@ -416,6 +417,21 @@ pub struct TlsIdentityReceipt {
     pub certificate_identity_verified: bool,
 }
 
+/// Monotonic phase timings for one authorized network hop.
+///
+/// request_to_headers intentionally combines connection establishment, TLS,
+/// request transmission and time-to-response-headers because Reqwest does not
+/// expose those sub-phases independently through this API. These values are
+/// measurements, not deadlines or security attestations.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct EgressPhaseTiming {
+    pub dns_admission_wait: Duration,
+    pub dns_resolution: Duration,
+    pub egress_admission_wait: Duration,
+    pub request_to_headers: Duration,
+    pub response_body: Duration,
+}
+
 #[derive(Clone, Debug)]
 pub struct RedirectHopReceipt {
     pub logical_request_id: String,
@@ -436,6 +452,8 @@ pub struct RedirectHopReceipt {
     pub target_address_set_digest: String,
     pub target_resolution_lease_digest: Option<String>,
     pub target_resolver_snapshot_digest: Option<String>,
+    /// Timings for the source hop that returned this redirect.
+    pub phase_timing: EgressPhaseTiming,
 }
 
 #[derive(Clone, Debug)]
@@ -462,6 +480,9 @@ pub struct EgressReceipt {
     pub request_body_bytes: usize,
     pub response_body_bytes: usize,
     pub response_body_limit_bytes: usize,
+    /// Timings for the final response hop; preceding hops are in redirect_hops.
+    pub phase_timing: EgressPhaseTiming,
+    /// End-to-end elapsed duration across authorization, redirects and body read.
     pub elapsed: Duration,
     pub policy_version: &'static str,
     pub authority: &'static str,
@@ -836,6 +857,8 @@ impl PublicEgressClient {
 
         // Bound hostname resolution independently from HTTP execution.
         // Numeric IP literals do not consume DNS capacity.
+        let dns_admission_started = std::time::Instant::now();
+        let has_domain_dns = matches!(url.host(), Some(Host::Domain(_)));
         let dns_permit = match url.host().ok_or(EgressError::MissingHost)? {
             Host::Domain(_) => Some(
                 tokio::time::timeout(DNS_QUEUE_TIMEOUT, dns_semaphore().clone().acquire_owned())
@@ -845,6 +868,12 @@ impl PublicEgressClient {
             ),
             Host::Ipv4(_) | Host::Ipv6(_) => None,
         };
+        let dns_admission_wait = if has_domain_dns {
+            dns_admission_started.elapsed()
+        } else {
+            Duration::ZERO
+        };
+        let dns_resolution_started = std::time::Instant::now();
         let resolution = tokio::time::timeout(
             DNS_LOOKUP_TIMEOUT,
             resolve_and_authorize(
@@ -859,6 +888,7 @@ impl PublicEgressClient {
         )
         .await
         .map_err(|_| EgressError::DnsResolutionTimeout)??;
+        let dns_resolution = dns_resolution_started.elapsed();
         let local_expiry = std::time::Instant::now() + self.limits.capability_ttl;
         let expires_at = resolution
             .valid_until
@@ -880,6 +910,11 @@ impl PublicEgressClient {
             is_domain: resolution.is_domain,
             resolution_lease_digest: resolution.resolution_lease_digest,
             resolver_snapshot_digest: resolution.resolver_snapshot_digest,
+            phase_timing: EgressPhaseTiming {
+                dns_admission_wait,
+                dns_resolution,
+                ..EgressPhaseTiming::default()
+            },
             expires_at,
             max_response_body_bytes: self.limits.max_response_body_bytes,
             max_error_response_body_bytes: self.limits.max_error_response_body_bytes,
@@ -924,9 +959,11 @@ impl PublicEgressClient {
                 canonical_address_set_digest(&authorized_addresses);
             let method_name = capability.method.as_str().to_owned();
             let request_body_bytes = capability.body.len();
+            let mut phase_timing = capability.phase_timing;
 
             // Reserve authority-specific capacity before the shared total budget.
             // A burst of generic web reads cannot occupy Brave/Perplexity slots.
+            let egress_admission_started = std::time::Instant::now();
             let _authority_permit: SemaphorePermit<'static> = tokio::time::timeout(
                 Duration::from_secs(2),
                 capability.authority.admission_semaphore().acquire(),
@@ -939,6 +976,7 @@ impl PublicEgressClient {
                     .await
                     .map_err(|_| EgressError::ConcurrencyQueueTimeout)?
                     .map_err(|_| EgressError::ConcurrencyUnavailable)?;
+            phase_timing.egress_admission_wait = egress_admission_started.elapsed();
 
             // Queueing consumes capability lifetime. Re-check after admission
             // so an expired authorization cannot connect merely because it waited.
@@ -956,12 +994,14 @@ impl PublicEgressClient {
                 &self.test_root_certificates,
             )?;
 
+            let request_to_headers_started = std::time::Instant::now();
             let response = client
                 .request(capability.method.clone(), capability.url.clone())
                 .headers(capability.headers.clone())
                 .body(capability.body.clone())
                 .send()
                 .await?;
+            phase_timing.request_to_headers = request_to_headers_started.elapsed();
 
             let remote_peer =
                 validate_connected_peer(&capability.addresses, response.remote_addr())?;
@@ -1046,6 +1086,7 @@ impl PublicEgressClient {
                         target_resolver_snapshot_digest: next_capability
                             .resolver_snapshot_digest
                             .clone(),
+                        phase_timing,
                     });
 
                     capability = next_capability;
@@ -1081,6 +1122,7 @@ impl PublicEgressClient {
             .map_err(|_| EgressError::ResponseMemoryBudgetUnavailable)?;
 
             let mut response = response;
+            let response_body_started = std::time::Instant::now();
             let mut collected = Vec::new();
             collected
                 .try_reserve_exact(response_body_limit_bytes)
@@ -1092,6 +1134,7 @@ impl PublicEgressClient {
                 collected.extend_from_slice(&chunk);
             }
 
+            phase_timing.response_body = response_body_started.elapsed();
             let receipt = EgressReceipt {
                 logical_request_id: capability.logical_request_id.clone(),
                 redirect_hop: capability.redirect_hop,
@@ -1108,6 +1151,7 @@ impl PublicEgressClient {
                 request_body_bytes,
                 response_body_bytes: collected.len(),
                 response_body_limit_bytes,
+                phase_timing,
                 elapsed: started.elapsed(),
                 policy_version: capability.policy_version,
                 authority,
@@ -2564,6 +2608,7 @@ mod tests {
             is_domain: true,
             resolution_lease_digest: None,
             resolver_snapshot_digest: None,
+            phase_timing: EgressPhaseTiming::default(),
             expires_at: std::time::Instant::now() + Duration::from_secs(30),
             max_response_body_bytes,
             max_error_response_body_bytes: 64 * 1024,
@@ -2971,6 +3016,10 @@ mod tests {
         );
         assert!(hop.tls_identity.is_none(), "plain HTTP redirect has no TLS identity");
         assert!(!hop.http_version.is_empty());
+        assert!(
+            hop.phase_timing.request_to_headers > Duration::ZERO,
+            "redirect receipt should retain request-to-headers timing"
+        );
         assert!(response.receipt.tls_identity.is_none());
 
         let resolver_calls = resolver.calls.lock().expect("resolver call lock").clone();
@@ -3072,6 +3121,14 @@ mod tests {
         assert_eq!(
             response.receipt.authorized_address_set_digest,
             canonical_address_set_digest(&[address])
+        );
+        assert!(
+            response.receipt.phase_timing.request_to_headers
+                <= response.receipt.elapsed
+        );
+        assert!(
+            response.receipt.phase_timing.response_body
+                <= response.receipt.elapsed
         );
         assert_eq!(response.receipt.response_body_limit_bytes, 16);
         server.await.unwrap();
