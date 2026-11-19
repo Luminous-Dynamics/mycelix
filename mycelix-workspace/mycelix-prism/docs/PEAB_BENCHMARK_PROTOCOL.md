@@ -379,3 +379,54 @@ LEASE-004 adds a local time-of-use regression: Prism receives a valid short-live
 
 
 Nixward PR #162 now exposes \`NetworkResolutionLeaseV1::socket_addresses()\` and \`effective_valid_until_unix()\` to make the adapter mapping explicit: first validate the signed lease/parent/workload/replay state, then map each canonical \`IpAddr\` to \`SocketAddr(ip, lease.port)\`, obtain the earlier lease/DNS Unix deadline, and convert the remaining validity to a local monotonic deadline. The adapter must sample wall-clock time immediately before the monotonic conversion and must not round validity upward. These helpers are committed on the Nixward draft branch but are not a runtime adapter or IPC implementation.
+
+
+## 15. Reuse Nixward's existing enforcement contracts; qualify the integration
+
+The Nixward repository already contains substantial typed network-security work. PEAB should reuse these structures and test their composition with Prism rather than create parallel policy models.
+
+| Existing Nixward source | Existing contract/test evidence | What PEAB still needs to qualify |
+|---|---|---|
+| \`src/network_resolution_lease.rs\` | Signed request-scoped lease; exact parent, workload, address scope, port and policy-generation binding; canonical set digest; validity bounded by resolver and parent lease; one-shot nonce tests | A trusted adapter must verify and consume the lease, construct Prism's snapshot, and prove the exact set/expiry/digests survive execution and redirects |
+| \`src/action/authority_replay.rs\` | Persistent one-shot replay ledger; stable nonce replay key; tests for duplicate and altered re-signatures | A production resolution broker must call it before any dynamic kernel grant; crash/unknown-outcome behavior must be replayed end-to-end |
+| \`src/network_enforcement.rs\` | Typed enforcement plan, kernel-feature probe, exact cgroup workload bindings, explicit fail-closed contract, hostname rule left unresolved in privileged compilation | No claim of BPF enforcement until a real loader stages exact IP:port rules and reads back the active map generation |
+| \`src/network_runtime_lab.rs\` | Fourteen required lab case kinds: IPv4/IPv6 allow/deny, UDP allow/deny, active/expired lease, policy swap, cgroup rebind, enforcer restart, stale policy replay and attach failure | Run the disposable-kernel lab and retain per-case evidence; the current Rust tests construct/validate lab reports and do not themselves run a BPF backend |
+| \`src/network_activation.rs\` | Owner-authorized \`network-activate\` action; exact target policy generation, prior receipt and attachment evidence; allow/deny smoke-test and nftables-baseline requirements | Implement the target-host activation adapter, prove attachments and smoke tests from kernel observations, and recover unknown generation switches |
+| \`src/network_telemetry.rs\` | Metadata-only, hash-chained telemetry with coarse time buckets, no payload capture and no enforcement authority | Implement a trusted kernel event collector, expose event-loss/observer-generation completeness, and reconcile records with Prism's application receipt |
+
+### PEAB track C — composed application plus workload enforcement
+
+Keep the original two tracks intact:
+- **Track A:** semantic-equivalence application transport (Prism vs hardened Reqwest; unguarded Reqwest performance floor only).
+- **Track B:** deployment defense in depth (Envoy DFP, Envoy plus Cilium/network policy, equivalent namespace/firewall baseline).
+
+Add **Track C** only when a real Nixward broker and kernel backend exist: Prism request/hop capabilities + authenticated Nixward resolution lease + consume-once replay ledger + exact cgroup/IP:port enforcement + independent observation.
+
+The matched Track C comparator is Envoy DFP with \`resolved_address_filter\` plus an independently enforced Cilium or equivalent network policy. Report both component and composed-system results. Keep DNS scope, TTL semantics, stale connection reuse, cgroup identity, policy generation, connection lifecycle, UDP sendmsg, established flows and process descriptor transfer as distinct cases.
+
+A Track C run is ineligible for qualification unless the actual target kernel has:
+1. A feature probe that confirms the required cgroup-v2 and BPF attach/map features.
+2. A live disposable-kernel runtime-lab report with every required case and exact evidence.
+3. An exact workload-to-cgroup binding.
+4. An owner-authorized activation intent binding the exact plan, system closure, BPF object, generation and prior receipt.
+5. A read-back of the active kernel map generation and independently observed allow/deny smoke tests.
+6. A preserved deny-by-default/static nftables baseline and a tested rollback path.
+7. Observer coverage with attach/detach generation, event sequence and loss counters; any measurement gap invalidates the run.
+
+The current Nixward source explicitly keeps the enforcement plan disabled until runtime proof, and its runtime-lab model states that lab evidence is not production activation. Preserve that discipline. The newly mapped LEASE-005..008 cases link PEAB to Nixward's existing signed-lease, replay, parent-scope and expiry tests. They remain partial cross-repository source coverage, not a passing integrated scenario.
+
+### What would constitute a genuine advance over existing systems
+
+The target is not a single proxy that duplicates Envoy or a generic FQDN firewall that duplicates Cilium. It is a **request-scoped, transactionally activated network capability** whose lease, application request, kernel policy generation and observer evidence reconcile to the same hop.
+
+The system must distinguish:
+- intent authorized vs capability issued;
+- lease verified vs nonce consumed;
+- map staged vs active generation observed;
+- connect attempted vs socket admitted;
+- application response returned vs independently corroborated;
+- observer complete vs observer gap;
+- known commit vs unknown mutation outcome.
+
+An unknown result must cause reconciliation before any retry or grant. A missing kernel event cannot be counted as zero; an incomplete observer interval cannot produce MATCHED evidence. These are the release-blocking correctness properties. Throughput is reported only after them pass.
+
