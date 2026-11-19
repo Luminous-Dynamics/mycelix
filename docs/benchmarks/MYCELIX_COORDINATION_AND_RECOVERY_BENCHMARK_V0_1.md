@@ -478,3 +478,31 @@ The metric-integrity candidate now includes a separate `cross_host` calculation 
 The calculation corrects each host's local wall-clock event timestamp by its signed offset, adds clock uncertainty conservatively, verifies each event falls within its calibration validity window, and returns a non-negative latency interval. A point estimate is withheld when the corrected center is negative or combined uncertainty exceeds the predeclared tolerance.
 
 This is a useful step beyond subtracting two uncorrected timestamps, but it is not yet a full cross-host qualification path. The pure helper is not yet wired into `MeasurementBatch` or the canonical run receipt; calibration/event records are still caller-supplied and have not been bound to signed raw artifacts, and pair uniqueness/completeness still need integration. MCRB-16 and the cross-host latency claim remain unqualified until that integration and exact-head tests pass.
+
+
+## 15. Holochain 0.7.1 runtime regression gate (observed 19 November 2026)
+
+Holochain 0.7.1 is the latest released 0.7 runtime and was declared ready for development by upstream on 5 November. That is not equivalent to Mycelix production qualification. The public Holochain issue tracker currently contains concrete reports that are relevant to Mycelix workloads:
+
+| Upstream reference | Reported behavior | Mycelix consequence | MCRB gate |
+|---|---|---|---|
+| [#6071](https://github.com/holochain/holochain/issues/6071) | Multi-function capability grants reportedly admitted calls after revoke in 4/6 rounds on 0.7.1; single-function grants denied in 3–21 ms | Consent withdrawal, staff-session termination and other protected actions may remain authorized after revocation | MCRB-17; critical security blocker |
+| [#6062](https://github.com/holochain/holochain/issues/6062) | Large gossip offer over about 10,900 op IDs reportedly fails with SQLite variable limit and can stall convergence; 1 MiB gossip budgets were reported as a workaround | Peer records may not converge; publication can have no eligible storage peers | MCRB-18; availability blocker |
+| [#6066](https://github.com/holochain/holochain/issues/6066) | Time-slice reads reportedly scan large Action/ChainOp data; at about 100k ops DHT update work can exceed its 15-minute cadence | Sustained CPU consumption, slow conductor startup and cells remaining not started | MCRB-19; scale/operations blocker |
+| [#6064](https://github.com/holochain/holochain/issues/6064) | Wasmer module reloads reportedly retain machine code in a shared engine, causing memory growth with cell installation and idle reload | Multi-cell / long-lived conductor resource exhaustion | MCRB-20; operational blocker |
+| [#6065](https://github.com/holochain/holochain/issues/6065) | Explicit existing-agent-key installs reportedly fail once Lair holds around 40+ keys because a single key-list reply exceeds an 8 KiB frame | Multi-agent identities and `restore_from_dht` may fail for a large keystore | MCRB-21; recovery/install blocker |
+
+These are upstream-reported findings and reproduction claims, not independent Mycelix measurements. The MCRB run must capture the exact upstream issue state, runtime build, Lair and Kitsune2 versions, configuration, DNA, data scale and raw evidence.
+
+PR [#6063](https://github.com/holochain/holochain/pull/6063) is merged to upstream `develop`, but the later #6071 report explicitly requests a backport to the 0.7 line. Do not assume that a merge to `develop` is included in the released 0.7.1 binaries.
+
+### Release-target decision
+
+- Keep 0.7.1 as the **current integration/qualification candidate** because it is the released 0.7 toolchain with updated libraries and migration guidance.
+- Do not promote 0.7.1 to a Mycelix production baseline while a critical revocation regression remains unresolved for the deployed grant pattern.
+- Test mitigations such as one grant per function only as explicit candidate policies; measure the additional grant count, authority state and attack surface. Do not silently change the application authorization model as a workaround.
+- Test the 1 MiB gossip-budget workaround only with a pinned config and verify convergence, relay/network load and resource costs.
+- Track upstream 0.7.2 planning issue [#6067](https://github.com/holochain/holochain/issues/6067), but do not pin or describe 0.7.2 as released until the release is actually published and its full component graph is compatible.
+- Separate fixed upstream source, unreleased `develop`, release candidate, released binary and Mycelix exact-head qualification in every evidence receipt.
+
+The 0.7.1 production gate is therefore conjunctive: dependency closure + source/API migration + capability/DirectSignal negative controls + multi-agent runtime + DHT convergence + large-key restore + long-lived resource tests + independent client E2E. A faster benchmark cannot compensate for a security or recovery failure.
