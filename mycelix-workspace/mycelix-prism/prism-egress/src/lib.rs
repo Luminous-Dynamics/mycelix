@@ -429,6 +429,7 @@ pub struct EgressPhaseTiming {
     pub dns_admission_wait: Duration,
     pub dns_resolution: Duration,
     pub egress_admission_wait: Duration,
+    pub transport_client_setup: Duration,
     pub request_to_headers: Duration,
     pub response_memory_admission_wait: Duration,
     pub response_body: Duration,
@@ -484,7 +485,8 @@ pub struct EgressReceipt {
     pub response_body_limit_bytes: usize,
     /// Timings for the final response hop; preceding hops are in redirect_hops.
     pub phase_timing: EgressPhaseTiming,
-    /// End-to-end elapsed duration across authorization, redirects and body read.
+    /// Execution elapsed duration across redirects and body consumption.
+    /// Authorization phases are exposed separately in phase_timing.
     pub elapsed: Duration,
     pub policy_version: &'static str,
     pub authority: &'static str,
@@ -989,6 +991,7 @@ impl PublicEgressClient {
                 return Err(EgressError::CapabilityExpired);
             }
 
+            let transport_client_setup_started = std::time::Instant::now();
             let client = build_pinned_client(
                 &capability.host,
                 &capability.addresses,
@@ -998,6 +1001,7 @@ impl PublicEgressClient {
                 #[cfg(test)]
                 &self.test_root_certificates,
             )?;
+            phase_timing.transport_client_setup = transport_client_setup_started.elapsed();
 
             let request_to_headers_started = std::time::Instant::now();
             let response = client
@@ -3129,6 +3133,10 @@ mod tests {
         assert_eq!(
             response.receipt.authorized_address_set_digest,
             canonical_address_set_digest(&[address])
+        );
+        assert!(
+            response.receipt.phase_timing.transport_client_setup
+                <= response.receipt.elapsed
         );
         assert!(
             response.receipt.phase_timing.request_to_headers
