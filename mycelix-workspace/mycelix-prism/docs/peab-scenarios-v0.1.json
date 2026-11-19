@@ -1268,6 +1268,21 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "KERNEL-013",
+      "family": "kernel_protocol_coverage",
+      "title": "serialized V40 enforcement plan cannot inject unsupported ICMP or Any rules",
+      "setup": "mutate a deserialized, otherwise-valid V40 TCP plan rule to ICMP or protocol Any while keeping the required hook list well-formed",
+      "expected_decision": "reject_plan_before_activation",
+      "oracle": "both capability compilation and NetworkEnforcementPlan validation reject unsupported protocols; a manually assembled serialized plan cannot bypass the compiler's unresolved-rule gate",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "deserialized_plan_cannot_inject_icmp_or_any_rules",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
