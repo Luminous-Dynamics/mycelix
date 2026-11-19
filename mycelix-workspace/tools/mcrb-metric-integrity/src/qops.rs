@@ -67,6 +67,8 @@ pub struct QopsReport {
     pub scenario_id: String,
     pub offer_ledger_digest_sha256: String,
     pub offer_ledger_artifact_digest_sha256: String,
+    pub frozen_plan_artifact_digest_sha256: String,
+    pub runner_attestation_artifact_digest_sha256: String,
     pub offer_ledger_entry_count: usize,
     pub offered_operations: usize,
     pub classified_outcomes: usize,
@@ -203,6 +205,8 @@ pub fn compute_qops(input: &QopsInput, metric_integrity: &IntegrityReport) -> Qo
         scenario_id: input.offer_ledger.scenario_id().to_string(),
         offer_ledger_digest_sha256: input.offer_ledger.digest_sha256().to_string(),
         offer_ledger_artifact_digest_sha256: input.offer_ledger.raw_artifact_digest_sha256().to_string(),
+        frozen_plan_artifact_digest_sha256: input.offer_ledger.frozen_plan_artifact_digest_sha256().to_string(),
+        runner_attestation_artifact_digest_sha256: input.offer_ledger.runner_attestation_artifact_digest_sha256().to_string(),
         offer_ledger_entry_count: input.offer_ledger.entry_count(),
         offered_operations,
         classified_outcomes,
@@ -293,6 +297,8 @@ mod tests {
             seed: SEED.to_string(),
             expected_entry_count: 5,
             expected_ledger_digest_sha256: ledger.digest_sha256.clone(),
+            frozen_plan_artifact_digest_sha256: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".to_string(),
+            runner_attestation_artifact_digest_sha256: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
             measurement_window,
         };
 
@@ -356,6 +362,8 @@ mod tests {
         assert_eq!(report.qualified_success_fraction, Some(0.4));
         assert_eq!(report.offer_ledger_entry_count, 5);
         assert_eq!(report.offer_ledger_artifact_digest_sha256.len(), 64);
+        assert_eq!(report.frozen_plan_artifact_digest_sha256.len(), 64);
+        assert_eq!(report.runner_attestation_artifact_digest_sha256.len(), 64);
         assert_eq!(report.run_id, RUN_ID);
         assert_eq!(report.scenario_id, SCENARIO_ID);
     }
