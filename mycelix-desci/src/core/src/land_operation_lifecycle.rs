@@ -114,7 +114,8 @@ pub struct LandOperationLifecycleV0 {
     pub attempt_history: Vec<SubmissionAttempt>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "result", rename_all = "snake_case")]
 pub enum ReconciliationResult {
     StillUnknown,
     ConfirmedCommitted {
@@ -134,7 +135,8 @@ pub enum ReconciliationResult {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "command", rename_all = "snake_case")]
 pub enum LandOperationCommand {
     Submit {
         attempt_id: String,
@@ -172,7 +174,8 @@ pub enum LandOperationCommand {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum LandOperationTransitionError {
     InvalidTransition,
     InvalidInput,
@@ -865,6 +868,25 @@ fn is_sha256(value: &str) -> bool {
 mod tests {
     use super::*;
 
+    #[derive(Deserialize)]
+    struct LifecycleScenarioCorpus {
+        suite_id: String,
+        suite_version: String,
+        scenarios: Vec<LifecycleScenario>,
+    }
+
+    #[derive(Deserialize)]
+    struct LifecycleScenario {
+        scenario_id: String,
+        source_scenario_id: String,
+        operation_id: String,
+        operation_sha256: String,
+        commands: Vec<LandOperationCommand>,
+        expected_phase: String,
+        expected_error: Option<String>,
+        expected_authoritative_mutation: bool,
+    }
+
     fn lifecycle() -> LandOperationLifecycleV0 {
         LandOperationLifecycleV0::new("urn:synthetic:operation:001", "a".repeat(64))
             .expect("test operation must be valid")
@@ -900,6 +922,75 @@ mod tests {
                 qualification_sha256: "c".repeat(64),
             })
             .expect("qualified status reference must be recorded");
+    }
+
+    #[test]
+    fn tib_transition_scenarios_match_the_executable_lifecycle_policy() {
+        let corpus: LifecycleScenarioCorpus = serde_json::from_str(include_str!(
+            "../../../examples/land-operation-lifecycle-sequences-v0.json"
+        ))
+        .expect("TIB lifecycle sequence corpus must deserialize");
+        assert_eq!(corpus.suite_id, "TIB-PROPERTY-STATE-TRANSITIONS-001");
+        assert_eq!(corpus.suite_version, "0.1.0");
+        assert_eq!(corpus.scenarios.len(), 9);
+
+        for scenario in corpus.scenarios {
+            let mut value = LandOperationLifecycleV0::new(
+                scenario.operation_id,
+                scenario.operation_sha256,
+            )
+            .expect("synthetic operation identity must be valid");
+            let mut observed_error = None;
+            for command in scenario.commands {
+                if let Err(error) = value.apply(command) {
+                    observed_error = Some(match error {
+                        LandOperationTransitionError::InvalidTransition => "invalid_transition",
+                        LandOperationTransitionError::InvalidInput => "invalid_input",
+                        LandOperationTransitionError::IdempotencyKeyChanged => {
+                            "idempotency_key_changed"
+                        }
+                        LandOperationTransitionError::AttemptIdReused => "attempt_id_reused",
+                        LandOperationTransitionError::ExternalOutcomeStillUnknown => {
+                            "external_outcome_still_unknown"
+                        }
+                    });
+                    break;
+                }
+            }
+
+            let phase = serde_json::to_value(&value.phase)
+                .expect("lifecycle phase must serialize")["state"]
+                .as_str()
+                .expect("lifecycle phase must expose a state")
+                .to_owned();
+
+            assert_eq!(
+                phase,
+                scenario.expected_phase,
+                "unexpected phase for {} (source {})",
+                scenario.scenario_id,
+                scenario.source_scenario_id
+            );
+            assert_eq!(
+                observed_error,
+                scenario.expected_error.as_deref(),
+                "unexpected error for {}",
+                scenario.scenario_id
+            );
+            assert_eq!(
+                value.allows_authoritative_mutation(),
+                scenario.expected_authoritative_mutation,
+                "mutation boundary changed for {}",
+                scenario.scenario_id
+            );
+            assert!(!value.allows_authoritative_mutation());
+            assert_eq!(
+                value.validate_structural(),
+                Ok(()),
+                "invalid final lifecycle structure for {}",
+                scenario.scenario_id
+            );
+        }
     }
 
     #[test]
