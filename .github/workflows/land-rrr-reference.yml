@@ -7,6 +7,9 @@ on:
     paths:
       - "mycelix-desci/src/core/src/land_rrr_reference.rs"
       - "mycelix-desci/src/core/src/land_operation_lifecycle.rs"
+      - "mycelix-desci/examples/evidence-invalidation-graph-synthetic-v0.json"
+      - "mycelix-desci/schemas/evidence-invalidation-graph-v0.schema.json"
+      - "mycelix-desci/src/core/src/evidence_invalidation.rs"
       - "mycelix-desci/land-rrr-reference-gate-harness/**"
       - "mycelix-desci/schemas/land-rrr-reference-v0.schema.json"
       - "mycelix-desci/schemas/land-qualification-decision-packet-v0.schema.json"
