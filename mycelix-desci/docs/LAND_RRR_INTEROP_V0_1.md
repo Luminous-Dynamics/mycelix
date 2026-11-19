@@ -213,6 +213,21 @@ This is the principal safety requirement for integrating Mycelix Property into t
 - Withdrawal, correction and revocation append new events; do not rewrite prior history or claim that external copies have disappeared.
 - Never disclose restricted evidence through public indexes, logs, search, audit exports or model prompts.
 
+### Consent and publication authorization crosswalk
+
+The Land RRR payload must **reference** the existing LAND-STEWARD measurement-authorization record rather than creating a second consent/grant model.
+
+| RRR purpose reference | LAND-STEWARD field/purpose | Required interpretation |
+|---|---|---|
+| `measurement` | `consent_status` + `consent_evidence_sha256` | Permission to participate in the named measurement activity only |
+| `site_access` | `site_access_status` + `site_access_evidence_sha256` | Site-entry/access authorization; not implied by measurement consent |
+| `publication` | `publication_consent_status`, `publication_policy`, `coordinate_disclosure` and publication evidence digest | A separate publication authorization; a reference does not mean it was granted |
+| `participation` / `data_sharing` | Owning governance/access profile | Must be resolved for that exact audience, purpose and scope |
+
+The current LAND-STEWARD schema is `mycelix.landscape-measurement-authorization.v0` ([schema on PR #5298](https://github.com/Luminous-Dynamics/mycelix/blob/feat/landscape-stewardship-contract-v0/mycelix-desci/schemas/landscape-measurement-authorization-v0.schema.json)). Its safety gate validates shape/status/digest consistency and has a declared validity-window helper, but it explicitly does not authenticate signatures, resolve authority, or check live revocation. The trusted host must fetch the exact record, pin its digest, validate it, check the requested purpose and time window, then resolve signer/authority and current revocation before performing the action.
+
+The RRR synthetic example now references the same opaque authorization record under three separate purposes. It says measurement consent is granted and site access authorized, while publication consent remains `not-requested` and policy remains `private`. This is intentional: the publication reference exists to identify the relevant policy record, **not** to imply publication is allowed.
+
 ## Runtime integration stages
 
 1. Validate the JSON Schema with an independently selected Draft 2020-12 validator.
