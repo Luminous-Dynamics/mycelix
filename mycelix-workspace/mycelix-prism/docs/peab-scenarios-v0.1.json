@@ -671,6 +671,19 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "PEAB-001",
+      "family": "benchmark_manifest_integrity",
+      "title": "scenario manifest contract is enforced by Rust tests",
+      "setup": "load the committed PEAB scenario manifest as a compile-time test fixture",
+      "expected_decision": "reject_duplicate_or_unqualified_scenario_metadata",
+      "oracle": "Rust test rejects duplicate IDs, missing negative controls, invalid coverage labels, source claims inconsistent with coverage, and execution evidence without exact head/run/job binding",
+      "source_coverage": "present",
+      "source_test": "peab_manifest_contract_is_enforced_by_the_rust_test_suite",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
