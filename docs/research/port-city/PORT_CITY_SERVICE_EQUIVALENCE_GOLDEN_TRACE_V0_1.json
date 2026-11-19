@@ -232,7 +232,8 @@
     "ro_sec_improvement": null,
     "qualified_water_output": null,
     "environmental_discharge_limit": null,
-    "claim": "Heat partition only; no RO, potable-water or environmental compliance credit."
+    "claim": "Heat partition only; no RO, potable-water or environmental compliance credit.",
+    "policy_id": "baseline-inflexible"
   },
   "cases": [
     {
@@ -558,5 +559,40 @@
     ],
     "prohibited_scalar_winner": true
   },
-  "case_count": 38
+  "case_count": 38,
+  "heat_partitions_by_policy": [
+    {
+      "policy_id": "baseline-inflexible",
+      "it_heat_source_kw": 3000,
+      "recovered_source_heat_kw": 312.5,
+      "useful_sink_heat_kw": 250,
+      "recovery_loss_to_seawater_kw": 62.5,
+      "direct_it_heat_to_seawater_kw": 2687.5,
+      "recovery_heat_residual_kw": 0,
+      "it_heat_residual_kw": 0,
+      "claim": "Synthetic heat partition only; no RO SEC, water-quality or environmental compliance credit."
+    },
+    {
+      "policy_id": "naive-carbon-objective-only",
+      "it_heat_source_kw": 4500,
+      "recovered_source_heat_kw": 312.5,
+      "useful_sink_heat_kw": 250,
+      "recovery_loss_to_seawater_kw": 62.5,
+      "direct_it_heat_to_seawater_kw": 4187.5,
+      "recovery_heat_residual_kw": 0,
+      "it_heat_residual_kw": 0,
+      "claim": "Synthetic heat partition only; no RO SEC, water-quality or environmental compliance credit."
+    },
+    {
+      "policy_id": "no-new-peak-admitted",
+      "it_heat_source_kw": 1500,
+      "recovered_source_heat_kw": 312.5,
+      "useful_sink_heat_kw": 250,
+      "recovery_loss_to_seawater_kw": 62.5,
+      "direct_it_heat_to_seawater_kw": 1187.5,
+      "recovery_heat_residual_kw": 0,
+      "it_heat_residual_kw": 0,
+      "claim": "Synthetic heat partition only; no RO SEC, water-quality or environmental compliance credit."
+    }
+  ]
 }
