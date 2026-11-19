@@ -244,6 +244,10 @@ impl BudgetLimitsV1 {
             && optional_rate_is_no_wider(self.rate_limit, parent.rate_limit)
     }
 
+    fn is_strictly_no_wider_than(&self, parent: &Self) -> bool {
+        self.is_no_wider_than(parent) && self != parent
+    }
+
 }
 
 fn optional_max_is_no_wider<T: Copy + Ord>(child: Option<T>, parent: Option<T>) -> bool {
@@ -378,7 +382,13 @@ impl TypedDelegationScopeV1 {
     /// Equal-scope children are not strict attenuation. Incomparable or wider
     /// scopes are rejected.
     pub fn is_strictly_attenuated_by(&self, parent: &Self) -> bool {
-        self.is_no_wider_than(parent) && self != parent
+        self.is_no_wider_than(parent)
+            && (self.actions != parent.actions
+                || self.resources != parent.resources
+                || self.audiences != parent.audiences
+                || self.directions != parent.directions
+                || self.operation != parent.operation
+                || optional_budget_is_strictly_no_wider(self.budgets, parent.budgets))
     }
 
     /// Versioned canonical encoding suitable for content-addressed identity.
@@ -426,6 +436,17 @@ fn optional_budget_is_no_wider(
         (_, None) => true,
         (Some(child), Some(parent)) => child.is_no_wider_than(&parent),
         (None, Some(_)) => false,
+    }
+}
+
+fn optional_budget_is_strictly_no_wider(
+    child: Option<BudgetLimitsV1>,
+    parent: Option<BudgetLimitsV1>,
+) -> bool {
+    match (child, parent) {
+        (Some(_), None) => true,
+        (Some(child), Some(parent)) => child.is_strictly_no_wider_than(&parent),
+        _ => false,
     }
 }
 
