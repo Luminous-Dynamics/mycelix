@@ -667,7 +667,7 @@
       "expected_decision": "same_canonical_set_same_digest",
       "oracle": "ordering and duplicates do not change the digest; a changed port or address family changes it; golden encoding is versioned and domain-separated",
       "source_coverage": "present",
-      "source_test": "canonical_address_set_digest_is_order_independent_deduplicated_and_port_bound",
+      "source_test": "canonical_address_set_digest_is_order_independent_deduplicated_and_port_bound; canonical_address_set_encoding_matches_cross_language_golden_vector",
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
