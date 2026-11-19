@@ -272,7 +272,7 @@ mod tests {
     #[test]
     fn rejects_observation_that_precedes_publication_beyond_uncertainty() {
         let (publisher, mut observer) = calibrations();
-        observer.offset_ms = 100.0;
+        observer.offset_ms = 2_000.0;
         observer.uncertainty_ms = 1.0;
         let error = derive_latency_interval(&event_pair(), &publisher, &observer, 10.0)
             .expect_err("impossible event order must not become a negative latency");
@@ -285,7 +285,7 @@ mod tests {
     #[test]
     fn allows_zero_lower_bound_when_uncertainty_overlaps_zero() {
         let (publisher, mut observer) = calibrations();
-        observer.offset_ms = 999.0;
+        observer.offset_ms = 7.0;
         observer.uncertainty_ms = 10.0;
         let mut pair = event_pair();
         pair.first_valid_observation_at_local_unix_ms = 10_000;
