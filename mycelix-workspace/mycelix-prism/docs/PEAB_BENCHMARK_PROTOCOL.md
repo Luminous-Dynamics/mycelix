@@ -345,3 +345,6 @@ This is application-level transport evidence, not a certificate-chain fingerprin
 ### Nixward-compatible logical request correlation
 
 Prism now creates a random 16-byte UUID correlation ID for standalone requests and exposes `authorize_with_authority_and_correlation` for a trusted adapter to supply an existing 32-character lowercase-hex logical request ID and zero-based redirect-hop index. The fields are copied into the final application receipt and each redirect-hop receipt. Redirects preserve the logical ID and increment the hop index; out-of-range metadata is rejected before DNS resolution. The ID is explicitly metadata for evidence joining, not a capability, secret, signer identity or source of authority. It matches the shape used by Nixward `NetworkResolutionLeaseV1.logical_request_id` and `redirect_hop`, but no live lease consumption or adapter exists yet. CORR-001 describes these source assertions; runtime evidence remains pending.
+
+
+Correlation IDs remain local evidence metadata: Prism does not add them to outbound HTTP headers, URL paths, query parameters or request bodies. The redirect integration test asserts that the exact ID in the final receipt is absent from both upstream request byte streams. PRIV-001 records this privacy boundary; this is a source assertion until the test executes.
