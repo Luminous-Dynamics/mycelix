@@ -5019,15 +5019,21 @@ mod tests {
                 "present" => assert!(
                     scenario["source_test"]
                         .as_str()
-                        .is_some_and(|name| !name.trim().is_empty()),
-                    "source-present scenario {id} must name its source test"
+                        .is_some_and(|names| {
+                            !names.trim().is_empty()
+                                && names.split(';').all(|name| !name.trim().is_empty())
+                        }),
+                    "source-present scenario {id} must name one or more non-empty source tests"
                 ),
                 "partial" => {
                     assert!(
                         scenario["source_test"].is_null()
                             || scenario["source_test"]
                                 .as_str()
-                                .is_some_and(|name| !name.trim().is_empty()),
+                                .is_some_and(|names| {
+                                    !names.trim().is_empty()
+                                        && names.split(';').all(|name| !name.trim().is_empty())
+                                }),
                         "partial scenario {id} must use null or a non-empty source-test list"
                     );
                 }
@@ -5050,16 +5056,21 @@ mod tests {
                 let evidence = &scenario["execution_evidence"];
                 assert!(evidence.is_object(), "scenario {id} needs an evidence object");
                 assert!(
-                    evidence["head_sha"].as_str().is_some_and(|value| !value.is_empty()),
-                    "scenario {id} evidence must bind an exact head SHA"
+                    evidence["head_sha"].as_str().is_some_and(|value| {
+                        value.len() == 40
+                            && value.bytes().all(|byte| {
+                                byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)
+                            })
+                    }),
+                    "scenario {id} evidence must bind a full 40-character lowercase-hex commit SHA"
                 );
                 assert!(
-                    evidence["run_id"].as_u64().is_some(),
-                    "scenario {id} evidence must bind a workflow run ID"
+                    evidence["run_id"].as_u64().is_some_and(|value| value > 0),
+                    "scenario {id} evidence must bind a positive workflow run ID"
                 );
                 assert!(
-                    evidence["job_id"].as_u64().is_some(),
-                    "scenario {id} evidence must bind a workflow job ID"
+                    evidence["job_id"].as_u64().is_some_and(|value| value > 0),
+                    "scenario {id} evidence must bind a positive workflow job ID"
                 );
             }
         }
