@@ -1,0 +1,655 @@
+{
+  "schema_version": "mycelix-mcrb-scenario-pack-v0.1",
+  "benchmark_id": "MCRB",
+  "benchmark_version": "0.1",
+  "status": "proposed-not-executed",
+  "source_main_sha": "f51334e48f686fc294a423180c2f7f3fd9b2d283",
+  "runtime_candidates": [
+    "holochain-0.6.1-baseline",
+    "holochain-0.7.1-candidate"
+  ],
+  "harness_layers": [
+    {
+      "id": "runtime",
+      "name": "Holochain Wind Tunnel",
+      "purpose": "Peer topology, DHT, validation, signal and host-resource operating envelope"
+    },
+    {
+      "id": "application",
+      "name": "Mycelix MCRB semantic harness",
+      "purpose": "Authority, revocation, privacy, effect idempotency, migration and recovery correctness"
+    }
+  ],
+  "comparator_profiles": [
+    {
+      "id": "holochain-wind-tunnel",
+      "role": "direct-runtime",
+      "equivalence": "same substrate runtime scenarios; pin Wind Tunnel version, scenario revision, topology and artifacts"
+    },
+    {
+      "id": "postgresql-18-pgbench",
+      "role": "centralized-oltp-baseline",
+      "equivalence": "custom SQL workflow and outbox with same payload and workload; authority semantics remain explicitly different"
+    },
+    {
+      "id": "hyperledger-fabric-2-caliper",
+      "role": "permissioned-ledger-baseline",
+      "equivalence": "only endorsement/commit workflows with documented matched policy; pin Fabric and Caliper versions"
+    },
+    {
+      "id": "yjs-or-automerge",
+      "role": "crdt-component-comparison",
+      "equivalence": "document convergence and offline merge only; not authorization, revocation or effect finality"
+    },
+    {
+      "id": "iroh-or-ipfs",
+      "role": "transport-component-comparison",
+      "equivalence": "blob or message dissemination only; not application validation or authority"
+    }
+  ],
+  "required_run_provenance": [
+    "repository",
+    "source_sha",
+    "source_tree_digest",
+    "cargo_lock_digest",
+    "nix_lock_digest",
+    "javascript_lock_digest",
+    "conductor_version",
+    "hdk_version",
+    "hdi_version",
+    "client_versions",
+    "lair_version",
+    "kitsune2_version",
+    "dna_hashes",
+    "happ_hash",
+    "topology_profile",
+    "hardware_profile",
+    "network_profile",
+    "scenario_pack_digest",
+    "workload_seed",
+    "run_id",
+    "raw_trace_digests",
+    "verifier_version"
+  ],
+  "statistical_protocol": {
+    "minimum_independent_repetitions": 5,
+    "preferred_repetitions_for_headline_claims": 10,
+    "report_percentiles": [
+      "p50",
+      "p95",
+      "p99"
+    ],
+    "require_confidence_intervals": true,
+    "randomized_run_order": true,
+    "preserve_per_peer_distributions": true
+  },
+  "hard_failure_policy": {
+    "correctness_failure_invalidates_performance_claim": true,
+    "false_authorization_limit": 0,
+    "private_payload_leak_limit": 0,
+    "duplicate_external_effect_limit": 0,
+    "stale_head_qualification_limit": 0,
+    "unknown_outcome_requires_reconciliation": true
+  },
+  "scenarios": [
+    {
+      "id": "MCRB-01",
+      "name": "single-agent append and read",
+      "class": "substrate-and-application",
+      "upstream_wind_tunnel_scenarios": [],
+      "question": "What is the local source-chain write/read cost and does integrity validation preserve declared invariants?",
+      "topology": {
+        "agents": 1,
+        "roles": 1,
+        "peer_profile": "single-conductor"
+      },
+      "operations": [
+        "append immutable record",
+        "read own record"
+      ],
+      "failure_injection": [],
+      "metrics": [
+        "write_ack_latency_ms",
+        "read_latency_ms",
+        "cpu_seconds",
+        "peak_rss_bytes",
+        "disk_bytes"
+      ],
+      "hard_invariants": [
+        "history_append_only",
+        "author_binding_valid",
+        "receipt_source_head_exact"
+      ]
+    },
+    {
+      "id": "MCRB-02",
+      "name": "multi-agent publication and read",
+      "class": "substrate-and-application",
+      "upstream_wind_tunnel_scenarios": [
+        "zome-call",
+        "dht-sync"
+      ],
+      "question": "Can another agent retrieve a valid author-bound record after publication?",
+      "topology": {
+        "agents": 5,
+        "roles": 1,
+        "peer_profile": "small-mesh"
+      },
+      "operations": [
+        "publish from agent A",
+        "read from agents B-E",
+        "verify author and record type"
+      ],
+      "failure_injection": [
+        "one peer delayed",
+        "one peer temporarily offline"
+      ],
+      "metrics": [
+        "write_ack_latency_ms",
+        "first_remote_read_ms",
+        "dht_convergence_ms",
+        "eligible_read_success_rate",
+        "network_bytes"
+      ],
+      "hard_invariants": [
+        "no_wrong_author_acceptance",
+        "no_wrong_entry_type_acceptance",
+        "no_fixture_as_remote_observation"
+      ]
+    },
+    {
+      "id": "MCRB-03",
+      "name": "DHT convergence",
+      "class": "substrate-runtime",
+      "upstream_wind_tunnel_scenarios": [
+        "dht_sync_lag"
+      ],
+      "question": "How long between publication and visibility to each expected peer?",
+      "topology": {
+        "agents": 10,
+        "roles": 1,
+        "peer_profile": "wind-tunnel-compatible"
+      },
+      "operations": [
+        "publish timestamped records",
+        "poll from observer peers",
+        "record per-peer first-valid-observation time"
+      ],
+      "failure_injection": [
+        "geographic RTT variation",
+        "packet loss profile",
+        "peer churn"
+      ],
+      "metrics": [
+        "dht_convergence_ms_p50",
+        "dht_convergence_ms_p95",
+        "dht_convergence_ms_p99",
+        "peer_visibility_fraction",
+        "cpu_seconds",
+        "network_bytes"
+      ],
+      "hard_invariants": [
+        "all_reads_bind_to_exact_record_hash",
+        "unseen_records_not_claimed_visible"
+      ]
+    },
+    {
+      "id": "MCRB-04",
+      "name": "cross-role workflow",
+      "class": "application-topology",
+      "upstream_wind_tunnel_scenarios": [
+        "zome-call",
+        "app-install"
+      ],
+      "question": "Does a multi-DNA operation resolve only declared same-hApp roles and preserve end-to-end authority?",
+      "topology": {
+        "agents": 5,
+        "roles": 3,
+        "peer_profile": "unified-or-resilience-profile"
+      },
+      "operations": [
+        "source-role query",
+        "target-role authorization check",
+        "target-role operation",
+        "source-role receipt"
+      ],
+      "failure_injection": [
+        "missing target role",
+        "wrong role name",
+        "target cell unavailable"
+      ],
+      "metrics": [
+        "cross_role_completion_ms",
+        "cross_role_success_rate",
+        "unavailable_dependency_count",
+        "cpu_seconds",
+        "network_bytes"
+      ],
+      "hard_invariants": [
+        "other_role_target_declared",
+        "wrong_topology_denied",
+        "authority_not_inferred_from_role_name"
+      ]
+    },
+    {
+      "id": "MCRB-05",
+      "name": "partition and rejoin",
+      "class": "resilience",
+      "upstream_wind_tunnel_scenarios": [
+        "dht-sync",
+        "network-churn"
+      ],
+      "question": "Can peers rejoin and converge without silent data loss, invalid overwrites or unsafe duplicate effects?",
+      "topology": {
+        "agents": 20,
+        "roles": 2,
+        "peer_profile": "partitioned-mesh"
+      },
+      "operations": [
+        "partition peer groups",
+        "perform policy-permitted offline writes",
+        "heal partition",
+        "reconcile records"
+      ],
+      "failure_injection": [
+        "network partition",
+        "peer restart",
+        "delayed gossip",
+        "duplicate delivery"
+      ],
+      "metrics": [
+        "rejoin_time_ms",
+        "post_rejoin_convergence_ms",
+        "acknowledged_record_loss_count",
+        "conflict_count",
+        "reconciliation_required_count"
+      ],
+      "hard_invariants": [
+        "no_silent_acknowledged_record_loss",
+        "append_only_revisions",
+        "conflicts_explicit",
+        "unknown_outcome_reconciled"
+      ]
+    },
+    {
+      "id": "MCRB-06",
+      "name": "capability revocation",
+      "class": "security-and-authority",
+      "upstream_wind_tunnel_scenarios": [
+        "zome-call",
+        "validation-receipts"
+      ],
+      "question": "When does a revoked capability stop authorizing the protected operation under the declared revocation policy?",
+      "topology": {
+        "agents": 5,
+        "roles": 1,
+        "peer_profile": "multi-agent"
+      },
+      "operations": [
+        "issue scoped grant",
+        "use grant",
+        "revoke grant",
+        "attempt use from every expected peer"
+      ],
+      "failure_injection": [
+        "stale source-chain grant",
+        "delayed DHT visibility",
+        "concurrent use and revoke"
+      ],
+      "metrics": [
+        "revocation_enforcement_lag_ms",
+        "post_barrier_authorized_effect_count",
+        "stale_grant_accept_count",
+        "revocation_read_latency_ms"
+      ],
+      "hard_invariants": [
+        "zero_post_barrier_authorized_effects",
+        "stale_grant_does_not_authorize",
+        "revocation_policy_and_barrier_recorded"
+      ]
+    },
+    {
+      "id": "MCRB-07",
+      "name": "DirectSignal capability and version boundary",
+      "class": "security-and-transport",
+      "upstream_wind_tunnel_scenarios": [
+        "remote-signals"
+      ],
+      "question": "Are DirectSignal grants explicit and are 0.7.0/0.7.1 incompatibilities handled safely?",
+      "topology": {
+        "agents": 3,
+        "roles": 1,
+        "peer_profile": "two-version-isolated-lab"
+      },
+      "operations": [
+        "grant DirectSignal capability",
+        "send with valid grant",
+        "attempt without grant",
+        "attempt wrong scope",
+        "exercise 0.7.0-to-0.7.1 and reverse"
+      ],
+      "failure_injection": [
+        "missing grant",
+        "wrong capability secret",
+        "revoked grant",
+        "mixed-version peer"
+      ],
+      "metrics": [
+        "signal_delivery_latency_ms",
+        "signal_delivery_success_rate",
+        "unauthorized_signal_accept_count",
+        "incompatible_signal_silently_accepted_count"
+      ],
+      "hard_invariants": [
+        "zero_unauthorized_signal_acceptance",
+        "sender_identity_preserved",
+        "mixed_version_incompatibility_explicit"
+      ]
+    },
+    {
+      "id": "MCRB-08",
+      "name": "idempotent effects and uncertain outcome",
+      "class": "transaction-safety",
+      "upstream_wind_tunnel_scenarios": [
+        "zome-call"
+      ],
+      "question": "Can clients retry safely after timeout without duplicating external effects?",
+      "topology": {
+        "agents": 5,
+        "roles": 2,
+        "peer_profile": "multi-agent-with-effect-simulator"
+      },
+      "operations": [
+        "submit effect intent with idempotency key",
+        "commit effect",
+        "drop acknowledgement",
+        "retry same request",
+        "reconcile effect receipt"
+      ],
+      "failure_injection": [
+        "timeout after effect",
+        "timeout before effect",
+        "duplicate request",
+        "lost receipt"
+      ],
+      "metrics": [
+        "duplicate_effect_count",
+        "orphaned_effect_count",
+        "reconciliation_latency_ms",
+        "unknown_outcome_duration_ms"
+      ],
+      "hard_invariants": [
+        "zero_duplicate_external_effects",
+        "unknown_outcome_reconciled_before_retry",
+        "receipt_binds_exact_effect"
+      ]
+    },
+    {
+      "id": "MCRB-09",
+      "name": "public source-chain restore",
+      "class": "recovery",
+      "upstream_wind_tunnel_scenarios": [
+        "app-install",
+        "dht-sync"
+      ],
+      "question": "Can a public chain be restored with the original key identity and explicit application lifecycle?",
+      "topology": {
+        "agents": 5,
+        "roles": 1,
+        "peer_profile": "restore-network"
+      },
+      "operations": [
+        "create public records",
+        "remove local chain state in isolated lab",
+        "install using restore_from_dht",
+        "observe AwaitingRestore",
+        "enable only after all required cell chains are restored"
+      ],
+      "failure_injection": [
+        "missing original key",
+        "partial source-chain availability",
+        "one cell restore incomplete"
+      ],
+      "metrics": [
+        "restore_duration_ms",
+        "restored_public_record_recall",
+        "restore_failure_class_count",
+        "awaiting_restore_duration_ms"
+      ],
+      "hard_invariants": [
+        "original_agent_key_required",
+        "awaiting_restore_not_treated_as_enabled",
+        "private_records_not_restored_from_public_dht"
+      ]
+    },
+    {
+      "id": "MCRB-10",
+      "name": "application-level migration export/import",
+      "class": "migration",
+      "upstream_wind_tunnel_scenarios": [],
+      "question": "Can application semantics be reconstructed across 0.6-to-0.7 without pretending hashes or databases are compatible?",
+      "topology": {
+        "agents": 2,
+        "roles": 1,
+        "peer_profile": "isolated-old-and-new-networks"
+      },
+      "operations": [
+        "export supported semantic records from 0.6",
+        "verify manifest and provenance",
+        "import into fresh 0.7.1 environment",
+        "compare semantic oracle",
+        "reconcile external receipts separately"
+      ],
+      "failure_injection": [
+        "truncated export",
+        "duplicate import",
+        "unknown schema version",
+        "missing author key"
+      ],
+      "metrics": [
+        "export_duration_ms",
+        "import_duration_ms",
+        "semantic_record_recall",
+        "lineage_integrity_rate",
+        "migration_reconciliation_error_count"
+      ],
+      "hard_invariants": [
+        "no_old_database_reuse",
+        "no_old_hash_identity_assumption",
+        "all_unresolved_records_reported",
+        "no_legal_effect_promoted_without_external_receipt"
+      ]
+    },
+    {
+      "id": "MCRB-11",
+      "name": "private/public data containment",
+      "class": "privacy",
+      "upstream_wind_tunnel_scenarios": [
+        "dht-sync",
+        "remote-signals"
+      ],
+      "question": "Can source-chain-only records remain private through transport, logs, signals and projections?",
+      "topology": {
+        "agents": 5,
+        "roles": 2,
+        "peer_profile": "private-and-public-cells"
+      },
+      "operations": [
+        "write private source-chain record",
+        "write public DHT record",
+        "exercise bridge and projection paths",
+        "inspect peer-visible data and telemetry"
+      ],
+      "failure_injection": [
+        "misconfigured bridge",
+        "overbroad query",
+        "signal payload leak",
+        "log/trace capture"
+      ],
+      "metrics": [
+        "private_payload_leak_count",
+        "unauthorized_projection_count",
+        "public_visibility_mismatch_count",
+        "private_record_access_denial_rate"
+      ],
+      "hard_invariants": [
+        "zero_private_payload_leaks",
+        "zero_unknown_to_visible_promotion",
+        "public_and_private_data_classes_separated"
+      ]
+    },
+    {
+      "id": "MCRB-12",
+      "name": "adversarial author, scope and equivocation controls",
+      "class": "adversarial-validation",
+      "upstream_wind_tunnel_scenarios": [
+        "validation-receipts",
+        "zome-call"
+      ],
+      "question": "Are malformed, forged, wrong-author, stale and equivocal claims rejected by deterministic integrity rules?",
+      "topology": {
+        "agents": 10,
+        "roles": 1,
+        "peer_profile": "adversarial-multi-agent"
+      },
+      "operations": [
+        "submit valid record",
+        "submit wrong-author record",
+        "submit wrong-type reference",
+        "submit stale/revoked scope",
+        "submit equivocal conflicting claims"
+      ],
+      "failure_injection": [
+        "malformed payload",
+        "forged author reference",
+        "invalid predecessor",
+        "duplicate identity",
+        "equivocation"
+      ],
+      "metrics": [
+        "false_accept_count",
+        "false_reject_count",
+        "validation_latency_ms",
+        "validation_cpu_seconds"
+      ],
+      "hard_invariants": [
+        "zero_false_accepts_in_frozen_corpus",
+        "all_failures_classified",
+        "deterministic_verifier_agreement"
+      ]
+    },
+    {
+      "id": "MCRB-13",
+      "name": "resource exhaustion and bounded work",
+      "class": "resilience-and-security",
+      "upstream_wind_tunnel_scenarios": [
+        "zome-call",
+        "validation-load"
+      ],
+      "question": "Can malformed or abusive peers amplify bounded host work or exhaust peers?",
+      "topology": {
+        "agents": 20,
+        "roles": 1,
+        "peer_profile": "mixed-trust"
+      },
+      "operations": [
+        "bounded valid publication",
+        "oversized payload",
+        "link fanout stress",
+        "expensive reference traversal",
+        "rate-limited mutation attempt"
+      ],
+      "failure_injection": [
+        "high fanout",
+        "duplicate link spam",
+        "oversized input",
+        "concurrent abuse"
+      ],
+      "metrics": [
+        "cpu_seconds_per_rejected_operation",
+        "peak_rss_bytes",
+        "validation_queue_depth",
+        "rate_limit_enforcement_latency_ms",
+        "peer_availability"
+      ],
+      "hard_invariants": [
+        "bounded_resource_growth",
+        "unauthorized_mutation_denied",
+        "healthy_peer_availability_preserved"
+      ]
+    },
+    {
+      "id": "MCRB-14",
+      "name": "deployment profile and topology audit",
+      "class": "static-qualification",
+      "upstream_wind_tunnel_scenarios": [],
+      "question": "Does the declared profile include every referenced same-hApp role and use explicit orchestration across separate hApps?",
+      "topology": {
+        "agents": 0,
+        "roles": 19,
+        "peer_profile": "manifest-derived-static"
+      },
+      "operations": [
+        "parse unified manifest",
+        "parse resilience manifest",
+        "extract OtherRole references",
+        "compare references to each profile",
+        "resolve DNA artifact paths"
+      ],
+      "failure_injection": [
+        "missing target role",
+        "stale role name",
+        "missing DNA artifact",
+        "duplicate role id"
+      ],
+      "metrics": [
+        "undeclared_role_reference_count",
+        "missing_dna_artifact_count",
+        "duplicate_role_id_count",
+        "registry_source_provenance_complete"
+      ],
+      "hard_invariants": [
+        "zero_unresolved_other_role_calls_for_promoted_profile",
+        "manifest_source_hash_pinned",
+        "unknown_classifications_remain_unknown"
+      ]
+    },
+    {
+      "id": "MCRB-15",
+      "name": "qualification receipt tamper and stale-head rejection",
+      "class": "evidence-assurance",
+      "upstream_wind_tunnel_scenarios": [],
+      "question": "Can the evidence verifier reject incomplete, altered or stale-head qualification receipts?",
+      "topology": {
+        "agents": 0,
+        "roles": 0,
+        "peer_profile": "offline-verifier"
+      },
+      "operations": [
+        "create valid fixture receipt",
+        "mutate artifact digest",
+        "change source SHA",
+        "remove required scenario",
+        "replay superseded run"
+      ],
+      "failure_injection": [
+        "digest mismatch",
+        "stale head",
+        "missing run/job",
+        "missing raw trace",
+        "wrong verifier identity"
+      ],
+      "metrics": [
+        "receipt_verification_latency_ms",
+        "tampered_receipt_accept_count",
+        "stale_head_accept_count",
+        "incomplete_receipt_accept_count"
+      ],
+      "hard_invariants": [
+        "zero_tampered_receipt_acceptance",
+        "zero_stale_head_qualification",
+        "all_claims_bind_exact_artifacts"
+      ]
+    }
+  ]
+}
