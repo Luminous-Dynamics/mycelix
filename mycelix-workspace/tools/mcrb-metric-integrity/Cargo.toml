@@ -11,3 +11,4 @@ description = "Fail-closed metric integrity checks for Mycelix Coordination and 
 
 [lib]
 path = "src/lib.rs"
+sha2 = "=0.11.1"
