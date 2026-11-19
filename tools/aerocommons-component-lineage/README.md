@@ -6,7 +6,7 @@ A small, standalone Rust verifier for a synthetic non-flight-critical build pack
 
 From the repository root:
 
-    cargo test --manifest-path tools/aerocommons-component-lineage/Cargo.toml --locked
+    cargo test --manifest-path tools/aerocommons-component-lineage/Cargo.toml
 
 The crate consumes the typed AeroEvidence primitives from the stacked AeroCommons evidence-types branch. It is deliberately outside the large Holochain workspace so the focused test target does not require building unrelated zomes.
 
