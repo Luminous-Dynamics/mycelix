@@ -1,0 +1,52 @@
+{
+  "fixture_bundle_id": "food-lot-provenance-entry-v1",
+  "status": "synthetic_integrity_contract_only",
+  "scenarios": [
+    {
+      "scenario_id": "revision-1-signed-by-producer",
+      "expected": "valid",
+      "assertion": "producer_ref equals canonical DID derived from the signed Create action author; previous_revision_action is null"
+    },
+    {
+      "scenario_id": "forged-producer-ref",
+      "expected": "invalid",
+      "assertion": "producer_ref differs from DID derived from action.author()"
+    },
+    {
+      "scenario_id": "revision-2-exact-predecessor",
+      "expected": "valid",
+      "assertion": "predecessor exists, is a FoodLotProvenanceEntryV1, has the same lot/product/producer and revision exactly one lower"
+    },
+    {
+      "scenario_id": "revision-without-predecessor",
+      "expected": "invalid",
+      "assertion": "revision > 1 requires a previous_revision_action"
+    },
+    {
+      "scenario_id": "revision-one-with-predecessor",
+      "expected": "invalid",
+      "assertion": "revision 1 cannot have a predecessor"
+    },
+    {
+      "scenario_id": "skipped-revision-or-forked-parent",
+      "expected": "invalid",
+      "assertion": "current revision must equal predecessor revision + 1"
+    },
+    {
+      "scenario_id": "product-or-producer-changed",
+      "expected": "invalid",
+      "assertion": "V1 successor preserves product and producer; transfer requires a separate delegated witness protocol"
+    },
+    {
+      "scenario_id": "listing-as-producer-lot",
+      "expected": "invalid",
+      "assertion": "Market Listing and Order entry types are not accepted as predecessor records"
+    },
+    {
+      "scenario_id": "update-existing-provenance",
+      "expected": "invalid",
+      "assertion": "FoodLotProvenanceEntryV1 is create-only; correction creates a linked successor"
+    }
+  ],
+  "claim_ceiling": "Author binding proves control of a Mycelix DID by the signing agent only. It does not prove legal producer registration, farm location, certification, physical lot existence, freshness, food safety, allergen status or household receipt."
+}

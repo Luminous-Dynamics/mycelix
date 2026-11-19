@@ -1,0 +1,55 @@
+name: Food Lot Provenance Entry
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-commons/zomes/food-distribution/integrity/**"
+      - ".github/workflows/food-lot-provenance-entry.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: food-lot-provenance-entry-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-head-integrity:
+    name: Signed provenance entry integrity (exact head)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      QUALIFIED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      RUSTUP_TOOLCHAIN: 1.96.1
+      CARGO_INCREMENTAL: 0
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact checkout
+        run: test "$(git rev-parse HEAD)" = "${QUALIFIED_SHA}"
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.1
+          components: rustfmt, clippy
+
+      - name: Assert pinned toolchain
+        run: |
+          test "$(rustc --version | awk '{print $2}')" = "1.96.1"
+          rustfmt --version
+          cargo --version
+
+      - name: Check production integrity crate formatting
+        run: cargo fmt --manifest-path mycelix-commons/Cargo.toml --package food_distribution_integrity -- --check
+
+      - name: Run production integrity tests
+        run: cargo test --manifest-path mycelix-commons/Cargo.toml --package food_distribution_integrity
+
+      - name: Run strict production integrity Clippy
+        run: cargo clippy --manifest-path mycelix-commons/Cargo.toml --package food_distribution_integrity --all-targets -- -D warnings

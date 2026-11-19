@@ -5,9 +5,20 @@
 //! Entry types and validation for local food markets, listings, and orders.
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
+use mycelix_bridge_entry_types::{
+    check_author_match, check_link_author_match, did_for_author, require_did_is_author,
+};
 
 pub mod food_lot_reconciliation;
+
+/// Producer-authored lot provenance stored as an immutable, signed Holochain
+/// entry. Later revisions must point to the exact previous revision action.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct FoodLotProvenanceEntryV1 {
+    pub provenance: food_lot_reconciliation::FoodLotProvenanceV1,
+    pub previous_revision_action: Option<ActionHash>,
+}
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -96,6 +107,8 @@ pub enum EntryTypes {
     Market(Market),
     Listing(Listing),
     Order(Order),
+    /// Append-only producer lot provenance; appended to preserve existing entry indices.
+    FoodLotProvenance(FoodLotProvenanceEntryV1),
 }
 
 #[hdk_link_types]
@@ -116,17 +129,27 @@ pub enum LinkTypes {
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Market(m) => validate_market(m),
                 EntryTypes::Listing(l) => validate_listing(l),
                 EntryTypes::Order(o) => validate_order(o),
+                EntryTypes::FoodLotProvenance(entry) => validate_create_food_lot_provenance(
+                    EntryCreationAction::Create(action),
+                    entry,
+                ),
             },
-            OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
+            OpEntry::UpdateEntry { app_entry, action, .. } => match app_entry {
                 EntryTypes::Market(m) => validate_market(m),
                 EntryTypes::Listing(l) => validate_listing(l),
                 EntryTypes::Order(o) => validate_order(o),
-                _ => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::FoodLotProvenance(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Food lot provenance revisions are immutable; create a linked successor revision".into(),
+                )),
+                _ => {
+                    let _ = action;
+                    Ok(ValidateCallbackResult::Valid)
+                }
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -190,7 +213,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 | OpUpdate::CapClaim { action, .. }
                 | OpUpdate::CapGrant { action, .. } => action,
             };
-            let original = must_get_action(action.original_action_address.clone())?;
+            let original = must_get_valid_record(action.original_action_address.clone())?;
+            if matches!(
+                original.entry().to_app_option::<EntryTypes>()?,
+                Some(EntryTypes::FoodLotProvenance(_))
+            ) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Food lot provenance entries are immutable and cannot be updated".into(),
+                ));
+            }
             Ok(check_author_match(
                 original.action().author(),
                 &action.author,
@@ -198,11 +229,207 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ))
         }
         FlatOp::RegisterDelete(OpDelete { action, .. }) => {
-            let original = must_get_action(action.deletes_address.clone())?;
+            let original = must_get_valid_record(action.deletes_address.clone())?;
+            if matches!(
+                original.entry().to_app_option::<EntryTypes>()?,
+                Some(EntryTypes::FoodLotProvenance(_))
+            ) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Food lot provenance entries are immutable and cannot be deleted".into(),
+                ));
+            }
             Ok(check_author_match(
                 original.action().author(),
                 &action.author,
                 "delete",
+            ))
+        }
+    }
+}
+
+const FOOD_LOT_PROVENANCE_SCHEMA_VERSION: u32 = 1;
+const FOOD_LOT_PROVENANCE_CLAIM_CEILING: &str = "Supplier/producer lot identity and source-declared quantity only; not proof of household receipt, freshness, food safety, allergen status or suitability.";
+
+fn nonempty(value: &str) -> bool {
+    !value.trim().is_empty()
+}
+
+fn validate_food_lot_quantity(quantity: &food_lot_reconciliation::FoodLotQuantityV1) -> bool {
+    if quantity.value == 0 || quantity.decimal_places > 6 {
+        return false;
+    }
+    match (quantity.dimension.as_str(), quantity.unit.as_str()) {
+        ("mass", "mg" | "g" | "kg")
+        | ("volume", "mL" | "L")
+        | ("count", "count" | "piece") => true,
+        _ => false,
+    }
+}
+
+/// Pure field and author-binding checks. The DID is supplied by the signed
+/// Create action, never accepted from an untrusted coordinator request.
+fn validate_food_lot_provenance_declaration(
+    lot: &food_lot_reconciliation::FoodLotProvenanceV1,
+    author_did: &str,
+) -> ValidateCallbackResult {
+    if lot.schema_version != FOOD_LOT_PROVENANCE_SCHEMA_VERSION {
+        return ValidateCallbackResult::Invalid("Unsupported FoodLotProvenanceV1 schema version".into());
+    }
+    let lot_suffix = lot.lot_ref.strip_prefix("mycelix:food-lot:");
+    if lot.lot_ref.len() > 150
+        || lot_suffix.is_none_or(|suffix| {
+            suffix.is_empty()
+                || suffix.len() > 128
+                || !(suffix.as_bytes()[0].is_ascii_lowercase()
+                    || suffix.as_bytes()[0].is_ascii_digit())
+                || !suffix.bytes().all(|byte| {
+                    byte.is_ascii_lowercase()
+                        || byte.is_ascii_digit()
+                        || matches!(byte, b'.' | b'_' | b':' | b'-')
+                })
+        })
+        || !nonempty(&lot.product_ref)
+        || lot.product_ref.len() > 512
+        || !nonempty(&lot.producer_ref)
+        || lot.producer_ref.len() > 512
+        || lot.revision == 0
+    {
+        return ValidateCallbackResult::Invalid(
+            "Invalid food lot identity, product, producer or revision".into(),
+        );
+    }
+    if lot.supplier_lot_code.as_deref().is_some_and(|value| value.is_empty() || value.len() > 128)
+        || lot.listing_ref.as_deref().is_some_and(|value| value.is_empty() || value.len() > 512)
+        || lot.origin_ref.as_deref().is_some_and(|value| value.is_empty() || value.len() > 512)
+        || lot.handling_ref.as_deref().is_some_and(|value| value.is_empty() || value.len() > 512)
+    {
+        return ValidateCallbackResult::Invalid("Optional food lot references must be non-empty and within schema limits".into());
+    }
+    if !validate_food_lot_quantity(&lot.quantity) {
+        return ValidateCallbackResult::Invalid("Food lot quantity must be positive, exact and dimensionally valid".into());
+    }
+    let source = &lot.evidence.source_ref;
+    if !nonempty(source) || source.len() > 512 {
+        return ValidateCallbackResult::Invalid("Food lot evidence source_ref is required".into());
+    }
+    let evidence_class = lot.evidence.evidence_class.as_str();
+    if !matches!(
+        evidence_class,
+        "Declared" | "Attested" | "Modelled" | "Measured" | "IndependentlyAssayed" | "IndependentlyQualified"
+    ) {
+        return ValidateCallbackResult::Invalid("Unsupported food lot evidence class".into());
+    }
+    if evidence_class == "Measured"
+        && lot.evidence.calibration_ref.as_deref().is_none_or(|value| !nonempty(value))
+    {
+        return ValidateCallbackResult::Invalid("Measured food lot evidence requires calibration_ref".into());
+    }
+    if matches!(evidence_class, "IndependentlyAssayed" | "IndependentlyQualified")
+        && lot.evidence.method_ref.as_deref().is_none_or(|value| !nonempty(value))
+    {
+        return ValidateCallbackResult::Invalid("Independent food lot evidence requires method_ref".into());
+    }
+    if lot.evidence.method_ref.as_deref().is_some_and(|value| value.is_empty() || value.len() > 512)
+        || lot.evidence.calibration_ref.as_deref().is_some_and(|value| value.is_empty() || value.len() > 512)
+    {
+        return ValidateCallbackResult::Invalid("Optional evidence references must not be empty strings".into());
+    }
+    if [
+        lot.harvested_at,
+        lot.packed_at,
+        lot.best_before_at,
+        lot.use_by_at,
+    ]
+    .into_iter()
+    .flatten()
+    .any(|timestamp| timestamp == 0)
+    {
+        return ValidateCallbackResult::Invalid(
+            "Known food lot timestamps must be positive epoch values".into(),
+        );
+    }
+    let source_date = lot.packed_at.or(lot.harvested_at);
+    if let Some(source_date) = source_date {
+        if lot.best_before_at.is_some_and(|end| end < source_date)
+            || lot.use_by_at.is_some_and(|end| end < source_date)
+        {
+            return ValidateCallbackResult::Invalid("Best-before/use-by dates cannot precede known harvest/packing time".into());
+        }
+    }
+    if lot.harvested_at.zip(lot.packed_at).is_some_and(|(harvested, packed)| packed < harvested) {
+        return ValidateCallbackResult::Invalid("packed_at cannot precede harvested_at".into());
+    }
+    if lot.claim_ceiling != FOOD_LOT_PROVENANCE_CLAIM_CEILING {
+        return ValidateCallbackResult::Invalid("Food lot provenance claim ceiling mismatch".into());
+    }
+    if let ValidateCallbackResult::Invalid(message) = require_did_is_author(
+        "FoodLotProvenanceV1",
+        "producer_ref",
+        &lot.producer_ref,
+        author_did,
+    ) {
+        return ValidateCallbackResult::Invalid(message);
+    }
+    ValidateCallbackResult::Valid
+}
+
+/// Check the append-only revision relation without performing any Holochain I/O.
+fn validate_food_lot_revision_successor(
+    current: &food_lot_reconciliation::FoodLotProvenanceV1,
+    previous: Option<&food_lot_reconciliation::FoodLotProvenanceV1>,
+) -> ValidateCallbackResult {
+    match (current.revision, previous) {
+        (1, None) => ValidateCallbackResult::Valid,
+        (1, Some(_)) => ValidateCallbackResult::Invalid("Initial food lot revision must not have a predecessor".into()),
+        (_, None) => ValidateCallbackResult::Invalid("Food lot revisions after revision 1 require a predecessor action".into()),
+        (revision, Some(previous)) => {
+            let Some(expected_revision) = previous.revision.checked_add(1) else {
+                return ValidateCallbackResult::Invalid("Food lot predecessor revision overflow".into());
+            };
+            if revision != expected_revision
+                || current.lot_ref != previous.lot_ref
+                || current.product_ref != previous.product_ref
+                || current.producer_ref != previous.producer_ref
+            {
+                return ValidateCallbackResult::Invalid(
+                    "Food lot successor must increment the exact predecessor revision and preserve lot, product and producer identity".into(),
+                );
+            }
+            ValidateCallbackResult::Valid
+        }
+    }
+}
+
+fn validate_create_food_lot_provenance(
+    action: EntryCreationAction,
+    entry: FoodLotProvenanceEntryV1,
+) -> ExternResult<ValidateCallbackResult> {
+    let author_did = did_for_author(action.author());
+    let field_report = validate_food_lot_provenance_declaration(&entry.provenance, &author_did);
+    if matches!(field_report, ValidateCallbackResult::Invalid(_)) {
+        return Ok(field_report);
+    }
+    match (&entry.previous_revision_action, entry.provenance.revision) {
+        (None, 1) => Ok(validate_food_lot_revision_successor(&entry.provenance, None)),
+        (None, _) => Ok(ValidateCallbackResult::Invalid(
+            "Food lot revision after 1 must reference its predecessor action".into(),
+        )),
+        (Some(_), 1) => Ok(ValidateCallbackResult::Invalid(
+            "Initial food lot revision cannot have a predecessor action".into(),
+        )),
+        (Some(previous_action), _) => {
+            let previous_record = must_get_valid_record(previous_action.clone())?;
+            let previous_entry = match previous_record.entry().to_app_option::<EntryTypes>()? {
+                Some(EntryTypes::FoodLotProvenance(previous_entry)) => previous_entry,
+                _ => {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Food lot predecessor action is not a FoodLotProvenanceEntryV1 record".into(),
+                    ));
+                }
+            };
+            Ok(validate_food_lot_revision_successor(
+                &entry.provenance,
+                Some(&previous_entry.provenance),
             ))
         }
     }
@@ -1175,5 +1402,188 @@ mod tests {
             validate_listing(l),
             "Product name must be 256 characters or fewer",
         );
+    }
+}
+
+
+#[cfg(test)]
+mod food_lot_provenance_tests {
+    use super::*;
+    use food_lot_reconciliation::{
+        FoodLotEvidenceV1, FoodLotProvenanceV1, FoodLotQuantityV1,
+    };
+
+    fn valid_lot() -> FoodLotProvenanceV1 {
+        FoodLotProvenanceV1 {
+            schema_version: 1,
+            lot_ref: "mycelix:food-lot:rice-2026-01".to_owned(),
+            revision: 1,
+            product_ref: "mycelix:product:rice-brown".to_owned(),
+            producer_ref: "did:mycelix:producer-01".to_owned(),
+            supplier_lot_code: Some("RICE-2026-01".to_owned()),
+            listing_ref: None,
+            origin_ref: Some("origin:cooperative-01".to_owned()),
+            quantity: FoodLotQuantityV1 {
+                dimension: "mass".to_owned(),
+                value: 25,
+                decimal_places: 0,
+                unit: "kg".to_owned(),
+            },
+            harvested_at: Some(1_760_000_000),
+            packed_at: Some(1_760_100_000),
+            best_before_at: Some(1_800_000_000),
+            use_by_at: None,
+            handling_ref: None,
+            evidence: FoodLotEvidenceV1 {
+                source_ref: "source:producer-record-01".to_owned(),
+                evidence_class: "Declared".to_owned(),
+                method_ref: None,
+                calibration_ref: None,
+            },
+            claim_ceiling: FOOD_LOT_PROVENANCE_CLAIM_CEILING.to_owned(),
+        }
+    }
+
+    fn assert_invalid(result: ValidateCallbackResult) {
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn producer_did_must_match_the_signed_author() {
+        let mut lot = valid_lot();
+        lot.producer_ref = "did:mycelix:actual-author".to_owned();
+        assert_eq!(
+            validate_food_lot_provenance_declaration(&lot, "did:mycelix:actual-author"),
+            ValidateCallbackResult::Valid
+        );
+        assert_invalid(validate_food_lot_provenance_declaration(
+            &lot,
+            "did:mycelix:attacker",
+        ));
+    }
+
+    #[test]
+    fn initial_lot_revision_has_no_predecessor() {
+        let lot = valid_lot();
+        assert_eq!(
+            validate_food_lot_revision_successor(&lot, None),
+            ValidateCallbackResult::Valid
+        );
+        assert_invalid(validate_food_lot_revision_successor(&lot, Some(&lot)));
+    }
+
+    #[test]
+    fn successor_revision_requires_exact_previous_lot_product_and_producer() {
+        let previous = valid_lot();
+        let mut successor = previous.clone();
+        successor.revision = 2;
+        assert_eq!(
+            validate_food_lot_revision_successor(&successor, Some(&previous)),
+            ValidateCallbackResult::Valid
+        );
+
+        let mut forked_revision = successor.clone();
+        forked_revision.revision = 3;
+        assert_invalid(validate_food_lot_revision_successor(
+            &forked_revision,
+            Some(&previous),
+        ));
+
+        let mut changed_product = successor.clone();
+        changed_product.product_ref = "mycelix:product:other".to_owned();
+        assert_invalid(validate_food_lot_revision_successor(
+            &changed_product,
+            Some(&previous),
+        ));
+
+        let mut changed_producer = successor.clone();
+        changed_producer.producer_ref = "did:mycelix:other-producer".to_owned();
+        assert_invalid(validate_food_lot_revision_successor(
+            &changed_producer,
+            Some(&previous),
+        ));
+    }
+
+    #[test]
+    fn later_revision_without_predecessor_is_rejected() {
+        let mut successor = valid_lot();
+        successor.revision = 2;
+        assert_invalid(validate_food_lot_revision_successor(&successor, None));
+    }
+
+    #[test]
+    fn lot_quantity_and_dates_are_dimensionally_and_temporally_validated() {
+        let mut lot = valid_lot();
+        lot.quantity.dimension = "mass".to_owned();
+        lot.quantity.unit = "L".to_owned();
+        assert_invalid(validate_food_lot_provenance_declaration(
+            &lot,
+            &lot.producer_ref,
+        ));
+
+        let mut lot = valid_lot();
+        lot.packed_at = Some(1_759_000_000);
+        assert_invalid(validate_food_lot_provenance_declaration(
+            &lot,
+            &lot.producer_ref,
+        ));
+
+        let mut lot = valid_lot();
+        lot.harvested_at = Some(0);
+        assert_invalid(validate_food_lot_provenance_declaration(
+            &lot,
+            &lot.producer_ref,
+        ));
+    }
+
+    #[test]
+    fn entry_schema_and_integrity_challenge_manifest_are_versioned() {
+        let schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../schemas/FoodLotProvenanceEntryV1.schema.json"
+        ))
+        .expect("FoodLotProvenanceEntryV1 schema must parse");
+        let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+            "../schemas/fixtures/food-lot-provenance-entry-v1.json"
+        ))
+        .expect("food lot provenance fixture bundle must parse");
+
+        assert_eq!(
+            schema["$id"],
+            "https://luminousdynamics.io/schemas/food/FoodLotProvenanceEntryV1.schema.json"
+        );
+        assert_eq!(
+            schema["properties"]["provenance"]["$ref"],
+            "https://luminousdynamics.io/schemas/food/FoodLotProvenanceV1.schema.json"
+        );
+        assert_eq!(fixtures["status"], "synthetic_integrity_contract_only");
+        let scenarios = fixtures["scenarios"].as_array().unwrap();
+        assert_eq!(scenarios.len(), 9);
+        let mut ids = std::collections::BTreeSet::new();
+        for scenario in scenarios {
+            assert!(ids.insert(scenario["scenario_id"].as_str().unwrap()));
+        }
+    }
+
+    #[test]
+    fn measured_and_independent_evidence_have_required_supporting_refs() {
+        let mut lot = valid_lot();
+        lot.evidence.evidence_class = "Measured".to_owned();
+        assert_invalid(validate_food_lot_provenance_declaration(
+            &lot,
+            &lot.producer_ref,
+        ));
+
+        lot.evidence.calibration_ref = Some("calibration:scale-01".to_owned());
+        assert_eq!(
+            validate_food_lot_provenance_declaration(&lot, &lot.producer_ref),
+            ValidateCallbackResult::Valid
+        );
+
+        lot.evidence.evidence_class = "IndependentlyAssayed".to_owned();
+        lot.evidence.method_ref = None;
+        assert_invalid(validate_food_lot_provenance_declaration(
+            &lot,
+            &lot.producer_ref,
+        ));
     }
 }

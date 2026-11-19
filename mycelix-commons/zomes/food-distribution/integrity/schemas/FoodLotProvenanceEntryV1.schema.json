@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/food/FoodLotProvenanceEntryV1.schema.json",
+  "title": "FoodLotProvenanceEntryV1",
+  "description": "Immutable Holochain entry wrapping producer-side lot declarations and an optional exact predecessor action hash. The integrity callback binds producer_ref to the signing agent and validates the append-only revision chain.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["provenance", "previous_revision_action"],
+  "properties": {
+    "provenance": {
+      "$ref": "https://luminousdynamics.io/schemas/food/FoodLotProvenanceV1.schema.json"
+    },
+    "previous_revision_action": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Serialized Holochain ActionHash of the exact preceding FoodLotProvenanceEntryV1 create action. Null only for revision 1."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "provenance": {
+            "properties": { "revision": { "const": 1 } },
+            "required": ["revision"]
+          }
+        },
+        "required": ["provenance"]
+      },
+      "then": {
+        "properties": { "previous_revision_action": { "type": "null" } }
+      },
+      "else": {
+        "properties": { "previous_revision_action": { "type": "string", "minLength": 1 } }
+      }
+    }
+  ]
+}
