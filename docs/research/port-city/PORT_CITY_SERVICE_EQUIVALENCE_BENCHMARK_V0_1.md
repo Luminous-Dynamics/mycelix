@@ -93,11 +93,11 @@ The vessel's shore-power service is 1.0 MWh. Terminal service is 1,000 synthetic
 
 ### Three matched policies
 
-<escape>|</escape> Policy <escape>|</escape> 09:00 <escape>|</escape> 09:15 <escape>|</escape> 09:30 <escape>|</escape> 09:45 <escape>|</escape> Peak <escape>|</escape> Import energy <escape>|</escape> Result <escape>|</escape>
-<escape>|</escape>---<escape>|</escape>---: <escape>|</escape>---: <escape>|</escape>---: <escape>|</escape>---: <escape>|</escape>---: <escape>|</escape>---: <escape>|</escape>---<escape>|</escape>
-<escape>|</escape> Baseline <escape>|</escape> 7.2 <escape>|</escape> 7.4 <escape>|</escape> 5.1 <escape>|</escape> 4.8 <escape>|</escape> 7.4 MW <escape>|</escape> 6.125 MWh <escape>|</escape> Within cap <escape>|</escape>
-<escape>|</escape> Naive objective-only shift <escape>|</escape> 5.4 <escape>|</escape> 9.2 <escape>|</escape> 5.1 <escape>|</escape> 4.8 <escape>|</escape> 9.2 MW <escape>|</escape> 6.125 MWh <escape>|</escape> Fails by 1.0 MW <escape>|</escape>
-<escape>|</escape> No-new-peak admitted <escape>|</escape> 7.2 <escape>|</escape> 5.6 <escape>|</escape> 6.9 <escape>|</escape> 4.8 <escape>|</escape> 7.2 MW <escape>|</escape> 6.125 MWh <escape>|</escape> Within cap <escape>|</escape>
+| Policy | 09:00 | 09:15 | 09:30 | 09:45 | Peak | Import energy | Result |
+|---|---:|---:|---:|---:|---:|---:|---|
+| Baseline | 7.2 | 7.4 | 5.1 | 4.8 | 7.4 MW | 6.125 MWh | Within cap |
+| Naive objective-only shift | 5.4 | 9.2 | 5.1 | 4.8 | 9.2 MW | 6.125 MWh | Fails by 1.0 MW |
+| No-new-peak admitted | 7.2 | 5.6 | 6.9 | 4.8 | 7.2 MW | 6.125 MWh | Within cap |
 
 The naive policy moves 1.5 MW of compute plus 0.3 MW cooling from 09:00 into an already busy 09:15 interval. It preserves total compute energy and useful work, but raises import to 9.2 MW and violates the 8.2 MW PCC limit by 1.0 MW. The 9.2 MW peak is 24.32% above the baseline peak.
 
