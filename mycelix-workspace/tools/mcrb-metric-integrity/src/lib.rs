@@ -10,12 +10,32 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 pub mod cross_host;
+use crate::cross_host::{
+    CrossHostLatencyInterval, CrossHostTimingError, PublishObserveEventPair, WallClockCalibration,
+    derive_latency_interval,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IntegrityStatus {
     Valid,
     Invalid,
     Incomplete,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CrossHostTimingStatus {
+    NotEvaluated,
+    Valid,
+    Invalid,
+    Incomplete,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ExpectedCrossHostPair {
+    pub operation_id: String,
+    pub record_digest: String,
+    pub publisher_peer_id: String,
+    pub observer_peer_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,6 +70,15 @@ pub enum MetricIssue {
     PublicationCounterIncomplete,
     ObservationCounterIncomplete,
     NoDurationSamples,
+    InvalidExpectedCrossHostPair(usize),
+    UnexpectedCrossHostCalibration(String),
+    DuplicateCrossHostCalibration(String),
+    MissingCrossHostCalibration(String),
+    UnexpectedCrossHostEventPair(usize),
+    DuplicateCrossHostEventPair(String, String),
+    MissingCrossHostEventPair(String, String),
+    InvalidCrossHostEventPair(usize, CrossHostTimingError),
+    CrossHostPointEstimateWithheld(usize),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -60,6 +89,8 @@ pub struct MetricConfig {
     pub outlier_threshold_ms: f64,
     /// Maximum permitted wall-clock synchronization uncertainty per host.
     pub maximum_clock_uncertainty_ms: f64,
+    /// Maximum combined uncertainty for emitting a cross-host point estimate.
+    pub maximum_cross_host_point_uncertainty_ms: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -106,6 +137,9 @@ pub struct MeasurementBatch {
     pub expected_peers: Vec<String>,
     pub clock_observations: Vec<ClockObservation>,
     pub duration_samples: Vec<DurationSample>,
+    pub expected_cross_host_pairs: Vec<ExpectedCrossHostPair>,
+    pub cross_host_calibrations: Vec<WallClockCalibration>,
+    pub cross_host_event_pairs: Vec<PublishObserveEventPair>,
     pub counters: OperationCounters,
 }
 
@@ -130,8 +164,14 @@ pub struct IntegrityReport {
     pub percentiles: Option<Percentiles>,
     /// Per-peer distributions prevent a slow peer being hidden by pooling.
     pub per_peer_percentiles: Option<BTreeMap<String, Percentiles>>,
-    /// True only when the full batch is valid and complete.
+    /// True only when local monotonic timing and the full local batch are valid.
     pub aggregate_eligible: bool,
+    /// Separate cross-host state; NotEvaluated does not mean PASS.
+    pub cross_host_status: CrossHostTimingStatus,
+    pub cross_host_issues: Vec<MetricIssue>,
+    pub cross_host_latency_intervals: Vec<CrossHostLatencyInterval>,
+    pub cross_host_point_latency_emitted_count: usize,
+    pub cross_host_aggregate_eligible: bool,
 }
 
 fn push_unique(issues: &mut Vec<MetricIssue>, issue: MetricIssue) {
