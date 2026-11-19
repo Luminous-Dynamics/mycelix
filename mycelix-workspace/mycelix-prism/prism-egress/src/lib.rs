@@ -2200,7 +2200,7 @@ mod tests {
         );
         assert_ne!(
             canonical_address_set_digest(&[first]),
-            canonical_address_set_digest(&["::ffff:93.184.216.34:443".parse().unwrap()])
+            canonical_address_set_digest(&["[::ffff:93.184.216.34]:443".parse().unwrap()])
         );
     }
 
