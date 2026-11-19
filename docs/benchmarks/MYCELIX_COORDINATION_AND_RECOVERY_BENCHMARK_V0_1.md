@@ -570,3 +570,18 @@ QOPS eligibility requires a valid metric-integrity report, all declared hard cor
 Every versioned scenario now declares qops_requires_cross_host_visibility. This prevents a runner from deciding after the experiment whether remote observations were necessary.
 
 For scenarios with this flag false, a local-only result may qualify if all other scenario requirements pass; cross-host timing remains NotEvaluated. For scenarios with the flag true, QOPS requires valid complete cross-host event pairs and calibrated clocks. The receipt records the flag, cross-host status and aggregate eligibility. A remote-observation workload cannot claim QOPS based on local write latency alone.
+
+
+## 18. Offer-first QOPS denominator and canonical workload ledger
+
+MCRB now defines the workload denominator as an artifact created before dispatch, not a list assembled after outcomes are known.
+
+The offer-ledger verifier binds run/scenario identity, sequence, operation ID, request digest, idempotency requirement, monotonic schedule, clock identity/epoch, operation class, workload manifest digest, generator digest and parameter-set digest. Its canonical digest uses a domain separator, fixed field order, length-prefixed byte strings and big-endian integers. Entries are committed in sequence order; they are never sorted before hashing.
+
+QOPS accepts only the opaque VerifiedOfferLedger returned by the verifier. It no longer accepts a caller-supplied expected-operation-ID vector or caller-supplied duration. The denominator is the verified entry count; the time window is derived from raw monotonic start/end ticks and tick frequency. Failed, denied, missing and unknown outcomes stay in that denominator. External-effect offers must declare an idempotency key, and duplicate keys are rejected.
+
+The new MCRB-23 scenario injects truncation, omitted failed offers, post-result appends, duplicate/reordered operations, altered request digests, cross-run reuse, clock mismatches, out-of-window offers and missing idempotency keys.
+
+**Authenticity boundary:** a recomputed hash proves internal consistency only. It does not prove that the workload generator or runner was honest, that every planned dispatch was entered into the ledger, or that outcome events were independently observed. Public benchmark claims still require an independently attested runner/orchestrator identity, workload generator digest, raw ledger artifact digest and custody-bound execution receipt. The source-level ledger verifier does not close that external trust boundary.
+
+Related: [#6342 — independent offered-operation denominator](https://github.com/Luminous-Dynamics/mycelix/issues/6342).
