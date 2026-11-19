@@ -275,8 +275,7 @@ fn validate_cross_host_batch(
     }
 
     type PairKey = (String, String, String, String);
-    let expected_peers: BTreeSet<&str> =
-        batch.expected_peers.iter().map(String::as_str).collect();
+    let expected_peers: BTreeSet<String> = batch.expected_peers.iter().cloned().collect();
     let mut expected_keys = BTreeSet::<PairKey>::new();
     let mut participants = BTreeSet::<String>::new();
 
@@ -286,8 +285,8 @@ fn validate_cross_host_batch(
             || pair.publisher_peer_id.trim().is_empty()
             || pair.observer_peer_id.trim().is_empty()
             || pair.publisher_peer_id == pair.observer_peer_id
-            || !expected_peers.contains(pair.publisher_peer_id.as_str())
-            || !expected_peers.contains(pair.observer_peer_id.as_str());
+            || !expected_peers.contains(&pair.publisher_peer_id)
+            || !expected_peers.contains(&pair.observer_peer_id);
 
         let key = (
             pair.operation_id.clone(),
