@@ -219,6 +219,218 @@ fn is_incomplete_issue(issue: &MetricIssue) -> bool {
     )
 }
 
+
+fn validate_cross_host_batch(
+    config: &MetricConfig,
+    batch: &MeasurementBatch,
+) -> (
+    CrossHostTimingStatus,
+    Vec<MetricIssue>,
+    Vec<CrossHostLatencyInterval>,
+    usize,
+    bool,
+) {
+    let mut issues = Vec::new();
+    let mut intervals = Vec::new();
+    let mut point_count = 0usize;
+
+    if batch.expected_cross_host_pairs.is_empty() {
+        if !batch.cross_host_calibrations.is_empty() || !batch.cross_host_event_pairs.is_empty() {
+            for calibration in &batch.cross_host_calibrations {
+                push_unique(
+                    &mut issues,
+                    MetricIssue::UnexpectedCrossHostCalibration(calibration.peer_id.clone()),
+                );
+            }
+            for (index, _) in batch.cross_host_event_pairs.iter().enumerate() {
+                push_unique(
+                    &mut issues,
+                    MetricIssue::UnexpectedCrossHostEventPair(index),
+                );
+            }
+            return (
+                CrossHostTimingStatus::Invalid,
+                issues,
+                intervals,
+                point_count,
+                false,
+            );
+        }
+        return (
+            CrossHostTimingStatus::NotEvaluated,
+            issues,
+            intervals,
+            point_count,
+            false,
+        );
+    }
+
+    if !config.maximum_cross_host_point_uncertainty_ms.is_finite()
+        || config.maximum_cross_host_point_uncertainty_ms < 0.0
+    {
+        push_unique(
+            &mut issues,
+            MetricIssue::InvalidConfiguration("maximum_cross_host_point_uncertainty_ms"),
+        );
+    }
+
+    type PairKey = (String, String, String, String);
+    let expected_peers: BTreeSet<&str> =
+        batch.expected_peers.iter().map(String::as_str).collect();
+    let mut expected_keys = BTreeSet::<PairKey>::new();
+    let mut participants = BTreeSet::<String>::new();
+
+    for (index, pair) in batch.expected_cross_host_pairs.iter().enumerate() {
+        let invalid = pair.operation_id.trim().is_empty()
+            || pair.record_digest.trim().is_empty()
+            || pair.publisher_peer_id.trim().is_empty()
+            || pair.observer_peer_id.trim().is_empty()
+            || pair.publisher_peer_id == pair.observer_peer_id
+            || !expected_peers.contains(pair.publisher_peer_id.as_str())
+            || !expected_peers.contains(pair.observer_peer_id.as_str());
+
+        let key = (
+            pair.operation_id.clone(),
+            pair.record_digest.clone(),
+            pair.publisher_peer_id.clone(),
+            pair.observer_peer_id.clone(),
+        );
+        if invalid || !expected_keys.insert(key) {
+            push_unique(&mut issues, MetricIssue::InvalidExpectedCrossHostPair(index));
+            continue;
+        }
+        participants.insert(pair.publisher_peer_id.clone());
+        participants.insert(pair.observer_peer_id.clone());
+    }
+
+    let mut calibrations = BTreeMap::<String, &WallClockCalibration>::new();
+    for calibration in &batch.cross_host_calibrations {
+        if !participants.contains(&calibration.peer_id) {
+            push_unique(
+                &mut issues,
+                MetricIssue::UnexpectedCrossHostCalibration(calibration.peer_id.clone()),
+            );
+            continue;
+        }
+        if calibrations.contains_key(&calibration.peer_id) {
+            push_unique(
+                &mut issues,
+                MetricIssue::DuplicateCrossHostCalibration(calibration.peer_id.clone()),
+            );
+            continue;
+        }
+        calibrations.insert(calibration.peer_id.clone(), calibration);
+    }
+
+    for peer_id in &participants {
+        if !calibrations.contains_key(peer_id) {
+            push_unique(
+                &mut issues,
+                MetricIssue::MissingCrossHostCalibration(peer_id.clone()),
+            );
+        }
+    }
+
+    let mut event_pairs = BTreeMap::<PairKey, (usize, &PublishObserveEventPair)>::new();
+    for (index, pair) in batch.cross_host_event_pairs.iter().enumerate() {
+        let key = (
+            pair.operation_id.clone(),
+            pair.record_digest.clone(),
+            pair.publisher_peer_id.clone(),
+            pair.observer_peer_id.clone(),
+        );
+        if !expected_keys.contains(&key) {
+            push_unique(
+                &mut issues,
+                MetricIssue::UnexpectedCrossHostEventPair(index),
+            );
+            continue;
+        }
+        if event_pairs.contains_key(&key) {
+            push_unique(
+                &mut issues,
+                MetricIssue::DuplicateCrossHostEventPair(
+                    pair.operation_id.clone(),
+                    format!("{}->{}", pair.publisher_peer_id, pair.observer_peer_id),
+                ),
+            );
+            continue;
+        }
+        event_pairs.insert(key, (index, pair));
+    }
+
+    for pair in &batch.expected_cross_host_pairs {
+        let key = (
+            pair.operation_id.clone(),
+            pair.record_digest.clone(),
+            pair.publisher_peer_id.clone(),
+            pair.observer_peer_id.clone(),
+        );
+        let Some((index, event_pair)) = event_pairs.get(&key).copied() else {
+            push_unique(
+                &mut issues,
+                MetricIssue::MissingCrossHostEventPair(
+                    pair.operation_id.clone(),
+                    format!("{}->{}", pair.publisher_peer_id, pair.observer_peer_id),
+                ),
+            );
+            continue;
+        };
+
+        let (Some(publisher), Some(observer)) = (
+            calibrations.get(&pair.publisher_peer_id).copied(),
+            calibrations.get(&pair.observer_peer_id).copied(),
+        ) else {
+            // Missing calibration has already been recorded above.
+            continue;
+        };
+
+        match derive_latency_interval(
+            event_pair,
+            publisher,
+            observer,
+            config.maximum_cross_host_point_uncertainty_ms,
+        ) {
+            Ok(interval) => {
+                if interval.point_latency_ms.is_some() {
+                    point_count += 1;
+                }
+                intervals.push(interval);
+            }
+            Err(error) => push_unique(
+                &mut issues,
+                MetricIssue::InvalidCrossHostEventPair(index, error),
+            ),
+        }
+    }
+
+    let has_invalid = issues.iter().any(|issue| {
+        !matches!(
+            issue,
+            MetricIssue::MissingCrossHostCalibration(_)
+                | MetricIssue::MissingCrossHostEventPair(_, _)
+        )
+    });
+    let has_incomplete = !issues.is_empty();
+    let status = if has_invalid {
+        CrossHostTimingStatus::Invalid
+    } else if has_incomplete {
+        CrossHostTimingStatus::Incomplete
+    } else {
+        CrossHostTimingStatus::Valid
+    };
+    let aggregate_eligible =
+        status == CrossHostTimingStatus::Valid && intervals.len() == expected_keys.len();
+
+    (
+        status,
+        issues,
+        intervals,
+        point_count,
+        aggregate_eligible,
+    )
+}
+
 /// Derive duration using integer arithmetic from a single monotonic clock
 /// identity/epoch. It is impossible to derive a negative duration: reversed
 /// ticks are returned as a distinct validation failure.
@@ -517,6 +729,14 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
         (None, None)
     };
 
+    let (
+        cross_host_status,
+        cross_host_issues,
+        cross_host_latency_intervals,
+        cross_host_point_latency_emitted_count,
+        cross_host_aggregate_eligible,
+    ) = validate_cross_host_batch(config, batch);
+
     IntegrityReport {
         status,
         raw_sample_count: batch.duration_samples.len(),
@@ -526,6 +746,11 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
         percentiles,
         per_peer_percentiles,
         aggregate_eligible,
+        cross_host_status,
+        cross_host_issues,
+        cross_host_latency_intervals,
+        cross_host_point_latency_emitted_count,
+        cross_host_aggregate_eligible,
     }
 }
 
@@ -539,9 +764,13 @@ mod tests {
                 maximum_duration_ms: 100.0,
                 outlier_threshold_ms: 35.0,
                 maximum_clock_uncertainty_ms: 5.0,
+                maximum_cross_host_point_uncertainty_ms: 10.0,
             },
             MeasurementBatch {
                 expected_peers: vec!["peer-a".into(), "peer-b".into()],
+                expected_cross_host_pairs: vec![],
+                cross_host_calibrations: vec![],
+                cross_host_event_pairs: vec![],
                 clock_observations: vec![
                     ClockObservation {
                         peer_id: "peer-a".into(),
@@ -771,4 +1000,134 @@ mod tests {
         assert!(!report.aggregate_eligible);
         assert!(report.percentiles.is_none());
     }
+
+    fn valid_cross_host_data() -> (Vec<ExpectedCrossHostPair>, Vec<WallClockCalibration>, Vec<PublishObserveEventPair>) {
+        let expected = vec![ExpectedCrossHostPair {
+            operation_id: "publish-1".into(),
+            record_digest: "sha256:record-1".into(),
+            publisher_peer_id: "peer-a".into(),
+            observer_peer_id: "peer-b".into(),
+        }];
+        let calibrations = vec![
+            WallClockCalibration {
+                peer_id: "peer-a".into(),
+                calibration_id: "cal-a".into(),
+                offset_ms: 1.0,
+                uncertainty_ms: 1.0,
+                valid_from_unix_ms: 9_000,
+                valid_until_unix_ms: 12_000,
+            },
+            WallClockCalibration {
+                peer_id: "peer-b".into(),
+                calibration_id: "cal-b".into(),
+                offset_ms: -1.0,
+                uncertainty_ms: 1.0,
+                valid_from_unix_ms: 9_000,
+                valid_until_unix_ms: 12_000,
+            },
+        ];
+        let events = vec![PublishObserveEventPair {
+            operation_id: "publish-1".into(),
+            record_digest: "sha256:record-1".into(),
+            publisher_peer_id: "peer-a".into(),
+            observer_peer_id: "peer-b".into(),
+            publisher_calibration_id: "cal-a".into(),
+            observer_calibration_id: "cal-b".into(),
+            published_at_local_unix_ms: 10_000,
+            first_valid_observation_at_local_unix_ms: 10_100,
+        }];
+        (expected, calibrations, events)
+    }
+
+    #[test]
+    fn cross_host_intervals_are_eligible_only_for_complete_exact_event_pairs() {
+        let (config, mut batch) = valid_batch();
+        let (expected, calibrations, events) = valid_cross_host_data();
+        batch.expected_cross_host_pairs = expected;
+        batch.cross_host_calibrations = calibrations;
+        batch.cross_host_event_pairs = events;
+
+        let report = validate_batch(&config, &batch);
+        assert_eq!(report.status, IntegrityStatus::Valid);
+        assert_eq!(report.cross_host_status, CrossHostTimingStatus::Valid);
+        assert!(report.cross_host_aggregate_eligible);
+        assert_eq!(report.cross_host_latency_intervals.len(), 1);
+        assert_eq!(report.cross_host_point_latency_emitted_count, 1);
+    }
+
+    #[test]
+    fn cross_host_missing_observation_is_incomplete_not_zero_latency() {
+        let (config, mut batch) = valid_batch();
+        let (expected, calibrations, _) = valid_cross_host_data();
+        batch.expected_cross_host_pairs = expected;
+        batch.cross_host_calibrations = calibrations;
+
+        let report = validate_batch(&config, &batch);
+        assert_eq!(report.cross_host_status, CrossHostTimingStatus::Incomplete);
+        assert!(!report.cross_host_aggregate_eligible);
+        assert!(report.cross_host_latency_intervals.is_empty());
+        assert!(report.cross_host_issues.iter().any(|issue| {
+            matches!(issue, MetricIssue::MissingCrossHostEventPair(_, _))
+        }));
+    }
+
+    #[test]
+    fn cross_host_wrong_record_digest_is_invalid() {
+        let (config, mut batch) = valid_batch();
+        let (expected, calibrations, mut events) = valid_cross_host_data();
+        events[0].record_digest = "sha256:wrong-record".into();
+        batch.expected_cross_host_pairs = expected;
+        batch.cross_host_calibrations = calibrations;
+        batch.cross_host_event_pairs = events;
+
+        let report = validate_batch(&config, &batch);
+        assert_eq!(report.cross_host_status, CrossHostTimingStatus::Invalid);
+        assert!(!report.cross_host_aggregate_eligible);
+        assert!(report.cross_host_issues.iter().any(|issue| {
+            matches!(issue, MetricIssue::UnexpectedCrossHostEventPair(0))
+        }));
+    }
+
+    #[test]
+    fn cross_host_missing_calibration_is_incomplete() {
+        let (config, mut batch) = valid_batch();
+        let (expected, calibrations, events) = valid_cross_host_data();
+        batch.expected_cross_host_pairs = expected;
+        batch.cross_host_calibrations = calibrations.into_iter().take(1).collect();
+        batch.cross_host_event_pairs = events;
+
+        let report = validate_batch(&config, &batch);
+        assert_eq!(report.cross_host_status, CrossHostTimingStatus::Incomplete);
+        assert!(!report.cross_host_aggregate_eligible);
+        assert!(report.cross_host_issues.iter().any(|issue| {
+            matches!(issue, MetricIssue::MissingCrossHostCalibration(peer) if peer == "peer-b")
+        }));
+    }
+
+    #[test]
+    fn cross_host_duplicate_calibration_invalidates_intervals() {
+        let (config, mut batch) = valid_batch();
+        let (expected, mut calibrations, events) = valid_cross_host_data();
+        calibrations.push(calibrations[0].clone());
+        batch.expected_cross_host_pairs = expected;
+        batch.cross_host_calibrations = calibrations;
+        batch.cross_host_event_pairs = events;
+
+        let report = validate_batch(&config, &batch);
+        assert_eq!(report.cross_host_status, CrossHostTimingStatus::Invalid);
+        assert!(!report.cross_host_aggregate_eligible);
+        assert!(report.cross_host_issues.iter().any(|issue| {
+            matches!(issue, MetricIssue::DuplicateCrossHostCalibration(peer) if peer == "peer-a")
+        }));
+    }
+
+    #[test]
+    fn local_only_batch_keeps_cross_host_explicitly_not_evaluated() {
+        let (config, batch) = valid_batch();
+        let report = validate_batch(&config, &batch);
+        assert_eq!(report.status, IntegrityStatus::Valid);
+        assert_eq!(report.cross_host_status, CrossHostTimingStatus::NotEvaluated);
+        assert!(!report.cross_host_aggregate_eligible);
+    }
+
 }
