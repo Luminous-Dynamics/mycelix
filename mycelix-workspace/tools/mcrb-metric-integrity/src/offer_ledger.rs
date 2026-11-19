@@ -68,6 +68,10 @@ pub struct OfferLedgerExpectation {
     pub expected_entry_count: usize,
     /// Digest committed in the frozen run plan before workload dispatch.
     pub expected_ledger_digest_sha256: String,
+    /// Digest of the frozen plan artifact containing the expectation above.
+    pub frozen_plan_artifact_digest_sha256: String,
+    /// Digest of the independent runner attestation for the frozen plan.
+    pub runner_attestation_artifact_digest_sha256: String,
     pub measurement_window: OfferMeasurementWindow,
 }
 
@@ -85,6 +89,8 @@ pub struct VerifiedOfferLedger {
     generator_digest_sha256: String,
     workload_manifest_digest_sha256: String,
     raw_artifact_digest_sha256: String,
+    frozen_plan_artifact_digest_sha256: String,
+    runner_attestation_artifact_digest_sha256: String,
 }
 
 impl VerifiedOfferLedger {
@@ -122,6 +128,14 @@ impl VerifiedOfferLedger {
 
     pub fn raw_artifact_digest_sha256(&self) -> &str {
         &self.raw_artifact_digest_sha256
+    }
+
+    pub fn frozen_plan_artifact_digest_sha256(&self) -> &str {
+        &self.frozen_plan_artifact_digest_sha256
+    }
+
+    pub fn runner_attestation_artifact_digest_sha256(&self) -> &str {
+        &self.runner_attestation_artifact_digest_sha256
     }
 }
 
@@ -504,6 +518,12 @@ pub fn verify_offer_ledger(
     if computed_digest != expected.expected_ledger_digest_sha256 {
         return Err(OfferLedgerError::FrozenLedgerDigestMismatch);
     }
+    if !is_sha256_digest(&expected.frozen_plan_artifact_digest_sha256) {
+        return Err(OfferLedgerError::InvalidDigest("frozen offer plan artifact digest"));
+    }
+    if !is_sha256_digest(&expected.runner_attestation_artifact_digest_sha256) {
+        return Err(OfferLedgerError::InvalidDigest("runner attestation artifact digest"));
+    }
 
     let canonical_artifact = serialize_offer_ledger_json(ledger)?;
     let raw_artifact_digest_sha256 = sha256_hex(&canonical_artifact);
@@ -518,6 +538,8 @@ pub fn verify_offer_ledger(
         generator_digest_sha256: ledger.generator_digest_sha256.clone(),
         workload_manifest_digest_sha256: ledger.workload_manifest_digest_sha256.clone(),
         raw_artifact_digest_sha256,
+        frozen_plan_artifact_digest_sha256: expected.frozen_plan_artifact_digest_sha256.clone(),
+        runner_attestation_artifact_digest_sha256: expected.runner_attestation_artifact_digest_sha256.clone(),
     })
 }
 
@@ -592,6 +614,8 @@ mod tests {
             seed: SEED.to_string(),
             expected_entry_count: count,
             expected_ledger_digest_sha256: ledger_with_count(count).digest_sha256,
+            frozen_plan_artifact_digest_sha256: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".to_string(),
+            runner_attestation_artifact_digest_sha256: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
             measurement_window: window(),
         }
     }
