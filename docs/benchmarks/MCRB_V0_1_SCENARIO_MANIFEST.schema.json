@@ -194,7 +194,8 @@
           "fault_injection",
           "required_metrics",
           "status",
-          "evidence_required"
+          "evidence_required",
+          "qops_requires_cross_host_visibility"
         ],
         "properties": {
           "id": {
@@ -262,6 +263,9 @@
             "uniqueItems": true
           },
           "qualification_blocking": {
+            "type": "boolean"
+          },
+          "qops_requires_cross_host_visibility": {
             "type": "boolean"
           }
         }
