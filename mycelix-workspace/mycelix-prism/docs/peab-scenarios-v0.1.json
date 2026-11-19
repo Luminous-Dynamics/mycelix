@@ -1238,6 +1238,36 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "KERNEL-011",
+      "family": "kernel_protocol_coverage",
+      "title": "V40 refuses ICMP because its reviewed hooks do not qualify ICMP enforcement",
+      "setup": "compile an owner-authorized ICMP egress capability against the V40 socket-address backend",
+      "expected_decision": "leave_unresolved_and_block_activation",
+      "oracle": "compiler must not emit an enforceable kernel rule or activation-eligible plan when no ICMP enforcement hook is included in the reviewed contract",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "v40_refuses_icmp_because_no_icmp_hook_is_qualified",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "KERNEL-012",
+      "family": "kernel_protocol_coverage",
+      "title": "V40 refuses protocol Any instead of overclaiming wildcard transport coverage",
+      "setup": "compile a wildcard Any egress capability against the V40 socket-address backend",
+      "expected_decision": "leave_unresolved_and_block_activation",
+      "oracle": "wildcard authority is not inferred to be enforceable from connect/sendmsg hooks; caller must split into explicit supported TCP and UDP capabilities",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "v40_refuses_protocol_any_instead_of_overclaiming_all_protocol_coverage",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
