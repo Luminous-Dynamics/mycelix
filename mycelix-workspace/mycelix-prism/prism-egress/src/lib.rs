@@ -1185,8 +1185,7 @@ pub fn canonical_address_set_digest(addresses: &[SocketAddr]) -> String {
     canonical.sort_unstable();
     canonical.dedup();
 
-    let mut hasher =
-        blake3::Hasher::new_derive_key("org.luminousdynamics.prism.address-set.v1");
+    let mut hasher = blake3::Hasher::new_derive_key("org.luminousdynamics.prism.address-set.v1");
     hasher.update(&(canonical.len() as u64).to_be_bytes());
 
     for address in canonical {
