@@ -1036,6 +1036,19 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "PERF-001",
+      "family": "performance_phase_observability",
+      "title": "application receipts expose per-hop monotonic phase timings",
+      "setup": "execute a deterministic local response and a redirect chain while measuring authorization, DNS, admission, client construction, request-to-headers, memory admission and response-body phases",
+      "expected_decision": "record_phase_breakdown_without_overclaim",
+      "oracle": "final receipt contains timings for the final hop; each redirect receipt carries the source-hop timings; request-to-headers remains a combined phase and is not mislabeled as isolated TCP connect or TLS time",
+      "source_coverage": "present",
+      "source_test": "successful_receipt_records_observed_peer_and_authority; public_redirect_reauthorizes_and_pins_each_hop_dns_snapshot",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
