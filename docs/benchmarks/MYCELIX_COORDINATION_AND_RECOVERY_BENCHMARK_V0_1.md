@@ -548,3 +548,18 @@ The public Wind Tunnel repository manifests inspected on 19 November 2026 show:
 Therefore, neither the Wind Tunnel v0.7.1 release tag nor current main can be assumed to qualify the Mycelix Holochain 0.7.1 runtime. Reuse its framework/instrumentation where compatible, but first port and pin the Holochain client binding, runner, scenario crates, hApp dependencies and Kitsune2 graph as one coherent unit.
 
 This is tracked separately in [#6337](https://github.com/Luminous-Dynamics/mycelix/issues/6337), with MCRB-22 as the release-compatibility scenario. Until that work is qualified, MCRB should use source-pinned Mycelix-specific harnesses or a verified compatible Wind Tunnel commit—not a version-number assumption.
+
+
+### QOPS run-receipt binding
+
+The run-receipt schema now requires a first-class QOPS record containing:
+
+- an offer-ledger digest, entry count and workload-generator digest;
+- a measurement-window ID, monotonic clock ID/epoch, raw start/end ticks and tick frequency;
+- one terminal outcome count per class, including missing/unexpected/duplicate classifications;
+- hard-correctness and metric-integrity dispositions;
+- offered rate, qualified rate and qualified-success fraction.
+
+The Rust reducer checks outcome coverage against the supplied expected-ID set. The receipt must additionally bind that set to the append-only offered-operation ledger and the exact workload generator/seed. A schema-valid receipt is not, by itself, proof that the offered ledger is complete: the independent verifier must recompute the ledger digest, confirm its entry count, verify the monotonic window and reconcile outcome IDs against that ledger.
+
+QOPS eligibility requires a valid metric-integrity report, all declared hard correctness gates passing, complete one-to-one outcome coverage and zero duplicate external effects. For invalid, incomplete or not-evaluated QOPS, all performance-rate fields must be null rather than zero or a misleading partial rate.
