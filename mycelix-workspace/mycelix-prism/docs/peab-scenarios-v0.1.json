@@ -991,6 +991,36 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "TXN-005",
+      "family": "cross_plane_transaction",
+      "title": "transaction entry requires a signature-verified parent-bound lease",
+      "setup": "attempt to begin an activation transaction from raw lease JSON, a structurally valid but unsigned lease, a signature for another subject, or a stale parent-policy generation",
+      "expected_decision": "reject_without_parent_bound_proof",
+      "oracle": "production transaction entry requires a non-deserializable ParentBoundNetworkResolutionLease created from AuthorizedNetworkResolutionLease plus exact parent policy/capability/parent-lease/address-scope validation",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "ParentBoundNetworkResolutionLease::bind; transaction_refuses_expired_parent_lease_or_stale_policy_generation",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "TXN-006",
+      "family": "cross_plane_transaction",
+      "title": "replay-ledger event digest binds exact lease nonce and resolver evidence",
+      "setup": "submit a well-formed replay record digest generated for another lease, nonce, resolver signer or authority evidence",
+      "expected_decision": "conflict",
+      "oracle": "NonceConsumed and NonceConsumptionUnknown accept only the record digest derived from this lease digest, stable replay key, resolver key ID and verified authority-evidence digest",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "nonce_consumption_rejects_record_not_bound_to_this_lease; nonce_ledger_mismatch_quarantines_transaction",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
