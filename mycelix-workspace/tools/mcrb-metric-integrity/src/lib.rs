@@ -9,6 +9,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+pub mod cross_host;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IntegrityStatus {
     Valid,
