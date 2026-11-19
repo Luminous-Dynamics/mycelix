@@ -441,8 +441,13 @@ mod tests {
         let changed_digest = calculate_offer_ledger_digest(&envelope);
         assert_ne!(original_digest, changed_digest);
         envelope.ledger_digest_sha256 = changed_digest;
-        let verified = verify_offer_ledger(&envelope).unwrap();
-        assert!(!verified.requires_cross_host_visibility());
+        assert!(verify_offer_ledger(&envelope)
+            .unwrap_err()
+            .contains(&OfferLedgerIssue::ScenarioVisibilityPolicyMismatch {
+                scenario_id: "MCRB-03".into(),
+                expected: true,
+                actual: false,
+            }));
     }
 
     #[test]
