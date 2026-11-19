@@ -808,5 +808,32 @@
       "infrastructure-incomplete",
       "qualified"
     ]
+  },
+  "metric_integrity_verifier": {
+    "crate_path": "mycelix-workspace/tools/mcrb-metric-integrity",
+    "crate_name": "mycelix-mcrb-metric-integrity",
+    "api": "validate_batch",
+    "status": "source-and-tests-authored-ci-pending",
+    "output_states": [
+      "valid",
+      "invalid",
+      "incomplete"
+    ],
+    "metrics": [
+      "global_p50_p95_p99",
+      "per_peer_p50_p95_p99",
+      "raw_sample_count",
+      "outlier_sample_indexes",
+      "aggregate_eligible"
+    ],
+    "policy": [
+      "no_aggregate_when_invalid_or_incomplete",
+      "no_outlier_trimming",
+      "monotonic_local_durations",
+      "explicit_clock_source_and_sync_uncertainty",
+      "peer_coverage",
+      "counter_reconciliation",
+      "unique_operation_ids"
+    ]
   }
 }
