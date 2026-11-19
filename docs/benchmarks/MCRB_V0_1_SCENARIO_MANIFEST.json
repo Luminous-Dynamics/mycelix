@@ -1089,6 +1089,66 @@
         "verifier-version",
         "scenario-result"
       ]
+    },
+    {
+      "id": "MCRB-22",
+      "scenario_id": "wind-tunnel-holochain-071-compatibility",
+      "objective": "Establish an exact, immutable and reproducible Holochain Wind Tunnel dependency graph compatible with the Mycelix Holochain 0.7.1 target before consuming its substrate measurements.",
+      "actors": [
+        "harness-builder",
+        "toolchain-verifier",
+        "independent-conductor-observer"
+      ],
+      "hard_invariants": [
+        "wind-tunnel-version-is-distinct-from-holochain-version",
+        "exact-holochain-client-hdk-hdi-and-kitsune2-graph-recorded",
+        "no-holochain-0.6.3-or-0.7.0-dependency-leakage-in-0.7.1-qualification-profile",
+        "no-moving-main-or-floating-tag-in-qualification-receipt",
+        "minimal-real-conductor-scenario-built-and-run-on-exact-stack",
+        "all-substrate-results-bind-to-the-same-runtime-and-app-artifacts"
+      ],
+      "fault_injection": [
+        "wind-tunnel-v0.7.1-release-tag-with-holochain-0.6.3-dependencies",
+        "wind-tunnel-main-with-holochain-0.7.0-dependencies",
+        "mixed-hdk-hdi-version",
+        "kitsune2-crate-versus-bootstrap-server-version-confusion",
+        "mutable-git-ref",
+        "stale-cargo-lock",
+        "scenario-happ-built-against-different-client-graph"
+      ],
+      "required_metrics": [
+        "wind_tunnel_source_commit",
+        "wind_tunnel_semver",
+        "holochain_runtime_version",
+        "holochain_client_version",
+        "hdk_version",
+        "hdi_version",
+        "kitsune2_crate_family_version",
+        "bootstrap_server_source_version",
+        "unresolved_dependency_count",
+        "version_mismatch_count",
+        "scenario_build_success",
+        "fresh_conductor_run_count"
+      ],
+      "upstream_references": [
+        "https://github.com/holochain/wind-tunnel",
+        "https://github.com/holochain/wind-tunnel/releases/tag/v0.7.1",
+        "https://github.com/holochain/wind-tunnel/blob/main/Cargo.toml",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/6337"
+      ],
+      "qualification_blocking": true,
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "wind-tunnel-source-commit",
+        "cargo-lock-digest",
+        "nix-lock-digest",
+        "runtime-and-client-version-manifest",
+        "happ-and-dna-hashes",
+        "raw-build-and-runtime-logs",
+        "independent-verifier-version",
+        "scenario-result"
+      ]
     }
   ],
   "receipt_schema": "MCRB_V0_1_RUN_RECEIPT.schema.json",
