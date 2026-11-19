@@ -914,7 +914,7 @@
     "crate_path": "mycelix-workspace/tools/mcrb-metric-integrity",
     "crate_name": "mycelix-mcrb-metric-integrity",
     "api": "validate_batch",
-    "status": "local-monotonic-tick-derived-source-authored-ci-pending-cross-host-events-unqualified",
+    "status": "local-monotonic-tick-derived-cross-host-interval-helper-authored-not-batch-integrated",
     "output_states": [
       "valid",
       "invalid",
@@ -933,7 +933,11 @@
       "monotonic_clock_id_mismatch_count",
       "clock_epoch_mismatch_count",
       "reversed_monotonic_tick_count",
-      "invalid_ticks_per_second_count"
+      "invalid_ticks_per_second_count",
+      "cross_host_interval_count",
+      "cross_host_point_latency_emitted_count",
+      "cross_host_calibration_invalid_count",
+      "event_pair_digest_mismatch_count"
     ],
     "policy": [
       "no_aggregate_when_invalid_or_incomplete",
@@ -947,11 +951,16 @@
       "derive-duration-from-raw-monotonic-ticks",
       "clock-id-and-epoch-must-match-per-peer",
       "tick-frequency-must-be-nonzero",
-      "no-caller-supplied-duration-as-authority"
+      "no-caller-supplied-duration-as-authority",
+      "cross-host-offset-correction-per-host",
+      "conservative-clock-uncertainty-sum",
+      "point-latency-withheld-above-uncertainty-threshold",
+      "calibration-validity-window-enforced",
+      "event-pair-binds-operation-and-record-digest"
     ],
     "known_limitations": [
-      "Clock source, wall-clock offset and uncertainty fields are caller-supplied metadata, not attested calibration measurements.",
-      "The current verifier does not bind publish and first-valid-observation events by record digest and host pair; it cannot independently qualify cross-host DHT convergence latency."
+      "Clock calibration inputs are caller-supplied values and are not yet cryptographically or independently attested by the runner.",
+      "The cross-host interval primitive is not yet wired into MeasurementBatch or the canonical run-receipt emitter; uniqueness, completeness and signed raw event artifact binding remain unqualified."
     ],
     "follow_up_issue": "#6335"
   },
