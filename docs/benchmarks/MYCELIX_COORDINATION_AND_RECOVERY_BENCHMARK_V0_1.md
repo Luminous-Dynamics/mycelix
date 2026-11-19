@@ -585,3 +585,12 @@ The new MCRB-23 scenario injects truncation, omitted failed offers, post-result 
 **Authenticity boundary:** a recomputed hash proves internal consistency only. It does not prove that the workload generator or runner was honest, that every planned dispatch was entered into the ledger, or that outcome events were independently observed. Public benchmark claims still require an independently attested runner/orchestrator identity, workload generator digest, raw ledger artifact digest and custody-bound execution receipt. The source-level ledger verifier does not close that external trust boundary.
 
 Related: [#6342 — independent offered-operation denominator](https://github.com/Luminous-Dynamics/mycelix/issues/6342).
+
+
+## 19. Scenario-bound visibility policy
+
+The requirement for cross-host observation is part of the frozen scenario contract, not a runner-selected option. Each offer-ledger envelope copies the selected scenario's qops_requires_cross_host_visibility value and commits it into the canonical offer-ledger digest. The verifier returns this value only through the opaque VerifiedOfferLedger; QOPS no longer accepts a caller-supplied cross-host boolean.
+
+A local/offline-first scenario can therefore legitimately report cross-host timing as NotEvaluated when the frozen contract says remote visibility is not required. A DHT convergence, remote-signal, partition/rejoin or other peer-observation scenario must have complete, valid cross-host event-pair evidence before QOPS is eligible. Changing this flag after generating the ledger changes its digest and invalidates the prior commitment.
+
+This protects against accidental or caller-driven policy downgrade inside the reducer. It does not prove that the selected scenario manifest, workload generator or runner is honest; those identities still require independent attestation and artifact custody.
