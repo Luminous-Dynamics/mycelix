@@ -10,6 +10,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 pub mod cross_host;
+pub mod qops;
 use crate::cross_host::{
     CrossHostLatencyInterval, CrossHostTimingError, PublishObserveEventPair, WallClockCalibration,
     derive_latency_interval,
