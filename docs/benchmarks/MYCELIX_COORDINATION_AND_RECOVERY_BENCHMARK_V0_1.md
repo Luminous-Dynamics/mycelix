@@ -327,3 +327,9 @@ The benchmark verifier should distinguish:
 
 Never collapse those states into a generic failed/passed boolean.
 
+
+
+## 16. Canonical executable artefacts
+
+The machine-readable scenario contract is `MCRB_V0_1_SCENARIO_MANIFEST.json`; the corresponding run-receipt contract is `MCRB_V0_1_RUN_RECEIPT.schema.json`. These files distinguish proposed scenarios from executed evidence. A run may be marked executed-pass only when both the application correctness gates and the new metric-integrity receipt fields qualify. The scenario manifest explicitly reuses Holochain Wind Tunnel for substrate measurements and reserves the MCRB layer for Mycelix application semantics.
+
