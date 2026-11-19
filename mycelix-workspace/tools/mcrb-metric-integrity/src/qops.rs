@@ -1,14 +1,15 @@
 //! Qualified Operations Per Second (QOPS) accounting.
 //!
-//! QOPS counts only operations whose complete scenario-specific contract was
-//! satisfied. Every offered operation must have exactly one terminal outcome;
-//! missing or duplicate samples never disappear from the denominator. Correct
-//! denials are reported separately and are not business successes. Hard
-//! correctness or metric-integrity failures suppress all performance rates.
+//! QOPS consumes a verified offer ledger, not a caller-supplied operation-ID
+//! denominator. Every operation committed to the ledger must have exactly one
+//! terminal outcome. Correct denials remain in the denominator but not the
+//! success numerator. Hard correctness or measurement-integrity failures
+//! suppress all performance rates.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::{IntegrityReport, IntegrityStatus};
+use super::offer_ledger::VerifiedOfferLedger;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OperationOutcome {
@@ -28,15 +29,13 @@ pub struct OperationOutcomeSample {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QopsInput {
-    /// Complete set of operations offered during the fixed measurement window.
-    pub expected_operation_ids: Vec<String>,
-    /// Exactly one terminal classification is required for every offered ID.
+    /// Verified before QOPS; contains the fixed operation set and derived window.
+    pub offer_ledger: VerifiedOfferLedger,
+    /// Exactly one terminal classification is required for every ledger offer.
     pub outcomes: Vec<OperationOutcomeSample>,
-    /// Fixed monotonic measurement window.
-    pub measurement_window_ns: u64,
     /// Result of independent scenario-specific correctness gates.
     pub hard_correctness_gates_passed: bool,
-    /// True only when the scenario contract requires remote visibility/convergence.
+    /// Sourced from the frozen scenario contract, not selected after the run.
     pub cross_host_measurement_required: bool,
 }
 
@@ -49,9 +48,7 @@ pub enum QopsStatus {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QopsIssue {
-    EmptyExpectedOperationSet,
-    EmptyExpectedOperationId,
-    DuplicateExpectedOperationId(String),
+    EmptyVerifiedOfferSet,
     ZeroMeasurementWindow,
     HardCorrectnessGateFailed,
     MetricIntegrityNotValid,
@@ -66,6 +63,10 @@ pub enum QopsIssue {
 #[derive(Debug, Clone, PartialEq)]
 pub struct QopsReport {
     pub status: QopsStatus,
+    pub run_id: String,
+    pub scenario_id: String,
+    pub offer_ledger_digest_sha256: String,
+    pub offer_ledger_entry_count: usize,
     pub offered_operations: usize,
     pub classified_outcomes: usize,
     pub qualified_successes: usize,
@@ -88,19 +89,21 @@ fn push_unique(issues: &mut Vec<QopsIssue>, issue: QopsIssue) {
     }
 }
 
-/// Compute QOPS from the complete offered-operation set.
+/// Compute QOPS from the already verified offer ledger.
 ///
-/// This API does not accept a caller-supplied success count. Counts are derived
-/// from unique operation IDs and terminal classifications. The metric-integrity
-/// flag must be wired to the independent clock/counter verifier.
+/// The denominator and measurement window are derived from the verifier's
+/// private fields. This API does not accept a caller-supplied operation list,
+/// success count or duration.
 pub fn compute_qops(input: &QopsInput, metric_integrity: &IntegrityReport) -> QopsReport {
     let mut issues = Vec::new();
-    let mut expected = BTreeSet::new();
+    let expected_ids = input.offer_ledger.operation_ids();
+    let expected: BTreeSet<String> = expected_ids.iter().cloned().collect();
+    let measurement_window_ns = input.offer_ledger.measurement_window_ns();
 
-    if input.expected_operation_ids.is_empty() {
-        push_unique(&mut issues, QopsIssue::EmptyExpectedOperationSet);
+    if expected.is_empty() {
+        push_unique(&mut issues, QopsIssue::EmptyVerifiedOfferSet);
     }
-    if input.measurement_window_ns == 0 {
+    if measurement_window_ns == 0 {
         push_unique(&mut issues, QopsIssue::ZeroMeasurementWindow);
     }
     if !input.hard_correctness_gates_passed {
@@ -117,17 +120,6 @@ pub fn compute_qops(input: &QopsInput, metric_integrity: &IntegrityReport) -> Qo
             || !metric_integrity.cross_host_aggregate_eligible)
     {
         push_unique(&mut issues, QopsIssue::CrossHostMetricIntegrityNotValid);
-    }
-
-    for operation_id in &input.expected_operation_ids {
-        if operation_id.trim().is_empty() {
-            push_unique(&mut issues, QopsIssue::EmptyExpectedOperationId);
-        } else if !expected.insert(operation_id.clone()) {
-            push_unique(
-                &mut issues,
-                QopsIssue::DuplicateExpectedOperationId(operation_id.clone()),
-            );
-        }
     }
 
     let mut seen = BTreeSet::new();
@@ -190,11 +182,11 @@ pub fn compute_qops(input: &QopsInput, metric_integrity: &IntegrityReport) -> Qo
         QopsStatus::Eligible
     };
 
-    let offered_operations = input.expected_operation_ids.len();
+    let offered_operations = input.offer_ledger.entry_count();
     let classified_outcomes = seen.len();
     let (offered_rate, qualified_rate, success_fraction) =
         if status == QopsStatus::Eligible && offered_operations > 0 {
-            let window_seconds = input.measurement_window_ns as f64 / 1_000_000_000.0;
+            let window_seconds = measurement_window_ns as f64 / 1_000_000_000.0;
             (
                 Some(offered_operations as f64 / window_seconds),
                 Some(qualified_successes as f64 / window_seconds),
@@ -206,6 +198,10 @@ pub fn compute_qops(input: &QopsInput, metric_integrity: &IntegrityReport) -> Qo
 
     QopsReport {
         status,
+        run_id: input.offer_ledger.run_id().to_string(),
+        scenario_id: input.offer_ledger.scenario_id().to_string(),
+        offer_ledger_digest_sha256: input.offer_ledger.digest_sha256().to_string(),
+        offer_ledger_entry_count: input.offer_ledger.entry_count(),
         offered_operations,
         classified_outcomes,
         qualified_successes,
@@ -225,6 +221,80 @@ pub fn compute_qops(input: &QopsInput, metric_integrity: &IntegrityReport) -> Qo
 mod tests {
     use super::*;
     use super::super::{CrossHostTimingStatus, Percentiles};
+    use super::super::offer_ledger::{
+        OfferEntry, OfferLedger, OfferLedgerExpectation, OfferMeasurementWindow,
+        OFFER_LEDGER_SCHEMA_VERSION, operation_id_for_offer, sha256_hex, verify_offer_ledger,
+    };
+
+    const RUN_ID: &str = "qops-test-run";
+    const SCENARIO_ID: &str = "MCRB-03";
+    const WORKLOAD_DIGEST: &str =
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const GENERATOR_DIGEST: &str =
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const SEED: &str = "qops-test-seed";
+
+    fn measurement_window() -> OfferMeasurementWindow {
+        OfferMeasurementWindow {
+            window_id: "qops-window".to_string(),
+            clock_source: "CLOCK_MONOTONIC".to_string(),
+            monotonic_clock_id: "qops-clock".to_string(),
+            monotonic_clock_epoch: "qops-boot-epoch".to_string(),
+            start_ticks: 10_000,
+            end_ticks: 1_000_010_000,
+            ticks_per_second: 1_000_000_000,
+        }
+    }
+
+    fn verified_ledger() -> VerifiedOfferLedger {
+        let measurement_window = measurement_window();
+        let entries = (0..5)
+            .map(|sequence| {
+                let request_digest_sha256 = sha256_hex(format!("qops-request-{sequence}").as_bytes());
+                OfferEntry {
+                    sequence,
+                    operation_id: operation_id_for_offer(
+                        RUN_ID,
+                        SCENARIO_ID,
+                        WORKLOAD_DIGEST,
+                        GENERATOR_DIGEST,
+                        SEED,
+                        sequence,
+                        &request_digest_sha256,
+                    ),
+                    request_digest_sha256,
+                    idempotency_key: Some(format!("qops-effect-{sequence}")),
+                    scheduled_at_ticks: measurement_window.start_ticks + sequence,
+                }
+            })
+            .collect();
+
+        let ledger = OfferLedger {
+            schema_version: OFFER_LEDGER_SCHEMA_VERSION.to_string(),
+            run_id: RUN_ID.to_string(),
+            scenario_id: SCENARIO_ID.to_string(),
+            workload_manifest_digest_sha256: WORKLOAD_DIGEST.to_string(),
+            generator_digest_sha256: GENERATOR_DIGEST.to_string(),
+            seed: SEED.to_string(),
+            measurement_window: measurement_window.clone(),
+            entry_count: 0,
+            entries,
+            digest_sha256: String::new(),
+        }
+        .seal();
+
+        let expectation = OfferLedgerExpectation {
+            run_id: RUN_ID.to_string(),
+            scenario_id: SCENARIO_ID.to_string(),
+            workload_manifest_digest_sha256: WORKLOAD_DIGEST.to_string(),
+            generator_digest_sha256: GENERATOR_DIGEST.to_string(),
+            seed: SEED.to_string(),
+            expected_entry_count: 5,
+            measurement_window,
+        };
+
+        verify_offer_ledger(&ledger, &expectation).unwrap()
+    }
 
     fn sample(id: &str, outcome: OperationOutcome) -> OperationOutcomeSample {
         OperationOutcomeSample {
@@ -252,18 +322,17 @@ mod tests {
     }
 
     fn valid_input() -> QopsInput {
+        let ledger = verified_ledger();
+        let ids = ledger.operation_ids().to_vec();
         QopsInput {
-            expected_operation_ids: vec![
-                "op-1".into(), "op-2".into(), "op-3".into(), "op-4".into(), "op-5".into(),
-            ],
+            offer_ledger: ledger,
             outcomes: vec![
-                sample("op-1", OperationOutcome::QualifiedSuccess),
-                sample("op-2", OperationOutcome::QualifiedSuccess),
-                sample("op-3", OperationOutcome::CorrectDenial),
-                sample("op-4", OperationOutcome::Unknown),
-                sample("op-5", OperationOutcome::Failed),
+                sample(&ids[0], OperationOutcome::QualifiedSuccess),
+                sample(&ids[1], OperationOutcome::QualifiedSuccess),
+                sample(&ids[2], OperationOutcome::CorrectDenial),
+                sample(&ids[3], OperationOutcome::Unknown),
+                sample(&ids[4], OperationOutcome::Failed),
             ],
-            measurement_window_ns: 1_000_000_000,
             hard_correctness_gates_passed: true,
             cross_host_measurement_required: false,
         }
@@ -282,6 +351,9 @@ mod tests {
         assert_eq!(report.offered_operations_per_second, Some(5.0));
         assert_eq!(report.qualified_operations_per_second, Some(2.0));
         assert_eq!(report.qualified_success_fraction, Some(0.4));
+        assert_eq!(report.offer_ledger_entry_count, 5);
+        assert_eq!(report.run_id, RUN_ID);
+        assert_eq!(report.scenario_id, SCENARIO_ID);
     }
 
     #[test]
@@ -290,7 +362,7 @@ mod tests {
         input.outcomes.pop();
         let report = compute_qops(&input, &valid_integrity());
         assert_eq!(report.status, QopsStatus::Incomplete);
-        assert!(report.issues.contains(&QopsIssue::MissingOutcomeSample("op-5".into())));
+        assert!(report.issues.iter().any(|issue| matches!(issue, QopsIssue::MissingOutcomeSample(_))));
         assert!(report.qualified_operations_per_second.is_none());
         assert!(report.offered_operations_per_second.is_none());
     }
@@ -298,20 +370,23 @@ mod tests {
     #[test]
     fn duplicate_operation_outcome_is_invalid() {
         let mut input = valid_input();
-        input.outcomes.push(sample("op-1", OperationOutcome::QualifiedSuccess));
+        let duplicate_id = input.offer_ledger.operation_ids()[0].clone();
+        input.outcomes.push(sample(&duplicate_id, OperationOutcome::QualifiedSuccess));
         let report = compute_qops(&input, &valid_integrity());
         assert_eq!(report.status, QopsStatus::Invalid);
-        assert!(report.issues.contains(&QopsIssue::DuplicateOutcomeSample("op-1".into())));
+        assert!(report.issues.iter().any(|issue| matches!(issue, QopsIssue::DuplicateOutcomeSample(_))));
         assert!(report.qualified_operations_per_second.is_none());
     }
 
     #[test]
     fn unoffered_operation_cannot_enter_the_numerator() {
         let mut input = valid_input();
-        input.outcomes.push(sample("op-not-offered", OperationOutcome::QualifiedSuccess));
+        input.outcomes.push(sample("mcrb-op-not-in-ledger", OperationOutcome::QualifiedSuccess));
         let report = compute_qops(&input, &valid_integrity());
         assert_eq!(report.status, QopsStatus::Invalid);
-        assert!(report.issues.contains(&QopsIssue::UnexpectedOperationSample("op-not-offered".into())));
+        assert!(report.issues.contains(&QopsIssue::UnexpectedOperationSample(
+            "mcrb-op-not-in-ledger".to_string()
+        )));
     }
 
     #[test]
@@ -348,21 +423,6 @@ mod tests {
     }
 
     #[test]
-    fn zero_window_or_empty_denominator_is_invalid() {
-        let mut input = valid_input();
-        input.measurement_window_ns = 0;
-        let zero_window = compute_qops(&input, &valid_integrity());
-        assert_eq!(zero_window.status, QopsStatus::Invalid);
-
-        input = valid_input();
-        input.expected_operation_ids.clear();
-        input.outcomes.clear();
-        let empty = compute_qops(&input, &valid_integrity());
-        assert_eq!(empty.status, QopsStatus::Invalid);
-        assert!(empty.qualified_operations_per_second.is_none());
-    }
-
-    #[test]
     fn required_cross_host_visibility_cannot_use_local_only_metrics() {
         let mut input = valid_input();
         input.cross_host_measurement_required = true;
@@ -384,4 +444,13 @@ mod tests {
         assert_eq!(report.qualified_operations_per_second, Some(2.0));
     }
 
+    #[test]
+    fn qops_denominator_is_derived_from_the_verified_ledger_not_a_caller_vector() {
+        let input = valid_input();
+        let expected = input.offer_ledger.entry_count();
+        assert_eq!(expected, 5);
+        assert_eq!(input.offer_ledger.operation_ids().len(), expected);
+        // QopsInput has no expected_operation_ids field: there is no reducer
+        // parameter through which a caller can shrink the denominator.
+    }
 }
