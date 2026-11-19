@@ -115,7 +115,7 @@ pub struct PlacementCandidate {
     pub distinct_failure_domains: usize,
     /// Count of declared operator identities; not proof of independent control.
     pub distinct_operators: usize,
-    /// Count of regions used; hard data-residency policy remains a separate constraint.
+    /// Descriptive count only; region spread is not a universal optimization preference.
     pub distinct_regions: usize,
     /// Maximum CPU, memory, or GPU utilization across workers, in parts per million.
     pub max_resource_pressure_ppm: u64,
@@ -257,7 +257,7 @@ fn worker_can_fit_one(task: &Task, worker: &Worker) -> bool {
 }
 
 fn ceil_div(numerator: u128, denominator: u128) -> u128 {
-    numerator / denominator + u128::from(numerator % denominator != 0)
+    numerator / denominator + if numerator % denominator == 0 { 0 } else { 1 }
 }
 
 fn checked_task_cost(task: &Task, worker: &Worker) -> Result<u128, SolveError> {
@@ -317,7 +317,6 @@ fn sort_frontier(frontier: &mut [PlacementCandidate]) {
                     .cmp(&left.distinct_failure_domains)
             })
             .then_with(|| right.distinct_operators.cmp(&left.distinct_operators))
-            .then_with(|| right.distinct_regions.cmp(&left.distinct_regions))
             .then_with(|| {
                 left.max_resource_pressure_ppm
                     .cmp(&right.max_resource_pressure_ppm)
