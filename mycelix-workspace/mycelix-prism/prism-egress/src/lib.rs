@@ -266,6 +266,28 @@ impl EgressAuthority {
 ///
 /// The fields are private and the value is not Clone. Execution consumes it,
 /// making accidental reuse or widening harder at the API boundary.
+///
+/// The non-duplicable property is enforced by the public Rust API, not merely
+/// documented as a caller convention:
+///
+/// ```compile_fail
+/// use prism_egress::EgressCapability;
+///
+/// fn attempt_to_duplicate(capability: EgressCapability) {
+///     let _duplicate = capability.clone();
+/// }
+/// ```
+///
+/// Construction is also intentionally unavailable outside this crate:
+///
+/// ```compile_fail
+/// use prism_egress::EgressCapability;
+///
+/// fn attempt_to_forge() {
+///     let _capability = EgressCapability {};
+/// }
+/// ```
+#[must_use = "an authorized egress capability should be executed or explicitly discarded"]
 pub struct EgressCapability {
     url: Url,
     host: String,
