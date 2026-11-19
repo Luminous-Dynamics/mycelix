@@ -12,7 +12,7 @@ The crate consumes the typed AeroEvidence primitives from the stacked AeroCommon
 
 ## Result semantics
 
-A successful report is STRUCTURALLY_COMPLETE only. It means that required artifact references and evidence records are present, internally cross-linked, bound to the same component/configuration where required, and active under the declared record lifecycle.
+A successful report is STRUCTURALLY_COMPLETE only. It means that required artifact references and evidence records are present, internally cross-linked, bound to the same serialized physical unit and configuration where required, and active under the declared record lifecycle. Calibration validity must cover each declared measurement timestamp.
 
 It does not retrieve artifact bytes, verify their SHA-256 values against remote storage, authenticate signatures, establish independent review, qualify a process/material/instrument, decide whether a part passed inspection or test, establish conformity or airworthiness, or authorize fabrication/use/flight.
 
