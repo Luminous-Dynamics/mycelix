@@ -230,7 +230,7 @@
       "expected_decision": "deny_second_hop",
       "oracle": "no second socket is attempted and redirect target is not fetched",
       "source_coverage": "present",
-      "source_test": "public_redirect_to_metadata_host_is_rejected_before_second_dns_or_socket",
+      "source_test": "public_redirect_to_metadata_host_is_rejected_before_second_dns_or_socket; public_redirect_reauthorizes_and_pins_each_hop_dns_snapshot",
       "execution_status": "not_run_exact_head",
       "negative_control_required": true,
       "execution_evidence": null
