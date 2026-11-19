@@ -366,3 +366,8 @@ A snapshot that does not match the request or has expired is rejected before a c
 
 The API is an integration seam, not a live Prism↔Nixward broker. No signed IPC transport, resolver process, replay-ledger call, kernel map staging, active-generation readback or packet enforcement was added by this change. LEASE-001 and LEASE-002 cover the implemented snapshot API and its fail-closed shape checks; both remain unexecuted at exact PR head.
 
+
+
+### Lease provenance through the application receipt
+
+The new local pinned-HTTP integration test supplies a structurally valid snapshot produced by the trusted-adapter constructor, authorizes an exact request/hop, executes against the snapshot's loopback socket in a test-only destination profile, and checks that the final application receipt preserves the logical request ID, address-set digest, resolution-lease payload digest, resolver snapshot digest and observed peer. It also checks that the correlation ID is absent from outbound HTTP request bytes. This test does not verify a Nixward signature or exercise a live broker: the fixture represents a snapshot after the external adapter's cryptographic and parent/workload checks. LEASE-003 records the source-level assertion and remains unexecuted at exact head.
