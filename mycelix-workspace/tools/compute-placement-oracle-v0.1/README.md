@@ -47,4 +47,4 @@ The expected Pareto frontier deliberately preserves both:
 The oracle must not silently pick one by collapsing economics, data locality and failure-domain diversity into a single unexplained weight.
 
 
-The frontier now reports failure-domain, operator-identity and region diversity separately. These are counts of caller-declared identifiers, not proof of independent control, physical fault containment, or legal data residency. A multi-tenant operator may expose multiple failure-domain labels; the Pareto output keeps that distinction visible. Region diversity is descriptive only; permitted-region declarations remain hard constraints.
+The frontier reports failure-domain and operator-identity counts as separate Pareto dimensions. Region count is included as descriptive metadata but excluded from dominance: more geographic spread is not universally preferable because jurisdiction, egress, latency and policy may make concentration appropriate. All are counts of caller-declared identifiers, not proof of independent control, physical fault containment or legal data residency. Permitted-region declarations remain hard constraints.
