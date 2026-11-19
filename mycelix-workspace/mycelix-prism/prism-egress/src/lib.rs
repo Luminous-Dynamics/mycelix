@@ -3853,6 +3853,47 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn nixward_resolution_lease_expiry_blocks_late_execution_before_socket() {
+        let logical_request_id = "0123456789abcdef0123456789abcdef";
+        let address: SocketAddr = "127.0.0.1:9".parse().unwrap();
+        let addresses = vec![address];
+        let snapshot = EgressResolutionSnapshot::from_verified_nixward_lease(
+            "prism-lease-expiry.test",
+            address.port(),
+            logical_request_id,
+            0,
+            addresses.clone(),
+            std::time::Instant::now() + Duration::from_millis(80),
+            canonical_address_set_digest(&addresses),
+            "11".repeat(32),
+            "22".repeat(32),
+        )
+        .unwrap();
+        let resolver = LeaseSnapshotResolver {
+            snapshot,
+            requests: Arc::new(std::sync::Mutex::new(Vec::new())),
+        };
+        let client =
+            PublicEgressClient::with_test_resolver(EgressLimits::default(), resolver);
+        let capability = client
+            .authorize_with_authority_and_correlation(
+                EgressAuthority::PublicWeb,
+                Method::GET,
+                "http://prism-lease-expiry.test:9/",
+                HeaderMap::new(),
+                Vec::new(),
+                logical_request_id,
+                0,
+            )
+            .await
+            .unwrap();
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let result = client.execute(capability).await;
+        assert!(matches!(result, Err(EgressError::CapabilityExpired)));
+    }
+
+    #[tokio::test]
     async fn nixward_resolution_digests_survive_pinned_http_execution_into_receipt() {
         use tokio::io::AsyncWriteExt;
 
