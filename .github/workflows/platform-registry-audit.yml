@@ -1,0 +1,45 @@
+name: Platform Registry Audit
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/happs/mycelix-unified-happ.yaml"
+      - "mycelix-workspace/happs/mycelix-resilience-happ.yaml"
+      - "docs/architecture/mycelix-platform-registry-v0.1.json"
+      - "mycelix-workspace/tools/platform-registry-audit/**"
+      - ".github/workflows/platform-registry-audit.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/happs/mycelix-unified-happ.yaml"
+      - "mycelix-workspace/happs/mycelix-resilience-happ.yaml"
+      - "docs/architecture/mycelix-platform-registry-v0.1.json"
+      - "mycelix-workspace/tools/platform-registry-audit/**"
+      - ".github/workflows/platform-registry-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  registry-audit:
+    name: Verify manifest-derived topology registry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.1
+        with:
+          components: rustfmt
+
+      - name: Format audit tool
+        run: cargo fmt --manifest-path mycelix-workspace/tools/platform-registry-audit/Cargo.toml -- --check
+
+      - name: Test audit tool
+        run: cargo test --manifest-path mycelix-workspace/tools/platform-registry-audit/Cargo.toml
+
+      - name: Verify checked-in registry against exact manifests
+        run: cargo run --manifest-path mycelix-workspace/tools/platform-registry-audit/Cargo.toml -- --check
