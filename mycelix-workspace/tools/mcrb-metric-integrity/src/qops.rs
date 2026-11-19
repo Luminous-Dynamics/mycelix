@@ -66,6 +66,7 @@ pub struct QopsReport {
     pub run_id: String,
     pub scenario_id: String,
     pub offer_ledger_digest_sha256: String,
+    pub offer_ledger_artifact_digest_sha256: String,
     pub offer_ledger_entry_count: usize,
     pub offered_operations: usize,
     pub classified_outcomes: usize,
@@ -201,6 +202,7 @@ pub fn compute_qops(input: &QopsInput, metric_integrity: &IntegrityReport) -> Qo
         run_id: input.offer_ledger.run_id().to_string(),
         scenario_id: input.offer_ledger.scenario_id().to_string(),
         offer_ledger_digest_sha256: input.offer_ledger.digest_sha256().to_string(),
+        offer_ledger_artifact_digest_sha256: input.offer_ledger.raw_artifact_digest_sha256().to_string(),
         offer_ledger_entry_count: input.offer_ledger.entry_count(),
         offered_operations,
         classified_outcomes,
@@ -352,6 +354,7 @@ mod tests {
         assert_eq!(report.qualified_operations_per_second, Some(2.0));
         assert_eq!(report.qualified_success_fraction, Some(0.4));
         assert_eq!(report.offer_ledger_entry_count, 5);
+        assert_eq!(report.offer_ledger_artifact_digest_sha256.len(), 64);
         assert_eq!(report.run_id, RUN_ID);
         assert_eq!(report.scenario_id, SCENARIO_ID);
     }
