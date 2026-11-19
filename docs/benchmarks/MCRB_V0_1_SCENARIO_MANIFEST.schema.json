@@ -283,7 +283,8 @@
         "required_substrate_dimensions",
         "add_application_semantic_scenarios",
         "never_compare_unmatched_runtime_versions",
-        "never_claim_upstream_metric_as_mycelix_application_qualification"
+        "never_claim_upstream_metric_as_mycelix_application_qualification",
+        "wind_tunnel_compatibility"
       ],
       "properties": {
         "use_existing_runtime_harness": {
@@ -307,6 +308,51 @@
         },
         "never_claim_upstream_metric_as_mycelix_application_qualification": {
           "type": "boolean"
+        },
+        "wind_tunnel_compatibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "observed_wind_tunnel_release",
+            "observed_published_compatibility_pair",
+            "observed_pinned_holochain_0_7_report",
+            "roadmap_snapshot_date",
+            "roadmap_wind_tunnel_for_0_7_completion",
+            "required_before_0_7_1_use",
+            "interim_policy"
+          ],
+          "properties": {
+            "status": {
+              "const": "holochain-0.7.1-not-established-by-public-compatibility-matrix"
+            },
+            "observed_wind_tunnel_release": {
+              "type": "string"
+            },
+            "observed_published_compatibility_pair": {
+              "type": "string"
+            },
+            "observed_pinned_holochain_0_7_report": {
+              "type": "string"
+            },
+            "roadmap_snapshot_date": {
+              "type": "string",
+              "format": "date"
+            },
+            "roadmap_wind_tunnel_for_0_7_completion": {
+              "type": "string"
+            },
+            "required_before_0_7_1_use": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "interim_policy": {
+              "type": "string"
+            }
+          }
         }
       }
     },
