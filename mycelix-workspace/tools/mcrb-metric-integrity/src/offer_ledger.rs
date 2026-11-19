@@ -607,6 +607,39 @@ mod tests {
     }
 
     #[test]
+    fn canonical_json_artifact_round_trips_and_binds_raw_digest() {
+        let ledger = ledger_with_count(5);
+        let bytes = serialize_offer_ledger_json(&ledger).unwrap();
+        let verified = verify_offer_ledger_json(&bytes, &expectation(5)).unwrap();
+        assert_eq!(verified.raw_artifact_digest_sha256(), sha256_hex(&bytes));
+        assert_eq!(verified.digest_sha256(), ledger.digest_sha256);
+    }
+
+    #[test]
+    fn non_canonical_json_artifact_is_rejected() {
+        let ledger = ledger_with_count(5);
+        let mut bytes = serialize_offer_ledger_json(&ledger).unwrap();
+        bytes.push(b' ');
+        assert_eq!(
+            verify_offer_ledger_json(&bytes, &expectation(5)).unwrap_err(),
+            OfferLedgerError::NonCanonicalArtifact
+        );
+    }
+
+    #[test]
+    fn unknown_json_fields_are_rejected() {
+        let ledger = ledger_with_count(5);
+        let mut json = String::from_utf8(serialize_offer_ledger_json(&ledger).unwrap()).unwrap();
+        assert!(json.ends_with('}'));
+        json.pop();
+        json.push_str(",\"unrecognized\":true}");
+        assert!(matches!(
+            verify_offer_ledger_json(json.as_bytes(), &expectation(5)).unwrap_err(),
+            OfferLedgerError::Serialization(_)
+        ));
+    }
+
+    #[test]
     fn truncated_ledger_cannot_shrink_frozen_denominator() {
         let ledger = ledger_with_count(4);
         let error = verify_offer_ledger(&ledger, &expectation(5)).unwrap_err();
