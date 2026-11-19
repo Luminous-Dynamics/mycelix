@@ -1,0 +1,337 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mcrb-run-receipt-v0.1.json",
+  "title": "Mycelix MCRB Run Receipt v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "run_id",
+    "status",
+    "source",
+    "runtime",
+    "topology",
+    "environment",
+    "workload",
+    "timing",
+    "scenario_results",
+    "metrics",
+    "evidence",
+    "verifier",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix-mcrb-run-receipt-v0.1"
+    },
+    "benchmark_id": {
+      "const": "MCRB"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "queued",
+        "running",
+        "executed-pass",
+        "executed-fail",
+        "non-executed",
+        "superseded"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "commit",
+        "tree_digest"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "tree_digest": {
+          "type": "string",
+          "minLength": 32
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conductor_version",
+        "hdk_version",
+        "hdi_version",
+        "rust_client_version",
+        "js_client_version",
+        "lair_version",
+        "kitsune2_version",
+        "runtime_binary_digest",
+        "lockfile_digests"
+      ],
+      "properties": {
+        "conductor_version": {
+          "type": "string"
+        },
+        "hdk_version": {
+          "type": "string"
+        },
+        "hdi_version": {
+          "type": "string"
+        },
+        "rust_client_version": {
+          "type": "string"
+        },
+        "js_client_version": {
+          "type": "string"
+        },
+        "lair_version": {
+          "type": "string"
+        },
+        "kitsune2_version": {
+          "type": "string"
+        },
+        "runtime_binary_digest": {
+          "type": "string"
+        },
+        "lockfile_digests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "manifest_digest",
+        "conductor_count",
+        "peer_layout"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string"
+        },
+        "manifest_digest": {
+          "type": "string"
+        },
+        "conductor_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "peer_layout": {
+          "type": "string"
+        },
+        "network_seed_digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hardware_profile",
+        "os_kernel",
+        "network_profile"
+      ],
+      "properties": {
+        "hardware_profile": {
+          "type": "string"
+        },
+        "os_kernel": {
+          "type": "string"
+        },
+        "network_profile": {
+          "type": "string"
+        },
+        "region": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_digest",
+        "seed",
+        "parameters"
+      ],
+      "properties": {
+        "manifest_digest": {
+          "type": "string"
+        },
+        "seed": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "object"
+        }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "started_at",
+        "ended_at",
+        "warmup_seconds",
+        "measurement_seconds"
+      ],
+      "properties": {
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "warmup_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "measurement_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "scenario_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "outcome",
+          "executed_head",
+          "assertions",
+          "artifacts"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "pass",
+              "fail",
+              "not-executed",
+              "skipped",
+              "cancelled",
+              "superseded"
+            ]
+          },
+          "executed_head": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          },
+          "assertions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "boolean",
+                "integer",
+                "number",
+                "string"
+              ]
+            }
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "integer",
+          "number",
+          "string",
+          "null"
+        ]
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_trace_digests",
+        "log_digests",
+        "artifact_digests"
+      ],
+      "properties": {
+        "raw_trace_digests": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "log_digests": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "artifact_digests": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "verifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "digest"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        }
+      }
+    },
+    "claim_ceiling": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
