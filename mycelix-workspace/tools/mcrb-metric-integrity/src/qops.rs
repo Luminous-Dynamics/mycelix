@@ -366,6 +366,15 @@ mod tests {
     }
 
     fn gate_report(scenario_id: &str, outcome: GateOutcome, omit_last: bool) -> GateVerificationReport {
+        gate_report_for_run("run-001", scenario_id, outcome, omit_last)
+    }
+
+    fn gate_report_for_run(
+        run_id: &str,
+        scenario_id: &str,
+        outcome: GateOutcome,
+        omit_last: bool,
+    ) -> GateVerificationReport {
         let signing_key = SigningKey::from_bytes(&[17u8; 32]);
         let mut public_key_hex = String::new();
         for byte in signing_key.verifying_key().to_bytes() {
@@ -375,7 +384,7 @@ mod tests {
         let policy = GateVerifierPolicy {
             schema_version: GATE_POLICY_SCHEMA_VERSION.to_string(),
             policy_id: "qops-fixture-policy".to_string(),
-            run_id: "run-001".to_string(),
+            run_id: run_id.to_string(),
             scenario_id: scenario_id.to_string(),
             scenario_contract_digest_sha256: embedded_scenario_manifest_digest(),
             source_sha: "a".repeat(40),
@@ -517,14 +526,14 @@ mod tests {
     fn gate_attestation_from_another_run_cannot_qualify_this_offer_ledger() {
         let ledger = verified_ledger(false);
         let input = valid_input();
-        let mut gate_report = gate_report("MCRB-01", GateOutcome::Pass, false);
-        assert_eq!(gate_report.status(), GateVerificationStatus::VerifiedPass);
-        let _ = &mut gate_report;
-        // The verifier binds run ID, scenario ID and scenario-contract digest;
-        // this positive report is accepted only for the matching offer ledger.
-        let report = compute_qops(&ledger, &input, &valid_integrity(), &gate_report);
-        assert_eq!(report.status, QopsStatus::Eligible);
-        assert_eq!(report.gate_verification_status, GateVerificationStatus::VerifiedPass);
+        let other_run_gates =
+            gate_report_for_run("different-run", "MCRB-01", GateOutcome::Pass, false);
+        assert_eq!(other_run_gates.status(), GateVerificationStatus::Invalid);
+        let report = compute_qops(&ledger, &input, &valid_integrity(), &other_run_gates);
+        assert_eq!(report.status, QopsStatus::Invalid);
+        assert!(report.issues.contains(&QopsIssue::CorrectnessGateContextMismatch));
+        assert!(report.qualified_operations_per_second.is_none());
+        assert!(report.offered_operations_per_second.is_none());
     }
 
     #[test]
