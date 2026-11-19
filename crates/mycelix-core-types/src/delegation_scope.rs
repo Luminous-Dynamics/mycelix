@@ -861,6 +861,62 @@ mod tests {
     }
 
     #[test]
+    fn accepted_rate_containment_preserves_all_small_enumerated_traces() {
+        fn enumerate_traces(
+            traces: &mut Vec<Vec<u64>>,
+            current: &mut Vec<u64>,
+            next_time: u64,
+            remaining: usize,
+        ) {
+            traces.push(current.clone());
+            if remaining == 0 {
+                return;
+            }
+            for time in next_time..=5 {
+                current.push(time);
+                enumerate_traces(traces, current, time, remaining - 1);
+                current.pop();
+            }
+        }
+
+        fn allows(limit: RateLimitV1, trace: &[u64]) -> bool {
+            trace.iter().all(|start| {
+                let end = *start + limit.window_ms;
+                let count = trace
+                    .iter()
+                    .filter(|time| **time >= *start && **time < end)
+                    .count() as u64;
+                count <= limit.max_events
+            })
+        }
+
+        let mut traces = Vec::new();
+        enumerate_traces(&mut traces, &mut Vec::new(), 0, 4);
+
+        for child_window in 1..=4 {
+            for child_events in 0..=3 {
+                let child = RateLimitV1::new(child_events, child_window).unwrap();
+                for parent_window in 1..=4 {
+                    for parent_events in 0..=3 {
+                        let parent =
+                            RateLimitV1::new(parent_events, parent_window).unwrap();
+                        if child.is_no_wider_than(parent) {
+                            for trace in &traces {
+                                if allows(child, trace) {
+                                    assert!(
+                                        allows(parent, trace),
+                                        "accepted containment failed: child=({child_events}, {child_window}), parent=({parent_events}, {parent_window}), trace={trace:?}"
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn rate_limit_overflow_fails_closed() {
         let parent = RateLimitV1::new(u64::MAX, u64::MAX).unwrap();
         let child = RateLimitV1::new(u64::MAX, 1).unwrap();
