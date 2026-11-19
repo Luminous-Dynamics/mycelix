@@ -12,7 +12,7 @@ description = "Manifest-derived topology registry generator and verifier for Myc
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-yaml_serde = "=0.10.0"
+yaml_serde = "=0.10.7"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
 syn = { version = "2.0", features = ["extra-traits", "full", "visit"] }
 walkdir = "2.5"
