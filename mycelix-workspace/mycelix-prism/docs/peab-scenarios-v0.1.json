@@ -1283,6 +1283,21 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "TXN-015",
+      "family": "cross_plane_transaction",
+      "title": "journal timestamp must be non-decreasing even with a recomputed record hash",
+      "setup": "create a valid second journal record whose observation timestamp precedes the prior record; recompute the record hash correctly",
+      "expected_decision": "reject_timestamp_regression_and_quarantine",
+      "oracle": "the Nixward reducer compares against last_observed_at_unix_ms during creation and replay; a valid hash cannot legitimize backwards chronology",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "journal_rejects_observation_timestamp_regression; journal_replay_rejects_timestamp_regression_even_with_a_valid_record_hash",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
