@@ -1,8 +1,8 @@
 //! Advisory AST inventory for Holochain OtherRole bridge calls.
 //!
 //! This module deliberately does not claim a complete source-to-DNA mapping.
-//! It discovers static call sites, associates a source file with the deepest
-//! nearest ancestor hApp manifest as a context hint, and classifies profile-dependent cases
+//! It discovers static call sites and associates a source file with the nearest
+//! ancestor hApp manifest as a context hint, then classifies profile-dependent cases
 //! as candidates rather than asserting that matching role names prove DNA
 //! identity. Findings remain advisory until mapping coverage is qualified. The nearest manifest is not proof of source-to-DNA ownership.
 
@@ -413,8 +413,8 @@ fn audit_source_file(
             target_expression: expression,
             classification: target_classification.classification.to_string(),
             target_declared_in_nearest_manifest_context: target_classification.declared_in_context,
-            target_present_elsewhere,
-            matching_role_name_profiles: matching,
+            target_present_elsewhere: target_classification.present_elsewhere,
+            matching_role_name_profiles: target_classification.matching_profile_candidates,
             caveat: "Nearest-manifest context is not proof of source-to-DNA ownership. Role-name overlap in another profile is only a candidate mapping and does not prove DNA artifact identity.".to_string(),
         });
     }
