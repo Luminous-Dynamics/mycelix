@@ -1226,6 +1226,81 @@
       "qops_requires_cross_host_visibility": false,
       "qualification_blocking": true,
       "related_issue": "#6342"
+    },
+    {
+      "id": "MCRB-24",
+      "scenario_id": "correctness-gate-attestation-integrity",
+      "objective": "Verify that QOPS eligibility is derived from signed, scenario-bound hard-invariant attestations and cannot be manufactured with a caller-supplied boolean or a self-consistent but incomplete gate set.",
+      "actors": [
+        "benchmark-runner",
+        "independent-gate-verifiers",
+        "qops-reducer",
+        "receipt-verifier"
+      ],
+      "hard_invariants": [
+        "required-gate-set-derived-from-frozen-scenario",
+        "every-required-gate-has-terminal-attestation",
+        "attestation-binds-run-scenario-contract-source-and-runtime",
+        "attestation-signature-verifies-under-pinned-trust-policy",
+        "evidence-artifact-digests-are-valid-and-bound",
+        "duplicate-or-conflicting-gate-attestations-are-rejected",
+        "failed-or-incomplete-gate-suppresses-qops",
+        "unknown-or-revoked-signer-cannot-qualify-qops",
+        "trust-policy-and-attestation-set-digests-appear-in-receipt"
+      ],
+      "fault_injection": [
+        "missing-gate-attestation",
+        "duplicate-gate-attestation",
+        "unexpected-gate-id",
+        "same-gate-conflicting-outcomes",
+        "wrong-run-id",
+        "wrong-scenario-id",
+        "wrong-scenario-contract-digest",
+        "wrong-source-sha",
+        "wrong-runtime-identity",
+        "modified-evidence-digest",
+        "modified-signature",
+        "unknown-verifier-key",
+        "revoked-verifier-key",
+        "stale-trust-policy-digest",
+        "failed-gate-outcome",
+        "incomplete-gate-outcome",
+        "caller-supplied-success-boolean"
+      ],
+      "required_metrics": [
+        "required_gate_count",
+        "accepted_attestation_count",
+        "missing_gate_attestation_count",
+        "duplicate_gate_attestation_count",
+        "unexpected_gate_attestation_count",
+        "signature_failure_count",
+        "untrusted_verifier_count",
+        "context_mismatch_count",
+        "invalid_evidence_digest_count",
+        "failed_gate_count",
+        "incomplete_gate_count",
+        "qops_eligible_with_invalid_gate_set_count"
+      ],
+      "upstream_references": [
+        "https://github.com/Luminous-Dynamics/mycelix/issues/6346",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/6342"
+      ],
+      "qualification_blocking": true,
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "scenario-manifest-digest",
+        "trust-policy-digest",
+        "gate-attestation-set-digest",
+        "individual-signed-gate-attestations",
+        "evidence-artifact-digests",
+        "raw-verifier-logs",
+        "qops-reducer-output",
+        "receipt-verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": false,
+      "related_issue": "#6346"
     }
   ],
   "receipt_schema": "MCRB_V0_1_RUN_RECEIPT.schema.json",
@@ -1302,7 +1377,7 @@
     "crate_path": "mycelix-workspace/tools/mcrb-metric-integrity",
     "crate_name": "mycelix-mcrb-metric-integrity",
     "api": "validate_batch",
-    "status": "local-monotonic-tick-derived-cross-host-interval-helper-authored-not-batch-integrated",
+    "status": "raw-monotonic-duration-and-cross-host-interval-logic-integrated-in-pure-batch-verifier-not-runtime-qualified",
     "output_states": [
       "valid",
       "invalid",
@@ -1347,10 +1422,12 @@
       "event-pair-binds-operation-and-record-digest"
     ],
     "known_limitations": [
-      "Clock calibration inputs are caller-supplied values and are not yet cryptographically or independently attested by the runner.",
-      "The cross-host interval primitive is not yet wired into MeasurementBatch or the canonical run-receipt emitter; uniqueness, completeness and signed raw event artifact binding remain unqualified."
+      "Clock calibration inputs and publish/observe event origins are caller-supplied to the pure calculation verifier; signatures and independent custody are required before public claims.",
+      "The run-receipt schema now requires raw clock, calibration and event-pair evidence, but no canonical receipt emitter or independent custody verifier has been qualified.",
+      "No exact-head Rust fmt, test, Clippy, conductor or benchmark execution result is claimed."
     ],
-    "follow_up_issue": "#6335"
+    "follow_up_issue": "#6335",
+    "cross_host_claim_status": "implemented-in-pure-batch-verifier-not-exact-head-tested-or-runtime-qualified"
   },
   "qualified_operations_policy": {
     "name": "Qualified Operations Per Second",
@@ -1374,7 +1451,10 @@
     "no_silent_attempt_exclusion": true,
     "denials_count_as_business_success": false,
     "offer_ledger_requirement": "QOPS must consume an opaque verified offer-ledger result; callers cannot supply or reduce the expected operation ID denominator.",
-    "independent_authenticity_requirement": "The offer ledger generator and runner/orchestrator identity must be separately attested; a self-computed digest alone is not authenticity."
+    "independent_authenticity_requirement": "The offer ledger generator and runner/orchestrator identity must be separately attested; a self-computed digest alone is not authenticity.",
+    "hard_correctness_gate_attestation": "QOPS consumes a GateVerificationReport produced from Ed25519-signed attestations covering the exact frozen scenario hard_invariants set. A caller-supplied boolean is not accepted.",
+    "gate_attestation_requirement": "required-gates-derived-from-embedded-scenario-contract; exact run/scenario/source/runtime binding; externally pinned signer trust policy; signature and artifact-digest checks; failed, incomplete, missing or invalid gates suppress rates.",
+    "gate_attestation_authenticity_boundary": "The trust policy must be independently governed and pinned outside the runner. Signature verification proves the configured key signed the assertion, not that the evaluator, sensor or evidence source was honest."
   },
   "offer_ledger_policy": {
     "schema_version": "mycelix-mcrb-offer-ledger-v0.1",
@@ -1391,5 +1471,39 @@
     "claim_ceiling": "digest-validity proves internal ledger consistency, not independent generator or runner honesty",
     "cross_host_requirement_source": "selected-scenario.qops_requires_cross_host_visibility",
     "cross_host_requirement_binding": "the boolean is copied into the offer-ledger envelope and committed into the canonical ledger digest; QOPS reads it only from VerifiedOfferLedger"
+  },
+  "correctness_gate_attestation_policy": {
+    "schema_version": "mycelix-mcrb-gate-policy-v0.1",
+    "attestation_schema_version": "mycelix-mcrb-gate-attestation-v0.1",
+    "status": "source-authored-not-exact-head-tested",
+    "signature_algorithm": "Ed25519 strict verification",
+    "canonical_encoding": "domain-separated-length-prefixed-big-endian-v1",
+    "required_gate_set_source": "embedded frozen scenario manifest hard_invariants array",
+    "context_binding": [
+      "run_id",
+      "scenario_id",
+      "scenario_contract_digest_sha256",
+      "source_sha",
+      "runtime_identity_digest_sha256"
+    ],
+    "evidence_binding": "non-empty unique SHA-256 artifact digests per gate",
+    "signer_policy": "externally governed pinned verifier public-key set, with minimum distinct signers per gate",
+    "receipt_fields": [
+      "policy_id",
+      "trust_policy_digest_sha256",
+      "attestation_set_digest_sha256",
+      "source_sha",
+      "runtime_identity_digest_sha256",
+      "required_gate_count",
+      "accepted_attestation_count",
+      "distinct_signer_count",
+      "passed_gate_count",
+      "failed_gate_count",
+      "incomplete_gate_count",
+      "attestation_artifact_digest_sha256",
+      "verifier_version"
+    ],
+    "follow_up_issue": "#6346",
+    "claim_ceiling": "Signature validity proves signer-key control over an assertion, not sensor truth, evaluator honesty or evidence custody."
   }
 }
