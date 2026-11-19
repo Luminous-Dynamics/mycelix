@@ -1,8 +1,11 @@
 //! Measurement-integrity gate for the Mycelix Coordination and Recovery Benchmark.
 //!
-//! This crate validates raw timing, peer and counter evidence before aggregate
-//! performance metrics can be emitted. It deliberately does not trim outliers.
-//! An invalid or incomplete batch never receives aggregate percentiles.
+//! Local operation durations are derived from raw monotonic tick pairs and
+//! pinned per-host clock identity/epoch/frequency. Caller-supplied duration
+//! values are deliberately not accepted as the source of truth.
+//!
+//! This crate does not yet qualify cross-host publish/observe latency. That
+//! requires matched event digests and uncertainty-bounded clock calibration.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -24,6 +27,9 @@ pub enum MetricIssue {
     MissingClockObservation(String),
     EmptyClockSource(String),
     EmptyClockSyncMethod(String),
+    EmptyMonotonicClockId(String),
+    EmptyMonotonicClockEpoch(String),
+    InvalidTicksPerSecond(String),
     NonFiniteClockOffset(String),
     InvalidClockUncertainty(String),
     ClockUncertaintyAboveLimit(String),
@@ -32,8 +38,10 @@ pub enum MetricIssue {
     EmptyOperationId(usize),
     DuplicatePeerOperationSample(String, String),
     MissingPeerSamples(String),
-    NonFiniteDuration(usize),
-    NegativeDuration(usize),
+    MissingClockForSample(usize),
+    MonotonicClockIdMismatch(usize),
+    MonotonicClockEpochMismatch(usize),
+    ReversedMonotonicTicks(usize),
     DurationOutsideDeclaredWindow(usize),
     CommittedPublicationsExceedExpected,
     ObservationsExceedExpected,
@@ -48,27 +56,39 @@ pub struct MetricConfig {
     pub maximum_duration_ms: f64,
     /// Durations above this value are preserved and marked as outliers.
     pub outlier_threshold_ms: f64,
-    /// Maximum permitted clock synchronization uncertainty per host.
+    /// Maximum permitted wall-clock synchronization uncertainty per host.
     pub maximum_clock_uncertainty_ms: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClockObservation {
     pub peer_id: String,
+    /// Human-readable identifier for the monotonic clock implementation.
     pub clock_source: String,
+    /// Wall-clock synchronization method (NTP, PTP, lab reference, etc.).
     pub sync_method: String,
-    /// Signed offset is allowed; uncertainty is the bound on that estimate.
+    /// Signed local-wall-clock minus reference-clock offset, in milliseconds.
     pub offset_ms: f64,
+    /// Bound on the offset estimate, in milliseconds.
     pub uncertainty_ms: f64,
-    /// True only when measured durations use a monotonic clock.
+    /// Must be true; this declares the clock family, not proof of the sample.
     pub monotonic_duration_clock: bool,
+    /// Stable clock identity used by the raw tick samples.
+    pub monotonic_clock_id: String,
+    /// Clock epoch / boot generation; samples cannot cross this boundary.
+    pub monotonic_clock_epoch: String,
+    /// Monotonic ticks per second for this host and epoch.
+    pub ticks_per_second: u64,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DurationSample {
     pub peer_id: String,
     pub operation_id: String,
-    pub duration_ms: f64,
+    pub monotonic_clock_id: String,
+    pub monotonic_clock_epoch: String,
+    pub start_ticks: u64,
+    pub end_ticks: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -97,8 +117,10 @@ pub struct Percentiles {
 #[derive(Debug, Clone, PartialEq)]
 pub struct IntegrityReport {
     pub status: IntegrityStatus,
-    /// Count of all submitted samples; outliers remain included.
+    /// Count of all submitted raw tick samples; no samples are removed.
     pub raw_sample_count: usize,
+    /// Count of samples whose duration was derived from start/end ticks.
+    pub raw_monotonic_tick_derived_count: usize,
     /// Original indexes into MeasurementBatch::duration_samples.
     pub outlier_sample_indexes: Vec<usize>,
     pub issues: Vec<MetricIssue>,
@@ -147,6 +169,7 @@ fn is_incomplete_issue(issue: &MetricIssue) -> bool {
     matches!(
         issue,
         MetricIssue::MissingClockObservation(_)
+            | MetricIssue::MissingClockForSample(_)
             | MetricIssue::MissingPeerSamples(_)
             | MetricIssue::PublicationCounterIncomplete
             | MetricIssue::ObservationCounterIncomplete
@@ -154,11 +177,63 @@ fn is_incomplete_issue(issue: &MetricIssue) -> bool {
     )
 }
 
+/// Derive duration using integer arithmetic from a single monotonic clock
+/// identity/epoch. It is impossible to derive a negative duration: reversed
+/// ticks are returned as a distinct validation failure.
+fn derive_duration_ms(
+    sample: &DurationSample,
+    clock: &ClockObservation,
+    sample_index: usize,
+    issues: &mut Vec<MetricIssue>,
+) -> Option<f64> {
+    if sample.monotonic_clock_id != clock.monotonic_clock_id {
+        push_unique(
+            issues,
+            MetricIssue::MonotonicClockIdMismatch(sample_index),
+        );
+        return None;
+    }
+    if sample.monotonic_clock_epoch != clock.monotonic_clock_epoch {
+        push_unique(
+            issues,
+            MetricIssue::MonotonicClockEpochMismatch(sample_index),
+        );
+        return None;
+    }
+    let Some(delta_ticks) = sample.end_ticks.checked_sub(sample.start_ticks) else {
+        push_unique(issues, MetricIssue::ReversedMonotonicTicks(sample_index));
+        return None;
+    };
+    if clock.ticks_per_second == 0 {
+        push_unique(
+            issues,
+            MetricIssue::InvalidTicksPerSecond(clock.peer_id.clone()),
+        );
+        return None;
+    }
+
+    // u64 * 1e9 is bounded well below u128::MAX. Keeping the conversion in
+    // integer nanoseconds avoids trusting or rounding a supplied duration.
+    let duration_ns =
+        (delta_ticks as u128 * 1_000_000_000_u128) / clock.ticks_per_second as u128;
+    let duration_ms = duration_ns as f64 / 1_000_000.0;
+    if !duration_ms.is_finite() {
+        push_unique(
+            issues,
+            MetricIssue::DurationOutsideDeclaredWindow(sample_index),
+        );
+        return None;
+    }
+    Some(duration_ms)
+}
+
 /// Validate a measurement batch before deriving aggregate performance metrics.
 ///
+/// Local durations are computed only from raw monotonic tick pairs whose
+/// clock ID, epoch and tick frequency match a per-peer ClockObservation.
 /// Outliers inside the declared duration window are retained and reported by
-/// original sample index. A duration outside the declared window invalidates
-/// the batch. No sample is dropped, clipped, winsorized or silently rewritten.
+/// original sample index. No sample is dropped, clipped, winsorized or
+/// silently rewritten.
 pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> IntegrityReport {
     let mut issues = Vec::new();
     let mut outlier_sample_indexes = Vec::new();
@@ -235,6 +310,24 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
                 MetricIssue::EmptyClockSyncMethod(clock.peer_id.clone()),
             );
         }
+        if clock.monotonic_clock_id.trim().is_empty() {
+            push_unique(
+                &mut issues,
+                MetricIssue::EmptyMonotonicClockId(clock.peer_id.clone()),
+            );
+        }
+        if clock.monotonic_clock_epoch.trim().is_empty() {
+            push_unique(
+                &mut issues,
+                MetricIssue::EmptyMonotonicClockEpoch(clock.peer_id.clone()),
+            );
+        }
+        if clock.ticks_per_second == 0 {
+            push_unique(
+                &mut issues,
+                MetricIssue::InvalidTicksPerSecond(clock.peer_id.clone()),
+            );
+        }
         if !clock.offset_ms.is_finite() {
             push_unique(
                 &mut issues,
@@ -271,6 +364,8 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
 
     let mut sample_counts: BTreeMap<String, usize> = BTreeMap::new();
     let mut operation_ids = BTreeSet::new();
+    let mut derived_samples: Vec<(String, f64)> = Vec::new();
+    let mut raw_monotonic_tick_derived_count = 0usize;
 
     for (index, sample) in batch.duration_samples.iter().enumerate() {
         if !expected.contains(&sample.peer_id) {
@@ -294,25 +389,26 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
             );
         }
 
-        if !sample.duration_ms.is_finite() {
-            push_unique(&mut issues, MetricIssue::NonFiniteDuration(index));
+        let Some(clock) = clocks.get(&sample.peer_id) else {
+            push_unique(&mut issues, MetricIssue::MissingClockForSample(index));
             continue;
-        }
-        if sample.duration_ms < 0.0 {
-            push_unique(&mut issues, MetricIssue::NegativeDuration(index));
+        };
+        let Some(duration_ms) = derive_duration_ms(sample, clock, index, &mut issues) else {
             continue;
-        }
-        if sample.duration_ms > config.maximum_duration_ms {
+        };
+        raw_monotonic_tick_derived_count += 1;
+        if duration_ms > config.maximum_duration_ms {
             push_unique(
                 &mut issues,
                 MetricIssue::DurationOutsideDeclaredWindow(index),
             );
             continue;
         }
-        if sample.duration_ms > config.outlier_threshold_ms {
-            // Preserve the raw sample and expose its index; do not trim it.
+        if duration_ms > config.outlier_threshold_ms {
+            // Preserve the raw ticks and expose the original sample index.
             outlier_sample_indexes.push(index);
         }
+        derived_samples.push((sample.peer_id.clone(), duration_ms));
     }
 
     for peer_id in &expected {
@@ -356,18 +452,13 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
 
     let aggregate_eligible = status == IntegrityStatus::Valid;
     let (percentiles, per_peer_percentiles) = if aggregate_eligible {
-        let global_values: Vec<f64> = batch
-            .duration_samples
-            .iter()
-            .map(|sample| sample.duration_ms)
-            .collect();
-
+        let global_values: Vec<f64> = derived_samples.iter().map(|sample| sample.1).collect();
         let mut peer_values: BTreeMap<String, Vec<f64>> = BTreeMap::new();
-        for sample in &batch.duration_samples {
+        for (peer_id, duration_ms) in &derived_samples {
             peer_values
-                .entry(sample.peer_id.clone())
+                .entry(peer_id.clone())
                 .or_default()
-                .push(sample.duration_ms);
+                .push(*duration_ms);
         }
         let peer_percentiles = peer_values
             .iter()
@@ -387,6 +478,7 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
     IntegrityReport {
         status,
         raw_sample_count: batch.duration_samples.len(),
+        raw_monotonic_tick_derived_count,
         outlier_sample_indexes,
         issues,
         percentiles,
@@ -411,41 +503,59 @@ mod tests {
                 clock_observations: vec![
                     ClockObservation {
                         peer_id: "peer-a".into(),
-                        clock_source: "chrony".into(),
-                        sync_method: "NTP".into(),
+                        clock_source: "CLOCK_MONOTONIC".into(),
+                        sync_method: "chrony/NTP".into(),
                         offset_ms: -0.5,
                         uncertainty_ms: 1.0,
                         monotonic_duration_clock: true,
+                        monotonic_clock_id: "clock-a".into(),
+                        monotonic_clock_epoch: "boot-a".into(),
+                        ticks_per_second: 1_000_000_000,
                     },
                     ClockObservation {
                         peer_id: "peer-b".into(),
-                        clock_source: "chrony".into(),
-                        sync_method: "NTP".into(),
+                        clock_source: "CLOCK_MONOTONIC".into(),
+                        sync_method: "chrony/NTP".into(),
                         offset_ms: 0.75,
                         uncertainty_ms: 2.0,
                         monotonic_duration_clock: true,
+                        monotonic_clock_id: "clock-b".into(),
+                        monotonic_clock_epoch: "boot-b".into(),
+                        ticks_per_second: 1_000_000_000,
                     },
                 ],
                 duration_samples: vec![
                     DurationSample {
                         peer_id: "peer-a".into(),
                         operation_id: "op-1".into(),
-                        duration_ms: 10.0,
+                        monotonic_clock_id: "clock-a".into(),
+                        monotonic_clock_epoch: "boot-a".into(),
+                        start_ticks: 100_000_000,
+                        end_ticks: 110_000_000,
                     },
                     DurationSample {
                         peer_id: "peer-a".into(),
                         operation_id: "op-2".into(),
-                        duration_ms: 20.0,
+                        monotonic_clock_id: "clock-a".into(),
+                        monotonic_clock_epoch: "boot-a".into(),
+                        start_ticks: 110_000_000,
+                        end_ticks: 130_000_000,
                     },
                     DurationSample {
                         peer_id: "peer-b".into(),
                         operation_id: "op-3".into(),
-                        duration_ms: 30.0,
+                        monotonic_clock_id: "clock-b".into(),
+                        monotonic_clock_epoch: "boot-b".into(),
+                        start_ticks: 200_000_000,
+                        end_ticks: 230_000_000,
                     },
                     DurationSample {
                         peer_id: "peer-b".into(),
                         operation_id: "op-4".into(),
-                        duration_ms: 40.0,
+                        monotonic_clock_id: "clock-b".into(),
+                        monotonic_clock_epoch: "boot-b".into(),
+                        start_ticks: 230_000_000,
+                        end_ticks: 270_000_000,
                     },
                 ],
                 counters: OperationCounters {
@@ -459,13 +569,14 @@ mod tests {
     }
 
     #[test]
-    fn valid_batch_emits_global_and_per_peer_percentiles() {
+    fn valid_batch_derives_global_and_per_peer_percentiles_from_ticks() {
         let (config, batch) = valid_batch();
         let report = validate_batch(&config, &batch);
 
         assert_eq!(report.status, IntegrityStatus::Valid);
         assert!(report.aggregate_eligible);
         assert_eq!(report.raw_sample_count, 4);
+        assert_eq!(report.raw_monotonic_tick_derived_count, 4);
         assert_eq!(report.outlier_sample_indexes, vec![3]);
 
         let global = report.percentiles.unwrap();
@@ -476,43 +587,69 @@ mod tests {
         let peers = report.per_peer_percentiles.unwrap();
         assert_eq!(peers["peer-a"].p50_ms, 10.0);
         assert_eq!(peers["peer-b"].p50_ms, 30.0);
-
-        // The original 40ms outlier remains in the submitted batch.
-        assert_eq!(batch.duration_samples[3].duration_ms, 40.0);
+        assert_eq!(batch.duration_samples[3].start_ticks, 230_000_000);
     }
 
     #[test]
-    fn non_finite_and_out_of_window_samples_block_aggregates() {
+    fn reversed_ticks_invalidate_aggregates() {
         let (config, mut batch) = valid_batch();
-        batch.duration_samples[0].duration_ms = f64::NAN;
-        batch.duration_samples[1].duration_ms = 1_000.0;
-
+        batch.duration_samples[0].start_ticks = 120_000_000;
+        batch.duration_samples[0].end_ticks = 110_000_000;
         let report = validate_batch(&config, &batch);
         assert_eq!(report.status, IntegrityStatus::Invalid);
         assert!(!report.aggregate_eligible);
-        assert!(report.percentiles.is_none());
-        assert!(report.issues.contains(&MetricIssue::NonFiniteDuration(0)));
-        assert!(report
-            .issues
-            .contains(&MetricIssue::DurationOutsideDeclaredWindow(1)));
-        assert_eq!(report.raw_sample_count, 4);
+        assert!(report.issues.contains(&MetricIssue::ReversedMonotonicTicks(0)));
     }
 
     #[test]
-    fn negative_duration_is_rejected() {
+    fn clock_epoch_mismatch_invalidates_sample() {
         let (config, mut batch) = valid_batch();
-        batch.duration_samples[0].duration_ms = -1.0;
-
+        batch.duration_samples[0].monotonic_clock_epoch = "different-boot".into();
         let report = validate_batch(&config, &batch);
         assert_eq!(report.status, IntegrityStatus::Invalid);
-        assert!(report.issues.contains(&MetricIssue::NegativeDuration(0)));
+        assert!(report
+            .issues
+            .contains(&MetricIssue::MonotonicClockEpochMismatch(0)));
+    }
+
+    #[test]
+    fn clock_id_mismatch_invalidates_sample() {
+        let (config, mut batch) = valid_batch();
+        batch.duration_samples[0].monotonic_clock_id = "other-clock".into();
+        let report = validate_batch(&config, &batch);
+        assert_eq!(report.status, IntegrityStatus::Invalid);
+        assert!(report
+            .issues
+            .contains(&MetricIssue::MonotonicClockIdMismatch(0)));
+    }
+
+    #[test]
+    fn zero_tick_frequency_invalidates_batch() {
+        let (config, mut batch) = valid_batch();
+        batch.clock_observations[0].ticks_per_second = 0;
+        let report = validate_batch(&config, &batch);
+        assert_eq!(report.status, IntegrityStatus::Invalid);
+        assert!(report
+            .issues
+            .contains(&MetricIssue::InvalidTicksPerSecond("peer-a".into())));
+    }
+
+    #[test]
+    fn derived_duration_outside_window_invalidates_aggregates() {
+        let (config, mut batch) = valid_batch();
+        batch.duration_samples[0].end_ticks = 2_000_000_000;
+        let report = validate_batch(&config, &batch);
+        assert_eq!(report.status, IntegrityStatus::Invalid);
+        assert!(report
+            .issues
+            .contains(&MetricIssue::DurationOutsideDeclaredWindow(0)));
+        assert!(report.percentiles.is_none());
     }
 
     #[test]
     fn missing_peer_sample_makes_batch_incomplete() {
         let (config, mut batch) = valid_batch();
         batch.duration_samples.retain(|sample| sample.peer_id != "peer-b");
-
         let report = validate_batch(&config, &batch);
         assert_eq!(report.status, IntegrityStatus::Incomplete);
         assert!(!report.aggregate_eligible);
@@ -526,7 +663,6 @@ mod tests {
     fn excessive_clock_uncertainty_blocks_aggregates() {
         let (config, mut batch) = valid_batch();
         batch.clock_observations[1].uncertainty_ms = 9.0;
-
         let report = validate_batch(&config, &batch);
         assert_eq!(report.status, IntegrityStatus::Invalid);
         assert!(report
@@ -554,10 +690,9 @@ mod tests {
     }
 
     #[test]
-    fn wall_clock_durations_are_not_accepted() {
+    fn wall_clock_duration_declaration_is_rejected() {
         let (config, mut batch) = valid_batch();
         batch.clock_observations[0].monotonic_duration_clock = false;
-
         let report = validate_batch(&config, &batch);
         assert_eq!(report.status, IntegrityStatus::Invalid);
         assert!(report
@@ -566,10 +701,9 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_operation_ids_are_rejected() {
+    fn duplicate_operation_ids_are_rejected_per_peer() {
         let (config, mut batch) = valid_batch();
         batch.duration_samples[3].operation_id = "op-3".into();
-
         let report = validate_batch(&config, &batch);
         assert_eq!(report.status, IntegrityStatus::Invalid);
         assert!(report.issues.contains(
@@ -577,12 +711,10 @@ mod tests {
         ));
     }
 
-
     #[test]
     fn same_logical_operation_may_be_observed_by_multiple_peers() {
         let (config, mut batch) = valid_batch();
         batch.duration_samples[2].operation_id = "op-1".into();
-
         let report = validate_batch(&config, &batch);
         assert_eq!(report.status, IntegrityStatus::Valid);
         assert!(report.aggregate_eligible);
@@ -592,7 +724,6 @@ mod tests {
     fn empty_batch_cannot_emit_a_performance_claim() {
         let (config, mut batch) = valid_batch();
         batch.duration_samples.clear();
-
         let report = validate_batch(&config, &batch);
         assert_eq!(report.status, IntegrityStatus::Incomplete);
         assert!(!report.aggregate_eligible);
