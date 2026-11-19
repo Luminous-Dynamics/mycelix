@@ -11,6 +11,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 pub mod cross_host;
+pub mod gate_attestation;
 pub mod offer_ledger;
 pub mod qops;
 use crate::cross_host::{
