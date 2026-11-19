@@ -446,3 +446,10 @@ Envoy DFP exports DNS counters including `dns_address_filter_out`, `host_address
 ### HTTP parser feasibility clarification
 
 Reqwest 0.13.5 documents an HTTP/1 response header-count limit and an HTTP/2 header-list-size limit, but these do not establish a configurable aggregate HTTP/1 header-byte ceiling. Hyper's HTTP/1 client builder exposes `max_header_size` for the response head (including status line) and chunked trailers. Keep the Hyper experiment test-only until its negative control, parser rejection, TLS/SNI, pinned-peer, redirect, cancellation, and memory-lifecycle requirements are qualified on the same exact revision. <https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html> <https://docs.rs/hyper/latest/src/hyper/client/conn/http1.rs.html>
+
+
+### Preverified Nixward snapshot boundary
+
+The Prism snapshot-construction API is named `from_preverified_nixward_lease` to avoid implying that Prism itself verifies the detached signature. The trusted adapter must already have verified the Nixward lease, owner/parent authority, resolver trust, replay nonce and broker-observed cgroup identity. Prism then independently enforces shape and cross-layer consistency: 32-character lowercase-hex logical ID, exact hostname/port/request/hop match, sorted unique socket endpoints, matching canonical address-set digest, well-formed lease/resolver digests, future monotonic deadline, and the Nixward v1 five-second maximum. The constructor remains public because the adapter is a separate crate, so this is an explicit trusted-computing-base boundary—not a type-level proof of signature verification.
+
+Three PEAB tests now cover digest/order substitution (RESLEASE-001), request-ID/hop replay (RESLEASE-002), and overlong monotonic deadline (RESLEASE-003). All remain unexecuted on the exact PR head; the cases record source presence only.
