@@ -517,3 +517,34 @@ MCRB-17 is deliberately a **Holochain adapter/runtime regression test**, not a s
 - [#6189 — effect-boundary interposition](https://github.com/Luminous-Dynamics/mycelix/issues/6189) owns the deterministic sandbox and exact capability enforcement at the effect boundary.
 
 MCRB-17 supplies the substrate-specific negative control for Holochain 0.7.x multi-function grants. It should feed its exact runtime outcome into those owner programmes; it must not replace their semantics or imply that Holochain grant revocation alone proves global propagation.
+
+### Executable QOPS accounting
+
+The Rust metric-integrity crate now includes a pure QOPS reducer. It accepts the complete expected operation-ID set and one terminal outcome per ID, plus the independently produced metric-integrity report and scenario correctness result. It derives rates itself and suppresses all rate outputs when the denominator is incomplete, any duplicate operation ID appears, a duplicate external effect is observed, a hard correctness gate fails, or metric integrity is not Valid.
+
+Outcome classes are:
+
+- qualified_success — counts toward QOPS;
+- correct_denial — reported but does not count as business success;
+- unexpected_denial — reported and excluded from QOPS;
+- failed — known failure, retained in the offered denominator;
+- unknown — unresolved, retained in the denominator and never treated as success;
+- duplicate_effect — non-compensatory failure that suppresses QOPS.
+
+The reducer verifies that every supplied offered ID has exactly one outcome and rejects unexpected or duplicate outcome IDs. It does not prove that the offered-ID ledger itself is complete: a qualification receipt must bind the generator, workload seed, source digest, measurement-window identity and append-only offered-ID ledger. The benchmark must not let a caller construct a smaller denominator after seeing results.
+
+The QOPS unit-test corpus covers complete accounting, missing outcome, duplicate outcome, unoffered operation, duplicate side effect, hard-correctness failure, metric-integrity failure and zero/empty measurement window. These are authored tests; exact-head Cargo test/Clippy is still the execution gate.
+
+## 17. Wind Tunnel compatibility is a separate release gate
+
+Do not equate a Wind Tunnel version with a Holochain version. They are independent version numbers and their dependency graphs must be inspected.
+
+The public Wind Tunnel repository manifests inspected on 19 November 2026 show:
+
+- Released Wind Tunnel v0.7.1 (published 21 July 2026) pins the Holochain 0.6.3 family: client 0.8.3, HDK 0.6.3, HDI 0.7.3 and Kitsune2 0.4.1.
+- The then-current Wind Tunnel main manifest pins Holochain/HDK 0.7.0, HDI 0.8.0, Rust client 0.9.0 and Kitsune2 0.5.2.
+- Mycelix's 0.7.1 migration profile requires Holochain/HDK 0.7.1, HDI 0.8.1, Rust client 0.9.1 and the Kitsune2 0.5.1 crate family; the Holonix bootstrap-server source 0.5.2 is a distinct component.
+
+Therefore, neither the Wind Tunnel v0.7.1 release tag nor current main can be assumed to qualify the Mycelix Holochain 0.7.1 runtime. Reuse its framework/instrumentation where compatible, but first port and pin the Holochain client binding, runner, scenario crates, hApp dependencies and Kitsune2 graph as one coherent unit.
+
+This is tracked separately in [#6337](https://github.com/Luminous-Dynamics/mycelix/issues/6337), with MCRB-22 as the release-compatibility scenario. Until that work is qualified, MCRB should use source-pinned Mycelix-specific harnesses or a verified compatible Wind Tunnel commit—not a version-number assumption.
