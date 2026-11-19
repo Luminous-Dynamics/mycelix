@@ -72,7 +72,7 @@ Evaluate grid, fibre, cooling, water and common-cause failures; measure unmet se
 
 ## Hand-computable integrated case
 
-The companion file `PORT_CITY_SERVICE_EQUIVALENCE_GOLDEN_TRACE_V0_1.json` includes 38 expected dispositions plus a four-interval 15-minute synthetic trace.
+The companion file `PORT_CITY_SERVICE_EQUIVALENCE_GOLDEN_TRACE_V0_1.json` includes 48 expected dispositions plus a four-interval 15-minute synthetic trace.
 
 ### Inputs
 
@@ -216,7 +216,7 @@ The integration oracle checks that no handoff upgrades an upstream claim into an
 ## Verification status
 
 - The four-slot PCC arithmetic was independently calculated when the fixture was authored: baseline and guarded policy each use 6.125 MWh; naive policy also uses 6.125 MWh but breaches by 1,000 kW.
-- The 38-case fixture is synthetic and expected-disposition driven. It has not yet been executed through all owner-native verifiers.
+- The 48-case fixture is synthetic and expected-disposition driven. It has not yet been executed through all owner-native verifiers.
 - The related Rust implementations have authored tests but have not been compiled in this environment because Cargo/rustc are unavailable.
 - This document makes no CI-pass or physical-validation claim.
 
