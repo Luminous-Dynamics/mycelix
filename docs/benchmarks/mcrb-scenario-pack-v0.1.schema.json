@@ -16,7 +16,8 @@
     "required_run_provenance",
     "statistical_protocol",
     "hard_failure_policy",
-    "scenarios"
+    "scenarios",
+    "metric_quality_policy"
   ],
   "properties": {
     "schema_version": {
@@ -253,6 +254,54 @@
             },
             "minItems": 1
           }
+        }
+      }
+    },
+    "metric_quality_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "require_monotonic_local_durations",
+        "require_clock_source_and_sync_method",
+        "require_cross_host_offset_and_uncertainty",
+        "reject_negative_or_non_finite_durations",
+        "preserve_and_classify_outliers",
+        "silently_trim_or_clamp_outliers",
+        "require_per_peer_distributions",
+        "aggregate_only_after_member_sample_validation",
+        "reject_unreconciled_send_receive_counts",
+        "invalid_metrics_block_performance_claims"
+      ],
+      "properties": {
+        "require_monotonic_local_durations": {
+          "type": "boolean"
+        },
+        "require_clock_source_and_sync_method": {
+          "type": "boolean"
+        },
+        "require_cross_host_offset_and_uncertainty": {
+          "type": "boolean"
+        },
+        "reject_negative_or_non_finite_durations": {
+          "type": "boolean"
+        },
+        "preserve_and_classify_outliers": {
+          "type": "boolean"
+        },
+        "silently_trim_or_clamp_outliers": {
+          "const": false
+        },
+        "require_per_peer_distributions": {
+          "type": "boolean"
+        },
+        "aggregate_only_after_member_sample_validation": {
+          "type": "boolean"
+        },
+        "reject_unreconciled_send_receive_counts": {
+          "type": "boolean"
+        },
+        "invalid_metrics_block_performance_claims": {
+          "type": "boolean"
         }
       }
     }
