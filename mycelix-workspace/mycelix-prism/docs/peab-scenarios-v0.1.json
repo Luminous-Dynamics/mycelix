@@ -658,6 +658,19 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "ADDR-001",
+      "family": "evidence_reconciliation",
+      "title": "canonical address-set digest is stable and authority-bound",
+      "setup": "permute and duplicate one address set, then vary destination port and address family",
+      "expected_decision": "same_canonical_set_same_digest",
+      "oracle": "ordering and duplicates do not change the digest; a changed port or address family changes it; golden encoding is versioned and domain-separated",
+      "source_coverage": "present",
+      "source_test": "canonical_address_set_digest_is_order_independent_deduplicated_and_port_bound",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
