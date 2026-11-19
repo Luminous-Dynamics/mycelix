@@ -1951,7 +1951,6 @@ mod tests {
             (peer, request)
         });
 
-
         let dns = WireDnsFixture::start().await;
         dns.set_answer(
             "rebind.test",
