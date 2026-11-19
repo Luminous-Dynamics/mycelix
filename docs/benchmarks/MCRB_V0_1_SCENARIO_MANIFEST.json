@@ -777,7 +777,7 @@
     {
       "id": "MCRB-16",
       "scenario_id": "clock-and-metric-integrity",
-      "objective": "Validate raw monotonic duration derivation, clock-epoch integrity, matched cross-host publish/observe event timing and uncertainty intervals before any latency aggregate is emitted.",
+      "objective": "Derive local durations from raw monotonic ticks and separately qualify cross-host publish/first-valid-observation pairs with record-digest binding and uncertainty intervals.",
       "actors": [
         "benchmark-runner",
         "peer-observers",
@@ -785,7 +785,9 @@
       ],
       "hard_invariants": [
         "local-duration-derived-from-monotonic-ticks",
-        "clock-epoch-stable-within-sample",
+        "clock-id-and-epoch-match-per-peer",
+        "tick-frequency-nonzero",
+        "no-caller-supplied-duration-authority",
         "outliers-preserved-and-classified",
         "aggregate-requires-valid-peer-samples",
         "cross-host-event-pair-matches-record-digest",
@@ -798,10 +800,8 @@
         "clock-step-during-run",
         "clock-epoch-change",
         "reversed-monotonic-ticks",
-        "duration-does-not-match-tick-delta",
-        "negative-duration",
-        "non-finite-duration",
-        "overflow-timestamp",
+        "clock-id-mismatch",
+        "zero-tick-frequency",
         "stale-clock-calibration",
         "missing-peer-sample",
         "unmatched-publish-observe-event",
@@ -809,16 +809,18 @@
         "send-receive-counter-mismatch"
       ],
       "required_metrics": [
+        "raw_monotonic_tick_derived_count",
+        "monotonic_clock_id_mismatch_count",
+        "clock_epoch_mismatch_count",
+        "reversed_monotonic_tick_count",
+        "invalid_ticks_per_second_count",
         "clock_offset_ms",
         "clock_uncertainty_ms",
-        "negative_duration_count",
-        "non_finite_duration_count",
         "out_of_run_duration_count",
         "missing_peer_sample_count",
-        "duration_tick_mismatch_count",
-        "clock_epoch_mismatch_count",
         "unmatched_cross_host_event_count",
-        "cross_host_latency_uncertainty_ms",
+        "cross_host_latency_lower_bound_ms",
+        "cross_host_latency_upper_bound_ms",
         "send_receive_counter_mismatch_count",
         "aggregate_rejection_count"
       ],
@@ -912,7 +914,7 @@
     "crate_path": "mycelix-workspace/tools/mcrb-metric-integrity",
     "crate_name": "mycelix-mcrb-metric-integrity",
     "api": "validate_batch",
-    "status": "basic-sample-integrity-only-raw-clock-evidence-gap",
+    "status": "source-and-tests-authored-ci-pending-local-monotonic-tick-derivation",
     "output_states": [
       "valid",
       "invalid",
@@ -926,7 +928,12 @@
       "aggregate_eligible",
       "duplicate_peer_operation_sample_count",
       "clock_uncertainty_ms",
-      "counter_reconciliation_status"
+      "counter_reconciliation_status",
+      "raw_monotonic_tick_derived_count",
+      "monotonic_clock_id_mismatch_count",
+      "clock_epoch_mismatch_count",
+      "reversed_monotonic_tick_count",
+      "invalid_ticks_per_second_count"
     ],
     "policy": [
       "no_aggregate_when_invalid_or_incomplete",
@@ -936,11 +943,14 @@
       "peer_coverage",
       "counter_reconciliation",
       "unique-operation-samples-per-peer",
-      "same-logical-operation-may-be-observed-by-multiple-peers"
+      "same-logical-operation-may-be-observed-by-multiple-peers",
+      "derive-duration-from-raw-monotonic-ticks",
+      "clock-id-and-epoch-must-match-per-peer",
+      "tick-frequency-must-be-nonzero",
+      "no-caller-supplied-duration-as-authority"
     ],
     "known_limitations": [
-      "DurationSample currently carries a supplied duration_ms value, not raw monotonic start/end ticks; the current verifier cannot independently recompute the duration.",
-      "Clock source/offset/uncertainty fields are caller-supplied metadata, not attested clock measurements.",
+      "Clock source, wall-clock offset and uncertainty fields are caller-supplied metadata, not attested calibration measurements.",
       "The current verifier does not bind publish and first-valid-observation events by record digest and host pair; it cannot independently qualify cross-host DHT convergence latency."
     ],
     "follow_up_issue": "#6335"
