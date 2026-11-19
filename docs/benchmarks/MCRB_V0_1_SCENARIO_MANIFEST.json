@@ -1317,6 +1317,14 @@
       "qualified_operations_per_second"
     ],
     "no_silent_attempt_exclusion": true,
-    "denials_count_as_business_success": false
+    "denials_count_as_business_success": false,
+    "denominator_source": "verified-content-addressed-offer-ledger",
+    "offer_ledger_schema_version": "mycelix-mcrb-offer-ledger-v0.1",
+    "offer_set_fixed_before_dispatch": true,
+    "expected_offer_count_from_frozen_scenario_contract": true,
+    "caller_supplied_operation_denominator_allowed": false,
+    "require_append_only_sequence": true,
+    "require_canonical_sha256_digest": true,
+    "require_runner_attestation_for_execution_claim": true
   }
 }
