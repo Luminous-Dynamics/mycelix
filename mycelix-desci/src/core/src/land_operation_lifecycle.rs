@@ -571,7 +571,7 @@ impl LandOperationLifecycleV0 {
 
     pub const fn requires_reconciliation(&self) -> bool {
         matches!(
-            self.phase,
+            &self.phase,
             LandOperationPhase::OutcomeUnknown { .. }
                 | LandOperationPhase::Held { .. }
                 | LandOperationPhase::ExternalStatusInvalidated { .. }
@@ -580,7 +580,7 @@ impl LandOperationLifecycleV0 {
 
     pub const fn external_status_projection_is_current(&self) -> bool {
         matches!(
-            self.phase,
+            &self.phase,
             LandOperationPhase::ExternalStatusProjected { .. }
         )
     }
@@ -916,7 +916,7 @@ mod tests {
         value
             .apply(LandOperationCommand::MarkOutcomeUnknown)
             .expect("timeout state must be recordable");
-        assert!(matches!(value.phase, LandOperationPhase::OutcomeUnknown { .. }));
+        assert!(matches!(&value.phase, LandOperationPhase::OutcomeUnknown { .. }));
         assert!(value.requires_reconciliation());
         assert_eq!(value.attempt_history[0].status, SubmissionAttemptStatus::OutcomeUnknown);
     }
@@ -933,7 +933,7 @@ mod tests {
             }),
             Err(LandOperationTransitionError::InvalidTransition)
         );
-        assert!(matches!(value.phase, LandOperationPhase::OutcomeUnknown { .. }));
+        assert!(matches!(&value.phase, LandOperationPhase::OutcomeUnknown { .. }));
     }
 
     #[test]
@@ -947,7 +947,7 @@ mod tests {
             }),
             Err(LandOperationTransitionError::ExternalOutcomeStillUnknown)
         );
-        assert!(matches!(value.phase, LandOperationPhase::OutcomeUnknown { .. }));
+        assert!(matches!(&value.phase, LandOperationPhase::OutcomeUnknown { .. }));
     }
 
     #[test]
@@ -963,7 +963,7 @@ mod tests {
                 },
             })
             .unwrap();
-        assert!(matches!(value.phase, LandOperationPhase::RetryEligible { .. }));
+        assert!(matches!(&value.phase, LandOperationPhase::RetryEligible { .. }));
         assert_eq!(value.validate_structural(), Ok(()));
     }
 
@@ -980,7 +980,7 @@ mod tests {
                 },
             })
             .unwrap();
-        assert!(matches!(value.phase, LandOperationPhase::Held { .. }));
+        assert!(matches!(&value.phase, LandOperationPhase::Held { .. }));
         assert!(value.requires_reconciliation());
     }
 
@@ -1068,7 +1068,7 @@ mod tests {
                 },
             })
             .unwrap();
-        assert!(matches!(value.phase, LandOperationPhase::ReceiptObserved { .. }));
+        assert!(matches!(&value.phase, LandOperationPhase::ReceiptObserved { .. }));
         assert_eq!(value.attempt_history.len(), 1);
         assert_eq!(value.validate_structural(), Ok(()));
     }
@@ -1086,7 +1086,7 @@ mod tests {
                 },
             })
             .unwrap();
-        assert!(matches!(value.phase, LandOperationPhase::Held { .. }));
+        assert!(matches!(&value.phase, LandOperationPhase::Held { .. }));
         assert_eq!(
             value.attempt_history[0].status,
             SubmissionAttemptStatus::ReconciliationConflict
@@ -1105,7 +1105,7 @@ mod tests {
             }),
             Err(LandOperationTransitionError::InvalidInput)
         );
-        assert!(matches!(value.phase, LandOperationPhase::Submitted { .. }));
+        assert!(matches!(&value.phase, LandOperationPhase::Submitted { .. }));
     }
 
     #[test]
@@ -1163,7 +1163,7 @@ mod tests {
                 projection_scope_reference: "urn:synthetic:scope:mineral-right-status".into(),
             })
             .unwrap();
-        assert!(matches!(value.phase, LandOperationPhase::ExternalStatusProjected { .. }));
+        assert!(matches!(&value.phase, LandOperationPhase::ExternalStatusProjected { .. }));
         assert!(!value.allows_authoritative_mutation());
         assert!(!value.may_record_external_status_projection());
         assert_eq!(value.validate_structural(), Ok(()));
@@ -1218,7 +1218,7 @@ mod tests {
             })
             .unwrap();
         assert!(matches!(
-            value.phase,
+            &value.phase,
             LandOperationPhase::ExternalStatusInvalidated { .. }
         ));
         assert!(!value.external_status_projection_is_current());
