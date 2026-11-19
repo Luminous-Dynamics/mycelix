@@ -33,3 +33,7 @@ if report.aggregate_eligible {
 - `Invalid`: an impossible or out-of-contract measurement was observed; no aggregate is eligible.
 
 This library does not synchronize clocks, collect telemetry, infer a network's true topology or qualify application semantics. The caller must supply raw peer observations and pin the verifier version/digest in the MCRB run receipt.
+
+## Current validation state
+
+The unit tests are authored, but no exact-head Cargo run is claimed until the `MCRB Metric Integrity` workflow completes successfully. Do not use this crate as an external qualification verifier until its implementation and receipt binding are independently reviewed.
