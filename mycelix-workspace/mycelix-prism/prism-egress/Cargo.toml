@@ -6,6 +6,7 @@ license.workspace = true
 description = "Context-constrained, DNS-pinned, resource-bounded HTTP egress for Prism"
 
 [dependencies]
+blake3 = { workspace = true }
 # Isolated Reqwest 0.13.5 adds a parser-level HTTP/1 response header-count limit.
 # Keep this transport upgrade scoped to the native egress boundary; other Prism clients
 # remain on the workspace Reqwest version until separately compatibility-tested.
