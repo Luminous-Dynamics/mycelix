@@ -377,3 +377,66 @@ Expected denials are not counted as successful business operations; they are rep
 
 This is a proposed MCRB metric, not an established industry standard or measured Mycelix advantage. Publish it alongside conventional throughput and latency metrics so other systems can reproduce the same contract.
 
+
+
+## 15. Qualified Operations Per Second (QOPS)
+
+MCRB's headline application metric is **Qualified Operations Per Second (QOPS)**, not raw transactions per second.
+
+For a declared measurement window:
+
+`QOPS = count(operations satisfying the scenario's complete qualification contract) / measured_window_seconds`
+
+An operation qualifies only when its scenario-specific contract is satisfied. The contract can require:
+
+- authenticated source and correct authority for the requested operation;
+- integrity validation and exact provenance binding;
+- the required peer-visibility/convergence threshold, when the operation requires remote visibility;
+- an independently verifiable external-effect receipt, when an external side effect is part of the operation;
+- no duplicate effect, replay, unresolved timeout or ambiguous outcome;
+- the declared freshness/currentness and privacy conditions.
+
+Do not require remote convergence for an operation whose declared policy is intentionally local/offline. Record the policy and class separately so local-first operation is not mistaken for a missing remote dependency.
+
+Every offered operation must receive an outcome classification:
+
+- `qualified_success` — complete contract satisfied; eligible for QOPS;
+- `correct_denial` — request correctly denied by policy; not a QOPS success, but not a system failure;
+- `unexpected_denial` — valid requested operation denied unexpectedly;
+- `failed` — a known operation failure;
+- `unknown` — outcome cannot yet be established; reconciliation required;
+- `duplicate_effect` — the request created a duplicate external effect; hard failure.
+
+Publish QOPS together with offered operations/s, qualified-success fraction, correct denials, unexpected denials, known failures, unresolved unknowns and duplicate effects. This prevents a system from appearing fast by dropping work, denying everything or counting a submitted zome call before the intended effect is proven.
+
+QOPS is **not directly comparable** across implementations until their per-scenario qualification contracts are equivalent. For a centralized PostgreSQL or permissioned Fabric implementation, implement the same authorization, provenance, effect-receipt and recovery contract as far as that platform permits; document any non-equivalent guarantee.
+
+## 16. Wind Tunnel compatibility is a qualification gate, not an assumption
+
+Wind Tunnel is the appropriate upstream substrate-load-testing reference and should be reused where the exact toolchain is compatible. However, MCRB must not infer Holochain 0.7.1 support from the Wind Tunnel project's own version number.
+
+At the time this benchmark was reviewed (19 November 2026):
+
+- Holochain's roadmap reports Holochain 0.7.1 as the released latest 0.7 runtime, and the 5 November Dev Pulse says its tools, libraries and documentation were updated/tested and ready for development.
+- The public Wind Tunnel repository's published compatibility table lists Wind Tunnel v0.7.1 against Holochain 0.6.3 / Kitsune2 0.4.1. It also lists pinned Holochain 0.7.0 / 30-node reports, but that does not establish a supported Wind Tunnel release pairing for Holochain 0.7.1.
+- Holochain's 17 November roadmap still records the Wind Tunnel-for-0.7 workstream as in progress (77%, 23/30 points), with analysis/core-scenario work not complete in the visible snapshot.
+
+Therefore:
+
+1. Treat Wind Tunnel as the source of scenario design, instrument patterns and runtime telemetry—not an assumed drop-in runner for Holochain 0.7.1.
+2. Record the exact Wind Tunnel commit/release, Holochain binary SHA/version, Kitsune2, Nix inputs and scenario artifacts for every run.
+3. Before using it for 0.7.1, demonstrate a clean build and a minimal 0.7.1 run (app install, zome call, DHT sync and remote signal) on a fresh conductor. A 0.7.0 run or a Wind Tunnel v0.7.1 release tag is not enough.
+4. If upstream compatibility is not yet available, maintain a small Mycelix-owned adapter/port with a versioned compatibility patch and upstream contribution plan. Keep it separate from the application semantic verifier.
+5. Do not merge 0.6.3, 0.7.0 and 0.7.1 measurements into one trend line without separate runtime labels and matched scenario semantics.
+
+The MCRB runtime adapter must be an independently qualified integration, with an explicit `unsupported`, `source-audited`, `build-verified`, `smoke-run` or `qualified` status.
+
+## 17. Current comparator versions and caveats
+
+- **PostgreSQL:** the ADR's PostgreSQL 18.6 baseline remains useful as a frozen historical comparison. PostgreSQL 18.7 was released on 12 November 2026; add it as the current 18.x patch candidate and record exact image/binary digest. Use custom `pgbench` scripts for the actual workflow; the built-in TPC-B-like workload is not a substitute for the Mycelix coordination contract.
+- **Hyperledger Fabric / Caliper:** pin Caliper and its Fabric connector/SDK precisely. Current Caliper project documentation lists Fabric v2.x support, but marks the Network SDK and Gateway SDK integrations as deprecated. Do not treat a passing Caliper benchmark as proof of equivalent endorsement/finality/privacy semantics.
+- **CRDT collaboration:** Yjs and Automerge remain component comparisons for offline document editing, merge behavior and convergence, not direct authority/revocation/effect-finality competitors.
+- **Transport/content addressing:** Iroh, libp2p and IPFS can benchmark transport, relay and content distribution costs, not Mycelix application authority on their own.
+
+Version freshness is part of benchmark validity: a comparator profile must state whether it is a frozen historical baseline or a current supported candidate. Do not silently upgrade one side of a matched experiment.
+
