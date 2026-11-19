@@ -354,7 +354,7 @@ pub fn validate_packet(
         require_ref(&packet.test_evidence, &required)?;
     }
 
-    let required_references = packet.requirements.len() + packet.tooling.len() + 12;
+    let required_references = packet.requirements.len() + packet.tooling.len() + 15;
     Ok(ValidationReport {
         disposition: PacketDisposition::StructurallyComplete,
         packet_id: packet.packet_id.clone(),
