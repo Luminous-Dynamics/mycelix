@@ -560,9 +560,9 @@ The run-receipt schema now requires a first-class QOPS record containing:
 - hard-correctness and metric-integrity dispositions;
 - offered rate, qualified rate and qualified-success fraction.
 
-The Rust reducer checks outcome coverage against the supplied expected-ID set. The receipt must additionally bind that set to the append-only offered-operation ledger and the exact workload generator/seed. A schema-valid receipt is not, by itself, proof that the offered ledger is complete: the independent verifier must recompute the ledger digest, confirm its entry count, verify the monotonic window and reconcile outcome IDs against that ledger.
+The Rust reducer consumes an opaque `VerifiedOfferLedger` and checks outcome coverage against its operation IDs. The offered denominator and measurement window are read from this verified ledger, not supplied by the caller. The independent verifier recomputes the canonical ledger digest, confirms its entry count, verifies the monotonic window and reconciles outcome IDs against the ledger. A valid digest proves internal consistency, not generator or runner honesty; independent identity and artifact custody remain separate requirements.
 
-QOPS eligibility requires a valid metric-integrity report, all declared hard correctness gates passing, complete one-to-one outcome coverage and zero duplicate external effects. For invalid, incomplete or not-evaluated QOPS, all performance-rate fields must be null rather than zero or a misleading partial rate.
+QOPS eligibility requires a valid metric-integrity report, a verified gate-attestation report covering every hard invariant in the frozen scenario, complete one-to-one outcome coverage and zero duplicate external effects. A caller-supplied `hard_correctness_gates_passed` boolean is not accepted. The gate verifier binds each signed attestation to the run, scenario, scenario-contract digest, exact source SHA, runtime identity and evidence artifact digests. The signer trust policy must be independently governed and pinned outside the runner. A valid Ed25519 signature proves the configured key signed the assertion; it does not prove the evaluator, sensor or underlying evidence source was honest. For invalid, incomplete or not-evaluated QOPS, all performance-rate fields must be null rather than zero or a misleading partial rate.
 
 
 ### QOPS local-first versus remote qualification
@@ -594,3 +594,34 @@ The requirement for cross-host observation is part of the frozen scenario contra
 A local/offline-first scenario can therefore legitimately report cross-host timing as NotEvaluated when the frozen contract says remote visibility is not required. A DHT convergence, remote-signal, partition/rejoin or other peer-observation scenario must have complete, valid cross-host event-pair evidence before QOPS is eligible. Changing this flag after generating the ledger changes its digest and invalidates the prior commitment.
 
 This protects against accidental or caller-driven policy downgrade inside the reducer. It does not prove that the selected scenario manifest, workload generator or runner is honest; those identities still require independent attestation and artifact custody.
+
+## 20. Evidence-carrying correctness-gate attestations
+
+QOPS no longer accepts a caller-supplied aggregate correctness boolean. A benchmark runner cannot set one field to `true` and thereby claim that every hard invariant passed.
+
+The gate verifier derives the required gate IDs from the selected scenario's frozen `hard_invariants` in the embedded scenario manifest. It then verifies the signed gate attestations against a policy containing:
+
+- exact run and scenario IDs;
+- frozen scenario-manifest digest;
+- source SHA and runtime-identity digest;
+- minimum number of distinct trusted signers per gate;
+- explicitly selected, independently governed verifier public keys.
+
+Each Ed25519 attestation binds a gate ID, pass/fail/incomplete outcome, raw evidence-artifact digests, verifier key ID and verifier version. Canonical serialization is domain-separated, length-prefixed and deterministic. The verifier rejects missing, duplicate, unexpected, conflicting, wrong-run, wrong-scenario, wrong-source, wrong-runtime, altered-evidence, malformed-signature and untrusted-key cases.
+
+The resulting report exposes a distinct state:
+
+- `VerifiedPass`: every required invariant has the configured signer quorum and a consistent Pass result;
+- `Failed`: at least one required invariant has a valid signed Fail result;
+- `Incomplete`: at least one required gate or signer quorum is missing or explicitly incomplete;
+- `Invalid`: signature, trust, context, schema, evidence or consistency checks fail.
+
+Only `VerifiedPass` can make QOPS eligible. `Failed`, `Incomplete` and `Invalid` all suppress offered and qualified performance rates. The receipt must retain the policy ID, policy digest, attestation-set digest, source/runtime binding and per-gate counts.
+
+**Trust-root boundary:** the verifier can prove a signature is valid under a configured public key. It cannot decide that the key's owner is entitled to attest a particular application invariant unless the trust policy is independently approved and pinned out-of-band. Nor does the signature prove that the evaluator, sensor or evidence source was honest. Production-grade benchmark claims still require independent execution, trustworthy custody of raw artifacts and a separately governed signer set.
+
+MCRB-24 covers missing/duplicate/unexpected gate attestations, conflicting outcomes, context substitution, evidence/signature mutation, unknown/revoked signers and failed/incomplete gates. Its status is `proposed-not-executed` until exact-head Rust validation and the independent runner gates complete.
+
+Related: [#6346 — correctness-gate attestation integrity](https://github.com/Luminous-Dynamics/mycelix/issues/6346).
+
+
