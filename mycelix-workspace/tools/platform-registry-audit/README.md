@@ -55,3 +55,19 @@ Important interpretation limits:
 - The report does not currently resolve every Rust source module into a compiled WASM zome or verify DNA byte identity.
 
 This is intentionally not a global role-name allowlist. A later, independently qualified source-to-DNA ownership map is required before this inventory can become a hard deployment gate.
+
+
+### Current advisory inventory status
+
+The AST inventory currently has ten authored unit tests covering literal calls, unique string constants, dynamic expressions, nearest-manifest declarations, cross-profile name overlap, unresolved targets and unrelated functions named `OtherRole`.
+
+The output deliberately uses classifications such as:
+
+- `nearest-manifest-declared` — a context manifest contains the target name; this is **not** proof of runtime bridge validity.
+- `profile-dependent-candidate` — caller-context role names and target names overlap in another manifest; this is only a candidate, not proof of DNA identity.
+- `cross-profile-or-source-mapping-unresolved` — target exists elsewhere, but no sufficient role-name overlap establishes a candidate profile.
+- `dynamic-unresolved`, `missing-role-candidate`, `source-context-unresolved`.
+
+Every call-site record states `source_to_dna_identity: not-proven`. The report's manifest proximity coverage is only a context metric, never source-to-DNA ownership coverage.
+
+CI publishes the JSON report as an artifact for review. The AST inventory is advisory and does not fail the deployment registry gate based on incomplete source ownership.
