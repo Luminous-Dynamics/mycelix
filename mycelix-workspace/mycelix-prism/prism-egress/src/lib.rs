@@ -2701,6 +2701,51 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn public_redirect_to_metadata_host_is_rejected_before_second_dns_or_socket() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let request = read_test_request(&mut stream).await;
+            stream
+                .write_all(
+                    b"HTTP/1.1 302 Found\r\nLocation: http://metadata.google.internal/latest/meta-data\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                )
+                .await
+                .unwrap();
+            request
+        });
+
+        let resolver = LoopbackResolver::default();
+        let client =
+            PublicEgressClient::with_test_resolver(EgressLimits::default(), resolver.clone());
+        let url = format!("http://prism-metadata-redirect.test:{}/start", address.port());
+        let capability = client
+            .authorize(Method::GET, &url, HeaderMap::new(), Vec::new())
+            .await
+            .unwrap();
+
+        let result = client.execute(capability).await;
+        assert!(matches!(result, Err(EgressError::BlockedHost)));
+
+        let resolver_calls = resolver.calls.lock().expect("resolver call lock").clone();
+        assert_eq!(
+            resolver_calls,
+            vec![("prism-metadata-redirect.test".to_owned(), address.port())],
+            "metadata redirect must be rejected before a second resolver call"
+        );
+
+        let first_request = String::from_utf8_lossy(&server.await.unwrap());
+        assert!(first_request.contains(&format!(
+            "Host: prism-metadata-redirect.test:{}",
+            address.port()
+        )));
+        assert!(!first_request.contains("logical_request_id"));
+    }
+
+    #[tokio::test]
     async fn successful_receipt_records_observed_peer_and_authority() {
         use tokio::io::AsyncWriteExt;
 
