@@ -37,3 +37,14 @@ This library does not synchronize clocks, collect telemetry, infer a network's t
 ## Current validation state
 
 The unit tests are authored, but no exact-head Cargo run is claimed until the `MCRB Metric Integrity` workflow completes successfully. Do not use this crate as an external qualification verifier until its implementation and receipt binding are independently reviewed.
+
+
+## Known limitation: raw clock evidence follow-up
+
+The current `DurationSample` contains a caller-supplied `duration_ms` value and the current `ClockObservation` contains caller-supplied clock metadata. The verifier therefore checks structural consistency of submitted samples, but it does **not yet independently recompute local durations from raw monotonic start/end ticks**.
+
+It also does not yet pair cross-host publish and first-valid-observation events by record digest or calculate uncertainty-bounded convergence intervals. Do not use the current verifier to claim independently qualified cross-host DHT convergence latency.
+
+Follow-up: [MCRB-TIME-001 #6335](https://github.com/Luminous-Dynamics/mycelix/issues/6335).
+
+The benchmark manifest now records this limitation. MCRB-16 requires raw monotonic ticks, clock-epoch identity, matched publish/observe event pairs and uncertainty intervals before cross-host latency claims can qualify. The existing basic sample-integrity output remains useful as an intermediate gate, not as a complete clock-evidence verifier.
