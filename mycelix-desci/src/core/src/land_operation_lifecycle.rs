@@ -333,6 +333,18 @@ impl LandOperationLifecycleV0 {
                         retry_semantics_reference,
                     } => {
                         require_non_empty(&reconciliation_reference)?;
+                        // Validate every retry prerequisite before changing
+                        // attempt history. A rejected command must be atomic:
+                        // it cannot leave the phase and attempt status divergent.
+                        let retry_semantics_reference = if same_idempotency_key_retry_supported {
+                            Some(
+                                retry_semantics_reference
+                                    .filter(|reference| !reference.trim().is_empty())
+                                    .ok_or(LandOperationTransitionError::InvalidInput)?,
+                            )
+                        } else {
+                            None
+                        };
                         let attempt = self
                             .attempt_history
                             .last_mut()
@@ -343,10 +355,7 @@ impl LandOperationLifecycleV0 {
                         attempt.status = SubmissionAttemptStatus::ConfirmedNotCommitted;
                         attempt.reconciliation_reference =
                             Some(reconciliation_reference.clone());
-                        if same_idempotency_key_retry_supported {
-                            let retry_semantics_reference = retry_semantics_reference
-                                .filter(|reference| !reference.trim().is_empty())
-                                .ok_or(LandOperationTransitionError::InvalidInput)?;
+                        if let Some(retry_semantics_reference) = retry_semantics_reference {
                             self.phase = LandOperationPhase::RetryEligible {
                                 previous_attempt_id: attempt_id,
                                 idempotency_key,
@@ -1102,6 +1111,11 @@ mod tests {
             &value.phase,
             LandOperationPhase::OutcomeUnknown { .. }
         ));
+        assert_eq!(
+            value.validate_structural(),
+            Ok(()),
+            "a rejected reconciliation command must not partially mutate lifecycle state"
+        );
     }
 
     #[test]
