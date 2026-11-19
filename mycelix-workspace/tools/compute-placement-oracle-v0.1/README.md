@@ -6,14 +6,17 @@
 
 This crate enumerates assignments for a finite batch of tasks across a small set of workers. It applies declared regional permissions and aggregate CPU, memory and GPU constraints.
 
-It reports a Pareto frontier over four separate dimensions:
+It reports a Pareto frontier over five separate dimensions:
 
 1. estimated compute cost (micro-USD from declared worker rate cards);
 2. remote input bytes;
 3. number of distinct failure domains used;
-4. maximum normalized resource pressure.
+4. number of distinct declared operator identities;
+5. maximum normalized resource pressure.
 
-No weighted composite score is used. The failure-domain count is only a structural diversity measure; it is not a reliability probability. Cost is an estimate derived from the caller-supplied rate card; it is not an invoice or provider quote.
+It also reports the number of regions used as descriptive metadata, but region count is deliberately excluded from Pareto dominance. More geographic spread is not universally better: jurisdiction, egress, latency and policy may make concentration preferable. Permitted-region declarations remain hard constraints.
+
+No weighted composite score is used. Failure-domain and operator counts are structural diversity measures, not reliability probabilities or proof of independent control. Cost is an estimate derived from the caller-supplied rate card; it is not an invoice or provider quote.
 
 ## Search and correctness boundary
 
@@ -47,4 +50,4 @@ The expected Pareto frontier deliberately preserves both:
 The oracle must not silently pick one by collapsing economics, data locality and failure-domain diversity into a single unexplained weight.
 
 
-The frontier reports failure-domain and operator-identity counts as separate Pareto dimensions. Region count is included as descriptive metadata but excluded from dominance: more geographic spread is not universally preferable because jurisdiction, egress, latency and policy may make concentration appropriate. All are counts of caller-declared identifiers, not proof of independent control, physical fault containment or legal data residency. Permitted-region declarations remain hard constraints.
+The reported diversity values are caller-declared identifiers only, not proof of independent control, physical fault containment or legal data residency.
