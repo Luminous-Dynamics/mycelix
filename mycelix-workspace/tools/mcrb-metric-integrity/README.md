@@ -74,7 +74,7 @@ Scenario-specific remote visibility is frozen in the scenario manifest:
 
 ## Tests and execution state
 
-The source contains 47 authored Rust unit tests across local duration, cross-host interval, offer-ledger and QOPS logic. This count is a source inventory, not an execution result.
+The source currently contains 48 authored Rust unit tests across local duration, cross-host interval, offer-ledger and QOPS logic, plus 3 artifact-contract integration tests. These counts are source inventory, not execution results.
 
 No exact-head Cargo test, rustfmt, Clippy, live conductor, DHT convergence, provider-effect observation or production qualification is claimed until the corresponding exact-head workflow and runtime evidence complete successfully.
 
