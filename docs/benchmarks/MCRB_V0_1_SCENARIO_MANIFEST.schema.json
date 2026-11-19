@@ -20,7 +20,8 @@
     "wind_tunnel_reuse_policy",
     "measurement_quality",
     "metric_integrity_verifier",
-    "qualified_operations_policy"
+    "qualified_operations_policy",
+    "offer_ledger_policy"
   ],
   "properties": {
     "schema_version": {
@@ -562,6 +563,70 @@
         },
         "denials_count_as_business_success": {
           "const": false
+        },
+        "offer_ledger_requirement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "independent_authenticity_requirement": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "offer_ledger_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "canonical_encoding",
+        "digest_algorithm",
+        "sequence_start",
+        "sequence_policy",
+        "operation_id_policy",
+        "idempotency_policy",
+        "qops_denominator_source",
+        "outcome_policy",
+        "measurement_clock",
+        "generator_authenticity",
+        "claim_ceiling"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "mycelix-mcrb-offer-ledger-v0.1"
+        },
+        "canonical_encoding": {
+          "type": "string"
+        },
+        "digest_algorithm": {
+          "const": "SHA-256"
+        },
+        "sequence_start": {
+          "const": 1
+        },
+        "sequence_policy": {
+          "type": "string"
+        },
+        "operation_id_policy": {
+          "type": "string"
+        },
+        "idempotency_policy": {
+          "type": "string"
+        },
+        "qops_denominator_source": {
+          "const": "verified-offer-ledger-entry-count"
+        },
+        "outcome_policy": {
+          "type": "string"
+        },
+        "measurement_clock": {
+          "type": "string"
+        },
+        "generator_authenticity": {
+          "type": "string"
+        },
+        "claim_ceiling": {
+          "type": "string"
         }
       }
     }
