@@ -352,8 +352,9 @@ impl LandOperationLifecycleV0 {
                             };
                         } else {
                             self.phase = LandOperationPhase::Held {
-                                reason: "external endpoint does not establish safe same-key retry semantics"
-                                    .into(),
+                                reason:
+                                    "external endpoint does not establish safe same-key retry semantics"
+                                        .into(),
                                 decision_packet_reference: None,
                             };
                         }
