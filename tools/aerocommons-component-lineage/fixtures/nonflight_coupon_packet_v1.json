@@ -63,8 +63,8 @@
       "kind": "configuration"
     },
     "subject": {
-      "id": "component:coupon-001",
-      "kind": "component"
+      "id": "physical-unit:coupon-001-serial-0001",
+      "kind": "physical_unit"
     },
     "basis": [
       {
@@ -92,6 +92,10 @@
       {
         "id": "material-batch:al-6061-lot-01",
         "kind": "material_batch"
+      },
+      {
+        "id": "component:coupon-001",
+        "kind": "component"
       }
     ],
     "toolchain": [
@@ -196,8 +200,8 @@
       "kind": "configuration"
     },
     "subject": {
-      "id": "component:coupon-001",
-      "kind": "component"
+      "id": "physical-unit:coupon-001-serial-0001",
+      "kind": "physical_unit"
     },
     "basis": [],
     "method": {
@@ -324,8 +328,8 @@
       "kind": "configuration"
     },
     "subject": {
-      "id": "component:coupon-001",
-      "kind": "component"
+      "id": "physical-unit:coupon-001-serial-0001",
+      "kind": "physical_unit"
     },
     "basis": [],
     "method": {
@@ -380,5 +384,27 @@
       "predecessor": null
     },
     "provenance": []
+  },
+  "physical_unit": {
+    "id": "physical-unit:coupon-001-serial-0001",
+    "kind": "physical_unit"
+  },
+  "inspection_calibration_validity": {
+    "evidence": {
+      "id": "evidence:cal-inspection-01",
+      "kind": "evidence"
+    },
+    "valid_from_unix_ms": 1800000000000,
+    "valid_until_unix_ms": 1900000000000,
+    "used_at_unix_ms": 1850000000000
+  },
+  "test_calibration_validity": {
+    "evidence": {
+      "id": "evidence:cal-test-01",
+      "kind": "evidence"
+    },
+    "valid_from_unix_ms": 1800000000000,
+    "valid_until_unix_ms": 1900000000000,
+    "used_at_unix_ms": 1850000010000
   }
 }
