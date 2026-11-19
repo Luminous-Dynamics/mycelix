@@ -3853,6 +3853,92 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn nixward_resolution_digests_survive_pinned_http_execution_into_receipt() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let request = read_test_request(&mut stream).await;
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok",
+                )
+                .await
+                .unwrap();
+            request
+        });
+
+        let logical_request_id = "0123456789abcdef0123456789abcdef";
+        let addresses = vec![address];
+        let address_set_digest = canonical_address_set_digest(&addresses);
+        let resolution_lease_digest = "11".repeat(32);
+        let resolver_snapshot_digest = "22".repeat(32);
+        let snapshot = EgressResolutionSnapshot::from_verified_nixward_lease(
+            "prism-lease-execution.test",
+            address.port(),
+            logical_request_id,
+            0,
+            addresses.clone(),
+            std::time::Instant::now() + Duration::from_secs(10),
+            address_set_digest.clone(),
+            resolution_lease_digest.clone(),
+            resolver_snapshot_digest.clone(),
+        )
+        .unwrap();
+        let resolver = LeaseSnapshotResolver {
+            snapshot,
+            requests: Arc::new(std::sync::Mutex::new(Vec::new())),
+        };
+        let client =
+            PublicEgressClient::with_test_resolver(EgressLimits::default(), resolver);
+        let url = format!("http://prism-lease-execution.test:{}/resource", address.port());
+        let capability = client
+            .authorize_with_authority_and_correlation(
+                EgressAuthority::PublicWeb,
+                Method::GET,
+                &url,
+                HeaderMap::new(),
+                Vec::new(),
+                logical_request_id,
+                0,
+            )
+            .await
+            .unwrap();
+
+        let response = client.execute(capability).await.unwrap();
+        assert_eq!(response.status, StatusCode::OK);
+        assert_eq!(response.body.as_slice(), b"ok");
+        assert_eq!(response.receipt.logical_request_id, logical_request_id);
+        assert_eq!(response.receipt.redirect_hop, 0);
+        assert_eq!(response.receipt.remote_peer, address);
+        assert_eq!(response.receipt.authorized_addresses, addresses);
+        assert_eq!(
+            response.receipt.authorized_address_set_digest,
+            address_set_digest
+        );
+        assert_eq!(
+            response.receipt.resolution_lease_digest.as_deref(),
+            Some(resolution_lease_digest.as_str())
+        );
+        assert_eq!(
+            response.receipt.resolver_snapshot_digest.as_deref(),
+            Some(resolver_snapshot_digest.as_str())
+        );
+
+        let request = String::from_utf8_lossy(&server.await.unwrap());
+        assert!(request.contains(&format!(
+            "Host: prism-lease-execution.test:{}",
+            address.port()
+        )));
+        assert!(
+            !request.contains(logical_request_id),
+            "the internal correlation ID must not be disclosed to the remote authority"
+        );
+    }
+
+    #[tokio::test]
     async fn nixward_resolution_snapshot_rejects_mismatched_scope_before_capability() {
         let logical_request_id = "0123456789abcdef0123456789abcdef";
         let addresses = socket_addresses(&["93.184.216.34:443"]);
