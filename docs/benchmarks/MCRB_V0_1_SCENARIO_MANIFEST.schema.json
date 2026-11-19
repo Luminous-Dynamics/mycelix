@@ -19,7 +19,8 @@
     "harness_layers",
     "wind_tunnel_reuse_policy",
     "measurement_quality",
-    "metric_integrity_verifier"
+    "metric_integrity_verifier",
+    "qualified_operations_policy"
   ],
   "properties": {
     "schema_version": {
@@ -423,6 +424,46 @@
             "type": "string"
           },
           "minItems": 1
+        }
+      }
+    },
+    "qualified_operations_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "formula",
+        "invalid_when",
+        "required_companion_metrics",
+        "no_silent_attempt_exclusion",
+        "denials_count_as_business_success"
+      ],
+      "properties": {
+        "name": {
+          "const": "Qualified Operations Per Second"
+        },
+        "formula": {
+          "type": "string"
+        },
+        "invalid_when": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "required_companion_metrics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "no_silent_attempt_exclusion": {
+          "const": true
+        },
+        "denials_count_as_business_success": {
+          "const": false
         }
       }
     }
