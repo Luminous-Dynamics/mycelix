@@ -261,7 +261,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": false
     },
     {
       "id": "MCRB-02",
@@ -295,7 +296,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": true
     },
     {
       "id": "MCRB-03",
@@ -329,7 +331,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": true
     },
     {
       "id": "MCRB-04",
@@ -365,7 +368,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": false
     },
     {
       "id": "MCRB-05",
@@ -401,7 +405,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": true
     },
     {
       "id": "MCRB-06",
@@ -435,7 +440,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": true
     },
     {
       "id": "MCRB-07",
@@ -470,7 +476,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": true
     },
     {
       "id": "MCRB-08",
@@ -505,7 +512,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": true
     },
     {
       "id": "MCRB-09",
@@ -541,7 +549,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": true
     },
     {
       "id": "MCRB-10",
@@ -577,7 +586,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": false
     },
     {
       "id": "MCRB-11",
@@ -611,7 +621,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": true
     },
     {
       "id": "MCRB-12",
@@ -648,7 +659,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": true
     },
     {
       "id": "MCRB-13",
@@ -685,7 +697,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": true
     },
     {
       "id": "MCRB-14",
@@ -734,7 +747,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": false
     },
     {
       "id": "MCRB-15",
@@ -772,7 +786,8 @@
         "raw-artifact-digests",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": false
     },
     {
       "id": "MCRB-16",
@@ -837,7 +852,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": true
     },
     {
       "id": "MCRB-17",
@@ -888,7 +904,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": true
     },
     {
       "id": "MCRB-18",
@@ -938,7 +955,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": true
     },
     {
       "id": "MCRB-19",
@@ -988,7 +1006,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": false
     },
     {
       "id": "MCRB-20",
@@ -1037,7 +1056,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": false
     },
     {
       "id": "MCRB-21",
@@ -1088,7 +1108,8 @@
         "raw-trace-digest",
         "verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": true
     },
     {
       "id": "MCRB-22",
@@ -1148,7 +1169,8 @@
         "raw-build-and-runtime-logs",
         "independent-verifier-version",
         "scenario-result"
-      ]
+      ],
+      "qops_requires_cross_host_visibility": false
     }
   ],
   "receipt_schema": "MCRB_V0_1_RUN_RECEIPT.schema.json",
