@@ -18,7 +18,8 @@
     "receipt_schema",
     "harness_layers",
     "wind_tunnel_reuse_policy",
-    "measurement_quality"
+    "measurement_quality",
+    "metric_integrity_verifier"
   ],
   "properties": {
     "schema_version": {
@@ -366,6 +367,62 @@
             ]
           },
           "minItems": 4
+        }
+      }
+    },
+    "metric_integrity_verifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "crate_path",
+        "crate_name",
+        "api",
+        "status",
+        "output_states",
+        "metrics",
+        "policy"
+      ],
+      "properties": {
+        "crate_path": {
+          "type": "string"
+        },
+        "crate_name": {
+          "type": "string"
+        },
+        "api": {
+          "const": "validate_batch"
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "source-and-tests-authored-ci-pending",
+            "qualified-exact-head"
+          ]
+        },
+        "output_states": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "valid",
+              "invalid",
+              "incomplete"
+            ]
+          },
+          "minItems": 3
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "policy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
         }
       }
     }
