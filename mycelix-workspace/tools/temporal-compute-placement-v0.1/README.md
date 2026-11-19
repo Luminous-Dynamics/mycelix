@@ -22,7 +22,9 @@ The exact small-instance Pareto frontier uses five objective dimensions:
 2. remote input bytes;
 3. distinct declared failure-domain IDs;
 4. distinct declared operator IDs;
-5. peak CPU pressure over time;\n6. peak memory pressure over time;\n7. peak GPU-slot pressure over time.
+5. peak CPU pressure over time;
+6. peak memory pressure over time;
+7. peak GPU-slot pressure over time.
 
 The number of regions used is reported as descriptive metadata but excluded from Pareto dominance and preference ordering. Hard permitted-region policy is enforced independently. Diversity labels do not prove independent operators, physical failure isolation or legal residency.
 
