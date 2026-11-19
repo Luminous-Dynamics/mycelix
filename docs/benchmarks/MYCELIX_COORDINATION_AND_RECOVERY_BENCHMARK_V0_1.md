@@ -333,3 +333,13 @@ Never collapse those states into a generic failed/passed boolean.
 
 The machine-readable scenario contract is `MCRB_V0_1_SCENARIO_MANIFEST.json`; the corresponding run-receipt contract is `MCRB_V0_1_RUN_RECEIPT.schema.json`. These files distinguish proposed scenarios from executed evidence. A run may be marked executed-pass only when both the application correctness gates and the new metric-integrity receipt fields qualify. The scenario manifest explicitly reuses Holochain Wind Tunnel for substrate measurements and reserves the MCRB layer for Mycelix application semantics.
 
+
+
+## 17. Executable metric-integrity verifier
+
+The dependency-free Rust crate at `mycelix-workspace/tools/mcrb-metric-integrity` is the first executable component of MCRB's measurement-assurance layer. Its `validate_batch` API has three distinct outcomes: `Valid`, `Invalid` and `Incomplete`.
+
+It enforces workload-declared duration limits; monotonic local clocks; named clock sources and synchronization methods; host offset/uncertainty bounds; expected peer coverage; unique operation IDs; and publication/observation counter reconciliation. It reports global and per-peer p50/p95/p99 only when the batch is fully valid and complete. Outliers inside the declared workload window are retained and exposed by sample index; the library never trims or rewrites the raw sample list.
+
+Unit tests are authored for valid distributions, preserved outliers, NaN/negative/out-of-window durations, missing peers, excessive clock uncertainty, counter overflow/shortfall, wall-clock duration misuse, duplicate operation IDs and empty runs. The exact-path Rust workflow is part of this PR. **The code has not yet been compiled or tested by a runner**; the source is a candidate verifier, not a qualified benchmark component.
+
