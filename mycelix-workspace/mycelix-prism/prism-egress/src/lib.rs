@@ -3746,8 +3746,182 @@ mod tests {
         }
     }
 
+    #[derive(Clone)]
+    struct LeaseSnapshotResolver {
+        snapshot: EgressResolutionSnapshot,
+        requests: Arc<std::sync::Mutex<Vec<(String, u16, String, u8)>>>,
+    }
+
+    impl EgressResolver for LeaseSnapshotResolver {
+        fn resolve<'a>(
+            &'a self,
+            host: &'a str,
+            port: u16,
+            logical_request_id: &'a str,
+            redirect_hop: u8,
+            permit: OwnedSemaphorePermit,
+        ) -> Pin<Box<dyn Future<Output = io::Result<EgressResolutionSnapshot>> + Send + 'a>> {
+            self.requests
+                .lock()
+                .expect("lease snapshot request lock")
+                .push((
+                    host.to_owned(),
+                    port,
+                    logical_request_id.to_owned(),
+                    redirect_hop,
+                ));
+            let snapshot = self.snapshot.clone();
+            Box::pin(async move {
+                let _permit = permit;
+                Ok(snapshot)
+            })
+        }
+    }
+
     fn socket_addresses(values: &[&str]) -> Vec<SocketAddr> {
         values.iter().map(|value| value.parse().unwrap()).collect()
+    }
+
+    #[tokio::test]
+    async fn nixward_resolution_snapshot_binds_request_and_clamps_capability_expiry() {
+        let logical_request_id = "0123456789abcdef0123456789abcdef";
+        let addresses = socket_addresses(&[
+            "93.184.216.34:443",
+            "[2606:4700:4700::1111]:443",
+        ]);
+        let address_set_digest = canonical_address_set_digest(&addresses);
+        let resolution_lease_digest = "11".repeat(32);
+        let resolver_snapshot_digest = "22".repeat(32);
+        let valid_until = std::time::Instant::now() + Duration::from_secs(4);
+
+        let snapshot = EgressResolutionSnapshot::from_verified_nixward_lease(
+            "prism-lease.test",
+            443,
+            logical_request_id,
+            2,
+            addresses.clone(),
+            valid_until,
+            address_set_digest.clone(),
+            resolution_lease_digest.clone(),
+            resolver_snapshot_digest.clone(),
+        )
+        .unwrap();
+        let requests = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let resolver = LeaseSnapshotResolver {
+            snapshot,
+            requests: Arc::clone(&requests),
+        };
+        let client = PublicEgressClient::with_resolver(EgressLimits::default(), resolver);
+
+        let capability = client
+            .authorize_with_authority_and_correlation(
+                EgressAuthority::PublicWeb,
+                Method::GET,
+                "https://prism-lease.test/",
+                HeaderMap::new(),
+                Vec::new(),
+                logical_request_id,
+                2,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(capability.logical_request_id, logical_request_id);
+        assert_eq!(capability.redirect_hop, 2);
+        assert_eq!(capability.addresses, addresses);
+        assert_eq!(
+            capability.resolution_lease_digest.as_deref(),
+            Some(resolution_lease_digest.as_str())
+        );
+        assert_eq!(
+            capability.resolver_snapshot_digest.as_deref(),
+            Some(resolver_snapshot_digest.as_str())
+        );
+        assert!(
+            capability.expires_at <= valid_until,
+            "capability lifetime must never outlive the resolution lease"
+        );
+        assert_eq!(
+            requests.lock().expect("lease snapshot request lock").as_slice(),
+            &[(
+                "prism-lease.test".to_owned(),
+                443,
+                logical_request_id.to_owned(),
+                2,
+            )]
+        );
+    }
+
+    #[tokio::test]
+    async fn nixward_resolution_snapshot_rejects_mismatched_scope_before_capability() {
+        let logical_request_id = "0123456789abcdef0123456789abcdef";
+        let addresses = socket_addresses(&["93.184.216.34:443"]);
+        let address_set_digest = canonical_address_set_digest(&addresses);
+
+        let wrong_digest = EgressResolutionSnapshot::from_verified_nixward_lease(
+            "prism-lease.test",
+            443,
+            logical_request_id,
+            0,
+            addresses.clone(),
+            std::time::Instant::now() + Duration::from_secs(5),
+            "ff".repeat(32),
+            "11".repeat(32),
+            "22".repeat(32),
+        );
+        assert!(matches!(
+            wrong_digest,
+            Err(EgressError::ResolutionAddressSetDigestMismatch)
+        ));
+
+        let wrong_port = EgressResolutionSnapshot::from_verified_nixward_lease(
+            "prism-lease.test",
+            8443,
+            logical_request_id,
+            0,
+            addresses.clone(),
+            std::time::Instant::now() + Duration::from_secs(5),
+            address_set_digest.clone(),
+            "11".repeat(32),
+            "22".repeat(32),
+        );
+        assert!(matches!(
+            wrong_port,
+            Err(EgressError::ResolutionSnapshotMismatch)
+        ));
+
+        let wrong_request = EgressResolutionSnapshot::from_verified_nixward_lease(
+            "other-prism-lease.test",
+            443,
+            "fedcba9876543210fedcba9876543210",
+            0,
+            addresses,
+            std::time::Instant::now() + Duration::from_secs(5),
+            address_set_digest,
+            "11".repeat(32),
+            "22".repeat(32),
+        )
+        .unwrap();
+        let resolver = LeaseSnapshotResolver {
+            snapshot: wrong_request,
+            requests: Arc::new(std::sync::Mutex::new(Vec::new())),
+        };
+        let client = PublicEgressClient::with_resolver(EgressLimits::default(), resolver);
+        let result = client
+            .authorize_with_authority_and_correlation(
+                EgressAuthority::PublicWeb,
+                Method::GET,
+                "https://prism-lease.test/",
+                HeaderMap::new(),
+                Vec::new(),
+                logical_request_id,
+                0,
+            )
+            .await;
+        assert!(matches!(
+            result,
+            Err(EgressError::ResolutionSnapshotMismatch)
+        ));
     }
 
     #[test]
