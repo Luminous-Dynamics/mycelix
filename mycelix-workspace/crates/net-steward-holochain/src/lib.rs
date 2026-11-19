@@ -1,8 +1,5 @@
 use net_steward_discovery::{ClaimFilter, FederationTransport};
-use net_steward_schema::{
-    ClaimEnvelope, ClaimStatus, ClaimVerificationStatus, EncodingProfile, PeerPostureClaim,
-    SignatureScheme,
-};
+use net_steward_schema::{ClaimEnvelope, PeerPostureClaim};
 
 fn unavailable(operation: &str) -> String {
     format!(
