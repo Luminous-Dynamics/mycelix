@@ -425,10 +425,12 @@ pub struct TlsIdentityReceipt {
 /// measurements, not deadlines or security attestations.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct EgressPhaseTiming {
+    pub pre_resolution_authorization: Duration,
     pub dns_admission_wait: Duration,
     pub dns_resolution: Duration,
     pub egress_admission_wait: Duration,
     pub request_to_headers: Duration,
+    pub response_memory_admission_wait: Duration,
     pub response_body: Duration,
 }
 
@@ -814,6 +816,7 @@ impl PublicEgressClient {
         logical_request_id: &str,
         redirect_hop: u8,
     ) -> Result<EgressCapability, EgressError> {
+        let authorization_started = std::time::Instant::now();
         validate_logical_request_id(logical_request_id)?;
         if redirect_hop > MAX_PUBLIC_WEB_REDIRECT_HOPS as u8 {
             return Err(EgressError::LogicalRequestHopOutOfRange);
@@ -854,6 +857,7 @@ impl PublicEgressClient {
         let port = url
             .port_or_known_default()
             .ok_or(EgressError::PortNotPermitted)?;
+        let pre_resolution_authorization = authorization_started.elapsed();
 
         // Bound hostname resolution independently from HTTP execution.
         // Numeric IP literals do not consume DNS capacity.
@@ -911,6 +915,7 @@ impl PublicEgressClient {
             resolution_lease_digest: resolution.resolution_lease_digest,
             resolver_snapshot_digest: resolution.resolver_snapshot_digest,
             phase_timing: EgressPhaseTiming {
+                pre_resolution_authorization,
                 dns_admission_wait,
                 dns_resolution,
                 ..EgressPhaseTiming::default()
@@ -1111,6 +1116,7 @@ impl PublicEgressClient {
             // reservations can deadlock when streams retain memory while waiting
             // for additional permits.
             let memory_permits = response_memory_permits(response_body_limit_bytes);
+            let response_memory_admission_started = std::time::Instant::now();
             let memory_permit = tokio::time::timeout(
                 RESPONSE_MEMORY_QUEUE_TIMEOUT,
                 response_memory_semaphore()
@@ -1120,6 +1126,8 @@ impl PublicEgressClient {
             .await
             .map_err(|_| EgressError::ResponseMemoryBudgetTimeout)?
             .map_err(|_| EgressError::ResponseMemoryBudgetUnavailable)?;
+            phase_timing.response_memory_admission_wait =
+                response_memory_admission_started.elapsed();
 
             let mut response = response;
             let response_body_started = std::time::Instant::now();
