@@ -458,3 +458,8 @@ Three PEAB tests now cover digest/order substitution (RESLEASE-001), request-ID/
 ### Nixward transaction authorization and replay binding
 
 PEAB now treats the transaction reducer's parent-bound lease proof and expected replay-record digest as separate cross-plane qualification gates. TXN-005 requires a non-deserializable parent-bound proof produced only after sealed signature and exact parent policy/capability/authority-lease/address-scope validation. TXN-006 requires the replay-record identity to bind the exact lease digest, stable nonce-derived replay key, resolver key ID and verified evidence digest. These cases link to Nixward PR #162 and remain `partial` because the reducer is pure source code: no production broker consumes the persistent replay ledger or invokes the map transaction yet. Both remain `not_run_exact_head`.
+
+
+### Parent and resolver provenance in the kernel map payload
+
+TXN-007 now checks that Nixward's proposed map payload does not merely carry an opaque enclosing lease digest: it explicitly binds the parent capability, parent authority lease, owner address-scope policy and resolver snapshot digests, as well as workload, cgroup, BPF object, address set, TCP port, generation and expiry. Valid-shaped digest substitution is a negative control. Coverage is partial because this currently exists in the pure Nixward reducer; no production broker or kernel map writer consumes it yet.
