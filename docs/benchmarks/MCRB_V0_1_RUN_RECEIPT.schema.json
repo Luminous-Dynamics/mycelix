@@ -564,7 +564,8 @@
             "workload_manifest_digest_sha256",
             "seed",
             "artifact_digest_sha256",
-            "measurement_window"
+            "measurement_window",
+            "expected_ledger_digest_sha256"
           ],
           "properties": {
             "digest_sha256": {
@@ -649,6 +650,10 @@
                   "minimum": 1
                 }
               }
+            },
+            "expected_ledger_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
             }
           }
         },
