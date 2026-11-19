@@ -75,3 +75,17 @@ The current branch implementation has moved beyond the earlier caller-supplied `
 - Percentiles and outlier classification use derived values. The caller no longer supplies a duration value that can be substituted into aggregation.
 
 This source change is not yet Cargo-tested or Clippy-qualified on the exact branch head.
+
+
+## Cross-host timing primitive
+
+A separate pure calculation module is now available at `src/cross_host.rs`:
+
+- `WallClockCalibration` binds a peer ID, calibration ID, signed offset, uncertainty and validity window.
+- `PublishObserveEventPair` binds one operation and record digest to a publisher event and a first-valid-observation event on a distinct peer.
+- `derive_latency_interval` corrects both local timestamps by their respective offsets, adds uncertainty conservatively, returns lower/upper bounds, and emits a point estimate only when the combined uncertainty is within the configured threshold.
+- It rejects empty digests, self-observation, wrong peer/calibration identity, stale calibration windows, invalid calibration values and event ordering that is impossible even under the uncertainty bounds.
+
+The helper is **not yet wired into `MeasurementBatch` or the canonical run-receipt emitter**. Its calibration/event inputs are still caller-supplied and need authenticated artifact binding and uniqueness/completeness checks. Therefore it is an implemented calculation primitive, not yet a qualified cross-host DHT convergence verifier.
+
+The current source contains 20 authored tests across local tick derivation and cross-host interval calculations. Exact-head Cargo tests/Clippy remain pending.
