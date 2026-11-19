@@ -380,7 +380,7 @@ fn audit_source_file(
     root: &Path,
     source: &Path,
     manifests: &[ManifestInfo],
-) -> Result<(Vec<CallSite>, bool), Box<dyn Error>> {
+) -> Result<(Vec<CallSite>, usize, bool), Box<dyn Error>> {
     let text = fs::read_to_string(source)?;
     let raw_contains_other_role = text.contains("OtherRole");
     let syntax: File = syn::parse_file(&text)?;
