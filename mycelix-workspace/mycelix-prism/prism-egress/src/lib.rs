@@ -132,6 +132,10 @@ impl EgressLimits {
 
 #[derive(Debug, Error)]
 pub enum EgressError {
+    #[error("logical request ID must be 32 lowercase hexadecimal characters")]
+    InvalidLogicalRequestId,
+    #[error("logical request redirect-hop index exceeds the supported ceiling")]
+    LogicalRequestHopOutOfRange,
     #[error("URL exceeds the configured byte limit")]
     UrlTooLarge,
     #[error("invalid URL: {0}")]
@@ -291,6 +295,8 @@ impl EgressAuthority {
 pub struct EgressCapability {
     url: Url,
     host: String,
+    logical_request_id: String,
+    redirect_hop: u8,
     authority: EgressAuthority,
     method: Method,
     headers: HeaderMap,
@@ -400,6 +406,8 @@ pub struct TlsIdentityReceipt {
 
 #[derive(Clone, Debug)]
 pub struct RedirectHopReceipt {
+    pub logical_request_id: String,
+    pub redirect_hop: u8,
     pub from_origin: String,
     pub to_origin: String,
     pub status: u16,
@@ -414,6 +422,10 @@ pub struct RedirectHopReceipt {
 
 #[derive(Clone, Debug)]
 pub struct EgressReceipt {
+    /// Opaque 16-byte lowercase-hex correlation ID, never an authorization token.
+    pub logical_request_id: String,
+    /// Zero-based HTTP hop within the logical request.
+    pub redirect_hop: u8,
     /// Scheme + authority only. Path, query, credentials, and response content
     /// are deliberately excluded from the receipt.
     pub origin: String,
@@ -581,6 +593,39 @@ impl PublicEgressClient {
         headers: HeaderMap,
         body: Vec<u8>,
     ) -> Result<EgressCapability, EgressError> {
+        let logical_request_id = uuid::Uuid::new_v4().simple().to_string();
+        self.authorize_with_authority_and_correlation(
+            authority,
+            method,
+            raw_url,
+            headers,
+            body,
+            &logical_request_id,
+            0,
+        )
+        .await
+    }
+
+    /// Authorize an exact request while preserving a caller-supplied opaque
+    /// correlation ID and zero-based hop index. The ID is for joining evidence
+    /// only; it grants no authority and must not be treated as a secret.
+    ///
+    /// This permits a future Prism↔Nixward adapter to pass the exact
+    /// NetworkResolutionLeaseV1 logical_request_id/redirect_hop values.
+    pub async fn authorize_with_authority_and_correlation(
+        &self,
+        authority: EgressAuthority,
+        method: Method,
+        raw_url: &str,
+        headers: HeaderMap,
+        body: Vec<u8>,
+        logical_request_id: &str,
+        redirect_hop: u8,
+    ) -> Result<EgressCapability, EgressError> {
+        validate_logical_request_id(logical_request_id)?;
+        if redirect_hop > MAX_PUBLIC_WEB_REDIRECT_HOPS as u8 {
+            return Err(EgressError::LogicalRequestHopOutOfRange);
+        }
         if raw_url.len() > self.limits.max_url_bytes {
             return Err(EgressError::UrlTooLarge);
         }
@@ -645,6 +690,8 @@ impl PublicEgressClient {
         Ok(EgressCapability {
             url,
             host,
+            logical_request_id: logical_request_id.to_owned(),
+            redirect_hop,
             authority,
             method,
             headers,
@@ -781,12 +828,14 @@ impl PublicEgressClient {
                     drop(_permit);
                     drop(_authority_permit);
                     let next_capability = self
-                        .authorize_with_authority(
+                        .authorize_with_authority_and_correlation(
                             EgressAuthority::PublicWeb,
                             Method::GET,
                             next_url.as_str(),
                             HeaderMap::new(),
                             Vec::new(),
+                            &capability.logical_request_id,
+                            capability.redirect_hop.saturating_add(1),
                         )
                         .await?;
 
@@ -795,6 +844,8 @@ impl PublicEgressClient {
                     let target_address_set_digest =
                         canonical_address_set_digest(&target_addresses);
                     redirect_hops.push(RedirectHopReceipt {
+                        logical_request_id: capability.logical_request_id.clone(),
+                        redirect_hop: capability.redirect_hop,
                         from_origin: origin,
                         to_origin,
                         status: status.as_u16(),
@@ -852,6 +903,8 @@ impl PublicEgressClient {
             }
 
             let receipt = EgressReceipt {
+                logical_request_id: capability.logical_request_id.clone(),
+                redirect_hop: capability.redirect_hop,
                 origin,
                 method: method_name,
                 authorized_addresses,
@@ -1089,6 +1142,17 @@ fn validate_request_headers(headers: &HeaderMap) -> Result<(), EgressError> {
         if FORBIDDEN.contains(&name.as_str()) || name.as_str().starts_with("proxy-") {
             return Err(EgressError::ForbiddenHeader(name.as_str().to_owned()));
         }
+    }
+    Ok(())
+}
+
+fn validate_logical_request_id(value: &str) -> Result<(), EgressError> {
+    if value.len() != 32
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(EgressError::InvalidLogicalRequestId);
     }
     Ok(())
 }
@@ -2218,6 +2282,8 @@ mod tests {
         max_response_body_bytes: usize,
     ) -> EgressCapability {
         EgressCapability {
+            logical_request_id: uuid::Uuid::new_v4().simple().to_string(),
+            redirect_hop: 0,
             host: url.host_str().unwrap().to_owned(),
             url,
             authority: EgressAuthority::PublicWeb,
@@ -2576,8 +2642,12 @@ mod tests {
         assert_eq!(response.receipt.remote_peer, second_address);
         assert_eq!(response.receipt.authorized_addresses, vec![second_address]);
         assert_eq!(response.receipt.redirect_hops.len(), 1);
+        assert_eq!(response.receipt.logical_request_id.len(), 32);
+        assert_eq!(response.receipt.redirect_hop, 1);
 
         let hop = &response.receipt.redirect_hops[0];
+        assert_eq!(hop.logical_request_id, response.receipt.logical_request_id);
+        assert_eq!(hop.redirect_hop, 0);
         assert_eq!(
             hop.from_origin,
             format!("http://prism-redirect.test:{}", first_address.port())
@@ -3891,6 +3961,19 @@ mod tests {
             .unwrap();
         let result = client.execute(capability).await;
         assert!(matches!(result, Err(EgressError::CapabilityExpired)));
+    }
+
+    #[test]
+    fn logical_request_id_requires_exact_lowercase_hex_and_valid_hop() {
+        assert!(validate_logical_request_id("0123456789abcdef0123456789abcdef").is_ok());
+        assert!(matches!(
+            validate_logical_request_id("0123456789ABCDEF0123456789ABCDEF"),
+            Err(EgressError::InvalidLogicalRequestId)
+        ));
+        assert!(matches!(
+            validate_logical_request_id("short"),
+            Err(EgressError::InvalidLogicalRequestId)
+        ));
     }
 
     #[test]
