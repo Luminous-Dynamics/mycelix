@@ -315,3 +315,10 @@ References:
 - Linux cgroup packet egress enforcement: https://docs.ebpf.io/linux/program-type/BPF_PROG_TYPE_CGROUP_SKB/
 - Hyper HTTP/1 client parser header-size limit: https://docs.rs/hyper/latest/src/hyper/client/conn/http1.rs.html
 - OWASP SSRF Prevention Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html
+
+
+### Canonical address-set correlation digest
+
+Prism now computes a versioned, domain-separated BLAKE3 digest for each hop's complete authorized IP:port set and records it alongside the explicit address list in the application receipt. For redirect hops the receipt carries both the source-hop set/digest and the newly authorized target-hop set/digest. The encoding sorts and deduplicates socket addresses, includes an address-family tag, raw IP bytes and network port, and includes the IPv6 scope ID; it excludes IPv6 flowinfo. The empty set has a deterministic digest but must never be accepted as an authorization.
+
+The digest is only a stable correlation value. It is **not** a signed receipt, a DNS transcript digest, proof of resolver authenticity, proof of kernel enforcement, or independent observation. The Nixward lease digest and resolver snapshot digest remain distinct authority/evidence values. Any cross-repository consumer must adopt the exact same domain separator and byte encoding and test golden vectors before treating digests as equal. The new unit test checks order independence, duplicate elimination, port binding and address-family separation; it is source-only until exact-head execution.
