@@ -71,3 +71,12 @@ The output deliberately uses classifications such as:
 Every call-site record states `source_to_dna_identity: not-proven`. The report's manifest proximity coverage is only a context metric, never source-to-DNA ownership coverage.
 
 CI publishes the JSON report as an artifact for review. The AST inventory is advisory and does not fail the deployment registry gate based on incomplete source ownership.
+
+
+## Report schema
+
+The advisory AST report format is described by:
+
+- `docs/architecture/MYCELIX_OTHERROLE_TOPOLOGY_AUDIT_V0_1.schema.json`
+
+CI checks the generated report's minimum structural envelope and uploads it as an artifact. It does not promote the report to a hard topology gate.
