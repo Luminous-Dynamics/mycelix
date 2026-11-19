@@ -749,6 +749,19 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "LEASE-003",
+      "family": "evidence_reconciliation",
+      "title": "resolution lease and resolver snapshot digests survive pinned HTTP execution",
+      "setup": "execute a local pinned HTTP request using a structurally valid, pre-verified Nixward lease snapshot",
+      "expected_decision": "receipt_carries_distinct_provenance_digests",
+      "oracle": "final receipt carries matching logical ID, address-set digest, lease payload digest, resolver snapshot digest and observed peer; logical ID is absent from outbound request bytes",
+      "source_coverage": "present",
+      "source_test": "nixward_resolution_digests_survive_pinned_http_execution_into_receipt",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
