@@ -428,7 +428,8 @@ mod tests {
                 .to_bytes().iter().map(|byte| format!("{byte:02x}")).collect();
             attestations.push(attestation);
         }
-        verify_gate_attestations(&policy, &attestations)
+        let pinned_trust_policy_digest = super::super::gate_attestation::gate_verifier_policy_digest(&policy);
+        verify_gate_attestations(&policy, &pinned_trust_policy_digest, &attestations)
     }
 
     #[test]
