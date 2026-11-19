@@ -132,19 +132,29 @@ struct ResourceUse {
 }
 
 impl ResourceUse {
-    fn checked_add(self, task: &Task) -> Option<Self> {
+    fn checked_add(
+        self,
+        cpu_millis: u64,
+        memory_mib: u64,
+        gpu_slots: u32,
+    ) -> Option<Self> {
         Some(Self {
-            cpu_millis: self.cpu_millis.checked_add(task.cpu_millis)?,
-            memory_mib: self.memory_mib.checked_add(task.memory_mib)?,
-            gpu_slots: self.gpu_slots.checked_add(task.gpu_slots)?,
+            cpu_millis: self.cpu_millis.checked_add(cpu_millis)?,
+            memory_mib: self.memory_mib.checked_add(memory_mib)?,
+            gpu_slots: self.gpu_slots.checked_add(gpu_slots)?,
         })
     }
 
-    fn checked_sub(self, task: &Task) -> Option<Self> {
+    fn checked_sub(
+        self,
+        cpu_millis: u64,
+        memory_mib: u64,
+        gpu_slots: u32,
+    ) -> Option<Self> {
         Some(Self {
-            cpu_millis: self.cpu_millis.checked_sub(task.cpu_millis)?,
-            memory_mib: self.memory_mib.checked_sub(task.memory_mib)?,
-            gpu_slots: self.gpu_slots.checked_sub(task.gpu_slots)?,
+            cpu_millis: self.cpu_millis.checked_sub(cpu_millis)?,
+            memory_mib: self.memory_mib.checked_sub(memory_mib)?,
+            gpu_slots: self.gpu_slots.checked_sub(gpu_slots)?,
         })
     }
 
@@ -310,21 +320,17 @@ fn worker_peak_pressure(tasks: &[&Task], worker: &Worker) -> Option<u64> {
     let mut used = ResourceUse::default();
     let mut peak = 0_u64;
     for event in events {
-        let task_delta = Task {
-            task_id: "event-delta".into(),
-            permitted_regions: Vec::new(),
-            input_region: String::new(),
-            input_bytes: 0,
-            cpu_millis: event.cpu_millis,
-            memory_mib: event.memory_mib,
-            gpu_slots: event.gpu_slots,
-            start_ms: 0,
-            end_ms: 1,
-        };
-
         used = match event.kind {
-            EventKind::End => used.checked_sub(&task_delta)?,
-            EventKind::Start => used.checked_add(&task_delta)?,
+            EventKind::End => used.checked_sub(
+                event.cpu_millis,
+                event.memory_mib,
+                event.gpu_slots,
+            )?,
+            EventKind::Start => used.checked_add(
+                event.cpu_millis,
+                event.memory_mib,
+                event.gpu_slots,
+            )?,
         };
         if !used.fits(worker) {
             return None;
@@ -736,14 +742,19 @@ mod tests {
 
     #[test]
     fn search_frontier_limit_returns_incomplete() {
+        let first_worker = worker(2_000);
         let mut second_worker = worker(2_000);
         second_worker.worker_id = "worker-b".into();
         second_worker.region_id = "region-b".into();
-        second_worker.operator_id = "operator-b".into();
-        second_worker.failure_domain_id = "fd-b".into();
+        second_worker.cpu_price_microusd_per_vcpu_hour = 500;
+
+        let mut flexible_task = task("first", 0, 3_600_000, 1_000);
+        flexible_task.permitted_regions = vec!["region-a".into(), "region-b".into()];
+        flexible_task.input_bytes = 1_024;
+
         let p = problem(
-            vec![worker(2_000), second_worker],
-            vec![task("first", 0, 10, 100)],
+            vec![first_worker, second_worker],
+            vec![flexible_task],
         );
         let report = solve_exact(
             &p,
