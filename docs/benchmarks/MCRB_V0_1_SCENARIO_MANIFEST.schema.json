@@ -1,0 +1,373 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mcrb-scenario-manifest-v0.1.json",
+  "title": "Mycelix MCRB Scenario Manifest v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "status",
+    "purpose",
+    "execution_principle",
+    "scale_ladder",
+    "comparators",
+    "metrics",
+    "hard_gates",
+    "scenarios",
+    "receipt_schema",
+    "harness_layers",
+    "wind_tunnel_reuse_policy",
+    "measurement_quality"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix-mcrb-v0.1"
+    },
+    "benchmark_id": {
+      "const": "MCRB"
+    },
+    "status": {
+      "const": "proposed-no-results"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution_principle": {
+      "const": "correctness-gate-before-performance"
+    },
+    "scale_ladder": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "required": [
+          "tier",
+          "mode"
+        ],
+        "properties": {
+          "tier": {
+            "enum": [
+              "smoke",
+              "development",
+              "qualification",
+              "stress"
+            ]
+          },
+          "conductors_min": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "conductors_max": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "conductors": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "mode": {
+            "type": "string"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "conductors"
+            ]
+          },
+          {
+            "required": [
+              "conductors_min"
+            ]
+          }
+        ]
+      }
+    },
+    "comparators": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "class",
+          "direct_comparison",
+          "notes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "direct_comparison": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "unit",
+          "aggregation"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "aggregation": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "hard_gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "metric",
+          "operator",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "operator": {
+            "enum": [
+              "eq",
+              "ne",
+              "lt",
+              "lte",
+              "gt",
+              "gte"
+            ]
+          },
+          "value": {
+            "type": [
+              "integer",
+              "number",
+              "string",
+              "boolean"
+            ]
+          }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "scenario_id",
+          "objective",
+          "actors",
+          "hard_invariants",
+          "fault_injection",
+          "required_metrics",
+          "status",
+          "evidence_required"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^MCRB-[0-9]{2}$"
+          },
+          "scenario_id": {
+            "type": "string"
+          },
+          "objective": {
+            "type": "string"
+          },
+          "actors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "hard_invariants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "fault_injection": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_metrics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "status": {
+            "const": "proposed-not-executed"
+          },
+          "evidence_required": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          }
+        }
+      }
+    },
+    "receipt_schema": {
+      "const": "MCRB_V0_1_RUN_RECEIPT.schema.json"
+    },
+    "harness_layers": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "wind_tunnel_reuse_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "use_existing_runtime_harness",
+        "version_specific_scenario_mapping_required",
+        "required_substrate_dimensions",
+        "add_application_semantic_scenarios",
+        "never_compare_unmatched_runtime_versions",
+        "never_claim_upstream_metric_as_mycelix_application_qualification"
+      ],
+      "properties": {
+        "use_existing_runtime_harness": {
+          "const": true
+        },
+        "version_specific_scenario_mapping_required": {
+          "type": "boolean"
+        },
+        "required_substrate_dimensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "add_application_semantic_scenarios": {
+          "type": "boolean"
+        },
+        "never_compare_unmatched_runtime_versions": {
+          "type": "boolean"
+        },
+        "never_claim_upstream_metric_as_mycelix_application_qualification": {
+          "type": "boolean"
+        }
+      }
+    },
+    "measurement_quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "require_monotonic_local_durations",
+        "require_clock_source_and_sync_method",
+        "require_cross_host_offset_and_uncertainty",
+        "reject_negative_non_finite_or_out_of_run_durations",
+        "preserve_and_classify_outliers",
+        "silently_trim_or_clamp_outliers",
+        "require_per_peer_distributions",
+        "aggregate_only_after_member_samples_validate",
+        "require_send_receive_counter_reconciliation",
+        "invalid_measurements_block_performance_claims",
+        "run_statuses"
+      ],
+      "properties": {
+        "require_monotonic_local_durations": {
+          "type": "boolean"
+        },
+        "require_clock_source_and_sync_method": {
+          "type": "boolean"
+        },
+        "require_cross_host_offset_and_uncertainty": {
+          "type": "boolean"
+        },
+        "reject_negative_non_finite_or_out_of_run_durations": {
+          "type": "boolean"
+        },
+        "preserve_and_classify_outliers": {
+          "type": "boolean"
+        },
+        "silently_trim_or_clamp_outliers": {
+          "const": false
+        },
+        "require_per_peer_distributions": {
+          "type": "boolean"
+        },
+        "aggregate_only_after_member_samples_validate": {
+          "type": "boolean"
+        },
+        "require_send_receive_counter_reconciliation": {
+          "type": "boolean"
+        },
+        "invalid_measurements_block_performance_claims": {
+          "type": "boolean"
+        },
+        "run_statuses": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "application-fail",
+              "measurement-invalid",
+              "infrastructure-incomplete",
+              "qualified"
+            ]
+          },
+          "minItems": 4
+        }
+      }
+    }
+  }
+}
