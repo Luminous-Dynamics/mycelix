@@ -288,13 +288,11 @@ fn dominates(left: &PlacementCandidate, right: &PlacementCandidate) -> bool {
         && left.remote_input_bytes <= right.remote_input_bytes
         && left.distinct_failure_domains >= right.distinct_failure_domains
         && left.distinct_operators >= right.distinct_operators
-        && left.distinct_regions >= right.distinct_regions
         && left.max_resource_pressure_ppm <= right.max_resource_pressure_ppm;
     let strictly_better = left.estimated_cost_microusd < right.estimated_cost_microusd
         || left.remote_input_bytes < right.remote_input_bytes
         || left.distinct_failure_domains > right.distinct_failure_domains
         || left.distinct_operators > right.distinct_operators
-        || left.distinct_regions > right.distinct_regions
         || left.max_resource_pressure_ppm < right.max_resource_pressure_ppm;
     no_worse && strictly_better
 }
@@ -620,6 +618,86 @@ mod tests {
         assert_eq!(diverse.distinct_failure_domains, 2);
         assert_eq!(diverse.distinct_operators, 1);
         assert_eq!(diverse.distinct_regions, 2);
+    }
+
+    #[test]
+    fn region_diversity_is_reported_but_not_optimized_as_a_preference() {
+        let problem = PlacementProblem {
+            workers: vec![
+                Worker {
+                    worker_id: "worker-west-a".into(),
+                    operator_id: "operator-shared".into(),
+                    region_id: "region-west".into(),
+                    failure_domain_id: "fd-shared".into(),
+                    cpu_millis: 2_000,
+                    memory_mib: 4_096,
+                    gpu_slots: 0,
+                    cpu_price_microusd_per_vcpu_hour: 1_000,
+                    gpu_price_microusd_per_slot_hour: 0,
+                },
+                Worker {
+                    worker_id: "worker-west-b".into(),
+                    operator_id: "operator-shared".into(),
+                    region_id: "region-west".into(),
+                    failure_domain_id: "fd-shared".into(),
+                    cpu_millis: 2_000,
+                    memory_mib: 4_096,
+                    gpu_slots: 0,
+                    cpu_price_microusd_per_vcpu_hour: 1_000,
+                    gpu_price_microusd_per_slot_hour: 0,
+                },
+                Worker {
+                    worker_id: "worker-east".into(),
+                    operator_id: "operator-shared".into(),
+                    region_id: "region-east".into(),
+                    failure_domain_id: "fd-shared".into(),
+                    cpu_millis: 2_000,
+                    memory_mib: 4_096,
+                    gpu_slots: 0,
+                    cpu_price_microusd_per_vcpu_hour: 1_000,
+                    gpu_price_microusd_per_slot_hour: 0,
+                },
+            ],
+            tasks: vec![
+                Task {
+                    task_id: "task-fixed-west".into(),
+                    permitted_regions: vec!["region-west".into()],
+                    input_region: "region-west".into(),
+                    input_bytes: 0,
+                    cpu_millis: 500,
+                    memory_mib: 1_024,
+                    gpu_slots: 0,
+                    duration_ms: 3_600_000,
+                },
+                Task {
+                    task_id: "task-flexible".into(),
+                    permitted_regions: vec!["region-west".into(), "region-east".into()],
+                    input_region: "region-west".into(),
+                    input_bytes: 0,
+                    cpu_millis: 500,
+                    memory_mib: 1_024,
+                    gpu_slots: 0,
+                    duration_ms: 3_600_000,
+                },
+            ],
+        };
+
+        let report = solve_exact(&problem, SolveLimits::default()).unwrap();
+        assert_eq!(report.status, SolveStatus::Optimal);
+        let candidates: Vec<_> = report.frontier.iter()
+            .filter(|candidate| {
+                candidate.estimated_cost_microusd == 1_000
+                    && candidate.remote_input_bytes == 0
+                    && candidate.distinct_failure_domains == 1
+                    && candidate.distinct_operators == 1
+                    && candidate.max_resource_pressure_ppm == 250_000
+            })
+            .collect();
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(
+            candidates.iter().map(|candidate| candidate.distinct_regions).collect::<BTreeSet<_>>(),
+            BTreeSet::from([1, 2])
+        );
     }
 
     #[test]
