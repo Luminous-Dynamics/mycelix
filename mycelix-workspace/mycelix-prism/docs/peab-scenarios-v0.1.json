@@ -229,8 +229,8 @@
       "setup": "first public response redirects to denied destination",
       "expected_decision": "deny_second_hop",
       "oracle": "no second socket is attempted and redirect target is not fetched",
-      "source_coverage": "planned",
-      "source_test": null,
+      "source_coverage": "present",
+      "source_test": "public_redirect_to_metadata_host_is_rejected_before_second_dns_or_socket",
       "execution_status": "not_run_exact_head",
       "negative_control_required": true,
       "execution_evidence": null
