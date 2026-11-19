@@ -6,12 +6,13 @@
 //! authenticity remains a separate receipt-signature and custody requirement.
 
 use sha2::{Digest, Sha256};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 pub const OFFER_LEDGER_SCHEMA_VERSION: &str = "mycelix-mcrb-offer-ledger-v0.1";
 const DOMAIN_SEPARATOR: &[u8] = b"MYCELIX-MCRB-OFFER-LEDGER\0v0.1\0";
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OfferLedgerEntry {
     pub sequence: u64,
     pub run_id: String,
@@ -23,12 +24,13 @@ pub struct OfferLedgerEntry {
     pub monotonic_clock_id: String,
     pub monotonic_clock_epoch: String,
     pub operation_class: String,
+    pub requires_idempotency_key: bool,
     pub generator_digest_sha256: String,
     pub workload_manifest_digest_sha256: String,
     pub parameter_set_digest_sha256: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OfferLedgerEnvelope {
     pub schema_version: String,
     pub run_id: String,
@@ -70,6 +72,7 @@ pub enum OfferLedgerIssue {
     DuplicateOperationId(String),
     InvalidRequestDigest(usize),
     EmptyIdempotencyKey(usize),
+    MissingIdempotencyKeyForExternalEffect(usize),
     DuplicateIdempotencyKey(String),
     EmptyOperationClass(usize),
     EntryRunIdMismatch(usize),
@@ -167,6 +170,7 @@ fn canonical_offer_ledger_bytes(envelope: &OfferLedgerEnvelope) -> Vec<u8> {
         push_string(&mut bytes, &entry.monotonic_clock_id);
         push_string(&mut bytes, &entry.monotonic_clock_epoch);
         push_string(&mut bytes, &entry.operation_class);
+        bytes.push(u8::from(entry.requires_idempotency_key));
         push_string(&mut bytes, &entry.generator_digest_sha256);
         push_string(&mut bytes, &entry.workload_manifest_digest_sha256);
         push_string(&mut bytes, &entry.parameter_set_digest_sha256);
@@ -225,6 +229,9 @@ pub fn verify_offer_ledger(
             operation_ids.push(entry.operation_id.clone());
         }
         if !valid_sha256_hex(&entry.request_digest_sha256) { issues.push(OfferLedgerIssue::InvalidRequestDigest(index)); }
+        if entry.requires_idempotency_key && entry.idempotency_key.is_none() {
+            issues.push(OfferLedgerIssue::MissingIdempotencyKeyForExternalEffect(index));
+        }
         if let Some(key) = entry.idempotency_key.as_deref() {
             if key.trim().is_empty() {
                 issues.push(OfferLedgerIssue::EmptyIdempotencyKey(index));
@@ -330,6 +337,7 @@ mod tests {
                 monotonic_clock_id: clock_id.clone(),
                 monotonic_clock_epoch: clock_epoch.clone(),
                 operation_class: "read-or-write".to_string(),
+                requires_idempotency_key: index == 2,
                 generator_digest_sha256: generator.clone(),
                 workload_manifest_digest_sha256: manifest.clone(),
                 parameter_set_digest_sha256: params.clone(),
