@@ -539,7 +539,8 @@
         "offer_ledger_digest_sha256",
         "offer_ledger_entry_count",
         "run_id",
-        "scenario_id"
+        "scenario_id",
+        "offer_ledger_artifact_digest_sha256"
       ],
       "properties": {
         "status": {
@@ -757,6 +758,10 @@
         "scenario_id": {
           "type": "string",
           "pattern": "^MCRB-[0-9]{2}$"
+        },
+        "offer_ledger_artifact_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
       }
     }
