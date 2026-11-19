@@ -8,6 +8,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use super::{CrossHostTimingStatus, IntegrityReport, IntegrityStatus, Percentiles};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OperationOutcome {
     QualifiedSuccess,
@@ -34,8 +36,6 @@ pub struct QopsInput {
     pub measurement_window_ns: u64,
     /// Result of independent scenario-specific correctness gates.
     pub hard_correctness_gates_passed: bool,
-    /// True only when the independent metric-integrity validator returned Valid.
-    pub metric_integrity_valid: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,7 +90,7 @@ fn push_unique(issues: &mut Vec<QopsIssue>, issue: QopsIssue) {
 /// This API does not accept a caller-supplied success count. Counts are derived
 /// from unique operation IDs and terminal classifications. The metric-integrity
 /// flag must be wired to the independent clock/counter verifier.
-pub fn compute_qops(input: &QopsInput) -> QopsReport {
+pub fn compute_qops(input: &QopsInput, metric_integrity: &IntegrityReport) -> QopsReport {
     let mut issues = Vec::new();
     let mut expected = BTreeSet::new();
 
@@ -103,7 +103,10 @@ pub fn compute_qops(input: &QopsInput) -> QopsReport {
     if !input.hard_correctness_gates_passed {
         push_unique(&mut issues, QopsIssue::HardCorrectnessGateFailed);
     }
-    if !input.metric_integrity_valid {
+    if metric_integrity.status != IntegrityStatus::Valid
+        || !metric_integrity.aggregate_eligible
+        || !metric_integrity.issues.is_empty()
+    {
         push_unique(&mut issues, QopsIssue::MetricIntegrityNotValid);
     }
 
@@ -220,6 +223,24 @@ mod tests {
         }
     }
 
+    fn valid_integrity() -> IntegrityReport {
+        IntegrityReport {
+            status: IntegrityStatus::Valid,
+            raw_sample_count: 1,
+            raw_monotonic_tick_derived_count: 1,
+            outlier_sample_indexes: vec![],
+            issues: vec![],
+            percentiles: Some(Percentiles { p50_ms: 1.0, p95_ms: 1.0, p99_ms: 1.0 }),
+            per_peer_percentiles: None,
+            aggregate_eligible: true,
+            cross_host_status: CrossHostTimingStatus::NotEvaluated,
+            cross_host_issues: vec![],
+            cross_host_latency_intervals: vec![],
+            cross_host_point_latency_emitted_count: 0,
+            cross_host_aggregate_eligible: false,
+        }
+    }
+
     fn valid_input() -> QopsInput {
         QopsInput {
             expected_operation_ids: vec![
@@ -234,13 +255,12 @@ mod tests {
             ],
             measurement_window_ns: 1_000_000_000,
             hard_correctness_gates_passed: true,
-            metric_integrity_valid: true,
         }
     }
 
     #[test]
     fn qops_counts_only_qualified_successes_and_keeps_every_offer_in_denominator() {
-        let report = compute_qops(&valid_input());
+        let report = compute_qops(&valid_input(), &valid_integrity());
         assert_eq!(report.status, QopsStatus::Eligible);
         assert_eq!(report.offered_operations, 5);
         assert_eq!(report.classified_outcomes, 5);
@@ -257,7 +277,7 @@ mod tests {
     fn missing_outcome_makes_qops_incomplete_and_suppresses_rates() {
         let mut input = valid_input();
         input.outcomes.pop();
-        let report = compute_qops(&input);
+        let report = compute_qops(&input, &valid_integrity());
         assert_eq!(report.status, QopsStatus::Incomplete);
         assert!(report.issues.contains(&QopsIssue::MissingOutcomeSample("op-5".into())));
         assert!(report.qualified_operations_per_second.is_none());
@@ -268,7 +288,7 @@ mod tests {
     fn duplicate_operation_outcome_is_invalid() {
         let mut input = valid_input();
         input.outcomes.push(sample("op-1", OperationOutcome::QualifiedSuccess));
-        let report = compute_qops(&input);
+        let report = compute_qops(&input, &valid_integrity());
         assert_eq!(report.status, QopsStatus::Invalid);
         assert!(report.issues.contains(&QopsIssue::DuplicateOutcomeSample("op-1".into())));
         assert!(report.qualified_operations_per_second.is_none());
@@ -278,7 +298,7 @@ mod tests {
     fn unoffered_operation_cannot_enter_the_numerator() {
         let mut input = valid_input();
         input.outcomes.push(sample("op-not-offered", OperationOutcome::QualifiedSuccess));
-        let report = compute_qops(&input);
+        let report = compute_qops(&input, &valid_integrity());
         assert_eq!(report.status, QopsStatus::Invalid);
         assert!(report.issues.contains(&QopsIssue::UnexpectedOperationSample("op-not-offered".into())));
     }
@@ -287,7 +307,7 @@ mod tests {
     fn duplicate_external_effect_is_a_non_compensatory_failure() {
         let mut input = valid_input();
         input.outcomes[0].outcome = OperationOutcome::DuplicateEffect;
-        let report = compute_qops(&input);
+        let report = compute_qops(&input, &valid_integrity());
         assert_eq!(report.status, QopsStatus::Invalid);
         assert_eq!(report.duplicate_external_effects, 1);
         assert!(report.qualified_operations_per_second.is_none());
@@ -297,7 +317,7 @@ mod tests {
     fn failed_correctness_gate_suppresses_all_performance_rates() {
         let mut input = valid_input();
         input.hard_correctness_gates_passed = false;
-        let report = compute_qops(&input);
+        let report = compute_qops(&input, &valid_integrity());
         assert_eq!(report.status, QopsStatus::Invalid);
         assert!(report.issues.contains(&QopsIssue::HardCorrectnessGateFailed));
         assert!(report.qualified_operations_per_second.is_none());
@@ -305,9 +325,12 @@ mod tests {
 
     #[test]
     fn invalid_metric_integrity_suppresses_all_performance_rates() {
-        let mut input = valid_input();
-        input.metric_integrity_valid = false;
-        let report = compute_qops(&input);
+        let input = valid_input();
+        let mut integrity = valid_integrity();
+        integrity.status = IntegrityStatus::Invalid;
+        integrity.aggregate_eligible = false;
+        integrity.issues.push(super::super::MetricIssue::ReversedMonotonicTicks(0));
+        let report = compute_qops(&input, &integrity);
         assert_eq!(report.status, QopsStatus::Invalid);
         assert!(report.issues.contains(&QopsIssue::MetricIntegrityNotValid));
         assert!(report.qualified_operations_per_second.is_none());
@@ -317,13 +340,13 @@ mod tests {
     fn zero_window_or_empty_denominator_is_invalid() {
         let mut input = valid_input();
         input.measurement_window_ns = 0;
-        let zero_window = compute_qops(&input);
+        let zero_window = compute_qops(&input, &valid_integrity());
         assert_eq!(zero_window.status, QopsStatus::Invalid);
 
         input = valid_input();
         input.expected_operation_ids.clear();
         input.outcomes.clear();
-        let empty = compute_qops(&input);
+        let empty = compute_qops(&input, &valid_integrity());
         assert_eq!(empty.status, QopsStatus::Invalid);
         assert!(empty.qualified_operations_per_second.is_none());
     }
