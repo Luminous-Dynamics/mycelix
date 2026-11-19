@@ -150,6 +150,7 @@ pub mod collective_field;
 pub mod commitment;
 pub mod consent;
 pub mod delegation;
+pub mod delegation_scope;
 pub mod epistemic;
 pub mod harmonic;
 pub mod k_vector;
@@ -169,6 +170,11 @@ pub use delegation::{
     ActionScope, Delegation, DelegationContext, DelegationError, DelegationEvent,
     DelegationEventKind, DelegationId, DelegationMode, DelegationStatus, ExecutionDecision,
     ExecutionRequest, PrincipalRef as DelegationPrincipalRef, ResourceScope,
+};
+
+pub use delegation_scope::{
+    BudgetLimitsV1, ConsentBindingV1, DataDirectionV1, OperationBindingV1, RateLimitV1,
+    TypedDelegationScopeV1, TypedScopeError,
 };
 pub use epistemic::*;
 pub use harmonic::*;
