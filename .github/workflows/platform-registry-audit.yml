@@ -15,6 +15,7 @@ on:
       - "mycelix-workspace/happs/mycelix-unified-happ.yaml"
       - "mycelix-workspace/happs/mycelix-resilience-happ.yaml"
       - "docs/architecture/mycelix-platform-registry-v0.1.json"
+      - "docs/architecture/MYCELIX_OTHERROLE_TOPOLOGY_AUDIT_V0_1.schema.json"
       - "mycelix-workspace/tools/platform-registry-audit/**"
       - ".github/workflows/platform-registry-audit.yml"
 
