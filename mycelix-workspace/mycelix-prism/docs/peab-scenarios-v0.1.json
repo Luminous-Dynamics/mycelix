@@ -1196,6 +1196,48 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "KERNEL-008",
+      "family": "kernel_coverage_contract",
+      "title": "V40 coverage profile does not claim packet-level or passed-socket enforcement",
+      "setup": "load the Nixward V40 coverage profile for TCP and UDP policies and inspect its qualification flags",
+      "expected_decision": "report_socket_admission_only_nonclaims",
+      "oracle": "profile requires IPv4/IPv6 connect hooks and conditionally UDP sendmsg hooks; packet egress filtering, established-flow revocation and passed-socket recipient binding remain explicitly unqualified",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "v40_coverage_profile_does_not_overclaim_packet_or_passed_socket_controls; udp_v40_coverage_profile_names_both_sendmsg_hooks_as_required",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "KERNEL-009",
+      "family": "kernel_packet_plane",
+      "title": "cgroup packet-egress program enforces policy on already-connected and descriptor-passed sockets",
+      "setup": "compare cgroup connect hooks against cgroup_skb egress with established sockets, forked children and SCM_RIGHTS transfer across cgroups",
+      "expected_decision": "no_unauthorized_packet_escapes_selected_socket_ownership_policy",
+      "oracle": "record which cgroup packet hook executes for each flow and prove the chosen ownership/recipient policy; do not infer packet-level enforcement from a successful connect-hook test",
+      "source_coverage": "planned",
+      "source_test": null,
+      "external_reference": "Linux BPF_PROG_TYPE_CGROUP_SKB and BPF_PROG_TYPE_CGROUP_SOCK_ADDR documentation",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "KERNEL-010",
+      "family": "kernel_packet_plane",
+      "title": "lease expiry distinguishes new socket admission from established-flow packets",
+      "setup": "expire a request lease while a TCP connection remains open; attempt a second request and continue sending on the established flow",
+      "expected_decision": "deny_new_flow_and_apply_explicit_existing_flow_policy",
+      "oracle": "measure new connect denial separately from packet-level treatment of the established flow; an expired socket-admission capability alone does not prove existing packets are blocked",
+      "source_coverage": "planned",
+      "source_test": null,
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
