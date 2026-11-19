@@ -544,3 +544,13 @@ Envoy v1.40.0 DFP exposes counters for DNS attempts/success/failure/timeout, add
 Keep deployment profile versions, resolver fixtures, host-cache state and metric snapshots in each run bundle. No result is comparable unless the competing policy/cache semantics are recorded explicitly.
 
 PEAB adds TXN-014 for Nixward journal metadata integrity. The hash-chained record now commits to the event, sequence, prior head, observation timestamp and active policy generation. Nixward's new negative control mutates either observation field after record creation and expects `JournalDigestMismatch` plus terminal `Conflict`. This remains partial cross-repository source coverage and unexecuted.
+
+### Socket-admission versus packet-egress enforcement
+
+PEAB adds KERNEL-008 through KERNEL-010. The current Nixward V40 machine-readable coverage profile reports IPv4/IPv6 connect hooks and conditional UDP sendmsg hooks, but explicitly does not qualify packet-level egress filtering, established-flow revocation or passed-socket recipient binding. The Linux API exposes these as distinct program families: cgroup socket-address hooks gate connect/sendmsg operations, while cgroup skb egress programs run for outgoing packets and can drop/pass them. A future V41 backend should qualify both planes under fork, SCM_RIGHTS, cgroup movement, established TCP flows, UDP and raw-socket tests. <https://docs.ebpf.io/linux/program-type/BPF_PROG_TYPE_CGROUP_SOCK_ADDR/> <https://docs.ebpf.io/linux/program-type/BPF_PROG_TYPE_CGROUP_SKB/>
+
+The benchmark must report two separate outcomes:
+1. **New-flow admission:** whether an attempt to create a socket is permitted under the current lease and policy.
+2. **Existing-flow treatment:** whether packets on an already-established socket continue, are dropped, or are revoked after lease expiry or descriptor transfer.
+
+A passing connect hook test cannot be used as evidence for the second outcome. The three new scenarios remain partial/planned source coverage and `not_run_exact_head`.
