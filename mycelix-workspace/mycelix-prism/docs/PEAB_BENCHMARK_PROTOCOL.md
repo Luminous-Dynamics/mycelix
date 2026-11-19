@@ -463,3 +463,12 @@ PEAB now treats the transaction reducer's parent-bound lease proof and expected 
 ### Parent and resolver provenance in the kernel map payload
 
 TXN-007 now checks that Nixward's proposed map payload does not merely carry an opaque enclosing lease digest: it explicitly binds the parent capability, parent authority lease, owner address-scope policy and resolver snapshot digests, as well as workload, cgroup, BPF object, address set, TCP port, generation and expiry. Valid-shaped digest substitution is a negative control. Coverage is partial because this currently exists in the pure Nixward reducer; no production broker or kernel map writer consumes it yet.
+
+
+### Per-hop phase timing contract (PERF-001)
+
+Prism application receipts now expose monotonic durations for: pre-resolution authorization validation; DNS admission wait; DNS resolution/address-policy evaluation; authority/global egress admission wait; transport-client construction; request-to-response-headers; response-memory lease admission wait; and response-body consumption. Each redirect-hop receipt carries timings for the hop that returned that redirect; the final receipt carries timings for the final response hop. The overall `elapsed` field remains execution elapsed across redirects and final-body consumption; it excludes the initial caller-to-`authorize` wait and is not a replacement for the phase breakdown.
+
+The `request_to_headers` interval starts after the pinned Reqwest client is built and ends when `send()` returns response headers. It combines TCP connection, TLS, request transmission and server time-to-headers. Reqwest's current public API does not expose all those components separately, so PEAB must not label this as isolated connect or TLS latency. Client construction is measured separately. DNS timing is separate from local policy preflight and DNS semaphore wait; response-memory admission is separate from body consumption. These are measurement fields, not security attestations or hard deadlines.
+
+PERF-001 has source-level coverage and two local-fixture test references. It is not a benchmark result; the matched hardened Reqwest and Envoy campaigns still require pinned binaries, hardware manifests, raw samples, repetitions and confidence intervals.
