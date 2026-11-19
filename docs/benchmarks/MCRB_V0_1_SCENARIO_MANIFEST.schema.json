@@ -252,7 +252,18 @@
             "invalid_ticks_per_second_count",
             "cross_host_latency_lower_bound_ms",
             "cross_host_latency_upper_bound_ms"
-          ]
+          ],
+          "upstream_references": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "uniqueItems": true
+          },
+          "qualification_blocking": {
+            "type": "boolean"
+          }
         }
       }
     },
