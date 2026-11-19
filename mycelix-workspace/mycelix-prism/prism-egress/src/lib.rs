@@ -389,8 +389,11 @@ pub struct RedirectHopReceipt {
     pub from_origin: String,
     pub to_origin: String,
     pub status: u16,
+    pub authorized_addresses: Vec<SocketAddr>,
+    pub authorized_address_set_digest: String,
     pub remote_peer: SocketAddr,
     pub target_addresses: Vec<SocketAddr>,
+    pub target_address_set_digest: String,
 }
 
 #[derive(Clone, Debug)]
@@ -400,6 +403,9 @@ pub struct EgressReceipt {
     pub origin: String,
     pub method: String,
     pub authorized_addresses: Vec<SocketAddr>,
+    /// Canonical BLAKE3 digest of the complete authorized IP:port set.
+    /// This is a correlation digest, not a signature or resolver attestation.
+    pub authorized_address_set_digest: String,
     pub remote_peer: SocketAddr,
     pub status: u16,
     pub request_body_bytes: usize,
@@ -667,6 +673,8 @@ impl PublicEgressClient {
             let origin = sanitized_origin(&capability.url);
             let authority = capability.authority.label();
             let authorized_addresses = capability.addresses.clone();
+            let authorized_address_set_digest =
+                canonical_address_set_digest(&authorized_addresses);
             let method_name = capability.method.as_str().to_owned();
             let request_body_bytes = capability.body.len();
 
@@ -760,12 +768,18 @@ impl PublicEgressClient {
                         .await?;
 
                     let to_origin = sanitized_origin(&next_capability.url);
+                    let target_addresses = next_capability.addresses.clone();
+                    let target_address_set_digest =
+                        canonical_address_set_digest(&target_addresses);
                     redirect_hops.push(RedirectHopReceipt {
                         from_origin: origin,
                         to_origin,
                         status: status.as_u16(),
+                        authorized_addresses,
+                        authorized_address_set_digest,
                         remote_peer,
-                        target_addresses: next_capability.addresses.clone(),
+                        target_addresses,
+                        target_address_set_digest,
                     });
 
                     capability = next_capability;
@@ -816,6 +830,7 @@ impl PublicEgressClient {
                 origin,
                 method: method_name,
                 authorized_addresses,
+                authorized_address_set_digest,
                 remote_peer,
                 status: status.as_u16(),
                 request_body_bytes,
@@ -1157,6 +1172,40 @@ fn validate_url_policy_with_test_port(url: &Url, allow_test_port: bool) -> Resul
         }
     }
     Ok(())
+}
+
+/// Compute a stable, domain-separated digest for a complete socket-address set.
+///
+/// Addresses are sorted and deduplicated before hashing. The encoding binds
+/// address family, raw address bytes, destination port, and IPv6 scope ID.
+/// This digest supports cross-plane correlation; it does not authenticate the
+/// resolver, lease issuer, kernel observer, or application receipt.
+pub fn canonical_address_set_digest(addresses: &[SocketAddr]) -> String {
+    let mut canonical = addresses.to_vec();
+    canonical.sort_unstable();
+    canonical.dedup();
+
+    let mut hasher =
+        blake3::Hasher::new_derive_key("org.luminousdynamics.prism.address-set.v1");
+    hasher.update(&(canonical.len() as u64).to_be_bytes());
+
+    for address in canonical {
+        match address {
+            SocketAddr::V4(address) => {
+                hasher.update(&[4]);
+                hasher.update(&address.ip().octets());
+                hasher.update(&address.port().to_be_bytes());
+            }
+            SocketAddr::V6(address) => {
+                hasher.update(&[6]);
+                hasher.update(&address.ip().octets());
+                hasher.update(&address.port().to_be_bytes());
+                hasher.update(&address.scope_id().to_be_bytes());
+            }
+        }
+    }
+
+    hasher.finalize().to_hex().to_string()
 }
 
 fn collect_unique_addresses_bounded(
@@ -2130,6 +2179,29 @@ mod tests {
             }
         }
         request
+    }
+
+    #[test]
+    fn canonical_address_set_digest_is_order_independent_deduplicated_and_port_bound() {
+        let first: SocketAddr = "93.184.216.34:443".parse().unwrap();
+        let second: SocketAddr = "[2606:4700:4700::1111]:443".parse().unwrap();
+        let duplicate_and_reordered = [second, first, first];
+        let canonical = [first, second];
+
+        assert_eq!(
+            canonical_address_set_digest(&duplicate_and_reordered),
+            canonical_address_set_digest(&canonical)
+        );
+
+        let different_port: SocketAddr = "93.184.216.34:8443".parse().unwrap();
+        assert_ne!(
+            canonical_address_set_digest(&[first]),
+            canonical_address_set_digest(&[different_port])
+        );
+        assert_ne!(
+            canonical_address_set_digest(&[first]),
+            canonical_address_set_digest(&["::ffff:93.184.216.34:443".parse().unwrap()])
+        );
     }
 
     #[test]
