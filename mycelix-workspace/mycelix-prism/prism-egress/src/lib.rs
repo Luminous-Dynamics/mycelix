@@ -1174,14 +1174,40 @@ fn validate_url_policy_with_test_port(url: &Url, allow_test_port: bool) -> Resul
     Ok(())
 }
 
+/// Canonical socket endpoint fields used for stable cross-process hashing.
+/// IPv6 flowinfo is intentionally excluded: it is not part of the destination
+/// authority represented by an IP address, port, and scope ID.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+enum CanonicalSocketAddress {
+    V4 { ip: [u8; 4], port: u16 },
+    V6 {
+        ip: [u8; 16],
+        port: u16,
+        scope_id: u32,
+    },
+}
+
 /// Compute a stable, domain-separated digest for a complete socket-address set.
 ///
-/// Addresses are sorted and deduplicated before hashing. The encoding binds
-/// address family, raw address bytes, destination port, and IPv6 scope ID.
+/// The canonical encoding sorts and deduplicates by address family, raw address
+/// bytes, port, and IPv6 scope ID. It intentionally excludes IPv6 flowinfo.
 /// This digest supports cross-plane correlation; it does not authenticate the
 /// resolver, lease issuer, kernel observer, or application receipt.
 pub fn canonical_address_set_digest(addresses: &[SocketAddr]) -> String {
-    let mut canonical = addresses.to_vec();
+    let mut canonical: Vec<CanonicalSocketAddress> = addresses
+        .iter()
+        .map(|address| match address {
+            SocketAddr::V4(address) => CanonicalSocketAddress::V4 {
+                ip: address.ip().octets(),
+                port: address.port(),
+            },
+            SocketAddr::V6(address) => CanonicalSocketAddress::V6 {
+                ip: address.ip().octets(),
+                port: address.port(),
+                scope_id: address.scope_id(),
+            },
+        })
+        .collect();
     canonical.sort_unstable();
     canonical.dedup();
 
@@ -1190,16 +1216,16 @@ pub fn canonical_address_set_digest(addresses: &[SocketAddr]) -> String {
 
     for address in canonical {
         match address {
-            SocketAddr::V4(address) => {
+            CanonicalSocketAddress::V4 { ip, port } => {
                 hasher.update(&[4]);
-                hasher.update(&address.ip().octets());
-                hasher.update(&address.port().to_be_bytes());
+                hasher.update(&ip);
+                hasher.update(&port.to_be_bytes());
             }
-            SocketAddr::V6(address) => {
+            CanonicalSocketAddress::V6 { ip, port, scope_id } => {
                 hasher.update(&[6]);
-                hasher.update(&address.ip().octets());
-                hasher.update(&address.port().to_be_bytes());
-                hasher.update(&address.scope_id().to_be_bytes());
+                hasher.update(&ip);
+                hasher.update(&port.to_be_bytes());
+                hasher.update(&scope_id.to_be_bytes());
             }
         }
     }
@@ -2200,6 +2226,33 @@ mod tests {
         assert_ne!(
             canonical_address_set_digest(&[first]),
             canonical_address_set_digest(&["[::ffff:93.184.216.34]:443".parse().unwrap()])
+        );
+
+        let scoped_one = SocketAddr::V6(std::net::SocketAddrV6::new(
+            std::net::Ipv6Addr::LOCALHOST,
+            443,
+            0,
+            1,
+        ));
+        let same_authority_different_flowinfo = SocketAddr::V6(std::net::SocketAddrV6::new(
+            std::net::Ipv6Addr::LOCALHOST,
+            443,
+            7,
+            1,
+        ));
+        let scoped_two = SocketAddr::V6(std::net::SocketAddrV6::new(
+            std::net::Ipv6Addr::LOCALHOST,
+            443,
+            0,
+            2,
+        ));
+        assert_eq!(
+            canonical_address_set_digest(&[scoped_one]),
+            canonical_address_set_digest(&[same_authority_different_flowinfo])
+        );
+        assert_ne!(
+            canonical_address_set_digest(&[scoped_one]),
+            canonical_address_set_digest(&[scoped_two])
         );
     }
 
