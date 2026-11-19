@@ -139,6 +139,25 @@ The source contains 27 lifecycle tests; with 33 land-RRR structural/qualificatio
 
 **Hard boundary:** no phase in this module authorizes authoritative title, ownership, payment, transfer, consent or external registry mutation. `external_status_projected` means a scoped read-model projection of what a qualified external source reported; it is not a legal conclusion. The model is not yet wired into Mycelix Property's live transfer coordinator. Issue [PROP-LEGAL-EFFECT-001 #6319](https://github.com/Luminous-Dynamics/mycelix/issues/6319) owns that host-level integration.
 
+## Evidence correction and revocation propagation
+
+The module `evidence_invalidation.rs` adds a deterministic dependency index over canonical event/source references. It answers a critical operational question: when a source is corrected, revoked or challenged, which derived assertions, authority assessments and external-status projections must no longer be presented as current?
+
+Artifacts:
+- [Evidence invalidation graph JSON Schema](../schemas/evidence-invalidation-graph-v0.schema.json)
+- [Synthetic dependency graph example](../examples/evidence-invalidation-graph-synthetic-v0.json)
+- [Rust reference implementation](../src/core/src/evidence_invalidation.rs)
+
+The graph is a **rebuildable index**, not a second evidence ledger. It stores references and dependency edges; canonical source events remain in the owning Mycelix or external system. Invalidation appends causal records and does not delete or rewrite source evidence or historical derived records.
+
+The validator requires unique node identities, exact SHA-256 payload digests, existing dependency references, an acyclic dependency graph, known invalidation roots/affected nodes, and a valid causal path from the root to every affected node. For each invalidation event it also requires complete propagation to the root and *every* transitive dependent. A partial event that invalidates the source but omits a dependent projection is rejected.
+
+The operation is deterministic and idempotent for the same event/root/reason. Multiple independent invalidation causes are retained for the same downstream node. Unrelated branches remain current. A rebuild can recompute the index from canonical evidence history without pretending that old records never existed.
+
+**Important boundary:** this index marks records as no longer current for downstream reliance. It does not itself revoke a legal right, modify a national register, delete a community record, retract a published copy, or provide access-control enforcement. The host still needs to notify dependent systems and apply each owner's correction, disclosure and appeal process.
+
+The focused harness now includes 33 RRR/decision-packet tests, 27 lifecycle tests and 14 invalidation-graph tests: **74 Rust tests in three production source modules**, plus the table-driven nine-scenario TIB transition vector test within the lifecycle module. This is test inventory, not a passing CI claim.
+
 ## Challenge and absence semantics
 
 The payload permits these independent dispute assessment states:
