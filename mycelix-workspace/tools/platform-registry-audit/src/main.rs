@@ -1,3 +1,5 @@
+mod topology;
+
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -371,6 +373,7 @@ fn atomic_write(path: &Path, contents: &str) -> Result<(), Box<dyn Error>> {
 
 fn run() -> Result<(), Box<dyn Error>> {
     let mut mode = "check";
+    let mut audit_otherrole = false;
     let mut root = env::current_dir()?;
     let args: Vec<String> = env::args().skip(1).collect();
     let mut index = 0;
@@ -378,6 +381,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         match args[index].as_str() {
             "--check" => mode = "check",
             "--write" => mode = "write",
+            "--audit-otherrole" => audit_otherrole = true,
             "--root" => {
                 index += 1;
                 let value = args.get(index).ok_or("--root requires a path")?;
@@ -387,13 +391,20 @@ fn run() -> Result<(), Box<dyn Error>> {
                 println!(
                     "Usage: mycelix-platform-registry-audit [--check|--write] [--root PATH]\n\
                      --check  verify the committed snapshot against hApp manifests (default)\n\
-                     --write  refresh role/profile/path/hash data, preserving human annotations"
+                     --write  refresh role/profile/path/hash data, preserving human annotations\n\
+                     --audit-otherrole  emit advisory AST inventory of OtherRole call sites"
                 );
                 return Ok(());
             }
             unknown => return Err(format!("unknown argument '{unknown}'").into()),
         }
         index += 1;
+    }
+
+    if audit_otherrole {
+        let report = topology::audit(&root)?;
+        println!("{}", serde_json::to_string_pretty(&report)?);
+        return Ok(());
     }
 
     let unified = load_manifest(&root, "unified", UNIFIED_PATH)?;
