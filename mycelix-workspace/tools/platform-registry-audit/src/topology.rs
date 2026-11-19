@@ -6,7 +6,6 @@
 //! as candidates rather than asserting that matching role names prove DNA
 //! identity. Findings remain advisory until mapping coverage is qualified.
 
-use proc_macro2::Span;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
@@ -53,6 +52,8 @@ struct CallSite {
     owner_manifest: Option<String>,
     owner_happ_name: Option<String>,
     caller_roles: Vec<String>,
+    owner_role_dna_paths: BTreeMap<String, String>,
+    owner_manifest_git_blob_sha: Option<String>,
     target_role: Option<String>,
     target_expression: String,
     classification: String,
@@ -124,7 +125,7 @@ impl<'ast> Visit<'ast> for OtherRoleVisitor<'_> {
 }
 
 fn quote_expression(expr: &Expr) -> String {
-    quote::ToTokens::to_token_stream(expr).to_string()
+    format!("{expr:?}")
 }
 
 fn extract_role_literal(
@@ -335,6 +336,7 @@ fn audit_source_file(
         .map(|manifest| manifest.role_names.clone())
         .unwrap_or_default();
 
+    let call_count = visitor.calls.len();
     let mut results = Vec::new();
     for (line, target_role, expression) in visitor.calls {
         let (classification, target_present_in_owner_profile, target_present_elsewhere, matching) =
@@ -365,6 +367,8 @@ fn audit_source_file(
             owner_manifest: owner.map(|manifest| relative_path(root, &manifest.path)),
             owner_happ_name: owner.map(|manifest| manifest.name.clone()),
             caller_roles: owner_roles.iter().cloned().collect(),
+            owner_role_dna_paths: owner.map(|manifest| manifest.dna_paths.clone()).unwrap_or_default(),
+            owner_manifest_git_blob_sha: owner.and_then(|manifest| manifest.git_blob_sha.clone()),
             target_role,
             target_expression: expression,
             classification: classification.to_string(),
@@ -375,17 +379,7 @@ fn audit_source_file(
         });
     }
 
-    Ok((results, raw_contains_other_role && results_is_empty(&text, source, manifests)?))
-}
-
-fn results_is_empty(
-    _text: &str,
-    _source: &Path,
-    _manifests: &[ManifestInfo],
-) -> Result<bool, Box<dyn Error>> {
-    // Kept separate so raw-text-only occurrences are visibly counted as
-    // potential macro/comment occurrences rather than silently ignored.
-    Ok(true)
+    Ok((results, raw_contains_other_role && call_count == 0))
 }
 
 pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
@@ -486,6 +480,13 @@ pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
                 mapped_source_file_count as f64 / source_file_count as f64
             }
         },
+        "manifests": manifests.iter().map(|manifest| json!({
+            "name": manifest.name,
+            "path": relative_path(root, &manifest.path),
+            "git_blob_sha": manifest.git_blob_sha,
+            "roles": manifest.role_names,
+            "role_dna_paths": manifest.dna_paths
+        })).collect::<Vec<_>>(),
         "manifest_errors": manifest_errors,
         "parse_errors": parse_errors,
         "raw_text_only_occurrence_files": raw_text_only_files,
