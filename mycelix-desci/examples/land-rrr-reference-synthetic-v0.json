@@ -48,5 +48,14 @@
   ],
   "access_policy_reference": "urn:synthetic:mycelix:access-policy:community-controlled",
   "claim_ceiling": "reference-only-no-legal-effect",
-  "notes": "Synthetic, non-personal example. The purpose-tagged references resolve to one LAND-STEWARD measurement-authorization record. Its measurement consent is granted and site access is authorized, but publication consent is not-requested and policy is private. The existence of the publication reference does not grant publication permission. No real land right, title, authority or community is represented."
+  "notes": "Synthetic, non-personal example. The purpose-tagged references resolve to one LAND-STEWARD measurement-authorization record. Its measurement consent is granted and site access is authorized, but publication consent is not-requested and policy is private. The existence of the publication reference does not grant publication permission. No real land right, title, authority or community is represented. The optional spatial qualification reference pins an exact Sol Atlas metadata record; it does not copy geometry and cannot promote the RRR claim to legal effect.",
+  "spatial_qualification_reference": {
+    "source_system": "sol-atlas",
+    "schema": "luminous.territorial-spatial-qualification.v0",
+    "schema_uri": "https://luminousdynamics.io/schemas/territorial-spatial-qualification-v0.schema.json",
+    "record_reference": "urn:synthetic:sol-atlas:spatial-qualification:record-001",
+    "record_id": "synthetic-3d-record-001",
+    "record_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "claim_ceiling": "reference_only_no_legal_effect"
+  }
 }
