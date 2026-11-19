@@ -1325,6 +1325,9 @@
     "caller_supplied_operation_denominator_allowed": false,
     "require_append_only_sequence": true,
     "require_canonical_sha256_digest": true,
-    "require_runner_attestation_for_execution_claim": true
+    "require_runner_attestation_for_execution_claim": true,
+    "expected_ledger_digest_from_frozen_plan": true,
+    "verify_ledger_digest_against_pre_dispatch_commitment": true,
+    "plan_attestation_required_for_executed_pass": true
   }
 }
