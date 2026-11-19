@@ -547,8 +547,18 @@ mod tests {
                 .collect::<Vec<_>>();
             current.sort();
 
-            assert_eq!(invalidated, scenario.expected_invalidated, "invalidated set for {}", scenario.scenario_id);
-            assert_eq!(current, scenario.expected_current, "current set for {}", scenario.scenario_id);
+            assert_eq!(
+                invalidated,
+                scenario.expected_invalidated,
+                "invalidated set for {}",
+                scenario.scenario_id
+            );
+            assert_eq!(
+                current,
+                scenario.expected_current,
+                "current set for {}",
+                scenario.scenario_id
+            );
             assert_eq!(
                 graph.invalidations.len(),
                 scenario.expected_record_count,
