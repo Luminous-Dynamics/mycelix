@@ -3854,16 +3854,18 @@ mod tests {
 
     #[tokio::test]
     async fn nixward_resolution_lease_expiry_blocks_late_execution_before_socket() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
         let logical_request_id = "0123456789abcdef0123456789abcdef";
-        let address: SocketAddr = "127.0.0.1:9".parse().unwrap();
         let addresses = vec![address];
+        let valid_until = std::time::Instant::now() + Duration::from_secs(1);
         let snapshot = EgressResolutionSnapshot::from_verified_nixward_lease(
             "prism-lease-expiry.test",
             address.port(),
             logical_request_id,
             0,
             addresses.clone(),
-            std::time::Instant::now() + Duration::from_millis(80),
+            valid_until,
             canonical_address_set_digest(&addresses),
             "11".repeat(32),
             "22".repeat(32),
@@ -3875,11 +3877,12 @@ mod tests {
         };
         let client =
             PublicEgressClient::with_test_resolver(EgressLimits::default(), resolver);
+        let url = format!("http://prism-lease-expiry.test:{}/", address.port());
         let capability = client
             .authorize_with_authority_and_correlation(
                 EgressAuthority::PublicWeb,
                 Method::GET,
-                "http://prism-lease-expiry.test:9/",
+                &url,
                 HeaderMap::new(),
                 Vec::new(),
                 logical_request_id,
@@ -3888,11 +3891,16 @@ mod tests {
             .await
             .unwrap();
 
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        tokio::time::sleep(Duration::from_millis(1_100)).await;
         let result = client.execute(capability).await;
         assert!(matches!(result, Err(EgressError::CapabilityExpired)));
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), listener.accept())
+                .await
+                .is_err(),
+            "expired capability must not open a socket"
+        );
     }
-
     #[tokio::test]
     async fn nixward_resolution_digests_survive_pinned_http_execution_into_receipt() {
         use tokio::io::AsyncWriteExt;
