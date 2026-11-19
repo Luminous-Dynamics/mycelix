@@ -1,0 +1,678 @@
+{
+  "schema_version": "mycelix-mcrb-v0.1",
+  "benchmark_id": "MCRB",
+  "status": "proposed-no-results",
+  "purpose": "Measure correctness, coordination performance, privacy and recoverability under matched and explicitly stated semantics.",
+  "execution_principle": "correctness-gate-before-performance",
+  "scale_ladder": [
+    {
+      "tier": "smoke",
+      "conductors_min": 3,
+      "conductors_max": 5,
+      "mode": "real-conductors-required"
+    },
+    {
+      "tier": "development",
+      "conductors": 20,
+      "mode": "real-conductors-required"
+    },
+    {
+      "tier": "qualification",
+      "conductors": 100,
+      "mode": "real-conductors-required"
+    },
+    {
+      "tier": "stress",
+      "conductors_min": 500,
+      "mode": "exploratory-real-conductors-or-explicitly-labelled-simulation"
+    }
+  ],
+  "comparators": [
+    {
+      "id": "holochain-0.6.1",
+      "class": "runtime-baseline",
+      "direct_comparison": "yes-after-semantic-equivalence",
+      "notes": "Use only an exact reproducible Holochain 0.6.1 runtime and declared hApp contract."
+    },
+    {
+      "id": "holochain-0.7.1",
+      "class": "runtime-candidate",
+      "direct_comparison": "yes-after-semantic-equivalence",
+      "notes": "Must pass dependency closure, fresh-conductor, multi-agent and client gates before qualification."
+    },
+    {
+      "id": "postgresql-single-writer-outbox",
+      "class": "centralized-architecture-baseline",
+      "direct_comparison": "same-intent-slice-only",
+      "notes": "Report its centralized authority and consistency semantics; do not imply peer-authority equivalence."
+    },
+    {
+      "id": "hyperledger-fabric-caliper",
+      "class": "permissioned-ledger-baseline",
+      "direct_comparison": "same-intent-slice-only",
+      "notes": "Pin version-matched Caliper, endorsement policy and ordering/finality settings."
+    },
+    {
+      "id": "libp2p-iroh-ipfs",
+      "class": "network-or-storage-component",
+      "direct_comparison": "component-only",
+      "notes": "Not an application-authority comparator unless validation, authorization, privacy and recovery semantics are built above it."
+    }
+  ],
+  "metrics": [
+    {
+      "id": "p50_latency_ms",
+      "unit": "ms",
+      "aggregation": "p50"
+    },
+    {
+      "id": "p95_latency_ms",
+      "unit": "ms",
+      "aggregation": "p95"
+    },
+    {
+      "id": "p99_latency_ms",
+      "unit": "ms",
+      "aggregation": "p99"
+    },
+    {
+      "id": "qualified_operations_per_second",
+      "unit": "operations/s",
+      "aggregation": "rate"
+    },
+    {
+      "id": "dht_convergence_ms",
+      "unit": "ms",
+      "aggregation": "distribution"
+    },
+    {
+      "id": "revocation_enforcement_ms",
+      "unit": "ms",
+      "aggregation": "distribution"
+    },
+    {
+      "id": "restore_duration_ms",
+      "unit": "ms",
+      "aggregation": "distribution"
+    },
+    {
+      "id": "cpu_seconds",
+      "unit": "CPU-s",
+      "aggregation": "sum"
+    },
+    {
+      "id": "peak_rss_bytes",
+      "unit": "bytes",
+      "aggregation": "max"
+    },
+    {
+      "id": "disk_growth_bytes",
+      "unit": "bytes",
+      "aggregation": "delta"
+    },
+    {
+      "id": "network_bytes",
+      "unit": "bytes",
+      "aggregation": "sum"
+    },
+    {
+      "id": "energy_joules",
+      "unit": "J",
+      "aggregation": "sum-if-instrumented"
+    },
+    {
+      "id": "false_authorize_count",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "private_payload_leak_count",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "duplicate_effect_count",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "lost_acknowledged_records",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "oracle_mismatch_count",
+      "unit": "count",
+      "aggregation": "sum"
+    }
+  ],
+  "hard_gates": [
+    {
+      "id": "false-authorization",
+      "metric": "false_authorize_count",
+      "operator": "eq",
+      "value": 0
+    },
+    {
+      "id": "private-data-leakage",
+      "metric": "private_payload_leak_count",
+      "operator": "eq",
+      "value": 0
+    },
+    {
+      "id": "duplicate-external-effect",
+      "metric": "duplicate_effect_count",
+      "operator": "eq",
+      "value": 0
+    },
+    {
+      "id": "acknowledged-record-loss",
+      "metric": "lost_acknowledged_records",
+      "operator": "eq",
+      "value": 0
+    },
+    {
+      "id": "oracle-agreement",
+      "metric": "oracle_mismatch_count",
+      "operator": "eq",
+      "value": 0
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "MCRB-01",
+      "scenario_id": "single-agent-append-read",
+      "objective": "Measure authored append/read cost and integrity behavior",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "no-invalid-history-rewrite",
+        "source-author-bound"
+      ],
+      "fault_injection": [
+        "malformed-entry",
+        "wrong-author",
+        "duplicate-identity"
+      ],
+      "required_metrics": [
+        "success_rate",
+        "p50_latency_ms",
+        "p95_latency_ms",
+        "p99_latency_ms",
+        "cpu_seconds",
+        "bytes_written"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-02",
+      "scenario_id": "multi-agent-publication",
+      "objective": "Measure publication and retrieval across multiple independent agents",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "valid-record-integrity",
+        "author-bound-provenance"
+      ],
+      "fault_injection": [
+        "peer-offline",
+        "late-joiner",
+        "duplicate-publication"
+      ],
+      "required_metrics": [
+        "publication_success_rate",
+        "time_to_first_remote_read_ms",
+        "dht_convergence_ms",
+        "network_bytes"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-03",
+      "scenario_id": "dht-convergence",
+      "objective": "Measure time until expected peers can retrieve valid records",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "convergence-within-declared-envelope",
+        "no-invalid-record-promotion"
+      ],
+      "fault_injection": [
+        "packet-loss",
+        "peer-churn",
+        "partial-arc"
+      ],
+      "required_metrics": [
+        "dht_convergence_ms",
+        "stale_read_rate",
+        "peer_coverage",
+        "network_bytes"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-04",
+      "scenario_id": "cross-role-workflow",
+      "objective": "Qualify a multi-DNA workflow against the actual hApp role topology",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "all-roles-declared",
+        "typed-response-binding",
+        "no-authority-escalation"
+      ],
+      "fault_injection": [
+        "missing-role",
+        "wrong-role",
+        "unavailable-target",
+        "malformed-response"
+      ],
+      "required_metrics": [
+        "workflow_latency_ms",
+        "workflow_success_rate",
+        "cross_role_calls",
+        "denial_rate"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-05",
+      "scenario_id": "partition-rejoin",
+      "objective": "Verify safe operation and reconciliation through network partitions",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "no-silent-overwrite",
+        "unknown-outcome-reconciled",
+        "eventual-valid-convergence"
+      ],
+      "fault_injection": [
+        "partition",
+        "asymmetric-link",
+        "simultaneous-writes",
+        "late-rejoin"
+      ],
+      "required_metrics": [
+        "rejoin_time_ms",
+        "reconciliation_time_ms",
+        "conflict_count",
+        "lost_acknowledged_records"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-06",
+      "scenario_id": "capability-revocation",
+      "objective": "Measure revocation propagation and protected-effect enforcement",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "zero-protected-effects-after-revocation-barrier",
+        "stale-grant-denied"
+      ],
+      "fault_injection": [
+        "delayed-dht-visibility",
+        "in_flight-call",
+        "stale-hash",
+        "duplicate-revoke"
+      ],
+      "required_metrics": [
+        "revocation_visibility_ms",
+        "revocation_enforcement_ms",
+        "false_authorize_count"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-07",
+      "scenario_id": "direct-signal-security",
+      "objective": "Qualify direct-signal capability and sender identity behavior",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "explicit-grant-required",
+        "sender-identity-bound",
+        "wire-version-mismatch-denied"
+      ],
+      "fault_injection": [
+        "missing-grant",
+        "wrong-sender",
+        "self-directed-signal",
+        "0.7.0-0.7.1-wire-mismatch"
+      ],
+      "required_metrics": [
+        "signal_delivery_rate",
+        "signal_latency_ms",
+        "unauthorized_signal_count"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-08",
+      "scenario_id": "duplicate-replay-uncertain-outcome",
+      "objective": "Prevent duplicate effects when outcomes are lost or retried",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "unknown-outcome-reconciled-before-retry",
+        "idempotency-key-enforced",
+        "zero-duplicate-effects"
+      ],
+      "fault_injection": [
+        "response-timeout-after-commit",
+        "request-replay",
+        "duplicate-receipt",
+        "process-crash"
+      ],
+      "required_metrics": [
+        "duplicate_effect_count",
+        "reconciliation_time_ms",
+        "ambiguous_outcome_count"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-09",
+      "scenario_id": "source-chain-recovery",
+      "objective": "Verify public source-chain restoration on the declared runtime and key identity",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "expected-agent-key-preserved",
+        "restore-state-explicit",
+        "no-private-data-promotion"
+      ],
+      "fault_injection": [
+        "missing-peer",
+        "partial-replica",
+        "wrong-agent-key",
+        "restore-timeout"
+      ],
+      "required_metrics": [
+        "restore_success_rate",
+        "restore_duration_ms",
+        "restored_record_count",
+        "unavailable_record_count"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-10",
+      "scenario_id": "application-export-import",
+      "objective": "Test semantic application data export/import across runtime generations",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "source-lineage-preserved",
+        "old-action-hash-not-reused-as-new",
+        "external-effect-not-inferred"
+      ],
+      "fault_injection": [
+        "schema-evolution",
+        "partial-export",
+        "duplicate-import",
+        "missing-evidence-reference"
+      ],
+      "required_metrics": [
+        "export_duration_ms",
+        "import_duration_ms",
+        "reconciliation_mismatch_count",
+        "records_reconstructed"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-11",
+      "scenario_id": "private-public-boundary",
+      "objective": "Verify private/source-chain-only records never leak into public channels",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "zero-private-payload-leakage",
+        "visibility-policy-preserved"
+      ],
+      "fault_injection": [
+        "signal-serialization",
+        "log-capture",
+        "projection-index",
+        "analytics-export"
+      ],
+      "required_metrics": [
+        "private_payload_leak_count",
+        "policy_denial_count",
+        "audit_coverage"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-12",
+      "scenario_id": "adversarial-peers",
+      "objective": "Test validation and policy rejection under malicious or defective peer inputs",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "zero-false-authorization",
+        "invalid-record-rejected",
+        "equivocation-observable"
+      ],
+      "fault_injection": [
+        "forged-author",
+        "stale-claim",
+        "revoked-issuer",
+        "equivocation",
+        "wrong-scope",
+        "wrong-type"
+      ],
+      "required_metrics": [
+        "false_authorize_count",
+        "invalid_record_accept_count",
+        "equivocation_detection_ms"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-13",
+      "scenario_id": "resource-exhaustion",
+      "objective": "Bound mutation, validation and query amplification",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "bounded-resource-use",
+        "rate-limit-enforced",
+        "fail-closed-on-exhaustion"
+      ],
+      "fault_injection": [
+        "request-flood",
+        "large-entry",
+        "validation-fanout",
+        "retry-storm"
+      ],
+      "required_metrics": [
+        "cpu_seconds",
+        "peak_rss_bytes",
+        "disk_growth_bytes",
+        "network_bytes",
+        "rejection_rate"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    },
+    {
+      "id": "MCRB-14",
+      "scenario_id": "deployment-profile-composition",
+      "objective": "Verify unified/resilience role composition and target-call completeness",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "manifest-snapshot-matches",
+        "all-target-roles-declared",
+        "no-hidden-role-assumption"
+      ],
+      "fault_injection": [
+        "missing-dna-artifact",
+        "stale-registry-snapshot",
+        "undeclared-otherrole"
+      ],
+      "required_metrics": [
+        "role_coverage",
+        "undeclared_target_count",
+        "manifest_drift_count"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ]
+    }
+  ],
+  "receipt_schema": "MCRB_V0_1_RUN_RECEIPT.schema.json"
+}
