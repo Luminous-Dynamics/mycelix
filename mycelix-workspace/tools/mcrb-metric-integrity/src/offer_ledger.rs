@@ -7,13 +7,15 @@
 //! content integrity; it does not claim that a scheduler actually dispatched
 //! every listed request.
 
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::fmt;
 
 pub const OFFER_LEDGER_SCHEMA_VERSION: &str = "mycelix-mcrb-offer-ledger-v0.1";
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OfferMeasurementWindow {
     pub window_id: String,
     pub clock_source: String,
@@ -24,7 +26,8 @@ pub struct OfferMeasurementWindow {
     pub ticks_per_second: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OfferEntry {
     /// Zero-based, contiguous sequence assigned before dispatch.
     pub sequence: u64,
@@ -38,7 +41,8 @@ pub struct OfferEntry {
     pub scheduled_at_ticks: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OfferLedger {
     pub schema_version: String,
     pub run_id: String,
@@ -78,6 +82,7 @@ pub struct VerifiedOfferLedger {
     digest_sha256: String,
     generator_digest_sha256: String,
     workload_manifest_digest_sha256: String,
+    raw_artifact_digest_sha256: String,
 }
 
 impl VerifiedOfferLedger {
@@ -111,6 +116,10 @@ impl VerifiedOfferLedger {
 
     pub fn workload_manifest_digest_sha256(&self) -> &str {
         &self.workload_manifest_digest_sha256
+    }
+
+    pub fn raw_artifact_digest_sha256(&self) -> &str {
+        &self.raw_artifact_digest_sha256
     }
 }
 
@@ -146,6 +155,8 @@ pub enum OfferLedgerError {
     OfferOutsideMeasurementWindow(usize),
     OfferScheduleReversed(usize),
     LedgerDigestMismatch,
+    Serialization(String),
+    NonCanonicalArtifact,
 }
 
 impl fmt::Display for OfferLedgerError {
@@ -299,6 +310,34 @@ fn derive_window_ns(window: &OfferMeasurementWindow) -> Result<u64, OfferLedgerE
     }
 
     Ok(nanoseconds as u64)
+}
+
+
+/// Serialize the ledger using the single accepted compact JSON representation.
+/// The internal ledger digest does not depend on JSON ordering or whitespace.
+pub fn serialize_offer_ledger_json(
+    ledger: &OfferLedger,
+) -> Result<Vec<u8>, OfferLedgerError> {
+    serde_json::to_vec(ledger).map_err(|error| OfferLedgerError::Serialization(error.to_string()))
+}
+
+/// Parse and verify an exact canonical JSON artifact.
+///
+/// Non-canonical whitespace/key ordering is rejected so the receipt artifact
+/// digest and the typed ledger refer to the same byte sequence. Unknown and
+/// duplicate struct fields are rejected by the deny_unknown_fields Serde
+/// representation.
+pub fn verify_offer_ledger_json(
+    raw_json: &[u8],
+    expected: &OfferLedgerExpectation,
+) -> Result<VerifiedOfferLedger, OfferLedgerError> {
+    let ledger: OfferLedger = serde_json::from_slice(raw_json)
+        .map_err(|error| OfferLedgerError::Serialization(error.to_string()))?;
+    let canonical = serialize_offer_ledger_json(&ledger)?;
+    if canonical != raw_json {
+        return Err(OfferLedgerError::NonCanonicalArtifact);
+    }
+    verify_offer_ledger(&ledger, expected)
 }
 
 /// Verify a content-addressed offer ledger against frozen run expectations.
@@ -457,6 +496,9 @@ pub fn verify_offer_ledger(
         return Err(OfferLedgerError::LedgerDigestMismatch);
     }
 
+    let canonical_artifact = serialize_offer_ledger_json(ledger)?;
+    let raw_artifact_digest_sha256 = sha256_hex(&canonical_artifact);
+
     Ok(VerifiedOfferLedger {
         run_id: ledger.run_id.clone(),
         scenario_id: ledger.scenario_id.clone(),
@@ -466,6 +508,7 @@ pub fn verify_offer_ledger(
         digest_sha256: computed_digest,
         generator_digest_sha256: ledger.generator_digest_sha256.clone(),
         workload_manifest_digest_sha256: ledger.workload_manifest_digest_sha256.clone(),
+        raw_artifact_digest_sha256,
     })
 }
 
