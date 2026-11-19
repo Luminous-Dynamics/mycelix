@@ -30,7 +30,7 @@ pub enum MetricIssue {
     NonMonotonicDurationClock(String),
     SampleForUnexpectedPeer(String),
     EmptyOperationId(usize),
-    DuplicateOperationId(String),
+    DuplicatePeerOperationSample(String, String),
     MissingPeerSamples(String),
     NonFiniteDuration(usize),
     NegativeDuration(usize),
@@ -284,10 +284,13 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
 
         if sample.operation_id.trim().is_empty() {
             push_unique(&mut issues, MetricIssue::EmptyOperationId(index));
-        } else if !operation_ids.insert(sample.operation_id.clone()) {
+        } else if !operation_ids.insert((sample.peer_id.clone(), sample.operation_id.clone())) {
             push_unique(
                 &mut issues,
-                MetricIssue::DuplicateOperationId(sample.operation_id.clone()),
+                MetricIssue::DuplicatePeerOperationSample(
+                    sample.peer_id.clone(),
+                    sample.operation_id.clone(),
+                ),
             );
         }
 
@@ -569,9 +572,9 @@ mod tests {
 
         let report = validate_batch(&config, &batch);
         assert_eq!(report.status, IntegrityStatus::Invalid);
-        assert!(report
-            .issues
-            .contains(&MetricIssue::DuplicateOperationId("op-1".into())));
+        assert!(report.issues.contains(
+            &MetricIssue::DuplicatePeerOperationSample("peer-b".into(), "op-1".into())
+        ));
     }
 
     #[test]
