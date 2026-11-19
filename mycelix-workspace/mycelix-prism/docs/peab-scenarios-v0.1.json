@@ -723,6 +723,32 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "LEASE-001",
+      "family": "resolution_lease_binding",
+      "title": "verified Nixward snapshot binds exact request and clamps capability expiry",
+      "setup": "resolver adapter supplies a structurally validated lease snapshot with exact hostname, port, logical request ID, redirect hop, address-set digest, lease digest, resolver snapshot digest and validity",
+      "expected_decision": "issue_bounded_capability",
+      "oracle": "Prism retains the exact ID/hop and digests, uses the complete authorized socket set, and capability expiry is no later than the lease validity or local capability TTL",
+      "source_coverage": "present",
+      "source_test": "nixward_resolution_snapshot_binds_request_and_clamps_capability_expiry",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
+    },
+    {
+      "id": "LEASE-002",
+      "family": "resolution_lease_binding",
+      "title": "reject resolution snapshot digest, port, identity or expiry mismatch",
+      "setup": "mutate address-set digest, socket port, hostname/logical ID, or lease validity while retaining the caller's request",
+      "expected_decision": "deny_before_capability",
+      "oracle": "mismatched address digest, port or request binding and expired validity produce no EgressCapability",
+      "source_coverage": "present",
+      "source_test": "nixward_resolution_snapshot_rejects_mismatched_scope_before_capability",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
