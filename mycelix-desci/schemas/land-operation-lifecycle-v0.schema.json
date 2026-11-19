@@ -171,7 +171,11 @@
             "receipt_reference",
             "receipt_sha256",
             "projection_reference",
-            "projection_scope_reference"
+            "projection_scope_reference",
+            "authority_profile_reference",
+            "qualification_reference",
+            "verifier_reference",
+            "qualification_sha256"
           ],
           "properties": {
             "state": {
@@ -194,6 +198,64 @@
               "minLength": 1
             },
             "projection_scope_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "authority_profile_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "qualification_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "verifier_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "qualification_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "attempt_id",
+            "receipt_reference",
+            "receipt_sha256",
+            "projection_reference",
+            "invalidation_evidence_reference",
+            "reason"
+          ],
+          "properties": {
+            "state": {
+              "const": "external_status_invalidated"
+            },
+            "attempt_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "receipt_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "receipt_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "projection_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "invalidation_evidence_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reason": {
               "type": "string",
               "minLength": 1
             }
