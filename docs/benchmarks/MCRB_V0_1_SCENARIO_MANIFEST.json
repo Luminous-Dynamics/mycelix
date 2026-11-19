@@ -914,7 +914,7 @@
     "crate_path": "mycelix-workspace/tools/mcrb-metric-integrity",
     "crate_name": "mycelix-mcrb-metric-integrity",
     "api": "validate_batch",
-    "status": "source-and-tests-authored-ci-pending-local-monotonic-tick-derivation",
+    "status": "local-monotonic-tick-derived-source-authored-ci-pending-cross-host-events-unqualified",
     "output_states": [
       "valid",
       "invalid",
