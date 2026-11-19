@@ -1,0 +1,1449 @@
+{
+  "schema_version": "1.0.0",
+  "benchmark_id": "CP-CREDITISM-SEMANTIC-BOUNDARY-001",
+  "profile_id": "common-planet-creditism",
+  "evaluation_state": "contract_fixture_only",
+  "claim_ceiling": "ReferenceModelOnly",
+  "data_classification": "synthetic",
+  "units": "synthetic profile-specific units; not monetary valuation",
+  "related_owners": [
+    "mycelix#4572",
+    "mycelix#4573",
+    "mycelix#4771",
+    "mycelix#5366",
+    "symthaea#7031"
+  ],
+  "source_semantics": {
+    "personal_credit": {
+      "transferable": false,
+      "lendable": false,
+      "collateralizable": false,
+      "interest_bearing": false,
+      "autonomous_investment_return": false,
+      "inherit_as_concentrated_power": false
+    },
+    "community_credit": {
+      "transferable_to_personal_credit": false,
+      "requires_declared_authorization": true,
+      "requires_known_physical_capacity": true
+    },
+    "separation_invariants": [
+      "buyer_credit_deletion != seller_financial_payment",
+      "consumer_settlement != contribution_recognition",
+      "contribution_recognition != moral_worth",
+      "credit_balance != wealth",
+      "credit_issuance != productive_capacity",
+      "allocation_authorization != resource_reservation != physical_delivery",
+      "unknown_sna_mapping != ordinary_financial_instrument",
+      "stored personal credit != transferable wealth",
+      "external conventional liability != domestic personal credit offset",
+      "evaluator identity != verification authority",
+      "event frequency != contribution value",
+      "latent outcome != observed evidence",
+      "future negative evidence != current qualified observation",
+      "care/maintenance visibility != contribution value",
+      "delayed negative evidence != automatic retroactive reversal"
+    ],
+    "uncertainty_policy": "Unknown or disputed inputs do not grant optimistic capacity or authorize issuance; preserve an explicit Unknown/Indeterminate/PendingAppeal disposition."
+  },
+  "case_count": 37,
+  "cases": [
+    {
+      "id": "cp-pc-baseline-issuance",
+      "category": "issuance-accounting",
+      "title": "Baseline Personal Credit issuance is not a financial asset",
+      "input": {
+        "operation": "issue_personal_credit",
+        "instrument": "PersonalCredit",
+        "reason": "baseline",
+        "amount": 100,
+        "unit": "synthetic_PC",
+        "recipient_scope": "person"
+      },
+      "expected": {
+        "decision": "Allow",
+        "disposition": "ProfileMapped",
+        "effects": [
+          "personal_credit_balance_increase"
+        ],
+        "prohibited_inferences": [
+          "ordinary_financial_asset",
+          "seller_payment",
+          "debt_claim"
+        ]
+      }
+    },
+    {
+      "id": "cp-purchase-deletion",
+      "category": "settlement-separation",
+      "title": "Buyer Personal Credit deletion does not imply seller payment",
+      "input": {
+        "operation": "delete_personal_credit",
+        "instrument": "PersonalCredit",
+        "reason": "consumer_purchase",
+        "amount": 12,
+        "unit": "synthetic_PC",
+        "buyer_event_id": "urn:uuid:10000000-0000-4000-8000-000000000101",
+        "seller_payment_observed": false,
+        "contribution_evidence_refs": []
+      },
+      "expected": {
+        "decision": "Allow",
+        "disposition": "ProfileMapped",
+        "effects": [
+          "buyer_personal_credit_balance_decrease"
+        ],
+        "prohibited_inferences": [
+          "seller_payment",
+          "contribution_recognition",
+          "producer_financial_asset"
+        ]
+      }
+    },
+    {
+      "id": "cp-settlement-not-contribution",
+      "category": "contribution-evidence",
+      "title": "Transaction settlement alone cannot issue contribution credit",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "milestone",
+        "amount": 8,
+        "criteria_digest": null,
+        "evidence_refs": [],
+        "verifier_authority_scope": null,
+        "corroboration_state": "missing",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": true
+      },
+      "expected": {
+        "decision": "Indeterminate",
+        "disposition": "Unknown",
+        "effects": [],
+        "prohibited_inferences": [
+          "contribution_credit_issuance",
+          "moral_worth_score"
+        ]
+      }
+    },
+    {
+      "id": "cp-qualified-contribution",
+      "category": "contribution-evidence",
+      "title": "Qualified contribution recognition stays separate from settlement",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "milestone",
+        "amount": 8,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:evidence:contribution-17"
+        ],
+        "verifier_authority_scope": "contribution:project-2",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false
+      },
+      "expected": {
+        "decision": "Allow",
+        "disposition": "ProfileMapped",
+        "effects": [
+          "contribution_recognition_recorded",
+          "personal_credit_issuance_allowed"
+        ],
+        "prohibited_inferences": [
+          "moral_worth_score",
+          "causal_impact_without_evidence"
+        ]
+      }
+    },
+    {
+      "id": "cp-pc-transfer-forbidden",
+      "category": "instrument-restrictions",
+      "title": "Personal Credit transfer is prohibited by the selected profile",
+      "input": {
+        "operation": "transfer_personal_credit",
+        "instrument": "PersonalCredit",
+        "amount": 10
+      },
+      "expected": {
+        "decision": "Reject",
+        "disposition": "Unsupported",
+        "effects": [],
+        "prohibited_inferences": [
+          "recipient_balance_change",
+          "gift_or_transfer_authority"
+        ]
+      }
+    },
+    {
+      "id": "cp-pc-lending-forbidden",
+      "category": "instrument-restrictions",
+      "title": "Personal Credit lending is prohibited by the selected profile",
+      "input": {
+        "operation": "lend_personal_credit",
+        "instrument": "PersonalCredit",
+        "amount": 10,
+        "interest_rate": 0
+      },
+      "expected": {
+        "decision": "Reject",
+        "disposition": "Unsupported",
+        "effects": [],
+        "prohibited_inferences": [
+          "loan_claim",
+          "borrower_debt"
+        ]
+      }
+    },
+    {
+      "id": "cp-pc-collateral-forbidden",
+      "category": "instrument-restrictions",
+      "title": "Personal Credit cannot be collateralized",
+      "input": {
+        "operation": "collateralize_personal_credit",
+        "instrument": "PersonalCredit",
+        "amount": 10,
+        "secured_obligation": "urn:synthetic:debt:2"
+      },
+      "expected": {
+        "decision": "Reject",
+        "disposition": "Unsupported",
+        "effects": [],
+        "prohibited_inferences": [
+          "security_interest",
+          "recoverable_collateral"
+        ]
+      }
+    },
+    {
+      "id": "cp-pc-interest-forbidden",
+      "category": "instrument-restrictions",
+      "title": "Personal Credit cannot earn interest",
+      "input": {
+        "operation": "accrue_interest",
+        "instrument": "PersonalCredit",
+        "amount": 10,
+        "rate": 0.05,
+        "periods": 1
+      },
+      "expected": {
+        "decision": "Reject",
+        "disposition": "Unsupported",
+        "effects": [],
+        "prohibited_inferences": [
+          "interest_income",
+          "yield_claim"
+        ]
+      }
+    },
+    {
+      "id": "cp-pc-autonomous-investment-forbidden",
+      "category": "instrument-restrictions",
+      "title": "Personal Credit cannot generate autonomous investment return",
+      "input": {
+        "operation": "invest_for_return",
+        "instrument": "PersonalCredit",
+        "principal": 10,
+        "return_amount": 2
+      },
+      "expected": {
+        "decision": "Reject",
+        "disposition": "Unsupported",
+        "effects": [],
+        "prohibited_inferences": [
+          "investment_asset",
+          "autonomous_return"
+        ]
+      }
+    },
+    {
+      "id": "cp-pc-concentrated-inheritance-forbidden",
+      "category": "instrument-restrictions",
+      "title": "Personal Credit cannot be concentrated through inheritance",
+      "input": {
+        "operation": "inherit_concentrated_personal_credit",
+        "instrument": "PersonalCredit",
+        "amount": 50,
+        "beneficiary_scope": "single_heir"
+      },
+      "expected": {
+        "decision": "Reject",
+        "disposition": "Unsupported",
+        "effects": [],
+        "prohibited_inferences": [
+          "inherited_concentrated_power",
+          "transferable_wealth"
+        ]
+      }
+    },
+    {
+      "id": "cp-community-allocation-within-capacity",
+      "category": "real-capacity",
+      "title": "Community Credit allocation remains restricted and capacity-bounded",
+      "input": {
+        "operation": "allocate_community_credit",
+        "instrument": "CommunityCredit",
+        "requested_amount": 40,
+        "available_capacity": 50,
+        "capacity_state": "known",
+        "account_scope": "community_project",
+        "authorization_state": "authorized",
+        "resource_type": "water"
+      },
+      "expected": {
+        "decision": "Allow",
+        "disposition": "ProfileMapped",
+        "effects": [
+          "restricted_community_credit_allocation_recorded"
+        ],
+        "prohibited_inferences": [
+          "personal_credit_balance_increase",
+          "physical_delivery",
+          "project_completion"
+        ]
+      }
+    },
+    {
+      "id": "cp-community-allocation-unknown-capacity",
+      "category": "real-capacity",
+      "title": "Unknown real capacity cannot be treated as unlimited",
+      "input": {
+        "operation": "allocate_community_credit",
+        "instrument": "CommunityCredit",
+        "requested_amount": 40,
+        "available_capacity": null,
+        "capacity_state": "unknown",
+        "account_scope": "community_project",
+        "authorization_state": "authorized",
+        "resource_type": "water"
+      },
+      "expected": {
+        "decision": "Indeterminate",
+        "disposition": "Unknown",
+        "effects": [],
+        "prohibited_inferences": [
+          "unlimited_capacity",
+          "physical_delivery"
+        ]
+      }
+    },
+    {
+      "id": "cp-community-allocation-over-capacity",
+      "category": "real-capacity",
+      "title": "Community allocation beyond known capacity is rejected",
+      "input": {
+        "operation": "allocate_community_credit",
+        "instrument": "CommunityCredit",
+        "requested_amount": 60,
+        "available_capacity": 50,
+        "capacity_state": "known",
+        "account_scope": "community_project",
+        "authorization_state": "authorized",
+        "resource_type": "water"
+      },
+      "expected": {
+        "decision": "Reject",
+        "disposition": "Unsupported",
+        "effects": [],
+        "prohibited_inferences": [
+          "capacity_override",
+          "physical_delivery"
+        ]
+      }
+    },
+    {
+      "id": "cp-bonus-qualified-outcome",
+      "category": "bonus-and-double-counting",
+      "title": "Bonus recognition needs separate outcome evidence",
+      "input": {
+        "operation": "recognize_bonus",
+        "amount": 5,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "outcome_key": "outcome:water-repair-4",
+        "outcome_evidence_refs": [
+          "urn:mycelix:evidence:outcome-4"
+        ],
+        "verifier_authority_scope": "bonus:project-2",
+        "same_outcome_already_counted_in_contribution_pay": false,
+        "dispute_state": "none"
+      },
+      "expected": {
+        "decision": "Allow",
+        "disposition": "ProfileMapped",
+        "effects": [
+          "bonus_recognition_recorded"
+        ],
+        "prohibited_inferences": [
+          "automatic_contribution_pay",
+          "moral_worth_score"
+        ]
+      }
+    },
+    {
+      "id": "cp-bonus-double-count-rejected",
+      "category": "bonus-and-double-counting",
+      "title": "The same outcome cannot be double-counted in pay and bonus",
+      "input": {
+        "operation": "recognize_bonus",
+        "amount": 5,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "outcome_key": "outcome:water-repair-4",
+        "outcome_evidence_refs": [
+          "urn:mycelix:evidence:outcome-4"
+        ],
+        "verifier_authority_scope": "bonus:project-2",
+        "same_outcome_already_counted_in_contribution_pay": true,
+        "dispute_state": "none"
+      },
+      "expected": {
+        "decision": "Reject",
+        "disposition": "Unsupported",
+        "effects": [],
+        "prohibited_inferences": [
+          "double_counted_recognition"
+        ]
+      }
+    },
+    {
+      "id": "cp-exchange-events-separate",
+      "category": "settlement-separation",
+      "title": "Exchange buyer deletion and seller re-credit are distinct events",
+      "input": {
+        "operation": "exchange_pair",
+        "instrument": "PersonalCredit",
+        "buyer_deletion": {
+          "event_id": "urn:uuid:10000000-0000-4000-8000-000000000201",
+          "amount": 12
+        },
+        "seller_recredit": {
+          "event_id": "urn:uuid:10000000-0000-4000-8000-000000000202",
+          "amount": 12
+        },
+        "seller_financial_payment_observed": false
+      },
+      "expected": {
+        "decision": "Allow",
+        "disposition": "ProfileMapped",
+        "effects": [
+          "buyer_personal_credit_deletion_recorded",
+          "seller_personal_credit_recredit_recorded"
+        ],
+        "prohibited_inferences": [
+          "ordinary_seller_financial_asset",
+          "contribution_recognition_from_deletion"
+        ]
+      }
+    },
+    {
+      "id": "cp-sna-unknown-preserved",
+      "category": "accounting-interoperability",
+      "title": "Unknown SNA mapping preserves the Mycelix-native instrument",
+      "input": {
+        "operation": "project_to_sna",
+        "native_instrument": "PersonalCredit",
+        "mapping_disposition": "Unknown",
+        "proposed_sna_category": "deposit",
+        "semantic_equivalence_established": false
+      },
+      "expected": {
+        "decision": "Indeterminate",
+        "disposition": "Unknown",
+        "effects": [
+          "native_instrument_semantics_preserved"
+        ],
+        "prohibited_inferences": [
+          "deposit_equivalence",
+          "financial_asset_coercion"
+        ]
+      }
+    },
+    {
+      "id": "cp-duplicate-evidence-rejected",
+      "category": "contribution-evidence",
+      "title": "Duplicate contribution evidence cannot trigger a second issuance",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "activity",
+        "amount": 3,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:evidence:work-5",
+          "urn:mycelix:evidence:work-5"
+        ],
+        "verifier_authority_scope": "contribution:project-1",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false
+      },
+      "expected": {
+        "decision": "Reject",
+        "disposition": "Unsupported",
+        "effects": [],
+        "prohibited_inferences": [
+          "duplicate_contribution_issuance"
+        ]
+      }
+    },
+    {
+      "id": "cp-disputed-contribution-paused",
+      "category": "appeal-and-governance",
+      "title": "Disputed contribution waits for review and appeal",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "time",
+        "amount": 4,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:evidence:time-9"
+        ],
+        "verifier_authority_scope": "contribution:project-3",
+        "corroboration_state": "qualified",
+        "dispute_state": "disputed",
+        "derived_only_from_transaction_settlement": false,
+        "appeal_route": "appeal:contribution-9"
+      },
+      "expected": {
+        "decision": "PendingAppeal",
+        "disposition": "Unknown",
+        "effects": [],
+        "prohibited_inferences": [
+          "contribution_issuance_before_review",
+          "moral_worth_score"
+        ]
+      }
+    },
+    {
+      "id": "cp-privacy-preserving-contribution",
+      "category": "privacy-and-appeal",
+      "title": "A bounded completion proof need not expose the underlying personal activity",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "milestone",
+        "amount": 2,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:commitment:task-88"
+        ],
+        "verifier_authority_scope": "contribution:project-4",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false,
+        "evidence_privacy_mode": "opaque_commitment",
+        "personal_payload_disclosed": false
+      },
+      "expected": {
+        "decision": "Allow",
+        "disposition": "ProfileMapped",
+        "effects": [
+          "bounded_completion_fact_recorded",
+          "personal_credit_issuance_allowed"
+        ],
+        "prohibited_inferences": [
+          "surveillance_requirement",
+          "moral_worth_score"
+        ]
+      }
+    },
+    {
+      "id": "cp-housing-needs-capacity",
+      "category": "housing-and-real-capacity",
+      "title": "Credit balance alone cannot create a housing entitlement",
+      "input": {
+        "operation": "grant_housing_right",
+        "available_dwelling_count": null,
+        "eligibility_verified": true,
+        "stewardship_agreement": true,
+        "capacity_state": "unknown",
+        "pc_balance": 500
+      },
+      "expected": {
+        "decision": "Indeterminate",
+        "disposition": "Unknown",
+        "effects": [],
+        "prohibited_inferences": [
+          "housing_entitlement_from_credit_balance",
+          "unlimited_housing_capacity"
+        ]
+      }
+    },
+    {
+      "id": "cp-pc-retained-for-future-use",
+      "category": "issuance-accounting",
+      "title": "Personal Credit retained for future use is a balance, not transferable wealth",
+      "input": {
+        "operation": "retain_personal_credit_balance",
+        "instrument": "PersonalCredit",
+        "amount": 20,
+        "reason": "future_use"
+      },
+      "expected": {
+        "decision": "Allow",
+        "disposition": "ProfileMapped",
+        "effects": [
+          "personal_credit_balance_retained"
+        ],
+        "prohibited_inferences": [
+          "transferability",
+          "ordinary_financial_asset",
+          "wealth_equivalence"
+        ]
+      }
+    },
+    {
+      "id": "cp-external-liabilities-coexist",
+      "category": "external-trade-boundary",
+      "title": "Creditism balances coexist with external liabilities without implicit FX netting",
+      "input": {
+        "operation": "project_to_sna",
+        "native_instrument": "PersonalCredit",
+        "mapping_disposition": "Unknown",
+        "semantic_equivalence_established": false,
+        "conventional_external_liabilities": [
+          {
+            "liability_id": "urn:synthetic:liability:foreign-7",
+            "currency": "USD",
+            "amount": 50
+          }
+        ],
+        "fx_conversion_enabled": false
+      },
+      "expected": {
+        "decision": "Indeterminate",
+        "disposition": "Unknown",
+        "effects": [
+          "native_instrument_semantics_preserved",
+          "external_liability_kept_separate"
+        ],
+        "prohibited_inferences": [
+          "direct_offset_of_foreign_liability",
+          "deposit_equivalence",
+          "financial_asset_coercion"
+        ]
+      }
+    },
+    {
+      "id": "cp-contribution-self-attested-no-corroboration",
+      "category": "contribution-evidence",
+      "title": "Self-attested completion without corroboration does not issue contribution credit",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "activity",
+        "amount": 3,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:evidence:self-attested-6"
+        ],
+        "verifier_authority_scope": "contribution:project-5",
+        "corroboration_state": "self_attested",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false
+      },
+      "expected": {
+        "decision": "Indeterminate",
+        "disposition": "Unknown",
+        "effects": [],
+        "prohibited_inferences": [
+          "contribution_credit_issuance",
+          "moral_worth_score"
+        ]
+      }
+    },
+    {
+      "id": "cp-verifier-collusion-rejected",
+      "category": "contribution-evidence",
+      "title": "Declared verifier collusion rejects contribution recognition",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "milestone",
+        "amount": 2,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:evidence:collusion-1"
+        ],
+        "verifier_authority_scope": "contribution:project-6",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false,
+        "verifier_relationship": "colluding"
+      },
+      "expected": {
+        "decision": "Reject",
+        "disposition": "Unsupported",
+        "effects": [],
+        "prohibited_inferences": [
+          "verifier_collusion_not_independent"
+        ]
+      }
+    },
+    {
+      "id": "cp-sybil-identity-unresolved",
+      "category": "contribution-evidence",
+      "title": "Unresolved identity uniqueness remains indeterminate",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "activity",
+        "amount": 2,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:evidence:activity-identity-2"
+        ],
+        "verifier_authority_scope": "contribution:project-6",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false,
+        "identity_uniqueness_state": "unresolved"
+      },
+      "expected": {
+        "decision": "Indeterminate",
+        "disposition": "Unknown",
+        "effects": [],
+        "prohibited_inferences": [
+          "identity_uniqueness_unresolved",
+          "contribution_credit_issuance"
+        ]
+      }
+    },
+    {
+      "id": "cp-task-decomposition-unreviewed",
+      "category": "contribution-evidence",
+      "title": "Unreviewed decomposition of one task cannot mint repeated contribution recognition",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "activity",
+        "amount": 2,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:evidence:decomposed-task-3"
+        ],
+        "verifier_authority_scope": "contribution:project-7",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false,
+        "task_decomposition_state": "unreviewed"
+      },
+      "expected": {
+        "decision": "Indeterminate",
+        "disposition": "Unknown",
+        "effects": [],
+        "prohibited_inferences": [
+          "task_decomposition_unreviewed",
+          "contribution_credit_issuance"
+        ]
+      }
+    },
+    {
+      "id": "cp-frequency-only-metric-rejected",
+      "category": "contribution-evidence",
+      "title": "High event frequency alone cannot stand in for contribution value",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "activity",
+        "amount": 10,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:evidence:frequency-999"
+        ],
+        "verifier_authority_scope": "contribution:project-8",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false,
+        "metric_profile": "event_frequency_only",
+        "quality_evidence_refs": []
+      },
+      "expected": {
+        "decision": "Indeterminate",
+        "disposition": "Unknown",
+        "effects": [],
+        "prohibited_inferences": [
+          "event_frequency_as_contribution_value",
+          "contribution_credit_issuance"
+        ]
+      }
+    },
+    {
+      "id": "cp-outcome-laundering-rejected",
+      "category": "contribution-evidence",
+      "title": "Outcome laundering is rejected rather than promoted to contribution proof",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "milestone",
+        "amount": 5,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:evidence:outcome-launder-4"
+        ],
+        "verifier_authority_scope": "contribution:project-9",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false,
+        "outcome_laundering_flag": true
+      },
+      "expected": {
+        "decision": "Reject",
+        "disposition": "Unsupported",
+        "effects": [],
+        "prohibited_inferences": [
+          "outcome_laundering_detected"
+        ]
+      }
+    },
+    {
+      "id": "cp-verifier-panel-captured",
+      "category": "appeal-and-governance",
+      "title": "Captured verifier panel pauses issuance pending independent review",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "milestone",
+        "amount": 3,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:evidence:panel-capture-1"
+        ],
+        "verifier_authority_scope": "contribution:project-10",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false,
+        "verifier_panel_state": "captured"
+      },
+      "expected": {
+        "decision": "PendingAppeal",
+        "disposition": "Unknown",
+        "effects": [],
+        "prohibited_inferences": [
+          "contribution_issuance_before_review",
+          "verifier_panel_review_required"
+        ]
+      }
+    },
+    {
+      "id": "cp-dispute-appeal-route-missing",
+      "category": "appeal-and-governance",
+      "title": "Missing appeal route does not allow disputed contribution issuance",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "time",
+        "amount": 2,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:evidence:dispute-appeal-2"
+        ],
+        "verifier_authority_scope": "contribution:project-11",
+        "corroboration_state": "qualified",
+        "dispute_state": "disputed",
+        "derived_only_from_transaction_settlement": false,
+        "appeal_route": null
+      },
+      "expected": {
+        "decision": "PendingAppeal",
+        "disposition": "Unknown",
+        "effects": [],
+        "prohibited_inferences": [
+          "contribution_issuance_before_review",
+          "moral_worth_score",
+          "appeal_route_suppression"
+        ]
+      }
+    },
+    {
+      "id": "cp-model-generated-activity-unverified",
+      "category": "contribution-evidence",
+      "title": "Model-generated activity without independent observation cannot qualify as performed work",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "activity",
+        "amount": 4,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:evidence:model-activity-10"
+        ],
+        "verifier_authority_scope": "contribution:project-12",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false,
+        "activity_source": "model_generated",
+        "independently_observed": false
+      },
+      "expected": {
+        "decision": "Indeterminate",
+        "disposition": "Unknown",
+        "effects": [],
+        "prohibited_inferences": [
+          "model_generated_activity_unverified",
+          "contribution_credit_issuance"
+        ]
+      }
+    },
+    {
+      "id": "cp-low-observability-care-qualifies-with-bounded-proof",
+      "category": "contribution-evidence",
+      "title": "Qualified care and maintenance can qualify without a high-frequency activity signal",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "milestone",
+        "amount": 3,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:commitment:care-maintenance-8"
+        ],
+        "verifier_authority_scope": "contribution:care-project-1",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false,
+        "metric_profile": "care_maintenance",
+        "contribution_domain": "care_maintenance",
+        "observation_visibility": "low",
+        "quality_evidence_refs": [
+          "urn:mycelix:evidence:care-maintenance-quality-1"
+        ],
+        "evidence_privacy_mode": "opaque_commitment",
+        "personal_payload_disclosed": false
+      },
+      "expected": {
+        "decision": "Allow",
+        "disposition": "ProfileMapped",
+        "effects": [
+          "bounded_completion_fact_recorded",
+          "personal_credit_issuance_allowed"
+        ],
+        "prohibited_inferences": [
+          "surveillance_requirement",
+          "moral_worth_score"
+        ]
+      }
+    },
+    {
+      "id": "cp-low-observability-care-unqualified-stays-indeterminate",
+      "category": "contribution-evidence",
+      "title": "Low-observability care without qualified corroboration remains indeterminate",
+      "input": {
+        "operation": "recognize_contribution",
+        "recognition_mode": "milestone",
+        "amount": 3,
+        "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "urn:mycelix:commitment:care-maintenance-9"
+        ],
+        "verifier_authority_scope": "contribution:care-project-1",
+        "corroboration_state": "missing",
+        "dispute_state": "none",
+        "derived_only_from_transaction_settlement": false,
+        "metric_profile": "care_maintenance",
+        "contribution_domain": "care_maintenance",
+        "observation_visibility": "low",
+        "quality_evidence_refs": [],
+        "evidence_privacy_mode": "opaque_commitment",
+        "personal_payload_disclosed": false
+      },
+      "expected": {
+        "decision": "Indeterminate",
+        "disposition": "Unknown",
+        "effects": [],
+        "prohibited_inferences": [
+          "contribution_credit_issuance",
+          "moral_worth_score"
+        ]
+      }
+    },
+    {
+      "id": "cp-delayed-negative-evidence-opens-separate-review",
+      "category": "appeal-and-governance",
+      "title": "Qualified late negative evidence opens a separate appealable review without rewriting prior recognition",
+      "input": {
+        "operation": "review_delayed_negative_evidence",
+        "prior_recognition_event_id": "urn:uuid:10000000-0000-4000-8000-000000000301",
+        "prior_recognition_state": "recognized",
+        "prior_recognition_time": "2026-10-01T10:00:00Z",
+        "negative_evidence_ref": "urn:mycelix:evidence:delayed-negative-301",
+        "negative_evidence_time": "2026-10-18T10:00:00Z",
+        "evidence_time_relation": "after_recognition",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "appeal_route": "appeal:delayed-negative-301",
+        "review_authority_scope": "contribution-review:project-12"
+      },
+      "expected": {
+        "decision": "PendingAppeal",
+        "disposition": "Unknown",
+        "effects": [
+          "delayed_evidence_review_opened",
+          "prior_recognition_event_preserved"
+        ],
+        "prohibited_inferences": [
+          "retroactive_silent_reversal",
+          "contribution_issuance_before_review",
+          "moral_worth_score"
+        ]
+      }
+    },
+    {
+      "id": "cp-delayed-negative-evidence-unqualified-no-reversal",
+      "category": "appeal-and-governance",
+      "title": "Unqualified delayed negative evidence cannot silently reverse a recorded contribution",
+      "input": {
+        "operation": "review_delayed_negative_evidence",
+        "prior_recognition_event_id": "urn:uuid:10000000-0000-4000-8000-000000000302",
+        "prior_recognition_state": "recognized",
+        "prior_recognition_time": "2026-10-01T10:00:00Z",
+        "negative_evidence_ref": "urn:mycelix:evidence:unqualified-delayed-negative-302",
+        "negative_evidence_time": "2026-10-18T10:00:00Z",
+        "evidence_time_relation": "after_recognition",
+        "corroboration_state": "unqualified",
+        "dispute_state": "none",
+        "appeal_route": null,
+        "review_authority_scope": "contribution-review:project-12"
+      },
+      "expected": {
+        "decision": "Indeterminate",
+        "disposition": "Unknown",
+        "effects": [
+          "prior_recognition_event_preserved"
+        ],
+        "prohibited_inferences": [
+          "unqualified_negative_evidence_cannot_reverse",
+          "no_silent_reversal"
+        ]
+      }
+    },
+    {
+      "id": "cp-delayed-negative-evidence-qualified-no-appeal-stays-pending",
+      "category": "appeal-and-governance",
+      "title": "Qualified delayed negative evidence without an appeal route stays pending and preserves prior recognition",
+      "input": {
+        "operation": "review_delayed_negative_evidence",
+        "prior_recognition_event_id": "urn:uuid:10000000-0000-4000-8000-000000000303",
+        "prior_recognition_state": "recognized",
+        "prior_recognition_time": "2026-10-01T10:00:00Z",
+        "negative_evidence_ref": "urn:mycelix:evidence:delayed-negative-no-appeal-303",
+        "negative_evidence_time": "2026-10-18T10:00:00Z",
+        "evidence_time_relation": "after_recognition",
+        "corroboration_state": "qualified",
+        "dispute_state": "none",
+        "appeal_route": null,
+        "review_authority_scope": "contribution-review:project-12"
+      },
+      "expected": {
+        "decision": "PendingAppeal",
+        "disposition": "Unknown",
+        "effects": [
+          "prior_recognition_event_preserved"
+        ],
+        "prohibited_inferences": [
+          "retroactive_silent_reversal",
+          "contribution_issuance_before_review",
+          "moral_worth_score",
+          "appeal_route_and_authority_required"
+        ]
+      }
+    }
+  ],
+  "nonclaims": [
+    "All values, identities, evidence references and outcomes in this corpus are synthetic.",
+    "The corpus checks a bounded adapter/reference profile; it does not implement the Common Planet production system.",
+    "A passing fixture does not establish that human contribution can be completely measured, that a claimed activity occurred, or that a participant has moral worth.",
+    "A Personal Credit or Community Credit mapping does not imply conventional financial-asset equivalence, seller payment, delivery, or productive capacity.",
+    "This corpus is not an economic superiority, fairness, productivity, real-world efficacy, or SOTA benchmark."
+  ],
+  "metamorphic_properties": [
+    {
+      "property_id": "cp-meta-event-rekey",
+      "title": "Renaming the buyer deletion event ID does not change its accounting projection",
+      "case_id": "cp-purchase-deletion",
+      "input_variants": [
+        {
+          "operation": "delete_personal_credit",
+          "instrument": "PersonalCredit",
+          "reason": "consumer_purchase",
+          "amount": 12,
+          "unit": "synthetic_PC",
+          "buyer_event_id": "urn:uuid:10000000-0000-4000-8000-000000000101",
+          "seller_payment_observed": false,
+          "contribution_evidence_refs": []
+        },
+        {
+          "operation": "delete_personal_credit",
+          "instrument": "PersonalCredit",
+          "reason": "consumer_purchase",
+          "amount": 12,
+          "unit": "synthetic_PC",
+          "buyer_event_id": "urn:uuid:10000000-0000-4000-8000-000000000901",
+          "seller_payment_observed": false,
+          "contribution_evidence_refs": []
+        }
+      ],
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "buyer_event_id"
+      ]
+    },
+    {
+      "property_id": "cp-meta-nominal-scale",
+      "title": "Uniformly scaling baseline Personal Credit units leaves the semantic classification unchanged",
+      "case_id": "cp-pc-baseline-issuance",
+      "input_variants": [
+        {
+          "operation": "issue_personal_credit",
+          "instrument": "PersonalCredit",
+          "reason": "baseline",
+          "amount": 100,
+          "unit": "synthetic_PC",
+          "recipient_scope": "person"
+        },
+        {
+          "operation": "issue_personal_credit",
+          "instrument": "PersonalCredit",
+          "reason": "baseline",
+          "amount": 1000,
+          "unit": "synthetic_PC",
+          "recipient_scope": "person"
+        }
+      ],
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "amount"
+      ]
+    },
+    {
+      "property_id": "cp-meta-seller-rule-noninterference",
+      "title": "Changing seller contribution-recognition rules cannot change buyer deletion semantics",
+      "case_id": "cp-purchase-deletion",
+      "input_variants": [
+        {
+          "operation": "delete_personal_credit",
+          "instrument": "PersonalCredit",
+          "reason": "consumer_purchase",
+          "amount": 12,
+          "buyer_event_id": "urn:uuid:10000000-0000-4000-8000-000000000101",
+          "seller_payment_observed": false,
+          "seller_contribution_rule": "strict"
+        },
+        {
+          "operation": "delete_personal_credit",
+          "instrument": "PersonalCredit",
+          "reason": "consumer_purchase",
+          "amount": 12,
+          "buyer_event_id": "urn:uuid:10000000-0000-4000-8000-000000000101",
+          "seller_payment_observed": false,
+          "seller_contribution_rule": "permissive"
+        }
+      ],
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "seller_contribution_rule"
+      ]
+    },
+    {
+      "property_id": "cp-meta-demand-noninterference",
+      "title": "Changing demand alone cannot change the contribution-recognition projection",
+      "case_id": "cp-qualified-contribution",
+      "input_variants": [
+        {
+          "operation": "recognize_contribution",
+          "recognition_mode": "milestone",
+          "amount": 8,
+          "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evidence_refs": [
+            "urn:mycelix:evidence:contribution-17"
+          ],
+          "verifier_authority_scope": "contribution:project-2",
+          "corroboration_state": "qualified",
+          "dispute_state": "none",
+          "derived_only_from_transaction_settlement": false,
+          "demand_amount": 100
+        },
+        {
+          "operation": "recognize_contribution",
+          "recognition_mode": "milestone",
+          "amount": 8,
+          "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evidence_refs": [
+            "urn:mycelix:evidence:contribution-17"
+          ],
+          "verifier_authority_scope": "contribution:project-2",
+          "corroboration_state": "qualified",
+          "dispute_state": "none",
+          "derived_only_from_transaction_settlement": false,
+          "demand_amount": 100000
+        }
+      ],
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "demand_amount"
+      ]
+    },
+    {
+      "property_id": "cp-meta-contribution-evidence-noninterference",
+      "title": "Buyer deletion remains unchanged when a separate contribution-evidence packet changes",
+      "case_id": "cp-purchase-deletion",
+      "input_variants": [
+        {
+          "operation": "delete_personal_credit",
+          "instrument": "PersonalCredit",
+          "reason": "consumer_purchase",
+          "amount": 12,
+          "buyer_event_id": "urn:uuid:10000000-0000-4000-8000-000000000101",
+          "seller_payment_observed": false,
+          "contribution_evidence_refs": []
+        },
+        {
+          "operation": "delete_personal_credit",
+          "instrument": "PersonalCredit",
+          "reason": "consumer_purchase",
+          "amount": 12,
+          "buyer_event_id": "urn:uuid:10000000-0000-4000-8000-000000000101",
+          "seller_payment_observed": false,
+          "contribution_evidence_refs": [
+            "urn:mycelix:evidence:producer-contribution-1"
+          ]
+        }
+      ],
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "contribution_evidence_refs"
+      ]
+    },
+    {
+      "property_id": "cp-meta-evaluator-identity",
+      "title": "Changing evaluator identity without changing authority scope does not alter the bounded receipt",
+      "case_id": "cp-qualified-contribution",
+      "input_variants": [
+        {
+          "operation": "recognize_contribution",
+          "recognition_mode": "milestone",
+          "amount": 8,
+          "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evidence_refs": [
+            "urn:mycelix:evidence:contribution-17"
+          ],
+          "verifier_authority_scope": "contribution:project-2",
+          "corroboration_state": "qualified",
+          "dispute_state": "none",
+          "derived_only_from_transaction_settlement": false,
+          "evaluator_identity": "evaluator-A"
+        },
+        {
+          "operation": "recognize_contribution",
+          "recognition_mode": "milestone",
+          "amount": 8,
+          "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evidence_refs": [
+            "urn:mycelix:evidence:contribution-17"
+          ],
+          "verifier_authority_scope": "contribution:project-2",
+          "corroboration_state": "qualified",
+          "dispute_state": "none",
+          "derived_only_from_transaction_settlement": false,
+          "evaluator_identity": "evaluator-B"
+        }
+      ],
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "evaluator_identity"
+      ]
+    },
+    {
+      "property_id": "cp-meta-hidden-latent-outcome",
+      "title": "A hidden latent outcome that is not in the authorized evidence projection cannot change recognition",
+      "case_id": "cp-qualified-contribution",
+      "input_variants": [
+        {
+          "operation": "recognize_contribution",
+          "recognition_mode": "milestone",
+          "amount": 8,
+          "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evidence_refs": [
+            "urn:mycelix:evidence:contribution-17"
+          ],
+          "verifier_authority_scope": "contribution:project-2",
+          "corroboration_state": "qualified",
+          "dispute_state": "none",
+          "derived_only_from_transaction_settlement": false,
+          "hidden_latent_outcome": "positive"
+        },
+        {
+          "operation": "recognize_contribution",
+          "recognition_mode": "milestone",
+          "amount": 8,
+          "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evidence_refs": [
+            "urn:mycelix:evidence:contribution-17"
+          ],
+          "verifier_authority_scope": "contribution:project-2",
+          "corroboration_state": "qualified",
+          "dispute_state": "none",
+          "derived_only_from_transaction_settlement": false,
+          "hidden_latent_outcome": "negative"
+        }
+      ],
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "hidden_latent_outcome"
+      ]
+    },
+    {
+      "property_id": "cp-meta-capacity-scale",
+      "title": "Uniformly scaling a Community Credit request and its known capacity preserves the allocation decision",
+      "case_id": "cp-community-allocation-within-capacity",
+      "input_variants": [
+        {
+          "operation": "allocate_community_credit",
+          "instrument": "CommunityCredit",
+          "requested_amount": 40,
+          "available_capacity": 50,
+          "capacity_state": "known",
+          "account_scope": "community_project",
+          "authorization_state": "authorized",
+          "resource_type": "water"
+        },
+        {
+          "operation": "allocate_community_credit",
+          "instrument": "CommunityCredit",
+          "requested_amount": 400,
+          "available_capacity": 500,
+          "capacity_state": "known",
+          "account_scope": "community_project",
+          "authorization_state": "authorized",
+          "resource_type": "water"
+        }
+      ],
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "requested_amount",
+        "available_capacity"
+      ]
+    },
+    {
+      "property_id": "cp-meta-exchange-rekey",
+      "title": "Rekeying both distinct exchange event identifiers preserves the semantic projection",
+      "case_id": "cp-exchange-events-separate",
+      "input_variants": [
+        {
+          "operation": "exchange_pair",
+          "instrument": "PersonalCredit",
+          "buyer_deletion": {
+            "event_id": "urn:uuid:10000000-0000-4000-8000-000000000201",
+            "amount": 12
+          },
+          "seller_recredit": {
+            "event_id": "urn:uuid:10000000-0000-4000-8000-000000000202",
+            "amount": 12
+          },
+          "seller_financial_payment_observed": false
+        },
+        {
+          "operation": "exchange_pair",
+          "instrument": "PersonalCredit",
+          "buyer_deletion": {
+            "event_id": "urn:uuid:20000000-0000-4000-8000-000000000201",
+            "amount": 12
+          },
+          "seller_recredit": {
+            "event_id": "urn:uuid:20000000-0000-4000-8000-000000000202",
+            "amount": 12
+          },
+          "seller_financial_payment_observed": false
+        }
+      ],
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "buyer_deletion.event_id",
+        "seller_recredit.event_id"
+      ]
+    },
+    {
+      "property_id": "cp-meta-care-observability-noninterference",
+      "title": "Lower visibility of qualified care does not lower recognition when criteria and evidence are unchanged",
+      "case_id": "cp-low-observability-care-qualifies-with-bounded-proof",
+      "input_variants": [
+        {
+          "operation": "recognize_contribution",
+          "recognition_mode": "milestone",
+          "amount": 3,
+          "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evidence_refs": [
+            "urn:mycelix:commitment:care-maintenance-8"
+          ],
+          "verifier_authority_scope": "contribution:care-project-1",
+          "corroboration_state": "qualified",
+          "dispute_state": "none",
+          "derived_only_from_transaction_settlement": false,
+          "metric_profile": "care_maintenance",
+          "contribution_domain": "care_maintenance",
+          "observation_visibility": "low",
+          "quality_evidence_refs": [
+            "urn:mycelix:evidence:care-maintenance-quality-1"
+          ],
+          "evidence_privacy_mode": "opaque_commitment",
+          "personal_payload_disclosed": false
+        },
+        {
+          "operation": "recognize_contribution",
+          "recognition_mode": "milestone",
+          "amount": 3,
+          "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evidence_refs": [
+            "urn:mycelix:commitment:care-maintenance-8"
+          ],
+          "verifier_authority_scope": "contribution:care-project-1",
+          "corroboration_state": "qualified",
+          "dispute_state": "none",
+          "derived_only_from_transaction_settlement": false,
+          "metric_profile": "care_maintenance",
+          "contribution_domain": "care_maintenance",
+          "observation_visibility": "high",
+          "quality_evidence_refs": [
+            "urn:mycelix:evidence:care-maintenance-quality-1"
+          ],
+          "evidence_privacy_mode": "opaque_commitment",
+          "personal_payload_disclosed": false
+        }
+      ],
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "observation_visibility"
+      ]
+    },
+    {
+      "property_id": "cp-meta-delayed-negative-evidence-review-boundary",
+      "title": "Future negative evidence does not rewrite the original recognition decision without a separate review operation",
+      "case_id": "cp-qualified-contribution",
+      "input_variants": [
+        {
+          "operation": "recognize_contribution",
+          "recognition_mode": "milestone",
+          "amount": 8,
+          "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evidence_refs": [
+            "urn:mycelix:evidence:contribution-17"
+          ],
+          "verifier_authority_scope": "contribution:project-2",
+          "corroboration_state": "qualified",
+          "dispute_state": "none",
+          "derived_only_from_transaction_settlement": false,
+          "future_negative_evidence_refs": [],
+          "future_negative_evidence_cutoff": "2026-10-10T00:00:00Z"
+        },
+        {
+          "operation": "recognize_contribution",
+          "recognition_mode": "milestone",
+          "amount": 8,
+          "criteria_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "evidence_refs": [
+            "urn:mycelix:evidence:contribution-17"
+          ],
+          "verifier_authority_scope": "contribution:project-2",
+          "corroboration_state": "qualified",
+          "dispute_state": "none",
+          "derived_only_from_transaction_settlement": false,
+          "future_negative_evidence_refs": [
+            "urn:mycelix:evidence:delayed-negative-77"
+          ],
+          "future_negative_evidence_cutoff": "2026-10-18T00:00:00Z"
+        }
+      ],
+      "expected_relation": "evaluation_outputs_equal",
+      "varied_fields": [
+        "future_negative_evidence_cutoff",
+        "future_negative_evidence_refs"
+      ]
+    }
+  ]
+}

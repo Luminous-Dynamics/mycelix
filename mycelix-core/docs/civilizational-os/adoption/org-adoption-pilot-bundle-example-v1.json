@@ -1,0 +1,216 @@
+{
+  "schema_version": "1.0.0",
+  "bundle_id": "supply-chain-pilot-reference-bundle-v1",
+  "profile_id": "tracelink",
+  "pilot_id": "epcis-shaped-supply-chain-lineage-001",
+  "created_at_utc": "2026-10-21T18:30:00Z",
+  "relationship_status": "not_recorded",
+  "relationship_claim_guard": "No partnership, customer relationship, endorsement, or integration is implied by this bundle.",
+  "data_classification": "synthetic",
+  "effects_mode": "disabled",
+  "claim_ceiling": "SyntheticReferenceOnly",
+  "nonclaims": [
+    "This bundle does not establish a real vendor integration or relationship.",
+    "A scan, shipment, receiving event or acceptance record is not by itself proof of all physical-delivery or regulatory claims.",
+    "This synthetic fixture does not establish product authenticity, regulatory compliance, or supply-chain efficacy."
+  ],
+  "comparison": {
+    "baseline": {
+      "implementation_id": "manual-reference-normalizer-not-run",
+      "version": "not-run",
+      "execution_state": "not_executed",
+      "implementation_sha256": null,
+      "input_manifest_sha256": "6968898a0f15b6c711cf2dde82675e6b6da7b320f2157fa1c641f40f8529e619",
+      "resource_budget_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "authority_budget_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "candidate": {
+      "implementation_id": "mycelix-loss-aware-projection-not-run",
+      "version": "not-run",
+      "execution_state": "not_executed",
+      "implementation_sha256": null,
+      "input_manifest_sha256": "6968898a0f15b6c711cf2dde82675e6b6da7b320f2157fa1c641f40f8529e619",
+      "resource_budget_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "authority_budget_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "measurement_profile_id": "supply-chain-event-preservation-v1",
+    "hardware_profile_id": "synthetic-no-runtime-measurement",
+    "window_start_utc": "2026-10-21T09:00:00Z",
+    "window_end_utc": "2026-10-21T12:40:05Z"
+  },
+  "input_manifest": {
+    "data_classification": "synthetic",
+    "rights_disposition": "synthetic_no_external_rights_required",
+    "source_entries": [
+      {
+        "source_id": "synthetic-fixture:gs1-epcis-shaped",
+        "source_kind": "synthetic_fixture",
+        "source_revision": "fixture-v1",
+        "content_sha256": "b51d7901046c07c9a0b9e173069ca65651e84ca24309cf7e5fb57da5645191cc",
+        "rights_disposition": "synthetic_no_external_rights_required",
+        "record_ids": [
+          "evt-scan-001",
+          "evt-ship-001",
+          "evt-receive-001",
+          "evt-accept-001"
+        ]
+      }
+    ],
+    "events": [
+      {
+        "event_id": "evt-scan-001",
+        "sequence": 1,
+        "event_type": "scan_observation",
+        "subject_id": "lot-ABC-001",
+        "occurred_at_utc": "2026-10-21T09:00:00Z",
+        "recorded_at_utc": "2026-10-21T09:00:02Z",
+        "source_id": "synthetic-fixture:gs1-epcis-shaped",
+        "disposition": "observed"
+      },
+      {
+        "event_id": "evt-ship-001",
+        "sequence": 2,
+        "event_type": "shipping",
+        "subject_id": "lot-ABC-001",
+        "occurred_at_utc": "2026-10-21T10:00:00Z",
+        "recorded_at_utc": "2026-10-21T10:00:02Z",
+        "source_id": "synthetic-fixture:gs1-epcis-shaped",
+        "disposition": "asserted"
+      },
+      {
+        "event_id": "evt-receive-001",
+        "sequence": 3,
+        "event_type": "receiving",
+        "subject_id": "lot-ABC-001",
+        "occurred_at_utc": "2026-10-21T12:30:00Z",
+        "recorded_at_utc": "2026-10-21T12:30:04Z",
+        "source_id": "synthetic-fixture:gs1-epcis-shaped",
+        "disposition": "accepted_by_receiver"
+      },
+      {
+        "event_id": "evt-accept-001",
+        "sequence": 4,
+        "event_type": "acceptance",
+        "subject_id": "lot-ABC-001",
+        "occurred_at_utc": "2026-10-21T12:40:00Z",
+        "recorded_at_utc": "2026-10-21T12:40:05Z",
+        "source_id": "synthetic-fixture:gs1-epcis-shaped",
+        "disposition": "accepted_by_receiver"
+      }
+    ],
+    "manifest_sha256": "6968898a0f15b6c711cf2dde82675e6b6da7b320f2157fa1c641f40f8529e619"
+  },
+  "evidence_claims": [
+    {
+      "claim_id": "claim-event-lineage",
+      "claim_type": "event_lineage_preserved",
+      "disposition": "supported_within_fixture",
+      "evidence_refs": [
+        "evt-scan-001",
+        "evt-ship-001",
+        "evt-receive-001",
+        "evt-accept-001"
+      ],
+      "explanation": "The synthetic ordered event fixture preserves its identifiers and declared source lineage."
+    },
+    {
+      "claim_id": "claim-physical-delivery",
+      "claim_type": "physical_delivery_verified",
+      "disposition": "indeterminate",
+      "evidence_refs": [
+        "evt-scan-001",
+        "evt-receive-001"
+      ],
+      "explanation": "A scan and receiving assertion do not independently establish a qualified physical-delivery measurement."
+    },
+    {
+      "claim_id": "claim-regulatory-compliance",
+      "claim_type": "regulatory_compliance",
+      "disposition": "unsupported",
+      "evidence_refs": [
+        "evt-accept-001"
+      ],
+      "explanation": "The fixture contains no jurisdictional regulatory profile or qualified compliance evidence."
+    }
+  ],
+  "metrics": [
+    {
+      "metric_id": "required-event-lineage-preservation",
+      "unit": "percent",
+      "comparison_rule": "not_measured",
+      "baseline_value": null,
+      "candidate_value": null,
+      "disposition": "not_measured"
+    },
+    {
+      "metric_id": "duplicate-event-rejection-controls",
+      "unit": "count",
+      "comparison_rule": "not_measured",
+      "baseline_value": null,
+      "candidate_value": null,
+      "disposition": "not_measured"
+    },
+    {
+      "metric_id": "unsupported-claims-promoted-to-supported",
+      "unit": "count",
+      "comparison_rule": "not_measured",
+      "baseline_value": null,
+      "candidate_value": null,
+      "disposition": "not_measured"
+    }
+  ],
+  "negative_controls": [
+    {
+      "control_id": "nc-duplicate-replay",
+      "attack": "Replay an already accepted source event with the same identifier.",
+      "expected_disposition": "rejected_duplicate",
+      "execution_state": "not_executed",
+      "observed_disposition": "not_observed",
+      "passed": null
+    },
+    {
+      "control_id": "nc-wrong-subject",
+      "attack": "Substitute a different lot identifier for the receiving event.",
+      "expected_disposition": "rejected_subject_mismatch",
+      "execution_state": "not_executed",
+      "observed_disposition": "not_observed",
+      "passed": null
+    },
+    {
+      "control_id": "nc-scan-promoted-to-delivery",
+      "attack": "Present a scan observation alone as proof of physical delivery.",
+      "expected_disposition": "claim_indeterminate",
+      "execution_state": "not_executed",
+      "observed_disposition": "not_observed",
+      "passed": null
+    },
+    {
+      "control_id": "nc-source-digest-mismatch",
+      "attack": "Change a source record while keeping the previously committed source digest.",
+      "expected_disposition": "rejected_digest_mismatch",
+      "execution_state": "not_executed",
+      "observed_disposition": "not_observed",
+      "passed": null
+    },
+    {
+      "control_id": "nc-missing-rights",
+      "attack": "Remove the required data-rights disposition from a non-synthetic source.",
+      "expected_disposition": "rejected_missing_rights",
+      "execution_state": "not_executed",
+      "observed_disposition": "not_observed",
+      "passed": null
+    }
+  ],
+  "export_test": {
+    "execution_state": "not_executed",
+    "expected_sha256": "6968898a0f15b6c711cf2dde82675e6b6da7b320f2157fa1c641f40f8529e619",
+    "observed_sha256": null,
+    "round_trip_matches": null
+  },
+  "rollback_test": {
+    "execution_state": "not_executed",
+    "result": "not_executed",
+    "retained_external_effects": null
+  },
+  "evaluation_state": "contract_example_only"
+}
