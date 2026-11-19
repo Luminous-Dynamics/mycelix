@@ -1,0 +1,45 @@
+name: MCRB Metric Integrity
+
+on:
+  pull_request:
+    paths:
+      - "docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.json"
+      - "docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.schema.json"
+      - "docs/benchmarks/MCRB_V0_1_RUN_RECEIPT.schema.json"
+      - "mycelix-workspace/tools/mcrb-metric-integrity/**"
+      - ".github/workflows/mcrb-metric-integrity.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.json"
+      - "docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.schema.json"
+      - "docs/benchmarks/MCRB_V0_1_RUN_RECEIPT.schema.json"
+      - "mycelix-workspace/tools/mcrb-metric-integrity/**"
+      - ".github/workflows/mcrb-metric-integrity.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  metric-integrity:
+    name: Test MCRB metric-integrity verifier
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.1
+        with:
+          components: [rustfmt, clippy]
+
+      - name: Format
+        run: cargo fmt --manifest-path mycelix-workspace/tools/mcrb-metric-integrity/Cargo.toml -- --check
+
+      - name: Unit tests
+        run: cargo test --manifest-path mycelix-workspace/tools/mcrb-metric-integrity/Cargo.toml
+
+      - name: Clippy
+        run: cargo clippy --manifest-path mycelix-workspace/tools/mcrb-metric-integrity/Cargo.toml --all-targets -- -D warnings
