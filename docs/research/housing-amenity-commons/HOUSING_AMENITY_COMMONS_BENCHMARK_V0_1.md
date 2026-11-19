@@ -161,7 +161,7 @@ A municipal restriction does not become permission to use a different source. Th
 
 ## Synthetic corpus and dispositions
 
-The accompanying corpus has 20 synthetic cases. It is a design fixture and expected-outcome proposal, not an executed benchmark.
+The accompanying corpus has 33 synthetic cases. It is a design fixture and expected-outcome proposal, not an executed benchmark.
 
 The disposition precedence is:
 
