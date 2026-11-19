@@ -510,3 +510,35 @@ Do not compare only success throughput: report stale authorization duration, new
 
 PEAB adds TXN-008 through TXN-010 for signed resolver-authority expiry, owner activation expiry and resolver replay-record binding in journal genesis. Nixward's resolver and activation proofs now carry exact issue/expiry timestamps; map payload construction and transaction begin reject expired proofs using Unix milliseconds rather than a rounded-down seconds sample. The journal genesis binds the expected replay-record digest, so two otherwise-identical request/map transactions with different resolver evidence cannot share a transaction ID. These tests remain partial external source coverage and not_run_exact_head.
 
+
+### Mutation-time authority and runtime identity gates (Nixward PR #162)
+
+PEAB now includes TXN-011 through TXN-013 as **partial external coverage**. Nixward's reducer binds the broker-observed Unix-millisecond timestamp and active policy generation into each journal-record digest. It refuses new nonce/map/switch mutations outside the resolver, owner, parent, lease or policy window. Read-only reconciliation is still allowed after expiry; a target map found active after lease expiry becomes `ExpiredActive` and requires revocation rather than becoming execution-eligible.
+
+The runtime eligibility check is deliberately separate from signature verification: resolver/owner challenge expiry gates new privileged mutations, while the parent/request lease and policy generation gate new-flow admission after a valid switch. New-flow admission additionally requires exact current active map generation, map-payload digest, cgroup identity digest and loaded BPF-program digest. These are source-level checks in a pure reducer, not an actual kernel broker or runtime proof. All three PEAB cases remain `not_run_exact_head`.
+
+### New acceptance dimensions
+
+Add these as release-blocking security gates, not weighted score contributions:
+
+| Dimension | Acceptance target |
+|---|---:|
+| New-flow admission after lease expiry | 0 |
+| New-flow admission under stale policy generation | 0 |
+| New-flow admission after cgroup identity drift | 0 |
+| New-flow admission with BPF object mismatch | 0 |
+| New-flow admission with active map generation/digest mismatch | 0 |
+| Unknown mutation outcome followed by blind retry | 0 |
+| Reconciliation after expiry | Always allowed as read-only; never grants new authority |
+| Expiry-to-new-flow-denial latency | 0 grace period at the authorization gate |
+| Kernel map cleanup / revocation propagation | Measure p50/p95/p99; proposed initial operational target p99 ≤100 ms |
+
+The 100 ms revocation target is a proposed engineering objective, not a measured result or a documented guarantee of Envoy/Cilium. Report it separately from the local authorization gate: a gate can reject immediately while asynchronous kernel map cleanup takes longer.
+
+### Comparator clarification: Cilium's DNS cache and Envoy's metrics
+
+Current Cilium 1.21.0-dev docs explicitly separate the per-endpoint DNS cache from a global policy cache: the endpoint cache tracks endpoint lookups and TTLs; `tofqdns-min-ttl` is applied to the global cache rather than the endpoint cache. The global policy cache aggregates DNS information observed from endpoints and may therefore have a broader scope than a single request. Cilium also retains expired addresses in a DNSZombieMapping until conntrack GC determines whether they remain in use. These are not defects by themselves; the benchmark must distinguish new-flow permission from established-flow continuity and measure cache scope, TTL, and zombie lifetime separately. References: https://docs.cilium.io/en/latest/contributing/development/debugging/ and https://docs.cilium.io/en/latest/security/policy/layer3/
+
+Envoy v1.40.0 DFP exposes counters for DNS attempts/success/failure/timeout, address changes, pending request overflow and addresses removed by `resolved_address_filter`. PEAB should use those counters as comparator observability, not merely infer behavior from response codes. Official reference: https://www.envoyproxy.io/docs/envoy/v1.40.0/configuration/http/http_filters/dynamic_forward_proxy_filter
+
+Keep deployment profile versions, resolver fixtures, host-cache state and metric snapshots in each run bundle. No result is comparable unless the competing policy/cache semantics are recorded explicitly.
