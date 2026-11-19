@@ -359,6 +359,16 @@
     "notes": {
       "type": "string",
       "maxLength": 5000
+    },
+    "spatial_qualification_reference": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/spatialQualificationReference"
+        }
+      ]
     }
   },
   "$defs": {
@@ -435,6 +445,47 @@
             "data_sharing",
             "other"
           ]
+        }
+      }
+    },
+    "spatialQualificationReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_system",
+        "schema",
+        "schema_uri",
+        "record_reference",
+        "record_id",
+        "record_sha256",
+        "claim_ceiling"
+      ],
+      "properties": {
+        "source_system": {
+          "const": "sol-atlas"
+        },
+        "schema": {
+          "const": "luminous.territorial-spatial-qualification.v0"
+        },
+        "schema_uri": {
+          "const": "https://luminousdynamics.io/schemas/territorial-spatial-qualification-v0.schema.json"
+        },
+        "record_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "record_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "claim_ceiling": {
+          "const": "reference_only_no_legal_effect"
         }
       }
     }
