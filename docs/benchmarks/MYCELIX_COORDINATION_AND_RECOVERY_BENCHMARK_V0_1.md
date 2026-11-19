@@ -506,3 +506,14 @@ PR [#6063](https://github.com/holochain/holochain/pull/6063) is merged to upstre
 - Separate fixed upstream source, unreleased `develop`, release candidate, released binary and Mycelix exact-head qualification in every evidence receipt.
 
 The 0.7.1 production gate is therefore conjunctive: dependency closure + source/API migration + capability/DirectSignal negative controls + multi-agent runtime + DHT convergence + large-key restore + long-lived resource tests + independent client E2E. A faster benchmark cannot compensate for a security or recovery failure.
+
+
+### Composition with existing Mycelix authorization owners
+
+MCRB-17 is deliberately a **Holochain adapter/runtime regression test**, not a second authorization or revocation engine:
+
+- [#6236 — LISE trajectory-wide revocation propagation](https://github.com/Luminous-Dynamics/mycelix/issues/6236) owns the broader inventory of sessions, caches, tokens, background workers, delegated credentials, alternate routes and effective/observed revocation epochs.
+- [#6193 — one-shot capability linearizability](https://github.com/Luminous-Dynamics/mycelix/issues/6193) owns the consistency contract and concurrent history checker for unique one-shot capability consumption under crash, partition and failover.
+- [#6189 — effect-boundary interposition](https://github.com/Luminous-Dynamics/mycelix/issues/6189) owns the deterministic sandbox and exact capability enforcement at the effect boundary.
+
+MCRB-17 supplies the substrate-specific negative control for Holochain 0.7.x multi-function grants. It should feed its exact runtime outcome into those owner programmes; it must not replace their semantics or imply that Holochain grant revocation alone proves global propagation.
