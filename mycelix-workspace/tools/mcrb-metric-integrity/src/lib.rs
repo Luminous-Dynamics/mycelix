@@ -568,13 +568,24 @@ mod tests {
     #[test]
     fn duplicate_operation_ids_are_rejected() {
         let (config, mut batch) = valid_batch();
-        batch.duration_samples[3].operation_id = "op-1".into();
+        batch.duration_samples[3].operation_id = "op-3".into();
 
         let report = validate_batch(&config, &batch);
         assert_eq!(report.status, IntegrityStatus::Invalid);
         assert!(report.issues.contains(
-            &MetricIssue::DuplicatePeerOperationSample("peer-b".into(), "op-1".into())
+            &MetricIssue::DuplicatePeerOperationSample("peer-b".into(), "op-3".into())
         ));
+    }
+
+
+    #[test]
+    fn same_logical_operation_may_be_observed_by_multiple_peers() {
+        let (config, mut batch) = valid_batch();
+        batch.duration_samples[2].operation_id = "op-1".into();
+
+        let report = validate_batch(&config, &batch);
+        assert_eq!(report.status, IntegrityStatus::Valid);
+        assert!(report.aggregate_eligible);
     }
 
     #[test]
