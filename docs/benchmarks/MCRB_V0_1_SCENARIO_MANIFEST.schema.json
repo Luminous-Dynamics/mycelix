@@ -589,7 +589,9 @@
         "outcome_policy",
         "measurement_clock",
         "generator_authenticity",
-        "claim_ceiling"
+        "claim_ceiling",
+        "cross_host_requirement_source",
+        "cross_host_requirement_binding"
       ],
       "properties": {
         "schema_version": {
@@ -626,6 +628,12 @@
           "type": "string"
         },
         "claim_ceiling": {
+          "type": "string"
+        },
+        "cross_host_requirement_source": {
+          "type": "string"
+        },
+        "cross_host_requirement_binding": {
           "type": "string"
         }
       }
