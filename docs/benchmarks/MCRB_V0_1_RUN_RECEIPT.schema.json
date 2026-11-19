@@ -350,7 +350,13 @@
         "outliers_preserved",
         "peer_sample_coverage",
         "send_receive_counter_mismatch_count",
-        "aggregate_eligible"
+        "aggregate_eligible",
+        "raw_monotonic_tick_derived_count",
+        "clock_epoch_mismatch_count",
+        "unmatched_cross_host_event_count",
+        "cross_host_latency_lower_bound_ms",
+        "cross_host_latency_upper_bound_ms",
+        "point_latency_emitted_count"
       ],
       "properties": {
         "status": {
@@ -436,6 +442,36 @@
         },
         "aggregate_eligible": {
           "type": "boolean"
+        },
+        "raw_monotonic_tick_derived_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "clock_epoch_mismatch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmatched_cross_host_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cross_host_latency_lower_bound_ms": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cross_host_latency_upper_bound_ms": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "point_latency_emitted_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     }
