@@ -145,7 +145,7 @@ Each partition closes independently. RO SEC change, qualified product-water volu
 
 A result that does not meet these targets is still useful if the Pareto trade-off, failure mode and uncertainty are measured honestly. Never infer that a 2.70% synthetic peak reduction is comparable to published cost reductions.
 
-## 38 initial golden-trace dispositions
+## 46 initial golden-trace dispositions
 
 The JSON fixture lists positive, negative, unknown and conflict cases including:
 - baseline and service-equivalent no-new-peak positive controls;
@@ -163,6 +163,25 @@ The JSON fixture lists positive, negative, unknown and conflict cases including:
 - hard-event deduplication, new hard reason, hysteresis re-arm;
 - owner source revision, idempotent snapshot digest and changed-digest conflict;
 - independent Symthaea candidate rejection and missing-owner output.
+
+## South African demand-response and reserve product fit
+
+The same physical load may be technically flexible but not qualified for a particular grid product. The local product profiles must be treated as separate contracts:
+
+| Product | Public profile | Evidence still required |
+|---|---|---|
+| Eskom Distribution IDR | 10 MW minimum; full response within 6 seconds; 10-minute sustain; up to 3 events/day; special metering | participant contract, baseline, telemetry/metrology, current eligibility and aggregation authority |
+| SAWEM Instantaneous Reserve | Market Code Rev 2.3 defines demand-side response within 10 seconds, sustained at least 10 minutes | exact Trading Unit registration, current regulatory/market implementation status, qualification and performance evidence |
+| NTCSA Supplemental DR | 30 min–6 h notice; minimum greater of 500 kW or 15% average plant demand; 2 h response; 30-minute metering | participant agreement, baseline, meter, current programme availability and settlement |
+| NRS 048-9 emergency reduction | emergency load reduction / restoration arrangements | System Operator or utility instruction; not a voluntary/contracted DR offer |
+
+Sources: [Eskom IDR programme](https://www.eskom.co.za/distribution/instantaneous-demand-response-programme/); [NTCSA SAWEM Market Code Rev 2.3](https://www.ntcsa.co.za/wp-content/uploads/2026/02/Market-Code-v2.3.pdf); [NTCSA Supplemental DR](https://www.ntcsa.co.za/supplemental-demand-response-programme-2/); [NRS 048-9 Edition 3](https://www.kaya959.co.za/wp-content/uploads/2024/04/NERSA-Approved-Version-of-NRS-048-9-2023-Edition-3.pdf).
+
+Eskom's six-second product and the SAWEM ten-second definition are not the same product. A 30-minute meter cannot establish a six-second response. Published Ngqura/Durban spare substation capacity is not a qualified demand-response resource. The paired-site programme therefore leaves actual participant eligibility, flexible MW, aggregation and meter status unknown until direct owner/operator evidence exists.
+
+NERSA's September 2026 tracker listed Market Code approval as finalisation, with an end-October target. That dated snapshot does not establish the later final decision; confirm subsequent approval and implementation status before treating a reserve product as available.
+
+The companion fixture now includes eight cross-owner product-fit cases: six-second vs ten-second profile mismatch, supplemental sustain miss, insufficient metering, missing aggregation authority, spare-headroom overclaim, and emergency-curtailment misclassification.
 
 ## Ownership and oracle design
 
