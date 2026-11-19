@@ -472,3 +472,41 @@ Prism application receipts now expose monotonic durations for: pre-resolution au
 The `request_to_headers` interval starts after the pinned Reqwest client is built and ends when `send()` returns response headers. It combines TCP connection, TLS, request transmission and server time-to-headers. Reqwest's current public API does not expose all those components separately, so PEAB must not label this as isolated connect or TLS latency. Client construction is measured separately. DNS timing is separate from local policy preflight and DNS semaphore wait; response-memory admission is separate from body consumption. These are measurement fields, not security attestations or hard deadlines.
 
 PERF-001 has source-level coverage and two local-fixture test references. It is not a benchmark result; the matched hardened Reqwest and Envoy campaigns still require pinned binaries, hardware manifests, raw samples, repetitions and confidence intervals.
+
+
+## 2026-11 comparator profile and cache-semantics matrix
+
+PEAB pins its external comparison tracks to documented implementations rather than treating Envoy and Cilium as undifferentiated products.
+
+### Envoy DFP — tag v1.40.0
+
+Record an unmodified/default DFP profile and a hardened profile with resolved_address_filter, finite DNS timeout, host-cache bounds, pending-request circuit breakers and explicitly recorded refresh settings. The v1.40.0 proto documents unresolved-host refresh at 60 seconds by default; once resolved, the DNS TTL is used with a minimum refresh interval whose default is 5 seconds; unused hosts are purged after a default 5-minute host TTL; DNS query timeout defaults to 5 seconds. When a refresh resolves only to filtered addresses, Envoy treats it as a resolution failure and retains the previously resolved host entry. That is an explicit cache-continuity behavior to characterize—not a vulnerability claim.
+
+Record at minimum: dns_query_attempt/success/failure/timeout, host_address_changed, host_added/removed, num_hosts, dns_rq_pending_overflow, dns_address_filter_out, and pending-request circuit-breaker gauges. Raw counter deltas must reconcile with a deterministic resolver fixture timeline. Include a scenario in which the old host entry remains after all refreshed addresses are filtered, and separately measure whether a new request can use that entry versus whether an already-established upstream connection merely remains alive.
+
+### Cilium FQDN policy — 1.21.0-dev documentation snapshot
+
+Do not flatten Cilium's DNS state into one TTL. The current documentation distinguishes:
+- A per-endpoint DNSCache restored with the endpoint; it tracks TTLs and applies the endpoint max-IP-per-hostname limit. tofqdns-min-ttl does not apply to that per-endpoint cache.
+- A global DNSCache that aggregates endpoint and poller observations for policy calculation; it applies the configured minimum TTL but not the endpoint max-IP limit.
+- Per-endpoint DNSZombieMapping entries for expired/evicted IPs while conntrack determines whether a connection is still live; the documented CT-GC delay can extend to 12 hours.
+
+Consequently, PEAB measures four separate clocks/sets: authoritative DNS TTL, endpoint cache expiry, global policy IP retention, and live-connection/zombie retention. It must distinguish policy visibility from evidence that one endpoint actually resolved a hostname. Cross-endpoint observations can affect the global policy identity set; characterize this scope difference without automatically labelling it a security defect. For policy baseline record dnsProxy.minTtl, endpointMaxIpPerHostname, maxDeferredConnectionDeletes, resolver configuration, policy generation and endpoint identity.
+
+### Matched execution method
+
+Run each profile in an isolated disposable network namespace/VM with the same resolver fixture, target server, address families, connection pattern and policy corpus. Pin binary/container digest, kernel, cgroup mode, CPU/memory limits, DNS resolver image and configuration. Compare:
+1. new request after DNS answer replacement;
+2. new request after all refreshed addresses are filtered;
+3. existing live connection after TTL expiry;
+4. new request after TTL expiry;
+5. cross-endpoint DNS observation;
+6. endpoint/cache restart and restoration;
+7. pending-query saturation and DNS timeouts.
+
+Do not compare only success throughput: report stale authorization duration, new-flow accept/deny, existing-flow continuity, resolver age, policy propagation latency, cache cardinality, memory, queue delay, counters, dropped/lost observation events and false-positive denial rate. Keep a distinct result for each endpoint and global policy layer.
+
+### Signed authority lifetime and journal identity
+
+PEAB adds TXN-008 through TXN-010 for signed resolver-authority expiry, owner activation expiry and resolver replay-record binding in journal genesis. Nixward's resolver and activation proofs now carry exact issue/expiry timestamps; map payload construction and transaction begin reject expired proofs using Unix milliseconds rather than a rounded-down seconds sample. The journal genesis binds the expected replay-record digest, so two otherwise-identical request/map transactions with different resolver evidence cannot share a transaction ID. These tests remain partial external source coverage and not_run_exact_head.
+
