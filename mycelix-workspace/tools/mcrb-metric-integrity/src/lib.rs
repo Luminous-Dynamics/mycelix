@@ -1,8 +1,8 @@
 //! Measurement-integrity gate for the Mycelix Coordination and Recovery Benchmark.
 //!
-//! This crate validates raw timing/peer/counter evidence before any aggregate
-//! performance metric can be emitted. It deliberately does not trim outliers.
-//! A batch that is invalid or incomplete never receives aggregate percentiles.
+//! This crate validates raw timing, peer and counter evidence before aggregate
+//! performance metrics can be emitted. It deliberately does not trim outliers.
+//! An invalid or incomplete batch never receives aggregate percentiles.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -16,6 +16,7 @@ pub enum IntegrityStatus {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MetricIssue {
     InvalidConfiguration(&'static str),
+    NoExpectedPeers,
     EmptyExpectedPeerId,
     DuplicateExpectedPeer(String),
     ClockForUnexpectedPeer(String),
@@ -28,6 +29,8 @@ pub enum MetricIssue {
     ClockUncertaintyAboveLimit(String),
     NonMonotonicDurationClock(String),
     SampleForUnexpectedPeer(String),
+    EmptyOperationId(usize),
+    DuplicateOperationId(String),
     MissingPeerSamples(String),
     NonFiniteDuration(usize),
     NegativeDuration(usize),
@@ -101,6 +104,8 @@ pub struct IntegrityReport {
     pub issues: Vec<MetricIssue>,
     /// Present only when all integrity gates pass.
     pub percentiles: Option<Percentiles>,
+    /// Per-peer distributions prevent a slow peer being hidden by pooling.
+    pub per_peer_percentiles: Option<BTreeMap<String, Percentiles>>,
     /// True only when the full batch is valid and complete.
     pub aggregate_eligible: bool,
 }
@@ -120,17 +125,33 @@ fn nearest_rank(sorted: &[f64], quantile: f64) -> Option<f64> {
     sorted.get(index).copied()
 }
 
-fn compute_percentiles(samples: &[DurationSample]) -> Option<Percentiles> {
-    let mut values: Vec<f64> = samples.iter().map(|sample| sample.duration_ms).collect();
-    if values.is_empty() || values.iter().any(|value| !value.is_finite() || *value < 0.0) {
+fn compute_percentiles(raw_values: &[f64]) -> Option<Percentiles> {
+    if raw_values.is_empty()
+        || raw_values
+            .iter()
+            .any(|value| !value.is_finite() || *value < 0.0)
+    {
         return None;
     }
+
+    let mut values = raw_values.to_vec();
     values.sort_by(f64::total_cmp);
     Some(Percentiles {
         p50_ms: nearest_rank(&values, 0.50)?,
         p95_ms: nearest_rank(&values, 0.95)?,
         p99_ms: nearest_rank(&values, 0.99)?,
     })
+}
+
+fn is_incomplete_issue(issue: &MetricIssue) -> bool {
+    matches!(
+        issue,
+        MetricIssue::MissingClockObservation(_)
+            | MetricIssue::MissingPeerSamples(_)
+            | MetricIssue::PublicationCounterIncomplete
+            | MetricIssue::ObservationCounterIncomplete
+            | MetricIssue::NoDurationSamples
+    )
 }
 
 /// Validate a measurement batch before deriving aggregate performance metrics.
@@ -143,10 +164,16 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
     let mut outlier_sample_indexes = Vec::new();
 
     if !config.maximum_duration_ms.is_finite() || config.maximum_duration_ms <= 0.0 {
-        push_unique(&mut issues, MetricIssue::InvalidConfiguration("maximum_duration_ms"));
+        push_unique(
+            &mut issues,
+            MetricIssue::InvalidConfiguration("maximum_duration_ms"),
+        );
     }
     if !config.outlier_threshold_ms.is_finite() || config.outlier_threshold_ms < 0.0 {
-        push_unique(&mut issues, MetricIssue::InvalidConfiguration("outlier_threshold_ms"));
+        push_unique(
+            &mut issues,
+            MetricIssue::InvalidConfiguration("outlier_threshold_ms"),
+        );
     }
     if !config.maximum_clock_uncertainty_ms.is_finite()
         || config.maximum_clock_uncertainty_ms < 0.0
@@ -164,6 +191,9 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
     }
 
     let mut expected = BTreeSet::new();
+    if batch.expected_peers.is_empty() {
+        push_unique(&mut issues, MetricIssue::NoExpectedPeers);
+    }
     for peer_id in &batch.expected_peers {
         if peer_id.trim().is_empty() {
             push_unique(&mut issues, MetricIssue::EmptyExpectedPeerId);
@@ -240,6 +270,8 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
     }
 
     let mut sample_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut operation_ids = BTreeSet::new();
+
     for (index, sample) in batch.duration_samples.iter().enumerate() {
         if !expected.contains(&sample.peer_id) {
             push_unique(
@@ -249,6 +281,15 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
             continue;
         }
         *sample_counts.entry(sample.peer_id.clone()).or_default() += 1;
+
+        if sample.operation_id.trim().is_empty() {
+            push_unique(&mut issues, MetricIssue::EmptyOperationId(index));
+        } else if !operation_ids.insert(sample.operation_id.clone()) {
+            push_unique(
+                &mut issues,
+                MetricIssue::DuplicateOperationId(sample.operation_id.clone()),
+            );
+        }
 
         if !sample.duration_ms.is_finite() {
             push_unique(&mut issues, MetricIssue::NonFiniteDuration(index));
@@ -299,16 +340,7 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
         push_unique(&mut issues, MetricIssue::NoDurationSamples);
     }
 
-    let has_invalid = issues.iter().any(|issue| {
-        !matches!(
-            issue,
-            MetricIssue::MissingClockObservation(_)
-                | MetricIssue::MissingPeerSamples(_)
-                | MetricIssue::PublicationCounterIncomplete
-                | MetricIssue::ObservationCounterIncomplete
-                | MetricIssue::NoDurationSamples
-        )
-    });
+    let has_invalid = issues.iter().any(|issue| !is_incomplete_issue(issue));
     let has_incomplete = !issues.is_empty();
 
     let status = if has_invalid {
@@ -320,10 +352,33 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
     };
 
     let aggregate_eligible = status == IntegrityStatus::Valid;
-    let percentiles = if aggregate_eligible {
-        compute_percentiles(&batch.duration_samples)
+    let (percentiles, per_peer_percentiles) = if aggregate_eligible {
+        let global_values: Vec<f64> = batch
+            .duration_samples
+            .iter()
+            .map(|sample| sample.duration_ms)
+            .collect();
+
+        let mut peer_values: BTreeMap<String, Vec<f64>> = BTreeMap::new();
+        for sample in &batch.duration_samples {
+            peer_values
+                .entry(sample.peer_id.clone())
+                .or_default()
+                .push(sample.duration_ms);
+        }
+        let peer_percentiles = peer_values
+            .iter()
+            .filter_map(|(peer_id, values)| {
+                compute_percentiles(values).map(|percentiles| (peer_id.clone(), percentiles))
+            })
+            .collect();
+
+        (
+            compute_percentiles(&global_values),
+            Some(peer_percentiles),
+        )
     } else {
-        None
+        (None, None)
     };
 
     IntegrityReport {
@@ -332,6 +387,7 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
         outlier_sample_indexes,
         issues,
         percentiles,
+        per_peer_percentiles,
         aggregate_eligible,
     }
 }
@@ -368,10 +424,26 @@ mod tests {
                     },
                 ],
                 duration_samples: vec![
-                    DurationSample { peer_id: "peer-a".into(), operation_id: "op-1".into(), duration_ms: 10.0 },
-                    DurationSample { peer_id: "peer-a".into(), operation_id: "op-2".into(), duration_ms: 20.0 },
-                    DurationSample { peer_id: "peer-b".into(), operation_id: "op-3".into(), duration_ms: 30.0 },
-                    DurationSample { peer_id: "peer-b".into(), operation_id: "op-4".into(), duration_ms: 40.0 },
+                    DurationSample {
+                        peer_id: "peer-a".into(),
+                        operation_id: "op-1".into(),
+                        duration_ms: 10.0,
+                    },
+                    DurationSample {
+                        peer_id: "peer-a".into(),
+                        operation_id: "op-2".into(),
+                        duration_ms: 20.0,
+                    },
+                    DurationSample {
+                        peer_id: "peer-b".into(),
+                        operation_id: "op-3".into(),
+                        duration_ms: 30.0,
+                    },
+                    DurationSample {
+                        peer_id: "peer-b".into(),
+                        operation_id: "op-4".into(),
+                        duration_ms: 40.0,
+                    },
                 ],
                 counters: OperationCounters {
                     expected_publications: 2,
@@ -384,7 +456,7 @@ mod tests {
     }
 
     #[test]
-    fn valid_batch_emits_percentiles_and_preserves_outliers() {
+    fn valid_batch_emits_global_and_per_peer_percentiles() {
         let (config, batch) = valid_batch();
         let report = validate_batch(&config, &batch);
 
@@ -392,10 +464,17 @@ mod tests {
         assert!(report.aggregate_eligible);
         assert_eq!(report.raw_sample_count, 4);
         assert_eq!(report.outlier_sample_indexes, vec![3]);
-        assert_eq!(report.percentiles.unwrap().p50_ms, 20.0);
-        assert_eq!(report.percentiles.unwrap().p95_ms, 40.0);
-        assert_eq!(report.percentiles.unwrap().p99_ms, 40.0);
-        // The original 40ms sample is still present; it was not trimmed.
+
+        let global = report.percentiles.unwrap();
+        assert_eq!(global.p50_ms, 20.0);
+        assert_eq!(global.p95_ms, 40.0);
+        assert_eq!(global.p99_ms, 40.0);
+
+        let peers = report.per_peer_percentiles.unwrap();
+        assert_eq!(peers["peer-a"].p50_ms, 10.0);
+        assert_eq!(peers["peer-b"].p50_ms, 30.0);
+
+        // The original 40ms outlier remains in the submitted batch.
         assert_eq!(batch.duration_samples[3].duration_ms, 40.0);
     }
 
@@ -410,7 +489,9 @@ mod tests {
         assert!(!report.aggregate_eligible);
         assert!(report.percentiles.is_none());
         assert!(report.issues.contains(&MetricIssue::NonFiniteDuration(0)));
-        assert!(report.issues.contains(&MetricIssue::DurationOutsideDeclaredWindow(1)));
+        assert!(report
+            .issues
+            .contains(&MetricIssue::DurationOutsideDeclaredWindow(1)));
         assert_eq!(report.raw_sample_count, 4);
     }
 
@@ -433,7 +514,9 @@ mod tests {
         assert_eq!(report.status, IntegrityStatus::Incomplete);
         assert!(!report.aggregate_eligible);
         assert!(report.percentiles.is_none());
-        assert!(report.issues.contains(&MetricIssue::MissingPeerSamples("peer-b".into())));
+        assert!(report
+            .issues
+            .contains(&MetricIssue::MissingPeerSamples("peer-b".into())));
     }
 
     #[test]
@@ -443,7 +526,9 @@ mod tests {
 
         let report = validate_batch(&config, &batch);
         assert_eq!(report.status, IntegrityStatus::Invalid);
-        assert!(report.issues.contains(&MetricIssue::ClockUncertaintyAboveLimit("peer-b".into())));
+        assert!(report
+            .issues
+            .contains(&MetricIssue::ClockUncertaintyAboveLimit("peer-b".into())));
         assert!(report.percentiles.is_none());
     }
 
@@ -453,12 +538,16 @@ mod tests {
         batch.counters.observed_peer_observations = 5;
         let invalid = validate_batch(&config, &batch);
         assert_eq!(invalid.status, IntegrityStatus::Invalid);
-        assert!(invalid.issues.contains(&MetricIssue::ObservationsExceedExpected));
+        assert!(invalid
+            .issues
+            .contains(&MetricIssue::ObservationsExceedExpected));
 
         batch.counters.observed_peer_observations = 3;
         let incomplete = validate_batch(&config, &batch);
         assert_eq!(incomplete.status, IntegrityStatus::Incomplete);
-        assert!(incomplete.issues.contains(&MetricIssue::ObservationCounterIncomplete));
+        assert!(incomplete
+            .issues
+            .contains(&MetricIssue::ObservationCounterIncomplete));
     }
 
     #[test]
@@ -468,7 +557,21 @@ mod tests {
 
         let report = validate_batch(&config, &batch);
         assert_eq!(report.status, IntegrityStatus::Invalid);
-        assert!(report.issues.contains(&MetricIssue::NonMonotonicDurationClock("peer-a".into())));
+        assert!(report
+            .issues
+            .contains(&MetricIssue::NonMonotonicDurationClock("peer-a".into())));
+    }
+
+    #[test]
+    fn duplicate_operation_ids_are_rejected() {
+        let (config, mut batch) = valid_batch();
+        batch.duration_samples[3].operation_id = "op-1".into();
+
+        let report = validate_batch(&config, &batch);
+        assert_eq!(report.status, IntegrityStatus::Invalid);
+        assert!(report
+            .issues
+            .contains(&MetricIssue::DuplicateOperationId("op-1".into())));
     }
 
     #[test]
