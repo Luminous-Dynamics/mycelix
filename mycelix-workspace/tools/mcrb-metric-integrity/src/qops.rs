@@ -349,7 +349,7 @@ mod tests {
 
     #[test]
     fn duplicate_operation_outcome_is_invalid() {
-        let ledger = verified_ledger();
+        let ledger = verified_ledger(false);
         let mut input = valid_input();
         input.outcomes.push(sample("op-1", OperationOutcome::QualifiedSuccess));
         let report = compute_qops(&ledger, &input, &valid_integrity());
@@ -360,7 +360,7 @@ mod tests {
 
     #[test]
     fn unoffered_operation_cannot_enter_the_numerator() {
-        let ledger = verified_ledger();
+        let ledger = verified_ledger(false);
         let mut input = valid_input();
         input.outcomes.push(sample("op-not-offered", OperationOutcome::QualifiedSuccess));
         let report = compute_qops(&ledger, &input, &valid_integrity());
@@ -370,7 +370,7 @@ mod tests {
 
     #[test]
     fn duplicate_external_effect_is_non_compensatory() {
-        let ledger = verified_ledger();
+        let ledger = verified_ledger(false);
         let mut input = valid_input();
         input.outcomes[0].outcome = OperationOutcome::DuplicateEffect;
         let report = compute_qops(&ledger, &input, &valid_integrity());
@@ -381,7 +381,7 @@ mod tests {
 
     #[test]
     fn failed_correctness_gate_suppresses_all_performance_rates() {
-        let ledger = verified_ledger();
+        let ledger = verified_ledger(false);
         let mut input = valid_input();
         input.hard_correctness_gates_passed = false;
         let report = compute_qops(&ledger, &input, &valid_integrity());
@@ -392,7 +392,7 @@ mod tests {
 
     #[test]
     fn invalid_metric_integrity_suppresses_all_performance_rates() {
-        let ledger = verified_ledger();
+        let ledger = verified_ledger(false);
         let input = valid_input();
         let mut integrity = valid_integrity();
         integrity.status = IntegrityStatus::Invalid;
@@ -406,7 +406,6 @@ mod tests {
 
     #[test]
     fn required_cross_host_visibility_cannot_use_local_only_metrics() {
-        let ledger = verified_ledger();
         let ledger = verified_ledger(true);
         let input = valid_input();
         let report = compute_qops(&ledger, &input, &valid_integrity());
@@ -417,9 +416,8 @@ mod tests {
 
     #[test]
     fn required_cross_host_visibility_accepts_only_valid_cross_host_batch() {
-        let ledger = verified_ledger();
-        let mut input = valid_input();
-        input.cross_host_measurement_required = true;
+        let ledger = verified_ledger(true);
+        let input = valid_input();
         let mut integrity = valid_integrity();
         integrity.cross_host_status = CrossHostTimingStatus::Valid;
         integrity.cross_host_aggregate_eligible = true;
