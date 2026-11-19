@@ -113,13 +113,12 @@ Its peak is 7.2 MW, a 2.70% reduction from the 7.4 MW baseline. This is a synthe
 
 ### Synthetic heat interface
 
-At 09:15, the trace also includes a synthetic 3,000 kW IT-heat source and a named RO-feed heat sink:
-- heat source diverted to recovery: 312.5 kW;
-- useful sink delivery: 250 kW;
-- recovery loss to seawater: 62.5 kW;
-- direct IT heat still rejected to seawater: 2,687.5 kW.
+At 09:15, each policy has a synthetic named RO-feed heat sink requiring 250 kW useful heat. At 80% direct heat-exchanger efficiency, 312.5 kW is diverted from the IT heat stream and 62.5 kW is allocated as recovery loss to seawater. The direct IT heat still rejected to seawater therefore depends on that policy's IT load:
+- baseline (3,000 kW IT): 2,687.5 kW direct IT heat to seawater;
+- naive objective-only shift (4,500 kW IT): 4,187.5 kW direct IT heat to seawater;
+- no-new-peak admitted shift (1,500 kW IT): 1,187.5 kW direct IT heat to seawater.
 
-The recovery partition closes. RO SEC change, qualified product-water volume and environmental discharge limit remain null. The trace makes no potable-water or marine compliance claim.
+Each partition closes independently. RO SEC change, qualified product-water volume and environmental discharge limit remain null. The trace makes no potable-water or marine compliance claim.
 
 ## 2026 comparator programme
 
