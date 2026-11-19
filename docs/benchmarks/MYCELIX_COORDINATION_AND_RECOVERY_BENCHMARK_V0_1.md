@@ -346,3 +346,34 @@ Unit tests are authored for valid distributions, preserved outliers, NaN/negativ
 
 
 The verifier treats an operation identifier as unique **within an observer peer**, not globally: the same logical publication may legitimately be observed by several peers, while duplicate samples from the same peer are rejected. Both cases have dedicated unit-test fixtures.
+
+
+## 18. Qualified operations per second (QOPS)
+
+MCRB's headline application metric should be **qualified operations per second**, not raw transactions per second.
+
+Let:
+
+- (N_q) be the number of attempted operations that completed successfully and have a verified receipt binding the exact operation, authorized principal/capability, source record/action, required peer-observation condition and (where applicable) external effect receipt;
+- (T) be the fixed measurement-window duration in seconds.
+
+[
+QOPS = \frac{N_q}{T}
+]
+
+A QOPS value is **ineligible**, not merely lower, when a hard correctness invariant fails or measurement integrity is invalid. It must never be computed only from successful responses while ignoring rejected, timed-out, skipped or unknown operations.
+
+Every QOPS report must also publish:
+
+- offered operations per second and total offered operations;
+- total attempts, retries and backpressure;
+- qualified success fraction (N_q / N_{offered});
+- correct authorization denials and unexpected denials;
+- unknown outcomes and reconciliation duration;
+- duplicate external effects and acknowledged-record loss;
+- p50/p95/p99 latency for both all attempts and qualified completions.
+
+Expected denials are not counted as successful business operations; they are reported as a separate correctness outcome. This prevents a system from inflating QOPS by refusing difficult operations, silently dropping attempts or making authorization too permissive.
+
+This is a proposed MCRB metric, not an established industry standard or measured Mycelix advantage. Publish it alongside conventional throughput and latency metrics so other systems can reproduce the same contract.
+
