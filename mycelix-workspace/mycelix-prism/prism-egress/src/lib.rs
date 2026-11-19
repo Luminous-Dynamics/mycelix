@@ -2696,6 +2696,8 @@ mod tests {
             "Host: prism-redirect.test:{}",
             second_address.port()
         )));
+        assert!(!first_request.contains(&response.receipt.logical_request_id));
+        assert!(!second_request.contains(&response.receipt.logical_request_id));
     }
 
     #[tokio::test]
