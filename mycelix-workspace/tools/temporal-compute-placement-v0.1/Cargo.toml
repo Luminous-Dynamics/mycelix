@@ -1,0 +1,10 @@
+[workspace]
+resolver = "3"
+
+[package]
+name = "mycelix-temporal-compute-placement"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Exact fixed-interval resource placement oracle for federated compute"
