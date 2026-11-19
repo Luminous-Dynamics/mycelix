@@ -298,3 +298,32 @@ Once the exact 0.6.1 baseline exists, define a bounded migration non-regression 
 
 For new capabilities where no baseline exists, publish the first measured operating envelope, then set a user-facing SLO from actual workflow needs. Do not manufacture universal DHT convergence or recovery SLOs from a small synthetic lab.
 
+
+
+## 15. Metric integrity is a benchmark gate
+
+A benchmark result is itself an evidence object. The harness must qualify the measurements before interpreting performance.
+
+A published Holochain Wind Tunnel report from 12 February 2026 illustrates why. Its DHT Sync Lag scenario ran with 10 peers on Holochain 0.6.1-rc.0 and Wind Tunnel 0.6.0. The report shows an all-agent sync-lag mean of approximately 7.81e29 seconds, while some individual peer means are tens to hundreds of seconds and two peer means are approximately 3.46e29 and 3.56e30 seconds. The same scenario reports two errors. The public report does not explain the cause; MCRB must preserve that uncertainty rather than guessing.
+
+This run is a **measurement-quality example, not a performance baseline or target**. A summary statistic with impossible values must not be used to rank or compare systems.
+
+Required metric-integrity checks:
+
+- Record the clock source and synchronization method for every host.
+- Measure local durations with monotonic clocks; use wall-clock timestamps only for cross-host correlation with recorded offset and uncertainty.
+- Reject negative, non-finite, overflowed or implausibly out-of-run durations.
+- Preserve raw outliers and classify them; never silently trim, clamp, winsorize or average them away.
+- Publish peer-level distributions before any aggregate, and reject an aggregate if one or more member samples fail integrity checks.
+- Verify send/receive counters, sample counts, denominators and missing-peer coverage reconcile.
+- Mark the whole benchmark run as measurement_invalid when time/metric integrity fails; it cannot support a performance claim even if the application correctness tests passed.
+
+The benchmark verifier should distinguish:
+
+- application_fail — an application invariant failed;
+- measurement_invalid — the measurement evidence is malformed or insufficient;
+- infrastructure_incomplete — required peers/jobs/artifacts did not complete;
+- qualified — both application correctness and measurement integrity passed.
+
+Never collapse those states into a generic failed/passed boolean.
+
