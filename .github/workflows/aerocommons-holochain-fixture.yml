@@ -1,0 +1,44 @@
+name: AeroCommons Holochain fixture
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-commons/aerocommons-holochain-fixture/**"
+      - "docs/aerocommons/AERO_HOLOCHAIN_FIXTURE_CONTRACT_V1.json"
+      - "docs/aerocommons/AERO_AUTHORITY_CEILING_V1.json"
+      - "mycelix-commons/crates/aero-authority-ceiling/**"
+  push:
+    branches:
+      - main
+    paths:
+      - "mycelix-commons/aerocommons-holochain-fixture/**"
+      - "docs/aerocommons/AERO_HOLOCHAIN_FIXTURE_CONTRACT_V1.json"
+      - "docs/aerocommons/AERO_AUTHORITY_CEILING_V1.json"
+      - "mycelix-commons/crates/aero-authority-ceiling/**"
+
+jobs:
+  fixture:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mycelix-commons/aerocommons-holochain-fixture
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - name: Format check
+        run: cargo fmt --check
+
+      - name: Host compilation
+        run: cargo check
+
+      - name: Host tests
+        run: cargo test
+
+      - name: WASM compilation
+        run: cargo check --target wasm32-unknown-unknown

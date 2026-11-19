@@ -1,0 +1,11 @@
+[package]
+name = "aero-authority-ceiling"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Machine-checkable AeroCommons authority-ceiling qualification corpus"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
