@@ -120,6 +120,12 @@
         }
       }
     },
+    "refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
     "content": {
       "type": "object",
       "additionalProperties": false,
@@ -152,9 +158,176 @@
         }
       }
     },
+    "uncertainty": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "representation",
+        "value",
+        "unit"
+      ],
+      "properties": {
+        "representation": {
+          "type": "string"
+        },
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "validity_domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conditions"
+      ],
+      "properties": {
+        "conditions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "reason",
+        "predecessor"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "active",
+            "superseded",
+            "disputed",
+            "revoked",
+            "withdrawn"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "predecessor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
     "evidence": {
       "type": "object",
-      "description": "AeroEvidenceV1 from the pinned Mycelix evidence-types crate; structural validation is delegated to that crate."
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "schema",
+        "claim",
+        "claim_kind",
+        "configuration",
+        "subject",
+        "basis",
+        "method",
+        "inputs",
+        "toolchain",
+        "result",
+        "uncertainty",
+        "validity_domain",
+        "producer",
+        "review",
+        "lifecycle",
+        "provenance"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema": {
+          "const": "AeroEvidenceV1"
+        },
+        "claim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_kind": {
+          "enum": [
+            "measurement",
+            "analysis",
+            "simulation",
+            "inspection",
+            "test",
+            "calculation",
+            "qualification",
+            "attestation",
+            "observation",
+            "derived"
+          ]
+        },
+        "configuration": {
+          "$ref": "#/$defs/ref"
+        },
+        "subject": {
+          "$ref": "#/$defs/ref"
+        },
+        "basis": {
+          "$ref": "#/$defs/refs"
+        },
+        "method": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ref"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inputs": {
+          "$ref": "#/$defs/refs"
+        },
+        "toolchain": {
+          "$ref": "#/$defs/refs"
+        },
+        "result": {},
+        "uncertainty": {
+          "$ref": "#/$defs/uncertainty"
+        },
+        "validity_domain": {
+          "$ref": "#/$defs/validity_domain"
+        },
+        "producer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review": {
+          "$ref": "#/$defs/refs"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/lifecycle"
+        },
+        "provenance": {
+          "$ref": "#/$defs/refs"
+        }
+      }
     }
   }
 }
