@@ -302,3 +302,25 @@ fn denied_before_connect_reconciles_only_when_no_kernel_event_exists() {
     assert!(report.independently_qualified());
     assert_eq!(report.outcomes[0].1, ActionOutcome::ReconciledDeniedNoSocket);
 }
+
+
+#[test]
+fn duplicate_socket_cookie_invalidates_event_identity() {
+    let receipt = connected_receipt("duplicate-cookie", 100, 200);
+    let mut events = [
+        event(8, 140, peer(10, 443)),
+        event(9, 160, peer(11, 443)),
+    ];
+    events[1].socket_cookie = events[0].socket_cookie;
+    let report = reconcile(observer(8, Some(9)), &[receipt], &events);
+
+    assert!(!report.independently_qualified());
+    assert_eq!(
+        report.observer_error,
+        Some(IncompleteReason::DuplicateSocketIdentity)
+    );
+    assert_eq!(
+        report.outcomes[0].1,
+        ActionOutcome::Incomplete(IncompleteReason::DuplicateSocketIdentity)
+    );
+}

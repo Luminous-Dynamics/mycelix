@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "status": "specification_only",
   "generated_at_utc": "2026-11-19",
-  "execution_note": "No scenario in this manifest is marked as runner-executed. source_coverage records source presence only, not compilation or runtime success. Hyper parser probes are test-only feasibility work; production egress remains on Reqwest until transport-equivalence qualification passes.",
+  "execution_note": "No scenario in this manifest is marked as runner-executed. source_coverage records source presence only, not compilation or runtime success. Reference-model tests are not production BPF observation or event-delivery qualification.",
   "status_vocabulary": {
     "source_coverage": [
       "present",
@@ -681,6 +681,32 @@
       "oracle": "a unique workload/time join with an unauthorized actual peer is a contradiction, never a successful receipt",
       "source_coverage": "partial",
       "source_test": "observed_peer_outside_authorized_set_is_a_contradiction",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "OBS-009",
+      "family": "observer_integrity",
+      "title": "ring-buffer overflow and terminal event loss are independently accounted",
+      "setup": "force BPF ring-buffer reservation failure on both an interior and final event while userspace drains slowly",
+      "expected_decision": "incomplete",
+      "oracle": "an attempt high-watermark plus out-of-band producer loss counters and consumer-ingest counters reveal every dropped event, including a lost last event; no overflow marker is emitted through the saturated ring itself",
+      "source_coverage": "planned",
+      "source_test": null,
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "OBS-008",
+      "family": "observer_integrity",
+      "title": "duplicate kernel socket identity invalidates event reconciliation",
+      "setup": "two distinct event sequence numbers carry the same socket cookie inside one observer generation",
+      "expected_decision": "incomplete",
+      "oracle": "socket identity collision/replay makes the observer snapshot incomplete; events must not be merged into one action",
+      "source_coverage": "partial",
+      "source_test": "duplicate_socket_cookie_invalidates_event_identity",
       "execution_status": "not_run_exact_head",
       "negative_control_required": true,
       "execution_evidence": null
