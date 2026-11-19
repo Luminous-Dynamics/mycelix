@@ -394,7 +394,7 @@ pub fn verify_offer_ledger(
     let mut operation_ids = Vec::with_capacity(ledger.entries.len());
     let mut seen_ids = BTreeSet::new();
     let mut seen_idempotency_keys = BTreeSet::new();
-    let mut prior_tick = None;
+    let mut prior_tick: Option<u64> = None;
 
     for (index, entry) in ledger.entries.iter().enumerate() {
         let expected_sequence = index as u64;
@@ -630,6 +630,19 @@ mod tests {
         assert_eq!(
             verify_offer_ledger(&ledger, &wrong).unwrap_err(),
             OfferLedgerError::ScenarioIdMismatch
+        );
+    }
+
+    #[test]
+    fn zero_clock_frequency_is_rejected_before_duration_derivation() {
+        let mut ledger = ledger_with_count(5);
+        ledger.measurement_window.ticks_per_second = 0;
+        ledger = ledger.seal();
+        let mut expected = expectation(5);
+        expected.measurement_window.ticks_per_second = 0;
+        assert_eq!(
+            verify_offer_ledger(&ledger, &expected).unwrap_err(),
+            OfferLedgerError::InvalidClockFrequency
         );
     }
 
