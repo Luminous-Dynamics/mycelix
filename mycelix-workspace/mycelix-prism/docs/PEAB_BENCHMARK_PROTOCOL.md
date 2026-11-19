@@ -348,3 +348,21 @@ Prism now creates a random 16-byte UUID correlation ID for standalone requests a
 
 
 Correlation IDs remain local evidence metadata: Prism does not add them to outbound HTTP headers, URL paths, query parameters or request bodies. The redirect integration test asserts that the exact ID in the final receipt is absent from both upstream request byte streams. PRIV-001 records this privacy boundary; this is a source assertion until the test executes.
+
+
+## 14. Request-scoped resolution snapshot interface
+
+The resolver boundary now returns an \`EgressResolutionSnapshot\`, not a bare \`Vec<SocketAddr>\`. Every snapshot binds the canonical hostname, destination port, logical request ID, zero-based redirect-hop index and complete socket-address set. Optional provenance includes a monotonic validity deadline, the canonical address-set correlation digest, the signed Nixward resolution-lease payload digest and the resolver snapshot/transcript digest.
+
+The built-in operating-system resolver creates a system snapshot with no authoritative TTL, CNAME, DNSSEC or resolver-transcript claim because \`ToSocketAddrs\` does not expose those fields. Prism applies its local capability TTL. The custom resolver interface is public for a trusted adapter; it is part of Prism's trusted computing base.
+
+For a Nixward-backed snapshot, the adapter must first authenticate the resolver response and verify the signed lease, owner/parent capability, workload/cgroup identity, explicit address scope, policy generation, nonce/replay state, resolver audience and resolver provenance. Only then should it construct \`EgressResolutionSnapshot::from_verified_nixward_lease\`. That constructor checks field shape, 32-character request ID, hop ceiling, nonempty/bounded addresses, uniform requested socket port, future validity and the canonical address-set digest. **It does not verify signatures, workload identity or replay consumption.** Its name documents the caller precondition; the method is not a cryptographic verifier.
+
+Prism independently checks snapshot hostname, port, logical request ID and hop against the request that triggered resolution. It sorts/deduplicates addresses, rejects empty or oversized sets, checks the set digest when present, applies the complete address policy, and sets capability expiry to:
+
+\`min(local_capability_expiry, resolution_lease_valid_until)\`
+
+A snapshot that does not match the request or has expired is rejected before a capability is issued. The application receipt now carries the lease payload digest and resolver snapshot digest separately from the address-set digest. Redirect-hop receipts carry source and target values separately so each hop can be reconciled independently. These are identifiers and application-reported provenance values, not signatures or independent kernel evidence.
+
+The API is an integration seam, not a live Prism↔Nixward broker. No signed IPC transport, resolver process, replay-ledger call, kernel map staging, active-generation readback or packet enforcement was added by this change. LEASE-001 and LEASE-002 cover the implemented snapshot API and its fail-closed shape checks; both remain unexecuted at exact PR head.
+
