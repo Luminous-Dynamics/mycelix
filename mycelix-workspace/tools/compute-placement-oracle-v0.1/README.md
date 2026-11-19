@@ -41,8 +41,8 @@ Those are separate owners/gates in Mycelix #6322, #5900, #6189, #6193 and the pa
 The unit-test fixture has two workers and two tasks. The task requiring the eastern region must remain in that region. The other task may be placed locally on the western worker or moved east to use a cheaper rate card.
 
 The expected Pareto frontier deliberately preserves both:
-- higher estimated cost, zero remote bytes, two failure domains;
-- lower estimated cost, 10 GiB remote movement, one failure domain.
+- higher estimated cost, zero remote bytes, two failure domains, two operator IDs and two regions;
+- lower estimated cost, 10 GiB remote movement, one failure domain, one operator ID and one region.
 
 The oracle must not silently pick one by collapsing economics, data locality and failure-domain diversity into a single unexplained weight.
 
