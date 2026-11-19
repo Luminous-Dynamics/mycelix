@@ -1021,6 +1021,21 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "TXN-007",
+      "family": "kernel_map_payload_binding",
+      "title": "map payload explicitly binds parent capability and resolver provenance",
+      "setup": "substitute valid-shaped digests for the parent capability, parent authority lease, address-scope policy or resolver snapshot while keeping the rest of the map payload unchanged",
+      "expected_decision": "reject_map_payload",
+      "oracle": "transaction refuses a map payload unless every parent/provenance digest exactly matches its non-deserializable parent-bound lease proof",
+      "source_coverage": "partial",
+      "source_test": null,
+      "related_work": "https://github.com/Luminous-Dynamics/nixward/pull/162",
+      "external_test": "map_payload_rejects_substitution_of_workload_port_policy_or_address_set",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
