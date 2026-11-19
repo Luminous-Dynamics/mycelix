@@ -1171,6 +1171,61 @@
         "scenario-result"
       ],
       "qops_requires_cross_host_visibility": false
+    },
+    {
+      "id": "MCRB-23",
+      "scenario_id": "offer-ledger-integrity",
+      "objective": "Fix the QOPS denominator before dispatch with a canonical, ordered, independently verifiable append-only offer ledger",
+      "actors": [
+        "workload-generator",
+        "runner-orchestrator",
+        "independent-verifier"
+      ],
+      "hard_invariants": [
+        "offer-ledger-committed-before-dispatch",
+        "canonical-domain-separated-digest-valid",
+        "contiguous-unique-operation-ids",
+        "denominator-derived-from-verified-ledger",
+        "external-effects-require-idempotency-key",
+        "missing-outcome-remains-in-denominator",
+        "generator-authenticity-separate-from-hash-consistency"
+      ],
+      "fault_injection": [
+        "truncate-ledger-after-dispatch",
+        "omit-failed-offer",
+        "append-offer-after-results",
+        "duplicate-operation-id",
+        "duplicate-idempotency-key",
+        "reorder-sequence",
+        "mutate-request-digest",
+        "change-generator-or-manifest-digest",
+        "reuse-ledger-across-run-or-scenario",
+        "move-offer-outside-measurement-window",
+        "mix-clock-identity-or-epoch",
+        "omit-idempotency-key-for-external-effect"
+      ],
+      "required_metrics": [
+        "offer_ledger_verification_status",
+        "offer_ledger_entry_count",
+        "offer_ledger_digest_mismatch_count",
+        "duplicate_operation_id_count",
+        "duplicate_idempotency_key_count",
+        "qops_missing_outcome_count",
+        "qualified_operations_per_second"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "scenario-manifest-digest",
+        "canonical-offer-ledger-artifact-digest",
+        "generator-binary-digest",
+        "offer-ledger-verifier-digest",
+        "raw-ledger-entry-count",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": false,
+      "qualification_blocking": true,
+      "related_issue": "#6342"
     }
   ],
   "receipt_schema": "MCRB_V0_1_RUN_RECEIPT.schema.json",
@@ -1317,6 +1372,22 @@
       "qualified_operations_per_second"
     ],
     "no_silent_attempt_exclusion": true,
-    "denials_count_as_business_success": false
+    "denials_count_as_business_success": false,
+    "offer_ledger_requirement": "QOPS must consume an opaque verified offer-ledger result; callers cannot supply or reduce the expected operation ID denominator.",
+    "independent_authenticity_requirement": "The offer ledger generator and runner/orchestrator identity must be separately attested; a self-computed digest alone is not authenticity."
+  },
+  "offer_ledger_policy": {
+    "schema_version": "mycelix-mcrb-offer-ledger-v0.1",
+    "canonical_encoding": "domain-separated-length-prefixed-big-endian-v1",
+    "digest_algorithm": "SHA-256",
+    "sequence_start": 1,
+    "sequence_policy": "contiguous-increasing-no-reordering",
+    "operation_id_policy": "unique-within-run-and-scenario",
+    "idempotency_policy": "unique-when-present-and-required-for-external-effects",
+    "qops_denominator_source": "verified-offer-ledger-entry-count",
+    "outcome_policy": "exactly-one-terminal-outcome-per-offer-or-explicitly-missing",
+    "measurement_clock": "monotonic-clock-id-and-epoch-bound-ticks",
+    "generator_authenticity": "separate-signed-runner-or-orchestrator-receipt-required",
+    "claim_ceiling": "digest-validity proves internal ledger consistency, not independent generator or runner honesty"
   }
 }
