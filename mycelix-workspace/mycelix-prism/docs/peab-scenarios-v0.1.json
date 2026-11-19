@@ -697,6 +697,19 @@
       "execution_status": "not_run_exact_head",
       "execution_evidence": null,
       "negative_control_required": true
+    },
+    {
+      "id": "CORR-001",
+      "family": "evidence_reconciliation",
+      "title": "logical request ID and redirect hop survive authorization",
+      "setup": "supply a Nixward-format 32-character lowercase-hex logical ID and a zero-based hop, then exercise a redirect chain",
+      "expected_decision": "preserve_same_id_and_increment_hop",
+      "oracle": "the exact caller ID is retained, each redirect source receipt uses its own hop index, the final receipt carries the final hop index, and out-of-range hop metadata is rejected before DNS",
+      "source_coverage": "present",
+      "source_test": "caller_correlation_id_is_preserved_and_hop_ceiling_fails_before_dns; public_redirect_reauthorizes_and_pins_each_hop_dns_snapshot",
+      "execution_status": "not_run_exact_head",
+      "execution_evidence": null,
+      "negative_control_required": true
     }
   ]
 }
