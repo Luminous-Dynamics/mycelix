@@ -536,7 +536,11 @@
         "qualified_success_fraction",
         "cross_host_measurement_required",
         "cross_host_status",
-        "cross_host_aggregate_eligible"
+        "cross_host_aggregate_eligible",
+        "offer_ledger_digest_sha256",
+        "offer_ledger_entry_count",
+        "run_id",
+        "scenario_id"
       ],
       "properties": {
         "status": {
@@ -553,7 +557,20 @@
           "required": [
             "digest_sha256",
             "entry_count",
-            "generator_digest_sha256"
+            "generator_digest_sha256",
+            "schema_version",
+            "run_id",
+            "scenario_id",
+            "workload_manifest_digest_sha256",
+            "seed",
+            "measurement_window_id",
+            "clock_source",
+            "monotonic_clock_id",
+            "monotonic_clock_epoch",
+            "start_ticks",
+            "end_ticks",
+            "ticks_per_second",
+            "artifact_digest_sha256"
           ],
           "properties": {
             "digest_sha256": {
@@ -565,6 +582,57 @@
               "minimum": 1
             },
             "generator_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "schema_version": {
+              "const": "mycelix-mcrb-offer-ledger-v0.1"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "scenario_id": {
+              "type": "string",
+              "pattern": "^MCRB-[0-9]{2}$"
+            },
+            "workload_manifest_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "seed": {
+              "type": "string",
+              "minLength": 1
+            },
+            "measurement_window_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "clock_source": {
+              "type": "string",
+              "minLength": 1
+            },
+            "monotonic_clock_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "monotonic_clock_epoch": {
+              "type": "string",
+              "minLength": 1
+            },
+            "start_ticks": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "end_ticks": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "ticks_per_second": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "artifact_digest_sha256": {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$"
             }
@@ -708,6 +776,22 @@
         },
         "cross_host_aggregate_eligible": {
           "type": "boolean"
+        },
+        "offer_ledger_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "offer_ledger_entry_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^MCRB-[0-9]{2}$"
         }
       }
     }
