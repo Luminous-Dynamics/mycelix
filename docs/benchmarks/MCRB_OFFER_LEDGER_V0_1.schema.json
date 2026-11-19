@@ -165,16 +165,5 @@
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
     }
-  },
-  "allOf": [
-    {
-      "properties": {
-        "measurement_end_ticks": {
-          "exclusiveMinimum": {
-            "$data": "1/measurement_start_ticks"
-          }
-        }
-      }
-    }
-  ]
+  }
 }
