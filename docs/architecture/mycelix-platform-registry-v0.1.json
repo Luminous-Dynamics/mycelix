@@ -1,0 +1,299 @@
+{
+  "schema_version": "mycelix-platform-registry-v0.1",
+  "snapshot_kind": "non-authoritative-manifest-derived-snapshot",
+  "source": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "branch": "main",
+    "commit": "f51334e48f686fc294a423180c2f7f3fd9b2d283",
+    "manifest_path": "mycelix-workspace/happs/mycelix-unified-happ.yaml",
+    "manifest_git_blob_sha": "c375b9f9851315ee9773cbd609273c8300491d34"
+  },
+  "profiles": [
+    {
+      "profile_id": "unified",
+      "manifest_path": "mycelix-workspace/happs/mycelix-unified-happ.yaml",
+      "manifest_git_blob_sha": "c375b9f9851315ee9773cbd609273c8300491d34",
+      "roles": [
+        "personal",
+        "identity",
+        "hearth",
+        "commons_land",
+        "commons_care",
+        "civic",
+        "attribution",
+        "finance",
+        "governance",
+        "health",
+        "supplychain",
+        "manufacturing",
+        "music",
+        "energy",
+        "knowledge",
+        "climate",
+        "praxis",
+        "craft",
+        "core_fl"
+      ]
+    },
+    {
+      "profile_id": "resilience",
+      "manifest_path": "mycelix-workspace/happs/mycelix-resilience-happ.yaml",
+      "manifest_git_blob_sha": "643c399ff4229a6e3a06ba3f8dde8887bbe37248",
+      "roles": [
+        "identity",
+        "finance",
+        "commons_care",
+        "civic",
+        "governance",
+        "hearth",
+        "knowledge",
+        "supplychain"
+      ]
+    }
+  ],
+  "roles": [
+    {
+      "role_id": "personal",
+      "dna_artifact_path": "./personal/dna/mycelix_personal.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "sovereign-personal"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "identity",
+      "dna_artifact_path": "./identity/dna/mycelix_identity_dna.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "identity-credentials"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "hearth",
+      "dna_artifact_path": "./hearth/dna/mycelix_hearth.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "household-family"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "commons_land",
+      "dna_artifact_path": "./commons/dna/mycelix_commons_land.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "property",
+        "housing",
+        "water",
+        "food"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "commons_care",
+      "dna_artifact_path": "./commons/dna/mycelix_commons_care.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "care",
+        "mutual-aid",
+        "transport",
+        "support",
+        "space"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "civic",
+      "dna_artifact_path": "./civic/dna/mycelix_civic.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "justice",
+        "emergency",
+        "media"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "attribution",
+      "dna_artifact_path": "./attribution/dna/mycelix_attribution_dna.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "attribution",
+        "reciprocity"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "finance",
+      "dna_artifact_path": "./finance/dna/mycelix_finance.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "payments",
+        "treasury",
+        "mutual-credit"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "governance",
+      "dna_artifact_path": "./governance/dna/mycelix_governance_dna.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "governance",
+        "voting",
+        "constitution"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "health",
+      "dna_artifact_path": "./health/dna/health.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "health-records",
+        "care-consent"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "supplychain",
+      "dna_artifact_path": "./supplychain/holochain/dna/supplychain.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "supply-chain"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "manufacturing",
+      "dna_artifact_path": "./manufacturing/dna/manufacturing.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "manufacturing"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "music",
+      "dna_artifact_path": "../../mycelix-music/dnas/mycelix-music/mycelix_music.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "music-culture"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "energy",
+      "dna_artifact_path": "../../mycelix-energy/dna/mycelix_energy.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "energy"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "knowledge",
+      "dna_artifact_path": "../../mycelix-knowledge/dna/mycelix_knowledge.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "knowledge",
+        "evidence"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "climate",
+      "dna_artifact_path": "../../mycelix-climate/dnas/climate/workdir/climate.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "climate"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "praxis",
+      "dna_artifact_path": "../../mycelix-praxis/dna/praxis.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "praxis"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "craft",
+      "dna_artifact_path": "../../mycelix-craft/dna/mycelix_craft.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "craft"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    },
+    {
+      "role_id": "core_fl",
+      "dna_artifact_path": "../../mycelix-core/dna/mycelix_core.dna",
+      "deployment_presence": "manifest-listed",
+      "trust_classification": "unclassified",
+      "authority_classification": "unclassified",
+      "logical_domains": [
+        "federated-learning",
+        "core"
+      ],
+      "notes": "Logical-domain labels are descriptive indexes from repository architecture material; trust and authority require separate owner review."
+    }
+  ],
+  "known_discrepancies": [
+    {
+      "id": "CLUSTER-MAP-STALE-001",
+      "description": "Legacy mycelix-core/architecture/clustermap.yaml describes only Sovereign/Civic/Commons and lists Knowledge/Finance as planned although both appear in the unified profile.",
+      "status": "unresolved"
+    },
+    {
+      "id": "UNIFIED-DESCRIPTION-ROLE-001",
+      "description": "Unified manifest description mentions Marketplace, but the inspected roles array contains no marketplace role.",
+      "status": "unresolved"
+    },
+    {
+      "id": "TRUST-CLASSIFICATION-001",
+      "description": "This registry snapshot intentionally leaves trust and authority classifications unclassified; manifest presence does not establish a trust or authority model.",
+      "status": "unresolved"
+    }
+  ]
+}
