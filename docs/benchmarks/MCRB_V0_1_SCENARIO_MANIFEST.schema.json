@@ -534,7 +534,15 @@
         "invalid_when",
         "required_companion_metrics",
         "no_silent_attempt_exclusion",
-        "denials_count_as_business_success"
+        "denials_count_as_business_success",
+        "denominator_source",
+        "offer_ledger_schema_version",
+        "offer_set_fixed_before_dispatch",
+        "expected_offer_count_from_frozen_scenario_contract",
+        "caller_supplied_operation_denominator_allowed",
+        "require_append_only_sequence",
+        "require_canonical_sha256_digest",
+        "require_runner_attestation_for_execution_claim"
       ],
       "properties": {
         "name": {
@@ -562,6 +570,30 @@
         },
         "denials_count_as_business_success": {
           "const": false
+        },
+        "denominator_source": {
+          "const": "verified-content-addressed-offer-ledger"
+        },
+        "offer_ledger_schema_version": {
+          "const": "mycelix-mcrb-offer-ledger-v0.1"
+        },
+        "offer_set_fixed_before_dispatch": {
+          "const": true
+        },
+        "expected_offer_count_from_frozen_scenario_contract": {
+          "const": true
+        },
+        "caller_supplied_operation_denominator_allowed": {
+          "const": false
+        },
+        "require_append_only_sequence": {
+          "const": true
+        },
+        "require_canonical_sha256_digest": {
+          "const": true
+        },
+        "require_runner_attestation_for_execution_claim": {
+          "const": true
         }
       }
     }
