@@ -19,6 +19,7 @@ use crate::offer_ledger::embedded_scenario_manifest_digest;
 
 pub const GATE_ATTESTATION_SCHEMA_VERSION: &str = "mycelix-mcrb-gate-attestation-v0.1";
 pub const GATE_POLICY_SCHEMA_VERSION: &str = "mycelix-mcrb-gate-policy-v0.1";
+pub const GATE_VERIFIER_VERSION: &str = env!("CARGO_PKG_VERSION");
 const ATTESTATION_DOMAIN: &[u8] = b"MYCELIX-MCRB-GATE-ATTESTATION\0v0.1\0";
 const POLICY_DOMAIN: &[u8] = b"MYCELIX-MCRB-GATE-POLICY\0v0.1\0";
 const ATTESTATION_SET_DOMAIN: &[u8] = b"MYCELIX-MCRB-GATE-ATTESTATION-SET\0v0.1\0";
@@ -117,6 +118,8 @@ pub enum GateVerificationIssue {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GateVerificationReport {
     status: GateVerificationStatus,
+    policy_id: String,
+    verifier_version: String,
     run_id: String,
     scenario_id: String,
     source_sha: String,
@@ -135,6 +138,8 @@ pub struct GateVerificationReport {
 
 impl GateVerificationReport {
     pub fn status(&self) -> GateVerificationStatus { self.status }
+    pub fn policy_id(&self) -> &str { &self.policy_id }
+    pub fn verifier_version(&self) -> &str { &self.verifier_version }
     pub fn run_id(&self) -> &str { &self.run_id }
     pub fn scenario_id(&self) -> &str { &self.scenario_id }
     pub fn source_sha(&self) -> &str { &self.source_sha }
@@ -555,6 +560,8 @@ pub fn verify_gate_attestations(
 
     GateVerificationReport {
         status,
+        policy_id: policy.policy_id.clone(),
+        verifier_version: GATE_VERIFIER_VERSION.to_string(),
         run_id: policy.run_id.clone(),
         scenario_id: policy.scenario_id.clone(),
         source_sha: policy.source_sha.clone(),
