@@ -39,6 +39,12 @@ The optional `spatial_qualification_reference` points to an exact Sol Atlas `Spa
 
 A reference can be structurally present while its source is unavailable, stale, revoked or not yet reviewed. The Mycelix validator checks only the source/schema identifiers, non-empty references, SHA-256 shape and fixed `reference_only_no_legal_effect` ceiling. The trusted host must resolve the exact content, compare its digest, evaluate its disposition and evidence frontier, and block dependent projections when the result is `review_required` or `not_evaluable`. A Sol Atlas `structural_accept` still does not prove registry authenticity or legal title.
 
+### Sol Atlas 3D spatial qualification pointer
+
+The optional `spatial_qualification_reference` points to an exact Sol Atlas `SpatialQualificationRecordV0` using its schema identity, schema URI, record reference, record ID and SHA-256. It carries no coordinates, mesh or geometry payload. The Sol Atlas record remains the source of spatial metadata, survey references, coordinate-operation lineage, topology assessment and overlap state.
+
+A reference can be structurally present while its source is unavailable, stale, revoked or not yet reviewed. The Mycelix validator checks only the source/schema identifiers, non-empty references, SHA-256 shape and fixed `reference_only_no_legal_effect` ceiling. The trusted host must resolve the exact content, compare its digest, evaluate its disposition and evidence frontier, and block dependent projections when the result is `review_required` or `not_evaluable`. A Sol Atlas `structural_accept` still does not prove registry authenticity or legal title.
+
 ## Data mapping
 
 | Sol Atlas source | Mycelix representation | Rule |
@@ -163,7 +169,7 @@ The operation is deterministic and idempotent for the same event/root/reason. Mu
 
 **Important boundary:** this index marks records as no longer current for downstream reliance. It does not itself revoke a legal right, modify a national register, delete a community record, retract a published copy, or provide access-control enforcement. The host still needs to notify dependent systems and apply each owner's correction, disclosure and appeal process.
 
-The focused harness now includes 34 RRR/decision-packet tests, 27 lifecycle tests and 15 invalidation-graph/corpus tests: **76 Rust tests in three production source modules**, plus the table-driven nine-scenario TIB transition vector test within the lifecycle module. This is test inventory, not a passing CI claim.
+The focused harness now includes 37 RRR/decision-packet tests, 27 lifecycle tests and 15 invalidation-graph/corpus tests: **79 Rust tests in three production source modules**, plus the table-driven nine-scenario TIB transition vector test within the lifecycle module. This is test inventory, not a passing CI claim.
 
 ## Challenge and absence semantics
 
