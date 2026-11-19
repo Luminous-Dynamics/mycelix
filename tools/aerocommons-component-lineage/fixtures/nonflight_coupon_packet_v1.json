@@ -1,0 +1,384 @@
+{
+  "schema": "AeroComponentBuildPacketV1",
+  "packet_id": "packet:coupon-001-r1",
+  "component": {
+    "id": "component:coupon-001",
+    "kind": "component"
+  },
+  "configuration": {
+    "id": "configuration:coupon-001-r1",
+    "kind": "configuration"
+  },
+  "design_definition": {
+    "reference": {
+      "id": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+      "kind": "design_definition"
+    },
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000001",
+    "byte_length": 128,
+    "media_type": "application/step",
+    "format_id": "ISO_10303_242:2025"
+  },
+  "requirements": [
+    {
+      "id": "requirement:dimension-a",
+      "kind": "requirement"
+    },
+    {
+      "id": "requirement:surface-finish",
+      "kind": "requirement"
+    }
+  ],
+  "process_plan": {
+    "reference": {
+      "id": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+      "kind": "manufacturing_process_plan"
+    },
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000002",
+    "byte_length": 128,
+    "media_type": "application/json",
+    "format_id": "AERO_PROCESS_PLAN_V1"
+  },
+  "material_batch": {
+    "id": "material-batch:al-6061-lot-01",
+    "kind": "material_batch"
+  },
+  "machine": {
+    "id": "machine:mill-01",
+    "kind": "machine"
+  },
+  "tooling": [
+    {
+      "id": "tooling:fixture-01",
+      "kind": "tooling"
+    }
+  ],
+  "build_evidence": {
+    "evidence_id": "evidence:build-01",
+    "schema": "AeroEvidenceV1",
+    "claim": "Synthetic evidence record evidence:build-01",
+    "claim_kind": "observation",
+    "configuration": {
+      "id": "configuration:coupon-001-r1",
+      "kind": "configuration"
+    },
+    "subject": {
+      "id": "component:coupon-001",
+      "kind": "component"
+    },
+    "basis": [
+      {
+        "id": "requirement:dimension-a",
+        "kind": "requirement"
+      },
+      {
+        "id": "requirement:surface-finish",
+        "kind": "requirement"
+      }
+    ],
+    "method": {
+      "id": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+      "kind": "manufacturing_process_plan"
+    },
+    "inputs": [
+      {
+        "id": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+        "kind": "design_definition"
+      },
+      {
+        "id": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+        "kind": "manufacturing_process_plan"
+      },
+      {
+        "id": "material-batch:al-6061-lot-01",
+        "kind": "material_batch"
+      }
+    ],
+    "toolchain": [
+      {
+        "id": "machine:mill-01",
+        "kind": "machine"
+      },
+      {
+        "id": "tooling:fixture-01",
+        "kind": "tooling"
+      }
+    ],
+    "result": {
+      "synthetic": true,
+      "value": 1
+    },
+    "uncertainty": null,
+    "validity_domain": {
+      "conditions": {}
+    },
+    "producer": "synthetic-lab-agent",
+    "review": [],
+    "lifecycle": {
+      "state": "active",
+      "reason": null,
+      "predecessor": null
+    },
+    "provenance": []
+  },
+  "inspection_plan": {
+    "id": "inspection-plan:coupon-v1",
+    "kind": "inspection_plan"
+  },
+  "inspection_instrument": {
+    "id": "instrument:cmm-01",
+    "kind": "instrument"
+  },
+  "inspection_calibration": {
+    "evidence_id": "evidence:cal-inspection-01",
+    "schema": "AeroEvidenceV1",
+    "claim": "Synthetic evidence record evidence:cal-inspection-01",
+    "claim_kind": "qualification",
+    "configuration": {
+      "id": "calibration-profile:cmm-01",
+      "kind": "calibration_profile"
+    },
+    "subject": {
+      "id": "instrument:cmm-01",
+      "kind": "instrument"
+    },
+    "basis": [
+      {
+        "id": "requirement:calibration-traceability",
+        "kind": "requirement"
+      }
+    ],
+    "method": {
+      "id": "method:calibration-check-v1",
+      "kind": "method"
+    },
+    "inputs": [],
+    "toolchain": [
+      {
+        "id": "lab:metrology-01",
+        "kind": "laboratory"
+      }
+    ],
+    "result": {
+      "synthetic": true,
+      "value": 1
+    },
+    "uncertainty": null,
+    "validity_domain": {
+      "conditions": {}
+    },
+    "producer": "synthetic-lab-agent",
+    "review": [],
+    "lifecycle": {
+      "state": "active",
+      "reason": null,
+      "predecessor": null
+    },
+    "provenance": []
+  },
+  "inspection_result": {
+    "reference": {
+      "id": "sha256:0000000000000000000000000000000000000000000000000000000000000003",
+      "kind": "qif_result"
+    },
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000003",
+    "byte_length": 128,
+    "media_type": "application/xml",
+    "format_id": "ISO_23952:2020"
+  },
+  "inspection_evidence": {
+    "evidence_id": "evidence:inspection-01",
+    "schema": "AeroEvidenceV1",
+    "claim": "Synthetic evidence record evidence:inspection-01",
+    "claim_kind": "inspection",
+    "configuration": {
+      "id": "configuration:coupon-001-r1",
+      "kind": "configuration"
+    },
+    "subject": {
+      "id": "component:coupon-001",
+      "kind": "component"
+    },
+    "basis": [],
+    "method": {
+      "id": "inspection-plan:coupon-v1",
+      "kind": "inspection_plan"
+    },
+    "inputs": [
+      {
+        "id": "evidence:build-01",
+        "kind": "evidence"
+      },
+      {
+        "id": "inspection-plan:coupon-v1",
+        "kind": "inspection_plan"
+      },
+      {
+        "id": "instrument:cmm-01",
+        "kind": "instrument"
+      },
+      {
+        "id": "evidence:cal-inspection-01",
+        "kind": "evidence"
+      },
+      {
+        "id": "sha256:0000000000000000000000000000000000000000000000000000000000000003",
+        "kind": "qif_result"
+      }
+    ],
+    "toolchain": [
+      {
+        "id": "instrument:cmm-01",
+        "kind": "instrument"
+      }
+    ],
+    "result": {
+      "synthetic": true,
+      "value": 1
+    },
+    "uncertainty": null,
+    "validity_domain": {
+      "conditions": {}
+    },
+    "producer": "synthetic-lab-agent",
+    "review": [],
+    "lifecycle": {
+      "state": "active",
+      "reason": null,
+      "predecessor": null
+    },
+    "provenance": []
+  },
+  "test_plan": {
+    "id": "test-plan:coupon-v1",
+    "kind": "test_plan"
+  },
+  "test_instrument": {
+    "id": "instrument:load-cell-01",
+    "kind": "instrument"
+  },
+  "test_calibration": {
+    "evidence_id": "evidence:cal-test-01",
+    "schema": "AeroEvidenceV1",
+    "claim": "Synthetic evidence record evidence:cal-test-01",
+    "claim_kind": "qualification",
+    "configuration": {
+      "id": "calibration-profile:load-cell-01",
+      "kind": "calibration_profile"
+    },
+    "subject": {
+      "id": "instrument:load-cell-01",
+      "kind": "instrument"
+    },
+    "basis": [
+      {
+        "id": "requirement:calibration-traceability",
+        "kind": "requirement"
+      }
+    ],
+    "method": {
+      "id": "method:calibration-check-v1",
+      "kind": "method"
+    },
+    "inputs": [],
+    "toolchain": [
+      {
+        "id": "lab:metrology-01",
+        "kind": "laboratory"
+      }
+    ],
+    "result": {
+      "synthetic": true,
+      "value": 1
+    },
+    "uncertainty": null,
+    "validity_domain": {
+      "conditions": {}
+    },
+    "producer": "synthetic-lab-agent",
+    "review": [],
+    "lifecycle": {
+      "state": "active",
+      "reason": null,
+      "predecessor": null
+    },
+    "provenance": []
+  },
+  "test_result": {
+    "reference": {
+      "id": "sha256:0000000000000000000000000000000000000000000000000000000000000004",
+      "kind": "test_result"
+    },
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000004",
+    "byte_length": 128,
+    "media_type": "application/json",
+    "format_id": "AERO_TEST_RESULT_V1"
+  },
+  "test_evidence": {
+    "evidence_id": "evidence:test-01",
+    "schema": "AeroEvidenceV1",
+    "claim": "Synthetic evidence record evidence:test-01",
+    "claim_kind": "test",
+    "configuration": {
+      "id": "configuration:coupon-001-r1",
+      "kind": "configuration"
+    },
+    "subject": {
+      "id": "component:coupon-001",
+      "kind": "component"
+    },
+    "basis": [],
+    "method": {
+      "id": "test-plan:coupon-v1",
+      "kind": "test_plan"
+    },
+    "inputs": [
+      {
+        "id": "evidence:build-01",
+        "kind": "evidence"
+      },
+      {
+        "id": "evidence:inspection-01",
+        "kind": "evidence"
+      },
+      {
+        "id": "test-plan:coupon-v1",
+        "kind": "test_plan"
+      },
+      {
+        "id": "instrument:load-cell-01",
+        "kind": "instrument"
+      },
+      {
+        "id": "evidence:cal-test-01",
+        "kind": "evidence"
+      },
+      {
+        "id": "sha256:0000000000000000000000000000000000000000000000000000000000000004",
+        "kind": "test_result"
+      }
+    ],
+    "toolchain": [
+      {
+        "id": "instrument:load-cell-01",
+        "kind": "instrument"
+      }
+    ],
+    "result": {
+      "synthetic": true,
+      "value": 1
+    },
+    "uncertainty": null,
+    "validity_domain": {
+      "conditions": {}
+    },
+    "producer": "synthetic-lab-agent",
+    "review": [],
+    "lifecycle": {
+      "state": "active",
+      "reason": null,
+      "predecessor": null
+    },
+    "provenance": []
+  }
+}
