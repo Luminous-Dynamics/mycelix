@@ -35,6 +35,7 @@ pub enum LandOperationPhase {
         previous_attempt_id: String,
         idempotency_key: String,
         reconciliation_reference: String,
+        retry_semantics_reference: String,
     },
     ReceiptObserved {
         attempt_id: String,
@@ -125,6 +126,7 @@ pub enum ReconciliationResult {
     ConfirmedNotCommitted {
         reconciliation_reference: String,
         same_idempotency_key_retry_supported: bool,
+        retry_semantics_reference: Option<String>,
     },
     Conflict {
         reconciliation_reference: String,
@@ -325,6 +327,7 @@ impl LandOperationLifecycleV0 {
                     ReconciliationResult::ConfirmedNotCommitted {
                         reconciliation_reference,
                         same_idempotency_key_retry_supported,
+                        retry_semantics_reference,
                     } => {
                         require_non_empty(&reconciliation_reference)?;
                         let attempt = self
@@ -338,10 +341,14 @@ impl LandOperationLifecycleV0 {
                         attempt.reconciliation_reference =
                             Some(reconciliation_reference.clone());
                         if same_idempotency_key_retry_supported {
+                            let retry_semantics_reference = retry_semantics_reference
+                                .filter(|reference| !reference.trim().is_empty())
+                                .ok_or(LandOperationTransitionError::InvalidInput)?;
                             self.phase = LandOperationPhase::RetryEligible {
                                 previous_attempt_id: attempt_id,
                                 idempotency_key,
                                 reconciliation_reference,
+                                retry_semantics_reference,
                             };
                         } else {
                             self.phase = LandOperationPhase::Held {
@@ -653,6 +660,7 @@ impl LandOperationLifecycleV0 {
                 previous_attempt_id,
                 idempotency_key,
                 reconciliation_reference,
+                retry_semantics_reference,
             } => {
                 self.check_last_attempt(
                     previous_attempt_id,
@@ -660,8 +668,13 @@ impl LandOperationLifecycleV0 {
                     SubmissionAttemptStatus::ConfirmedNotCommitted,
                     &mut issues,
                 );
-                if reconciliation_reference.trim().is_empty() {
-                    issues.push("retry-eligible phase requires reconciliation evidence".into());
+                if reconciliation_reference.trim().is_empty()
+                    || retry_semantics_reference.trim().is_empty()
+                {
+                    issues.push(
+                        "retry-eligible phase requires reconciliation and retry-semantics evidence"
+                            .into(),
+                    );
                 }
             }
             LandOperationPhase::ReceiptObserved {
@@ -968,11 +981,35 @@ mod tests {
                 result: ReconciliationResult::ConfirmedNotCommitted {
                     reconciliation_reference: "urn:synthetic:reconciliation:001".into(),
                     same_idempotency_key_retry_supported: true,
+                    retry_semantics_reference: Some(
+                        "urn:synthetic:endpoint-contract:idempotency-v1".into(),
+                    ),
                 },
             })
             .unwrap();
         assert!(matches!(&value.phase, LandOperationPhase::RetryEligible { .. }));
         assert_eq!(value.validate_structural(), Ok(()));
+    }
+
+    #[test]
+    fn retry_requires_an_explicit_idempotency_semantics_reference() {
+        let mut value = lifecycle();
+        submit(&mut value);
+        value.apply(LandOperationCommand::MarkOutcomeUnknown).unwrap();
+        assert_eq!(
+            value.apply(LandOperationCommand::ReconcileUnknown {
+                result: ReconciliationResult::ConfirmedNotCommitted {
+                    reconciliation_reference: "urn:synthetic:reconciliation:semantics-001".into(),
+                    same_idempotency_key_retry_supported: true,
+                    retry_semantics_reference: None,
+                },
+            }),
+            Err(LandOperationTransitionError::InvalidInput)
+        );
+        assert!(matches!(
+            &value.phase,
+            LandOperationPhase::OutcomeUnknown { .. }
+        ));
     }
 
     #[test]
@@ -985,6 +1022,7 @@ mod tests {
                 result: ReconciliationResult::ConfirmedNotCommitted {
                     reconciliation_reference: "urn:synthetic:reconciliation:002".into(),
                     same_idempotency_key_retry_supported: false,
+                    retry_semantics_reference: None,
                 },
             })
             .unwrap();
@@ -1002,6 +1040,9 @@ mod tests {
                 result: ReconciliationResult::ConfirmedNotCommitted {
                     reconciliation_reference: "urn:synthetic:reconciliation:003".into(),
                     same_idempotency_key_retry_supported: true,
+                    retry_semantics_reference: Some(
+                        "urn:synthetic:endpoint-contract:idempotency-v1".into(),
+                    ),
                 },
             })
             .unwrap();
@@ -1024,6 +1065,9 @@ mod tests {
                 result: ReconciliationResult::ConfirmedNotCommitted {
                     reconciliation_reference: "urn:synthetic:reconciliation:004".into(),
                     same_idempotency_key_retry_supported: true,
+                    retry_semantics_reference: Some(
+                        "urn:synthetic:endpoint-contract:idempotency-v1".into(),
+                    ),
                 },
             })
             .unwrap();
@@ -1046,6 +1090,9 @@ mod tests {
                 result: ReconciliationResult::ConfirmedNotCommitted {
                     reconciliation_reference: "urn:synthetic:reconciliation:005".into(),
                     same_idempotency_key_retry_supported: true,
+                    retry_semantics_reference: Some(
+                        "urn:synthetic:endpoint-contract:idempotency-v1".into(),
+                    ),
                 },
             })
             .unwrap();
