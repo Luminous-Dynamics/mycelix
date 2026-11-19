@@ -243,7 +243,48 @@
               "type": "string"
             },
             "minItems": 1
-          }
+          },
+          "raw_monotonic_tick_derived_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "monotonic_clock_id_mismatch_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "clock_epoch_mismatch_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reversed_monotonic_tick_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "invalid_ticks_per_second_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cross_host_latency_lower_bound_ms": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "cross_host_latency_upper_bound_ms": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "required": [
+            "raw_monotonic_tick_derived_count",
+            "monotonic_clock_id_mismatch_count",
+            "clock_epoch_mismatch_count",
+            "reversed_monotonic_tick_count",
+            "invalid_ticks_per_second_count",
+            "cross_host_latency_lower_bound_ms",
+            "cross_host_latency_upper_bound_ms"
+          ]
         }
       }
     },
