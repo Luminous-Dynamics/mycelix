@@ -777,25 +777,35 @@
     {
       "id": "MCRB-16",
       "scenario_id": "clock-and-metric-integrity",
-      "objective": "Ensure distributed timing, peer-level samples and aggregates are internally consistent before performance claims are allowed.",
+      "objective": "Validate raw monotonic duration derivation, clock-epoch integrity, matched cross-host publish/observe event timing and uncertainty intervals before any latency aggregate is emitted.",
       "actors": [
         "benchmark-runner",
         "peer-observers",
         "independent-verifier"
       ],
       "hard_invariants": [
-        "no-invalid-duration-in-performance-claim",
+        "local-duration-derived-from-monotonic-ticks",
+        "clock-epoch-stable-within-sample",
         "outliers-preserved-and-classified",
         "aggregate-requires-valid-peer-samples",
+        "cross-host-event-pair-matches-record-digest",
+        "cross-host-latency-reports-uncertainty-interval",
+        "no-point-latency-when-clock-uncertainty-exceeds-tolerance",
         "measurement-invalid-blocks-performance-claim"
       ],
       "fault_injection": [
         "large-wall-clock-skew",
         "clock-step-during-run",
+        "clock-epoch-change",
+        "reversed-monotonic-ticks",
+        "duration-does-not-match-tick-delta",
         "negative-duration",
         "non-finite-duration",
         "overflow-timestamp",
+        "stale-clock-calibration",
         "missing-peer-sample",
+        "unmatched-publish-observe-event",
+        "record-digest-mismatch",
         "send-receive-counter-mismatch"
       ],
       "required_metrics": [
@@ -805,6 +815,10 @@
         "non_finite_duration_count",
         "out_of_run_duration_count",
         "missing_peer_sample_count",
+        "duration_tick_mismatch_count",
+        "clock_epoch_mismatch_count",
+        "unmatched_cross_host_event_count",
+        "cross_host_latency_uncertainty_ms",
         "send_receive_counter_mismatch_count",
         "aggregate_rejection_count"
       ],
@@ -813,6 +827,10 @@
         "exact-source-sha",
         "runtime-identity",
         "host-clock-observations",
+        "raw-monotonic-tick-pairs",
+        "clock-epoch-identifiers",
+        "publish-observe-event-pairs",
+        "record-digest-bindings",
         "per-peer-raw-samples",
         "raw-trace-digest",
         "verifier-version",
@@ -881,13 +899,20 @@
       "measurement-invalid",
       "infrastructure-incomplete",
       "qualified"
-    ]
+    ],
+    "require_raw_monotonic_tick_pairs": true,
+    "derive_local_duration_from_tick_delta": true,
+    "require_clock_epoch_identity_per_sample": true,
+    "require_publish_observe_event_pairing_for_cross_host_convergence": true,
+    "require_cross_host_uncertainty_interval": true,
+    "forbid_cross_host_point_latency_without_uncertainty_bound": true,
+    "cross_host_timing_claim_status": "not-qualified-until-mcrb-time-001"
   },
   "metric_integrity_verifier": {
     "crate_path": "mycelix-workspace/tools/mcrb-metric-integrity",
     "crate_name": "mycelix-mcrb-metric-integrity",
     "api": "validate_batch",
-    "status": "source-and-tests-authored-ci-pending",
+    "status": "basic-sample-integrity-only-raw-clock-evidence-gap",
     "output_states": [
       "valid",
       "invalid",
@@ -912,7 +937,13 @@
       "counter_reconciliation",
       "unique-operation-samples-per-peer",
       "same-logical-operation-may-be-observed-by-multiple-peers"
-    ]
+    ],
+    "known_limitations": [
+      "DurationSample currently carries a supplied duration_ms value, not raw monotonic start/end ticks; the current verifier cannot independently recompute the duration.",
+      "Clock source/offset/uncertainty fields are caller-supplied metadata, not attested clock measurements.",
+      "The current verifier does not bind publish and first-valid-observation events by record digest and host pair; it cannot independently qualify cross-host DHT convergence latency."
+    ],
+    "follow_up_issue": "#6335"
   },
   "qualified_operations_policy": {
     "name": "Qualified Operations Per Second",
