@@ -117,8 +117,12 @@ pub struct PlacementCandidate {
     pub distinct_operators: usize,
     /// Descriptive count only; region spread is not a universal optimization preference.
     pub distinct_regions: usize,
-    /// Maximum CPU, memory, or GPU utilization across workers, in parts per million.
-    pub max_resource_pressure_ppm: u64,
+    /// Peak CPU utilization across workers, in parts per million.
+    pub peak_cpu_pressure_ppm: u64,
+    /// Peak memory utilization across workers, in parts per million.
+    pub peak_memory_pressure_ppm: u64,
+    /// Peak GPU-slot utilization across workers, in parts per million.
+    pub peak_gpu_pressure_ppm: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -288,12 +292,16 @@ fn dominates(left: &PlacementCandidate, right: &PlacementCandidate) -> bool {
         && left.remote_input_bytes <= right.remote_input_bytes
         && left.distinct_failure_domains >= right.distinct_failure_domains
         && left.distinct_operators >= right.distinct_operators
-        && left.max_resource_pressure_ppm <= right.max_resource_pressure_ppm;
+        && left.peak_cpu_pressure_ppm <= right.peak_cpu_pressure_ppm
+        && left.peak_memory_pressure_ppm <= right.peak_memory_pressure_ppm
+        && left.peak_gpu_pressure_ppm <= right.peak_gpu_pressure_ppm;
     let strictly_better = left.estimated_cost_microusd < right.estimated_cost_microusd
         || left.remote_input_bytes < right.remote_input_bytes
         || left.distinct_failure_domains > right.distinct_failure_domains
         || left.distinct_operators > right.distinct_operators
-        || left.max_resource_pressure_ppm < right.max_resource_pressure_ppm;
+        || left.peak_cpu_pressure_ppm < right.peak_cpu_pressure_ppm
+        || left.peak_memory_pressure_ppm < right.peak_memory_pressure_ppm
+        || left.peak_gpu_pressure_ppm < right.peak_gpu_pressure_ppm;
     no_worse && strictly_better
 }
 
@@ -303,7 +311,9 @@ fn same_metrics(left: &PlacementCandidate, right: &PlacementCandidate) -> bool {
         && left.distinct_failure_domains == right.distinct_failure_domains
         && left.distinct_operators == right.distinct_operators
         && left.distinct_regions == right.distinct_regions
-        && left.max_resource_pressure_ppm == right.max_resource_pressure_ppm
+        && left.peak_cpu_pressure_ppm == right.peak_cpu_pressure_ppm
+        && left.peak_memory_pressure_ppm == right.peak_memory_pressure_ppm
+        && left.peak_gpu_pressure_ppm == right.peak_gpu_pressure_ppm
 }
 
 fn sort_frontier(frontier: &mut [PlacementCandidate]) {
@@ -317,10 +327,9 @@ fn sort_frontier(frontier: &mut [PlacementCandidate]) {
                     .cmp(&left.distinct_failure_domains)
             })
             .then_with(|| right.distinct_operators.cmp(&left.distinct_operators))
-            .then_with(|| {
-                left.max_resource_pressure_ppm
-                    .cmp(&right.max_resource_pressure_ppm)
-            })
+            .then_with(|| left.peak_cpu_pressure_ppm.cmp(&right.peak_cpu_pressure_ppm))
+            .then_with(|| left.peak_memory_pressure_ppm.cmp(&right.peak_memory_pressure_ppm))
+            .then_with(|| left.peak_gpu_pressure_ppm.cmp(&right.peak_gpu_pressure_ppm))
             .then_with(|| left.assignments.cmp(&right.assignments))
     });
 }
@@ -403,16 +412,17 @@ impl SearchState<'_> {
         }
         assignments.sort();
 
-        let mut max_resource_pressure_ppm = 0_u64;
+        let mut peak_cpu_pressure_ppm = 0_u64;
+        let mut peak_memory_pressure_ppm = 0_u64;
+        let mut peak_gpu_pressure_ppm = 0_u64;
         for (index, usage) in self.usage.iter().enumerate() {
             let worker = self.workers[index];
-            max_resource_pressure_ppm = max_resource_pressure_ppm
-                .max(pressure_ppm(usage.cpu_millis, worker.cpu_millis))
-                .max(pressure_ppm(usage.memory_mib, worker.memory_mib))
-                .max(pressure_ppm(
-                    u64::from(usage.gpu_slots),
-                    u64::from(worker.gpu_slots),
-                ));
+            peak_cpu_pressure_ppm =
+                peak_cpu_pressure_ppm.max(pressure_ppm(usage.cpu_millis, worker.cpu_millis));
+            peak_memory_pressure_ppm =
+                peak_memory_pressure_ppm.max(pressure_ppm(usage.memory_mib, worker.memory_mib));
+            peak_gpu_pressure_ppm = peak_gpu_pressure_ppm
+                .max(pressure_ppm(u64::from(usage.gpu_slots), u64::from(worker.gpu_slots)));
         }
 
         let candidate = PlacementCandidate {
@@ -422,7 +432,9 @@ impl SearchState<'_> {
             distinct_failure_domains: failure_domains.len(),
             distinct_operators: operators.len(),
             distinct_regions: regions.len(),
-            max_resource_pressure_ppm,
+            peak_cpu_pressure_ppm,
+            peak_memory_pressure_ppm,
+            peak_gpu_pressure_ppm,
         };
 
         if self.frontier.iter().any(|existing| {
@@ -689,7 +701,9 @@ mod tests {
                     && candidate.remote_input_bytes == 0
                     && candidate.distinct_failure_domains == 1
                     && candidate.distinct_operators == 1
-                    && candidate.max_resource_pressure_ppm == 250_000
+                    && candidate.peak_cpu_pressure_ppm == 250_000
+                    && candidate.peak_memory_pressure_ppm == 250_000
+                    && candidate.peak_gpu_pressure_ppm == 0
             })
             .collect();
         assert_eq!(candidates.len(), 2);
@@ -697,6 +711,62 @@ mod tests {
             candidates.iter().map(|candidate| candidate.distinct_regions).collect::<BTreeSet<_>>(),
             BTreeSet::from([1, 2])
         );
+    }
+
+    #[test]
+    fn cpu_and_memory_pressure_tradeoffs_are_not_collapsed_into_one_maximum() {
+        let worker_cpu = Worker {
+            worker_id: "cpu-heavy".into(),
+            operator_id: "same-operator".into(),
+            region_id: "same-region".into(),
+            failure_domain_id: "same-failure-domain".into(),
+            cpu_millis: 1_000,
+            memory_mib: 2_000,
+            gpu_slots: 0,
+            cpu_price_microusd_per_vcpu_hour: 1_000,
+            gpu_price_microusd_per_slot_hour: 0,
+        };
+        let worker_memory = Worker {
+            worker_id: "memory-heavy".into(),
+            operator_id: "same-operator".into(),
+            region_id: "same-region".into(),
+            failure_domain_id: "same-failure-domain".into(),
+            cpu_millis: 2_000,
+            memory_mib: 1_000,
+            gpu_slots: 0,
+            cpu_price_microusd_per_vcpu_hour: 1_000,
+            gpu_price_microusd_per_slot_hour: 0,
+        };
+        let task = Task {
+            task_id: "balanced-task".into(),
+            permitted_regions: vec!["same-region".into()],
+            input_region: "same-region".into(),
+            input_bytes: 0,
+            cpu_millis: 1_000,
+            memory_mib: 1_000,
+            gpu_slots: 0,
+            duration_ms: 3_600_000,
+        };
+        let report = solve_exact(
+            &PlacementProblem {
+                workers: vec![worker_cpu, worker_memory],
+                tasks: vec![task],
+            },
+            SolveLimits::default(),
+        ).unwrap();
+
+        assert_eq!(report.status, SolveStatus::Optimal);
+        assert_eq!(report.frontier.len(), 2);
+        assert!(report.frontier.iter().any(|candidate| {
+            candidate.peak_cpu_pressure_ppm == 1_000_000
+                && candidate.peak_memory_pressure_ppm == 500_000
+                && candidate.peak_gpu_pressure_ppm == 0
+        }));
+        assert!(report.frontier.iter().any(|candidate| {
+            candidate.peak_cpu_pressure_ppm == 500_000
+                && candidate.peak_memory_pressure_ppm == 1_000_000
+                && candidate.peak_gpu_pressure_ppm == 0
+        }));
     }
 
     #[test]
