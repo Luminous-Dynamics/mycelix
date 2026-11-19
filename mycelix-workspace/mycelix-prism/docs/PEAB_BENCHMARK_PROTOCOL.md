@@ -430,3 +430,19 @@ The system must distinguish:
 
 An unknown result must cause reconciliation before any retry or grant. A missing kernel event cannot be counted as zero; an incomplete observer interval cannot produce MATCHED evidence. These are the release-blocking correctness properties. Throughput is reported only after them pass.
 
+
+### Cross-plane transaction reducer and map-payload tests
+
+PEAB now links five **partial** cases to Nixward PR #162: uncertain replay-ledger consumption, uncertain inactive-map staging, uncertain active-generation switches, contradictory read-back quarantine, and exact cgroup/BPF/map-payload binding. Nixward has a pure reducer and source tests for those transitions, but no production broker invokes the reducer or persistent ledger yet. These cases remain `not_run_exact_head`; they do not qualify Track C.
+
+### Cilium cache-layer nuance (current documentation)
+
+Cilium's current 1.21.0-dev documentation distinguishes a per-endpoint DNS cache from a global DNS cache used for policy calculation. Endpoint caches track endpoint lookups and TTLs; the global cache collects data from endpoint DNS observations. The documented `tofqdns-min-ttl` is applied to the global cache, not the per-endpoint cache. The effective policy IP set can therefore be broader than one endpoint's individual resolver response, and the configured minimum TTL must not be described as uniformly changing every cache layer. PEAB adds CILIUM-004 and CILIUM-005 to compare both layers separately. <https://docs.cilium.io/en/latest/contributing/development/debugging/> <https://docs.cilium.io/en/latest/helm-reference/>
+
+### Envoy cache observability
+
+Envoy DFP exports DNS counters including `dns_address_filter_out`, `host_address_changed`, `dns_query_failure`, `dns_query_timeout`, and pending-request overflow. PEAB-ENVOY-002 now requires these counters to reconcile with deterministic DNS fixture events and observed host-cache state. This tests operational observability as well as the allow/deny decision. <https://www.envoyproxy.io/docs/envoy/v1.40.0/configuration/http/http_filters/dynamic_forward_proxy_filter> <https://www.envoyproxy.io/docs/envoy/v1.40.0/api-v3/extensions/common/dynamic_forward_proxy/v3/dns_cache.proto>
+
+### HTTP parser feasibility clarification
+
+Reqwest 0.13.5 documents an HTTP/1 response header-count limit and an HTTP/2 header-list-size limit, but these do not establish a configurable aggregate HTTP/1 header-byte ceiling. Hyper's HTTP/1 client builder exposes `max_header_size` for the response head (including status line) and chunked trailers. Keep the Hyper experiment test-only until its negative control, parser rejection, TLS/SNI, pinned-peer, redirect, cancellation, and memory-lifecycle requirements are qualified on the same exact revision. <https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html> <https://docs.rs/hyper/latest/src/hyper/client/conn/http1.rs.html>
