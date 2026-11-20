@@ -66,7 +66,7 @@ pub use cdm::{
     CdmBuilder, CdmCovariance, CdmObjectMetadata, CdmRefFrame, CdmStateVector,
     ConjunctionDataMessage, DEFAULT_HARD_BODY_RADIUS_M, Maneuverable, PcMethod,
 };
-pub use cdm_parser::{CdmParseError, parse_cdm_kvn};
+pub use cdm_parser::{CdmParseError, CdmParseReport, ParsedCdmKvn, parse_cdm_kvn, parse_cdm_kvn_with_report};
 pub use clohessy_wiltshire::{RelativeState, mean_motion, propagate_cw};
 pub use conjunction::{CollisionProbability, ConjunctionAssessment};
 pub use covariance::CovarianceMatrix;
