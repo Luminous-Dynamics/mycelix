@@ -1044,7 +1044,10 @@ pub fn validate_ingest_qualification(
                 &documents,
                 &reference_ids,
             )?;
-            let canonical_mapping_bytes = source_mapping_manifest_bytes(&extraction.mappings)?;
+            let canonical_mapping_bytes = source_mapping_manifest_bytes(
+                &extraction.required_locators,
+                &extraction.mappings,
+            )?;
             if extraction.source_mapping_manifest.byte_length != canonical_mapping_bytes.len() as u64
                 || extraction.source_mapping_manifest.sha256 != digest_hex(&canonical_mapping_bytes)
             {
