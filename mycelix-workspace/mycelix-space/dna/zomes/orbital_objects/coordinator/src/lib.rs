@@ -306,6 +306,8 @@ pub struct GetTleHistoryInput {
 ///
 /// Queries the DHT via get_links for TleRecord entries submitted by any agent,
 /// then returns the most recent TLE (by epoch) for each requested NORAD ID.
+/// Wrong-anchor records and equal-epoch conflicting orbital lines are rejected;
+/// returned records are sorted by NORAD ID.
 #[hdk_extern]
 pub fn get_latest_tles(norad_ids: Vec<u32>) -> ExternResult<Vec<TleLines>> {
     if norad_ids.is_empty() {
@@ -360,14 +362,16 @@ pub fn get_latest_tles(norad_ids: Vec<u32>) -> ExternResult<Vec<TleLines>> {
         }
     }
 
-    Ok(latest
+    let mut results: Vec<TleLines> = latest
         .into_values()
         .map(|tle| TleLines {
             norad_id: tle.norad_id,
             line1: tle.line1,
             line2: tle.line2,
         })
-        .collect())
+        .collect();
+    results.sort_by_key(|tle| tle.norad_id);
+    Ok(results)
 }
 
 /// Minimal TLE output for cross-zome consumption
@@ -392,6 +396,8 @@ pub struct GetTlesWithMetadataInput {
 /// epoch, quality, source, and computed staleness information. Stale TLEs
 /// remain visible when their age-degraded quality meets the configured minimum;
 /// records below that quality floor are omitted from the returned set.
+/// Equal-epoch source/quality conflicts and malformed DHT links are rejected;
+/// returned records are sorted by NORAD ID.
 #[hdk_extern]
 pub fn get_tles_with_metadata(
     input: GetTlesWithMetadataInput,
@@ -451,7 +457,7 @@ pub fn get_tles_with_metadata(
         }
     }
 
-    Ok(latest
+    let mut results: Vec<TleWithMetadata> = latest
         .into_values()
         .filter_map(|tle| {
             let staleness = compute_staleness(&tle.epoch, &tle.quality, &input.staleness_config);
@@ -469,5 +475,7 @@ pub fn get_tles_with_metadata(
                 staleness,
             })
         })
-        .collect())
+        .collect();
+    results.sort_by_key(|tle| tle.norad_id);
+    Ok(results)
 }
