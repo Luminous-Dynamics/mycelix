@@ -365,7 +365,7 @@ mod tests {
     const EMBEDDED_OPERATION_CONTRACTS: &str =
         include_str!("../../../../docs/benchmarks/MCRB_OPERATION_CONTRACTS_V0_1.json");
     const EXPECTED_SCENARIO_MANIFEST_GIT_BLOB_SHA: &str =
-        "11f3383ba9c2f5a37b9d5fcce01fc4dbbfc44a3c";
+        "e3fb66b94622fd7e4a1f9367ca45ba413a30722c";
 
     fn embedded_contract_registry() -> ValidatedOperationContractRegistry {
         let raw = EMBEDDED_OPERATION_CONTRACTS.as_bytes();
