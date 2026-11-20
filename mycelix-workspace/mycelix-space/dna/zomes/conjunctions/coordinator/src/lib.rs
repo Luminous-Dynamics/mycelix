@@ -511,6 +511,15 @@ pub fn mark_maneuver_executed(input: ManeuverExecutedInput) -> ExternResult<Acti
             .into_wasm_error(),
         )?;
 
+    // Validate historical execution time before changing the maneuver record.
+    let execution_time = maneuver.burn_time.try_to_datetime().ok_or_else(|| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "Stored burn-time timestamp is outside the representable UTC range",
+        )
+        .into_wasm_error()
+    })?;
+
     // Update status
     maneuver.status = ManeuverStatus::Executed;
 
@@ -525,7 +534,7 @@ pub fn mark_maneuver_executed(input: ManeuverExecutedInput) -> ExternResult<Acti
         conjunction_secondary: None,
         maneuver_type: SharedManeuverType::Combined,
         delta_v_ms: maneuver.delta_v_ms,
-        execution_time: maneuver.burn_time.to_datetime(),
+        execution_time,
         generated_at: chrono::Utc::now(),
         message: Some(format!("Maneuver executed for event {}", maneuver.event_id)),
     };
@@ -1345,7 +1354,13 @@ fn emit_conjunction_alert(event: &ConjunctionEvent) -> ExternResult<()> {
     let assessment = ConjunctionAssessment {
         primary_norad_id: event.primary_norad_id,
         secondary_norad_id: event.secondary_norad_id,
-        tca: event.tca.to_datetime(),
+        tca: event.tca.try_to_datetime().ok_or_else(|| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Conjunction TCA is outside the representable UTC range",
+            )
+            .into_wasm_error()
+        })?,
         miss_distance_km: event.miss_distance_km,
         relative_velocity_kms: 10.0, // Would come from actual data
         collision_probability: event.max_pc,
@@ -1370,7 +1385,13 @@ fn emit_risk_escalation_alert(
     let assessment = ConjunctionAssessment {
         primary_norad_id: event.primary_norad_id,
         secondary_norad_id: event.secondary_norad_id,
-        tca: event.tca.to_datetime(),
+        tca: event.tca.try_to_datetime().ok_or_else(|| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Conjunction TCA is outside the representable UTC range",
+            )
+            .into_wasm_error()
+        })?,
         miss_distance_km: event.miss_distance_km,
         relative_velocity_kms: 10.0,
         collision_probability: event.max_pc,
