@@ -334,9 +334,10 @@ fn test_latest_tle_same_epoch_metadata_difference_is_allowed_for_lines_only_view
 }
 
 #[test]
-fn test_latest_tle_invalid_requested_anchor_is_not_silently_normalized() {
+fn test_latest_tle_rejects_invalid_norad_ids() {
     let source = DataSourceType::SpaceTrack;
     let quality = QualityScore::new(80);
+
     assert_eq!(
         select_latest_tle_candidate(
             0,
@@ -344,7 +345,25 @@ fn test_latest_tle_invalid_requested_anchor_is_not_silently_normalized() {
             tle_candidate(0, 100, "L1", "L2", &source, &quality, 110),
             true,
         ),
-        Ok(TleLatestDecision::Insert)
+        Err(TleLatestConflict::InvalidNoradId { norad_id: 0 })
+    );
+    assert_eq!(
+        select_latest_tle_candidate(
+            1_000_000,
+            None,
+            tle_candidate(1_000_000, 100, "L1", "L2", &source, &quality, 110),
+            true,
+        ),
+        Err(TleLatestConflict::InvalidNoradId { norad_id: 1_000_000 })
+    );
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            None,
+            tle_candidate(0, 100, "L1", "L2", &source, &quality, 110),
+            true,
+        ),
+        Err(TleLatestConflict::InvalidNoradId { norad_id: 0 })
     );
 }
 
