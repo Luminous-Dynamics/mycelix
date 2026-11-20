@@ -67,8 +67,10 @@ struct KeyedIdempotencyContract {
     request_digest: u64,
     retention_until_ns: u64,
     concurrent_behavior: ConcurrentDuplicateBehavior,
+    atomically_deduplicates: bool,
+    durable_across_server_failover: bool,
     rejects_same_key_different_fingerprint: bool,
-    returns_original_result_after_completion: bool,
+    returns_completion_consistent_result: bool,
 }
 
 impl KeyedIdempotencyContract {
@@ -84,8 +86,10 @@ impl KeyedIdempotencyContract {
             && self.request_digest == operation.request_digest
             && now_ns < self.retention_until_ns
             && self.concurrent_behavior != ConcurrentDuplicateBehavior::Unspecified
+            && self.atomically_deduplicates
+            && self.durable_across_server_failover
             && self.rejects_same_key_different_fingerprint
-            && self.returns_original_result_after_completion
+            && self.returns_completion_consistent_result
     }
 }
 
@@ -298,8 +302,10 @@ fn keyed(behavior: ConcurrentDuplicateBehavior) -> KeyedIdempotencyContract {
         request_digest: 303,
         retention_until_ns: 10_000,
         concurrent_behavior: behavior,
+        atomically_deduplicates: true,
+        durable_across_server_failover: true,
         rejects_same_key_different_fingerprint: true,
-        returns_original_result_after_completion: true,
+        returns_completion_consistent_result: true,
     }
 }
 
@@ -532,7 +538,7 @@ fn missing_key_payload_mismatch_rejection_is_not_a_valid_contract() {
 #[test]
 fn missing_original_result_replay_semantics_is_not_a_valid_contract() {
     let mut contract = keyed(ConcurrentDuplicateBehavior::CoalesceWithOriginal);
-    contract.returns_original_result_after_completion = false;
+    contract.returns_completion_consistent_result = false;
     assert_eq!(
         decide_retry(
             operation(OperationSemantics::KeyedDeduplication(contract)),
@@ -546,7 +552,7 @@ fn missing_original_result_replay_semantics_is_not_a_valid_contract() {
 
 #[test]
 fn unspecified_concurrent_duplicate_behavior_is_not_a_valid_contract() {
-    let mut contract = keyed(ConcurrentDuplicateBehavior::Unspecified);
+    let contract = keyed(ConcurrentDuplicateBehavior::Unspecified);
     assert_eq!(
         decide_retry(
             operation(OperationSemantics::KeyedDeduplication(contract)),
@@ -590,7 +596,7 @@ fn reject_while_in_progress_does_not_authorize_a_hedge() {
 
 #[test]
 fn unspecified_concurrent_behavior_does_not_authorize_a_hedge() {
-    let mut contract = keyed(ConcurrentDuplicateBehavior::Unspecified);
+    let contract = keyed(ConcurrentDuplicateBehavior::Unspecified);
     // Even if other contract flags are populated, concurrent behavior is unknown.
     assert_eq!(
         decide_retry(
@@ -865,4 +871,35 @@ fn generated_non_idempotent_replay_sequences_never_gain_authority() {
             "non-idempotent operation attempt {attempt_id} must remain unknown"
         );
     }
+}
+
+
+#[test]
+fn keyed_replay_requires_atomic_server_deduplication() {
+    let mut contract = keyed(ConcurrentDuplicateBehavior::CoalesceWithOriginal);
+    contract.atomically_deduplicates = false;
+    assert_eq!(
+        decide_retry(
+            operation(OperationSemantics::KeyedDeduplication(contract)),
+            RetryMode::SequentialRetry,
+            100,
+            unknown(),
+        ),
+        RetryDecision::HoldUnknown
+    );
+}
+
+#[test]
+fn keyed_replay_requires_durable_deduplication_across_server_failover() {
+    let mut contract = keyed(ConcurrentDuplicateBehavior::CoalesceWithOriginal);
+    contract.durable_across_server_failover = false;
+    assert_eq!(
+        decide_retry(
+            operation(OperationSemantics::KeyedDeduplication(contract)),
+            RetryMode::SequentialRetry,
+            100,
+            unknown(),
+        ),
+        RetryDecision::HoldUnknown
+    );
 }
