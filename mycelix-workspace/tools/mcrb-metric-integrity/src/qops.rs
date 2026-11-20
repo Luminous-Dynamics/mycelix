@@ -42,7 +42,8 @@ pub enum QopsStatus {
 /// Independent per-operation outcome authentication is deliberately not
 /// implemented yet. QOPS cannot become Eligible until #6357 supplies an
 /// opaque VerifiedOutcomeLedger.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum OutcomeEvidenceStatus {
     NotImplemented,
 }
