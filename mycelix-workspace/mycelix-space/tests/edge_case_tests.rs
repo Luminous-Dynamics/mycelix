@@ -27,6 +27,23 @@ fn test_screening_coverage_exact_set() {
     assert!(validate_screening_coverage(&[25544, 49863, 60000], &[60000, 25544, 49863]).is_ok());
 }
 
+/// Invalid catalog identifiers are rejected before they enter a screening receipt.
+#[test]
+fn test_screening_coverage_rejects_invalid_catalog_ids() {
+    assert_eq!(
+        validate_screening_coverage(&[0], &[0]),
+        Err(ScreeningCoverageError::InvalidNoradId { norad_id: 0 })
+    );
+    assert_eq!(
+        validate_screening_coverage(&[1_000_000], &[1_000_000]),
+        Err(ScreeningCoverageError::InvalidNoradId { norad_id: 1_000_000 })
+    );
+    assert_eq!(
+        validate_screening_coverage(&[25544], &[25544, 0]),
+        Err(ScreeningCoverageError::InvalidNoradId { norad_id: 0 })
+    );
+}
+
 /// A missing requested object cannot be treated as a complete negative screening.
 #[test]
 fn test_screening_coverage_rejects_missing_object() {
