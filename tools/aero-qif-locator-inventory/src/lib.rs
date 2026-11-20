@@ -1080,6 +1080,43 @@ pub fn derive_trace_locator_inventory(
     if results.len() != 1 {
         return Err(InventoryError::InvalidIdentity("results_document_cardinality".into()));
     }
+    let measurement_result_records: Vec<_> = results[0].locators.iter()
+        .filter(|record| record.rule_id == "results.measurement_results")
+        .collect();
+    let measurement_result_paths: BTreeSet<_> = measurement_result_records.iter()
+        .filter_map(|record| record.locator.source_path.strip_suffix("@id"))
+        .collect();
+    let inspection_status_records: Vec<_> = results[0].locators.iter()
+        .filter(|record| matches!(
+            record.rule_id.as_str(),
+            "results.inspection_status" | "results.inspection_status_other"
+        ))
+        .collect();
+    let mut inspection_status_parent_paths = BTreeSet::new();
+    for record in &inspection_status_records {
+        let status_path = parent_element_path(&record.locator.source_path)
+            .ok_or_else(|| InventoryError::SourceRuleCoverageMismatch(
+                "InspectionStatus locator has no parent".into()
+            ))?;
+        let measurement_result_path = status_path.rsplit_once('/')
+            .map(|(parent, _)| parent)
+            .ok_or_else(|| InventoryError::SourceRuleCoverageMismatch(
+                "InspectionStatus locator has no MeasurementResults parent".into()
+            ))?;
+        if !inspection_status_parent_paths.insert(measurement_result_path) {
+            return Err(InventoryError::SourceRuleCoverageMismatch(
+                "MeasurementResults has more than one InspectionStatus choice".into()
+            ));
+        }
+    }
+    if measurement_result_paths.len() != measurement_result_records.len()
+        || measurement_result_paths != inspection_status_parent_paths
+    {
+        return Err(InventoryError::SourceRuleCoverageMismatch(
+            "each MeasurementResults requires exactly one InspectionStatus choice".into()
+        ));
+    }
+
     let measurement_records: Vec<_> = results[0].locators.iter()
         .filter(|record| record.rule_id == "results.characteristic_measurement")
         .collect();
@@ -1247,6 +1284,22 @@ pub fn derive_trace_locator_inventory(
             if !nominal_ids.contains(&local_id) {
                 return Err(InventoryError::UnknownLocalReference(
                     record.locator.source_path.clone(), local_id,
+                ));
+            }
+        }
+        let digital_model_entity_ids: BTreeSet<u32> = plan.locators.iter()
+            .filter(|record| record.rule_id == "plan.digital_model_external_entity")
+            .filter_map(|record| record.locator.source_element_id)
+            .collect();
+        for record in plan.locators.iter()
+            .filter(|record| record.rule_id == "plan.entity_external_id")
+        {
+            let Some(local_entity_id) = record.locator.local_reference_id else {
+                return Err(InventoryError::InvalidQifReference(record.locator.source_path.clone()));
+            };
+            if !digital_model_entity_ids.contains(&local_entity_id) {
+                return Err(InventoryError::UnknownLocalReference(
+                    record.locator.source_path.clone(), local_entity_id,
                 ));
             }
         }
@@ -1524,6 +1577,23 @@ mod tests {
                     min_occurrences: 1,
                     max_occurrences: None,
                     capture_attributes: vec!["{}asmPathId".into(), "{}asmPathXId".into()],
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.inspection_status_other".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                        expanded("InspectionStatus"),
+                        expanded("OtherInspectionStatus"),
+                    ],
+                    capture: LocatorCaptureMode::Text,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
@@ -2152,6 +2222,19 @@ mod tests {
             derive_trace_locator_inventory("depth-limit", &shallow, &docs(deep.as_bytes(), PLAN.as_bytes())),
             Err(InventoryError::DepthLimitExceeded)
         );
+    }
+
+    #[test]
+    fn entity_external_id_must_resolve_to_a_digital_model_entity_in_same_plan() {
+        let plan = PLAN.replace("<q:Id>9001</q:Id>", "<q:Id>9002</q:Id>");
+        assert!(matches!(
+            derive_trace_locator_inventory(
+                "wrong-digital-model-entity",
+                &profile(),
+                &docs(RESULTS.as_bytes(), plan.as_bytes())
+            ),
+            Err(InventoryError::UnknownLocalReference(_, 9002))
+        ));
     }
 
     #[test]
