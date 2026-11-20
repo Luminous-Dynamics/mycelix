@@ -439,7 +439,8 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         {
             return Err(TraceError::InvalidArtifact(document.artifact.reference.id.clone()));
         }
-        if step_by_artifact.insert(document.artifact.reference.clone(), document).is_some() {
+        let step_key = (document.artifact.reference.id.clone(), document.artifact.reference.kind.clone());
+        if step_by_artifact.insert(step_key, document).is_some() {
             return Err(TraceError::DuplicateArtifact(document.artifact.reference.id.clone()));
         }
         let mut uuids = BTreeSet::new();
@@ -454,7 +455,8 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
     }
 
     for plan in &case.plans {
-        let Some(step_document) = step_by_artifact.get(&plan.step_document.reference) else {
+        let step_key = (plan.step_document.reference.id.clone(), plan.step_document.reference.kind.clone());
+        let Some(step_document) = step_by_artifact.get(&step_key) else {
             return Err(TraceError::MissingStepDocument(plan.qpid.clone()));
         };
         if step_document.artifact != plan.step_document {
@@ -499,7 +501,8 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
             return Err(TraceError::WrongExternalObjectKind { qpid: plan.qpid.clone(), xid: measurement.xid });
         }
 
-        let step_document = step_by_artifact.get(&plan.step_document.reference)
+        let step_key = (plan.step_document.reference.id.clone(), plan.step_document.reference.kind.clone());
+        let step_document = step_by_artifact.get(&step_key)
             .ok_or_else(|| TraceError::MissingStepDocument(plan.qpid.clone()))?;
         let entity = step_document.entities.iter().find(|item| item.uuid == object.step_uuid)
             .ok_or_else(|| TraceError::MissingStepEntity {
@@ -565,14 +568,15 @@ fn resolve_without_bytes(
         .collect();
     let plans: BTreeMap<_, _> = case.plans.iter().map(|plan| (plan.qpid.clone(), plan)).collect();
     let steps: BTreeMap<_, _> = case.step_documents.iter()
-        .map(|document| (document.artifact.reference.clone(), document)).collect();
+        .map(|document| ((document.artifact.reference.id.clone(), document.artifact.reference.kind.clone()), document)).collect();
     let mut resolved = Vec::new();
     for measurement in &case.results.measurements {
         let external = refs[&measurement.external_document_reference_id];
         let plan = plans[&external.plan_qpid];
         let object = plan.objects.iter().find(|item| item.object_id == measurement.xid)
             .expect("validated Plan xId");
-        let step = steps[&plan.step_document.reference];
+        let step_key = (plan.step_document.reference.id.clone(), plan.step_document.reference.kind.clone());
+        let step = steps[&step_key];
         let entity = step.entities.iter().find(|item| item.uuid == object.step_uuid)
             .expect("validated STEP UUID");
         resolved.push(ResolvedMeasurementTraceV1 {
