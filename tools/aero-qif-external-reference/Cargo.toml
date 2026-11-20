@@ -7,6 +7,7 @@ publish = false
 
 [dependencies]
 aero-adapter-run-receipt = { path = "../aero-adapter-run-receipt" }
+aero-evidence-types = { path = "../../mycelix-commons/crates/aero-evidence-types" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
