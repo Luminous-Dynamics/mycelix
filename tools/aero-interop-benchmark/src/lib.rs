@@ -150,7 +150,8 @@ pub struct ToolRunEvidence<'a> {
     pub reason_code: Option<&'a str>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum BenchmarkDisposition {
     IntegrityCheckedAndScored,
 }
@@ -478,6 +479,7 @@ fn add_expected_artifact(
 }
 
 fn validate_one_run(
+    benchmark_id: &str,
     tool: &BenchmarkToolV1,
     case: &BenchmarkCaseV1,
     run: &ToolRunEvidence<'_>,
@@ -502,7 +504,7 @@ fn validate_one_run(
         | ToolAttemptDisposition::TimedOut => {
             let receipt = run.receipt.ok_or(BenchmarkError::MissingReceipt)?;
             validate_receipt(receipt).map_err(BenchmarkError::AdapterReceipt)?;
-            if receipt.benchmark_id != manifest_benchmark_id_placeholder()
+            if receipt.benchmark_id != benchmark_id
                 || receipt.case_id != case.case_id
                 || receipt.adapter.adapter_id != tool.adapter_id
                 || receipt.adapter.version != tool.version
@@ -545,11 +547,6 @@ fn validate_one_run(
         }
     }
     Ok(())
-}
-
-fn manifest_benchmark_id_placeholder() -> &'static str {
-    // The real benchmark ID is checked by evaluate_benchmark before this helper.
-    ""
 }
 
 fn validate_claim_observations(
@@ -622,7 +619,7 @@ pub fn evaluate_benchmark(
         for case in &manifest.body.cases {
             let run = run_map.get(&(tool.adapter_id.as_str(), case.case_id.as_str()))
                 .ok_or_else(|| BenchmarkError::MissingRun(tool.adapter_id.clone(), case.case_id.clone()))?;
-            validate_one_run(manifest.body.benchmark_id.as_str(), tool, case, run)?;
+            validate_one_run(&manifest.body.benchmark_id, tool, case, run)?;
             attempts.offered_cases += 1;
             match run.attempt {
                 ToolAttemptDisposition::Succeeded => attempts.succeeded += 1,
