@@ -587,6 +587,7 @@
         "document_qpid",
         "source_path",
         "source_element_id",
+        "local_reference_id",
         "external_document_reference_id",
         "external_xid",
         "mapping_rule_id",
@@ -666,6 +667,14 @@
             "null"
           ],
           "minLength": 1
+        },
+        "local_reference_id": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 4294967295
         }
       }
     },
@@ -676,6 +685,7 @@
         "document_qpid",
         "source_path",
         "source_element_id",
+        "local_reference_id",
         "external_document_reference_id",
         "external_xid"
       ],
@@ -705,6 +715,14 @@
           "maximum": 4294967295
         },
         "external_xid": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "local_reference_id": {
           "type": [
             "integer",
             "null"
