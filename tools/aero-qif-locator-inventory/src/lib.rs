@@ -32,6 +32,7 @@ pub enum LocatorCaptureMode {
     ElementId,
     Text,
     QifReference,
+    LocalQifReference,
     DocumentQpid,
     ExternalPlanQpid,
     ExternalPlanUri,
@@ -597,6 +598,26 @@ fn finalize_frame(
                     None,
                     Some(&frame.direct_text),
                     None,
+                    &frame.captured_attributes,
+                    profile.limits.max_locators,
+                )?;
+            }
+            LocatorCaptureMode::LocalQifReference => {
+                if frame.has_child_element {
+                    return Err(InventoryError::InvalidQifReference(frame.locator_path.clone()));
+                }
+                let value = parsed_numeric_attribute(&frame.direct_text, &frame.locator_path)
+                    .map_err(|_| InventoryError::InvalidQifReference(frame.locator_path.clone()))?;
+                append_locator(
+                    locators,
+                    rule,
+                    qpid,
+                    &format!("{}#local-qif-reference", frame.locator_path),
+                    frame.element_id,
+                    None,
+                    None,
+                    Some(&frame.direct_text),
+                    Some(&value.to_string()),
                     &frame.captured_attributes,
                     profile.limits.max_locators,
                 )?;
@@ -1282,7 +1303,7 @@ mod tests {
                         expanded("*"),
                         expanded("CharacteristicNominalId"),
                     ],
-                    capture: LocatorCaptureMode::QifReference,
+                    capture: LocatorCaptureMode::LocalQifReference,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
                 },
