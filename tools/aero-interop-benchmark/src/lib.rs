@@ -195,12 +195,24 @@ pub struct ToolAttemptSummary {
     pub not_run: u64,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PerformanceSummary {
+    /// Includes succeeded, failed and timed-out receipt durations.
+    pub sample_count: u64,
+    /// Nearest-rank percentiles over all receipt-backed attempts.
+    pub p50_elapsed_ms: Option<u64>,
+    pub p95_elapsed_ms: Option<u64>,
+    pub min_elapsed_ms: Option<u64>,
+    pub max_elapsed_ms: Option<u64>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ToolScorecard {
     pub tool_id: String,
     pub version: String,
     pub category: ToolCategory,
     pub attempts: ToolAttemptSummary,
+    pub performance: PerformanceSummary,
     pub dimensions: BTreeMap<BenchmarkDimension, DimensionScorecard>,
 }
 
@@ -324,6 +336,9 @@ fn canonical_manifest_body(body: &BenchmarkManifestBodyV1) -> BenchmarkManifestB
         (left.adapter_id.as_str(), left.version.as_str())
             .cmp(&(right.adapter_id.as_str(), right.version.as_str()))
     });
+    for tool in &mut canonical.tools {
+        tool.declared_egress.sort();
+    }
     canonical.cases.sort_by(|left, right| left.case_id.cmp(&right.case_id));
     for case in &mut canonical.cases {
         case.inputs.sort_by(|left, right| {
@@ -636,6 +651,14 @@ fn validate_claim_observations(
     Ok(())
 }
 
+fn nearest_rank_percentile(sorted: &[u64], percentile: u64) -> Option<u64> {
+    if sorted.is_empty() {
+        return None;
+    }
+    let rank = (percentile * sorted.len() as u64).div_ceil(100).max(1);
+    sorted.get((rank - 1) as usize).copied()
+}
+
 pub fn evaluate_benchmark(
     manifest: &BenchmarkManifestV1,
     corpus_payloads: &[(&ArtifactRef, &[u8])],
@@ -675,12 +698,16 @@ pub fn evaluate_benchmark(
     let mut scorecards = Vec::new();
     for tool in &manifest.body.tools {
         let mut attempts = ToolAttemptSummary::default();
+        let mut elapsed_samples = Vec::new();
         let mut dimensions: BTreeMap<BenchmarkDimension, DimensionScorecard> = BTreeMap::new();
         for case in &manifest.body.cases {
             let run = run_map.get(&(tool.adapter_id.as_str(), case.case_id.as_str()))
                 .ok_or_else(|| BenchmarkError::MissingRun(tool.adapter_id.clone(), case.case_id.clone()))?;
             validate_one_run(&manifest.body.benchmark_id, tool, case, run)?;
             attempts.offered_cases += 1;
+            if let Some(receipt) = run.receipt {
+                elapsed_samples.push(receipt.elapsed_ms);
+            }
             match run.attempt {
                 ToolAttemptDisposition::Succeeded => attempts.succeeded += 1,
                 ToolAttemptDisposition::Failed => attempts.failed += 1,
@@ -739,11 +766,20 @@ pub fn evaluate_benchmark(
                 }
             }
         }
+        elapsed_samples.sort_unstable();
+        let performance = PerformanceSummary {
+            sample_count: elapsed_samples.len() as u64,
+            p50_elapsed_ms: nearest_rank_percentile(&elapsed_samples, 50),
+            p95_elapsed_ms: nearest_rank_percentile(&elapsed_samples, 95),
+            min_elapsed_ms: elapsed_samples.first().copied(),
+            max_elapsed_ms: elapsed_samples.last().copied(),
+        };
         scorecards.push(ToolScorecard {
             tool_id: tool.adapter_id.clone(),
             version: tool.version.clone(),
             category: tool.category,
             attempts,
+            performance,
             dimensions,
         });
     }
@@ -922,6 +958,33 @@ mod tests {
             observed_claims: claims,
             reason_code: None,
         }
+    }
+
+    #[test]
+    fn latency_percentiles_use_nearest_rank_and_keep_failed_attempt_samples() {
+        assert_eq!(nearest_rank_percentile(&[10, 20, 30, 40], 50), Some(20));
+        assert_eq!(nearest_rank_percentile(&[10, 20, 30, 40], 95), Some(40));
+        assert_eq!(nearest_rank_percentile(&[], 95), None);
+    }
+
+    #[test]
+    fn invocation_profile_is_pinned_in_the_tool_registry() {
+        let (mut manifest, receipt, payloads) = fixture();
+        manifest.body.tools[0].timezone = "Africa/Johannesburg".into();
+        manifest.manifest_sha256 = compute_benchmark_manifest_digest(&manifest).unwrap();
+        let run_payloads = borrowed(&payloads);
+        let corpus_owned = corpus_payloads(&manifest, &payloads);
+        let corpus_borrowed = borrowed(&corpus_owned);
+        let observations = vec![
+            ClaimObservationV1 { claim_id: "trace.characteristic_identity".into(), disposition: ClaimObservationDisposition::Accepted, reason_code: None },
+            ClaimObservationV1 { claim_id: "trace.wrong_document_join".into(), disposition: ClaimObservationDisposition::Rejected, reason_code: None },
+            ClaimObservationV1 { claim_id: "pmi.semantic_pmi_preserved".into(), disposition: ClaimObservationDisposition::Unknown, reason_code: Some("ORACLE_NOT_ADJUDICATED".into()) },
+        ];
+        let run = run("synthetic-step-to-qif", "synthetic-ap242-qif-001", &receipt, &run_payloads, &observations);
+        assert_eq!(
+            evaluate_benchmark(&manifest, &corpus_borrowed, &[run]),
+            Err(BenchmarkError::InvocationProfileMismatch)
+        );
     }
 
     #[test]
