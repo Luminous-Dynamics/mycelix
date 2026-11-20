@@ -342,6 +342,12 @@ pub enum IngestError {
     UnsafeSandboxProfile,
     #[error("sandbox resource limit is zero or invalid")]
     InvalidSandboxLimit,
+    #[error("source document exceeds maximum single-document byte limit: {0}")]
+    DocumentExceedsLimit(String),
+    #[error("source documents exceed the total staged-input byte limit")]
+    TotalInputExceedsLimit,
+    #[error("source document count exceeds sandbox policy")]
+    TooManyDocuments,
     #[error("runtime or tool artifact is invalid: {0}")]
     InvalidArtifact(String),
     #[error("unsupported .NET Core 3.1 runtime must be explicitly marked legacy")]
@@ -525,6 +531,10 @@ pub fn validate_ingest_qualification(
         return Err(IngestError::ResultsDocumentCardinality);
     }
 
+    if body.documents.len() > body.sandbox.max_document_count as usize {
+        return Err(IngestError::TooManyDocuments);
+    }
+    let mut total_source_bytes = 0u64;
     let mut documents = BTreeMap::new();
     let mut results_docs = Vec::new();
     let mut plan_docs = BTreeSet::new();
@@ -540,11 +550,19 @@ pub fn validate_ingest_qualification(
             return Err(IngestError::DuplicateQpid(document.qpid.clone()));
         }
         validate_content_artifact(&document.artifact)?;
+        if document.artifact.byte_length > body.sandbox.max_document_bytes {
+            return Err(IngestError::DocumentExceedsLimit(document.qpid.clone()));
+        }
+        total_source_bytes = total_source_bytes.checked_add(document.artifact.byte_length)
+            .ok_or(IngestError::TotalInputExceedsLimit)?;
         match document.role {
             QifDocumentRole::Results => results_docs.push(key),
             QifDocumentRole::Plan => { plan_docs.insert(key); },
             QifDocumentRole::Auxiliary => {}
         }
+    }
+    if total_source_bytes > body.sandbox.max_total_input_bytes {
+        return Err(IngestError::TotalInputExceedsLimit);
     }
     if results_docs.len() != 1 {
         return Err(IngestError::ResultsDocumentCardinality);
@@ -706,6 +724,11 @@ pub fn validate_ingest_qualification(
                 validate_content_artifact(report)?;
             }
         }
+        if matches!(stage.disposition, StageDisposition::Failed | StageDisposition::Warning | StageDisposition::Unknown)
+            && stage.reason_codes.is_empty()
+        {
+            return Err(IngestError::InvalidIdentity(format!("missing reason_codes:{}", stage.stage.key())));
+        }
         if stage.reason_codes.iter().any(|code| code.trim().is_empty()) {
             return Err(IngestError::InvalidIdentity(format!("reason_codes:{}", stage.stage.key())));
         }
@@ -720,7 +743,10 @@ pub fn validate_ingest_qualification(
         (ValidationStage::XsdStructure, ValidationStage::XmlWellFormedness),
         (ValidationStage::XsltFormat, ValidationStage::XsdStructure),
         (ValidationStage::XsltQuality, ValidationStage::XsdStructure),
+        (ValidationStage::XsltQuality, ValidationStage::XsltFormat),
         (ValidationStage::XsltSemantic, ValidationStage::XsdStructure),
+        (ValidationStage::XsltSemantic, ValidationStage::XsltFormat),
+        (ValidationStage::ExtractionFidelity, ValidationStage::XsltQuality),
         (ValidationStage::ExtractionFidelity, ValidationStage::XsltSemantic),
         (ValidationStage::ExternalReferenceResolution, ValidationStage::ExtractionFidelity),
     ];
