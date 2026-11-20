@@ -211,6 +211,144 @@ fn test_latest_tle_lines_only_query_ignores_metadata_only_disagreement() {
 }
 
 #[test]
+fn test_latest_tle_newer_epoch_wins_even_when_metadata_differs() {
+    let source_a = DataSourceType::SpaceTrack;
+    let source_b = DataSourceType::Commercial {
+        provider: "provider-b".to_string(),
+    };
+    let quality_a = QualityScore::new(80);
+    let quality_b = QualityScore::new(95);
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            Some(tle_candidate(25544, 100, "L1-A", "L2-A", &source_a, &quality_a, 110)),
+            tle_candidate(25544, 101, "L1-B", "L2-B", &source_b, &quality_b, 111),
+            true,
+        ),
+        Ok(TleLatestDecision::ReplaceExisting)
+    );
+}
+
+#[test]
+fn test_latest_tle_older_epoch_ignored_even_when_metadata_differs() {
+    let source_a = DataSourceType::SpaceTrack;
+    let source_b = DataSourceType::Commercial {
+        provider: "provider-b".to_string(),
+    };
+    let quality_a = QualityScore::new(80);
+    let quality_b = QualityScore::new(95);
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            Some(tle_candidate(25544, 101, "L1-B", "L2-B", &source_b, &quality_b, 111)),
+            tle_candidate(25544, 100, "L1-A", "L2-A", &source_a, &quality_a, 110),
+            true,
+        ),
+        Ok(TleLatestDecision::KeepExisting)
+    );
+}
+
+#[test]
+fn test_latest_tle_submission_order_permutations_choose_same_timestamp() {
+    let source = DataSourceType::SpaceTrack;
+    let quality = QualityScore::new(80);
+    let records = [
+        tle_candidate(25544, 100, "L1", "L2", &source, &quality, 115),
+        tle_candidate(25544, 100, "L1", "L2", &source, &quality, 120),
+        tle_candidate(25544, 100, "L1", "L2", &source, &quality, 118),
+    ];
+
+    fn fold<'a>(records: &[TleLatestCandidate<'a>]) -> TleLatestCandidate<'a> {
+        let mut selected: Option<TleLatestCandidate<'a>> = None;
+        for record in records {
+            match select_latest_tle_candidate(25544, selected, *record, true).unwrap() {
+                TleLatestDecision::Insert | TleLatestDecision::ReplaceExisting => {
+                    selected = Some(*record);
+                }
+                TleLatestDecision::KeepExisting => {}
+            }
+        }
+        selected.unwrap()
+    }
+
+    let forward = fold(&records);
+    let reverse = fold(&[records[2], records[1], records[0]]);
+    assert_eq!(forward.submitted_at_micros, 120);
+    assert_eq!(reverse.submitted_at_micros, 120);
+    assert_eq!(forward.line1, reverse.line1);
+    assert_eq!(forward.line2, reverse.line2);
+}
+
+#[test]
+fn test_latest_tle_conflicting_metadata_is_rejected_independent_of_order() {
+    let source_a = DataSourceType::SpaceTrack;
+    let source_b = DataSourceType::Commercial {
+        provider: "provider-b".to_string(),
+    };
+    let quality = QualityScore::new(80);
+    let a = tle_candidate(25544, 100, "L1", "L2", &source_a, &quality, 110);
+    let b = tle_candidate(25544, 100, "L1", "L2", &source_b, &quality, 111);
+    assert!(matches!(
+        select_latest_tle_candidate(25544, Some(a), b, true),
+        Err(TleLatestConflict::SameEpochMetadataConflict { .. })
+    ));
+    assert!(matches!(
+        select_latest_tle_candidate(25544, Some(b), a, true),
+        Err(TleLatestConflict::SameEpochMetadataConflict { .. })
+    ));
+}
+
+#[test]
+fn test_latest_tle_line_conflict_is_rejected_independent_of_order() {
+    let source = DataSourceType::SpaceTrack;
+    let quality = QualityScore::new(80);
+    let a = tle_candidate(25544, 100, "L1-A", "L2", &source, &quality, 110);
+    let b = tle_candidate(25544, 100, "L1-B", "L2", &source, &quality, 111);
+    assert!(matches!(
+        select_latest_tle_candidate(25544, Some(a), b, true),
+        Err(TleLatestConflict::SameEpochOrbitConflict { .. })
+    ));
+    assert!(matches!(
+        select_latest_tle_candidate(25544, Some(b), a, true),
+        Err(TleLatestConflict::SameEpochOrbitConflict { .. })
+    ));
+}
+
+#[test]
+fn test_latest_tle_same_epoch_metadata_difference_is_allowed_for_lines_only_view() {
+    let source_a = DataSourceType::SpaceTrack;
+    let source_b = DataSourceType::Commercial {
+        provider: "provider-b".to_string(),
+    };
+    let quality_a = QualityScore::new(80);
+    let quality_b = QualityScore::new(90);
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            Some(tle_candidate(25544, 100, "L1", "L2", &source_a, &quality_a, 110)),
+            tle_candidate(25544, 100, "L1", "L2", &source_b, &quality_b, 111),
+            false,
+        ),
+        Ok(TleLatestDecision::KeepExisting)
+    );
+}
+
+#[test]
+fn test_latest_tle_invalid_requested_anchor_is_not_silently_normalized() {
+    let source = DataSourceType::SpaceTrack;
+    let quality = QualityScore::new(80);
+    assert_eq!(
+        select_latest_tle_candidate(
+            0,
+            None,
+            tle_candidate(0, 100, "L1", "L2", &source, &quality, 110),
+            true,
+        ),
+        Ok(TleLatestDecision::Insert)
+    );
+}
+
+#[test]
 fn test_latest_tle_equal_submission_time_is_stable() {
     let source = DataSourceType::SpaceTrack;
     let quality = QualityScore::new(80);
