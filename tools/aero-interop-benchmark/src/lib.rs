@@ -1187,19 +1187,14 @@ mod tests {
     }
 
     #[test]
-    fn exact_corpus_artifacts_are_verified_against_manifest() {
+    fn exact_corpus_and_tool_artifacts_are_verified_against_manifest() {
         let (manifest, _, payloads) = fixture();
-        let oracle = ORACLE_BYTES.to_vec();
-        let oracle_ref = manifest.body.cases[0].oracle_artifact.reference.clone();
-        let mut corpus_payloads = vec![
-            (&payloads[3].0, payloads[3].1.as_slice()),
-            (&payloads[4].0, payloads[4].1.as_slice()),
-            (&oracle_ref, oracle.as_slice()),
-        ];
-        assert_eq!(verify_benchmark_corpus_payloads(&manifest, &corpus_payloads).unwrap(), 3);
-        corpus_payloads.pop();
+        let corpus_owned = corpus_payloads(&manifest, &payloads);
+        let mut corpus_borrowed = borrowed(&corpus_owned);
+        assert_eq!(verify_benchmark_corpus_payloads(&manifest, &corpus_borrowed).unwrap(), 6);
+        corpus_borrowed.pop();
         assert_eq!(
-            verify_benchmark_corpus_payloads(&manifest, &corpus_payloads),
+            verify_benchmark_corpus_payloads(&manifest, &corpus_borrowed),
             Err(BenchmarkError::CorpusPayloadSetMismatch)
         );
     }
