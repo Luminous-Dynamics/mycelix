@@ -981,15 +981,15 @@ mod tests {
             qif_profile: QifValidationProfile::Qif3Normative,
             documents: vec![
                 QifDocumentInputV1 { qpid: "10000000-0000-4000-8000-000000000001".into(), role: QifDocumentRole::Results, artifact: results.clone(), source_uri: None },
-                QifDocumentInputV1 { qpid: "20000000-0000-4000-8000-000000000002".into(), role: QifDocumentRole::Plan, artifact: plan.clone(), source_uri: Some("Plan.qif".into()) },
+                QifDocumentInputV1 { qpid: "20000000-0000-4000-8000-000000000002".into(), role: QifDocumentRole::Plan, artifact: plan.clone(), source_uri: Some("https://vendor.example/qif/Plan%20A.qif".into()) },
             ],
             external_document_bindings: vec![
                 ExternalDocumentBindingV1 {
                     results_qpid: "10000000-0000-4000-8000-000000000001".into(),
                     local_reference_id: 7,
                     target_plan_qpid: "20000000-0000-4000-8000-000000000002".into(),
-                    source_uri: "Plan.qif".into(),
-                    staged_relative_path: "Plan.qif".into(),
+                    source_uri: "https://vendor.example/qif/Plan%20A.qif".into(),
+                    staged_relative_path: "linked/Plan-A.qif".into(),
                 },
             ],
             bundles: ValidationBundlesV1 {
@@ -1074,6 +1074,104 @@ mod tests {
         assert!(report.all_stages_passed);
         assert!(!report.legacy_runtime);
         assert_eq!(report.checked_artifacts, payloads.len());
+    }
+
+    #[test]
+    fn remote_source_uri_is_retained_but_only_safe_staged_path_is_used() {
+        let (qualification, _) = fixture();
+        assert!(validate_ingest_qualification(&qualification).is_ok());
+        assert_eq!(
+            qualification.body.external_document_bindings[0].source_uri,
+            "https://vendor.example/qif/Plan%20A.qif"
+        );
+        assert_eq!(
+            qualification.body.external_document_bindings[0].staged_relative_path,
+            "linked/Plan-A.qif"
+        );
+    }
+
+    #[test]
+    fn percent_encoded_path_traversal_is_rejected_in_staged_path() {
+        let (mut qualification, _) = fixture();
+        qualification.body.external_document_bindings[0].staged_relative_path =
+            "linked/%2e%2e/secret.qif".into();
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(matches!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::UnsafeStagedPath(_))
+        ));
+    }
+
+    #[test]
+    fn same_plan_may_be_referenced_by_multiple_results_ids() {
+        let (mut qualification, _) = fixture();
+        let mut alias = qualification.body.external_document_bindings[0].clone();
+        alias.local_reference_id = 8;
+        qualification.body.external_document_bindings.push(alias);
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(validate_ingest_qualification(&qualification).is_ok());
+    }
+
+    #[test]
+    fn stage_cannot_pass_when_prerequisite_failed() {
+        let (mut qualification, _) = fixture();
+        let xsd = qualification.body.stage_results.iter_mut()
+            .find(|stage| stage.stage == ValidationStage::XsdStructure).unwrap();
+        xsd.disposition = StageDisposition::Failed;
+        xsd.reason_codes.push("XSD_INVALID".into());
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(matches!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::PrerequisiteNotPassed { .. })
+        ));
+    }
+
+    #[test]
+    fn blocked_stage_is_distinct_from_not_run_and_requires_reason() {
+        let (mut qualification, _) = fixture();
+        let semantic = qualification.body.stage_results.iter_mut()
+            .find(|stage| stage.stage == ValidationStage::XsltSemantic).unwrap();
+        semantic.disposition = StageDisposition::Blocked;
+        semantic.validator_tool_id = None;
+        semantic.report_artifact = None;
+        semantic.reason_codes.push("LINKED_DOCUMENT_STAGING_BLOCKED".into());
+        let extraction = qualification.body.stage_results.iter_mut()
+            .find(|stage| stage.stage == ValidationStage::ExtractionFidelity).unwrap();
+        extraction.disposition = StageDisposition::NotRun;
+        extraction.validator_tool_id = None;
+        extraction.report_artifact = None;
+        let trace = qualification.body.stage_results.iter_mut()
+            .find(|stage| stage.stage == ValidationStage::ExternalReferenceResolution).unwrap();
+        trace.disposition = StageDisposition::NotRun;
+        trace.validator_tool_id = None;
+        trace.report_artifact = None;
+        qualification.body.extraction = None;
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(validate_ingest_qualification(&qualification).is_ok());
+    }
+
+    #[test]
+    fn stage_with_unexplained_warning_is_rejected() {
+        let (mut qualification, _) = fixture();
+        let stage = qualification.body.stage_results.iter_mut()
+            .find(|stage| stage.stage == ValidationStage::XsltQuality).unwrap();
+        stage.disposition = StageDisposition::Warning;
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(matches!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::InvalidIdentity(_))
+        ));
+    }
+
+    #[test]
+    fn source_document_count_limit_is_enforced() {
+        let (mut qualification, _) = fixture();
+        qualification.body.sandbox.max_document_count = 1;
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::TooManyDocuments)
+        );
     }
 
     #[test]
