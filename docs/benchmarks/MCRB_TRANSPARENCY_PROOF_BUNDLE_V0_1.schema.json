@@ -104,7 +104,7 @@
         "properties": {
           "from_tree_size": {
             "type": "integer",
-            "minimum": 1
+            "minimum": 0
           },
           "from_root_hash_sha256": {
             "type": "string",
@@ -144,5 +144,6 @@
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     }
-  }
+  },
+  "description": "Consistency proof from an earlier checkpoint. A from_tree_size of 0 represents the empty tree; consistency must still be verified."
 }
