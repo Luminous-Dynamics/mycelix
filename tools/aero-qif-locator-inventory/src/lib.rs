@@ -37,6 +37,7 @@ pub enum LocatorCaptureMode {
     ExternalPlanQpid,
     ExternalPlanUri,
     DocumentMetadata,
+    ArrayCount,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -251,6 +252,8 @@ pub enum InventoryError {
     DuplicateExternalReferenceId(u32),
     #[error("trace-critical child locator counts disagree at {0}")]
     SourceRuleCoverageMismatch(String),
+    #[error("QIF array n count does not match the number of direct child elements at {0}")]
+    ArrayCountMismatch(String),
     #[error("assembly-path-qualified QIF references are outside this bounded profile at {0}")]
     UnsupportedAssemblyPathReference(String),
     #[error("a supplied Plan document is not linked by any Results external reference: {0}")]
@@ -269,6 +272,7 @@ struct ElementFrame {
     expanded_path: Vec<String>,
     locator_path: String,
     child_occurrences: BTreeMap<String, u64>,
+    child_element_count: u64,
     matching_rules: Vec<usize>,
     element_id: Option<u32>,
     external_xid: Option<u32>,
@@ -689,6 +693,21 @@ fn finalize_frame(
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
+            LocatorCaptureMode::ArrayCount => {
+                let declared = frame.captured_attributes.get("{}n")
+                    .ok_or_else(|| InventoryError::InvalidIdentity(format!("missing array n:{}", frame.locator_path)))?
+                    .parse::<u64>()
+                    .map_err(|_| InventoryError::InvalidIdentity(format!("invalid array n:{}", frame.locator_path)))?;
+                if declared == 0 || declared != frame.child_element_count {
+                    return Err(InventoryError::ArrayCountMismatch(frame.locator_path.clone()));
+                }
+                let count = declared.to_string();
+                append_locator(
+                    locators, rule, qpid, &format!("{}/@n", frame.locator_path),
+                    None, None, None, None, None, Some(&count), Some(&count),
+                    &frame.captured_attributes, profile.limits.max_locators,
+                )?;
+            }
             LocatorCaptureMode::DocumentMetadata => {
                 let id_max = frame.captured_attributes.get("{}idMax")
                     .ok_or(InventoryError::InvalidRootMetadata)?;
@@ -796,6 +815,7 @@ fn scan_document(
 
                 let occurrence = if let Some(parent) = stack.last_mut() {
                     parent.has_child_element = true;
+                    parent.child_element_count += 1;
                     let counter = parent.child_occurrences.entry(expanded.clone()).or_insert(0);
                     *counter += 1;
                     *counter
@@ -845,6 +865,7 @@ fn scan_document(
                     expanded_path,
                     locator_path,
                     child_occurrences: BTreeMap::new(),
+                    child_element_count: 0,
                     matching_rules,
                     element_id,
                     external_xid,
@@ -1346,6 +1367,16 @@ mod tests {
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
+                    rule_id: "results.external_qif_references_array_count".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![expanded("QIFDocument"), expanded("ExternalQIFReferences")],
+                    capture: LocatorCaptureMode::ArrayCount,
+                    min_occurrences: 1,
+                    max_occurrences: Some(1),
+                    capture_attributes: vec!["{}n".into()],
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
                     rule_id: "results.external_document_reference".into(),
                     document_role: QifDocumentRole::Results,
                     expanded_path: vec![
@@ -1416,6 +1447,23 @@ mod tests {
                     min_occurrences: 1,
                     max_occurrences: None,
                     capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.characteristic_measurements_array_count".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                        expanded("MeasuredCharacteristics"),
+                        expanded("CharacteristicMeasurements"),
+                    ],
+                    capture: LocatorCaptureMode::ArrayCount,
+                    min_occurrences: 1,
+                    max_occurrences: Some(1),
+                    capture_attributes: vec!["{}n".into()],
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
@@ -1513,6 +1561,20 @@ mod tests {
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
+                    rule_id: "results.characteristic_items_array_count".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Characteristics"),
+                        expanded("CharacteristicItems"),
+                    ],
+                    capture: LocatorCaptureMode::ArrayCount,
+                    min_occurrences: 1,
+                    max_occurrences: Some(1),
+                    capture_attributes: vec!["{}n".into()],
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
                     rule_id: "results.characteristic_item".into(),
                     document_role: QifDocumentRole::Results,
                     expanded_path: vec![
@@ -1525,6 +1587,34 @@ mod tests {
                     min_occurrences: 0,
                     max_occurrences: None,
                     capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.characteristic_nominals_array_count".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Characteristics"),
+                        expanded("CharacteristicNominals"),
+                    ],
+                    capture: LocatorCaptureMode::ArrayCount,
+                    min_occurrences: 1,
+                    max_occurrences: Some(1),
+                    capture_attributes: vec!["{}n".into()],
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.characteristic_items_array_count".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Characteristics"),
+                        expanded("CharacteristicItems"),
+                    ],
+                    capture: LocatorCaptureMode::ArrayCount,
+                    min_occurrences: 1,
+                    max_occurrences: Some(1),
+                    capture_attributes: vec!["{}n".into()],
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
@@ -1571,6 +1661,22 @@ mod tests {
                     min_occurrences: 1,
                     max_occurrences: None,
                     capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.entity_external_ids_array_count".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Characteristics"),
+                        expanded("CharacteristicNominals"),
+                        expanded("*"),
+                        expanded("EntityExternalIds"),
+                    ],
+                    capture: LocatorCaptureMode::ArrayCount,
+                    min_occurrences: 1,
+                    max_occurrences: Some(1),
+                    capture_attributes: vec!["{}n".into()],
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
