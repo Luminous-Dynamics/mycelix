@@ -16,6 +16,7 @@
 //! instead of one depending on the other.
 
 pub mod claims;
+pub mod space_engineering_evidence;
 pub mod error;
 pub mod storage;
 
@@ -38,6 +39,11 @@ pub use claims::MATLTrust;
 
 // Unified Fingerprint
 pub use claims::EpistemicFingerprint;
+
+pub use space_engineering_evidence::{
+    ArtifactReference, EvidenceClass, EvidenceState, IndependentCheck,
+    SpaceEngineeringEvidence, SCHEMA as SPACE_ENGINEERING_EVIDENCE_SCHEMA,
+};
 
 pub use error::{Error, Result};
 pub use storage::{IpfsStorage, MemoryStorage, StorageBackend};
