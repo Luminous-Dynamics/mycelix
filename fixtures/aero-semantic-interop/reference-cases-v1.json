@@ -1,0 +1,155 @@
+{
+  "schema": "AeroSemanticAssertionV1",
+  "benchmark_id": "AEROCOMMONS-SEMANTIC-INTEROP-001",
+  "case_id": "SYN-COUPON-001",
+  "source_class": "authored_synthetic",
+  "case_kind": "positive_control",
+  "configuration": {
+    "id": "configuration:coupon-001-r1",
+    "kind": "configuration"
+  },
+  "source_manifest": [],
+  "assertions": [
+    {
+      "assertion_id": "A-UNIT-001",
+      "semantic_type": "persistent_identity",
+      "subject": {
+        "id": "physical-unit:coupon-001-serial-0001",
+        "kind": "physical_unit"
+      },
+      "requirement": null,
+      "value": "physical-unit:coupon-001-serial-0001",
+      "unit": null,
+      "source_locator": "synthetic://component/unit/id",
+      "required": true
+    },
+    {
+      "assertion_id": "A-REQ-001",
+      "semantic_type": "requirement_link",
+      "subject": {
+        "id": "feature:coupon-hole-01",
+        "kind": "feature"
+      },
+      "requirement": {
+        "id": "requirement:hole-diameter",
+        "kind": "requirement"
+      },
+      "value": "same-revision-linked",
+      "unit": null,
+      "source_locator": "synthetic://ap242/feature/hole-01",
+      "required": true
+    },
+    {
+      "assertion_id": "A-DIM-001",
+      "semantic_type": "nominal_dimension",
+      "subject": {
+        "id": "feature:coupon-hole-01",
+        "kind": "feature"
+      },
+      "requirement": {
+        "id": "requirement:hole-diameter",
+        "kind": "requirement"
+      },
+      "value": 10,
+      "unit": "mm",
+      "source_locator": "synthetic://ap242/pmi/dimension-001",
+      "required": true
+    },
+    {
+      "assertion_id": "A-TOL-001",
+      "semantic_type": "tolerance",
+      "subject": {
+        "id": "feature:coupon-hole-01",
+        "kind": "feature"
+      },
+      "requirement": {
+        "id": "requirement:hole-diameter",
+        "kind": "requirement"
+      },
+      "value": {
+        "kind": "plus_minus",
+        "upper": 0.05,
+        "lower": 0.05
+      },
+      "unit": "mm",
+      "source_locator": "synthetic://ap242/pmi/tolerance-001",
+      "required": true
+    },
+    {
+      "assertion_id": "A-DATUM-001",
+      "semantic_type": "datum_reference",
+      "subject": {
+        "id": "feature:coupon-hole-01",
+        "kind": "feature"
+      },
+      "requirement": null,
+      "value": {
+        "datum": "A",
+        "order": 1,
+        "orientation": "primary"
+      },
+      "unit": null,
+      "source_locator": "synthetic://ap242/pmi/datum-001",
+      "required": true
+    },
+    {
+      "assertion_id": "A-QIF-001",
+      "semantic_type": "measurement_result",
+      "subject": {
+        "id": "feature:coupon-hole-01",
+        "kind": "feature"
+      },
+      "requirement": {
+        "id": "requirement:hole-diameter",
+        "kind": "requirement"
+      },
+      "value": {
+        "measured": 10.02,
+        "uncertainty": 0.01,
+        "result_id": "qif-result:coupon-serial-0001-hole-01"
+      },
+      "unit": "mm",
+      "source_locator": "synthetic://qif/results/measurement-001",
+      "required": true
+    }
+  ],
+  "mutations": [
+    {
+      "mutation_id": "M-TOL-001",
+      "target_assertion_id": "A-TOL-001",
+      "operation": "change_tolerance_type",
+      "expected_disposition": "SEMANTIC_LOSS"
+    },
+    {
+      "mutation_id": "M-ID-001",
+      "target_assertion_id": "A-UNIT-001",
+      "operation": "duplicate_persistent_id",
+      "expected_disposition": "WRONG_SUBJECT_JOIN"
+    },
+    {
+      "mutation_id": "M-GRAPHIC-001",
+      "target_assertion_id": "A-DATUM-001",
+      "operation": "replace_semantic_with_graphic_only",
+      "expected_disposition": "SEMANTIC_LOSS"
+    },
+    {
+      "mutation_id": "M-UNIT-001",
+      "target_assertion_id": "A-DIM-001",
+      "operation": "change_unit",
+      "expected_disposition": "SEMANTIC_LOSS"
+    },
+    {
+      "mutation_id": "M-LINK-001",
+      "target_assertion_id": "A-QIF-001",
+      "operation": "drop_trace_edge",
+      "expected_disposition": "WRONG_SUBJECT_JOIN"
+    },
+    {
+      "mutation_id": "M-OMIT-001",
+      "target_assertion_id": "A-DATUM-001",
+      "operation": "omit_unsupported_field",
+      "expected_disposition": "UNSUPPORTED"
+    }
+  ],
+  "expected_disposition": "PRESERVED"
+}
