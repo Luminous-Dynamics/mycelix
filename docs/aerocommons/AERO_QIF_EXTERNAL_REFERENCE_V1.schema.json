@@ -30,6 +30,7 @@
       "required": [
         "qpid",
         "artifact",
+        "result_set_ids",
         "external_documents",
         "measurements"
       ],
@@ -113,6 +114,15 @@
               }
             }
           }
+        },
+        "result_set_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -126,6 +136,7 @@
           "artifact",
           "step_document",
           "digital_model_entities",
+          "other_objects",
           "characteristic_items",
           "characteristic_nominals"
         ],
@@ -222,6 +233,28 @@
                     "minimum": 1,
                     "maximum": 4294967295
                   }
+                }
+              }
+            }
+          },
+          "other_objects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "object_id",
+                "object_kind"
+              ],
+              "properties": {
+                "object_id": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4294967295
+                },
+                "object_kind": {
+                  "type": "string",
+                  "minLength": 1
                 }
               }
             }
