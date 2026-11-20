@@ -10,7 +10,9 @@
     "owner",
     "valid_from_unix_ms",
     "expires_at_unix_ms",
-    "logs"
+    "logs",
+    "required_log_operator_diversity",
+    "known_shared_log_dependencies"
   ],
   "properties": {
     "schema_version": {
