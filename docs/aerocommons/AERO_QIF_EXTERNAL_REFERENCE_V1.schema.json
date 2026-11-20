@@ -48,8 +48,7 @@
             "required": [
               "local_reference_id",
               "plan_qpid",
-              "plan_artifact",
-              "uri"
+              "plan_artifact"
             ],
             "properties": {
               "local_reference_id": {
