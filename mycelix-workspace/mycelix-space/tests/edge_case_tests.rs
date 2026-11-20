@@ -96,7 +96,7 @@ fn test_timestamp_out_of_range_is_not_substituted() {
 /// Future-dated TLEs are explicitly unqualified rather than treated as fresh.
 #[test]
 fn test_future_dated_tle_is_not_fresh() {
-    let future = Utc::now() + Duration::hours(1);
+    let future = Utc::now() + Duration::milliseconds(100);
     let epoch = SpaceTimestamp::from_datetime(future);
     let assessment = compute_staleness(
         &epoch,
