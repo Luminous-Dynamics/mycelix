@@ -825,7 +825,7 @@ fn validate_run_and_scenario(
                 );
             }
         }
-        if !scenario.get("seed").and_then(Value::as_u64).is_some() {
+        if scenario.get("seed").and_then(Value::as_u64).is_none() {
             finding(
                 findings,
                 "$.scenario.seed",
