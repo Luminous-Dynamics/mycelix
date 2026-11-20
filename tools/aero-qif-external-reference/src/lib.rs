@@ -397,6 +397,10 @@ fn validate_content_artifact(artifact: &ContentArtifactV1) -> Result<(), TraceEr
     Ok(())
 }
 
+fn normalized_uuid(value: &str) -> String {
+    value.to_ascii_lowercase()
+}
+
 pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(), TraceError> {
     if case.schema != TRACE_SCHEMA {
         return Err(TraceError::WrongSchema);
@@ -428,10 +432,9 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
     };
     add_artifact(&case.results.artifact)?;
 
+    let results_qpid_key = normalized_uuid(&case.results.qpid);
     let mut qpid_set = BTreeSet::new();
-    if !qpid_set.insert(case.results.qpid.clone()) {
-        return Err(TraceError::DuplicateIdentifier(case.results.qpid.clone()));
-    }
+    qpid_set.insert(results_qpid_key);
 
     let mut refs_by_id = BTreeMap::new();
     for external in &case.results.external_documents {
@@ -457,11 +460,11 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         if !valid_uuid(&plan.qpid) {
             return Err(TraceError::InvalidUuid("plans.qpid".into()));
         }
-        if qpid_set.contains(&plan.qpid) {
+        let plan_key = normalized_uuid(&plan.qpid);
+        if !qpid_set.insert(plan_key.clone()) {
             return Err(TraceError::DuplicateIdentifier(plan.qpid.clone()));
         }
-        qpid_set.insert(plan.qpid.clone());
-        if plans_by_qpid.insert(plan.qpid.clone(), plan).is_some() {
+        if plans_by_qpid.insert(plan_key, plan).is_some() {
             return Err(TraceError::DuplicateIdentifier(plan.qpid.clone()));
         }
         add_artifact(&plan.artifact)?;
@@ -477,7 +480,7 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
     }
 
     for external in refs_by_id.values() {
-        let plan = plans_by_qpid.get(&external.plan_qpid)
+        let plan = plans_by_qpid.get(&normalized_uuid(&external.plan_qpid))
             .ok_or_else(|| TraceError::MissingPlan(external.plan_qpid.clone()))?;
         if external.plan_artifact != plan.artifact {
             return Err(TraceError::PlanReferenceMismatch(external.local_reference_id));
@@ -499,9 +502,9 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         let mut uuids = BTreeSet::new();
         for entity in &document.entities {
             if !valid_uuid(&entity.uuid) {
-                return Err(TraceError::InvalidUuid(format!("step entity {}", entity.uuid)));
+                return Err(TraceError::InvalidUuid(format!("STEP entity {}", entity.uuid)));
             }
-            if !uuids.insert(entity.uuid.clone()) {
+            if !uuids.insert(normalized_uuid(&entity.uuid)) {
                 return Err(TraceError::DuplicateIdentifier(format!("STEP UUID {}", entity.uuid)));
             }
         }
@@ -515,26 +518,88 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         if step_document.artifact != plan.step_document {
             return Err(TraceError::StepDocumentReferenceMismatch(plan.qpid.clone()));
         }
-        let mut object_ids = BTreeSet::new();
-        for object in &plan.objects {
-            if object.object_id == 0 {
-                return Err(TraceError::ZeroIdentifier(format!("Plan object in {}", plan.qpid)));
+
+        // QIF item IDs, nominal IDs and DigitalModel Entity IDs share one
+        // document-local identifier namespace and must not collide.
+        let mut local_ids = BTreeSet::new();
+        let mut digital_entities = BTreeMap::new();
+        let mut mapped_step_uuids = BTreeSet::new();
+        for mapping in &plan.digital_model_entities {
+            if mapping.entity_id == 0 {
+                return Err(TraceError::ZeroIdentifier(format!("DigitalModel Entity in {}", plan.qpid)));
             }
-            if !object_ids.insert(object.object_id) {
-                return Err(TraceError::DuplicateIdentifier(format!("Plan object {} in {}", object.object_id, plan.qpid)));
+            if !local_ids.insert(mapping.entity_id) {
+                return Err(TraceError::DuplicateIdentifier(format!("QIF Plan id {} in {}", mapping.entity_id, plan.qpid)));
             }
-            if object.characteristic_id.trim().is_empty() || !valid_uuid(&object.step_uuid) {
-                return Err(TraceError::InvalidIdentity(format!("Plan object {}", object.object_id)));
+            if !valid_uuid(&mapping.step_uuid) {
+                return Err(TraceError::InvalidUuid(format!("DigitalModel EntityId {}", mapping.step_uuid)));
+            }
+            if !mapped_step_uuids.insert(normalized_uuid(&mapping.step_uuid)) {
+                return Err(TraceError::DuplicateIdentifier(format!("DigitalModel STEP UUID {}", mapping.step_uuid)));
+            }
+            digital_entities.insert(mapping.entity_id, mapping);
+        }
+
+        let mut nominal_ids = BTreeMap::new();
+        for nominal in &plan.characteristic_nominals {
+            if nominal.object_id == 0 {
+                return Err(TraceError::ZeroIdentifier(format!("CharacteristicNominal in {}", plan.qpid)));
+            }
+            if !local_ids.insert(nominal.object_id) {
+                return Err(TraceError::DuplicateIdentifier(format!("QIF Plan id {} in {}", nominal.object_id, plan.qpid)));
+            }
+            if nominal.characteristic_id.trim().is_empty() {
+                return Err(TraceError::InvalidIdentity(format!("CharacteristicNominal {}", nominal.object_id)));
+            }
+            if nominal.entity_external_ids.is_empty() {
+                return Err(TraceError::MissingEntityExternalIds { nominal_id: nominal.object_id });
+            }
+            let mut external_ids = BTreeSet::new();
+            for entity_id in &nominal.entity_external_ids {
+                if *entity_id == 0 {
+                    return Err(TraceError::ZeroIdentifier(format!("EntityExternalIds in nominal {}", nominal.object_id)));
+                }
+                if !external_ids.insert(*entity_id) {
+                    return Err(TraceError::DuplicateIdentifier(format!("EntityExternalId {} in nominal {}", entity_id, nominal.object_id)));
+                }
+                if !digital_entities.contains_key(entity_id) {
+                    return Err(TraceError::MissingDigitalModelEntity {
+                        qpid: plan.qpid.clone(),
+                        entity_id: *entity_id,
+                    });
+                }
+            }
+            if nominal_ids.insert(nominal.object_id, nominal).is_some() {
+                return Err(TraceError::DuplicateIdentifier(format!("CharacteristicNominal {}", nominal.object_id)));
+            }
+        }
+
+        let mut characteristic_items = BTreeMap::new();
+        for item in &plan.characteristic_items {
+            if item.object_id == 0 || item.characteristic_nominal_id == 0 {
+                return Err(TraceError::ZeroIdentifier(format!("CharacteristicItem in {}", plan.qpid)));
+            }
+            if !local_ids.insert(item.object_id) {
+                return Err(TraceError::DuplicateIdentifier(format!("QIF Plan id {} in {}", item.object_id, plan.qpid)));
+            }
+            if !nominal_ids.contains_key(&item.characteristic_nominal_id) {
+                return Err(TraceError::MissingCharacteristicNominal {
+                    qpid: plan.qpid.clone(),
+                    nominal_id: item.characteristic_nominal_id,
+                });
+            }
+            if characteristic_items.insert(item.object_id, item).is_some() {
+                return Err(TraceError::DuplicateIdentifier(format!("CharacteristicItem {}", item.object_id)));
             }
         }
     }
 
     let mut measurement_ids = BTreeSet::new();
     for measurement in &case.results.measurements {
-        if measurement.measurement_id == 0 {
-            return Err(TraceError::ZeroIdentifier("measurement_id".into()));
+        if measurement.measurement_id.trim().is_empty() || measurement.result_set_id.trim().is_empty() {
+            return Err(TraceError::InvalidIdentity("measurement_id/result_set_id".into()));
         }
-        if !measurement_ids.insert(measurement.measurement_id) {
+        if !measurement_ids.insert(measurement.measurement_id.clone()) {
             return Err(TraceError::DuplicateIdentifier(format!("measurement {}", measurement.measurement_id)));
         }
         if measurement.external_document_reference_id == 0 || measurement.xid == 0 {
@@ -543,32 +608,43 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
 
         let external = refs_by_id.get(&measurement.external_document_reference_id)
             .ok_or(TraceError::MissingExternalDocumentReference(measurement.external_document_reference_id))?;
-        let plan = plans_by_qpid.get(&external.plan_qpid)
+        let plan = plans_by_qpid.get(&normalized_uuid(&external.plan_qpid))
             .ok_or_else(|| TraceError::MissingPlan(external.plan_qpid.clone()))?;
         if external.plan_artifact != plan.artifact {
             return Err(TraceError::PlanReferenceMismatch(external.local_reference_id));
         }
-        let object = plan.objects.iter().find(|item| item.object_id == measurement.xid)
-            .ok_or_else(|| TraceError::MissingExternalObject { qpid: plan.qpid.clone(), xid: measurement.xid })?;
-        if object.kind != PlanObjectKind::CharacteristicItem {
-            return Err(TraceError::WrongExternalObjectKind { qpid: plan.qpid.clone(), xid: measurement.xid });
-        }
-
-        let step_key = (plan.step_document.reference.id.clone(), plan.step_document.reference.kind.clone());
-        let step_document = step_by_artifact.get(&step_key)
-            .ok_or_else(|| TraceError::MissingStepDocument(plan.qpid.clone()))?;
-        let entity = step_document.entities.iter().find(|item| item.uuid == object.step_uuid)
-            .ok_or_else(|| TraceError::MissingStepEntity {
-                document: step_document.artifact.reference.id.clone(),
-                uuid: object.step_uuid.clone(),
+        let item = plan.characteristic_items.iter()
+            .find(|item| item.object_id == measurement.xid)
+            .ok_or_else(|| TraceError::MissingExternalObject {
+                qpid: plan.qpid.clone(), xid: measurement.xid
             })?;
-        if entity.kind != object.step_entity_kind {
-            return Err(TraceError::StepEntityKindMismatch {
-                document: step_document.artifact.reference.id.clone(),
-                uuid: object.step_uuid.clone(),
-            });
+        let nominal = plan.characteristic_nominals.iter()
+            .find(|nominal| nominal.object_id == item.characteristic_nominal_id)
+            .ok_or_else(|| TraceError::MissingCharacteristicNominal {
+                qpid: plan.qpid.clone(), nominal_id: item.characteristic_nominal_id
+            })?;
+        for entity_external_id in &nominal.entity_external_ids {
+            let mapping = plan.digital_model_entities.iter()
+                .find(|mapping| mapping.entity_id == *entity_external_id)
+                .ok_or_else(|| TraceError::MissingDigitalModelEntity {
+                    qpid: plan.qpid.clone(), entity_id: *entity_external_id
+                })?;
+            let step_key = (plan.step_document.reference.id.clone(), plan.step_document.reference.kind.clone());
+            let step_document = step_by_artifact.get(&step_key)
+                .ok_or_else(|| TraceError::MissingStepDocument(plan.qpid.clone()))?;
+            let step_entity = step_document.entities.iter()
+                .find(|entity| normalized_uuid(&entity.uuid) == normalized_uuid(&mapping.step_uuid))
+                .ok_or_else(|| TraceError::MissingStepEntity {
+                    document: step_document.artifact.reference.id.clone(),
+                    uuid: mapping.step_uuid.clone(),
+                })?;
+            if step_entity.kind != mapping.step_entity_kind {
+                return Err(TraceError::StepEntityKindMismatch {
+                    document: step_document.artifact.reference.id.clone(),
+                    uuid: mapping.step_uuid.clone(),
+                });
+            }
         }
-
     }
     Ok(())
 }
