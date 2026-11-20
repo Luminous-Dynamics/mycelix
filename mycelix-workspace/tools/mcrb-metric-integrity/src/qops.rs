@@ -456,8 +456,15 @@ mod tests {
         assert!(report.offered_operations_per_second.is_none());
         assert!(report.qualified_operations_per_second.is_none());
         assert!(report.qualified_success_fraction.is_none());
-        assert_eq!(report.correctness_required_gate_count, 7);
-        assert_eq!(report.correctness_attestation_count, 7);
+        let expected_gate_count = verified_gate_set_for_test(
+            ledger.run_id(),
+            ledger.scenario_id(),
+            ledger.scenario_contract_digest_sha256(),
+        )
+        .required_gate_ids()
+        .len();
+        assert_eq!(report.correctness_required_gate_count, expected_gate_count);
+        assert_eq!(report.correctness_attestation_count, expected_gate_count);
         assert!(report.correctness_gate_set_digest_sha256.is_some());
         assert_eq!(report.offer_ledger_digest_sha256, ledger.ledger_digest_sha256());
     }
@@ -526,8 +533,14 @@ mod tests {
             scenario_contract_digest_sha256: ledger.scenario_contract_digest_sha256().to_string(),
             trust_policy_id: "test-policy".to_string(),
             trust_policy_digest_sha256: digest("policy"),
-            required_gate_count: 7,
-            verified_pass_count: 6,
+            required_gate_count: verified_gate_set_for_test(
+                ledger.run_id(),
+                ledger.scenario_id(),
+                ledger.scenario_contract_digest_sha256(),
+            )
+            .required_gate_ids()
+            .len(),
+            verified_pass_count: 0,
             gate_set_digest_sha256: None,
             attestation_digests_sha256: vec![],
             issues: vec![],
