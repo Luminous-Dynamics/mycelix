@@ -246,3 +246,84 @@ fn dsse_schema_requires_the_standard_payload_type_wire_name() {
     assert!(schema["properties"].get("payloadType").is_some());
     assert!(schema["properties"].get("payload_type").is_none());
 }
+
+
+#[test]
+fn outcome_attestation_schemas_preserve_evidence_and_dependency_dimensions() {
+    let ledger = load_json("docs/benchmarks/MCRB_OUTCOME_LEDGER_V0_1.schema.json");
+    let predicate = load_json("docs/benchmarks/MCRB_OUTCOME_ATTESTATION_V0_1.schema.json");
+    let trust = load_json("docs/benchmarks/MCRB_OUTCOME_TRUST_POLICY_V0_1.schema.json");
+
+    for field in [
+        "offer_ledger_digest_sha256",
+        "operation_id",
+        "request_digest_sha256",
+        "effect_state",
+        "attestations",
+    ] {
+        assert!(
+            ledger["properties"]["entries"]["items"]["required"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| value == field),
+            "outcome ledger entry missing {field}"
+        );
+    }
+
+    assert_eq!(
+        predicate["properties"]["predicateType"],
+        "https://luminousdynamics.io/attestations/mcrb-operation-outcome/v0.1"
+    );
+    let predicate_required = predicate["properties"]["predicate"]["required"]
+        .as_array()
+        .unwrap();
+    for field in [
+        "offer_sequence",
+        "request_digest_sha256",
+        "idempotency_key_digest_sha256",
+        "effect_state",
+        "source",
+        "evidence",
+        "trust_policy_digest_sha256",
+    ] {
+        assert!(predicate_required.iter().any(|value| value == field));
+    }
+
+    let trust_required = trust["required"].as_array().unwrap();
+    for field in [
+        "effect_dependency_ids",
+        "effect_dependency_closure_complete",
+        "sources",
+    ] {
+        assert!(trust_required.iter().any(|value| value == field));
+    }
+    assert!(
+        trust["properties"]["sources"]["items"]["required"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value == "dependency_closure_complete")
+    );
+}
+
+#[test]
+fn qops_receipt_keeps_outcome_verification_separate_from_trust_policy() {
+    let receipt = load_json("docs/benchmarks/MCRB_V0_1_RUN_RECEIPT.schema.json");
+    let qops = &receipt["properties"]["qops"];
+    let required = qops["required"].as_array().unwrap();
+    assert!(required.iter().any(|value| value == "outcome_ledger"));
+    assert!(required.iter().any(|value| value == "outcome_trust_policy"));
+
+    let ledger_required = qops["properties"]["outcome_ledger"]["required"]
+        .as_array()
+        .unwrap();
+    assert!(ledger_required.iter().any(|value| value == "verification_status"));
+    assert!(ledger_required.iter().any(|value| value == "ledger_digest_sha256"));
+
+    let policy_required = qops["properties"]["outcome_trust_policy"]["required"]
+        .as_array()
+        .unwrap();
+    assert!(policy_required.iter().any(|value| value == "policy_digest_sha256"));
+    assert!(policy_required.iter().any(|value| value == "dependency_closure_complete"));
+}
