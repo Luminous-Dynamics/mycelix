@@ -89,6 +89,7 @@ pub struct BenchmarkCaseV1 {
     pub inputs: Vec<BenchmarkInputV1>,
     /// Independently authored/adjudicated oracle record, not tool output.
     pub oracle_artifact: ContentArtifactV1,
+    pub oracle_rights_status: RightsStatus,
     pub claims: Vec<OracleClaimV1>,
 }
 
@@ -399,6 +400,12 @@ pub fn validate_benchmark_manifest(
             }
         }
         validate_artifact(&case.oracle_artifact)?;
+        if !matches!(
+            case.oracle_rights_status,
+            RightsStatus::ClearedForTesting | RightsStatus::ClearedForRedistribution
+        ) {
+            return Err(BenchmarkError::RightsNotAdmitted(case.oracle_artifact.reference.id.clone()));
+        }
         let mut claims = BTreeSet::new();
         if case.claims.is_empty() {
             return Err(BenchmarkError::EmptyOracleClaims(case.case_id.clone()));
@@ -687,6 +694,7 @@ pub fn evaluate_benchmark(
             dimensions,
         });
     }
+    scorecards.sort_by(|left, right| left.tool_id.cmp(&right.tool_id));
 
     Ok(BenchmarkScorecard {
         disposition: BenchmarkDisposition::IntegrityCheckedAndScored,
@@ -734,6 +742,7 @@ mod tests {
                 rights_status: input.rights_status,
             }).collect(),
             oracle_artifact: artifact("oracle_record", "AERO_ORACLE_RECORD_V1", ORACLE_BYTES),
+            oracle_rights_status: RightsStatus::ClearedForTesting,
             claims: vec![
                 OracleClaimV1 {
                     claim_id: "trace.characteristic_identity".into(),
