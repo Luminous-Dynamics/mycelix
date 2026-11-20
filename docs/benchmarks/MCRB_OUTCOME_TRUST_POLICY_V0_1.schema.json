@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mcrb-outcome-trust-policy-v0.1.json",
+  "title": "Mycelix MCRB Outcome Source Trust Policy v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy_id",
+    "policy_owner",
+    "valid_from_unix_ms",
+    "expires_at_unix_ms",
+    "effect_dependency_ids",
+    "effect_dependency_closure_complete",
+    "sources"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix-mcrb-outcome-trust-policy-v0.1"
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_owner": {
+      "type": "string",
+      "minLength": 1
+    },
+    "valid_from_unix_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "expires_at_unix_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "effect_dependency_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "effect_dependency_closure_complete": {
+      "type": "boolean"
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "key_id",
+          "verifier_identity",
+          "public_key_hex",
+          "source_role",
+          "dependency_ids",
+          "dependency_closure_complete",
+          "allowed_evidence_kinds",
+          "allowed_effect_states",
+          "allowed_builder_ids",
+          "valid_from_unix_ms",
+          "expires_at_unix_ms",
+          "revoked"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "key_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verifier_identity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "public_key_hex": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "source_role": {
+            "enum": [
+              "effect-executor",
+              "provider",
+              "policy-engine",
+              "independent-observer",
+              "reconciliation-authority",
+              "telemetry"
+            ]
+          },
+          "dependency_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "dependency_closure_complete": {
+            "type": "boolean"
+          },
+          "allowed_evidence_kinds": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "application-record",
+                "provider-acknowledgement",
+                "provider-status-query",
+                "independent-observation",
+                "policy-decision",
+                "failure-trace",
+                "reconciliation",
+                "cross-peer-read"
+              ]
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "allowed_effect_states": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "applied",
+                "confirmed-not-applied",
+                "partial",
+                "unknown",
+                "not-attempted"
+              ]
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "allowed_builder_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "valid_from_unix_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expires_at_unix_ms": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "revoked": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
