@@ -32,6 +32,9 @@ pub enum LocatorCaptureMode {
     ElementId,
     Text,
     QifReference,
+    DocumentQpid,
+    ExternalPlanQpid,
+    ExternalPlanUri,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -80,6 +83,8 @@ pub struct TraceLocatorRecordV1 {
     pub locator: SourceFieldLocatorV1,
     /// SHA-256 of simple-content bytes after XML entity decoding; raw values are not copied.
     pub field_value_sha256: Option<String>,
+    /// Decoded source value for explicitly selected identity/URI fields only.
+    pub captured_value: Option<String>,
     /// Selected expanded-name attributes retained as source metadata; never dereferenced.
     pub captured_attributes: BTreeMap<String, String>,
 }
@@ -216,6 +221,8 @@ pub enum InventoryError {
     UndeclaredExternalReference(String, u32),
     #[error("external Plan QPId is missing or invalid at {0}")]
     InvalidExternalPlanQpid(String),
+    #[error("source document QPId element does not match the supplied document identity: {0}")]
+    DocumentQpidMismatch(String),
     #[error("external Plan QPId at {0} does not match any supplied Plan document")]
     UnknownExternalPlanQpid(String),
     #[error("duplicate Results external-document reference ID {0}")]
@@ -239,6 +246,7 @@ struct ElementFrame {
     matching_rules: Vec<usize>,
     element_id: Option<u32>,
     external_xid: Option<u32>,
+    external_document_reference_id: Option<u32>,
     captured_attributes: BTreeMap<String, String>,
     direct_text: String,
     has_child_element: bool,
