@@ -279,6 +279,8 @@ pub struct SourceMappingRecordV1 {
     pub source_element_id: Option<u32>,
     /// Local QIF target reference carried as simple content when xId is absent.
     pub local_reference_id: Option<u32>,
+    /// Parent ExternalQIFDocument/@id for QPId/URI metadata fields inside that element.
+    pub parent_external_document_reference_id: Option<u32>,
     /// Results-local ExternalQIFDocumentReference ID; paired with xId only for external references.
     pub external_document_reference_id: Option<u32>,
     /// QIFReferenceType/@xId in the selected external QIF document.
