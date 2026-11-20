@@ -20,4 +20,4 @@ This crate consumes the shared `aero-evidence-types::ArtifactRef`; it does not i
 
 ## Limits
 
-The verifier does not execute adapters, instrument network traffic, verify signatures, authenticate publishers, validate legal rights, parse AP242/QIF or establish semantic correctness. Argument and environment-profile artifacts must contain non-secret descriptors only. A valid receipt is not proof of execution. A successful run is only eligible for semantic comparison; the result of #6349 remains a separate evaluation.
+The verifier parses the argument vector as JSON and cross-checks a strict environment-profile manifest against locale/timezone/network-policy metadata. It does not execute adapters, instrument network traffic, verify signatures, authenticate publishers, validate legal rights, parse AP242/QIF or establish semantic correctness. Argument and environment-profile artifacts must contain non-secret descriptors only. A valid receipt is not proof of execution. A successful run is only eligible for semantic comparison; the result of #6349 remains a separate evaluation.
