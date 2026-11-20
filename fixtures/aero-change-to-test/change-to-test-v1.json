@@ -19,7 +19,12 @@
         "kind": "manufacturing_process_plan"
       }
     ],
-    "changed_inputs": [],
+    "changed_inputs": [
+      {
+        "id": "artifact:process-plan-r1",
+        "kind": "manufacturing_process_plan"
+      }
+    ],
     "changed_requirements": [],
     "changed_methods": [],
     "changed_toolchains": [
@@ -55,7 +60,8 @@
         "change:process-plan-rev-002",
         "artifact:process-plan-r1",
         "evidence:build-unit-0001-r1"
-      ]
+      ],
+      "dependency_coverage": "COMPLETE"
     },
     {
       "evidence_id": "evidence:inspection-unit-0001-r1",
@@ -82,7 +88,8 @@
         "change:process-plan-rev-002",
         "evidence:build-unit-0001-r1",
         "evidence:inspection-unit-0001-r1"
-      ]
+      ],
+      "dependency_coverage": "COMPLETE"
     },
     {
       "evidence_id": "evidence:test-unit-0001-r1",
@@ -109,29 +116,33 @@
         "change:process-plan-rev-002",
         "evidence:inspection-unit-0001-r1",
         "evidence:test-unit-0001-r1"
-      ]
+      ],
+      "dependency_coverage": "COMPLETE"
     },
     {
       "evidence_id": "evidence:wing-modal-analysis-v4",
       "configuration": {
-        "id": "configuration:wing-v4",
+        "id": "configuration:coupon-001-r1",
         "kind": "configuration"
       },
       "subject": {
-        "id": "feature:wing-root",
+        "id": "feature:coupon-slot-02",
         "kind": "feature"
       },
       "dependencies": [
         {
-          "id": "mesh:wing-root-v4",
+          "id": "mesh:coupon-slot-02-r1",
           "kind": "mesh"
         }
       ],
       "expected_impact": "UNAFFECTED",
       "reason_path": [
         "change:process-plan-rev-002",
-        "no-shared-dependency:mesh:wing-root-v4"
-      ]
+        "complete-dependency-manifest",
+        "no-shared-dependency:mesh:coupon-slot-02-r1",
+        "evidence:wing-modal-analysis-v4"
+      ],
+      "dependency_coverage": "COMPLETE"
     }
   ],
   "obligations": [
