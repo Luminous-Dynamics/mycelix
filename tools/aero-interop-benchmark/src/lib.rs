@@ -6,7 +6,7 @@
 //! authenticate tool publishers, or make metrology/product-release decisions.
 
 use aero_adapter_run_receipt::{
-    compute_receipt_digest, validate_receipt, verify_artifact_payloads,
+    validate_receipt, verify_artifact_payloads,
     AdapterRunReceiptV1, ContentArtifactV1, InputRole, NetworkPolicy, ReceiptError, RightsStatus, RunStatus,
 };
 use aero_evidence_types::ArtifactRef;
@@ -868,6 +868,7 @@ pub fn evaluate_benchmark(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aero_adapter_run_receipt::compute_receipt_digest;
     use serde_json::Value;
 
     const ORACLE_BYTES: &[u8] = br#"{"oracle":"independent synthetic oracle v1","case":"synthetic-ap242-qif-001"}"#;
