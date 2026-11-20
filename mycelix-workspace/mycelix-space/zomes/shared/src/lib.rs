@@ -368,6 +368,48 @@ pub fn validate_screening_coverage(
     Ok(())
 }
 
+/// Errors returned when constructing an inclusive, bounded time-sample schedule.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum TimeOffsetError {
+    NegativeStart,
+    EndBeforeStart,
+    NonPositiveStep,
+}
+
+/// Generate deterministic sample offsets that always include both endpoints.
+///
+/// The final interval may be shorter than `step_secs`; this prevents a
+/// non-divisible horizon from silently omitting its endpoint.
+pub fn inclusive_time_offsets(
+    start_secs: i64,
+    end_secs: i64,
+    step_secs: i64,
+) -> Result<Vec<i64>, TimeOffsetError> {
+    if start_secs < 0 {
+        return Err(TimeOffsetError::NegativeStart);
+    }
+    if end_secs < start_secs {
+        return Err(TimeOffsetError::EndBeforeStart);
+    }
+    if step_secs <= 0 {
+        return Err(TimeOffsetError::NonPositiveStep);
+    }
+
+    let mut offsets = vec![start_secs];
+    let mut current = start_secs;
+    while current < end_secs {
+        let next = current.saturating_add(step_secs);
+        if next >= end_secs || next <= current {
+            offsets.push(end_secs);
+            break;
+        }
+        offsets.push(next);
+        current = next;
+    }
+
+    Ok(offsets)
+}
+
 /// Conjunction screening request
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ScreeningRequest {
