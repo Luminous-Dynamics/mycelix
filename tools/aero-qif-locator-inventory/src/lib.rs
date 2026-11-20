@@ -404,8 +404,7 @@ pub fn validate_profile(profile: &TraceLocatorProfileV1) -> Result<(), Inventory
         }
         if rule.declares_external_document_reference
             && (rule.document_role != QifDocumentRole::Results
-                || rule.capture != LocatorCaptureMode::ElementId
-                || !rule.capture_attributes.iter().any(|name| name == "{}QPId"))
+                || rule.capture != LocatorCaptureMode::ElementId)
         {
             return Err(InventoryError::InvalidRule(rule.rule_id.clone()));
         }
@@ -1039,17 +1038,36 @@ pub fn derive_trace_locator_inventory(
         if !external_reference_ids.insert(local_reference_id) {
             return Err(InventoryError::DuplicateExternalReferenceId(local_reference_id));
         }
-        let plan_qpid = record.captured_attributes.get("{}QPId")
+        let plan_qpid_records: Vec<_> = results[0].locators.iter()
+            .filter(|candidate| {
+                candidate.rule_id == "results.external_document_plan_qpid"
+                    && candidate.locator.external_document_reference_id == Some(local_reference_id)
+            })
+            .collect();
+        if plan_qpid_records.len() != 1 {
+            return Err(InventoryError::InvalidExternalPlanQpid(record.locator.source_path.clone()));
+        }
+        let plan_qpid = plan_qpid_records[0].captured_value.as_ref()
             .ok_or_else(|| InventoryError::InvalidExternalPlanQpid(record.locator.source_path.clone()))?
             .to_ascii_lowercase();
         if !plan_qpids.contains(&plan_qpid) {
             return Err(InventoryError::UnknownExternalPlanQpid(record.locator.source_path.clone()));
         }
+        let uri_records: Vec<_> = results[0].locators.iter()
+            .filter(|candidate| {
+                candidate.rule_id == "results.external_document_uri"
+                    && candidate.locator.external_document_reference_id == Some(local_reference_id)
+            })
+            .collect();
+        if uri_records.len() > 1 {
+            return Err(InventoryError::DuplicateExternalReferenceId(local_reference_id));
+        }
+        let source_uri = uri_records.first().and_then(|candidate| candidate.captured_value.clone());
         external_document_references.push(ExternalQifDocumentReferenceV1 {
             results_qpid: results[0].source.qpid.to_ascii_lowercase(),
             local_reference_id,
             plan_qpid,
-            source_uri: record.captured_attributes.get("{}URI").cloned(),
+            source_uri,
             source_locator: record.locator.source_path.clone(),
         });
     }
