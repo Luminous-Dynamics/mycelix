@@ -167,7 +167,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Domain-separated SHA-256 commitment created from the raw key using the published MCRB idempotency-key commitment algorithm. Raw key material MUST NOT be serialized."
           },
           "operation_contract_id": {
             "type": "string",
