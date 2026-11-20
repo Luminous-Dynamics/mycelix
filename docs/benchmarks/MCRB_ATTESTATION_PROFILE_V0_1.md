@@ -216,3 +216,42 @@ Implementation order:
 - SLSA Build Provenance v1: https://slsa.dev/spec/v1.2/build-provenance
 - Sigstore Bundle format: https://docs.sigstore.dev/about/bundle/
 - Tracking issue: https://github.com/Luminous-Dynamics/mycelix/issues/6346
+
+
+## 11. Source implementation snapshot — 20 November 2026
+
+A first Rust implementation of the v0.1 verification boundary is now present in `mycelix-workspace/tools/mcrb-metric-integrity/src/attestation.rs` and `qops.rs`.
+
+Implemented in source:
+
+- The signed payload is an **in-toto Statement v1** with the MCRB correctness predicate nested under `predicateType` and `predicate`.
+- The Statement is carried in a DSSE v1 envelope using `application/vnd.in-toto+json` and the DSSE pre-authentication encoding.
+- Each in-toto Statement subject binds one evidence artifact SHA-256 digest.
+- Ed25519 signatures are checked against a signer record in a versioned trust-policy document.
+- The verifier checks signer key ID, signature, gate scope, builder scope, verifier identity, signer validity window, revocation flag, policy digest and exact run/scenario/contract/source/tree/runtime/topology context.
+- Required gate IDs are derived from the embedded, frozen scenario manifest: every scenario hard invariant plus the global hard-gate set. A caller cannot supply a smaller required list.
+- The verifier rejects missing, duplicate, unexpected, failed, incomplete, stale-context, malformed, unsigned, untrusted and digest-mismatched gate attestations.
+- `VerifiedCorrectnessGateSet` is opaque with private fields and is emitted only after complete verification.
+- `VerifiedMetricIntegrity` is also opaque and is emitted only by `verify_measurement_batch` after raw monotonic timing validation.
+- QOPS no longer accepts `hard_correctness_gates_passed: bool` or a caller-constructed `IntegrityReport`. It requires `VerifiedOfferLedger`, `MetricIntegrityVerification` and `GateSetVerification`; it also checks the gate set's run, scenario and contract against the offer ledger.
+- An unresolved `Unknown` outcome now withholds all performance rates as `Incomplete` pending reconciliation.
+- The offer-ledger and attestation verifiers now use the canonical `MCRB-XX` manifest `id`, consistent with the run receipt and gate schema.
+
+### Important limits
+
+This is **source implementation**, not qualification. No Cargo format, compile, unit-test, Clippy, workflow or live benchmark result is claimed by this update.
+
+The expected trust-policy digest must come from a protected configuration source outside the benchmark runner. The Rust function verifies bytes against the supplied pin; it cannot, by itself, prove who controls the configuration that supplies the pin. The authority and rotation process for that external trust root remain deployment/governance requirements.
+
+The v0.1 verifier requires one Ed25519 signer per gate envelope. It can accept multiple independently signed gate envelopes, but a formal multi-signer quorum rule, common-trust-root analysis, transparency-log verification, SLSA provenance verification, and cryptographic revocation/status-list freshness are not yet implemented. The receipt schema reserves fields for build-provenance evidence; the current Rust code does not verify SLSA provenance.
+
+The signature proves that a key signed an attestation. It does not prove that the verifier measured the world correctly, that evidence custody was uncompromised, or that the trust-policy owner is honest. Those are separate controls and must remain visible in the claim ceiling.
+
+### Updated execution order
+
+1. Run the exact-head format, unit-test and Clippy workflow for the new source.
+2. Review the DSSE/in-toto serialization against the official Statement v1 and DSSE v1 specifications.
+3. Supply the trust-policy pin from protected operator configuration and verify signer/builder governance independently.
+4. Add independent-verifier diversity and explicit quorum policy before using high-impact correctness gates for public qualification.
+5. Add SLSA provenance and transparency-log verification as separate, versioned controls.
+6. Only after these steps and exact runtime evidence may any QOPS receipt be labelled eligible for an external performance claim.
