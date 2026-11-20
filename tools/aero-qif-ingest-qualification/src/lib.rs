@@ -1644,6 +1644,7 @@ mod tests {
         qualification.body.external_document_bindings.reverse();
         qualification.body.tools.reverse();
         qualification.body.stage_results.reverse();
+        qualification.body.extraction.as_mut().unwrap().mappings.reverse();
         assert_eq!(compute_ingest_receipt_digest(&qualification).unwrap(), before);
     }
 
