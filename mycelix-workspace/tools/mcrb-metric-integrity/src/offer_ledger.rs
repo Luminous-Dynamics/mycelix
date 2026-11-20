@@ -96,6 +96,29 @@ pub enum OfferLedgerIssue {
     LedgerDigestMismatch { expected: String, actual: String },
 }
 
+/// Immutable operation binding copied from a verified offer. This is the
+/// authoritative join key for per-operation outcome verification.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VerifiedOfferBinding {
+    sequence: u64,
+    operation_id: String,
+    request_digest_sha256: String,
+    idempotency_key_digest_sha256: Option<String>,
+    operation_class: String,
+    requires_idempotency_key: bool,
+}
+
+impl VerifiedOfferBinding {
+    pub fn sequence(&self) -> u64 { self.sequence }
+    pub fn operation_id(&self) -> &str { &self.operation_id }
+    pub fn request_digest_sha256(&self) -> &str { &self.request_digest_sha256 }
+    pub fn idempotency_key_digest_sha256(&self) -> Option<&str> {
+        self.idempotency_key_digest_sha256.as_deref()
+    }
+    pub fn operation_class(&self) -> &str { &self.operation_class }
+    pub fn requires_idempotency_key(&self) -> bool { self.requires_idempotency_key }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedOfferLedger {
     run_id: String,
@@ -114,6 +137,7 @@ pub struct VerifiedOfferLedger {
     measurement_window_ns: u64,
     ledger_digest_sha256: String,
     operation_ids: Vec<String>,
+    operation_bindings: Vec<VerifiedOfferBinding>,
 }
 
 impl VerifiedOfferLedger {
@@ -134,6 +158,7 @@ impl VerifiedOfferLedger {
     pub fn ledger_digest_sha256(&self) -> &str { &self.ledger_digest_sha256 }
     pub fn entry_count(&self) -> usize { self.operation_ids.len() }
     pub fn operation_ids(&self) -> &[String] { &self.operation_ids }
+    pub fn operation_bindings(&self) -> &[VerifiedOfferBinding] { &self.operation_bindings }
 }
 
 fn valid_sha256_hex(value: &str) -> bool {
@@ -273,6 +298,7 @@ pub fn verify_offer_ledger(
     if envelope.entry_count != envelope.entries.len() as u64 { issues.push(OfferLedgerIssue::EntryCountMismatch); }
 
     let mut operation_ids = Vec::with_capacity(envelope.entries.len());
+    let mut operation_bindings = Vec::with_capacity(envelope.entries.len());
     let mut seen_operations = BTreeSet::new();
     let mut seen_idempotency_keys = BTreeSet::new();
 
@@ -311,6 +337,23 @@ pub fn verify_offer_ledger(
             || entry.scheduled_monotonic_tick >= envelope.measurement_end_ticks {
             issues.push(OfferLedgerIssue::OfferOutsideMeasurementWindow(index));
         }
+        let idempotency_key_digest_sha256 = entry.idempotency_key.as_deref().map(|key| {
+            let digest = Sha256::digest(key.as_bytes());
+            let mut hex = String::with_capacity(64);
+            for byte in digest {
+                use std::fmt::Write as _;
+                let _ = write!(&mut hex, "{byte:02x}");
+            }
+            hex
+        });
+        operation_bindings.push(VerifiedOfferBinding {
+            sequence: entry.sequence,
+            operation_id: entry.operation_id.clone(),
+            request_digest_sha256: entry.request_digest_sha256.clone(),
+            idempotency_key_digest_sha256,
+            operation_class: entry.operation_class.clone(),
+            requires_idempotency_key: entry.requires_idempotency_key,
+        });
     }
 
     if !valid_sha256_hex(&envelope.ledger_digest_sha256) { issues.push(OfferLedgerIssue::InvalidLedgerDigest); }
@@ -348,6 +391,7 @@ pub fn verify_offer_ledger(
         measurement_window_ns: window_ns as u64,
         ledger_digest_sha256: envelope.ledger_digest_sha256.clone(),
         operation_ids,
+        operation_bindings,
     })
 }
 
