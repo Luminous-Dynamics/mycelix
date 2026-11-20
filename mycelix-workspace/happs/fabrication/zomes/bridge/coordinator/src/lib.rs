@@ -44,52 +44,27 @@ fn get_config() -> FabricationConfig {
 // CONSCIOUSNESS GATING
 // =============================================================================
 
-use std::collections::HashMap;
+// =============================================================================
+// CONSCIOUSNESS GATING
+// =============================================================================
 
-const CONSCIOUSNESS_CACHE_TTL_MICROS: i64 = 300_000_000; // 5 minutes
-
-thread_local! {
-    static CONSCIOUSNESS_CACHE: RefCell<HashMap<AgentPubKey, (i64, bool)>> = RefCell::new(HashMap::new());
-}
-
-/// Gate operations behind consciousness verification from the identity hApp.
-/// Graceful fallback: if the identity hApp is unreachable, allow the operation.
+/// Interim fail-closed boundary.
+///
+/// The standalone Fabrication hApp declares only the `fabrication` role.
+/// It does not install the `mycelix-identity` role, so an
+/// `OtherRole("mycelix-identity")` call is not a valid cross-hApp RPC.
+///
+/// In addition, the public source does not expose a versioned, typed Identity
+/// response contract that binds an explicit eligibility decision to this
+/// subject and action. A transport-level `Ok` is not an authorization
+/// decision. Until both topology and response semantics are qualified, this
+/// gate denies rather than caching or inferring approval.
 fn require_fabrication_consciousness(action_name: &str) -> ExternResult<()> {
-    let agent = agent_info()?.agent_initial_pubkey;
-    let now = sys_time()?.as_micros() as i64;
-
-    // Check cache first
-    let cached = CONSCIOUSNESS_CACHE.with(|c| {
-        c.borrow().get(&agent).and_then(|(ts, eligible)| {
-            if now - ts < CONSCIOUSNESS_CACHE_TTL_MICROS { Some(*eligible) } else { None }
-        })
-    });
-
-    let eligible = match cached {
-        Some(e) => e,
-        None => {
-            let result = call(
-                CallTargetCell::OtherRole("mycelix-identity".into()),
-                ZomeName::from("governance"),
-                FunctionName::from("check_consciousness_level"),
-                None,
-                action_name,
-            );
-            // Pass on success OR if identity hApp is unreachable (graceful fallback)
-            let e = matches!(result, Ok(ZomeCallResponse::Ok(_)) | Err(_));
-            CONSCIOUSNESS_CACHE.with(|c| { c.borrow_mut().insert(agent, (now, e)); });
-            e
-        }
-    };
-
-    if eligible {
-        Ok(())
-    } else {
-        Err(FabricationError::Unauthorized {
-            action: action_name.to_string(),
-            reason: "Consciousness gate denied".to_string(),
-        }.to_wasm_error())
+    Err(FabricationError::Unauthorized {
+        action: action_name.to_string(),
+        reason: "Identity authorization unavailable: Fabrication does not install the Identity role and no typed action-bound decision contract is qualified; no authorization was granted".to_string(),
     }
+    .to_wasm_error())
 }
 
 // =============================================================================
