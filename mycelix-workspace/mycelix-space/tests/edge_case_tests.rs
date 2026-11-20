@@ -18,6 +18,52 @@ use mycelix_space_shared::*;
 use std::collections::HashMap;
 
 // =============================================================================
+// Screening Coverage Contract Tests
+// =============================================================================
+
+/// Exact requested and returned sets are complete regardless of response ordering.
+#[test]
+fn test_screening_coverage_exact_set() {
+    assert!(validate_screening_coverage(&[25544, 49863, 60000], &[60000, 25544, 49863]).is_ok());
+}
+
+/// A missing requested object cannot be treated as a complete negative screening.
+#[test]
+fn test_screening_coverage_rejects_missing_object() {
+    assert_eq!(
+        validate_screening_coverage(&[25544, 49863], &[25544]),
+        Err(ScreeningCoverageError::MissingRequestedObject { norad_id: 49863 })
+    );
+}
+
+/// Duplicate requests are rejected before they become ambiguous pair accounting.
+#[test]
+fn test_screening_coverage_rejects_duplicate_request() {
+    assert_eq!(
+        validate_screening_coverage(&[25544, 49863, 49863], &[25544, 49863]),
+        Err(ScreeningCoverageError::DuplicateRequestedObject { norad_id: 49863 })
+    );
+}
+
+/// Duplicate source records are rejected rather than collapsed by HashMap collection.
+#[test]
+fn test_screening_coverage_rejects_duplicate_response() {
+    assert_eq!(
+        validate_screening_coverage(&[25544, 49863], &[25544, 49863, 49863]),
+        Err(ScreeningCoverageError::DuplicateReturnedObject { norad_id: 49863 })
+    );
+}
+
+/// Unrequested source records are rejected rather than silently expanding the run.
+#[test]
+fn test_screening_coverage_rejects_unrequested_object() {
+    assert_eq!(
+        validate_screening_coverage(&[25544], &[25544, 60000]),
+        Err(ScreeningCoverageError::UnexpectedReturnedObject { norad_id: 60000 })
+    );
+}
+
+// =============================================================================
 // NoradId Validation Tests
 // =============================================================================
 
