@@ -47,6 +47,12 @@ The v1 assertion profile includes:
 
 A field not represented by a tested profile is `UNSUPPORTED` or `UNKNOWN`, never silently treated as preserved.
 
+## Executable comparator
+
+The isolated Rust crate at `tools/aero-semantic-interoperability` consumes normalized assertion sets from adapters and deterministically classifies each assertion as `PRESERVED`, `SEMANTIC_LOSS`, `WRONG_SUBJECT_JOIN`, `UNSUPPORTED`, `AMBIGUOUS` or `NOT_REQUIRED`. It preserves strict case-field admission, external-source rights gating, duplicate detection, unexpected-assertion detection, and mutation-corpus replay. The comparator deliberately does not parse AP242/QIF or silently normalize units; each adapter must identify its supported profile and provide normalized assertions with source locators.
+
+The checked-in synthetic case includes six assertions and six adversarial mutations. Twelve Rust tests are authored, including fixture replay, rights admission, unit/datum/subject mutations, missing/unsupported distinctions, duplicate observations, and order invariance. These are authored tests; they are not yet evidence of an executed Rust pass.
+
 ## Evaluation modes
 
 1. **Structural conformance:** syntax/schema/profile requirements.
