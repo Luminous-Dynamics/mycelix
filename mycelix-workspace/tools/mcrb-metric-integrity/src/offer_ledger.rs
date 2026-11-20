@@ -199,13 +199,13 @@ fn push_optional_string(bytes: &mut Vec<u8>, value: Option<&str>) {
 }
 
 fn idempotency_key_digest(key: &str) -> String {
-    let mut material = b"MYCELIX-MCRB-IDEMPOTENCY-KEY\\0v0.1\\0".to_vec();
+    let mut material = b"MYCELIX-MCRB-IDEMPOTENCY-KEY\0v0.1\0".to_vec();
     material.extend_from_slice(key.as_bytes());
     let digest = Sha256::digest(material);
     let mut hex = String::with_capacity(64);
     for byte in digest {
         use std::fmt::Write as _;
-        let _ = write!(&mut hex, \"{byte:02x}\");
+        let _ = write!(&mut hex, "{byte:02x}");
     }
     hex
 }
