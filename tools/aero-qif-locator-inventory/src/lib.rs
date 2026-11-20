@@ -616,7 +616,7 @@ fn finalize_frame(
                     None,
                     None,
                     Some(&frame.direct_text),
-                    None,
+                    Some(&frame.direct_text),
                     &frame.captured_attributes,
                     profile.limits.max_locators,
                 )?;
@@ -1570,6 +1570,23 @@ mod tests {
       </q:LinearCharacteristicItem>
     </q:CharacteristicItems>
   </q:Characteristics>
+  <q:Product>
+    <q:PartSet n="1">
+      <q:Part id="6001">
+        <q:DefinitionExternal id="6002" n="1">
+          <q:DigitalModel id="6003">
+            <q:Name>Example model</q:Name>
+            <q:File><q:Name>example.step</q:Name></q:File>
+            <q:Entities n="1">
+              <q:Entity id="9001">
+                <q:EntityId>550e8400-e29b-41d4-a716-446655440000</q:EntityId>
+              </q:Entity>
+            </q:Entities>
+          </q:DigitalModel>
+        </q:DefinitionExternal>
+      </q:Part>
+    </q:PartSet>
+  </q:Product>
 </q:QIFDocument>
 "#;
 
