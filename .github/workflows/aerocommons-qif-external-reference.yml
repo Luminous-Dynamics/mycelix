@@ -1,0 +1,40 @@
+name: AeroCommons QIF External Reference
+
+on:
+  pull_request:
+    paths:
+      - "tools/aero-qif-external-reference/**"
+      - "tools/aero-adapter-run-receipt/**"
+      - "docs/aerocommons/AERO_QIF_EXTERNAL_REFERENCE_V1.schema.json"
+      - "docs/aerocommons/AERO_QIF_XID_001.md"
+      - ".github/workflows/aerocommons-qif-external-reference.yml"
+  push:
+    branches:
+      - "research/aerocommons-qif-xid-001"
+    paths:
+      - "tools/aero-qif-external-reference/**"
+      - "tools/aero-adapter-run-receipt/**"
+      - "docs/aerocommons/AERO_QIF_EXTERNAL_REFERENCE_V1.schema.json"
+      - "docs/aerocommons/AERO_QIF_XID_001.md"
+      - ".github/workflows/aerocommons-qif-external-reference.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  qif-xid-trace:
+    name: QIF external xId trace and byte replay
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install Rust 1.96.1
+        uses: dtolnay/rust-toolchain@1.96.1
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/aero-qif-external-reference/Cargo.toml -- --check
+      - name: Run QIF xId trace tests
+        run: cargo test --manifest-path tools/aero-qif-external-reference/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path tools/aero-qif-external-reference/Cargo.toml --all-targets -- -D warnings
