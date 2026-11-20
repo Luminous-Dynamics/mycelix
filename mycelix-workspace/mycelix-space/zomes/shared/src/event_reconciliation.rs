@@ -4,6 +4,7 @@
 //! Deterministic cross-provider conjunction-event identity reconciliation.
 //!
 //! This module matches event identities, not provider quality or collision risk.
+//! A match is a provenance-preserving comparison result, never a physical-truth verdict.
 //! Inputs must already be converted into the same declared canonical time basis.
 //! Ambiguous many-to-many candidate groups are preserved as ambiguous rather
 //! than resolved by an arbitrary nearest-neighbour or provider-priority rule.
