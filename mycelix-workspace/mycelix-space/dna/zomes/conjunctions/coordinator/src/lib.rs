@@ -894,10 +894,13 @@ struct GetTlesWithMetadataCallInput {
     pub staleness_config: StalenessConfig,
 }
 
-/// Screen conjunction with TLE data provided directly
+/// Run low-level conjunction screening with TLE lines supplied directly.
 ///
-/// This avoids cross-zome DHT queries by accepting TLE lines as input.
-/// The caller is responsible for fetching the latest TLEs.
+/// This avoids cross-zome DHT queries. The caller is responsible for the exact
+/// requested object set and for source freshness, quality and provenance. This
+/// raw-input API rejects malformed/duplicate TLEs and propagation failures, but
+/// it does not possess source metadata and cannot qualify a negative operational
+/// result. Prefer `screen_conjunction` for the metadata-gated path.
 #[hdk_extern]
 pub fn screen_conjunction_from_tles(
     input: ScreenFromTlesInput,
