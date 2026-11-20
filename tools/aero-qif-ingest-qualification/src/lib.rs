@@ -262,6 +262,8 @@ pub struct SourceFieldLocatorV1 {
     pub source_element_id: Option<u32>,
     /// Local QIF target reference carried as simple content when xId is absent.
     pub local_reference_id: Option<u32>,
+    /// Parent ExternalQIFDocument/@id for QPId/URI metadata fields inside that element.
+    pub parent_external_document_reference_id: Option<u32>,
     pub external_document_reference_id: Option<u32>,
     pub external_xid: Option<u32>,
 }
@@ -570,6 +572,7 @@ fn source_locator_from_mapping(record: &SourceMappingRecordV1) -> SourceFieldLoc
         source_path: record.source_path.clone(),
         source_element_id: record.source_element_id,
         local_reference_id: record.local_reference_id,
+        parent_external_document_reference_id: record.parent_external_document_reference_id,
         external_document_reference_id: record.external_document_reference_id,
         external_xid: record.external_xid,
     }
@@ -585,6 +588,7 @@ fn canonical_source_mapping_records(
             left.source_path.clone(),
             left.source_element_id,
             left.local_reference_id,
+            left.parent_external_document_reference_id,
             left.external_document_reference_id,
             left.external_xid,
         ).cmp(&(
@@ -592,6 +596,7 @@ fn canonical_source_mapping_records(
             right.source_path.clone(),
             right.source_element_id,
             right.local_reference_id,
+            right.parent_external_document_reference_id,
             right.external_document_reference_id,
             right.external_xid,
         ))
@@ -631,8 +636,13 @@ fn validate_source_field_locator(
         || locator.source_path.trim().is_empty()
         || locator.source_element_id == Some(0)
         || locator.local_reference_id == Some(0)
+        || locator.parent_external_document_reference_id == Some(0)
         || locator.external_document_reference_id.is_some() != locator.external_xid.is_some()
         || locator.external_document_reference_id.is_some() && locator.local_reference_id.is_some()
+        || locator.parent_external_document_reference_id.is_some()
+            && (locator.local_reference_id.is_some()
+                || locator.external_document_reference_id.is_some()
+                || locator.external_xid.is_some())
         || locator.external_document_reference_id == Some(0)
         || locator.external_xid == Some(0)
     {
@@ -647,11 +657,19 @@ fn validate_source_field_locator(
             return Err(IngestError::InvalidSourceMappingLocator(locator.source_path.clone()));
         }
     }
+    if let Some(parent_reference_id) = locator.parent_external_document_reference_id {
+        if document.role != QifDocumentRole::Results
+            || !reference_ids.contains(&(qpid.clone(), parent_reference_id))
+        {
+            return Err(IngestError::InvalidSourceMappingLocator(locator.source_path.clone()));
+        }
+    }
     Ok(SourceFieldLocatorV1 {
         document_qpid: qpid,
         source_path: locator.source_path.clone(),
         source_element_id: locator.source_element_id,
         local_reference_id: locator.local_reference_id,
+        parent_external_document_reference_id: locator.parent_external_document_reference_id,
         external_document_reference_id: locator.external_document_reference_id,
         external_xid: locator.external_xid,
     })
@@ -1275,6 +1293,7 @@ mod tests {
                 ),
                 source_element_id: Some(900 + id),
                 local_reference_id: None,
+                parent_external_document_reference_id: None,
                 external_document_reference_id: Some(7),
                 external_xid: Some(300 + id),
                 mapping_rule_id: "qif.characteristic_item.external_xid".into(),
