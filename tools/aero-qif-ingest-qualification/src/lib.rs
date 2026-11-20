@@ -242,11 +242,52 @@ pub struct ExtractionMappingCountsV1 {
     pub dropped: u64,
 }
 
+pub const SOURCE_MAPPING_SCHEMA: &str = "AeroQifSourceMappingManifestV1";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceMappingDisposition {
+    Mapped,
+    Unresolved,
+    Ambiguous,
+    Unsupported,
+    Dropped,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceMappingRecordV1 {
+    /// QPId of the raw QIF document containing the source field.
+    pub document_qpid: String,
+    /// Namespace-qualified, stable source locator (not a transient line number).
+    pub source_path: String,
+    /// Local QIF element ID when the source element has an @id.
+    pub source_element_id: Option<u32>,
+    /// ExternalQIFDocumentReference local ID, paired with external_xid.
+    pub external_document_reference_id: Option<u32>,
+    /// QIFReferenceType/@xId in the selected external QIF document.
+    pub external_xid: Option<u32>,
+    pub mapping_rule_id: String,
+    pub mapping_profile_version: String,
+    pub disposition: SourceMappingDisposition,
+    pub target_object_kind: Option<String>,
+    pub target_object_id: Option<String>,
+    pub reason_code: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceMappingManifestV1 {
+    pub schema: String,
+    pub mappings: Vec<SourceMappingRecordV1>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExtractionEvidenceV1 {
     pub normalized_trace_artifact: ContentArtifactV1,
     pub source_mapping_manifest: ContentArtifactV1,
+    pub mappings: Vec<SourceMappingRecordV1>,
     pub mapping_counts: ExtractionMappingCountsV1,
 }
 
@@ -362,6 +403,16 @@ pub enum IngestError {
     SourceUriMismatch(String),
     #[error("extraction evidence is missing or inconsistent")]
     InvalidExtractionEvidence,
+    #[error("source mapping locator is invalid: {0}")]
+    InvalidSourceMappingLocator(String),
+    #[error("source mapping locator is duplicated: {0}")]
+    DuplicateSourceMappingLocator(String),
+    #[error("source mapping disposition/target/reason fields are inconsistent: {0}")]
+    InvalidSourceMappingRecord(String),
+    #[error("source mapping records do not match the declared disposition counts")]
+    SourceMappingCountMismatch,
+    #[error("source mapping records do not match the pinned manifest artifact bytes")]
+    SourceMappingManifestMismatch,
     #[error("extraction stage Passed despite unresolved, ambiguous, unsupported or dropped mappings")]
     FalseExtractionPass,
     #[error("extraction stage has dropped mappings")]
