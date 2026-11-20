@@ -16,7 +16,6 @@ use std::process::Command;
 use syn::spanned::Spanned;
 use syn::visit::{self, Visit};
 use syn::{Expr, ExprCall, ExprLit, ExprMethodCall, ExprPath, File, ItemConst, Lit};
-use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug, Deserialize)]
 struct HappManifest {
@@ -171,13 +170,81 @@ fn is_ignored_component(component: &str) -> bool {
     )
 }
 
-fn should_skip_entry(entry: &DirEntry) -> bool {
-    entry
-        .path()
-        .components()
-        .any(|component| {
-            is_ignored_component(&component.as_os_str().to_string_lossy())
+const EXCLUDED_SOURCE_COMPONENTS: &[&str] = &[
+    ".git",
+    "target",
+    "node_modules",
+    "vendor",
+    ".cache",
+    "build",
+    "dist",
+    "archive",
+    "archives",
+    "kosmic-lab-workspace-migration-2026-05-31",
+    "tests",
+    "test",
+    "examples",
+    "benches",
+];
+
+fn path_has_excluded_component(path: &Path) -> bool {
+    path.components().any(|component| {
+        EXCLUDED_SOURCE_COMPONENTS
+            .contains(&component.as_os_str().to_string_lossy().as_ref())
+    })
+}
+
+/// Return only paths recorded in the Git index. An untracked local scratch
+/// file must never silently change a report attributed to HEAD.
+fn tracked_paths(root: &Path) -> Result<Vec<PathBuf>, Box<dyn Error>> {
+    let output = Command::new("git")
+        .args(["ls-files", "-z"])
+        .current_dir(root)
+        .output()?;
+    if !output.status.success() {
+        return Err(format!(
+            "git ls-files failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )
+        .into());
+    }
+
+    output
+        .stdout
+        .split(|byte| *byte == 0)
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            let path = std::str::from_utf8(value)
+                .map_err(|error| format!("tracked path is not UTF-8: {error}"))?;
+            Ok(PathBuf::from(path))
         })
+        .collect()
+}
+
+/// Refuse to attribute modified working-tree source to the committed HEAD.
+/// Untracked paths are ignored by tracked_paths; staged/modified tracked files
+/// are rejected here so the index and HEAD cannot be confused.
+fn ensure_tracked_worktree_clean(root: &Path) -> Result<(), Box<dyn Error>> {
+    let output = Command::new("git")
+        .args(["status", "--porcelain", "--untracked-files=no"])
+        .current_dir(root)
+        .output()?;
+    if !output.status.success() {
+        return Err(format!(
+            "git status failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )
+        .into());
+    }
+    let status = String::from_utf8(output.stdout)?;
+    if !status.trim().is_empty() {
+        return Err(format!(
+            "tracked working tree is modified; commit or revert tracked changes before auditing:\n{}",
+            status.trim()
+        )
+        .into());
+    }
+    Ok(())
 }
 
 fn is_happ_manifest(path: &Path) -> bool {
@@ -214,28 +281,26 @@ fn discover_manifests(
     let mut manifests = Vec::new();
     let mut errors = Vec::new();
 
-    let walker = WalkDir::new(root)
-        .follow_links(false)
-        .into_iter()
-        .filter_entry(|entry| !should_skip_entry(entry));
-
-    for entry in walker {
-        let entry = match entry {
-            Ok(entry) => entry,
+    for relative in tracked_paths(root)? {
+        if path_has_excluded_component(&relative) || !is_happ_manifest(&relative) {
+            continue;
+        }
+        let path = root.join(&relative);
+        // Do not follow tracked symlink manifests: the audit must read a
+        // repository-owned regular file, not arbitrary external content.
+        let metadata = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
             Err(error) => {
                 errors.push(ManifestError {
-                    path: error.path().map(|path| relative_path(root, path)).unwrap_or_default(),
-                    error: error.to_string(),
+                    path: relative_path(root, &path),
+                    error: format!("metadata read failed: {error}"),
                 });
                 continue;
             }
         };
-
-        if !entry.file_type().is_file() || !is_happ_manifest(entry.path()) {
+        if !metadata.file_type().is_file() {
             continue;
         }
-
-        let path = entry.path().to_path_buf();
         let yaml = match fs::read_to_string(&path) {
             Ok(yaml) => yaml,
             Err(error) => {
@@ -425,15 +490,31 @@ fn audit_source_file(
 }
 
 pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
+    ensure_tracked_worktree_clean(root)?;
+    let tracked = tracked_paths(root)?;
     let (manifests, manifest_errors) = discover_manifests(root)?;
     let source_sha = Command::new("git")
         .args(["rev-parse", "HEAD"])
         .current_dir(root)
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .and_then(|output| String::from_utf8(output.stdout).ok())
-        .map(|value| value.trim().to_string());
+        .output()?
+        .status
+        .success();
+    if !source_sha {
+        return Err("unable to resolve Git HEAD for topology audit".into());
+    }
+    let source_commit = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(root)
+        .output()?;
+    let source_commit = String::from_utf8(source_commit.stdout)?.trim().to_string();
+    let tree_output = Command::new("git")
+        .args(["rev-parse", "HEAD^{tree}"])
+        .current_dir(root)
+        .output()?;
+    if !tree_output.status.success() {
+        return Err("unable to resolve Git tree SHA for topology audit".into());
+    }
+    let source_tree_sha = String::from_utf8(tree_output.stdout)?.trim().to_string();
 
     let mut source_file_count = 0usize;
     let mut mapped_source_file_count = 0usize;
@@ -444,49 +525,42 @@ pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
     let mut unmatched_textual_occurrence_count = 0usize;
     let mut parse_errors = Vec::new();
 
-    let walker = WalkDir::new(root)
-        .follow_links(false)
-        .into_iter()
-        .filter_entry(|entry| !should_skip_entry(entry));
-
-    for entry in walker {
-        let entry = match entry {
-            Ok(entry) => entry,
+    for relative in tracked {
+        if path_has_excluded_component(&relative)
+            || relative.extension().and_then(|extension| extension.to_str()) != Some("rs")
+        {
+            continue;
+        }
+        let source_path = root.join(&relative);
+        let metadata = match fs::symlink_metadata(&source_path) {
+            Ok(metadata) => metadata,
             Err(error) => {
                 parse_errors.push(json!({
-                    "path": error.path().map(|path| relative_path(root, path)),
-                    "error": error.to_string()
+                    "path": relative_path(root, &source_path),
+                    "error": format!("metadata read failed: {error}")
                 }));
                 continue;
             }
         };
-        if !entry.file_type().is_file()
-            || entry.path().extension().and_then(|extension| extension.to_str()) != Some("rs")
-            || entry.path().components().any(|component| {
-                matches!(
-                    component.as_os_str().to_string_lossy().as_ref(),
-                    "tests" | "test" | "examples" | "benches"
-                )
-            })
-        {
+        if !metadata.file_type().is_file() {
             continue;
         }
 
         source_file_count += 1;
-        let context = find_nearest_manifest(entry.path(), &manifests);
+        let context = find_nearest_manifest(&source_path, &manifests);
         if context.is_some() {
             mapped_source_file_count += 1;
         } else {
             unscoped_source_file_count += 1;
         }
 
-        match audit_source_file(root, entry.path(), &manifests) {
+        match audit_source_file(root, &source_path, &manifests) {
             Ok((sites, unmatched_text_count, raw_only)) => {
                 ast_callsite_count += sites.len();
                 unmatched_textual_occurrence_count += unmatched_text_count;
                 if unmatched_text_count > 0 || raw_only {
                     unmatched_text_files.push(json!({
-                        "path": relative_path(root, entry.path()),
+                        "path": relative_path(root, &source_path),
                         "unmatched_textual_occurrence_count": unmatched_text_count,
                         "review_note": "May include comments, strings, macros or syntax not represented as a direct AST call; manual review required."
                     }));
@@ -517,11 +591,14 @@ pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
         "report_kind": "advisory-static-ast-inventory",
         "source": {
             "repository": "Luminous-Dynamics/mycelix",
-            "commit": source_sha
+            "commit": source_commit,
+            "tree_sha": source_tree_sha
         },
         "scope": {
             "manifest_count": manifests.len(),
             "rust_source_file_count": source_file_count,
+            "source_selection": "git-tracked-files-only-clean-tracked-worktree",
+            "excluded_path_components": EXCLUDED_SOURCE_COMPONENTS,
             "nearest_manifest_context_file_count": mapped_source_file_count,
             "without_nearest_manifest_context_file_count": unscoped_source_file_count,
             "nearest_manifest_context_coverage": if source_file_count == 0 {
