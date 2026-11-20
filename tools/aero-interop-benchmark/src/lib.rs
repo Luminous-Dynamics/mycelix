@@ -410,6 +410,10 @@ pub fn validate_benchmark_manifest(
         validate_artifact(&tool.executable)?;
         validate_artifact(&tool.arguments)?;
         validate_artifact(&tool.environment_profile)?;
+        let unique_egress: BTreeSet<_> = tool.declared_egress.iter().collect();
+        if unique_egress.len() != tool.declared_egress.len() {
+            return Err(BenchmarkError::InvalidIdentity(format!("duplicate egress:{}", tool.adapter_id)));
+        }
         if tool.executable.reference.kind != "adapter_executable"
             || tool.arguments.reference.kind != "adapter_arguments"
             || tool.environment_profile.reference.kind != "environment_profile"
@@ -620,7 +624,7 @@ fn validate_one_run(
                     input.artifact.reference.kind.clone(),
                     input.artifact.sha256.clone(),
                     input.artifact.byte_length,
-                    input.rights_status,
+                    format!("{:?}", input.rights_status),
                 ))
                 .collect();
             let receipt_inputs: BTreeSet<_> = receipt.inputs.iter()
@@ -630,7 +634,7 @@ fn validate_one_run(
                     input.artifact.reference.kind.clone(),
                     input.artifact.sha256.clone(),
                     input.artifact.byte_length,
-                    input.rights_status,
+                    format!("{:?}", input.rights_status),
                 ))
                 .collect();
             if receipt_inputs != expected_inputs || receipt.inputs.len() != case.inputs.len() {
@@ -1066,6 +1070,9 @@ mod tests {
         assert_eq!(semantic.oracle_unadjudicated, 1);
         assert_eq!(semantic.adjudicated, 0);
         assert_eq!(tool.attempts.succeeded, 1);
+        assert_eq!(tool.performance.sample_count, 1);
+        assert_eq!(tool.performance.p50_elapsed_ms, Some(125));
+        assert_eq!(tool.performance.p95_elapsed_ms, Some(125));
     }
 
     #[test]
@@ -1199,6 +1206,26 @@ mod tests {
         let semantic = &score.tools[0].dimensions[&BenchmarkDimension::SemanticPreservation];
         assert_eq!(semantic.oracle_unadjudicated, 1);
         assert_eq!(semantic.true_accepts + semantic.false_accepts + semantic.true_rejects + semantic.false_rejects, 0);
+    }
+
+    #[test]
+    fn oracle_artifact_cannot_be_the_tool_source_input() {
+        let (mut manifest, _, _) = fixture();
+        manifest.body.cases[0].oracle_artifact =
+            manifest.body.cases[0].inputs[0].artifact.clone();
+        manifest.manifest_sha256 = compute_benchmark_manifest_digest(&manifest).unwrap();
+        assert!(matches!(
+            validate_benchmark_manifest(&manifest),
+            Err(BenchmarkError::InvalidOracleClaim(_))
+        ));
+    }
+
+    #[test]
+    fn oracle_method_enum_rejects_llm_only_ground_truth() {
+        let (manifest, _, _) = fixture();
+        let mut value = serde_json::to_value(&manifest).unwrap();
+        value["body"]["cases"][0]["oracle_method"] = Value::String("llm_only".into());
+        assert!(serde_json::from_value::<BenchmarkManifestV1>(value).is_err());
     }
 
     #[test]
