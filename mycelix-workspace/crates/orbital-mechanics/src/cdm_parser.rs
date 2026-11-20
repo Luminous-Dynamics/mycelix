@@ -927,7 +927,7 @@ OBJECT2_Z_DOT = 0.0 [km/s]
 
     #[test]
     fn missing_required_ephemeris_metadata_is_rejected() {
-        let missing = SAMPLE_CDM.replace("OBJECT1_EPHEMERIS_NAME = MYCELIX-SPACE\\n", "");
+        let missing = SAMPLE_CDM.replace("OBJECT1_EPHEMERIS_NAME = MYCELIX-SPACE\n", "");
         assert!(matches!(
             parse_cdm_kvn(&missing),
             Err(CdmParseError::MissingField(field)) if field == "OBJECT1_EPHEMERIS_NAME"
