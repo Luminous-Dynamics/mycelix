@@ -451,9 +451,9 @@ mod tests {
         assert_eq!(report.correct_denials, 1);
         assert_eq!(report.known_failures, 1);
         assert_eq!(report.unexpected_denials, 1);
-        assert_eq!(report.offered_operations_per_second, Some(1.0));
-        assert_eq!(report.qualified_operations_per_second, Some(0.4));
-        assert_eq!(report.qualified_success_fraction, Some(0.4));
+        assert!(report.offered_operations_per_second.is_none());
+        assert!(report.qualified_operations_per_second.is_none());
+        assert!(report.qualified_success_fraction.is_none());
         assert_eq!(report.correctness_required_gate_count, 7);
         assert_eq!(report.correctness_attestation_count, 7);
         assert!(report.correctness_gate_set_digest_sha256.is_some());
