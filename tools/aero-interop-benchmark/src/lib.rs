@@ -7,7 +7,7 @@
 
 use aero_adapter_run_receipt::{
     compute_receipt_digest, validate_receipt, verify_artifact_payloads,
-    AdapterRunReceiptV1, ContentArtifactV1, InputRole, ReceiptError, RightsStatus, RunStatus,
+    AdapterRunReceiptV1, ContentArtifactV1, InputRole, NetworkPolicy, ReceiptError, RightsStatus, RunStatus,
 };
 use aero_evidence_types::ArtifactRef;
 use serde::{Deserialize, Serialize};
@@ -37,6 +37,14 @@ pub struct BenchmarkToolV1 {
     pub version: String,
     pub category: ToolCategory,
     pub executable: ContentArtifactV1,
+    pub arguments: ContentArtifactV1,
+    pub environment_profile: ContentArtifactV1,
+    pub configuration_sha256: String,
+    pub locale: String,
+    pub timezone: String,
+    pub network_policy: NetworkPolicy,
+    pub declared_egress: Vec<String>,
+    pub timeout_ms: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -254,6 +262,8 @@ pub enum BenchmarkError {
     ReceiptInputMismatch,
     #[error("run receipt executable differs from the benchmark tool registry")]
     ExecutableMismatch,
+    #[error("run invocation differs from the benchmark-pinned arguments/configuration/environment")]
+    InvocationProfileMismatch,
     #[error("run attempt disposition disagrees with receipt status")]
     AttemptStatusMismatch,
     #[error("blocked/not-run attempt has unexpected receipt, payloads or observations")]
@@ -373,7 +383,19 @@ pub fn validate_benchmark_manifest(
             return Err(BenchmarkError::InvalidIdentity("tool".into()));
         }
         validate_artifact(&tool.executable)?;
-        if tool.executable.reference.kind != "adapter_executable" {
+        validate_artifact(&tool.arguments)?;
+        validate_artifact(&tool.environment_profile)?;
+        if tool.executable.reference.kind != "adapter_executable"
+            || tool.arguments.reference.kind != "adapter_arguments"
+            || tool.environment_profile.reference.kind != "environment_profile"
+            || tool.arguments.format_id != "AERO_ARGUMENT_VECTOR_V1"
+            || tool.environment_profile.format_id != "AERO_ENVIRONMENT_PROFILE_V1"
+            || !valid_sha256(&tool.configuration_sha256)
+            || tool.locale.trim().is_empty()
+            || tool.timezone.trim().is_empty()
+            || tool.timeout_ms == 0
+            || (tool.network_policy == NetworkPolicy::Disabled && !tool.declared_egress.is_empty())
+        {
             return Err(BenchmarkError::InvalidArtifact(tool.executable.reference.id.clone()));
         }
         if tools.insert(tool.adapter_id.as_str(), tool).is_some() {
@@ -530,6 +552,25 @@ fn validate_one_run(
             }
             if receipt.adapter.executable != tool.executable {
                 return Err(BenchmarkError::ExecutableMismatch);
+            }
+            let invocation = &receipt.invocation;
+            let mut expected_egress = tool.declared_egress.clone();
+            expected_egress.sort();
+            let mut observed_declared_egress = invocation.declared_egress.clone();
+            observed_declared_egress.sort();
+            if invocation.arguments != tool.arguments
+                || invocation.environment_profile != tool.environment_profile
+                || invocation.configuration_sha256 != tool.configuration_sha256
+                || invocation.locale != tool.locale
+                || invocation.timezone != tool.timezone
+                || invocation.network_policy != tool.network_policy
+                || observed_declared_egress != expected_egress
+                || invocation.timeout_ms != tool.timeout_ms
+            {
+                return Err(BenchmarkError::InvocationProfileMismatch);
+            }
+            if receipt.inputs.len() != case.inputs.len() {
+                return Err(BenchmarkError::ReceiptInputMismatch);
             }
             for expected_input in &case.inputs {
                 let matched = receipt.inputs.iter().any(|input| {
@@ -789,6 +830,14 @@ mod tests {
             version: receipt.adapter.version.clone(),
             category: ToolCategory::CadOrCmmAdapter,
             executable: receipt.adapter.executable.clone(),
+            arguments: receipt.invocation.arguments.clone(),
+            environment_profile: receipt.invocation.environment_profile.clone(),
+            configuration_sha256: receipt.invocation.configuration_sha256.clone(),
+            locale: receipt.invocation.locale.clone(),
+            timezone: receipt.invocation.timezone.clone(),
+            network_policy: receipt.invocation.network_policy,
+            declared_egress: receipt.invocation.declared_egress.clone(),
+            timeout_ms: receipt.invocation.timeout_ms,
         };
         let body = BenchmarkManifestBodyV1 {
             benchmark_id: "AERO-INTEROP-BENCH-001".into(),
