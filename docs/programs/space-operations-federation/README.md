@@ -186,7 +186,7 @@ Preserve the rights and governance envelope: data ownership, consent, jurisdicti
 | T3 — operator shadow pilot | Read-only deployment with explicit data-sharing agreement | Pilot evidence only; not operational certification |
 | T4 — operational/flight | Applicable external certification, safety authority and mission evidence | Only the exact authority-approved scope |
 
-The TraCSS dataset requires access request and includes a published answer key. Its publisher says it is not intended for live operations or formal certification. This limitation must be reflected in every report.
+The TraCSS Dataset for Conjunction Assessment Verification is a public, CC0-1.0 reference set with access available through an OSC request form (Google-account access is also offered). The published package includes a 20.73 GB ephemeris archive, separate spherical-screening and SFSH rectangular-screening answer-key results (198.8 MB and 62.4 MB), an SFSH object-to-volume mapping file (145 KB), and a user guide (363 KB). The two answer-key profiles must be benchmarked separately; do not merge their event counts or screening-volume assumptions. OSC describes the set as including stressing edge cases alongside an operational catalog, but explicitly says it is not comprehensive and is not intended for live operations or formal system certification/validation. It is an external self-assessment corpus, not independent propagation truth or Pc-calibration ground truth. Preserve its CC0 notice, original archive digest, file manifest, request/access provenance and user-guide version in the benchmark receipt.
 
 ### 7.2 Synthetic corpus
 
@@ -255,7 +255,7 @@ For performance, measure ingestion throughput, p50/p95/p99 processing latency, b
 
 - [NASA CARA public software](https://www.nasa.gov/cara/publicly-available-cara-software/) — reuse the published 2D/3D probability-of-collision, Monte Carlo, collision-consequence and covariance-realism reference algorithms as applicable; do not rebuild them without an evidenced gap.
 - [NASA 2026 Conjunction Assessment Handbook](https://www.nasa.gov/cara/) — use its ephemeris, covariance, screening, risk-assessment, mitigation and operator-coordination practices as a baseline.
-- [TraCSS Conjunction Assessment Verification dataset](https://space.commerce.gov/dataset-for-conjunction-assessment-verification/) — public-domain CC0 dataset; access request required; not a live-ops certification corpus.
+- [TraCSS Conjunction Assessment Verification dataset](https://space.commerce.gov/dataset-for-conjunction-assessment-verification/) — CC0-1.0, access request via OSC; 20.73 GB ephemerides plus distinct spherical and SFSH answer keys, mappings and user guide; not a live-ops or formal-certification corpus.
 - [TraCSS updated specifications](https://space.commerce.gov/osc-publishes-updated-tracss-specifications/) — CDM v2.1, OMM v1.2 and OCM v2.1.
 - [CCSDS Space Data Link Security Protocol 355.0-B-2](https://ccsds.org/view/bluebooks/entry/3258/) — link-layer security profile.
 - [NIST IR 8401](https://csrc.nist.gov/pubs/ir/8401/final) — ground-segment command-and-control cybersecurity framing.
@@ -321,7 +321,7 @@ If the competitor's required input, model configuration or result is unavailable
 | Layer | Required measurements |
 |---|---|
 | Tracking / orbit estimation | Position and velocity residuals by orbit regime and lead time; empirical covariance coverage; maneuver/uncorrelated-track detection; latency and custody gaps |
-| Conjunction assessment | Event recall at fixed false-alert burden; Pc calibration and interval coverage; applicability/abstention rate by method; correlated-error sensitivity; false-negative severity |
+| Conjunction assessment | Event recall and false-alert burden reported separately for TraCSS spherical and SFSH screening volumes; TCA/miss-distance error against independent trajectory truth; Pc calibration and interval coverage against method-compatible references; applicability/abstention rate by method; correlated-error sensitivity; false-negative severity |
 | Interoperability | Byte/digest preservation; mandatory/optional field correctness; unit/frame/time/covariance semantic loss; schema-version support; duplicate/correction handling |
 | Evidence and governance | Replay equality; provenance coverage; dependency completeness; unauthorized disclosure/action rejection; revocation and purpose enforcement |
 | Federation | Partition visibility; stale-view detection; reconciliation correctness; recovery time; silent-overwrite count; local autonomy during disconnection |
@@ -346,7 +346,7 @@ The last two are research targets. They become claims only after preregistration
 - **P1 — corpus:** 30+ synthetic cases, independent oracle, positive/negative controls.
 - **P2 — read-only adapters:** selected CDM/OEM/OCM versions, exact source-byte preservation and loss reports.
 - **P3 — three-peer test:** delayed/reordered/duplicate delivery, partition, restart, revocation and reconciliation.
-- **P4 — public differential:** applicable NASA CARA / TraCSS reference cases with convention matching and exact build/data hashes.
+- **P4 — public differential:** applicable NASA CARA algorithm references plus separate TraCSS spherical/SFSH event-screening tracks, with convention matching and exact build/data hashes.
 - **P5 — independent review:** security, privacy, orbital-safety, governance and standards review.
 - **P6 — consented shadow pilot:** read-only exchange with operators; no command or maneuver execution path.
 
