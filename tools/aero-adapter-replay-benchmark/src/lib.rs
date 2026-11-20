@@ -696,9 +696,9 @@ mod tests {
             "run-b",
             b"adapter-executable-v1",
             b"ISO-10303-21; synthetic product definition",
-            b"{\\"profile\\":\\"changed\\"}\\n",
-            b"<QIFDocument schemaVersion=\\"3.0\\"><Results/></QIFDocument>",
-            br#"{\"schema\":\"AeroSemanticAssertionV1\",\"assertions\":[]}"#,
+            b"{\"profile\":\"changed\"}\n",
+            b"<QIFDocument schemaVersion=\"3.0\"><Results/></QIFDocument>",
+            br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
             RightsStatus::ClearedForTesting,
             RunStatus::Succeeded,
         );
