@@ -739,8 +739,14 @@ fn causal_relation_error(
             }
         }
         "checkpoint_descendant_of" => {
-            if !predecessor.evidence_refs.iter().any(|reference| reference.kind == "source_checkpoint")
-                || !child.evidence_refs.iter().any(|reference| reference.kind == "source_checkpoint")
+            if !predecessor
+                .evidence_refs
+                .iter()
+                .any(|reference| reference.kind == "source_checkpoint")
+                || !child
+                    .evidence_refs
+                    .iter()
+                    .any(|reference| reference.kind == "source_checkpoint")
             {
                 Some(
                     "checkpoint_descendant_of requires source-checkpoint evidence on both events",
@@ -1029,19 +1035,27 @@ fn verify_success_projection(
                 continue;
             }
 
-            let direct_crypto_intent = matches!((crypto_profile, intent), (Some(child), Some(parent))
-                if has_direct_causal_edge(child, parent, "derived_from"));
-            let direct_host_crypto = matches!((host_admission, crypto_profile), (Some(child), Some(parent))
-                if has_direct_causal_edge(child, parent, "derived_from"));
-            let direct_domain_host = matches!((domain_authorization, host_admission), (Some(child), Some(parent))
-                if has_direct_causal_edge(child, parent, "derived_from"));
+            let direct_crypto_intent = matches!(
+                (crypto_profile, intent),
+                (Some(child), Some(parent))
+                    if has_direct_causal_edge(child, parent, "derived_from")
+            );
+            let direct_host_crypto = matches!(
+                (host_admission, crypto_profile),
+                (Some(child), Some(parent))
+                    if has_direct_causal_edge(child, parent, "derived_from")
+            );
+            let direct_domain_host = matches!(
+                (domain_authorization, host_admission),
+                (Some(child), Some(parent))
+                    if has_direct_causal_edge(child, parent, "derived_from")
+            );
 
             if !direct_crypto_intent || !direct_host_crypto || !direct_domain_host {
                 continue;
             }
 
             let source_action = events.iter().find(|event| {
-
                 event.event_type == "source_action_authored"
                     && event.logical_operation_id == receipt.logical_operation_id
                     && event.attempt_id.as_deref() == Some(attempt_id)
@@ -1075,12 +1089,21 @@ fn verify_success_projection(
             };
             let validation_receipt_present = integrity_acceptance
                 .is_some_and(|event| evidence_reference(event, "validation_receipt").is_some());
-            let direct_source_domain = matches!((source_action, domain_authorization), (Some(child), Some(parent))
-                if has_direct_causal_edge(child, parent, "derived_from"));
-            let direct_integrity_source = matches!((integrity_acceptance, source_action), (Some(child), Some(parent))
-                if has_direct_causal_edge(child, parent, "verifies"));
-            let direct_dht_integrity = matches!((dht_projection, integrity_acceptance), (Some(child), Some(parent))
-                if has_direct_causal_edge(child, parent, "derived_from"));
+            let direct_source_domain = matches!(
+                (source_action, domain_authorization),
+                (Some(child), Some(parent))
+                    if has_direct_causal_edge(child, parent, "derived_from")
+            );
+            let direct_integrity_source = matches!(
+                (integrity_acceptance, source_action),
+                (Some(child), Some(parent))
+                    if has_direct_causal_edge(child, parent, "verifies")
+            );
+            let direct_dht_integrity = matches!(
+                (dht_projection, integrity_acceptance),
+                (Some(child), Some(parent))
+                    if has_direct_causal_edge(child, parent, "derived_from")
+            );
             if !action_hashes_match
                 || !validation_receipt_present
                 || !direct_source_domain
