@@ -128,7 +128,15 @@
         "adapter_id",
         "version",
         "category",
-        "executable"
+        "executable",
+        "arguments",
+        "environment_profile",
+        "configuration_sha256",
+        "locale",
+        "timezone",
+        "network_policy",
+        "declared_egress",
+        "timeout_ms"
       ],
       "properties": {
         "adapter_id": {
@@ -153,6 +161,41 @@
         },
         "executable": {
           "$ref": "#/$defs/contentArtifact"
+        },
+        "arguments": {
+          "$ref": "#/$defs/contentArtifact"
+        },
+        "environment_profile": {
+          "$ref": "#/$defs/contentArtifact"
+        },
+        "configuration_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "locale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1
+        },
+        "network_policy": {
+          "enum": [
+            "disabled",
+            "allowlisted"
+          ]
+        },
+        "declared_egress": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     },
