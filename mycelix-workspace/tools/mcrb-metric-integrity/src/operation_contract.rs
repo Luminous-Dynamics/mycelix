@@ -10,7 +10,7 @@
 //! artifact digest and source manifest Git blob SHA from protected provenance.
 //! Outcome-source independence and signatures remain owned by #6140/#6357.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
