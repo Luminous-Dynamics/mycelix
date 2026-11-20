@@ -786,4 +786,56 @@ mod tests {
         assert!(visitor.calls.is_empty());
     }
 
+    #[test]
+    fn fabrication_one_role_profile_does_not_inherit_targets_from_other_profiles() {
+        // Regression fixture for #4249: a Fabrication-only deployment must
+        // not inherit Identity / Commons / Knowledge merely because those
+        // roles appear in unrelated hApp manifests elsewhere in the repo.
+        let fabrication = manifest_info("fabrication", &["fabrication"]);
+        let unified = manifest_info(
+            "unified",
+            &[
+                "personal",
+                "identity",
+                "hearth",
+                "commons_land",
+                "commons_care",
+                "civic",
+                "attribution",
+                "finance",
+                "governance",
+                "health",
+                "supplychain",
+                "manufacturing",
+                "music",
+                "energy",
+                "knowledge",
+                "climate",
+                "praxis",
+                "craft",
+                "core_fl",
+            ],
+        );
+        let manifests = vec![fabrication.clone(), unified];
+
+        for target in ["identity", "knowledge"] {
+            let result = classify_target(Some(&fabrication), Some(target), &manifests);
+            assert_eq!(
+                result.classification,
+                "cross-profile-or-source-mapping-unresolved",
+                "target {target} exists elsewhere but not in Fabrication's own role set"
+            );
+            assert!(!result.declared_in_context);
+            assert!(result.present_elsewhere);
+            assert!(result.matching_profile_candidates.is_empty());
+        }
+
+        // The alias "commons" is not interchangeable with the actual
+        // manifest roles commons_land / commons_care.
+        let commons_alias = classify_target(Some(&fabrication), Some("commons"), &manifests);
+        assert_eq!(commons_alias.classification, "missing-role-candidate");
+        assert!(!commons_alias.declared_in_context);
+        assert!(!commons_alias.present_elsewhere);
+    }
+
 }
