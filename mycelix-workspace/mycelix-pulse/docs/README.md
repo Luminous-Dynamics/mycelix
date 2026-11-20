@@ -200,6 +200,7 @@ We welcome documentation improvements! To contribute:
 
 - **[Pulse Communications Fabric Qualification v0.1](PULSE_COMMUNICATIONS_FABRIC_QUALIFICATION_V0_1.md)** — cross-layer contract for cryptographic sessions, host authority, durable delivery, metadata privacy, recovery and independent evidence replay.
 - **[Machine-readable qualification profile](pulse-fabric-profile-v0.1.json)** — protocol references, scenario dimensions, release-blocking invariants and research targets.
+- **[Qualification profile schema](pulse-fabric-profile.schema-v0.1.json)** and **[scenario catalog schema](pulse-fabric-scenarios.schema-v0.1.json)** — strict Draft 2020-12 schemas for the versioned machine-readable inputs.
 - **[Evidence trace schema](pulse-fabric-trace.schema-v0.1.json)** — redacted JSON Schema for role-separated events and causal predecessors.
 - **[Initial adversarial scenarios](pulse-fabric-scenarios-v0.1.json)** — synthetic positive, negative and UNKNOWN/INCOMPLETE cases.
 
