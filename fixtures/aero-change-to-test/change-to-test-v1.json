@@ -1,0 +1,240 @@
+{
+  "schema": "AeroChangeToTestCaseV1",
+  "benchmark_id": "AEROCOMMONS-CHANGE-TO-TEST-001",
+  "case_id": "SYN-PROCESS-REVISION-001",
+  "predecessor_configuration": {
+    "id": "configuration:coupon-001-r1",
+    "kind": "configuration"
+  },
+  "proposed_configuration": {
+    "id": "configuration:coupon-001-r2",
+    "kind": "configuration"
+  },
+  "change_set": {
+    "change_id": "change:process-plan-rev-002",
+    "sha256": "cb140867713ba7e0874d5c8f5bca86e39a912730a827f11014f6543ada657229",
+    "changed_artifacts": [
+      {
+        "id": "artifact:process-plan-r2",
+        "kind": "manufacturing_process_plan"
+      }
+    ],
+    "changed_inputs": [
+      {
+        "id": "artifact:process-plan-r1",
+        "kind": "manufacturing_process_plan"
+      }
+    ],
+    "changed_requirements": [],
+    "changed_methods": [],
+    "changed_toolchains": [
+      {
+        "id": "machine:mill-01",
+        "kind": "machine"
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "evidence_id": "evidence:build-unit-0001-r1",
+      "configuration": {
+        "id": "configuration:coupon-001-r1",
+        "kind": "configuration"
+      },
+      "subject": {
+        "id": "physical-unit:coupon-001-serial-0001",
+        "kind": "physical_unit"
+      },
+      "dependencies": [
+        {
+          "id": "artifact:process-plan-r1",
+          "kind": "manufacturing_process_plan"
+        },
+        {
+          "id": "machine:mill-01",
+          "kind": "machine"
+        }
+      ],
+      "expected_impact": "INVALIDATED",
+      "reason_path": [
+        "change:process-plan-rev-002",
+        "artifact:process-plan-r1",
+        "evidence:build-unit-0001-r1"
+      ],
+      "dependency_coverage": "COMPLETE"
+    },
+    {
+      "evidence_id": "evidence:inspection-unit-0001-r1",
+      "configuration": {
+        "id": "configuration:coupon-001-r1",
+        "kind": "configuration"
+      },
+      "subject": {
+        "id": "physical-unit:coupon-001-serial-0001",
+        "kind": "physical_unit"
+      },
+      "dependencies": [
+        {
+          "id": "evidence:build-unit-0001-r1",
+          "kind": "evidence"
+        },
+        {
+          "id": "inspection-plan:coupon-v1",
+          "kind": "inspection_plan"
+        }
+      ],
+      "expected_impact": "INVALIDATED",
+      "reason_path": [
+        "change:process-plan-rev-002",
+        "evidence:build-unit-0001-r1",
+        "evidence:inspection-unit-0001-r1"
+      ],
+      "dependency_coverage": "COMPLETE"
+    },
+    {
+      "evidence_id": "evidence:test-unit-0001-r1",
+      "configuration": {
+        "id": "configuration:coupon-001-r1",
+        "kind": "configuration"
+      },
+      "subject": {
+        "id": "physical-unit:coupon-001-serial-0001",
+        "kind": "physical_unit"
+      },
+      "dependencies": [
+        {
+          "id": "evidence:inspection-unit-0001-r1",
+          "kind": "evidence"
+        },
+        {
+          "id": "test-plan:coupon-v1",
+          "kind": "test_plan"
+        }
+      ],
+      "expected_impact": "INVALIDATED",
+      "reason_path": [
+        "change:process-plan-rev-002",
+        "evidence:inspection-unit-0001-r1",
+        "evidence:test-unit-0001-r1"
+      ],
+      "dependency_coverage": "COMPLETE"
+    },
+    {
+      "evidence_id": "evidence:wing-modal-analysis-v4",
+      "configuration": {
+        "id": "configuration:coupon-001-r1",
+        "kind": "configuration"
+      },
+      "subject": {
+        "id": "feature:coupon-slot-02",
+        "kind": "feature"
+      },
+      "dependencies": [
+        {
+          "id": "mesh:coupon-slot-02-r1",
+          "kind": "mesh"
+        }
+      ],
+      "expected_impact": "UNAFFECTED",
+      "reason_path": [
+        "change:process-plan-rev-002",
+        "complete-dependency-manifest",
+        "no-shared-dependency:mesh:coupon-slot-02-r1",
+        "evidence:wing-modal-analysis-v4"
+      ],
+      "dependency_coverage": "COMPLETE"
+    }
+  ],
+  "obligations": [
+    {
+      "obligation_id": "obligation:rebuild-record",
+      "evidence_id": "evidence:build-unit-0001-r1",
+      "class": "MANDATORY",
+      "mandatory": true,
+      "reason_path": [
+        "change:process-plan-rev-002",
+        "artifact:process-plan-r1",
+        "evidence:build-unit-0001-r1"
+      ],
+      "demotable": false,
+      "state": "OPEN",
+      "closure_receipt": null
+    },
+    {
+      "obligation_id": "obligation:repeat-inspection",
+      "evidence_id": "evidence:inspection-unit-0001-r1",
+      "class": "MANDATORY",
+      "mandatory": true,
+      "reason_path": [
+        "change:process-plan-rev-002",
+        "evidence:build-unit-0001-r1",
+        "evidence:inspection-unit-0001-r1"
+      ],
+      "demotable": false,
+      "state": "OPEN",
+      "closure_receipt": null
+    },
+    {
+      "obligation_id": "obligation:repeat-test",
+      "evidence_id": "evidence:test-unit-0001-r1",
+      "class": "MANDATORY",
+      "mandatory": true,
+      "reason_path": [
+        "change:process-plan-rev-002",
+        "evidence:inspection-unit-0001-r1",
+        "evidence:test-unit-0001-r1"
+      ],
+      "demotable": false,
+      "state": "OPEN",
+      "closure_receipt": null
+    }
+  ],
+  "optional_candidates": [
+    {
+      "candidate_id": "candidate:nde-angle-study",
+      "target_decision": "select inspection access/angle for coupon rev 2",
+      "admissibility": {
+        "authority": "ADMITTED",
+        "method": "ADMITTED",
+        "envelope": "ADMITTED",
+        "independent_reference": "ADMITTED",
+        "rights": "ADMITTED"
+      },
+      "cost": 5,
+      "decision_value": {
+        "lower": 0.1,
+        "upper": 0.6,
+        "estimator_id": "synthetic-un-calibrated-estimator",
+        "calibrated": false
+      },
+      "mandatory_substitute": false
+    },
+    {
+      "candidate_id": "candidate:repeat-nominal-measurement",
+      "target_decision": "reduce uncertainty on repeated nominal measurement only",
+      "admissibility": {
+        "authority": "ADMITTED",
+        "method": "ADMITTED",
+        "envelope": "ADMITTED",
+        "independent_reference": "UNKNOWN",
+        "rights": "ADMITTED"
+      },
+      "cost": 1,
+      "decision_value": {
+        "lower": 0,
+        "upper": 0.05,
+        "estimator_id": "synthetic-un-calibrated-estimator",
+        "calibrated": false
+      },
+      "mandatory_substitute": false
+    }
+  ],
+  "expected_invariants": [
+    "MANDATORY_SET_IMMUTABLE",
+    "UNKNOWN_NEVER_UNAFFECTED",
+    "REASON_PATH_COMPLETE",
+    "DETERMINISTIC_REPLAY",
+    "OPTIONAL_TESTS_ADMISSIBILITY_GATED",
+    "OPTIONAL_TESTS_WAIT_FOR_MANDATORY_CLOSURE"
+  ]
+}

@@ -1,0 +1,32 @@
+name: AeroCommons Change-to-Test
+
+on:
+  pull_request:
+    paths:
+      - "tools/aero-change-to-test/**"
+      - "fixtures/aero-change-to-test/**"
+      - "docs/aerocommons/AERO_CHANGE_TO_TEST_V1.schema.json"
+      - ".github/workflows/aerocommons-change-to-test.yml"
+  push:
+    branches:
+      - "research/aerocommons-change-to-test-001"
+    paths:
+      - "tools/aero-change-to-test/**"
+      - "fixtures/aero-change-to-test/**"
+      - "docs/aerocommons/AERO_CHANGE_TO_TEST_V1.schema.json"
+      - ".github/workflows/aerocommons-change-to-test.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  change-to-test:
+    name: Mandatory closure and optional ranking
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run change-to-test tests
+        run: cargo test --manifest-path tools/aero-change-to-test/Cargo.toml
