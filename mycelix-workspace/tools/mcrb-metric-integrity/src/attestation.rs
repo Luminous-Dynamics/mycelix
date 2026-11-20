@@ -549,7 +549,7 @@ fn verify_one_envelope(
         .map_err(|_| GateSetIssue::InvalidSignature(predicate.gate_id.clone()))?;
     let signature = Signature::from_slice(&signature_bytes)
         .map_err(|_| GateSetIssue::InvalidSignature(predicate.gate_id.clone()))?;
-    public_key.verify(&dsse_pae(GATE_PAYLOAD_TYPE, &payload), &signature)
+    public_key.verify_strict(&dsse_pae(GATE_PAYLOAD_TYPE, &payload), &signature)
         .map_err(|_| GateSetIssue::InvalidSignature(predicate.gate_id.clone()))?;
 
     let envelope_bytes = serde_json::to_vec(envelope)
