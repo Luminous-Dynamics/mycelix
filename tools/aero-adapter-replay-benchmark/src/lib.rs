@@ -322,13 +322,27 @@ fn input_artifacts_equal(first: &[&RunInputV1], second: &[&RunInputV1]) -> bool 
         })
 }
 
+fn rights_status_key(status: aero_adapter_run_receipt::RightsStatus) -> &'static str {
+    match status {
+        aero_adapter_run_receipt::RightsStatus::ClearedForTesting => "CLEARED_FOR_TESTING",
+        aero_adapter_run_receipt::RightsStatus::ClearedForRedistribution => "CLEARED_FOR_REDISTRIBUTION",
+        aero_adapter_run_receipt::RightsStatus::NotReviewed => "NOT_REVIEWED",
+        aero_adapter_run_receipt::RightsStatus::Restricted => "RESTRICTED",
+    }
+}
+
 fn input_rights_equal(first: &[&RunInputV1], second: &[&RunInputV1]) -> bool {
-    first.len() == second.len()
-        && first.iter().zip(second).all(|(left, right)| {
-            left.role == right.role
-                && left.artifact.reference == right.artifact.reference
-                && left.rights_status == right.rights_status
-        })
+    let mut first_rights: Vec<_> = first
+        .iter()
+        .map(|item| (input_role_key(item.role), rights_status_key(item.rights_status)))
+        .collect();
+    let mut second_rights: Vec<_> = second
+        .iter()
+        .map(|item| (input_role_key(item.role), rights_status_key(item.rights_status)))
+        .collect();
+    first_rights.sort_unstable();
+    second_rights.sort_unstable();
+    first_rights == second_rights
 }
 
 fn output_profiles_equal(first: &[&RunOutputV1], second: &[&RunOutputV1]) -> bool {
@@ -342,10 +356,17 @@ fn output_profiles_equal(first: &[&RunOutputV1], second: &[&RunOutputV1]) -> boo
 }
 
 fn output_rights_equal(first: &[&RunOutputV1], second: &[&RunOutputV1]) -> bool {
-    first.len() == second.len()
-        && first.iter().zip(second).all(|(left, right)| {
-            left.role == right.role && left.rights_status == right.rights_status
-        })
+    let mut first_rights: Vec<_> = first
+        .iter()
+        .map(|item| (output_role_key(item.role), rights_status_key(item.rights_status)))
+        .collect();
+    let mut second_rights: Vec<_> = second
+        .iter()
+        .map(|item| (output_role_key(item.role), rights_status_key(item.rights_status)))
+        .collect();
+    first_rights.sort_unstable();
+    second_rights.sort_unstable();
+    first_rights == second_rights
 }
 
 fn output_bytes_equal(first: &[&RunOutputV1], second: &[&RunOutputV1]) -> bool {
@@ -714,8 +735,8 @@ mod tests {
             b"adapter-executable-v1",
             b"ISO-10303-21; synthetic product definition",
             b"{\"profile\":\"default\"}\n",
-            b"",
-            b"",
+            b"<QIFDocument/>",
+            br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
             RightsStatus::ClearedForTesting,
             RunStatus::Failed,
         );
