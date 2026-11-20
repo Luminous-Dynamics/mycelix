@@ -646,6 +646,22 @@ mod tests {
     }
 
     #[test]
+    fn owner_commitments_reject_empty_custom_data_class_names() {
+        let mut value = consent();
+        value.scope.data_classes = vec![DataClass::Custom("  ".to_string())];
+        value.id = ConsentId::derive_content_bound(&value);
+        assert_eq!(value.commitments_v1(), Err(ConsentError::EmptyScope));
+    }
+
+    #[test]
+    fn owner_commitments_reject_expiry_before_grant_time() {
+        let mut value = consent();
+        value.expires_at = Some(value.granted_at - 1);
+        value.id = ConsentId::derive_content_bound(&value);
+        assert_eq!(value.commitments_v1(), Err(ConsentError::InvalidExpiry));
+    }
+
+    #[test]
     fn owner_commitments_reject_noncanonical_public_scope_mutation() {
         let mut value = consent();
         value.scope.data_classes = vec![DataClass::Contact, DataClass::Identity];
@@ -815,12 +831,21 @@ fn validate_canonical_consent_content(consent: &Consent) -> Result<(), ConsentEr
     if matches!(&consent.purpose, ConsentPurpose::Named(value) if value.trim().is_empty()) {
         return Err(ConsentError::EmptyPurpose);
     }
+    if consent
+        .expires_at
+        .is_some_and(|expiry| expiry < consent.granted_at)
+    {
+        return Err(ConsentError::InvalidExpiry);
+    }
 
     let classes = &consent.scope.data_classes;
     let fields = &consent.scope.fields;
     if classes.is_empty()
         || fields.is_empty()
         || fields.iter().any(|field| field.trim().is_empty())
+        || classes
+            .iter()
+            .any(|class| matches!(class, DataClass::Custom(value) if value.trim().is_empty()))
     {
         return Err(ConsentError::EmptyScope);
     }
