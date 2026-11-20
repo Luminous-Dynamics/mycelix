@@ -6,7 +6,7 @@ An evidence-backed, vendor-neutral QIF/AP242 differential benchmark evaluator.
 
 - Freezes a versioned benchmark manifest with exact source artifacts, rights status, an independent oracle artifact, constrained oracle method/profile and adjudicated claim labels.
 - Requires a complete tool × case run grid. A missing run is not silently removed from the denominator.
-- Verifies the exact bytes of every corpus input and oracle record before scoring.
+- Verifies the exact bytes of every registered tool package (executable, arguments, environment profile), corpus input and oracle record before scoring, even when a tool/case slot is Blocked or NotRun.
 - Reuses AeroAdapterRunReceiptV1 validation and exact payload verification for every executed tool run. Pins each tool's argument vector, environment-profile bytes, configuration digest, locale, timezone, timeout and network policy before the run.
 - Binds each run to the registered tool ID/version/executable, predeclared invocation profile, benchmark ID, case ID and exact one-to-one source input set.
 - Requires a successful run to report each expected claim exactly once.
