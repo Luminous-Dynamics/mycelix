@@ -185,8 +185,12 @@ fn parse_tracked_paths(bytes: &[u8]) -> Result<Vec<PathBuf>, Box<dyn Error>> {
         .split(|byte| *byte == 0)
         .filter(|value| !value.is_empty())
         .map(|value| {
-            let path = std::str::from_utf8(value)
-                .map_err(|error| format!("tracked path is not UTF-8: {error}"))?;
+            let path = std::str::from_utf8(value).map_err(|error| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("tracked path is not UTF-8: {error}"),
+                )
+            })?;
             Ok(PathBuf::from(path))
         })
         .collect()
