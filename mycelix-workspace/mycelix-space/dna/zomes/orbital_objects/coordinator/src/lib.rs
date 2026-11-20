@@ -12,11 +12,80 @@
 use hdk::prelude::*;
 use mycelix_space_shared::{
     DataSourceType, QualityScore, SpaceError, SpaceErrorCode, SpaceTimestamp, StalenessConfig,
-    TleWithMetadata, compute_staleness, gate_space_operation, requirement_for_negotiation,
-    requirement_for_tle_submission,
+    TleLatestCandidate, TleLatestDecision, TleWithMetadata, compute_staleness,
+    gate_space_operation, requirement_for_negotiation, requirement_for_tle_submission,
+    select_latest_tle_candidate,
 };
 use orbital_mechanics::tle::TwoLineElement;
 use orbital_objects_integrity::*;
+
+fn latest_tle_candidate(tle: &TleRecord) -> TleLatestCandidate<'_> {
+    TleLatestCandidate {
+        norad_id: tle.norad_id,
+        epoch_micros: tle.epoch.micros,
+        line1: &tle.line1,
+        line2: &tle.line2,
+        source: &tle.source,
+        quality: &tle.quality,
+        submitted_at_micros: tle.submitted_at.micros,
+    }
+}
+
+fn decode_linked_tle(record: Record, norad_id: u32) -> ExternResult<TleRecord> {
+    let decoded = record
+        .entry()
+        .to_app_option::<TleRecord>()
+        .map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!(
+                    "Failed to decode TLE linked under NORAD {}: {:?}",
+                    norad_id, error
+                ),
+            )
+            .into_wasm_error()
+        })?;
+
+    decoded.ok_or_else(|| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!("Link under NORAD {} does not point to a TLE record", norad_id),
+        )
+        .into_wasm_error()
+    })
+}
+
+fn select_and_store_latest_tle(
+    latest: &mut std::collections::HashMap<u32, TleRecord>,
+    expected_norad_id: u32,
+    candidate: TleRecord,
+    compare_metadata: bool,
+) -> ExternResult<()> {
+    let decision = select_latest_tle_candidate(
+        expected_norad_id,
+        latest.get(&expected_norad_id).map(latest_tle_candidate),
+        latest_tle_candidate(&candidate),
+        compare_metadata,
+    )
+    .map_err(|conflict| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!(
+                "Ambiguous latest TLE for NORAD {}: {:?}",
+                expected_norad_id, conflict
+            ),
+        )
+        .into_wasm_error()
+    })?;
+
+    match decision {
+        TleLatestDecision::Insert | TleLatestDecision::ReplaceExisting => {
+            latest.insert(expected_norad_id, candidate);
+        }
+        TleLatestDecision::KeepExisting => {}
+    }
+    Ok(())
+}
 
 /// Register a new orbital object in the catalog
 #[hdk_extern]
@@ -263,21 +332,22 @@ pub fn get_latest_tles(norad_ids: Vec<u32>) -> ExternResult<Vec<TleLines>> {
         )?;
 
         for link in links {
-            let Some(target) = link.target.into_action_hash() else {
-                continue;
-            };
-            let Some(record) = get(target, GetOptions::default())? else {
-                continue;
-            };
-            if let Some(tle) = record.entry().to_app_option::<TleRecord>().ok().flatten() {
-                let dominated = latest
-                    .get(&tle.norad_id)
-                    .map(|existing| tle.epoch.micros > existing.epoch.micros)
-                    .unwrap_or(true);
-                if dominated {
-                    latest.insert(tle.norad_id, tle);
-                }
-            }
+            let target = link.target.into_action_hash().ok_or_else(|| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Non-action TLE link found under NORAD {}", norad_id),
+                )
+                .into_wasm_error()
+            })?;
+            let record = get(target, GetOptions::default())?.ok_or_else(|| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("TLE link under NORAD {} points to a missing record", norad_id),
+                )
+                .into_wasm_error()
+            })?;
+            let tle = decode_linked_tle(record, *norad_id)?;
+            select_and_store_latest_tle(&mut latest, *norad_id, tle, false)?;
         }
     }
 
@@ -343,21 +413,22 @@ pub fn get_tles_with_metadata(
         )?;
 
         for link in links {
-            let Some(target) = link.target.into_action_hash() else {
-                continue;
-            };
-            let Some(record) = get(target, GetOptions::default())? else {
-                continue;
-            };
-            if let Some(tle) = record.entry().to_app_option::<TleRecord>().ok().flatten() {
-                let dominated = latest
-                    .get(&tle.norad_id)
-                    .map(|existing| tle.epoch.micros > existing.epoch.micros)
-                    .unwrap_or(true);
-                if dominated {
-                    latest.insert(tle.norad_id, tle);
-                }
-            }
+            let target = link.target.into_action_hash().ok_or_else(|| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Non-action TLE link found under NORAD {}", norad_id),
+                )
+                .into_wasm_error()
+            })?;
+            let record = get(target, GetOptions::default())?.ok_or_else(|| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("TLE link under NORAD {} points to a missing record", norad_id),
+                )
+                .into_wasm_error()
+            })?;
+            let tle = decode_linked_tle(record, *norad_id)?;
+            select_and_store_latest_tle(&mut latest, *norad_id, tle, true)?;
         }
     }
 
