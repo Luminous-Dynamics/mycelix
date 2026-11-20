@@ -681,6 +681,21 @@ fn finalize_frame(
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
+            LocatorCaptureMode::DocumentMetadata => {
+                let id_max = frame.captured_attributes.get("{}idMax")
+                    .ok_or(InventoryError::InvalidRootMetadata)?;
+                let version_qif = frame.captured_attributes.get("{}versionQIF")
+                    .ok_or(InventoryError::InvalidRootMetadata)?;
+                id_max.parse::<u32>().map_err(|_| InventoryError::InvalidRootMetadata)?;
+                if version_qif != &profile.qif_standard_version {
+                    return Err(InventoryError::QifVersionMismatch);
+                }
+                append_locator(
+                    locators, rule, qpid, &format!("{}#document-metadata", frame.locator_path),
+                    None, None, None, None, None, None,
+                    &frame.captured_attributes, profile.limits.max_locators,
+                )?;
+            }
             LocatorCaptureMode::QifReference => {
                 if frame.has_child_element {
                     return Err(InventoryError::InvalidQifReference(frame.locator_path.clone()));
@@ -1247,6 +1262,16 @@ mod tests {
             qif_standard_version: "3.0.0".into(),
             rules: vec![
                 TraceLocatorRuleV1 {
+                    rule_id: "results.document_metadata".into(),
+                    document_role: QifDocumentRole.Results,
+                    expanded_path: vec![expanded("QIFDocument")],
+                    capture: LocatorCaptureMode::DocumentMetadata,
+                    min_occurrences: 1,
+                    max_occurrences: Some(1),
+                    capture_attributes: vec!["{}idMax".into(), "{}versionQIF".into()],
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
                     rule_id: "results.document_qpid".into(),
                     document_role: QifDocumentRole::Results,
                     expanded_path: vec![expanded("QIFDocument"), expanded("QPId")],
@@ -1254,6 +1279,16 @@ mod tests {
                     min_occurrences: 1,
                     max_occurrences: Some(1),
                     capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.document_metadata".into(),
+                    document_role: QifDocumentRole.Plan,
+                    expanded_path: vec![expanded("QIFDocument")],
+                    capture: LocatorCaptureMode::DocumentMetadata,
+                    min_occurrences: 1,
+                    max_occurrences: Some(1),
+                    capture_attributes: vec!["{}idMax".into(), "{}versionQIF".into()],
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
