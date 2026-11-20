@@ -567,7 +567,11 @@
         "correctness_trust_policy_id",
         "correctness_trust_policy_digest_sha256",
         "correctness_required_gate_count",
-        "correctness_attestation_count"
+        "correctness_attestation_count",
+        "outcome_evidence_status",
+        "outcome_ledger_digest_sha256",
+        "outcome_ledger_entry_count",
+        "outcome_attestation_count"
       ],
       "properties": {
         "status": {
@@ -996,6 +1000,29 @@
         "correctness_attestation_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "outcome_evidence_status": {
+          "enum": [
+            "verified",
+            "invalid",
+            "incomplete",
+            "not-implemented"
+          ]
+        },
+        "outcome_ledger_digest_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "outcome_ledger_entry_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outcome_attestation_count": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "allOf": [
@@ -1167,6 +1194,19 @@
                 "required": [
                   "status"
                 ]
+              },
+              "outcome_evidence_status": {
+                "const": "verified"
+              },
+              "outcome_ledger_digest_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "outcome_ledger_entry_count": {
+                "minimum": 1
+              },
+              "outcome_attestation_count": {
+                "minimum": 1
               }
             },
             "required": [
@@ -1183,7 +1223,11 @@
               "correctness_trust_policy_digest_sha256",
               "correctness_required_gate_count",
               "correctness_attestation_count",
-              "correctness_gate_set"
+              "correctness_gate_set",
+              "outcome_evidence_status",
+              "outcome_ledger_digest_sha256",
+              "outcome_ledger_entry_count",
+              "outcome_attestation_count"
             ]
           }
         }
