@@ -1,0 +1,372 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/AeroComponentBuildPacketV1.json",
+  "title": "AeroComponentBuildPacketV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "packet_id",
+    "component",
+    "physical_unit",
+    "configuration",
+    "design_definition",
+    "requirements",
+    "process_plan",
+    "material_batch",
+    "machine",
+    "tooling",
+    "build_evidence",
+    "inspection_plan",
+    "inspection_instrument",
+    "inspection_calibration",
+    "inspection_calibration_validity",
+    "inspection_result",
+    "inspection_evidence",
+    "test_plan",
+    "test_instrument",
+    "test_calibration",
+    "test_calibration_validity",
+    "test_result",
+    "test_evidence"
+  ],
+  "properties": {
+    "schema": {
+      "const": "AeroComponentBuildPacketV1"
+    },
+    "packet_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "component": {
+      "$ref": "#/$defs/ref"
+    },
+    "configuration": {
+      "$ref": "#/$defs/ref"
+    },
+    "design_definition": {
+      "$ref": "#/$defs/content"
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "process_plan": {
+      "$ref": "#/$defs/content"
+    },
+    "material_batch": {
+      "$ref": "#/$defs/ref"
+    },
+    "machine": {
+      "$ref": "#/$defs/ref"
+    },
+    "tooling": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "build_evidence": {
+      "$ref": "#/$defs/evidence"
+    },
+    "inspection_plan": {
+      "$ref": "#/$defs/ref"
+    },
+    "inspection_instrument": {
+      "$ref": "#/$defs/ref"
+    },
+    "inspection_calibration": {
+      "$ref": "#/$defs/evidence"
+    },
+    "inspection_result": {
+      "$ref": "#/$defs/content"
+    },
+    "inspection_evidence": {
+      "$ref": "#/$defs/evidence"
+    },
+    "test_plan": {
+      "$ref": "#/$defs/ref"
+    },
+    "test_instrument": {
+      "$ref": "#/$defs/ref"
+    },
+    "test_calibration": {
+      "$ref": "#/$defs/evidence"
+    },
+    "test_result": {
+      "$ref": "#/$defs/content"
+    },
+    "test_evidence": {
+      "$ref": "#/$defs/evidence"
+    },
+    "physical_unit": {
+      "$ref": "#/$defs/ref"
+    },
+    "inspection_calibration_validity": {
+      "$ref": "#/$defs/calibration_validity"
+    },
+    "test_calibration_validity": {
+      "$ref": "#/$defs/calibration_validity"
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "sha256",
+        "byte_length",
+        "media_type",
+        "format_id"
+      ],
+      "properties": {
+        "reference": {
+          "$ref": "#/$defs/ref"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "format_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "uncertainty": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "representation",
+        "value",
+        "unit"
+      ],
+      "properties": {
+        "representation": {
+          "type": "string"
+        },
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "validity_domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conditions"
+      ],
+      "properties": {
+        "conditions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "reason",
+        "predecessor"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "active",
+            "superseded",
+            "disputed",
+            "revoked",
+            "withdrawn"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "predecessor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "schema",
+        "claim",
+        "claim_kind",
+        "configuration",
+        "subject",
+        "basis",
+        "method",
+        "inputs",
+        "toolchain",
+        "result",
+        "uncertainty",
+        "validity_domain",
+        "producer",
+        "review",
+        "lifecycle",
+        "provenance"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema": {
+          "const": "AeroEvidenceV1"
+        },
+        "claim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_kind": {
+          "enum": [
+            "measurement",
+            "analysis",
+            "simulation",
+            "inspection",
+            "test",
+            "calculation",
+            "qualification",
+            "attestation",
+            "observation",
+            "derived"
+          ]
+        },
+        "configuration": {
+          "$ref": "#/$defs/ref"
+        },
+        "subject": {
+          "$ref": "#/$defs/ref"
+        },
+        "basis": {
+          "$ref": "#/$defs/refs"
+        },
+        "method": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ref"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inputs": {
+          "$ref": "#/$defs/refs"
+        },
+        "toolchain": {
+          "$ref": "#/$defs/refs"
+        },
+        "result": {},
+        "uncertainty": {
+          "$ref": "#/$defs/uncertainty"
+        },
+        "validity_domain": {
+          "$ref": "#/$defs/validity_domain"
+        },
+        "producer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review": {
+          "$ref": "#/$defs/refs"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/lifecycle"
+        },
+        "provenance": {
+          "$ref": "#/$defs/refs"
+        }
+      }
+    },
+    "calibration_validity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence",
+        "valid_from_unix_ms",
+        "valid_until_unix_ms",
+        "used_at_unix_ms"
+      ],
+      "properties": {
+        "evidence": {
+          "$ref": "#/$defs/ref"
+        },
+        "valid_from_unix_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "valid_until_unix_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "used_at_unix_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
