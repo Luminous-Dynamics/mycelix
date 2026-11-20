@@ -20,9 +20,11 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Detect which clusters changed
+  # Detect changed clusters for all PRs, including drafts. This lets a draft
+  # PR run only the affected package matrix (for example, test-prism) without
+  # enabling unrelated cluster jobs. Global formatting and ci-pass remain
+  # gated on ready-for-review PRs below.
   changes:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     outputs:
       commons: ${{ steps.filter.outputs.commons }}
@@ -390,6 +392,49 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Validate PEAB scenario manifest and source references
+        run: |
+          cd mycelix-workspace
+          manifest=mycelix-prism/docs/peab-scenarios-v0.1.json
+          jq -e '
+            def nonempty_tests:
+              type == "string" and
+              (split(";") | all(.[]; (gsub("^\\s+|\\s+$"; "") | length > 0)));
+            def source_ok:
+              if .source_coverage == "planned" then .source_test == null
+              elif .source_coverage == "present" then (.source_test | nonempty_tests)
+              else (.source_test == null or (.source_test | nonempty_tests))
+              end;
+            def execution_ok:
+              if .execution_status == "not_run_exact_head" then .execution_evidence == null
+              else
+                (.execution_status == "passed" or .execution_status == "failed" or .execution_status == "skipped") and
+                (.execution_evidence | type == "object") and
+                (.execution_evidence.head_sha | type == "string" and test("^[0-9a-f]{40}$")) and
+                (.execution_evidence.run_id | type == "number" and . > 0) and
+                (.execution_evidence.job_id | type == "number" and . > 0)
+              end;
+            .schema == "org.luminousdynamics.peab.scenario-manifest.v1" and
+            .version == "0.1.0" and
+            .status == "specification_only" and
+            (.scenarios | length >= 31) and
+            (([.scenarios[].id] | unique | length) == (.scenarios | length)) and
+            all(.scenarios[]; .negative_control_required == true) and
+            all(.scenarios[]; (.source_coverage == "present" or .source_coverage == "partial" or .source_coverage == "planned")) and
+            all(.scenarios[]; source_ok) and
+            all(.scenarios[]; execution_ok)
+          ' "$manifest" > /dev/null
+
+          while IFS= read -r reference; do
+            IFS=';' read -r -a test_names <<< "$reference"
+            for test_name in "${test_names[@]}"; do
+              test_name="$(printf '%s' "$test_name" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+              if ! grep -R -Fq "fn ${test_name}(" mycelix-prism --include='*.rs' --exclude-dir=target; then
+                echo "PEAB source reference is not present: ${test_name}"
+                exit 1
+              fi
+            done
+          done < <(jq -r '.scenarios[] | select(.source_test != null) | .source_test' "$manifest")
       - name: Install system dependencies (winit/vello GUI deps for prism-shell, webkit for prism-tauri)
         run: |
           sudo apt-get update
@@ -408,12 +453,138 @@ jobs:
       # Per-package `-p` flags avoid that full-graph walk.
       - name: Check formatting
         run: |
-          cd mycelix-workspace/mycelix-prism
+          cd mycelix-workspace
           cargo fmt --check \
-            -p prism-common -p prism-dom -p prism-net -p prism-proxy -p prism-serve \
+            -p prism-common -p prism-dom -p prism-net -p prism-egress -p prism-proxy -p prism-serve \
             -p prism-ingest -p prism-search -p prism-layout -p prism-reflex -p prism-privacy \
             -p prism-zkp -p prism-knowledge-bridge -p prism-bridge -p prism-shell -p prism-ui \
             -p prism-tauri -p prism-node
+      - name: Enforce Prism direct HTTP client inventory
+        run: |
+          cd mycelix-workspace
+          inventory=$(grep -R -nE 'reqwest::(blocking::)?(Client::builder|Client::new|get\()' mycelix-prism --include='*.rs' || true)
+          unexpected=$(printf '%s\n' "$inventory" | grep -Ev '^mycelix-prism/(prism-net/src/lib\.rs|prism-tauri/src/main\.rs):' || true)
+          if [ -n "$unexpected" ]; then
+            echo "Unclassified direct HTTP client detected:"
+            echo "$unexpected"
+            exit 1
+          fi
+          actual=$(printf '%s\n' "$inventory" | grep -c . || true)
+          if [ "$actual" -ne 2 ]; then
+            echo "Expected exactly two reviewed desktop-navigation clients, found $actual:"
+            echo "$inventory"
+            exit 1
+          fi
+          egress_client_builders=$(grep -Ec 'Client::builder\(' mycelix-prism/prism-egress/src/lib.rs || true)
+          if [ "$egress_client_builders" -ne 1 ]; then
+            echo "Expected exactly one transport client builder in prism-egress, found $egress_client_builders"
+            exit 1
+          fi
+      - name: Enforce hosted Prism egress invariants
+        run: |
+          cd mycelix-workspace
+          egress=mycelix-prism/prism-egress/src/lib.rs
+          require_source() {
+            if ! grep -Fq "$1" "$2"; then
+              echo "Missing required egress invariant '$1' in $2"
+              exit 1
+            fi
+          }
+          require_source '.redirect(reqwest::redirect::Policy::none())' "$egress"
+          require_source 'reqwest = { version = "=0.13.5"' mycelix-prism/prism-egress/Cargo.toml
+          require_source '.no_proxy()' "$egress"
+          # Reqwest 0.12.23+ retries protocol NACKs by default. The transport
+          # must leave all retry policy decisions to Prism's capability layer.
+          require_source '.retry(reqwest::retry::never())' "$egress"
+          require_source '.resolve_to_addrs(host, addresses)' "$egress"
+          require_source 'response.remote_addr()' "$egress"
+          require_source '.http2_max_header_list_size(64 * 1024)' "$egress"
+          require_source '.http1_max_headers(MAX_RESPONSE_HEADER_COUNT)' "$egress"
+          require_source 'http1_parser_rejects_response_header_count_over_transport_limit' "$egress"
+          require_source 'MAX_PUBLIC_WEB_REDIRECT_HOPS: usize = 5' "$egress"
+          require_source 'AmbiguousRedirectLocation' "$egress"
+          require_source 'duplicate_location_headers_are_rejected_before_a_second_hop' "$egress"
+          require_source 'self.authorize_with_authority(' "$egress"
+          require_source 'redirect_hops.push(RedirectHopReceipt' "$egress"
+          require_source 'EgressAuthority::WikipediaSummary' "$egress"
+          require_source 'EgressAuthority::WikidataSparql' "$egress"
+          require_source 'max_error_response_body_bytes' "$egress"
+          require_source 'response_body_limit_bytes' "$egress"
+          require_source 'authorize_pins_resolver_snapshot_through_socket_peer_receipt' "$egress"
+          require_source 'public_redirect_reauthorizes_and_pins_each_hop_dns_snapshot' "$egress"
+          require_source 'normalized.ends_with(".home.arpa")' "$egress"
+          require_source 'RESPONSE_MEMORY_BUDGET_BYTES: usize = 128 * 1024 * 1024' "$egress"
+          require_source 'bytes = "=1.12.1"' mycelix-prism/prism-egress/Cargo.toml
+          require_source 'response_memory_budget_available_bytes' "$egress"
+          require_source 'response_memory_budget_reserved_bytes' "$egress"
+          require_source 'acquire_many_owned(memory_permits)' "$egress"
+          require_source 'Vec::new()' "$egress"
+          require_source 'try_reserve_exact(response_body_limit_bytes)' "$egress"
+          require_source 'Bytes::from_owner(LeasedResponseBuffer' "$egress"
+          require_source 'EgressBody::new(collected, memory_permit)' "$egress"
+          require_source 'response_body_bytes_keep_the_memory_lease_until_all_clones_are_dropped' "$egress"
+          require_source 'response_memory_reservations_use_whole_64kib_units' "$egress"
+          require_source 'body: EgressBody' mycelix-prism/prism-proxy/src/main.rs
+          require_source 'body: EgressBody' mycelix-prism/prism-serve/src/main.rs
+          require_source 'response.body.into_bytes()' mycelix-prism/prism-proxy/src/main.rs
+          require_source 'response.body.into_bytes()' mycelix-prism/prism-serve/src/main.rs
+          require_source 'axum_unpolled_downstream_body_holds_memory_lease_until_cancelled' mycelix-prism/prism-serve/src/main.rs
+          require_source 'hickory-resolver = { version = "=0.26.3"' mycelix-prism/prism-egress/Cargo.toml
+          require_source 'struct WireDnsFixture' "$egress"
+          require_source 'ConnectionConfig::udp()' "$egress"
+          require_source 'ResolveHosts::Never' "$egress"
+          require_source 'hermetic_dns_wire_fixture_exercises_dual_stack_cname_and_mixed_answer_policy' "$egress"
+          require_source 'hermetic_dns_wire_fixture_drives_pinned_http_socket_and_peer_receipt' "$egress"
+          require_source 'wire_dns_rebinding_after_authorization_cannot_change_the_connected_peer' "$egress"
+          require_source 'WireDnsAnswer::Rebinding' "$egress"
+          require_source 'A fresh resolver per authorization prevents its internal cache' "$egress"
+          require_source 'try_tcp_on_error = true' "$egress"
+          require_source 'let mut tcp_connection = ConnectionConfig::tcp()' "$egress"
+          require_source 'tcp_query_count("tcp-fallback.test", query_type)' "$egress"
+          require_source 'hermetic_dns_truncation_retries_over_tcp_and_preserves_address_policy' "$egress"
+          require_source 'query_count("rebind.test", 1)' "$egress"
+          require_source 'query_count("rebind.test", 28)' "$egress"
+          require_source 'bytes = "=1.12.1"' mycelix-prism/prism-serve/Cargo.toml
+          require_source 'pinned_tls_uses_original_hostname_for_sni_and_certificate_verification' "$egress"
+          require_source 'tokio-rustls = { version = "=0.26.6"' mycelix-prism/prism-egress/Cargo.toml
+          require_source 'rcgen = "=0.14.10"' mycelix-prism/prism-egress/Cargo.toml
+          require_source 'MAX_RESPONSE_HEADER_COUNT: usize = 128' "$egress"
+          require_source 'gzip_decompression_is_subject_to_the_response_body_budget' "$egress"
+          for ingestion in \
+            mycelix-prism/prism-ingest/src/bin/build_corpus.rs \
+            mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs; do
+            if grep -Eq 'reqwest::blocking|Client::builder|Policy::limited|Policy::custom' "$ingestion"; then
+              echo "Fixed-source ingestion must use typed prism-egress authority: $ingestion"
+              exit 1
+            fi
+          done
+          require_source 'EgressAuthority::WikipediaSummary' mycelix-prism/prism-ingest/src/bin/build_corpus.rs
+          require_source 'EgressAuthority::WikidataSparql' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
+          require_source 'SOURCE_MANIFEST_VERSION' mycelix-prism/prism-ingest/src/bin/build_corpus.rs
+          require_source 'SOURCE_MANIFEST_VERSION' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
+          require_source 'SOURCE_MANIFEST_JSON' mycelix-prism/prism-ingest/src/bin/build_corpus.rs
+          require_source 'SOURCE_MANIFEST_JSON' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
+          require_source 'Sha256::digest' mycelix-prism/prism-ingest/src/bin/build_corpus.rs
+          require_source 'Sha256::digest' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
+          require_source 'output_sha256' mycelix-prism/prism-ingest/src/bin/build_corpus.rs
+          require_source 'output_sha256' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
+          require_source 'wikipedia-extracts.provenance.json' mycelix-prism/prism-ingest/src/bin/build_corpus.rs
+          require_source 'wikidata_claims.provenance.json' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
+          require_source 'query_sha256' mycelix-prism/prism-ingest/src/bin/fetch_wikidata.rs
+          for hosted in mycelix-prism/prism-proxy/src/main.rs mycelix-prism/prism-serve/src/main.rs; do
+            if grep -Eq 'reqwest::Client::builder|Policy::limited|Policy::custom' "$hosted"; then
+              echo "Hosted service must not create an independent or auto-redirecting Reqwest client: $hosted"
+              exit 1
+            fi
+            require_source 'EgressAuthority::BraveSearch' "$hosted"
+            require_source 'EgressAuthority::Perplexity' "$hosted"
+            require_source 'PublicEgressClient::default()' "$hosted"
+            require_source 'fn log_egress_receipt(' "$hosted"
+            require_source 'log_egress_receipt("proxy"' "$hosted"
+            require_source 'log_egress_receipt("DuckDuckGo"' "$hosted"
+            require_source 'log_egress_receipt("Brave"' "$hosted"
+            require_source 'log_egress_receipt("Perplexity"' "$hosted"
+          done
       - name: Build prism-ui for wasm32 (Trunk target)
         run: cd mycelix-workspace/mycelix-prism/prism-ui && cargo build --target wasm32-unknown-unknown
       # Each package is tested in its own `cargo test` invocation, not one
@@ -424,15 +595,19 @@ jobs:
       # version) even though each crate builds and tests cleanly alone.
       - name: Test Prism crates
         run: |
-          cd mycelix-workspace/mycelix-prism
-          for pkg in prism-common prism-dom prism-net prism-proxy prism-serve \
+          cd mycelix-workspace
+          for pkg in prism-common prism-dom prism-net prism-egress prism-proxy prism-serve \
                      prism-ingest prism-search prism-layout prism-reflex prism-privacy \
                      prism-zkp prism-knowledge-bridge prism-bridge prism-shell prism-ui; do
             echo "=== Testing $pkg ==="
             cargo test -p "$pkg"
           done
+      - name: Compile optional fixed-source ingestion binaries
+        run: cd mycelix-workspace && cargo check -p prism-ingest --features fetch --bins
+      - name: Test fixed-source manifest and query provenance
+        run: cd mycelix-workspace && cargo test -p prism-ingest --features fetch --bins
       - name: Check prism-tauri (desktop shell, compile-only)
-        run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-tauri
+        run: cd mycelix-workspace && cargo check -p prism-tauri
 
   # Summary gate
   ci-pass:

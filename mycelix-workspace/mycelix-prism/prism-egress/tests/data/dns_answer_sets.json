@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0.0",
+  "policy_snapshot": "prism-public-egress-v1",
+  "semantics": "The entire resolved address set is either accepted or rejected. A single prohibited answer rejects the entire set.",
+  "cases": [
+    {
+      "id": "dns-public-v4-only",
+      "addresses": [
+        "93.184.216.34:443"
+      ],
+      "expected_allowed": true
+    },
+    {
+      "id": "dns-public-v6-only",
+      "addresses": [
+        "[2606:4700:4700::1111]:443"
+      ],
+      "expected_allowed": true
+    },
+    {
+      "id": "dns-public-dual-stack",
+      "addresses": [
+        "93.184.216.34:443",
+        "[2606:4700:4700::1111]:443"
+      ],
+      "expected_allowed": true
+    },
+    {
+      "id": "dns-mixed-loopback",
+      "addresses": [
+        "93.184.216.34:443",
+        "127.0.0.1:443"
+      ],
+      "expected_allowed": false
+    },
+    {
+      "id": "dns-mixed-private-v6",
+      "addresses": [
+        "93.184.216.34:443",
+        "[fd00::1]:443"
+      ],
+      "expected_allowed": false
+    },
+    {
+      "id": "dns-metadata",
+      "addresses": [
+        "93.184.216.34:443",
+        "169.254.169.254:443"
+      ],
+      "expected_allowed": false
+    },
+    {
+      "id": "dns-mapped-v6",
+      "addresses": [
+        "[::ffff:8.8.8.8]:443"
+      ],
+      "expected_allowed": false
+    },
+    {
+      "id": "dns-empty",
+      "addresses": [],
+      "expected_allowed": false
+    }
+  ]
+}

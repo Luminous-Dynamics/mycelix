@@ -231,7 +231,10 @@ impl SporeBridgeConnection {
         Ok(self.codec.decode_renderer_message(&payload)?)
     }
 
-    pub async fn send_spore(&mut self, message: &SporeToRenderer) -> Result<(), BridgeRuntimeError> {
+    pub async fn send_spore(
+        &mut self,
+        message: &SporeToRenderer,
+    ) -> Result<(), BridgeRuntimeError> {
         let frame = self.codec.encode_spore_message(message)?;
         self.stream.write_all(&frame).await?;
         self.stream.flush().await?;
@@ -275,9 +278,7 @@ impl SporeProcessConfig {
             ));
         }
         let executable = executable.canonicalize().map_err(|error| {
-            BridgeRuntimeError::Configuration(format!(
-                "Spore executable is unavailable: {error}"
-            ))
+            BridgeRuntimeError::Configuration(format!("Spore executable is unavailable: {error}"))
         })?;
         if !executable.is_file() {
             return Err(BridgeRuntimeError::Configuration(
@@ -623,7 +624,10 @@ mod tests {
             codec: parent_codec,
         };
         parent.send(RendererToSpore::Ping(41)).await.unwrap();
-        assert!(matches!(parent.receive().await.unwrap(), SporeToRenderer::Pong(41)));
+        assert!(matches!(
+            parent.receive().await.unwrap(),
+            SporeToRenderer::Pong(41)
+        ));
         child.await.unwrap();
         let _ = std::fs::remove_dir_all(root);
     }

@@ -1,0 +1,30 @@
+[package]
+name = "prism-egress"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Context-constrained, DNS-pinned, resource-bounded HTTP egress for Prism"
+
+[dependencies]
+blake3 = { workspace = true }
+uuid = { workspace = true }
+# Isolated Reqwest 0.13.5 adds a parser-level HTTP/1 response header-count limit.
+# Keep this transport upgrade scoped to the native egress boundary; other Prism clients
+# remain on the workspace Reqwest version until separately compatibility-tested.
+reqwest = { version = "=0.13.5", features = ["gzip", "brotli", "http2"] }
+bytes = "=1.12.1"
+tokio = { workspace = true }
+url = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+# Exercise original-host SNI and certificate-name verification on local TLS sockets.
+rcgen = "=0.14.10"
+tokio-rustls = { version = "=0.26.6", default-features = false, features = ["aws_lc_rs", "tls12"] }
+# Real DNS wire-protocol fixture and resolver; production remains on the OS resolver.
+hickory-resolver = { version = "=0.26.3", default-features = false, features = ["tokio"] }
+# Test-only Hyper parser probe for a pre-parse HTTP/1 total-header-byte limit.
+hyper = { version = "=1.12.0", default-features = false, features = ["client", "http1"] }
+hyper-util = { version = "=0.1.21", default-features = false, features = ["tokio"] }
+http-body-util = "=0.1.5"

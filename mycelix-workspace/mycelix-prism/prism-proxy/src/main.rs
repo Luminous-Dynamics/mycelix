@@ -11,23 +11,131 @@
 //!
 //! WASM app requests: GET /proxy?url=https://example.com
 
-use axum::{Router, extract::Query, http::StatusCode, response::IntoResponse, routing::get};
+use axum::Router;
+use axum::extract::{DefaultBodyLimit, Query};
+use axum::http::{StatusCode, header::HeaderValue};
+use axum::response::IntoResponse;
+use axum::routing::get;
 use prism_common::ssrf::validate_proxy_url;
+use prism_egress::{EgressAuthority, EgressBody, EgressError, PublicEgressClient};
+use reqwest::{Method, header::HeaderMap};
 use tower_http::cors::{AllowOrigin, CorsLayer};
+use url::Url;
 
-const MAX_RESPONSE_SIZE: usize = 10 * 1024 * 1024; // 10MB
+const MAX_REQUEST_BODY_SIZE: usize = 2 * 1024 * 1024; // 2 MiB
 
-// SSRF validation (`validate_proxy_url` / `is_private_ipv4`) lives in
-// `prism_common::ssrf` so `prism-proxy` and `prism-serve` share a single
-// implementation — see that module for rationale and tests.
+async fn egress_request(
+    method: Method,
+    url: &str,
+    headers: HeaderMap,
+    body: Vec<u8>,
+) -> Result<prism_egress::EgressResponse, EgressError> {
+    PublicEgressClient::default()
+        .request(method, url, headers, body)
+        .await
+}
 
-fn build_client(user_agent: &str, timeout_secs: u64) -> reqwest::Client {
-    reqwest::Client::builder()
-        .user_agent(user_agent)
-        .redirect(reqwest::redirect::Policy::limited(5))
-        .timeout(std::time::Duration::from_secs(timeout_secs))
-        .build()
-        .expect("HTTP client TLS init failed")
+async fn egress_provider_request(
+    authority: EgressAuthority,
+    method: Method,
+    url: &str,
+    headers: HeaderMap,
+    body: Vec<u8>,
+) -> Result<prism_egress::EgressResponse, EgressError> {
+    PublicEgressClient::default()
+        .request_with_authority(authority, method, url, headers, body)
+        .await
+}
+
+fn log_egress_receipt(context: &str, receipt: &prism_egress::EgressReceipt) {
+    // Receipts are deliberately metadata-only: no URL path/query, headers,
+    // credentials, request body, or response body enters the audit record.
+    log::info!(
+        "Prism egress receipt context={} authority={} origin={} method={} peer={} authorized={:?} status={} request_bytes={} response_bytes={} response_limit={} redirects={} elapsed_ms={} policy={}",
+        context,
+        receipt.authority,
+        receipt.origin,
+        receipt.method,
+        receipt.remote_peer,
+        receipt.authorized_addresses,
+        receipt.status,
+        receipt.request_body_bytes,
+        receipt.response_body_bytes,
+        receipt.response_body_limit_bytes,
+        receipt.redirect_hops.len(),
+        receipt.elapsed.as_millis(),
+        receipt.policy_version,
+    );
+    for (index, hop) in receipt.redirect_hops.iter().enumerate() {
+        log::info!(
+            "Prism egress redirect context={} hop={} from={} to={} status={} peer={} target_addresses={:?}",
+            context,
+            index + 1,
+            hop.from_origin,
+            hop.to_origin,
+            hop.status,
+            hop.remote_peer,
+            hop.target_addresses,
+        );
+    }
+}
+
+fn upstream_error(context: &str, error: EgressError) -> axum::response::Response<axum::body::Body> {
+    let (status, message) = match error {
+        EgressError::InvalidUrl(_) => (StatusCode::BAD_REQUEST, "Invalid request URL"),
+        EgressError::UrlTooLarge => (StatusCode::URI_TOO_LONG, "Request URL too large"),
+        EgressError::RequestBodyTooLarge => {
+            (StatusCode::PAYLOAD_TOO_LARGE, "Request body too large")
+        }
+        EgressError::RequestHeadersTooLarge | EgressError::ForbiddenHeader(_) => {
+            (StatusCode::BAD_REQUEST, "Request headers not permitted")
+        }
+        EgressError::ResponseBodyTooLarge | EgressError::ResponseHeadersTooLarge => (
+            StatusCode::BAD_GATEWAY,
+            "Upstream response exceeded its resource budget",
+        ),
+        EgressError::DnsResolution { .. }
+        | EgressError::DnsResolutionTimeout
+        | EgressError::DnsCapacityUnavailable
+        | EgressError::DnsAnswerSetTooLarge
+        | EgressError::EmptyAddressSet(_)
+        | EgressError::RemotePeerUnavailable
+        | EgressError::RemotePeerNotAuthorized(_)
+        | EgressError::RedirectLimitExceeded
+        | EgressError::InvalidRedirectLocation
+        | EgressError::RedirectLoop
+        | EgressError::Http(_) => (StatusCode::BAD_GATEWAY, "Upstream request failed"),
+        EgressError::CapabilityExpired
+        | EgressError::ConcurrencyQueueTimeout
+        | EgressError::ConcurrencyUnavailable
+        | EgressError::ResponseMemoryBudgetTimeout
+        | EgressError::ResponseMemoryBudgetUnavailable => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Egress capacity is unavailable",
+        ),
+        EgressError::ExecutionTimeout => (
+            StatusCode::GATEWAY_TIMEOUT,
+            "Egress execution deadline exceeded",
+        ),
+        EgressError::UnsupportedScheme
+        | EgressError::CredentialsNotPermitted
+        | EgressError::BlockedHost
+        | EgressError::PortNotPermitted
+        | EgressError::MissingHost
+        | EgressError::AddressNotPermitted(_)
+        | EgressError::MethodNotPermitted
+        | EgressError::RequestRequiresTls
+        | EgressError::RedirectSchemeDowngrade
+        | EgressError::AuthorityScopeViolation
+        | EgressError::AuthorityHeaderViolation(_)
+        | EgressError::ProviderCredentialMissing => (
+            StatusCode::FORBIDDEN,
+            "Destination or request not permitted",
+        ),
+    };
+    // Do not log URLs, query strings, header values, or transport error details.
+    log::warn!("Prism egress {context} returned status {}", status.as_u16());
+    (status, message).into_response()
 }
 
 fn internal_error_response() -> axum::response::Response<axum::body::Body> {
@@ -36,10 +144,7 @@ fn internal_error_response() -> axum::response::Response<axum::body::Body> {
     resp
 }
 
-fn json_response(
-    status: u16,
-    body: axum::body::Bytes,
-) -> axum::response::Response<axum::body::Body> {
+fn json_response(status: u16, body: EgressBody) -> axum::response::Response<axum::body::Body> {
     axum::response::Response::builder()
         .status(status)
         .header("content-type", "application/json")
@@ -54,52 +159,37 @@ struct ProxyParams {
 
 async fn proxy_handler(Query(params): Query<ProxyParams>) -> impl IntoResponse {
     let validated = match validate_proxy_url(&params.url) {
-        Ok(u) => u,
+        Ok(url) => url,
         Err(reason) => {
-            log::warn!("Blocked proxy request to {}: {}", params.url, reason);
+            log::warn!("Blocked Prism proxy URL: {reason}");
             return (StatusCode::FORBIDDEN, reason.to_string()).into_response();
         }
     };
 
-    log::info!("Proxying: {}", validated);
-
-    let client = build_client("Prism/0.1 (proxy; +https://luminousdynamics.org)", 15);
-
-    match client.get(validated.as_str()).send().await {
-        Ok(resp) => {
-            let status = resp.status().as_u16();
-            let content_type = resp
-                .headers()
-                .get("content-type")
-                .and_then(|v| v.to_str().ok())
-                .unwrap_or("text/html")
-                .to_string();
-
-            match resp.bytes().await {
-                Ok(body) => {
-                    if body.len() > MAX_RESPONSE_SIZE {
-                        return (
-                            StatusCode::PAYLOAD_TOO_LARGE,
-                            "Response too large".to_string(),
-                        )
-                            .into_response();
-                    }
-                    axum::response::Response::builder()
-                        .status(status)
-                        .header("content-type", content_type)
-                        .header("x-prism-proxied", "true")
-                        .body(axum::body::Body::from(body))
-                        .unwrap_or_else(|_| internal_error_response())
-                        .into_response()
-                }
-                Err(e) => (
-                    StatusCode::BAD_GATEWAY,
-                    format!("Failed to read response body: {}", e),
-                )
-                    .into_response(),
-            }
+    match egress_request(
+        Method::GET,
+        validated.as_str(),
+        HeaderMap::new(),
+        Vec::new(),
+    )
+    .await
+    {
+        Ok(response) => {
+            log_egress_receipt("proxy", &response.receipt);
+            let content_type = response
+                .headers
+                .get(reqwest::header::CONTENT_TYPE)
+                .cloned()
+                .unwrap_or_else(|| HeaderValue::from_static("text/html"));
+            axum::response::Response::builder()
+                .status(response.status.as_u16())
+                .header(axum::http::header::CONTENT_TYPE, content_type)
+                .header("x-prism-proxied", "true")
+                .body(axum::body::Body::from(response.body.into_bytes()))
+                .unwrap_or_else(|_| internal_error_response())
+                .into_response()
         }
-        Err(e) => (StatusCode::BAD_GATEWAY, format!("Fetch failed: {}", e)).into_response(),
+        Err(error) => upstream_error("proxy", error).into_response(),
     }
 }
 
@@ -110,20 +200,19 @@ struct DdgParams {
 }
 
 async fn ddg_handler(Query(params): Query<DdgParams>) -> impl IntoResponse {
-    let url = format!(
-        "https://api.duckduckgo.com/?q={}&format=json&no_html=1&skip_disambig=1",
-        params.q.replace(' ', "+")
-    );
-    log::info!("DDG proxy: {}", params.q);
+    let mut url = Url::parse("https://api.duckduckgo.com/").expect("static DDG URL is valid");
+    url.query_pairs_mut()
+        .append_pair("q", &params.q)
+        .append_pair("format", "json")
+        .append_pair("no_html", "1")
+        .append_pair("skip_disambig", "1");
 
-    let client = build_client("Prism/0.2 (ddg-proxy)", 10);
-
-    match client.get(&url).send().await {
-        Ok(resp) => {
-            let body = resp.bytes().await.unwrap_or_default();
-            json_response(200, body).into_response()
+    match egress_request(Method::GET, url.as_str(), HeaderMap::new(), Vec::new()).await {
+        Ok(response) => {
+            log_egress_receipt("DuckDuckGo", &response.receipt);
+            json_response(response.status.as_u16(), response.body).into_response()
         }
-        Err(e) => (StatusCode::BAD_GATEWAY, format!("DDG fetch failed: {}", e)).into_response(),
+        Err(error) => upstream_error("DuckDuckGo", error).into_response(),
     }
 }
 
@@ -146,31 +235,35 @@ async fn brave_handler(
         return (StatusCode::UNAUTHORIZED, "Missing X-Brave-Key header").into_response();
     }
 
-    let url = format!(
-        "https://api.search.brave.com/res/v1/web/search?q={}",
-        params.q.replace(' ', "+")
+    let mut url = Url::parse("https://api.search.brave.com/res/v1/web/search")
+        .expect("static Brave URL is valid");
+    url.query_pairs_mut().append_pair("q", &params.q);
+
+    let token = match HeaderValue::from_str(api_key) {
+        Ok(value) => value,
+        Err(_) => return (StatusCode::BAD_REQUEST, "Invalid Brave API key header").into_response(),
+    };
+    let mut outbound_headers = HeaderMap::new();
+    outbound_headers.insert("X-Subscription-Token", token);
+    outbound_headers.insert(
+        reqwest::header::ACCEPT,
+        HeaderValue::from_static("application/json"),
     );
-    log::info!("Brave proxy: {}", params.q);
 
-    let client = build_client("Prism/0.2 (brave-proxy)", 15);
-
-    match client
-        .get(&url)
-        .header("X-Subscription-Token", api_key)
-        .header("Accept", "application/json")
-        .send()
-        .await
+    match egress_provider_request(
+        EgressAuthority::BraveSearch,
+        Method::GET,
+        url.as_str(),
+        outbound_headers,
+        Vec::new(),
+    )
+    .await
     {
-        Ok(resp) => {
-            let status = resp.status().as_u16();
-            let body = resp.bytes().await.unwrap_or_default();
-            json_response(status, body).into_response()
+        Ok(response) => {
+            log_egress_receipt("Brave", &response.receipt);
+            json_response(response.status.as_u16(), response.body).into_response()
         }
-        Err(e) => (
-            StatusCode::BAD_GATEWAY,
-            format!("Brave fetch failed: {}", e),
-        )
-            .into_response(),
+        Err(error) => upstream_error("Brave", error).into_response(),
     }
 }
 
@@ -188,28 +281,33 @@ async fn perplexity_handler(
         return (StatusCode::UNAUTHORIZED, "Missing X-Perplexity-Key header").into_response();
     }
 
-    log::info!("Perplexity proxy request");
-
-    let client = build_client("Prism/0.2 (perplexity-proxy)", 30);
-
-    match client
-        .post("https://api.perplexity.ai/chat/completions")
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Content-Type", "application/json")
-        .body(body.to_vec())
-        .send()
-        .await
-    {
-        Ok(resp) => {
-            let status = resp.status().as_u16();
-            let body = resp.bytes().await.unwrap_or_default();
-            json_response(status, body).into_response()
+    let authorization = match HeaderValue::from_str(&format!("Bearer {api_key}")) {
+        Ok(value) => value,
+        Err(_) => {
+            return (StatusCode::BAD_REQUEST, "Invalid Perplexity API key header").into_response();
         }
-        Err(e) => (
-            StatusCode::BAD_GATEWAY,
-            format!("Perplexity fetch failed: {}", e),
-        )
-            .into_response(),
+    };
+    let mut outbound_headers = HeaderMap::new();
+    outbound_headers.insert(reqwest::header::AUTHORIZATION, authorization);
+    outbound_headers.insert(
+        reqwest::header::CONTENT_TYPE,
+        HeaderValue::from_static("application/json"),
+    );
+
+    match egress_provider_request(
+        EgressAuthority::Perplexity,
+        Method::POST,
+        "https://api.perplexity.ai/chat/completions",
+        outbound_headers,
+        body.to_vec(),
+    )
+    .await
+    {
+        Ok(response) => {
+            log_egress_receipt("Perplexity", &response.receipt);
+            json_response(response.status.as_u16(), response.body).into_response()
+        }
+        Err(error) => upstream_error("Perplexity", error).into_response(),
     }
 }
 
@@ -248,6 +346,7 @@ async fn main() {
         .route("/api/perplexity", axum::routing::post(perplexity_handler))
         .route("/health", get(health))
         .layer(cors)
+        .layer(DefaultBodyLimit::max(MAX_REQUEST_BODY_SIZE))
         .layer(tower::limit::ConcurrencyLimitLayer::new(50));
 
     let addr = "127.0.0.1:8131";

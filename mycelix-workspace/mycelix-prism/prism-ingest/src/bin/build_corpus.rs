@@ -9,7 +9,19 @@
 //!
 //! Output: claims/wikipedia-extracts.json
 
+use prism_egress::{EgressAuthority, EgressLimits, HeaderMap, Method, PublicEgressClient};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::time::Duration;
+use url::Url;
+
+const MAX_WIKIPEDIA_RESPONSE_BYTES: u64 = 2 * 1024 * 1024;
+const SOURCE_MANIFEST_ID: &str = "luminous.prism.ingest.sources";
+const SOURCE_MANIFEST_VERSION: &str = "2026-11-17.1";
+const SOURCE_MANIFEST_JSON: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/sources/manifest.json"
+));
 
 #[derive(Deserialize)]
 struct WikiSummary {
@@ -381,16 +393,92 @@ fn extract_sentences(text: &str) -> Vec<String> {
     sentences
 }
 
+#[derive(Serialize)]
+struct WikipediaFetchEvidence {
+    title: String,
+    origin: String,
+    authority: String,
+    remote_peer: String,
+    authorized_addresses: Vec<String>,
+    status: u16,
+    response_body_bytes: usize,
+    response_body_limit_bytes: usize,
+    response_body_sha256: String,
+    elapsed_ms: u64,
+    policy_version: String,
+}
+
+#[derive(Serialize)]
+struct WikipediaRunProvenance {
+    schema_version: &'static str,
+    manifest_id: &'static str,
+    manifest_version: &'static str,
+    manifest_sha256: String,
+    source_id: &'static str,
+    authority: &'static str,
+    egress_policy: &'static str,
+    endpoint_template: &'static str,
+    success_body_limit_bytes: u64,
+    error_body_limit_bytes: u64,
+    articles_fetched: usize,
+    article_titles: Vec<String>,
+    fetch_evidence: Vec<WikipediaFetchEvidence>,
+    failed_article_titles: Vec<String>,
+    claims_generated: usize,
+    output_path: &'static str,
+    output_sha256: String,
+}
+
+#[cfg(test)]
+mod source_manifest_tests {
+    use super::*;
+
+    #[test]
+    fn wikipedia_manifest_matches_the_compiled_ingestion_policy() {
+        let manifest: serde_json::Value =
+            serde_json::from_str(SOURCE_MANIFEST_JSON).expect("source manifest JSON");
+        assert_eq!(manifest["manifest_id"].as_str(), Some(SOURCE_MANIFEST_ID));
+        assert_eq!(
+            manifest["manifest_version"].as_str(),
+            Some(SOURCE_MANIFEST_VERSION)
+        );
+        let source = manifest["sources"]
+            .as_array()
+            .expect("source entries")
+            .iter()
+            .find(|entry| entry["source_id"] == "wikipedia-en-page-summary")
+            .expect("Wikipedia source entry");
+        assert_eq!(source["authority"].as_str(), Some("WikipediaSummary"));
+        assert_eq!(
+            source["endpoint"].as_str(),
+            Some("https://en.wikipedia.org/api/rest_v1/page/summary/{title-segment}")
+        );
+        assert_eq!(
+            source["success_body_limit_bytes"].as_u64(),
+            Some(MAX_WIKIPEDIA_RESPONSE_BYTES)
+        );
+        assert_eq!(source["error_body_limit_bytes"].as_u64(), Some(64 * 1024));
+        assert_eq!(source["redirects"].as_str(), Some("deny"));
+        assert_eq!(source["method"].as_str(), Some("GET"));
+    }
+}
+
 fn main() {
-    let client = reqwest::blocking::Client::builder()
-        .user_agent("PrismCorpusBuilder/1.0 (https://mycelix.net; epistemic search)")
-        .timeout(std::time::Duration::from_secs(10))
+    let mut limits = EgressLimits::default();
+    limits.max_response_body_bytes = MAX_WIKIPEDIA_RESPONSE_BYTES as usize;
+    limits.request_timeout = Duration::from_secs(10);
+    let client = PublicEgressClient::new(limits);
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
         .build()
-        .expect("HTTP client");
+        .expect("Tokio runtime");
 
     let mut all_claims: Vec<JsonClaim> = Vec::new();
     let mut seen = std::collections::HashSet::new();
     let mut fetched = 0;
+    let mut fetched_titles = Vec::new();
+    let mut fetch_evidence = Vec::new();
+    let mut failed_article_titles = Vec::new();
     let total_articles: usize = TOPICS.iter().map(|(_, articles, _)| articles.len()).sum();
 
     println!(
@@ -401,18 +489,59 @@ fn main() {
 
     for (domain, articles, level) in TOPICS {
         for title in *articles {
-            let url = format!(
-                "https://en.wikipedia.org/api/rest_v1/page/summary/{}",
-                title
-            );
+            let mut url = Url::parse("https://en.wikipedia.org/api/rest_v1/page/summary/").unwrap();
+            url.path_segments_mut()
+                .expect("Wikipedia summary URL is hierarchical")
+                .push(title);
 
-            match client.get(&url).send() {
-                Ok(resp) => {
-                    if !resp.status().is_success() {
-                        eprintln!("  SKIP {}: HTTP {}", title, resp.status());
+            match runtime.block_on(client.request_with_authority(
+                EgressAuthority::WikipediaSummary,
+                Method::GET,
+                url.as_str(),
+                HeaderMap::new(),
+                Vec::new(),
+            )) {
+                Ok(response) => {
+                    let response_body_sha256 =
+                        hex::encode(Sha256::digest(response.body.as_slice()));
+                    let receipt = response.receipt;
+                    fetch_evidence.push(WikipediaFetchEvidence {
+                        title: title.to_string(),
+                        origin: receipt.origin.clone(),
+                        authority: receipt.authority.to_owned(),
+                        remote_peer: receipt.remote_peer.to_string(),
+                        authorized_addresses: receipt
+                            .authorized_addresses
+                            .iter()
+                            .map(ToString::to_string)
+                            .collect(),
+                        status: receipt.status,
+                        response_body_bytes: receipt.response_body_bytes,
+                        response_body_limit_bytes: receipt.response_body_limit_bytes,
+                        response_body_sha256,
+                        elapsed_ms: receipt.elapsed.as_millis() as u64,
+                        policy_version: receipt.policy_version.to_owned(),
+                    });
+                    eprintln!(
+                        concat!(
+                            "  EGRESS authority={} origin={} peer={} status={} ",
+                            "bytes={}/{} elapsed_ms={}"
+                        ),
+                        receipt.authority,
+                        receipt.origin,
+                        receipt.remote_peer,
+                        receipt.status,
+                        receipt.response_body_bytes,
+                        receipt.response_body_limit_bytes,
+                        receipt.elapsed.as_millis(),
+                    );
+                    if !response.status.is_success() {
+                        eprintln!("  SKIP {}: HTTP {}", title, response.status);
+                        failed_article_titles.push(title.to_string());
                         continue;
                     }
-                    match resp.json::<WikiSummary>() {
+
+                    match serde_json::from_slice::<WikiSummary>(&response.body) {
                         Ok(summary) => {
                             let extract = summary.extract.unwrap_or_default();
                             let article_title =
@@ -432,6 +561,7 @@ fn main() {
                                 }
                             }
                             fetched += 1;
+                            fetched_titles.push(title.to_string());
                             if fetched % 20 == 0 {
                                 println!(
                                     "  {} / {} articles fetched ({} claims)",
@@ -441,10 +571,16 @@ fn main() {
                                 );
                             }
                         }
-                        Err(e) => eprintln!("  SKIP {}: parse error: {}", title, e),
+                        Err(error) => {
+                            eprintln!("  SKIP {}: parse error: {}", title, error);
+                            failed_article_titles.push(title.to_string());
+                        }
                     }
                 }
-                Err(e) => eprintln!("  SKIP {}: fetch error: {}", title, e),
+                Err(error) => {
+                    eprintln!("  SKIP {}: egress request failed: {}", title, error);
+                    failed_article_titles.push(title.to_string());
+                }
             }
 
             // Rate limit: 100ms between requests (Wikipedia API courtesy)
@@ -461,5 +597,32 @@ fn main() {
     let output_path = "prism-ingest/claims/wikipedia-extracts.json";
     let json = serde_json::to_string_pretty(&all_claims).expect("JSON serialization");
     std::fs::write(output_path, &json).expect("Failed to write output");
-    println!("Written to {}", output_path);
+
+    let provenance = WikipediaRunProvenance {
+        schema_version: "1.0.0",
+        manifest_id: SOURCE_MANIFEST_ID,
+        manifest_version: SOURCE_MANIFEST_VERSION,
+        manifest_sha256: hex::encode(Sha256::digest(SOURCE_MANIFEST_JSON.as_bytes())),
+        source_id: "wikipedia-en-page-summary",
+        authority: "WikipediaSummary",
+        egress_policy: "prism-public-egress-v1",
+        endpoint_template: "https://en.wikipedia.org/api/rest_v1/page/summary/{title-segment}",
+        success_body_limit_bytes: MAX_WIKIPEDIA_RESPONSE_BYTES,
+        error_body_limit_bytes: 64 * 1024,
+        articles_fetched: fetched,
+        article_titles: fetched_titles,
+        fetch_evidence,
+        failed_article_titles,
+        claims_generated: all_claims.len(),
+        output_path,
+        output_sha256: hex::encode(Sha256::digest(json.as_bytes())),
+    };
+    let provenance_json =
+        serde_json::to_string_pretty(&provenance).expect("provenance serialization");
+    let provenance_path = "prism-ingest/claims/wikipedia-extracts.provenance.json";
+    std::fs::write(provenance_path, provenance_json).expect("Failed to write provenance");
+    println!(
+        "Written to {} with provenance {}",
+        output_path, provenance_path
+    );
 }
