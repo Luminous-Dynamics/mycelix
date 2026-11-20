@@ -18,7 +18,8 @@
     "trust_policy_digest_sha256",
     "entry_count",
     "entries",
-    "ledger_digest_sha256"
+    "ledger_digest_sha256",
+    "operation_contract_registry_digest_sha256"
   ],
   "properties": {
     "schema_version": {
@@ -128,7 +129,12 @@
           "request_digest_sha256",
           "idempotency_key_digest_sha256",
           "effect_state",
-          "attestations"
+          "attestations",
+          "operation_contract_id",
+          "operation_contract_version",
+          "operation_contract_digest_sha256",
+          "attempt_state",
+          "outcome_class"
         ],
         "properties": {
           "sequence": {
@@ -229,11 +235,47 @@
                 "type": "null"
               }
             ]
+          },
+          "operation_contract_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_contract_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_contract_digest_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "attempt_state": {
+            "enum": [
+              "not-dispatched",
+              "dispatched",
+              "accepted-at-local-boundary",
+              "timed-out",
+              "reconciled",
+              "unsupported"
+            ]
+          },
+          "outcome_class": {
+            "enum": [
+              "QualifiedSuccess",
+              "CorrectDenial",
+              "UnexpectedDenial",
+              "Failed",
+              "Unknown",
+              "DuplicateEffect"
+            ]
           }
         }
       }
     },
     "ledger_digest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "operation_contract_registry_digest_sha256": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
     }
