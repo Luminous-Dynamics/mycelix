@@ -140,51 +140,6 @@
           "step_document": {
             "$ref": "#/$defs/contentArtifact"
           },
-          "objects": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "object_id",
-                "kind",
-                "characteristic_id",
-                "step_uuid",
-                "step_entity_kind"
-              ],
-              "properties": {
-                "object_id": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 4294967295
-                },
-                "kind": {
-                  "enum": [
-                    "characteristic_item",
-                    "feature_item",
-                    "datum_definition",
-                    "other"
-                  ]
-                },
-                "characteristic_id": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "step_uuid": {
-                  "$ref": "#/$defs/uuid"
-                },
-                "step_entity_kind": {
-                  "enum": [
-                    "characteristic",
-                    "geometric_feature",
-                    "datum",
-                    "product_definition",
-                    "other"
-                  ]
-                }
-              }
-            }
-          },
           "digital_model_entities": {
             "type": "array",
             "items": {
