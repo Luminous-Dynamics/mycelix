@@ -587,6 +587,7 @@ fn scan_document(
                 position: reader.error_position(),
                 reason: error.to_string(),
             })?;
+        let is_empty_element = matches!(&event, Event::Empty(_));
         match event {
             Event::Start(start) | Event::Empty(start) => {
                 element_count += 1;
@@ -650,7 +651,7 @@ fn scan_document(
                 if max_depth > profile.limits.max_depth {
                     return Err(InventoryError::DepthLimitExceeded);
                 }
-                if matches!(event, Event::Empty(_)) {
+                if is_empty_element {
                     finalize_frame(frame, profile, qpid, &mut locator_rows, &mut declared_external_ids)?;
                 } else {
                     stack.push(frame);
