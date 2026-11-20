@@ -41,10 +41,26 @@ impl RecordKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RemoteResolution {
+    Applied,
+    DefinitelyNotApplied,
+}
+
+impl RemoteResolution {
+    fn code(self) -> u64 {
+        match self {
+            Self::Applied => 1,
+            Self::DefinitelyNotApplied => 2,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct JournalRecord {
     sequence: u64,
     scope: AttemptScope,
     kind: RecordKind,
+    remote_resolution: Option<RemoteResolution>,
     previous_digest: u64,
     record_digest: u64,
 }
@@ -61,6 +77,10 @@ enum JournalError {
     DispatchAlreadyConsumed,
     WrongAttempt,
     UnflushedTail,
+    AttemptIdReused,
+    LogicalOperationUnresolved,
+    LogicalOperationMismatch,
+    SupersededAttempt,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -94,7 +114,26 @@ impl Journal {
         scope: AttemptScope,
         kind: RecordKind,
     ) -> Result<u64, JournalError> {
+        self.append_with_resolution(scope, kind, None)
+    }
+
+    fn append_with_resolution(
+        &mut self,
+        scope: AttemptScope,
+        kind: RecordKind,
+        remote_resolution: Option<RemoteResolution>,
+    ) -> Result<u64, JournalError> {
         self.verify_all()?;
+        if (kind == RecordKind::RemoteReconciled) != remote_resolution.is_some() {
+            return Err(JournalError::InvalidTransition);
+        }
+
+        if kind == RecordKind::Intent {
+            validate_new_attempt(&self.records, scope)?;
+        } else {
+            validate_current_attempt(&self.records, scope)?;
+        }
+
         let previous = self
             .records
             .iter()
@@ -122,6 +161,7 @@ impl Journal {
             sequence,
             scope,
             kind,
+            remote_resolution,
             previous_digest,
             record_digest: 0,
         };
@@ -129,7 +169,6 @@ impl Journal {
         self.records.push(record);
         Ok(sequence)
     }
-
     fn flush(&mut self) -> Result<(), JournalError> {
         self.verify_all()?;
         self.durable_len = self.records.len();
@@ -160,7 +199,19 @@ impl Journal {
                 return Err(JournalError::RecordDigestMismatch);
             }
 
-            let prior = self.records[..index]
+            if (record.kind == RecordKind::RemoteReconciled)
+                != record.remote_resolution.is_some()
+            {
+                return Err(JournalError::InvalidTransition);
+            }
+            let history = &self.records[..index];
+            if record.kind == RecordKind::Intent {
+                validate_new_attempt(history, record.scope)?;
+            } else {
+                validate_current_attempt(history, record.scope)?;
+            }
+
+            let prior = history
                 .iter()
                 .rev()
                 .find(|prior| prior.scope.attempt_id == record.scope.attempt_id);
@@ -257,8 +308,13 @@ impl Journal {
     fn record_remote_reconciled(
         &mut self,
         scope: AttemptScope,
+        resolution: RemoteResolution,
     ) -> Result<(), JournalError> {
-        self.append(scope, RecordKind::RemoteReconciled)?;
+        self.append_with_resolution(
+            scope,
+            RecordKind::RemoteReconciled,
+            Some(resolution),
+        )?;
         self.flush()
     }
 }
@@ -329,6 +385,57 @@ fn valid_transition(previous: RecordKind, next: RecordKind) -> bool {
     )
 }
 
+
+fn same_logical_request(left: AttemptScope, right: AttemptScope) -> bool {
+    left.logical_operation_id == right.logical_operation_id
+        && left.workload_id == right.workload_id
+        && left.principal_digest == right.principal_digest
+        && left.origin_digest == right.origin_digest
+        && left.request_digest == right.request_digest
+        && left.idempotency_key_digest == right.idempotency_key_digest
+}
+
+fn validate_new_attempt(
+    history: &[JournalRecord],
+    scope: AttemptScope,
+) -> Result<(), JournalError> {
+    if history.iter().any(|record| record.scope.attempt_id == scope.attempt_id) {
+        return Err(JournalError::AttemptIdReused);
+    }
+    let previous = history.iter().rev().find(|record| {
+        record.scope.logical_operation_id == scope.logical_operation_id
+    });
+    let Some(previous) = previous else {
+        return Ok(());
+    };
+
+    if !same_logical_request(previous.scope, scope) {
+        return Err(JournalError::LogicalOperationMismatch);
+    }
+    match (previous.kind, previous.remote_resolution) {
+        (RecordKind::Intent | RecordKind::Authorized, None) => Ok(()),
+        (
+            RecordKind::RemoteReconciled,
+            Some(RemoteResolution::DefinitelyNotApplied),
+        ) => Ok(()),
+        _ => Err(JournalError::LogicalOperationUnresolved),
+    }
+}
+
+fn validate_current_attempt(
+    history: &[JournalRecord],
+    scope: AttemptScope,
+) -> Result<(), JournalError> {
+    let latest = history.iter().rev().find(|record| {
+        record.scope.logical_operation_id == scope.logical_operation_id
+    });
+    match latest {
+        Some(record) if record.scope.attempt_id == scope.attempt_id => Ok(()),
+        Some(_) => Err(JournalError::SupersededAttempt),
+        None => Err(JournalError::WrongAttempt),
+    }
+}
+
 /// A tiny deterministic checksum for model tests only. Never reuse this as a
 /// production integrity primitive.
 fn digest_record(record: JournalRecord) -> u64 {
@@ -345,6 +452,7 @@ fn digest_record(record: JournalRecord) -> u64 {
         scope.network_generation,
         scope.idempotency_key_digest.unwrap_or(0),
         record.kind.code(),
+        record.remote_resolution.map(RemoteResolution::code).unwrap_or(0),
         record.previous_digest,
     ];
     let mut digest = 0x6a09_e667_f3bc_c909_u64;
@@ -619,7 +727,7 @@ fn request_write_observation_follows_one_use_transport_permit() {
 #[test]
 fn server_reconciliation_can_resolve_dispatch_before_write_observation() {
     let (mut journal, _token) = dispatched_journal();
-    journal.record_remote_reconciled(scope()).unwrap();
+    journal.record_remote_reconciled(scope(), RemoteResolution::Applied).unwrap();
     assert_eq!(
         journal.durable_state(scope().attempt_id).unwrap(),
         RecoveryState::Reconciled
@@ -633,7 +741,7 @@ fn response_and_remote_reconciliation_have_ordered_journal_records() {
     let permit = gate.begin_request_write(&journal, token, scope()).unwrap();
     journal.record_request_write_started(permit).unwrap();
     journal.record_response(scope()).unwrap();
-    journal.record_remote_reconciled(scope()).unwrap();
+    journal.record_remote_reconciled(scope(), RemoteResolution::Applied).unwrap();
     assert_eq!(
         journal.durable_state(scope().attempt_id).unwrap(),
         RecoveryState::Reconciled
@@ -671,5 +779,96 @@ fn a_volatile_suffix_is_not_included_in_recovered_history() {
     assert_eq!(
         recovered.durable_state(scope().attempt_id).unwrap(),
         RecoveryState::Authorized
+    );
+}
+
+
+#[test]
+fn unresolved_dispatch_blocks_a_new_attempt_for_the_same_logical_operation() {
+    let (mut journal, _token) = dispatched_journal();
+    let mut retry = scope();
+    retry.attempt_id = 42;
+    assert_eq!(
+        journal.append(retry, RecordKind::Intent).err(),
+        Some(JournalError::LogicalOperationUnresolved)
+    );
+}
+
+#[test]
+fn authoritative_not_applied_reconciliation_allows_fresh_attempt_identity() {
+    let (mut journal, _token) = dispatched_journal();
+    journal.record_remote_reconciled(scope(), RemoteResolution::DefinitelyNotApplied).unwrap();
+    let mut retry = scope();
+    retry.attempt_id = 42;
+    retry.policy_generation += 1;
+    retry.network_generation += 1;
+    journal.append(retry, RecordKind::Intent).unwrap();
+    journal.flush().unwrap();
+    journal.append(retry, RecordKind::Authorized).unwrap();
+    journal.flush().unwrap();
+    assert_eq!(
+        journal.durable_state(42).unwrap(),
+        RecoveryState::Authorized
+    );
+}
+
+#[test]
+fn applied_operation_cannot_be_reissued_as_a_new_attempt() {
+    let (mut journal, _token) = dispatched_journal();
+    journal.record_remote_reconciled(scope(), RemoteResolution::Applied).unwrap();
+    let mut retry = scope();
+    retry.attempt_id = 42;
+    assert_eq!(
+        journal.append(retry, RecordKind::Intent).err(),
+        Some(JournalError::LogicalOperationUnresolved)
+    );
+}
+
+#[test]
+fn definitely_not_applied_does_not_authorize_changed_request_bytes() {
+    let (mut journal, _token) = dispatched_journal();
+    journal.record_remote_reconciled(scope(), RemoteResolution::DefinitelyNotApplied).unwrap();
+    let mut retry = scope();
+    retry.attempt_id = 42;
+    retry.request_digest += 1;
+    assert_eq!(
+        journal.append(retry, RecordKind::Intent).err(),
+        Some(JournalError::LogicalOperationMismatch)
+    );
+}
+
+#[test]
+fn new_attempt_requires_same_idempotency_key_and_principal() {
+    let (mut journal, _token) = dispatched_journal();
+    journal.record_remote_reconciled(scope(), RemoteResolution::DefinitelyNotApplied).unwrap();
+    let mut retry = scope();
+    retry.attempt_id = 42;
+    retry.idempotency_key_digest = Some(999);
+    assert_eq!(
+        journal.append(retry, RecordKind::Intent).err(),
+        Some(JournalError::LogicalOperationMismatch)
+    );
+}
+
+#[test]
+fn superseded_attempt_cannot_append_records_after_retry_identity_is_created() {
+    let mut journal = authorized_journal();
+    let mut retry = scope();
+    retry.attempt_id = 42;
+    journal.append(retry, RecordKind::Intent).unwrap();
+    assert_eq!(
+        journal.append(scope(), RecordKind::Authorized).err(),
+        Some(JournalError::SupersededAttempt)
+    );
+}
+
+#[test]
+fn attempt_id_cannot_be_reused_for_a_second_logical_operation() {
+    let mut journal = authorized_journal();
+    let mut other = scope();
+    other.logical_operation_id = 99;
+    assert_eq!(
+        journal.append(other, RecordKind::Intent).err(),
+        Some(JournalError::AttemptIdReused)
     );
 }
