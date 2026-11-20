@@ -90,6 +90,8 @@ pub struct BenchmarkCaseV1 {
     /// Independently authored/adjudicated oracle record, not tool output.
     pub oracle_artifact: ContentArtifactV1,
     pub oracle_rights_status: RightsStatus,
+    pub oracle_method: String,
+    pub oracle_profile_version: String,
     pub claims: Vec<OracleClaimV1>,
 }
 
@@ -400,6 +402,9 @@ pub fn validate_benchmark_manifest(
             }
         }
         validate_artifact(&case.oracle_artifact)?;
+        if case.oracle_method.trim().is_empty() || case.oracle_profile_version.trim().is_empty() {
+            return Err(BenchmarkError::InvalidIdentity(format!("oracle_method/profile:{}", case.case_id)));
+        }
         if !matches!(
             case.oracle_rights_status,
             RightsStatus::ClearedForTesting | RightsStatus::ClearedForRedistribution
@@ -509,6 +514,11 @@ fn validate_one_run(
         ToolAttemptDisposition::Succeeded
         | ToolAttemptDisposition::Failed
         | ToolAttemptDisposition::TimedOut => {
+            if run.attempt != ToolAttemptDisposition::Succeeded
+                && run.reason_code.is_none_or(|reason| reason.trim().is_empty())
+            {
+                return Err(BenchmarkError::MissingAttemptReason);
+            }
             let receipt = run.receipt.ok_or(BenchmarkError::MissingReceipt)?;
             validate_receipt(receipt).map_err(BenchmarkError::AdapterReceipt)?;
             if receipt.benchmark_id != benchmark_id
@@ -743,6 +753,8 @@ mod tests {
             }).collect(),
             oracle_artifact: artifact("oracle_record", "AERO_ORACLE_RECORD_V1", ORACLE_BYTES),
             oracle_rights_status: RightsStatus::ClearedForTesting,
+            oracle_method: "independent_hand_enumeration".into(),
+            oracle_profile_version: "AERO_ORACLE_PROFILE_V1".into(),
             claims: vec![
                 OracleClaimV1 {
                     claim_id: "trace.characteristic_identity".into(),
@@ -885,6 +897,44 @@ mod tests {
         assert_eq!(semantic.oracle_unadjudicated, 1);
         assert_eq!(semantic.adjudicated, 0);
         assert_eq!(tool.attempts.succeeded, 1);
+    }
+
+    #[test]
+    fn failed_or_timed_out_attempt_requires_a_reason_code() {
+        let (manifest, mut receipt, payloads) = fixture();
+        receipt.status = RunStatus::Failed;
+        receipt.exit_code = Some(2);
+        receipt.outputs.clear();
+        receipt.receipt_sha256 = compute_receipt_digest(&receipt).unwrap();
+        let borrowed = borrowed(&payloads[..5]);
+        let run = ToolRunEvidence {
+            tool_id: "synthetic-step-to-qif",
+            case_id: "synthetic-ap242-qif-001",
+            attempt: ToolAttemptDisposition::Failed,
+            receipt: Some(&receipt),
+            payloads: &borrowed,
+            observed_claims: &[],
+            reason_code: None,
+        };
+        assert_eq!(evaluate_benchmark(&manifest, &[run]), Err(BenchmarkError::MissingAttemptReason));
+    }
+
+    #[test]
+    fn exact_corpus_artifacts_are_verified_against_manifest() {
+        let (manifest, _, payloads) = fixture();
+        let oracle = ORACLE_BYTES.to_vec();
+        let oracle_ref = manifest.body.cases[0].oracle_artifact.reference.clone();
+        let mut corpus_payloads = vec![
+            (&payloads[3].0, payloads[3].1.as_slice()),
+            (&payloads[4].0, payloads[4].1.as_slice()),
+            (&oracle_ref, oracle.as_slice()),
+        ];
+        assert_eq!(verify_benchmark_corpus_payloads(&manifest, &corpus_payloads).unwrap(), 3);
+        corpus_payloads.pop();
+        assert_eq!(
+            verify_benchmark_corpus_payloads(&manifest, &corpus_payloads),
+            Err(BenchmarkError::CorpusPayloadSetMismatch)
+        );
     }
 
     #[test]
