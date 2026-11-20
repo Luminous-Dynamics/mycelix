@@ -1,0 +1,1 @@
+{"schema":"AeroSemanticAssertionV1","assertions":[{"assertion_id":"REQ-001","semantic_type":"nominal_dimension","subject":{"id":"feature:hole-01","kind":"feature"},"requirement":{"id":"requirement:hole-dia","kind":"requirement"},"value":{"nominal":10},"unit":"mm","source_locator":"synthetic://ap242/feature-01","required":true}]}
