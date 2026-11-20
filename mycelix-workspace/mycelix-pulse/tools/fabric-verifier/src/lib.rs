@@ -1984,6 +1984,72 @@ mod tests {
     }
 
     #[test]
+    fn checked_in_benchmark_profile_satisfies_draft_2020_12() {
+        let benchmark: Value = serde_json::from_str(include_str!(
+            "../../../docs/pulse-fabric-benchmark-v0.1.json"
+        ))
+        .expect("benchmark profile must parse");
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../../docs/pulse-fabric-benchmark.schema-v0.1.json"
+        ))
+        .expect("benchmark schema must parse");
+        validate_against_schema(&benchmark, &schema)
+            .expect("benchmark profile must satisfy its Draft 2020-12 schema");
+    }
+
+    #[test]
+    fn benchmark_protocol_freezes_fair_comparability_and_non_compensable_gates() {
+        let benchmark: Value = serde_json::from_str(include_str!(
+            "../../../docs/pulse-fabric-benchmark-v0.1.json"
+        ))
+        .expect("benchmark profile must parse");
+
+        assert_eq!(
+            benchmark["status"].as_str(),
+            Some("pre_registered_not_executed")
+        );
+        assert_eq!(
+            benchmark["primary_outcome"]["unknown_counts_as_success"],
+            Value::Bool(false)
+        );
+        assert_eq!(
+            benchmark["primary_outcome"]["duplicate_effect_counts_as_success"],
+            Value::Bool(false)
+        );
+        assert_eq!(
+            benchmark["experimental_protocol"]["independent_replicates_per_condition"],
+            Value::from(30)
+        );
+        assert_eq!(
+            benchmark["experimental_protocol"]["minimum_logical_intents_per_replicate"],
+            Value::from(1000)
+        );
+        assert_eq!(
+            benchmark["experimental_protocol"]["confidence_interval_level"],
+            Value::from(0.95)
+        );
+        assert!(
+            benchmark["non_compensable_gates"]
+                .as_array()
+                .is_some_and(|items| items.len() >= 8)
+        );
+        assert!(
+            benchmark["reporting_rules"]
+                .as_array()
+                .is_some_and(|items| items.iter().any(|item| {
+                    item.as_str().is_some_and(|rule| {
+                        rule.contains("weighted score")
+                    })
+                }))
+        );
+        assert_eq!(
+            benchmark["status"].as_str(),
+            Some("pre_registered_not_executed"),
+            "benchmark artifacts must not imply that any measurements were performed"
+        );
+    }
+
+    #[test]
     fn checked_in_scenario_catalog_satisfies_draft_2020_12() {
         let catalog: Value = serde_json::from_str(include_str!(
             "../../../docs/pulse-fabric-scenarios-v0.1.json"
