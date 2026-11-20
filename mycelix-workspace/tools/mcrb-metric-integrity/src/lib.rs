@@ -10,6 +10,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+pub mod attestation;
 pub mod cross_host;
 pub mod offer_ledger;
 pub mod qops;
@@ -175,6 +176,41 @@ pub struct IntegrityReport {
     pub cross_host_latency_intervals: Vec<CrossHostLatencyInterval>,
     pub cross_host_point_latency_emitted_count: usize,
     pub cross_host_aggregate_eligible: bool,
+}
+
+/// Opaque result of validating a raw measurement batch. Callers may inspect
+/// its report, but cannot construct a Verified value from public status fields.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VerifiedMetricIntegrity {
+    report: IntegrityReport,
+}
+
+impl VerifiedMetricIntegrity {
+    pub fn report(&self) -> &IntegrityReport {
+        &self.report
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MetricIntegrityVerification {
+    Verified(VerifiedMetricIntegrity),
+    Rejected(IntegrityReport),
+}
+
+impl MetricIntegrityVerification {
+    pub fn verified(&self) -> Option<&VerifiedMetricIntegrity> {
+        match self {
+            Self::Verified(value) => Some(value),
+            Self::Rejected(_) => None,
+        }
+    }
+
+    pub fn rejected_report(&self) -> Option<&IntegrityReport> {
+        match self {
+            Self::Verified(_) => None,
+            Self::Rejected(report) => Some(report),
+        }
+    }
 }
 
 fn push_unique(issues: &mut Vec<MetricIssue>, issue: MetricIssue) {
@@ -753,6 +789,24 @@ pub fn validate_batch(config: &MetricConfig, batch: &MeasurementBatch) -> Integr
         cross_host_latency_intervals,
         cross_host_point_latency_emitted_count,
         cross_host_aggregate_eligible,
+    }
+}
+
+/// Verify a complete raw measurement batch and return an opaque capability
+/// only when the local timing/sample integrity contract passes. Cross-host
+/// visibility remains a separately enforced gate when the scenario requires it.
+pub fn verify_measurement_batch(
+    config: &MetricConfig,
+    batch: &MeasurementBatch,
+) -> MetricIntegrityVerification {
+    let report = validate_batch(config, batch);
+    if report.status == IntegrityStatus::Valid
+        && report.aggregate_eligible
+        && report.issues.is_empty()
+    {
+        MetricIntegrityVerification::Verified(VerifiedMetricIntegrity { report })
+    } else {
+        MetricIntegrityVerification::Rejected(report)
     }
 }
 
