@@ -1265,8 +1265,15 @@ pub fn rescreen_conjunction(event_hash: ActionHash) -> ExternResult<ConjunctionE
         .into_wasm_error()
     })?;
 
-    // Propagate to original TCA
-    let tca_dt = event.tca.to_datetime();
+    // Propagate to original TCA. Invalid stored time must remain invalid;
+    // never substitute the current wall clock for a source event timestamp.
+    let tca_dt = event.tca.try_to_datetime().ok_or_else(|| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "Stored TCA timestamp is outside the representable UTC range",
+        )
+        .into_wasm_error()
+    })?;
     let primary_state = primary_prop.propagate_to(tca_dt).map_err(|e| {
         SpaceError::new(
             SpaceErrorCode::InvalidInput,
