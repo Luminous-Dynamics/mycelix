@@ -1637,6 +1637,54 @@ mod tests {
     }
 
     #[test]
+    fn rejects_success_without_host_admission() {
+        let mut trace = valid_trace();
+        let host = event_index(&trace, "host-admitted");
+        trace["events"][host]["event_type"] = json!("crypto_profile_selected");
+        trace["events"][host]["evidence_role"] = json!("client");
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rejects_success_without_source_action_authorship() {
+        let mut trace = valid_trace();
+        let source = event_index(&trace, "source-action");
+        trace["events"][source]["event_type"] = json!("outbox_committed");
+        trace["events"][source]["evidence_role"] = json!("client");
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rejects_success_without_dht_projection_observation() {
+        let mut trace = valid_trace();
+        let dht = event_index(&trace, "dht-projection");
+        trace["events"][dht]["event_type"] = json!("crypto_profile_selected");
+        trace["events"][dht]["evidence_role"] = json!("client");
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rejects_success_without_durable_outbox_commit() {
+        let mut trace = valid_trace();
+        let outbox = event_index(&trace, "outbox");
+        trace["events"][outbox]["event_type"] = json!("session_state_advanced");
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rejects_success_when_transport_attempt_is_not_the_receipt_attempt() {
+        let mut trace = valid_trace();
+        let transport = event_index(&trace, "transport-started");
+        trace["events"][transport]["attempt_id"] = json!("attempt-2");
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn rejects_success_without_recipient_admission() {
         let mut trace = valid_trace();
         let admitted = event_index(&trace, "recipient-admitted");
