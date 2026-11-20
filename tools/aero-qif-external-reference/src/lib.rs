@@ -967,11 +967,27 @@ mod tests {
 
     #[test]
     fn normalized_test8_fixture_replays_exact_payload_bytes() {
-        let (case, payloads) = fixture();
-        let report = verify_and_resolve_trace_case(&case, &refs_and_bytes(&payloads)).unwrap();
+        let case = parse_trace_case_json(
+            include_bytes!("../fixtures/test8-normalized-trace-v1.json")
+        ).expect("checked-in normalized trace fixture parses");
+        let payloads = [
+            (&case.results.artifact.reference, include_bytes!("../fixtures/results.qif").as_slice()),
+            (&case.plans[0].artifact.reference, include_bytes!("../fixtures/plan-a.qif").as_slice()),
+            (&case.plans[1].artifact.reference, include_bytes!("../fixtures/plan-b.qif").as_slice()),
+            (&case.step_documents[0].artifact.reference, include_bytes!("../fixtures/source.step").as_slice()),
+        ];
+        let report = verify_and_resolve_trace_case(&case, &payloads)
+            .expect("all checked-in Results, Plan and STEP bytes and links match");
         assert_eq!(report.resolved_measurements.len(), 4);
         assert_eq!(report.checked_artifacts, 4);
-        assert_eq!(report.disposition, TraceDisposition::AllMeasurementReferencesResolved);
+        assert_eq!(
+            resolved(&report, "measurement:fail").status,
+            MeasurementStatus::Failed
+        );
+        assert_eq!(
+            resolved(&report, "measurement:multi-entity").step_entities.len(),
+            2
+        );
     }
 
     #[test]
