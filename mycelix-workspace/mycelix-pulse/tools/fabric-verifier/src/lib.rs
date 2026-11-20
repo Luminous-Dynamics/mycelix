@@ -1452,6 +1452,7 @@ mod tests {
         }));
     }
 
+    #[test]
     fn checked_in_profile_and_schema_satisfy_draft_2020_12() {
         let profile: Value = serde_json::from_str(include_str!(
             "../../../docs/pulse-fabric-profile-v0.1.json"
@@ -1479,7 +1480,6 @@ mod tests {
             .expect("scenario catalog must satisfy its Draft 2020-12 schema");
     }
 
-    #[test]
     #[test]
     fn checked_in_scenario_catalog_has_unique_ids_and_all_families() {
         let catalog: Value = serde_json::from_str(include_str!(
