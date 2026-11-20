@@ -639,7 +639,7 @@ fn validate_one_run(
             }
             let expected_inputs: BTreeSet<_> = case.inputs.iter()
                 .map(|input| (
-                    format!("{:?}", input.role),
+                    input_role_key(input.role),
                     input.artifact.reference.id.clone(),
                     input.artifact.reference.kind.clone(),
                     input.artifact.sha256.clone(),
@@ -651,12 +651,14 @@ fn validate_one_run(
                 .collect();
             let receipt_inputs: BTreeSet<_> = receipt.inputs.iter()
                 .map(|input| (
-                    format!("{:?}", input.role),
+                    input_role_key(input.role),
                     input.artifact.reference.id.clone(),
                     input.artifact.reference.kind.clone(),
                     input.artifact.sha256.clone(),
                     input.artifact.byte_length,
-                    format!("{:?}", input.rights_status),
+                    input.artifact.media_type.clone(),
+                    input.artifact.format_id.clone(),
+                    rights_status_key(input.rights_status),
                 ))
                 .collect();
             if receipt_inputs != expected_inputs || receipt.inputs.len() != case.inputs.len() {
