@@ -396,6 +396,8 @@ pub struct ScreenInput {
     pub pc_threshold: f64,
 }
 
+/// Evidence contract only: callers must retain the requested and returned
+/// ID lists and the source receipt that justify this exact-set comparison.
 /// Why a requested conjunction-screening set cannot be considered complete.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ScreeningCoverageError {
