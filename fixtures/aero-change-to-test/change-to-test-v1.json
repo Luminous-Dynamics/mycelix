@@ -156,7 +156,9 @@
         "artifact:process-plan-r1",
         "evidence:build-unit-0001-r1"
       ],
-      "demotable": false
+      "demotable": false,
+      "state": "OPEN",
+      "closure_receipt": null
     },
     {
       "obligation_id": "obligation:repeat-inspection",
@@ -168,7 +170,9 @@
         "evidence:build-unit-0001-r1",
         "evidence:inspection-unit-0001-r1"
       ],
-      "demotable": false
+      "demotable": false,
+      "state": "OPEN",
+      "closure_receipt": null
     },
     {
       "obligation_id": "obligation:repeat-test",
@@ -180,7 +184,9 @@
         "evidence:inspection-unit-0001-r1",
         "evidence:test-unit-0001-r1"
       ],
-      "demotable": false
+      "demotable": false,
+      "state": "OPEN",
+      "closure_receipt": null
     }
   ],
   "optional_candidates": [
@@ -228,6 +234,7 @@
     "UNKNOWN_NEVER_UNAFFECTED",
     "REASON_PATH_COMPLETE",
     "DETERMINISTIC_REPLAY",
-    "OPTIONAL_TESTS_ADMISSIBILITY_GATED"
+    "OPTIONAL_TESTS_ADMISSIBILITY_GATED",
+    "OPTIONAL_TESTS_WAIT_FOR_MANDATORY_CLOSURE"
   ]
 }
