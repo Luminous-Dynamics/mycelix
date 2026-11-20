@@ -1075,11 +1075,37 @@ pub fn derive_trace_locator_inventory(
     let results_item_references = results[0].locators.iter()
         .filter(|record| record.rule_id == "results.characteristic_item_external_reference")
         .count();
-    let results_measurement_statuses = results[0].locators.iter()
-        .filter(|record| record.rule_id == "results.characteristic_measurement_status")
-        .count();
+    let mut measurement_paths = BTreeSet::new();
+    for record in results[0].locators.iter()
+        .filter(|record| record.rule_id == "results.characteristic_measurement")
+    {
+        let measurement_path = record.locator.source_path.strip_suffix("@id")
+            .ok_or_else(|| InventoryError::SourceRuleCoverageMismatch(
+                "CharacteristicMeasurement source locator has no @id selector".into()
+            ))?;
+        measurement_paths.insert(measurement_path.to_owned());
+    }
+    let mut status_parent_paths = BTreeSet::new();
+    let status_records: Vec<_> = results[0].locators.iter()
+        .filter(|record| matches!(
+            record.rule_id.as_str(),
+            "results.characteristic_measurement_status_enum"
+                | "results.characteristic_measurement_other_status"
+        ))
+        .collect();
+    for record in &status_records {
+        let parent = record.locator.source_path.split("/Status[").next()
+            .ok_or_else(|| InventoryError::SourceRuleCoverageMismatch(
+                "CharacteristicMeasurement Status locator has no Status parent".into()
+            ))?;
+        if !status_parent_paths.insert(parent.to_owned()) {
+            return Err(InventoryError::SourceRuleCoverageMismatch(
+                "CharacteristicMeasurement has more than one status choice".into()
+            ));
+        }
+    }
     if results_measurements != results_item_references
-        || results_measurements != results_measurement_statuses
+        || measurement_paths != status_parent_paths
     {
         return Err(InventoryError::SourceRuleCoverageMismatch(
             "Results characteristic measurement/status/item-reference".into()
@@ -1383,7 +1409,7 @@ mod tests {
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
-                    rule_id: "results.characteristic_measurement_status".into(),
+                    rule_id: "results.characteristic_measurement_status_enum".into(),
                     document_role: QifDocumentRole::Results,
                     expanded_path: vec![
                         expanded("QIFDocument"),
@@ -1397,7 +1423,27 @@ mod tests {
                         expanded("CharacteristicStatusEnum"),
                     ],
                     capture: LocatorCaptureMode::Text,
-                    min_occurrences: 1,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.characteristic_measurement_other_status".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                        expanded("MeasuredCharacteristics"),
+                        expanded("CharacteristicMeasurements"),
+                        expanded("*"),
+                        expanded("Status"),
+                        expanded("OtherCharacteristicStatus"),
+                    ],
+                    capture: LocatorCaptureMode::Text,
+                    min_occurrences: 0,
                     max_occurrences: None,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
@@ -1517,7 +1563,7 @@ mod tests {
               <CharacteristicItemId xId="302">7</CharacteristicItemId>
             </LinearCharacteristicMeasurement>
             <LinearCharacteristicMeasurement id="903">
-              <Status><CharacteristicStatusEnum>NOT_EVALUATED</CharacteristicStatusEnum></Status>
+              <Status><OtherCharacteristicStatus>NOT_EVALUATED</OtherCharacteristicStatus></Status>
               <CharacteristicItemId xId="301">7</CharacteristicItemId>
             </LinearCharacteristicMeasurement>
           </CharacteristicMeasurements>
@@ -1657,7 +1703,11 @@ mod tests {
             &docs(RESULTS.as_bytes(), PLAN.as_bytes())
         ).unwrap();
         let statuses: Vec<_> = inventory.body.locators.iter()
-            .filter(|record| record.rule_id == "results.characteristic_measurement_status")
+            .filter(|record| matches!(
+                record.rule_id.as_str(),
+                "results.characteristic_measurement_status_enum"
+                    | "results.characteristic_measurement_other_status"
+            ))
             .filter_map(|record| record.captured_value.as_deref())
             .collect();
         assert_eq!(statuses, vec!["PASS", "FAIL", "NOT_EVALUATED"]);
