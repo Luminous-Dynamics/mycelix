@@ -23,7 +23,7 @@ pub const OPERATION_CONTRACT_REGISTRY_SCHEMA: &str =
 const OPERATION_CONTRACT_DIGEST_DOMAIN: &[u8] =
     b"MYCELIX-MCRB-OPERATION-CONTRACT\0v0.1\0";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum RegistryStatus {
     ProposedNotExecuted,
@@ -31,7 +31,7 @@ pub enum RegistryStatus {
     Qualified,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectBoundary {
     LocalSourceChain,
@@ -43,7 +43,7 @@ pub enum EffectBoundary {
     DeploymentAudit,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ExpectedDisposition {
     MustApply,
@@ -53,7 +53,7 @@ pub enum ExpectedDisposition {
     DiagnosticOnly,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum OperationOutcomeClass {
     QualifiedSuccess,
     CorrectDenial,
@@ -63,7 +63,7 @@ pub enum OperationOutcomeClass {
     DuplicateEffect,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum AttemptState {
     NotDispatched,
@@ -74,7 +74,7 @@ pub enum AttemptState {
     Unsupported,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectState {
     Applied,
@@ -84,7 +84,7 @@ pub enum EffectState {
     NotAttempted,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EvidenceKind {
     ApplicationRecord,
@@ -97,7 +97,7 @@ pub enum EvidenceKind {
     CrossPeerRead,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EvidenceSourceRole {
     EffectExecutor,
@@ -108,7 +108,7 @@ pub enum EvidenceSourceRole {
     Telemetry,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperationContractRegistryDocument {
     pub schema_version: String,
@@ -119,7 +119,7 @@ pub struct OperationContractRegistryDocument {
     pub contracts: Vec<OperationContractDocument>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperationContractDocument {
     pub contract_id: String,
@@ -142,7 +142,7 @@ pub struct OperationContractDocument {
     pub notes: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct QualificationProposition {
     pub proposition_id: String,
@@ -150,14 +150,14 @@ pub struct QualificationProposition {
     pub description: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AttemptStatePolicy {
     pub allowed_states: Vec<AttemptState>,
     pub terminal_states: Vec<AttemptState>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EffectStatePolicy {
     pub allowed_states: Vec<EffectState>,
@@ -165,7 +165,7 @@ pub struct EffectStatePolicy {
     pub requires_reconciliation: Vec<EffectState>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EvidencePolicy {
     pub allowed_evidence_kinds: Vec<EvidenceKind>,
@@ -177,14 +177,14 @@ pub struct EvidencePolicy {
     pub requires_complete_coverage: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DenialPolicy {
     pub enabled: bool,
     pub required_evidence_kinds: Vec<EvidenceKind>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct UnknownPolicy {
     pub blocks_qops: bool,
@@ -192,7 +192,7 @@ pub struct UnknownPolicy {
     pub preserve_prior_attestation: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PartialPolicy {
     pub blocks_qops: bool,
