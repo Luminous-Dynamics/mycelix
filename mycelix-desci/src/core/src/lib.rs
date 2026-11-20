@@ -62,6 +62,8 @@ pub mod cartel;
 pub mod decay;
 pub mod dispute;
 pub mod evolution;
+pub mod landscape_measurement_authorization;
+pub mod landscape_stewardship;
 pub mod legacy_migration;
 pub mod prediction;
 pub mod reproducibility;

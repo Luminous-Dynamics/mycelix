@@ -1,0 +1,60 @@
+name: Landscape Stewardship Contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "mycelix-desci/schemas/landscape-stewardship-profile-v0.schema.json"
+      - "mycelix-desci/fixtures/landscape-stewardship-profile-v0.public.example.json"
+      - "mycelix-desci/src/core/src/landscape_stewardship.rs"
+      - "mycelix-desci/src/core/src/landscape_measurement_authorization.rs"
+      - "mycelix-desci/landscape-authorization-gate-harness/**"
+      - "mycelix-desci/schemas/landscape-measurement-authorization-v0.schema.json"
+      - "mycelix-desci/fixtures/landscape-measurement-authorization-v0.public.example.json"
+      - "mycelix-desci/src/core/src/lib.rs"
+      - "mycelix-desci/Cargo.toml"
+      - "mycelix-desci/Cargo.lock"
+      - ".github/workflows/landscape-stewardship.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-desci/schemas/landscape-stewardship-profile-v0.schema.json"
+      - "mycelix-desci/fixtures/landscape-stewardship-profile-v0.public.example.json"
+      - "mycelix-desci/src/core/src/landscape_stewardship.rs"
+      - "mycelix-desci/src/core/src/landscape_measurement_authorization.rs"
+      - "mycelix-desci/landscape-authorization-gate-harness/**"
+      - "mycelix-desci/schemas/landscape-measurement-authorization-v0.schema.json"
+      - "mycelix-desci/fixtures/landscape-measurement-authorization-v0.public.example.json"
+      - "mycelix-desci/src/core/src/lib.rs"
+      - "mycelix-desci/Cargo.toml"
+      - "mycelix-desci/Cargo.lock"
+      - ".github/workflows/landscape-stewardship.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: landscape-stewardship-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Stewardship profile safety gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Validate JSON syntax
+        run: |
+          jq empty mycelix-desci/schemas/landscape-stewardship-profile-v0.schema.json
+          jq empty mycelix-desci/fixtures/landscape-stewardship-profile-v0.public.example.json
+          jq empty mycelix-desci/schemas/landscape-measurement-authorization-v0.schema.json
+          jq empty mycelix-desci/fixtures/landscape-measurement-authorization-v0.public.example.json
+      - name: Check formatting for isolated landscape policy-gate sources
+        run: rustfmt --edition 2024 --check mycelix-desci/landscape-authorization-gate-harness/src/lib.rs mycelix-desci/src/core/src/landscape_measurement_authorization.rs
+      - name: Run isolated landscape policy-gate tests
+        run: cargo test --locked --manifest-path mycelix-desci/Cargo.toml -p landscape-authorization-gate-harness -- --nocapture

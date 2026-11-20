@@ -1818,6 +1818,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "landscape-authorization-gate-harness"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde_json",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
