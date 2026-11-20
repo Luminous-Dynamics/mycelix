@@ -937,6 +937,7 @@ pub fn verify_trace(
         ),
     }
 
+    let empty_events: Vec<Value> = Vec::new();
     let event_values = match array_field(root, "events", "$", &mut findings) {
         Some(items) if !items.is_empty() => items,
         Some(_) => {
@@ -945,9 +946,9 @@ pub fn verify_trace(
                 "$.events",
                 "at least one event is required",
             );
-            &Vec::new()
+            &empty_events
         }
-        None => &Vec::new(),
+        None => &empty_events,
     };
 
     let mut events = Vec::new();
