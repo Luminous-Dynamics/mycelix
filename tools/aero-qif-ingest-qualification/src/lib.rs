@@ -1185,7 +1185,30 @@ mod tests {
         }).collect();
 
         let normalized_trace = artifact("normalized_qif_trace", "AeroQifExternalReferenceTraceV1", b"normalized trace bytes");
-        let mapping_manifest = artifact("source_mapping", "AERO_QIF_SOURCE_MAPPING_V1", b"mapping manifest bytes");
+        let mapping_records: Vec<SourceMappingRecordV1> = (1u32..=10).map(|id| {
+            SourceMappingRecordV1 {
+                document_qpid: "10000000-0000-4000-8000-000000000001".into(),
+                source_path: format!(
+                    "/QIFDocument/Results/MeasurementResultsSet/CharacteristicMeasurement[@id={}]/CharacteristicItemId",
+                    900 + id
+                ),
+                source_element_id: Some(900 + id),
+                external_document_reference_id: Some(7),
+                external_xid: Some(301),
+                mapping_rule_id: "qif.characteristic_item.external_xid".into(),
+                mapping_profile_version: "AERO_QIF_SOURCE_MAPPING_V1".into(),
+                disposition: SourceMappingDisposition::Mapped,
+                target_object_kind: Some("normalized_characteristic_item".into()),
+                target_object_id: Some(format!("characteristic-item:{}", id)),
+                reason_code: None,
+            }
+        }).collect();
+        let mapping_manifest_bytes = source_mapping_manifest_bytes(&mapping_records).unwrap();
+        let mapping_manifest = artifact(
+            "source_mapping",
+            "AERO_QIF_SOURCE_MAPPING_V1",
+            &mapping_manifest_bytes,
+        );
         let body = QifIngestQualificationBodyV1 {
             qualification_id: "qualification-001".into(),
             benchmark_case_id: "case-test8-synthetic".into(),
@@ -1240,6 +1263,7 @@ mod tests {
             extraction: Some(ExtractionEvidenceV1 {
                 normalized_trace_artifact: normalized_trace.clone(),
                 source_mapping_manifest: mapping_manifest.clone(),
+                mappings: mapping_records,
                 mapping_counts: ExtractionMappingCountsV1 {
                     total_required: 10, mapped: 10, unresolved: 0, ambiguous: 0, unsupported: 0, dropped: 0,
                 },
@@ -1269,12 +1293,21 @@ mod tests {
             payloads.push((stage.report_artifact.as_ref().unwrap().reference.clone(), report_bytes[index].to_vec()));
         }
         payloads.push((normalized_trace.reference.clone(), b"normalized trace bytes".to_vec()));
-        payloads.push((mapping_manifest.reference.clone(), b"mapping manifest bytes".to_vec()));
+        payloads.push((mapping_manifest.reference.clone(), mapping_manifest_bytes));
         (qualification, payloads)
     }
 
     fn borrowed(payloads: &[(ArtifactRef, Vec<u8>)]) -> Vec<(&ArtifactRef, &[u8])> {
         payloads.iter().map(|(reference, bytes)| (reference, bytes.as_slice())).collect()
+    }
+
+    fn refresh_mapping_manifest(extraction: &mut ExtractionEvidenceV1) {
+        let bytes = source_mapping_manifest_bytes(&extraction.mappings).unwrap();
+        extraction.source_mapping_manifest = artifact(
+            "source_mapping",
+            "AERO_QIF_SOURCE_MAPPING_V1",
+            &bytes,
+        );
     }
 
     #[test]
