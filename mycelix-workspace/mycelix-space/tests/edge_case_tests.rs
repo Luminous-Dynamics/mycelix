@@ -64,6 +64,42 @@ fn test_screening_coverage_rejects_unrequested_object() {
 }
 
 // =============================================================================
+// Screening Time-Schedule Contract Tests
+// =============================================================================
+
+/// A divisible interval includes each grid point and both endpoints.
+#[test]
+fn test_inclusive_time_offsets_divisible_interval() {
+    assert_eq!(inclusive_time_offsets(0, 20, 10), Ok(vec![0, 10, 20]));
+}
+
+/// A non-divisible interval still includes the exact requested endpoint.
+#[test]
+fn test_inclusive_time_offsets_non_divisible_interval() {
+    assert_eq!(inclusive_time_offsets(0, 25, 10), Ok(vec![0, 10, 20, 25]));
+}
+
+/// A sub-step horizon is bounded by its exact endpoint.
+#[test]
+fn test_inclusive_time_offsets_short_horizon() {
+    assert_eq!(inclusive_time_offsets(0, 3, 600), Ok(vec![0, 3]));
+}
+
+/// A zero-length window has one sample, not duplicate endpoints.
+#[test]
+fn test_inclusive_time_offsets_zero_length() {
+    assert_eq!(inclusive_time_offsets(5, 5, 10), Ok(vec![5]));
+}
+
+/// Invalid ranges and steps are rejected.
+#[test]
+fn test_inclusive_time_offsets_reject_invalid_inputs() {
+    assert_eq!(inclusive_time_offsets(-1, 5, 1), Err(TimeOffsetError::NegativeStart));
+    assert_eq!(inclusive_time_offsets(5, 4, 1), Err(TimeOffsetError::EndBeforeStart));
+    assert_eq!(inclusive_time_offsets(0, 5, 0), Err(TimeOffsetError::NonPositiveStep));
+}
+
+// =============================================================================
 // NoradId Validation Tests
 // =============================================================================
 
