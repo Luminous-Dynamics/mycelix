@@ -1122,6 +1122,63 @@ mod tests {
     }
 
     #[test]
+    fn timed_out_run_remains_in_case_and_claim_denominators() {
+        let (manifest, mut receipt, payloads) = fixture();
+        receipt.status = RunStatus::TimedOut;
+        receipt.exit_code = None;
+        receipt.elapsed_ms = receipt.invocation.timeout_ms;
+        receipt.outputs.clear();
+        receipt.receipt_sha256 = compute_receipt_digest(&receipt).unwrap();
+        let run_payloads = borrowed(&payloads[..5]);
+        let corpus_owned = corpus_payloads(&manifest, &payloads);
+        let corpus_borrowed = borrowed(&corpus_owned);
+        let run = ToolRunEvidence {
+            tool_id: "synthetic-step-to-qif",
+            case_id: "synthetic-ap242-qif-001",
+            attempt: ToolAttemptDisposition::TimedOut,
+            receipt: Some(&receipt),
+            payloads: &run_payloads,
+            observed_claims: &[],
+            reason_code: Some("ADAPTER_TIMEOUT".into()),
+        };
+        let score = evaluate_benchmark(&manifest, &corpus_borrowed, &[run]).unwrap();
+        let tool = &score.tools[0];
+        assert_eq!(tool.attempts.offered_cases, 1);
+        assert_eq!(tool.attempts.timed_out, 1);
+        assert_eq!(tool.performance.sample_count, 1);
+        assert_eq!(tool.performance.p95_elapsed_ms, Some(30_000));
+        assert_eq!(
+            tool.dimensions[&BenchmarkDimension::IdentityResolution].not_run,
+            2
+        );
+    }
+
+    #[test]
+    fn blocked_case_is_retained_without_fabricated_receipt() {
+        let (manifest, _, payloads) = fixture();
+        let corpus_owned = corpus_payloads(&manifest, &payloads);
+        let corpus_borrowed = borrowed(&corpus_owned);
+        let run = ToolRunEvidence {
+            tool_id: "synthetic-step-to-qif",
+            case_id: "synthetic-ap242-qif-001",
+            attempt: ToolAttemptDisposition::Blocked,
+            receipt: None,
+            payloads: &[],
+            observed_claims: &[],
+            reason_code: Some("RIGHTS_REVIEW_BLOCKED".into()),
+        };
+        let score = evaluate_benchmark(&manifest, &corpus_borrowed, &[run]).unwrap();
+        let tool = &score.tools[0];
+        assert_eq!(tool.attempts.offered_cases, 1);
+        assert_eq!(tool.attempts.blocked, 1);
+        assert_eq!(tool.performance.sample_count, 0);
+        assert_eq!(
+            tool.dimensions[&BenchmarkDimension::IdentityResolution].blocked,
+            2
+        );
+    }
+
+    #[test]
     fn exact_corpus_artifacts_are_verified_against_manifest() {
         let (manifest, _, payloads) = fixture();
         let oracle = ORACLE_BYTES.to_vec();
