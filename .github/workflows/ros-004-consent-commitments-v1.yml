@@ -8,6 +8,7 @@ on:
       - "crates/mycelix-core-types/Cargo.toml"
       - "crates/mycelix-core-types/Cargo.lock"
       - "crates/mycelix-core-types/src/**"
+      - "docs/ROS004_CONSENT_COMMITMENTS_V1.md"
       - ".github/workflows/ros-004-consent-commitments-v1.yml"
   pull_request:
     branches:
@@ -16,6 +17,7 @@ on:
       - "crates/mycelix-core-types/Cargo.toml"
       - "crates/mycelix-core-types/Cargo.lock"
       - "crates/mycelix-core-types/src/**"
+      - "docs/ROS004_CONSENT_COMMITMENTS_V1.md"
       - ".github/workflows/ros-004-consent-commitments-v1.yml"
 
 permissions:
