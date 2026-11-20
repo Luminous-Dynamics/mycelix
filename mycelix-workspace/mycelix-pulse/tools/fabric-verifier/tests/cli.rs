@@ -5,7 +5,7 @@ use std::process::{Command, Output};
 fn run_cli(fixture: &str, expected_source_sha: Option<&str>) -> Output {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let trace = manifest_dir.join("tests").join("fixtures").join(fixture);
-    let schema = manifest_dir.join("../../../docs/pulse-fabric-trace.schema-v0.1.json");
+    let schema = manifest_dir.join("../../docs/pulse-fabric-trace.schema-v0.1.json");
 
     let mut command = Command::new(env!("CARGO_BIN_EXE_pulse-fabric-verifier"));
     command
