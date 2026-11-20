@@ -569,6 +569,12 @@ mod tests {
     }
 
     #[test]
+    fn outcome_evidence_status_serializes_to_receipt_vocabulary() {
+        let value = serde_json::to_string(&OutcomeEvidenceStatus::NotImplemented).unwrap();
+        assert_eq!(value, "\\"not-implemented\\"");
+    }
+
+    #[test]
     fn required_cross_host_visibility_cannot_use_local_only_metrics() {
         let ledger = verified_ledger(true);
         let report = compute_qops(&ledger, &valid_input(), &valid_integrity(), &valid_gate_set(&ledger));
