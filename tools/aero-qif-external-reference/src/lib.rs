@@ -41,6 +41,7 @@ pub struct ExternalQifDocumentReferenceV1 {
     pub plan_qpid: String,
     /// Exact pinned Plan bytes. URI is descriptive and never used as identity.
     pub plan_artifact: ContentArtifactV1,
+    #[serde(default)]
     pub uri: Option<String>,
 }
 
@@ -249,7 +250,7 @@ pub fn parse_trace_case_json(bytes: &[u8]) -> Result<QifExternalReferenceTraceCa
     for (index, item) in external_documents.iter().enumerate() {
         let scope = format!("case.results.external_documents[{index}]");
         check_fields(item, &scope, &["local_reference_id", "plan_qpid", "plan_artifact", "uri"],
-            &["local_reference_id", "plan_qpid", "plan_artifact", "uri"])?;
+            &["local_reference_id", "plan_qpid", "plan_artifact"])?;
         check_content_artifact(
             item.get("plan_artifact").ok_or_else(|| TraceError::MissingField {
                 scope: scope.clone(), field: "plan_artifact".into()
