@@ -1728,6 +1728,32 @@
       "execution_status": "not_run_exact_head",
       "negative_control_required": true,
       "execution_evidence": null
+    },
+    {
+      "id": "LIFE-027",
+      "family": "connection_lease",
+      "title": "connection lease transitions to expired at its exact deadline",
+      "setup": "Advance the deterministic lease clock to the exact terminal deadline.",
+      "expected_decision": "deny_new_exchange",
+      "oracle": "lease expiry is an explicit terminal admission state; no new exchange can be admitted at or after the deadline",
+      "source_coverage": "partial",
+      "source_test": "connection_lease_expiry_transition_is_explicit",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "LIFE-028",
+      "family": "connection_lease",
+      "title": "drain deadline transitions lease to revoked",
+      "setup": "Advance the deterministic lease clock to the exact terminal deadline.",
+      "expected_decision": "deny_new_exchange",
+      "oracle": "at the exact drain deadline the lease transitions to revoked and no new exchange is admitted",
+      "source_coverage": "partial",
+      "source_test": "drain_deadline_transitions_lease_to_revoked",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
     }
   ]
 }

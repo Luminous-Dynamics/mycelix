@@ -666,3 +666,23 @@ fn generated_replay_sequences_never_admit_one_exchange_capability_twice() {
         }
     }
 }
+
+
+#[test]
+fn connection_lease_expiry_transition_is_explicit() {
+    let mut lease = established_lease(4, 2);
+    lease.expire_if_due(180);
+    assert_eq!(lease.state, LeaseState::Expired);
+    let mut cap = exchange_capability(8, 55, 777, 190);
+    assert_eq!(admit(&mut lease, &mut cap, 181).err(), Some(AuthorityError::Expired));
+}
+
+#[test]
+fn drain_deadline_transitions_lease_to_revoked() {
+    let mut lease = established_lease(4, 2);
+    lease.begin_drain(125);
+    lease.expire_if_due(125);
+    assert_eq!(lease.state, LeaseState::Revoked);
+    let mut cap = exchange_capability(8, 55, 777, 170);
+    assert_eq!(admit(&mut lease, &mut cap, 126).err(), Some(AuthorityError::ConnectionNotActive));
+}
