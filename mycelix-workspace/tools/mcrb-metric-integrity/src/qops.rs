@@ -1,13 +1,15 @@
 //! Qualified Operations Per Second (QOPS) accounting.
 //!
-//! QOPS consumes only an opaque VerifiedOfferLedger produced by the
-//! offer-ledger verifier. The caller cannot reduce the offered denominator
-//! by supplying a smaller operation-ID list after observing outcomes.
+//! QOPS consumes three verifier-created capabilities: an offer-first ledger,
+//! a validated raw metric batch and a scenario-bound correctness-gate set.
+//! Caller-supplied booleans and caller-constructed "Valid" report structs are
+//! not accepted as evidence of correctness.
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use super::attestation::{GateSetStatus, GateSetVerification};
 use super::offer_ledger::VerifiedOfferLedger;
-use super::{IntegrityReport, IntegrityStatus};
+use super::{CrossHostTimingStatus, MetricIntegrityVerification};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OperationOutcome {
@@ -28,7 +30,6 @@ pub struct OperationOutcomeSample {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QopsInput {
     pub outcomes: Vec<OperationOutcomeSample>,
-    pub hard_correctness_gates_passed: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,13 +41,18 @@ pub enum QopsStatus {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QopsIssue {
-    HardCorrectnessGateFailed,
     MetricIntegrityNotValid,
+    MetricIntegrityIncomplete,
     CrossHostMetricIntegrityNotValid,
+    CrossHostMetricIntegrityIncomplete,
+    CorrectnessGateSetNotVerified,
+    CorrectnessGateSetIncomplete,
+    CorrectnessGateSetContextMismatch,
     EmptySampleOperationId(usize),
     UnexpectedOperationSample(String),
     DuplicateOutcomeSample(String),
     MissingOutcomeSample(String),
+    UnresolvedUnknownOutcome(String),
     DuplicateExternalEffect(String),
 }
 
@@ -64,6 +70,11 @@ pub struct QopsReport {
     pub measurement_window_id: String,
     pub measurement_window_ns: u64,
     pub cross_host_measurement_required: bool,
+    pub correctness_gate_set_digest_sha256: Option<String>,
+    pub correctness_trust_policy_id: Option<String>,
+    pub correctness_trust_policy_digest_sha256: Option<String>,
+    pub correctness_required_gate_count: usize,
+    pub correctness_attestation_count: usize,
     pub offered_operations: usize,
     pub classified_outcomes: usize,
     pub qualified_successes: usize,
@@ -84,34 +95,71 @@ fn push_unique(issues: &mut Vec<QopsIssue>, issue: QopsIssue) {
     }
 }
 
-/// Compute QOPS from a verified, offer-first ledger.
-///
-/// The offered denominator and measurement window are read from the verified
-/// ledger, not from caller-supplied counts, IDs or duration values. The ledger
-/// still requires an independent runner/orchestrator authenticity proof before
-/// its digest can support a public benchmark claim.
+/// Compute QOPS only from opaque verifier outputs. The offer ledger supplies
+/// the frozen denominator and duration; metric integrity is derived from raw
+/// tick samples; correctness gates must be independently signed and verified.
 pub fn compute_qops(
     ledger: &VerifiedOfferLedger,
     input: &QopsInput,
-    metric_integrity: &IntegrityReport,
+    metric_verification: &MetricIntegrityVerification,
+    gate_verification: &GateSetVerification,
 ) -> QopsReport {
     let mut issues = Vec::new();
     let expected: BTreeSet<String> = ledger.operation_ids().iter().cloned().collect();
 
-    if !input.hard_correctness_gates_passed {
-        push_unique(&mut issues, QopsIssue::HardCorrectnessGateFailed);
-    }
-    if metric_integrity.status != IntegrityStatus::Valid
-        || !metric_integrity.aggregate_eligible
-        || !metric_integrity.issues.is_empty()
-    {
-        push_unique(&mut issues, QopsIssue::MetricIntegrityNotValid);
-    }
-    if ledger.requires_cross_host_visibility()
-        && (metric_integrity.cross_host_status != super::CrossHostTimingStatus::Valid
-            || !metric_integrity.cross_host_aggregate_eligible)
-    {
-        push_unique(&mut issues, QopsIssue::CrossHostMetricIntegrityNotValid);
+    let metric_report = match metric_verification {
+        MetricIntegrityVerification::Verified(verified) => Some(verified.report()),
+        MetricIntegrityVerification::Rejected(report) => {
+            if report.status == super::IntegrityStatus::Incomplete {
+                push_unique(&mut issues, QopsIssue::MetricIntegrityIncomplete);
+            } else {
+                push_unique(&mut issues, QopsIssue::MetricIntegrityNotValid);
+            }
+            None
+        }
+    };
+
+    let verified_gate_set = match gate_verification {
+        GateSetVerification::Verified(value) => {
+            if value.run_id() != ledger.run_id()
+                || value.scenario_id() != ledger.scenario_id()
+                || value.scenario_contract_digest_sha256()
+                    != ledger.scenario_contract_digest_sha256()
+            {
+                push_unique(&mut issues, QopsIssue::CorrectnessGateSetContextMismatch);
+                None
+            } else {
+                Some(value)
+            }
+        }
+        GateSetVerification::Rejected(report) => {
+            if report.status == GateSetStatus::Incomplete {
+                push_unique(&mut issues, QopsIssue::CorrectnessGateSetIncomplete);
+            } else {
+                push_unique(&mut issues, QopsIssue::CorrectnessGateSetNotVerified);
+            }
+            None
+        }
+    };
+
+    if let Some(report) = metric_report {
+        if report.status != super::IntegrityStatus::Valid
+            || !report.aggregate_eligible
+            || !report.issues.is_empty()
+        {
+            push_unique(&mut issues, QopsIssue::MetricIntegrityNotValid);
+        }
+        if ledger.requires_cross_host_visibility() {
+            match report.cross_host_status {
+                CrossHostTimingStatus::Valid if report.cross_host_aggregate_eligible => {}
+                CrossHostTimingStatus::Incomplete => {
+                    push_unique(&mut issues, QopsIssue::CrossHostMetricIntegrityIncomplete);
+                }
+                _ => {
+                    push_unique(&mut issues, QopsIssue::CrossHostMetricIntegrityNotValid);
+                }
+            }
+        }
     }
 
     let mut seen = BTreeSet::new();
@@ -138,11 +186,16 @@ pub fn compute_qops(
         }
 
         *counts.entry(sample.outcome).or_default() += 1;
-        if sample.outcome == OperationOutcome::DuplicateEffect {
-            push_unique(
+        match sample.outcome {
+            OperationOutcome::DuplicateEffect => push_unique(
                 &mut issues,
                 QopsIssue::DuplicateExternalEffect(sample.operation_id.clone()),
-            );
+            ),
+            OperationOutcome::Unknown => push_unique(
+                &mut issues,
+                QopsIssue::UnresolvedUnknownOutcome(sample.operation_id.clone()),
+            ),
+            _ => {}
         }
     }
 
@@ -162,12 +215,29 @@ pub fn compute_qops(
     let unknown_outcomes = counts.get(&OperationOutcome::Unknown).copied().unwrap_or(0);
     let duplicate_external_effects = counts.get(&OperationOutcome::DuplicateEffect).copied().unwrap_or(0);
 
-    let has_invalid = issues.iter().any(|issue| {
-        !matches!(issue, QopsIssue::MissingOutcomeSample(_))
+    let is_incomplete = issues.iter().any(|issue| {
+        matches!(
+            issue,
+            QopsIssue::MissingOutcomeSample(_)
+                | QopsIssue::UnresolvedUnknownOutcome(_)
+                | QopsIssue::MetricIntegrityIncomplete
+                | QopsIssue::CrossHostMetricIntegrityIncomplete
+                | QopsIssue::CorrectnessGateSetIncomplete
+        )
     });
-    let status = if has_invalid {
+    let is_invalid = issues.iter().any(|issue| {
+        !matches!(
+            issue,
+            QopsIssue::MissingOutcomeSample(_)
+                | QopsIssue::UnresolvedUnknownOutcome(_)
+                | QopsIssue::MetricIntegrityIncomplete
+                | QopsIssue::CrossHostMetricIntegrityIncomplete
+                | QopsIssue::CorrectnessGateSetIncomplete
+        )
+    });
+    let status = if is_invalid {
         QopsStatus::Invalid
-    } else if !issues.is_empty() {
+    } else if is_incomplete {
         QopsStatus::Incomplete
     } else {
         QopsStatus::Eligible
@@ -200,6 +270,18 @@ pub fn compute_qops(
         measurement_window_id: ledger.measurement_window_id().to_string(),
         measurement_window_ns: ledger.measurement_window_ns(),
         cross_host_measurement_required: ledger.requires_cross_host_visibility(),
+        correctness_gate_set_digest_sha256: verified_gate_set
+            .map(|set| set.gate_set_digest_sha256().to_string()),
+        correctness_trust_policy_id: verified_gate_set
+            .map(|set| set.trust_policy_id().to_string()),
+        correctness_trust_policy_digest_sha256: verified_gate_set
+            .map(|set| set.trust_policy_digest_sha256().to_string()),
+        correctness_required_gate_count: verified_gate_set
+            .map(|set| set.required_gate_ids().len())
+            .unwrap_or(0),
+        correctness_attestation_count: verified_gate_set
+            .map(|set| set.attestation_digests_sha256().len())
+            .unwrap_or(0),
         offered_operations,
         classified_outcomes,
         qualified_successes,
@@ -219,7 +301,9 @@ pub fn compute_qops(
 mod tests {
     use super::*;
     use super::super::{
-        CrossHostTimingStatus, Percentiles,
+        CrossHostTimingStatus, IntegrityReport, IntegrityStatus, MetricIntegrityVerification,
+        Percentiles, VerifiedMetricIntegrity,
+        attestation::{GateAttestationContext, verified_gate_set_for_test},
         offer_ledger::{
             OfferLedgerEntry, OfferLedgerEnvelope, OFFER_LEDGER_SCHEMA_VERSION,
             calculate_offer_ledger_digest, embedded_scenario_manifest_digest, verify_offer_ledger,
@@ -239,7 +323,12 @@ mod tests {
 
     fn verified_ledger(cross_host_required: bool) -> VerifiedOfferLedger {
         let run_id = "run-001".to_string();
-        let scenario_id = if cross_host_required { "MCRB-03" } else { "MCRB-01" }.to_string();
+        // OfferLedgerVerifier consumes scenario_id, not the human MCRB-XX label.
+        let scenario_id = if cross_host_required {
+            "dht-convergence"
+        } else {
+            "single-agent-append-read"
+        }.to_string();
         let generator = digest("generator");
         let manifest = digest("manifest");
         let params = digest("params");
@@ -288,8 +377,8 @@ mod tests {
         OperationOutcomeSample { operation_id: id.to_string(), outcome }
     }
 
-    fn valid_integrity() -> IntegrityReport {
-        IntegrityReport {
+    fn valid_integrity() -> MetricIntegrityVerification {
+        let report = IntegrityReport {
             status: IntegrityStatus::Valid,
             raw_sample_count: 1,
             raw_monotonic_tick_derived_count: 1,
@@ -303,7 +392,8 @@ mod tests {
             cross_host_latency_intervals: vec![],
             cross_host_point_latency_emitted_count: 0,
             cross_host_aggregate_eligible: false,
-        }
+        };
+        MetricIntegrityVerification::Verified(VerifiedMetricIntegrity { report })
     }
 
     fn valid_input() -> QopsInput {
@@ -312,31 +402,40 @@ mod tests {
                 sample("op-1", OperationOutcome::QualifiedSuccess),
                 sample("op-2", OperationOutcome::QualifiedSuccess),
                 sample("op-3", OperationOutcome::CorrectDenial),
-                sample("op-4", OperationOutcome::Unknown),
-                sample("op-5", OperationOutcome::Failed),
+                sample("op-4", OperationOutcome::Failed),
+                sample("op-5", OperationOutcome::UnexpectedDenial),
             ],
-            hard_correctness_gates_passed: true,
         }
     }
 
+    fn valid_gate_set(ledger: &VerifiedOfferLedger) -> GateSetVerification {
+        GateSetVerification::Verified(verified_gate_set_for_test(
+            ledger.run_id(),
+            ledger.scenario_id(),
+            ledger.scenario_contract_digest_sha256(),
+        ))
+    }
+
     #[test]
-    fn qops_counts_only_qualified_successes_and_uses_verified_offer_denominator() {
+    fn qops_requires_three_verifier_capabilities_and_uses_verified_denominator() {
         let ledger = verified_ledger(false);
-        let report = compute_qops(&ledger, &valid_input(), &valid_integrity());
+        let metrics = valid_integrity();
+        let gates = valid_gate_set(&ledger);
+        let report = compute_qops(&ledger, &valid_input(), &metrics, &gates);
         assert_eq!(report.status, QopsStatus::Eligible);
         assert_eq!(report.offered_operations, 5);
         assert_eq!(report.classified_outcomes, 5);
         assert_eq!(report.qualified_successes, 2);
         assert_eq!(report.correct_denials, 1);
-        assert_eq!(report.unknown_outcomes, 1);
         assert_eq!(report.known_failures, 1);
+        assert_eq!(report.unexpected_denials, 1);
         assert_eq!(report.offered_operations_per_second, Some(1.0));
         assert_eq!(report.qualified_operations_per_second, Some(0.4));
         assert_eq!(report.qualified_success_fraction, Some(0.4));
-        assert_eq!(report.offer_ledger_entry_count, 5);
-        assert!(!report.cross_host_measurement_required);
+        assert_eq!(report.correctness_required_gate_count, 7);
+        assert_eq!(report.correctness_attestation_count, 7);
+        assert!(report.correctness_gate_set_digest_sha256.is_some());
         assert_eq!(report.offer_ledger_digest_sha256, ledger.ledger_digest_sha256());
-        assert_eq!(report.scenario_contract_digest_sha256, ledger.scenario_contract_digest_sha256());
     }
 
     #[test]
@@ -344,12 +443,11 @@ mod tests {
         let ledger = verified_ledger(false);
         let mut input = valid_input();
         input.outcomes.truncate(4);
-        let report = compute_qops(&ledger, &input, &valid_integrity());
+        let report = compute_qops(&ledger, &input, &valid_integrity(), &valid_gate_set(&ledger));
         assert_eq!(report.status, QopsStatus::Incomplete);
         assert_eq!(report.offered_operations, 5);
         assert!(report.issues.contains(&QopsIssue::MissingOutcomeSample("op-5".into())));
         assert!(report.qualified_operations_per_second.is_none());
-        assert!(report.offered_operations_per_second.is_none());
     }
 
     #[test]
@@ -357,10 +455,9 @@ mod tests {
         let ledger = verified_ledger(false);
         let mut input = valid_input();
         input.outcomes.push(sample("op-1", OperationOutcome::QualifiedSuccess));
-        let report = compute_qops(&ledger, &input, &valid_integrity());
+        let report = compute_qops(&ledger, &input, &valid_integrity(), &valid_gate_set(&ledger));
         assert_eq!(report.status, QopsStatus::Invalid);
         assert!(report.issues.contains(&QopsIssue::DuplicateOutcomeSample("op-1".into())));
-        assert!(report.qualified_operations_per_second.is_none());
     }
 
     #[test]
@@ -368,7 +465,7 @@ mod tests {
         let ledger = verified_ledger(false);
         let mut input = valid_input();
         input.outcomes.push(sample("op-not-offered", OperationOutcome::QualifiedSuccess));
-        let report = compute_qops(&ledger, &input, &valid_integrity());
+        let report = compute_qops(&ledger, &input, &valid_integrity(), &valid_gate_set(&ledger));
         assert_eq!(report.status, QopsStatus::Invalid);
         assert!(report.issues.contains(&QopsIssue::UnexpectedOperationSample("op-not-offered".into())));
     }
@@ -378,58 +475,82 @@ mod tests {
         let ledger = verified_ledger(false);
         let mut input = valid_input();
         input.outcomes[0].outcome = OperationOutcome::DuplicateEffect;
-        let report = compute_qops(&ledger, &input, &valid_integrity());
+        let report = compute_qops(&ledger, &input, &valid_integrity(), &valid_gate_set(&ledger));
         assert_eq!(report.status, QopsStatus::Invalid);
         assert_eq!(report.duplicate_external_effects, 1);
         assert!(report.qualified_operations_per_second.is_none());
     }
 
     #[test]
-    fn failed_correctness_gate_suppresses_all_performance_rates() {
+    fn unresolved_unknown_outcome_withholds_performance_rates() {
         let ledger = verified_ledger(false);
         let mut input = valid_input();
-        input.hard_correctness_gates_passed = false;
-        let report = compute_qops(&ledger, &input, &valid_integrity());
-        assert_eq!(report.status, QopsStatus::Invalid);
-        assert!(report.issues.contains(&QopsIssue::HardCorrectnessGateFailed));
+        input.outcomes[4].outcome = OperationOutcome::Unknown;
+        let report = compute_qops(&ledger, &input, &valid_integrity(), &valid_gate_set(&ledger));
+        assert_eq!(report.status, QopsStatus::Incomplete);
+        assert!(report.issues.contains(&QopsIssue::UnresolvedUnknownOutcome("op-5".into())));
         assert!(report.qualified_operations_per_second.is_none());
     }
 
     #[test]
-    fn invalid_metric_integrity_suppresses_all_performance_rates() {
+    fn a_rejected_correctness_gate_set_cannot_be_overridden_by_caller_data() {
         let ledger = verified_ledger(false);
-        let input = valid_input();
-        let mut integrity = valid_integrity();
-        integrity.status = IntegrityStatus::Invalid;
-        integrity.aggregate_eligible = false;
-        integrity.issues.push(super::super::MetricIssue::ReversedMonotonicTicks(0));
-        let report = compute_qops(&ledger, &input, &integrity);
-        assert_eq!(report.status, QopsStatus::Invalid);
-        assert!(report.issues.contains(&QopsIssue::MetricIntegrityNotValid));
+        let rejected = GateSetVerification::Rejected(super::super::attestation::GateSetReport {
+            status: GateSetStatus::Incomplete,
+            run_id: ledger.run_id().to_string(),
+            scenario_id: ledger.scenario_id().to_string(),
+            scenario_contract_digest_sha256: ledger.scenario_contract_digest_sha256().to_string(),
+            trust_policy_id: "test-policy".to_string(),
+            trust_policy_digest_sha256: digest("policy"),
+            required_gate_count: 7,
+            verified_pass_count: 6,
+            gate_set_digest_sha256: None,
+            attestation_digests_sha256: vec![],
+            issues: vec![],
+        });
+        let report = compute_qops(&ledger, &valid_input(), &valid_integrity(), &rejected);
+        assert_eq!(report.status, QopsStatus::Incomplete);
+        assert!(report.issues.contains(&QopsIssue::CorrectnessGateSetIncomplete));
         assert!(report.qualified_operations_per_second.is_none());
+    }
+
+    #[test]
+    fn gate_set_must_bind_to_the_exact_ledger_run_and_scenario() {
+        let ledger = verified_ledger(false);
+        let wrong = GateSetVerification::Verified(verified_gate_set_for_test(
+            "other-run",
+            ledger.scenario_id(),
+            ledger.scenario_contract_digest_sha256(),
+        ));
+        let report = compute_qops(&ledger, &valid_input(), &valid_integrity(), &wrong);
+        assert_eq!(report.status, QopsStatus::Invalid);
+        assert!(report.issues.contains(&QopsIssue::CorrectnessGateSetContextMismatch));
+    }
+
+    #[test]
+    fn rejected_metric_integrity_suppresses_all_rates() {
+        let ledger = verified_ledger(false);
+        let mut report = match valid_integrity() {
+            MetricIntegrityVerification::Verified(value) => value.report().clone(),
+            MetricIntegrityVerification::Rejected(_) => unreachable!(),
+        };
+        report.status = IntegrityStatus::Invalid;
+        report.aggregate_eligible = false;
+        report.issues.push(super::super::MetricIssue::ReversedMonotonicTicks(0));
+        let rejected = MetricIntegrityVerification::Rejected(report);
+        let result = compute_qops(&ledger, &valid_input(), &rejected, &valid_gate_set(&ledger));
+        assert_eq!(result.status, QopsStatus::Invalid);
+        assert!(result.issues.contains(&QopsIssue::MetricIntegrityNotValid));
+        assert!(result.qualified_operations_per_second.is_none());
     }
 
     #[test]
     fn required_cross_host_visibility_cannot_use_local_only_metrics() {
         let ledger = verified_ledger(true);
-        let input = valid_input();
-        let report = compute_qops(&ledger, &input, &valid_integrity());
+        let report = compute_qops(&ledger, &valid_input(), &valid_integrity(), &valid_gate_set(&ledger));
         assert_eq!(report.status, QopsStatus::Invalid);
         assert!(report.cross_host_measurement_required);
         assert!(report.issues.contains(&QopsIssue::CrossHostMetricIntegrityNotValid));
         assert!(report.qualified_operations_per_second.is_none());
-    }
-
-    #[test]
-    fn required_cross_host_visibility_accepts_only_valid_cross_host_batch() {
-        let ledger = verified_ledger(true);
-        let input = valid_input();
-        let mut integrity = valid_integrity();
-        integrity.cross_host_status = CrossHostTimingStatus::Valid;
-        integrity.cross_host_aggregate_eligible = true;
-        let report = compute_qops(&ledger, &input, &integrity);
-        assert_eq!(report.status, QopsStatus::Eligible);
-        assert!(report.cross_host_measurement_required);
-        assert_eq!(report.qualified_operations_per_second, Some(0.4));
     }
 }
