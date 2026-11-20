@@ -703,6 +703,14 @@ pub struct ScreenWithStalenessInput {
 pub fn screen_conjunction_with_staleness(
     input: ScreenWithStalenessInput,
 ) -> ExternResult<Vec<StalenessAwareAssessment>> {
+    if input.secondary_norad_ids.is_empty() {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "At least one secondary object is required for conjunction screening",
+        )
+        .into_wasm_error());
+    }
+
     if input.secondary_norad_ids.len() > 100 {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidInput,
@@ -905,6 +913,14 @@ struct GetTlesWithMetadataCallInput {
 pub fn screen_conjunction_from_tles(
     input: ScreenFromTlesInput,
 ) -> ExternResult<Vec<ConjunctionAssessment>> {
+    if input.secondary_tles.is_empty() {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "At least one secondary TLE is required for conjunction screening",
+        )
+        .into_wasm_error());
+    }
+
     if input.secondary_tles.len() > 100 {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidInput,
