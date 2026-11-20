@@ -322,12 +322,14 @@ fn locator_sort_key(locator: &SourceFieldLocatorV1) -> (
     Option<u32>,
     Option<u32>,
     Option<u32>,
+    Option<u32>,
 ) {
     (
         locator.document_qpid.to_ascii_lowercase(),
         locator.source_path.clone(),
         locator.source_element_id,
         locator.local_reference_id,
+        locator.parent_external_document_reference_id,
         locator.external_document_reference_id,
         locator.external_xid,
     )
@@ -1912,6 +1914,17 @@ mod tests {
             reference.source_uri.as_deref(),
             Some("https://vendor.example/qif/Plan-A.qif")
         );
+        let plan_qpid_row = inventory.body.locators.iter()
+            .find(|row| row.rule_id == "results.external_document_plan_qpid")
+            .expect("external QPId source locator");
+        assert_eq!(plan_qpid_row.locator.parent_external_document_reference_id, Some(7));
+        assert_eq!(plan_qpid_row.locator.local_reference_id, None);
+        assert_eq!(plan_qpid_row.locator.external_document_reference_id, None);
+        let uri_row = inventory.body.locators.iter()
+            .find(|row| row.rule_id == "results.external_document_uri")
+            .expect("external URI source locator");
+        assert_eq!(uri_row.locator.parent_external_document_reference_id, Some(7));
+        assert_eq!(uri_row.locator.local_reference_id, None);
     }
 
     #[test]
@@ -1921,10 +1934,10 @@ mod tests {
         assert_eq!(report.disposition, InventoryDisposition::Complete);
         assert_eq!(report.source_document_count, 2);
         assert_eq!(report.declared_external_reference_count, 1);
-        assert_eq!(report.locator_count, 26);
+        assert_eq!(report.locator_count, 32);
         assert_eq!(
             inventory_required_locators(&inventory).unwrap().len(),
-            26
+            32
         );
     }
 
@@ -2119,6 +2132,18 @@ mod tests {
             derive_trace_locator_inventory("depth-limit", &shallow, &docs(deep.as_bytes(), PLAN.as_bytes())),
             Err(InventoryError::DepthLimitExceeded)
         );
+    }
+
+    #[test]
+    fn qif_array_n_must_equal_direct_child_count() {
+        let results = RESULTS.replace(
+            "CharacteristicMeasurements n=\"3\"",
+            "CharacteristicMeasurements n=\"4\""
+        );
+        assert!(matches!(
+            derive_trace_locator_inventory("bad-array-count", &profile(), &docs(results.as_bytes(), PLAN.as_bytes())),
+            Err(InventoryError::ArrayCountMismatch(_))
+        ));
     }
 
     #[test]
