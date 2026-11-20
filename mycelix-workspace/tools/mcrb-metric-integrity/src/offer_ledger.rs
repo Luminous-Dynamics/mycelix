@@ -467,6 +467,20 @@ pub fn verify_offer_ledger(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::operation_contract::{
+        sha256_hex, validate_operation_contract_registry, ValidatedOperationContractRegistry,
+    };
+    const EMBEDDED_OPERATION_CONTRACTS: &str =
+        include_str!("../../../../docs/benchmarks/MCRB_OPERATION_CONTRACTS_V0_1.json");
+    const EXPECTED_SCENARIO_MANIFEST_GIT_BLOB_SHA: &str =
+        "3135aa6c0aff8e20814f151faa4f85d931980004";
+
+    fn embedded_contract_registry() -> ValidatedOperationContractRegistry {
+        let raw = EMBEDDED_OPERATION_CONTRACTS.as_bytes();
+        let digest = sha256_hex(raw);
+        validate_operation_contract_registry(raw, &digest, EXPECTED_SCENARIO_MANIFEST_GIT_BLOB_SHA)
+            .expect("embedded operation-contract registry should validate")
+    }
 
     fn digest(seed: &str) -> String {
         let digest = Sha256::digest(seed.as_bytes());
@@ -486,12 +500,17 @@ mod tests {
         let params = digest("params");
         let clock_id = "clock-peer-a".to_string();
         let clock_epoch = "boot-epoch-7".to_string();
+        let contracts = embedded_contract_registry();
+        let operation_contract = contracts
+            .find("MCRB-OP-REMOTE-DHT-PUBLICATION", "0.1.0")
+            .expect("remote DHT contract should be present");
         let mut envelope = OfferLedgerEnvelope {
             schema_version: OFFER_LEDGER_SCHEMA_VERSION.to_string(),
             run_id: run_id.clone(),
             scenario_id: scenario_id.clone(),
             measurement_window_id: "window-1".to_string(),
             scenario_contract_digest_sha256: embedded_scenario_manifest_digest(),
+            operation_contract_registry_digest_sha256: contracts.registry_digest_sha256().to_string(),
             requires_cross_host_visibility: true,
             workload_manifest_digest_sha256: manifest.clone(),
             generator_digest_sha256: generator.clone(),
@@ -513,7 +532,10 @@ mod tests {
                 scheduled_monotonic_tick: 2_000 + index * 1_000,
                 monotonic_clock_id: clock_id.clone(),
                 monotonic_clock_epoch: clock_epoch.clone(),
-                operation_class: "read-or-write".to_string(),
+                operation_class: operation_contract.operation_class().to_string(),
+                operation_contract_id: operation_contract.contract_id().to_string(),
+                operation_contract_version: operation_contract.contract_version().to_string(),
+                operation_contract_digest_sha256: operation_contract.digest_sha256().to_string(),
                 requires_idempotency_key: index == 2,
                 generator_digest_sha256: generator.clone(),
                 workload_manifest_digest_sha256: manifest.clone(),
@@ -528,12 +550,16 @@ mod tests {
     #[test]
     fn verifies_complete_offer_ledger_and_derives_window() {
         let envelope = valid_envelope();
-        let verified = verify_offer_ledger(&envelope).unwrap();
+        let contracts = embedded_contract_registry();
+        let verified = verify_offer_ledger(&envelope, &contracts).unwrap();
         assert_eq!(verified.entry_count(), 3);
         assert_eq!(verified.operation_ids().iter().map(String::as_str).collect::<Vec<_>>(), vec!["op-1", "op-2", "op-3"]);
         assert_eq!(verified.measurement_window_ns(), 10_000_000_000);
         assert_eq!(verified.run_id(), "run-001");
         assert_eq!(verified.scenario_id(), "MCRB-03");
+        assert_eq!(verified.operation_contract_registry_digest_sha256(), contracts.registry_digest_sha256());
+        assert_eq!(verified.offered_operation("op-1").unwrap().contract_id(), "MCRB-OP-REMOTE-DHT-PUBLICATION");
+        assert_eq!(verified.offered_operation("op-1").unwrap().expected_qops_outcome(), OperationOutcomeClass::QualifiedSuccess);
         assert_eq!(verified.ledger_digest_sha256(), envelope.ledger_digest_sha256.as_str());
     }
 
@@ -543,7 +569,7 @@ mod tests {
         let bytes = serde_json::to_vec(&envelope).unwrap();
         let decoded: OfferLedgerEnvelope = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(decoded, envelope);
-        assert!(verify_offer_ledger(&decoded).is_ok());
+        assert!(verify_offer_ledger(&decoded, &embedded_contract_registry()).is_ok());
     }
 
     #[test]
@@ -554,7 +580,7 @@ mod tests {
         let changed_digest = calculate_offer_ledger_digest(&envelope);
         assert_ne!(original_digest, changed_digest);
         envelope.ledger_digest_sha256 = changed_digest;
-        assert!(verify_offer_ledger(&envelope)
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry())
             .unwrap_err()
             .contains(&OfferLedgerIssue::ScenarioVisibilityPolicyMismatch {
                 scenario_id: "MCRB-03".into(),
@@ -568,7 +594,7 @@ mod tests {
         let mut envelope = valid_envelope(); // MCRB-03 requires remote visibility in the embedded contract.
         envelope.requires_cross_host_visibility = false;
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
-        assert!(verify_offer_ledger(&envelope)
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry())
             .unwrap_err()
             .contains(&OfferLedgerIssue::ScenarioVisibilityPolicyMismatch {
                 scenario_id: "MCRB-03".into(),
@@ -582,7 +608,7 @@ mod tests {
         let mut envelope = valid_envelope();
         envelope.scenario_contract_digest_sha256 = digest("stale-scenario-contract");
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
-        assert!(verify_offer_ledger(&envelope)
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry())
             .unwrap_err()
             .iter()
             .any(|issue| matches!(issue, OfferLedgerIssue::ScenarioContractDigestMismatch { .. })));
@@ -593,7 +619,7 @@ mod tests {
         let mut envelope = valid_envelope();
         envelope.scenario_id = "MCRB-UNKNOWN".into();
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
-        assert!(verify_offer_ledger(&envelope)
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry())
             .unwrap_err()
             .contains(&OfferLedgerIssue::UnknownScenarioInEmbeddedManifest("MCRB-UNKNOWN".into())));
     }
@@ -602,7 +628,7 @@ mod tests {
     fn truncation_cannot_hide_an_offer_from_count_or_digest() {
         let mut envelope = valid_envelope();
         envelope.entries.pop();
-        let errors = verify_offer_ledger(&envelope).unwrap_err();
+        let errors = verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err();
         assert!(errors.contains(&OfferLedgerIssue::EntryCountMismatch));
         assert!(errors.iter().any(|issue| matches!(issue, OfferLedgerIssue::LedgerDigestMismatch { .. })));
     }
@@ -612,7 +638,7 @@ mod tests {
         let mut envelope = valid_envelope();
         envelope.entries[1].operation_id = envelope.entries[0].operation_id.clone();
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
-        assert!(verify_offer_ledger(&envelope).unwrap_err()
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err()
             .contains(&OfferLedgerIssue::DuplicateOperationId("op-1".into())));
     }
 
@@ -621,7 +647,7 @@ mod tests {
         let mut envelope = valid_envelope();
         envelope.entries[1].idempotency_key = envelope.entries[0].idempotency_key.clone();
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
-        assert!(verify_offer_ledger(&envelope).unwrap_err()
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err()
             .contains(&OfferLedgerIssue::DuplicateIdempotencyKey("idem-0".into())));
     }
 
@@ -630,7 +656,7 @@ mod tests {
         let mut envelope = valid_envelope();
         envelope.entries.swap(0, 1);
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
-        assert!(verify_offer_ledger(&envelope).unwrap_err()
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err()
             .iter().any(|issue| matches!(issue, OfferLedgerIssue::InvalidSequence { .. })));
     }
 
@@ -638,7 +664,7 @@ mod tests {
     fn changed_entry_digest_without_root_update_is_rejected() {
         let mut envelope = valid_envelope();
         envelope.entries[0].request_digest_sha256 = digest("tampered-request");
-        assert!(verify_offer_ledger(&envelope).unwrap_err()
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err()
             .iter().any(|issue| matches!(issue, OfferLedgerIssue::LedgerDigestMismatch { .. })));
     }
 
@@ -647,7 +673,7 @@ mod tests {
         let mut envelope = valid_envelope();
         envelope.entries[0].run_id = "other-run".to_string();
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
-        assert!(verify_offer_ledger(&envelope).unwrap_err()
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err()
             .contains(&OfferLedgerIssue::EntryRunIdMismatch(0)));
     }
 
@@ -656,7 +682,7 @@ mod tests {
         let mut envelope = valid_envelope();
         envelope.entries[0].scheduled_monotonic_tick = envelope.measurement_end_ticks;
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
-        assert!(verify_offer_ledger(&envelope).unwrap_err()
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err()
             .contains(&OfferLedgerIssue::OfferOutsideMeasurementWindow(0)));
     }
 
@@ -665,7 +691,7 @@ mod tests {
         let mut envelope = valid_envelope();
         envelope.ticks_per_second = 0;
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
-        assert!(verify_offer_ledger(&envelope).unwrap_err()
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err()
             .contains(&OfferLedgerIssue::InvalidTickFrequency));
 
         envelope = valid_envelope();
@@ -674,7 +700,7 @@ mod tests {
         envelope.ticks_per_second = 1;
         envelope.entries[0].scheduled_monotonic_tick = 0;
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
-        assert!(verify_offer_ledger(&envelope).unwrap_err()
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err()
             .contains(&OfferLedgerIssue::WindowDurationOverflow));
     }
 
@@ -683,7 +709,7 @@ mod tests {
         let mut envelope = valid_envelope();
         envelope.entries[2].idempotency_key = None;
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
-        assert!(verify_offer_ledger(&envelope).unwrap_err()
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err()
             .contains(&OfferLedgerIssue::MissingIdempotencyKeyForExternalEffect(2)));
     }
 
@@ -692,6 +718,6 @@ mod tests {
         let mut envelope = valid_envelope();
         envelope.entries[0].idempotency_key = None;
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
-        assert!(verify_offer_ledger(&envelope).is_ok());
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).is_ok());
     }
 }
