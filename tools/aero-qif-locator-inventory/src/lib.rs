@@ -644,11 +644,9 @@ fn finalize_frame(
                 if !valid_qpid(value) || !value.eq_ignore_ascii_case(qpid) {
                     return Err(InventoryError::DocumentQpidMismatch(frame.locator_path.clone()));
                 }
-                let reference_id = frame.external_document_reference_id
-                    .ok_or_else(|| InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()))?;
                 append_locator(
                     locators, rule, qpid, &format!("{}#qpid", frame.locator_path),
-                    None, Some(reference_id), None, None, Some(value), Some(value),
+                    None, None, None, None, Some(value), Some(value),
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
@@ -660,9 +658,11 @@ fn finalize_frame(
                 if !valid_qpid(value) {
                     return Err(InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()));
                 }
+                let reference_id = frame.external_document_reference_id
+                    .ok_or_else(|| InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()))?;
                 append_locator(
                     locators, rule, qpid, &format!("{}#qpid", frame.locator_path),
-                    None, None, None, None, Some(value), Some(value),
+                    None, Some(reference_id), None, None, Some(value), Some(value),
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
@@ -1106,7 +1106,7 @@ pub fn derive_trace_locator_inventory(
         let uri_records: Vec<_> = results[0].locators.iter()
             .filter(|candidate| {
                 candidate.rule_id == "results.external_document_uri"
-                    && candidate.locator.external_document_reference_id == Some(local_reference_id)
+                    && candidate.locator.local_reference_id == Some(local_reference_id)
             })
             .collect();
         if uri_records.len() > 1 {
@@ -1289,7 +1289,7 @@ mod tests {
             rules: vec![
                 TraceLocatorRuleV1 {
                     rule_id: "results.document_metadata".into(),
-                    document_role: QifDocumentRole.Results,
+                    document_role: QifDocumentRole::Results,
                     expanded_path: vec![expanded("QIFDocument")],
                     capture: LocatorCaptureMode::DocumentMetadata,
                     min_occurrences: 1,
@@ -1309,7 +1309,7 @@ mod tests {
                 },
                 TraceLocatorRuleV1 {
                     rule_id: "plan.document_metadata".into(),
-                    document_role: QifDocumentRole.Plan,
+                    document_role: QifDocumentRole::Plan,
                     expanded_path: vec![expanded("QIFDocument")],
                     capture: LocatorCaptureMode::DocumentMetadata,
                     min_occurrences: 1,
@@ -1641,7 +1641,7 @@ mod tests {
     }
 
     const RESULTS: &str = r#"
-<QIFDocument xmlns="http://qifstandards.org/xsd/qif3" idMax="9999" versionQIF="3.0.0">
+<QIFDocument xmlns="http://qifstandards.org/xsd/qif3" idMax="903" versionQIF="3.0.0">
   <QPId>10000000-0000-4000-8000-000000000001</QPId>
   <ExternalQIFReferences n="1">
     <ExternalQIFDocument id="7">
@@ -1676,7 +1676,7 @@ mod tests {
 "#;
 
     const PLAN: &str = r#"
-<q:QIFDocument xmlns:q="http://qifstandards.org/xsd/qif3" idMax="9999" versionQIF="3.0.0">
+<q:QIFDocument xmlns:q="http://qifstandards.org/xsd/qif3" idMax="9001" versionQIF="3.0.0">
   <q:QPId>20000000-0000-4000-8000-000000000002</q:QPId>
   <q:Characteristics>
     <q:CharacteristicNominals n="1">
