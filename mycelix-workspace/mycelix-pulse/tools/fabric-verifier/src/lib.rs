@@ -766,8 +766,7 @@ fn verify_success_projection(
                 .filter(|event| {
                     COMMITMENT_EVENTS.contains(&event.event_type.as_str())
                         && event.logical_operation_id == receipt.logical_operation_id
-                        && (event.event_type == "receipt_verified"
-                            || event.attempt_id.as_deref() == Some(attempt_id))
+                        && event.attempt_id.as_deref() == Some(attempt_id)
                         && receipt_ancestors.contains(&event.event_id)
                 })
                 .map(|event| event.content_commitment.as_deref())
@@ -1387,6 +1386,44 @@ mod tests {
     fn trace_schema() -> Value {
         serde_json::from_str(include_str!("../../../docs/pulse-fabric-trace.schema-v0.1.json"))
             .expect("checked-in trace schema must parse")
+    }
+
+    #[test]
+    fn verifier_event_and_role_allowlists_match_normative_trace_schema() {
+        let schema = trace_schema();
+        let event_schema = &schema["properties"]["events"]["items"]["properties"];
+
+        let schema_event_types: Vec<&str> = event_schema["event_type"]["enum"]
+            .as_array()
+            .expect("event type enum")
+            .iter()
+            .map(|value| value.as_str().expect("event type string"))
+            .collect();
+        let schema_roles: Vec<&str> = event_schema["evidence_role"]["enum"]
+            .as_array()
+            .expect("role enum")
+            .iter()
+            .map(|value| value.as_str().expect("role string"))
+            .collect();
+        let schema_relations: Vec<&str> = event_schema["causal_predecessors"]["items"]
+            ["properties"]["relation"]["enum"]
+            .as_array()
+            .expect("causal relation enum")
+            .iter()
+            .map(|value| value.as_str().expect("causal relation string"))
+            .collect();
+        let schema_attempt_events: Vec<&str> = event_schema["allOf"][0]["if"]["properties"]
+            ["event_type"]["enum"]
+            .as_array()
+            .expect("attempt-required event enum")
+            .iter()
+            .map(|value| value.as_str().expect("attempt event string"))
+            .collect();
+
+        assert_eq!(schema_event_types, EVENT_TYPES);
+        assert_eq!(schema_roles, EVIDENCE_ROLES);
+        assert_eq!(schema_relations, CAUSAL_RELATIONS);
+        assert_eq!(schema_attempt_events, ATTEMPT_REQUIRED);
     }
 
     #[test]
