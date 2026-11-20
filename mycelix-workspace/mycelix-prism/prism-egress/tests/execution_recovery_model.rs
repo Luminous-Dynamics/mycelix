@@ -64,13 +64,13 @@ struct RemoteProof {
 }
 
 impl RemoteProof {
-    fn matches(&self, attempt: Attempt, contract: IdempotencyContract) -> bool {
+    fn matches(&self, attempt: Attempt, contract: IdempotencyContract, now_ns: u64) -> bool {
         self.attempt_id == attempt.attempt_id
             && self.origin_digest == attempt.origin_digest
             && self.principal_digest == attempt.principal_digest
             && self.request_digest == attempt.request_digest
             && self.idempotency_key == attempt.idempotency_key
-            && contract.matches(attempt, 0)
+            && contract.matches(attempt, now_ns)
             && self.linearizable
             && self.server_revision != 0
             && self.proof_digest != 0
@@ -205,6 +205,7 @@ fn decide_recovery(
     {
         if attempt_id != attempt.attempt_id
             || request_digest != attempt.request_digest
+            || adapter_generation == 0
             || proof_digest == 0
         {
             return RecoveryDecision::Contradiction;
@@ -219,7 +220,7 @@ fn decide_recovery(
         if !contract.matches(attempt, now_ns) {
             return RecoveryDecision::HoldUnknown;
         }
-        if !proof.matches(attempt, contract) {
+        if !proof.matches(attempt, contract, now_ns) {
             return RecoveryDecision::Contradiction;
         }
         return match proof.state {
@@ -702,4 +703,97 @@ fn transport_response_without_remote_effect_proof_is_not_reconciled_applied() {
         RecoveryDecision::ResponseObservedWithoutIndependentSocketCorroboration
     );
     assert_ne!(decision, RecoveryDecision::ReconciledApplied);
+}
+
+
+#[test]
+fn no_write_proof_without_adapter_generation_is_rejected() {
+    let decision = decide_recovery(
+        attempt(JournalPhase::DispatchMarked, true),
+        100,
+        None,
+        None,
+        TransportObservation::ProvenNoWrite {
+            attempt_id: 41,
+            request_digest: 303,
+            adapter_generation: 0,
+            proof_digest: 707,
+        },
+        &complete_empty_observer(),
+    );
+    assert_eq!(decision, RecoveryDecision::Contradiction);
+}
+
+#[test]
+fn idempotency_contract_without_concurrent_deduplication_is_not_usable() {
+    let mut weak = contract();
+    weak.deduplicates_concurrent_requests = false;
+    assert_eq!(
+        decide_recovery(
+            attempt(JournalPhase::DispatchMarked, true),
+            100,
+            Some(weak),
+            None,
+            TransportObservation::Unknown,
+            &complete_empty_observer(),
+        ),
+        RecoveryDecision::HoldUnknown
+    );
+}
+
+#[test]
+fn changed_request_digest_in_remote_absence_proof_is_a_contradiction() {
+    let mut changed = proof(RemoteState::DefinitelyNotApplied);
+    changed.request_digest += 1;
+    assert_eq!(
+        decide_recovery(
+            attempt(JournalPhase::DispatchMarked, true),
+            100,
+            Some(contract()),
+            Some(changed),
+            TransportObservation::Unknown,
+            &complete_empty_observer(),
+        ),
+        RecoveryDecision::Contradiction
+    );
+}
+
+#[test]
+fn missing_remote_proof_digest_is_a_contradiction() {
+    let mut invalid = proof(RemoteState::Applied);
+    invalid.proof_digest = 0;
+    assert_eq!(
+        decide_recovery(
+            attempt(JournalPhase::DispatchMarked, true),
+            100,
+            Some(contract()),
+            Some(invalid),
+            TransportObservation::Unknown,
+            &complete_empty_observer(),
+        ),
+        RecoveryDecision::Contradiction
+    );
+}
+
+#[test]
+fn duplicate_connect_events_do_not_become_unique_socket_corroboration() {
+    let event = KernelConnectEvent {
+        generation: 4,
+        connection_id: 77,
+        workload_id: 7,
+        peer_digest: 88,
+        allowed: true,
+    };
+    let observer = KernelObserver::Complete {
+        generation: 4,
+        events: vec![event, event],
+    };
+    assert_eq!(
+        response_socket_assessment(
+            attempt(JournalPhase::DispatchMarked, true),
+            response(),
+            &observer,
+        ),
+        RecoveryDecision::ResponseObservedWithoutIndependentSocketCorroboration
+    );
 }
