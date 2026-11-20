@@ -10,3 +10,6 @@ aero-adapter-run-receipt = { path = "../aero-adapter-run-receipt" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
+
+[dev-dependencies]
+sha2 = "0.10"
