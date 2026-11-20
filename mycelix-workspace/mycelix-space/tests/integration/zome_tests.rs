@@ -272,7 +272,7 @@ fn test_quality_score_validation() {
 #[test]
 fn test_space_timestamp() {
     let now = SpaceTimestamp::now();
-    let dt = now.to_datetime();
+    let dt = now.try_to_datetime().expect("timestamp from now is valid");
     let reconstructed = SpaceTimestamp::from_datetime(dt);
 
     // Should be very close (might differ by a microsecond or so)
