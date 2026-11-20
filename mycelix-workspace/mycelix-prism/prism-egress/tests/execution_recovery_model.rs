@@ -190,6 +190,50 @@ fn decide_recovery(
     transport: TransportObservation,
     observer: &KernelObserver,
 ) -> RecoveryDecision {
+    if let Some(proof) = remote {
+        let Some(contract) = contract else {
+            return RecoveryDecision::HoldUnknown;
+        };
+        if !contract.matches(attempt, now_ns) {
+            return RecoveryDecision::HoldUnknown;
+        }
+        if !proof.matches(attempt, contract, now_ns) {
+            return RecoveryDecision::Contradiction;
+        }
+
+        let no_write_claim = matches!(
+            transport,
+            TransportObservation::ProvenNoWrite { .. }
+        );
+        if no_write_claim && proof.state == RemoteState::Applied {
+            return RecoveryDecision::Contradiction;
+        }
+
+        if let TransportObservation::ResponseReceived { .. } = transport {
+            if response_socket_assessment(attempt, transport, observer)
+                == RecoveryDecision::Contradiction
+            {
+                return RecoveryDecision::Contradiction;
+            }
+        }
+
+        return match (attempt.phase, proof.state) {
+            (JournalPhase::Prepared | JournalPhase::Authorized, RemoteState::Applied) => {
+                RecoveryDecision::Contradiction
+            }
+            (JournalPhase::Prepared | JournalPhase::Authorized, RemoteState::DefinitelyNotApplied) => {
+                RecoveryDecision::SafeToAuthorizeFreshAttempt
+            }
+            (JournalPhase::DispatchMarked, RemoteState::Applied) => {
+                RecoveryDecision::ReconciledApplied
+            }
+            (_, RemoteState::DefinitelyNotApplied) => {
+                RecoveryDecision::SafeToAuthorizeFreshAttemptWithSameKey
+            }
+            (_, RemoteState::Unknown) => RecoveryDecision::HoldUnknown,
+        };
+    }
+
     if let TransportObservation::ResponseReceived { .. } = transport {
         // A response is evidence that transport activity occurred. It does
         // not by itself establish the business effect or authorize a retry.
@@ -199,7 +243,7 @@ fn decide_recovery(
     if let TransportObservation::ProvenNoWrite {
         attempt_id,
         request_digest,
-        adapter_generation: _,
+        adapter_generation,
         proof_digest,
     } = transport
     {
@@ -211,25 +255,6 @@ fn decide_recovery(
             return RecoveryDecision::Contradiction;
         }
         return RecoveryDecision::SafeToAuthorizeFreshAttempt;
-    }
-
-    if let Some(proof) = remote {
-        let Some(contract) = contract else {
-            return RecoveryDecision::HoldUnknown;
-        };
-        if !contract.matches(attempt, now_ns) {
-            return RecoveryDecision::HoldUnknown;
-        }
-        if !proof.matches(attempt, contract, now_ns) {
-            return RecoveryDecision::Contradiction;
-        }
-        return match proof.state {
-            RemoteState::Applied => RecoveryDecision::ReconciledApplied,
-            RemoteState::DefinitelyNotApplied => {
-                RecoveryDecision::SafeToAuthorizeFreshAttemptWithSameKey
-            }
-            RemoteState::Unknown => RecoveryDecision::HoldUnknown,
-        };
     }
 
     match attempt.phase {
@@ -795,5 +820,53 @@ fn duplicate_connect_events_do_not_become_unique_socket_corroboration() {
             &observer,
         ),
         RecoveryDecision::ResponseObservedWithoutIndependentSocketCorroboration
+    );
+}
+
+
+#[test]
+fn remote_applied_proof_conflicts_with_transport_no_write_proof() {
+    let decision = decide_recovery(
+        attempt(JournalPhase::DispatchMarked, true),
+        100,
+        Some(contract()),
+        Some(proof(RemoteState::Applied)),
+        TransportObservation::ProvenNoWrite {
+            attempt_id: 41,
+            request_digest: 303,
+            adapter_generation: 6,
+            proof_digest: 707,
+        },
+        &complete_empty_observer(),
+    );
+    assert_eq!(decision, RecoveryDecision::Contradiction);
+}
+
+#[test]
+fn remote_applied_proof_conflicts_with_pre_dispatch_journal_state() {
+    let decision = decide_recovery(
+        attempt(JournalPhase::Authorized, true),
+        100,
+        Some(contract()),
+        Some(proof(RemoteState::Applied)),
+        TransportObservation::Unknown,
+        &complete_empty_observer(),
+    );
+    assert_eq!(decision, RecoveryDecision::Contradiction);
+}
+
+#[test]
+fn authoritative_absence_can_resolve_a_response_without_repeating_the_effect() {
+    let decision = decide_recovery(
+        attempt(JournalPhase::DispatchMarked, true),
+        100,
+        Some(contract()),
+        Some(proof(RemoteState::DefinitelyNotApplied)),
+        response(),
+        &complete_empty_observer(),
+    );
+    assert_eq!(
+        decision,
+        RecoveryDecision::SafeToAuthorizeFreshAttemptWithSameKey
     );
 }
