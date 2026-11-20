@@ -39,7 +39,7 @@ A fifth state, `UNAFFECTED`, may be emitted only when dependency coverage is suf
 
 A plan binds:
 - exact predecessor and proposed configuration identities;
-- exact ChangeSet identity and digest;
+- exact ChangeSet identity and recomputed SHA-256 over canonical versioned JSON (sorted reference arrays);
 - bitemporal evaluation cutoffs and source sequence/lineage;
 - exact evidence records and typed dependency paths;
 - expected canonical impact for each record;
