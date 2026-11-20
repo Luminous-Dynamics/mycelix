@@ -33,9 +33,11 @@ The CLI first meta-validates the supplied schema and validates the trace with
 JSON Schema Draft 2020-12, then applies the causal and lifecycle checks below.
 The schema engine is pinned to `jsonschema = 0.61.2`; default features are
 disabled so the verifier cannot resolve remote schema references at runtime.
-Keep the schema self-contained. The direct dependency is pinned, but a
-package-specific Cargo.lock has not yet been generated and committed, so
-transitive dependency resolution is not yet frozen.
+Keep the schema self-contained. A package-specific Cargo.lock is not
+committed. The draft-safe workflow generates a run-specific lockfile, uses
+--locked for tests and Clippy, and uploads the generated lockfile as a 14-day
+artifact. Resolution is frozen within each run, but transitive dependencies
+are not yet pinned across separate runs by source control.
 
 ## v0.1 invariants
 
@@ -103,14 +105,20 @@ the exact checked-in schemas and tested scenarios remain the claim boundary.
 
 ## Test intent
 
-The unit corpus checks the three checked-in Draft 2020-12 schemas/data pairs,
-catalog uniqueness and all seven scenario families, plus controls for valid
-receipt-backed success, source SHA mismatch, transport-ACK-only false success,
-UNKNOWN delivery, dangling causal edges, causal cycles, same-clock ordering,
-role confusion, missing attempt IDs, cross-operation attempt reuse, duplicate
-inbox effects, secret-bearing fields, mismatched commitments, changed recipient
-identity, missing recipient admission, recipient/verifier identity collision, semantically invalid resolved causal
-relations, host/domain grant mismatch, DHT/source-action hash mismatch, and
-recipient receipt mismatch. The profile, scenario catalog, and benchmark profile
-are validated against their checked-in schemas by tests. The benchmark remains
-a pre-registered artifact, not measured results.
+The Rust unit tests validate the checked-in profile, trace, scenario and
+benchmark schemas/data pairs; confirm scenario ID uniqueness and all seven
+scenario families; and exercise positive and negative semantic controls for
+source identity, role assignment, attempt identity, causal resolution,
+acyclicity, clock order, duplicate logical effects, sensitive fields, receipt
+bindings, grant-reference consistency, source-action/DHT hash continuity and
+complete verified-delivery lifecycle requirements.
+
+The CLI integration tests consume three actual checked-in JSON traces:
+1. Complete receipt-backed success, expected to be EVIDENCE_CONSISTENT.
+2. Transport ACK only with terminal disposition UNKNOWN, a valid unresolved
+   evidence record.
+3. An ACK incorrectly promoted to SUCCESS_VERIFIED, expected to be rejected.
+
+A fourth CLI integration test checks rejection of an externally supplied
+source-SHA mismatch. The benchmark profile and schema are validated by tests,
+but remain pre-registered artifacts, not measured results.
