@@ -44,10 +44,6 @@ fn get_config() -> FabricationConfig {
 // CONSCIOUSNESS GATING
 // =============================================================================
 
-// =============================================================================
-// CONSCIOUSNESS GATING
-// =============================================================================
-
 /// Interim fail-closed boundary.
 ///
 /// The standalone Fabrication hApp declares only the `fabrication` role.
@@ -878,10 +874,13 @@ mod tests {
     }
 
     #[test]
-    fn test_consciousness_cache_ttl_constant() {
-        assert_eq!(CONSCIOUSNESS_CACHE_TTL_MICROS, 300_000_000);
-        // 5 minutes in micros
-        assert_eq!(CONSCIOUSNESS_CACHE_TTL_MICROS / 1_000_000, 300);
+    fn test_consciousness_gate_denies_until_identity_contract_is_qualified() {
+        let error = require_fabrication_consciousness("create_repair_prediction")
+            .expect_err("unqualified Identity topology/response must never authorize");
+        let message = format!("{:?}", error);
+        assert!(message.contains("Unauthorized"));
+        assert!(message.contains("Identity authorization unavailable"));
+        assert!(message.contains("no authorization was granted"));
     }
 
     #[test]
