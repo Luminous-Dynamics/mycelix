@@ -191,3 +191,18 @@ The current MCRB metric-integrity source now:
 The separately signed and independently verified outcome ledger tracked by #6357 is not yet implemented. Caller-provided outcome labels remain diagnostic only. No Cargo test, Clippy, CI pass, live conductor, independent effect observation or eligible QOPS rate is claimed by this specification/source change.
 
 The registry remains `proposed-not-executed`. A protected policy decision and exact-head qualification are required before any operation contract is used to support a benchmark-performance claim.
+
+
+## 11. Idempotency-key privacy
+
+The offer ledger carries an SHA-256 commitment, not the raw idempotency key. Producers use the Rust helper `idempotency_key_commitment(raw_key)` with:
+
+```text
+SHA256(
+  "MYCELIX-MCRB-IDEMPOTENCY-KEY\\0v0.1\\0"
+  || u64_be(raw_key.len())
+  || raw_key
+)
+```
+
+The raw key remains with the operation execution adapter. It is not included in offer-ledger JSON, outcome attestations, public traces or receipts. The commitment is for binding and deduplication; it does not encrypt the key and should not be used for low-entropy secrets beyond the explicitly scoped idempotency token.
