@@ -1,101 +1,581 @@
-# Prism authority lifecycle reference model v0.1
+//! Test-only reference model separating one-use connection authority,
+//! one-use HTTP exchange authority, and bounded connection reuse.
+//! This model does not implement a production broker, transport pool, TLS
+//! verifier, or packet-level enforcement.
 
-**Status:** dependency-free, test-only Rust state-machine model. It is not a production capability broker, HTTP connection pool, TLS verifier, BPF policy, or runtime enforcement claim.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct Peer {
+    ip_last_octet: u8,
+    port: u16,
+}
 
-## 1. Paradigm: authorize actions, not clients
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ConnectionScope {
+    workload_id: u64,
+    origin: String,
+    parent_scope_digest: u64,
+    address_set_digest: u64,
+    tls_identity_digest: u64,
+    policy_generation: u64,
+    network_generation: u64,
+}
 
-A normal HTTP client has a reusable client object and often a reusable connection pool. A restrictive URL filter adds policy checks around requests, but does not by itself explain whether a new socket, a reused HTTP/2 stream, a retry, or a redirected request has fresh authority.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AuthorityError {
+    AlreadyConsumed,
+    Expired,
+    WorkloadMismatch,
+    PeerOutsideAuthorizedSet,
+    ConnectTimedOut,
+    TlsIdentityMismatch,
+    DnsSnapshotExpired,
+    ParentScopeExpired,
+    ScopeMismatch,
+    ConnectionMismatch,
+    ConnectionNotActive,
+    PolicyGenerationMismatch,
+    AddressSetChanged,
+    ExchangeBudgetExhausted,
+    TooManyInFlightExchanges,
+    ExchangeTimedOut,
+    DrainDeadlineExceeded,
+    WrongConnection,
+    NoInFlightExchange,
+}
 
-Prism should model three separate authorities:
+#[derive(Debug)]
+struct ConnectCapability {
+    id: u64,
+    scope: ConnectionScope,
+    authorized_peers: Vec<Peer>,
+    expires_at_ns: u64,
+    connect_timeout_ns: u64,
+    consumed: bool,
+}
 
-1. **ConnectCapability** — one new socket attempt to one authorized peer in a bounded address set, for one workload, origin, TLS identity and policy generation.
-2. **ConnectionLease** — a verified connection whose reuse is bounded by origin, workload, parent scope, address-set digest, TLS identity, policy generation, network generation, DNS/parent expiry, total exchange budget and maximum in-flight exchanges.
-3. **ExchangeCapability** — one exact HTTP request attempt on one exact connection lease, with its own opaque request digest, expiry and one-use lifecycle.
+#[derive(Debug)]
+struct ConnectGrant {
+    capability_id: u64,
+    scope: ConnectionScope,
+    selected_peer: Peer,
+    establishment_deadline_ns: u64,
+}
 
-A redirect or retry always requires a new ExchangeCapability. If it needs a different origin, peer set, policy generation, parent scope, or TLS identity, it additionally requires a new ConnectCapability and connection. This is intentionally stricter than assuming that possession of a pooled socket grants authority for every future HTTP request.
+impl ConnectCapability {
+    fn consume(
+        &mut self,
+        now_ns: u64,
+        workload_id: u64,
+        peer: Peer,
+    ) -> Result<ConnectGrant, AuthorityError> {
+        if self.consumed {
+            return Err(AuthorityError::AlreadyConsumed);
+        }
+        if now_ns >= self.expires_at_ns {
+            return Err(AuthorityError::Expired);
+        }
 
-## 2. Lifecycle contracts
+        // The first eligible attempt consumes the capability even when a
+        // later peer check fails. A denied attempt cannot be retried with the
+        // same token against a different socket.
+        self.consumed = true;
 
-### ConnectCapability
+        if workload_id != self.scope.workload_id {
+            return Err(AuthorityError::WorkloadMismatch);
+        }
+        if !self.authorized_peers.contains(&peer) {
+            return Err(AuthorityError::PeerOutsideAuthorizedSet);
+        }
 
-- Expires before a socket attempt: deny.
-- Can be consumed once only.
-- Consumption is not rolled back after a denied peer attempt.
-- The selected peer must be a member of the authorized IP:port set.
-- The TLS identity must match before a ConnectionLease is created.
-- Establishment must complete inside a bounded connect deadline.
-- A failed TLS handshake produces no reusable lease.
+        let establishment_deadline_ns = now_ns
+            .saturating_add(self.connect_timeout_ns)
+            .min(self.expires_at_ns);
 
-### ConnectionLease
+        Ok(ConnectGrant {
+            capability_id: self.id,
+            scope: self.scope.clone(),
+            selected_peer: peer,
+            establishment_deadline_ns,
+        })
+    }
+}
 
-A lease binds these dimensions:
+impl ConnectGrant {
+    fn establish(
+        self,
+        now_ns: u64,
+        observed_tls_identity_digest: u64,
+        connection_id: u64,
+        dns_valid_until_ns: u64,
+        parent_scope_valid_until_ns: u64,
+        requested_lease_ns: u64,
+        max_exchanges: u32,
+        max_in_flight: u32,
+    ) -> Result<ConnectionLease, AuthorityError> {
+        if now_ns > self.establishment_deadline_ns {
+            return Err(AuthorityError::ConnectTimedOut);
+        }
+        if observed_tls_identity_digest != self.scope.tls_identity_digest {
+            return Err(AuthorityError::TlsIdentityMismatch);
+        }
+        if now_ns >= dns_valid_until_ns {
+            return Err(AuthorityError::DnsSnapshotExpired);
+        }
+        if now_ns >= parent_scope_valid_until_ns {
+            return Err(AuthorityError::ParentScopeExpired);
+        }
 
-- workload identity;
-- exact scheme/host/port origin (no implicit HTTP/2 cross-origin coalescing);
-- owner-authorized parent address-scope digest;
-- exact DNS address-set digest;
-- verified TLS identity digest;
-- application policy generation;
-- network enforcement generation.
+        let expires_at_ns = now_ns
+            .saturating_add(requested_lease_ns)
+            .min(dns_valid_until_ns)
+            .min(parent_scope_valid_until_ns);
 
-Lease expiry is clamped to the earliest of the requested connection lifetime, DNS snapshot validity and parent-scope validity. A DNS address-set change or policy generation change invalidates reuse. The model does not silently rebind an existing connection to new DNS answers.
+        Ok(ConnectionLease {
+            id: connection_id,
+            source_capability_id: self.capability_id,
+            scope: self.scope,
+            selected_peer: self.selected_peer,
+            expires_at_ns,
+            state: LeaseState::Active,
+            max_exchanges,
+            max_in_flight,
+            total_exchanges: 0,
+            in_flight: 0,
+        })
+    }
+}
 
-The lease has independent total-exchange and concurrent-in-flight budgets. Releasing an in-flight slot does not replenish the total exchange budget.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LeaseState {
+    Active,
+    Draining { deadline_ns: u64 },
+    Revoked,
+    Expired,
+}
 
-### ExchangeCapability
+#[derive(Debug)]
+struct ConnectionLease {
+    id: u64,
+    source_capability_id: u64,
+    scope: ConnectionScope,
+    selected_peer: Peer,
+    expires_at_ns: u64,
+    state: LeaseState,
+    max_exchanges: u32,
+    max_in_flight: u32,
+    total_exchanges: u32,
+    in_flight: u32,
+}
 
-- Binds to one connection ID and one exact ConnectionScope.
-- Binds an opaque digest of the exact request representation (method, target, authority, headers and body should be canonicalized by the issuer).
-- Is consumed once. A failed or cancelled attempt does not make it reusable.
-- A retry must receive a new capability and new attempt identity.
-- Every redirect target gets a fresh exchange authorization. A changed connection scope requires a new connection capability as well.
+#[derive(Debug)]
+struct ExchangeCapability {
+    id: u64,
+    connection_id: u64,
+    workload_id: u64,
+    request_digest: u64,
+    scope: ConnectionScope,
+    expires_at_ns: u64,
+    consumed: bool,
+}
 
-## 3. Expiry, revocation and in-flight work
+#[derive(Debug)]
+struct ExchangePermit {
+    connection_id: u64,
+    capability_id: u64,
+    request_digest: u64,
+    deadline_ns: u64,
+}
 
-The model separates three transitions:
-- **Active:** new exchanges may be admitted inside every current scope and budget.
-- **Draining:** no new exchanges; already admitted work may finish before both its request deadline and the drain deadline.
-- **Revoked/Expired:** no new exchange admission. The model does not claim that packets on an established socket are blocked; that belongs to Nixward's separate packet-egress enforcement plane.
+impl ExchangeCapability {
+    fn new(
+        id: u64,
+        connection_id: u64,
+        workload_id: u64,
+        request_digest: u64,
+        scope: ConnectionScope,
+        expires_at_ns: u64,
+    ) -> Self {
+        Self {
+            id,
+            connection_id,
+            workload_id,
+            request_digest,
+            scope,
+            expires_at_ns,
+            consumed: false,
+        }
+    }
+}
 
-This separation is important. A connect hook can deny a new socket without proving that an existing TCP flow stops sending packets. Prism's connection lease controls admission of new HTTP exchanges. Kernel packet policy must separately qualify what happens to established and passed sockets.
+impl ConnectionLease {
+    fn admit_exchange(
+        &mut self,
+        capability: &mut ExchangeCapability,
+        now_ns: u64,
+        current_scope: &ConnectionScope,
+        current_dns_valid_until_ns: u64,
+        current_parent_scope_valid_until_ns: u64,
+        exchange_timeout_ns: u64,
+    ) -> Result<ExchangePermit, AuthorityError> {
+        if capability.consumed {
+            return Err(AuthorityError::AlreadyConsumed);
+        }
+        if now_ns >= capability.expires_at_ns {
+            return Err(AuthorityError::Expired);
+        }
 
-## 4. Executable tests
+        // Any attempt to consume a live, connection-bound exchange capability
+        // is one-use, including attempts rejected by the lease or scope checks.
+        capability.consumed = true;
 
-The dependency-free integration test `prism-egress/tests/authority_lifecycle_model.rs` exercises:
+        if capability.connection_id != self.id {
+            return Err(AuthorityError::ConnectionMismatch);
+        }
+        if capability.workload_id != self.scope.workload_id
+            || current_scope.workload_id != self.scope.workload_id
+        {
+            return Err(AuthorityError::WorkloadMismatch);
+        }
+        if current_scope.policy_generation != self.scope.policy_generation {
+            return Err(AuthorityError::PolicyGenerationMismatch);
+        }
+        if current_scope.address_set_digest != self.scope.address_set_digest {
+            return Err(AuthorityError::AddressSetChanged);
+        }
+        if &capability.scope != &self.scope || current_scope != &self.scope {
+            return Err(AuthorityError::ScopeMismatch);
+        }
+        if now_ns >= current_dns_valid_until_ns {
+            return Err(AuthorityError::DnsSnapshotExpired);
+        }
+        if now_ns >= current_parent_scope_valid_until_ns {
+            return Err(AuthorityError::ParentScopeExpired);
+        }
 
-- single-use connect capability and expired connect denial;
-- workload mismatch and peer scope mismatch;
-- TLS identity mismatch;
-- connection expiry bounded by DNS and parent scope;
-- one-use exchange capability and cross-connection replay;
-- changed address-set and policy-generation rejection;
-- cross-origin HTTP/2 coalescing rejection;
-- fresh capability for retries;
-- maximum concurrent exchanges and total exchange budget;
-- expiry, drain, revoke and completion deadlines.
+        match self.state {
+            LeaseState::Active => {}
+            LeaseState::Draining { .. } | LeaseState::Revoked => {
+                return Err(AuthorityError::ConnectionNotActive);
+            }
+            LeaseState::Expired => return Err(AuthorityError::Expired),
+        }
+        if now_ns >= self.expires_at_ns {
+            self.state = LeaseState::Expired;
+            return Err(AuthorityError::Expired);
+        }
+        if self.total_exchanges >= self.max_exchanges {
+            return Err(AuthorityError::ExchangeBudgetExhausted);
+        }
+        if self.in_flight >= self.max_in_flight {
+            return Err(AuthorityError::TooManyInFlightExchanges);
+        }
 
-The cases are model-level source coverage only. They do not establish that the current Reqwest integration has these semantics or that a production pool exists.
+        self.total_exchanges += 1;
+        self.in_flight += 1;
+        Ok(ExchangePermit {
+            connection_id: self.id,
+            capability_id: capability.id,
+            request_digest: capability.request_digest,
+            deadline_ns: now_ns.saturating_add(exchange_timeout_ns),
+        })
+    }
 
-## 5. Implementation path
+    fn begin_drain(&mut self, deadline_ns: u64) {
+        if self.state == LeaseState::Active {
+            self.state = LeaseState::Draining { deadline_ns };
+        }
+    }
 
-Do not immediately add a production pool. Prism currently creates a fresh pinned Reqwest client per consumed EgressCapability, which is conservative and avoids cross-request pool reuse. The reference model establishes the authority contract to preserve before any pooling optimization.
+    fn revoke(&mut self) {
+        self.state = LeaseState::Revoked;
+    }
 
-Next, build a transport adapter experiment with:
-1. A fake connector/pool that accepts only an exact ConnectionScope key.
-2. A loopback HTTP/1 fixture for sequential exchanges.
-3. An HTTP/2 fixture for concurrent streams and cross-origin coalescing attempts.
-4. DNS answer refresh where the address-set digest is unchanged, then changed.
-5. Policy and Nixward network-generation rollover.
-6. Retries, redirects, cancellation and drain under load.
-7. Independent socket identity observation for every new connection.
+    fn expire_if_due(&mut self, now_ns: u64) {
+        if now_ns >= self.expires_at_ns {
+            self.state = LeaseState::Expired;
+        }
+        if let LeaseState::Draining { deadline_ns } = self.state {
+            if now_ns >= deadline_ns {
+                self.state = LeaseState::Revoked;
+            }
+        }
+    }
 
-Only after semantic equivalence is established should PEAB measure the cost and reuse benefit versus fresh-client Reqwest, a safely pooled Reqwest reference, Envoy DFP, and Envoy+Cilium.
+    fn finish_exchange(
+        &mut self,
+        permit: ExchangePermit,
+        now_ns: u64,
+    ) -> Result<(), AuthorityError> {
+        if permit.connection_id != self.id {
+            return Err(AuthorityError::WrongConnection);
+        }
+        if self.in_flight == 0 {
+            return Err(AuthorityError::NoInFlightExchange);
+        }
+        self.in_flight -= 1;
 
-## 6. Falsifiable research hypotheses
+        if now_ns > permit.deadline_ns {
+            return Err(AuthorityError::ExchangeTimedOut);
+        }
+        if let LeaseState::Draining { deadline_ns } = self.state {
+            if now_ns > deadline_ns {
+                return Err(AuthorityError::DrainDeadlineExceeded);
+            }
+        }
+        Ok(())
+    }
+}
 
-- **H1 — authority-scoped reuse:** exact-scope leases can preserve safe connection reuse without allowing request authority to leak across origins, workloads, policy generations or DNS address sets.
-- **H2 — amortized overhead:** a qualified pool can reduce TLS handshakes and warm p95 latency while adding bounded admission and reconciliation cost.
-- **H3 — better revocation semantics:** expiry can stop new exchange admission immediately while recording bounded in-flight drain separately from kernel packet termination.
-- **H4 — explainable retries:** each retry and redirect can be attributed to a distinct one-use exchange capability, while transport retries remain disabled.
+fn scope() -> ConnectionScope {
+    ConnectionScope {
+        workload_id: 17,
+        origin: "https://api.example.test:443".to_owned(),
+        parent_scope_digest: 101,
+        address_set_digest: 202,
+        tls_identity_digest: 303,
+        policy_generation: 4,
+        network_generation: 9,
+    }
+}
 
-All are hypotheses. No comparative measurements or production superiority claims are present in this artifact.
+fn connect_capability(id: u64, expires_at_ns: u64) -> ConnectCapability {
+    ConnectCapability {
+        id,
+        scope: scope(),
+        authorized_peers: vec![
+            Peer { ip_last_octet: 10, port: 443 },
+            Peer { ip_last_octet: 11, port: 443 },
+        ],
+        expires_at_ns,
+        connect_timeout_ns: 40,
+        consumed: false,
+    }
+}
+
+fn established_lease(max_exchanges: u32, max_in_flight: u32) -> ConnectionLease {
+    let mut cap = connect_capability(1, 200);
+    let grant = cap.consume(100, 17, Peer { ip_last_octet: 10, port: 443 }).unwrap();
+    grant.establish(110, 303, 55, 180, 190, 500, max_exchanges, max_in_flight).unwrap()
+}
+
+fn exchange_capability(
+    id: u64,
+    connection_id: u64,
+    request_digest: u64,
+    expires_at_ns: u64,
+) -> ExchangeCapability {
+    ExchangeCapability::new(
+        id, connection_id, 17, request_digest, scope(), expires_at_ns,
+    )
+}
+
+fn admit(
+    lease: &mut ConnectionLease,
+    capability: &mut ExchangeCapability,
+    now_ns: u64,
+) -> Result<ExchangePermit, AuthorityError> {
+    lease.admit_exchange(capability, now_ns, &scope(), 175, 185, 30)
+}
+
+#[test]
+fn connect_capability_authorizes_exactly_one_socket_attempt() {
+    let mut cap = connect_capability(1, 200);
+    let peer = Peer { ip_last_octet: 10, port: 443 };
+    assert!(cap.consume(120, 17, peer).is_ok());
+    assert_eq!(cap.consume(121, 17, peer).err(), Some(AuthorityError::AlreadyConsumed));
+}
+
+#[test]
+fn expired_connect_capability_cannot_create_a_socket() {
+    let mut cap = connect_capability(1, 200);
+    let peer = Peer { ip_last_octet: 10, port: 443 };
+    assert_eq!(cap.consume(200, 17, peer).err(), Some(AuthorityError::Expired));
+}
+
+#[test]
+fn denied_peer_attempt_consumes_capability_and_cannot_be_replayed() {
+    let mut cap = connect_capability(1, 200);
+    let denied = Peer { ip_last_octet: 99, port: 443 };
+    assert_eq!(cap.consume(120, 17, denied).err(), Some(AuthorityError::PeerOutsideAuthorizedSet));
+    let allowed = Peer { ip_last_octet: 10, port: 443 };
+    assert_eq!(cap.consume(121, 17, allowed).err(), Some(AuthorityError::AlreadyConsumed));
+}
+
+#[test]
+fn connect_capability_cannot_be_used_by_another_workload() {
+    let mut cap = connect_capability(1, 200);
+    let peer = Peer { ip_last_octet: 10, port: 443 };
+    assert_eq!(cap.consume(120, 18, peer).err(), Some(AuthorityError::WorkloadMismatch));
+    assert_eq!(cap.consume(121, 17, peer).err(), Some(AuthorityError::AlreadyConsumed));
+}
+
+#[test]
+fn tls_identity_mismatch_prevents_connection_lease_issuance() {
+    let mut cap = connect_capability(1, 200);
+    let grant = cap.consume(120, 17, Peer { ip_last_octet: 10, port: 443 }).unwrap();
+    assert_eq!(
+        grant.establish(130, 999, 55, 180, 190, 50, 4, 2).err(),
+        Some(AuthorityError::TlsIdentityMismatch)
+    );
+}
+
+#[test]
+fn connection_lease_is_clamped_by_dns_and_parent_scope_expiry() {
+    let mut cap = connect_capability(1, 200);
+    let grant = cap.consume(120, 17, Peer { ip_last_octet: 10, port: 443 }).unwrap();
+    let lease = grant.establish(130, 303, 55, 160, 170, 500, 4, 2).unwrap();
+    assert_eq!(lease.expires_at_ns, 160);
+}
+
+#[test]
+fn exchange_capability_is_bound_to_exact_connection_and_is_one_use() {
+    let mut lease = established_lease(4, 2);
+    let mut cap = exchange_capability(8, 55, 777, 170);
+    let permit = admit(&mut lease, &mut cap, 120).unwrap();
+    assert_eq!(permit.request_digest, 777);
+    assert_eq!(permit.capability_id, 8);
+    assert_eq!(lease.finish_exchange(permit, 125), Ok(()));
+    assert_eq!(admit(&mut lease, &mut cap, 126).err(), Some(AuthorityError::AlreadyConsumed));
+}
+
+#[test]
+fn exchange_capability_cannot_be_replayed_on_another_connection() {
+    let mut lease = established_lease(4, 2);
+    let mut cap = exchange_capability(8, 56, 777, 170);
+    assert_eq!(admit(&mut lease, &mut cap, 120).err(), Some(AuthorityError::ConnectionMismatch));
+    assert_eq!(admit(&mut lease, &mut cap, 121).err(), Some(AuthorityError::AlreadyConsumed));
+}
+
+#[test]
+fn changed_dns_address_set_invalidates_connection_reuse() {
+    let mut lease = established_lease(4, 2);
+    let mut current = scope();
+    current.address_set_digest = 999;
+    let mut cap = exchange_capability(8, 55, 777, 170);
+    assert_eq!(
+        lease.admit_exchange(&mut cap, 120, &current, 175, 185, 30).err(),
+        Some(AuthorityError::AddressSetChanged)
+    );
+}
+
+#[test]
+fn changed_policy_generation_invalidates_connection_reuse() {
+    let mut lease = established_lease(4, 2);
+    let mut current = scope();
+    current.policy_generation += 1;
+    let mut cap = exchange_capability(8, 55, 777, 170);
+    assert_eq!(
+        lease.admit_exchange(&mut cap, 120, &current, 175, 185, 30).err(),
+        Some(AuthorityError::PolicyGenerationMismatch)
+    );
+}
+
+#[test]
+fn cross_origin_http2_coalescing_is_not_implicitly_authorized() {
+    let mut lease = established_lease(4, 2);
+    let mut current = scope();
+    current.origin = "https://other.example.test:443".to_owned();
+    let mut cap = ExchangeCapability::new(8, 55, 17, 777, current.clone(), 170);
+    assert_eq!(
+        lease.admit_exchange(&mut cap, 120, &current, 175, 185, 30).err(),
+        Some(AuthorityError::ScopeMismatch)
+    );
+}
+
+#[test]
+fn retry_uses_a_fresh_exchange_capability_after_first_attempt_is_consumed() {
+    let mut lease = established_lease(4, 2);
+    let mut first = exchange_capability(8, 55, 777, 170);
+    let first_permit = admit(&mut lease, &mut first, 120).unwrap();
+    // A failed HTTP attempt still consumes its capability; completion releases
+    // only the in-flight slot. The retry receives a distinct request capability.
+    assert_eq!(lease.finish_exchange(first_permit, 121), Ok(()));
+    assert_eq!(admit(&mut lease, &mut first, 122).err(), Some(AuthorityError::AlreadyConsumed));
+
+    let mut retry = exchange_capability(9, 55, 778, 170);
+    let retry_permit = admit(&mut lease, &mut retry, 122).unwrap();
+    assert_eq!(retry_permit.capability_id, 9);
+    assert_eq!(lease.finish_exchange(retry_permit, 123), Ok(()));
+}
+
+#[test]
+fn concurrent_exchange_budget_is_enforced() {
+    let mut lease = established_lease(10, 1);
+    let mut first = exchange_capability(8, 55, 777, 170);
+    let mut second = exchange_capability(9, 55, 778, 170);
+    let first_permit = admit(&mut lease, &mut first, 120).unwrap();
+    assert_eq!(
+        admit(&mut lease, &mut second, 121).err(),
+        Some(AuthorityError::TooManyInFlightExchanges)
+    );
+    assert_eq!(lease.in_flight, 1);
+    assert_eq!(lease.finish_exchange(first_permit, 122), Ok(()));
+    let mut third = exchange_capability(10, 55, 779, 170);
+    let third_permit = admit(&mut lease, &mut third, 123).unwrap();
+    assert_eq!(lease.finish_exchange(third_permit, 124), Ok(()));
+}
+
+#[test]
+fn exchange_budget_is_bounded_even_when_in_flight_slots_are_released() {
+    let mut lease = established_lease(1, 2);
+    let mut first = exchange_capability(8, 55, 777, 170);
+    let permit = admit(&mut lease, &mut first, 120).unwrap();
+    assert_eq!(lease.finish_exchange(permit, 121), Ok(()));
+    let mut second = exchange_capability(9, 55, 778, 170);
+    assert_eq!(admit(&mut lease, &mut second, 122).err(), Some(AuthorityError::ExchangeBudgetExhausted));
+}
+
+#[test]
+fn expired_connection_lease_blocks_new_exchange_admission() {
+    let mut lease = established_lease(4, 2);
+    let mut cap = exchange_capability(8, 55, 777, 170);
+    assert_eq!(admit(&mut lease, &mut cap, 180).err(), Some(AuthorityError::Expired));
+    assert_eq!(lease.state, LeaseState::Expired);
+}
+
+#[test]
+fn draining_connection_lease_rejects_new_exchanges_but_allows_bounded_in_flight_completion() {
+    let mut lease = established_lease(4, 2);
+    let mut first = exchange_capability(8, 55, 777, 170);
+    let permit = admit(&mut lease, &mut first, 120).unwrap();
+    lease.begin_drain(140);
+
+    let mut second = exchange_capability(9, 55, 778, 170);
+    assert_eq!(admit(&mut lease, &mut second, 121).err(), Some(AuthorityError::ConnectionNotActive));
+    assert_eq!(lease.finish_exchange(permit, 130), Ok(()));
+    assert_eq!(lease.in_flight, 0);
+}
+
+#[test]
+fn drain_deadline_bounds_existing_exchange_completion() {
+    let mut lease = established_lease(4, 2);
+    let mut first = exchange_capability(8, 55, 777, 170);
+    let permit = admit(&mut lease, &mut first, 120).unwrap();
+    lease.begin_drain(125);
+    assert_eq!(lease.finish_exchange(permit, 126).err(), Some(AuthorityError::DrainDeadlineExceeded));
+    assert_eq!(lease.in_flight, 0);
+}
+
+#[test]
+fn revocation_blocks_new_exchange_authority() {
+    let mut lease = established_lease(4, 2);
+    lease.revoke();
+    let mut cap = exchange_capability(8, 55, 777, 170);
+    assert_eq!(admit(&mut lease, &mut cap, 120).err(), Some(AuthorityError::ConnectionNotActive));
+}
+
+#[test]
+fn exchange_completion_after_deadline_releases_slot_but_fails_qualification() {
+    let mut lease = established_lease(4, 2);
+    let mut cap = exchange_capability(8, 55, 777, 170);
+    let permit = admit(&mut lease, &mut cap, 120).unwrap();
+    assert_eq!(lease.finish_exchange(permit, 151).err(), Some(AuthorityError::ExchangeTimedOut));
+    assert_eq!(lease.in_flight, 0);
+}
+
+
+## 7. Industry comparison extension: confused-deputy resistance
+
+Envoy's v1.40.0 Dynamic Forward Proxy documentation explicitly warns that an untrusted client can use the proxy's network reachability to attempt access to localhost, link-local, cloud metadata, and private network destinations. It recommends firewalls, default-deny RBAC, and container/kernel networking restrictions. PEAB adds ENVOY-004 to test caller identity and target authorization separately from the proxy's global ability to reach an address. Stock DFP and hardened DFP profiles must be measured separately; this is not a claim that every Envoy deployment is vulnerable.
+
+Cilium's latest FQDN debugging documentation also highlights the distinction between per-endpoint DNS cache and global policy aggregation. PEAB's endpoint-crossing tests must keep principal/workload identity and DNS observation provenance separate, rather than treating an IP's presence in a node-wide policy cache as proof that every endpoint independently authorized that hostname.

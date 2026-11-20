@@ -74,15 +74,17 @@ impl ConnectCapability {
         if now_ns >= self.expires_at_ns {
             return Err(AuthorityError::Expired);
         }
-
-        // The first eligible attempt consumes the capability even when a
-        // later peer check fails. A denied attempt cannot be retried with the
-        // same token against a different socket.
-        self.consumed = true;
-
+        // A different workload must not be able to burn another workload's
+        // capability merely by presenting it to the wrong broker context.
         if workload_id != self.scope.workload_id {
             return Err(AuthorityError::WorkloadMismatch);
         }
+
+        // Once the owner workload attempts a connection, consume the token
+        // before evaluating the requested peer. A denied destination cannot
+        // be retried with the same one-use capability against another socket.
+        self.consumed = true;
+
         if !self.authorized_peers.contains(&peer) {
             return Err(AuthorityError::PeerOutsideAuthorizedSet);
         }
@@ -112,7 +114,7 @@ impl ConnectGrant {
         max_exchanges: u32,
         max_in_flight: u32,
     ) -> Result<ConnectionLease, AuthorityError> {
-        if now_ns > self.establishment_deadline_ns {
+        if now_ns >= self.establishment_deadline_ns {
             return Err(AuthorityError::ConnectTimedOut);
         }
         if observed_tls_identity_digest != self.scope.tls_identity_digest {
@@ -223,18 +225,19 @@ impl ConnectionLease {
         if now_ns >= capability.expires_at_ns {
             return Err(AuthorityError::Expired);
         }
-
-        // Any attempt to consume a live, connection-bound exchange capability
-        // is one-use, including attempts rejected by the lease or scope checks.
-        capability.consumed = true;
-
-        if capability.connection_id != self.id {
-            return Err(AuthorityError::ConnectionMismatch);
-        }
+        // A foreign workload cannot consume another workload's exchange token.
         if capability.workload_id != self.scope.workload_id
             || current_scope.workload_id != self.scope.workload_id
         {
             return Err(AuthorityError::WorkloadMismatch);
+        }
+
+        // A same-workload misuse attempt consumes this request capability,
+        // including a wrong-connection or stale-scope attempt.
+        capability.consumed = true;
+
+        if capability.connection_id != self.id {
+            return Err(AuthorityError::ConnectionMismatch);
         }
         if current_scope.policy_generation != self.scope.policy_generation {
             return Err(AuthorityError::PolicyGenerationMismatch);
@@ -314,11 +317,14 @@ impl ConnectionLease {
         }
         self.in_flight -= 1;
 
-        if now_ns > permit.deadline_ns {
+        if self.state == LeaseState::Revoked {
+            return Err(AuthorityError::ConnectionNotActive);
+        }
+        if now_ns >= permit.deadline_ns {
             return Err(AuthorityError::ExchangeTimedOut);
         }
         if let LeaseState::Draining { deadline_ns } = self.state {
-            if now_ns > deadline_ns {
+            if now_ns >= deadline_ns {
                 return Err(AuthorityError::DrainDeadlineExceeded);
             }
         }
@@ -425,6 +431,8 @@ fn connection_lease_is_clamped_by_dns_and_parent_scope_expiry() {
     let grant = cap.consume(120, 17, Peer { ip_last_octet: 10, port: 443 }).unwrap();
     let lease = grant.establish(130, 303, 55, 160, 170, 500, 4, 2).unwrap();
     assert_eq!(lease.expires_at_ns, 160);
+    assert_eq!(lease.source_capability_id, 1);
+    assert_eq!(lease.selected_peer, Peer { ip_last_octet: 10, port: 443 });
 }
 
 #[test]
@@ -571,4 +579,90 @@ fn exchange_completion_after_deadline_releases_slot_but_fails_qualification() {
     let permit = admit(&mut lease, &mut cap, 120).unwrap();
     assert_eq!(lease.finish_exchange(permit, 151).err(), Some(AuthorityError::ExchangeTimedOut));
     assert_eq!(lease.in_flight, 0);
+}
+
+
+#[test]
+fn foreign_workload_cannot_burn_an_exchange_capability() {
+    let mut lease = established_lease(4, 2);
+    let mut cap = exchange_capability(8, 55, 777, 170);
+    cap.workload_id = 18;
+    assert_eq!(admit(&mut lease, &mut cap, 120).err(), Some(AuthorityError::WorkloadMismatch));
+    cap.workload_id = 17;
+    assert!(admit(&mut lease, &mut cap, 121).is_ok());
+}
+
+#[test]
+fn changed_network_enforcement_generation_invalidates_reuse() {
+    let mut lease = established_lease(4, 2);
+    let mut current = scope();
+    current.network_generation += 1;
+    let mut cap = ExchangeCapability::new(8, 55, 17, 777, current.clone(), 170);
+    assert_eq!(
+        lease.admit_exchange(&mut cap, 120, &current, 175, 185, 30).err(),
+        Some(AuthorityError::ScopeMismatch)
+    );
+}
+
+#[test]
+fn changed_tls_identity_invalidates_reuse() {
+    let mut lease = established_lease(4, 2);
+    let mut current = scope();
+    current.tls_identity_digest += 1;
+    let mut cap = ExchangeCapability::new(8, 55, 17, 777, current.clone(), 170);
+    assert_eq!(
+        lease.admit_exchange(&mut cap, 120, &current, 175, 185, 30).err(),
+        Some(AuthorityError::ScopeMismatch)
+    );
+}
+
+#[test]
+fn parent_scope_expiry_prevents_connection_lease_issuance() {
+    let mut cap = connect_capability(1, 200);
+    let grant = cap.consume(120, 17, Peer { ip_last_octet: 10, port: 443 }).unwrap();
+    assert_eq!(
+        grant.establish(130, 303, 55, 180, 130, 50, 4, 2).err(),
+        Some(AuthorityError::ParentScopeExpired)
+    );
+}
+
+#[test]
+fn dns_snapshot_expiry_prevents_connection_lease_issuance() {
+    let mut cap = connect_capability(1, 200);
+    let grant = cap.consume(120, 17, Peer { ip_last_octet: 10, port: 443 }).unwrap();
+    assert_eq!(
+        grant.establish(130, 303, 55, 130, 190, 50, 4, 2).err(),
+        Some(AuthorityError::DnsSnapshotExpired)
+    );
+}
+
+#[test]
+fn revocation_invalidates_in_flight_exchange_ticket_and_releases_slot() {
+    let mut lease = established_lease(4, 2);
+    let mut cap = exchange_capability(8, 55, 777, 170);
+    let permit = admit(&mut lease, &mut cap, 120).unwrap();
+    lease.revoke();
+    assert_eq!(
+        lease.finish_exchange(permit, 121).err(),
+        Some(AuthorityError::ConnectionNotActive)
+    );
+    assert_eq!(lease.in_flight, 0);
+}
+
+#[test]
+fn generated_replay_sequences_never_admit_one_exchange_capability_twice() {
+    for id in 1..=128 {
+        let mut lease = established_lease(8, 2);
+        let mut cap = exchange_capability(id, 55, id * 17, 170);
+        let first = admit(&mut lease, &mut cap, 120);
+        assert!(first.is_ok(), "fresh capability {id} must be admitted");
+        assert_eq!(lease.finish_exchange(first.unwrap(), 121), Ok(()));
+        for offset in 0..8 {
+            assert_eq!(
+                admit(&mut lease, &mut cap, 122 + offset).err(),
+                Some(AuthorityError::AlreadyConsumed),
+                "capability {id} replay attempt {offset} must be denied"
+            );
+        }
+    }
 }

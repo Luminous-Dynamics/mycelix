@@ -562,3 +562,18 @@ PEAB adds KERNEL-011 and KERNEL-012 for two unsupported-policy cases discovered 
 PEAB adds KERNEL-013 for the deserialized-plan path. The Nixward V40 validator now rejects ICMP/Any rule values independently of the capability compiler, so a manually constructed or deserialized plan cannot bypass unresolved-protocol handling. This is partial external source coverage and remains unexecuted.
 
 PEAB adds TXN-015 for journal chronology. Nixward now rejects a timestamp that moves backwards across transaction records, both at record creation and replay. The negative control recomputes a valid record hash after moving the timestamp backwards, proving that monotonic chronology is a separate invariant from hash correctness. This is partial external source coverage and remains unexecuted.
+
+
+## 11. Connection authority and pooling qualification
+
+The current Prism implementation deliberately creates a fresh DNS-pinned Reqwest client for each consumed EgressCapability. Do not compare that design against a warm pooled proxy and report the result as a transport-only comparison. The next experiment is an authority-scoped pool, first as a fake connector/model and only then as a real HTTP transport prototype.
+
+A reusable connection is eligible only when workload identity, exact origin (scheme/host/port), parent-scope digest, DNS address-set digest, TLS identity, application policy generation and network enforcement generation match. A connection lease also has an expiry bounded by DNS/parent authority and explicit connection lifetime. Each HTTP request still consumes a distinct ExchangeCapability bound to that connection and the exact canonical request digest. Cross-origin HTTP/2 coalescing is disabled until a multi-origin capability contract is separately designed and proven.
+
+PEAB must compare: fresh-client Prism; a safely pooled hardened Reqwest reference; an authority-scoped Prism pool prototype; Envoy DFP with its configured upstream pool; Envoy plus enforced Cilium/firewall policy. Report separately: TLS handshake count, connection-lease hit rate, capability issuance/consumption count, exchanges per lease, denied reuse due to scope changes, DNS refresh behavior, stale-scope exposure, p50/p95/p99 latency, CPU, allocations, RSS, connection count, DNS pressure, and reconciliation delay. Cold and warm paths remain separate.
+
+Security gates: no reuse across changed origin, workload, peer-set digest, TLS identity, parent scope, policy generation or network generation; one-use exchange capability; retry/redirect requires fresh exchange authority; expiry denies new exchanges; drain allows already-admitted work only inside deadlines; revocation invalidates outstanding application permits; kernel treatment of packets on established sockets remains independently measured. These are proposed acceptance rules, not measured Prism results.
+
+## 12. Confused-deputy baseline
+
+Envoy v1.40.0 DFP warns that an untrusted client may use the proxy's reachability to access localhost, link-local, metadata or private destinations. It recommends firewalling, default-deny RBAC and kernel/container restrictions. PEAB ENVOY-004 therefore separates caller identity authorization from destination-address filtering. Run a baseline DFP profile and a hardened DFP profile with explicit request authentication/authorization plus enforced network containment. Record caller principal, route/RBAC decision and actual upstream socket. Do not describe the baseline as a vulnerability or the hardened profile as equivalent unless the configs and behavior are verified.
