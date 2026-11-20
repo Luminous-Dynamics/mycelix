@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::attestation::{GateSetStatus, GateSetVerification};
 use super::offer_ledger::VerifiedOfferLedger;
+use super::outcome_ledger::{OutcomeClass, VerifiedOutcomeLedger};
 use super::{CrossHostTimingStatus, MetricIntegrityVerification};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -39,13 +40,14 @@ pub enum QopsStatus {
     Incomplete,
 }
 
-/// Independent per-operation outcome authentication is deliberately not
-/// implemented yet. QOPS cannot become Eligible until #6357 supplies an
-/// opaque VerifiedOutcomeLedger.
+/// Distinguishes authenticated outcome evidence from missing/invalid inputs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum OutcomeEvidenceStatus {
     NotImplemented,
+    Verified,
+    Invalid,
+    Incomplete,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -58,6 +60,10 @@ pub enum QopsIssue {
     CorrectnessGateSetIncomplete,
     CorrectnessGateSetContextMismatch,
     OutcomeEvidenceNotVerified,
+    OutcomeLedgerContextMismatch,
+    OutcomeLedgerIncomplete,
+    DuplicateExternalEffect,
+    UnexpectedDenialObserved,
     EmptySampleOperationId(usize),
     UnexpectedOperationSample(String),
     DuplicateOutcomeSample(String),
@@ -101,6 +107,8 @@ pub struct QopsReport {
     pub outcome_ledger_digest_sha256: Option<String>,
     pub outcome_ledger_entry_count: usize,
     pub outcome_attestation_count: usize,
+    pub outcome_trust_policy_id: Option<String>,
+    pub outcome_trust_policy_digest_sha256: Option<String>,
     /// Diagnostic labels supplied by the caller; never eligible outcome facts.
     pub asserted_outcome_samples: AssertedOutcomeSamples,
     pub offered_operations: usize,
@@ -330,6 +338,8 @@ pub fn compute_qops(
         outcome_ledger_digest_sha256: None,
         outcome_ledger_entry_count: 0,
         outcome_attestation_count: 0,
+        outcome_trust_policy_id: None,
+        outcome_trust_policy_digest_sha256: None,
         asserted_outcome_samples,
         offered_operations,
         classified_outcomes,
@@ -344,6 +354,144 @@ pub fn compute_qops(
         qualified_operations_per_second: qualified_rate,
         qualified_success_fraction: success_fraction,
     }
+}
+
+/// Compute QOPS using only a verifier-created per-operation outcome ledger.
+///
+/// The old `compute_qops` entry point remains diagnostic-only and cannot emit
+/// an eligible rate. This function joins the verified numerator evidence to
+/// the exact offer ledger, runtime, topology and correctness-gate context.
+pub fn compute_qops_verified(
+    ledger: &VerifiedOfferLedger,
+    outcomes: &VerifiedOutcomeLedger,
+    metric_verification: &MetricIntegrityVerification,
+    gate_verification: &GateSetVerification,
+) -> QopsReport {
+    let diagnostic_input = QopsInput {
+        outcomes: outcomes.operation_outcomes().iter().map(|(operation_id, outcome)| {
+            OperationOutcomeSample {
+                operation_id: operation_id.clone(),
+                outcome: match outcome {
+                    OutcomeClass::QualifiedSuccess => OperationOutcome::QualifiedSuccess,
+                    OutcomeClass::CorrectDenial => OperationOutcome::CorrectDenial,
+                    OutcomeClass::UnexpectedDenial => OperationOutcome::UnexpectedDenial,
+                    OutcomeClass::Failed => OperationOutcome::Failed,
+                    OutcomeClass::Unknown => OperationOutcome::Unknown,
+                    OutcomeClass::DuplicateEffect => OperationOutcome::DuplicateEffect,
+                },
+            }
+        }).collect(),
+    };
+    let mut report = compute_qops(ledger, &diagnostic_input, metric_verification, gate_verification);
+    report.issues.retain(|issue| *issue != QopsIssue::OutcomeEvidenceNotVerified);
+    report.asserted_outcome_samples = AssertedOutcomeSamples::default();
+
+    let gate_context_matches = match gate_verification {
+        GateSetVerification::Verified(gates) => {
+            gates.run_id() == outcomes.run_id()
+                && gates.scenario_id() == outcomes.scenario_id()
+                && gates.scenario_contract_digest_sha256() == outcomes.scenario_contract_digest_sha256()
+                && gates.source_sha() == outcomes.source_commit()
+                && gates.source_tree_git_sha() == outcomes.source_tree_sha()
+                && gates.runtime_identity_digest_sha256() == outcomes.runtime_identity_digest_sha256()
+                && gates.topology_profile_digest_sha256() == outcomes.topology_profile_digest_sha256()
+        }
+        GateSetVerification::Rejected(_) => false,
+    };
+    let outcome_context_matches =
+        outcomes.run_id() == ledger.run_id()
+            && outcomes.scenario_id() == ledger.scenario_id()
+            && outcomes.scenario_contract_digest_sha256() == ledger.scenario_contract_digest_sha256()
+            && outcomes.offer_ledger_digest_sha256() == ledger.ledger_digest_sha256()
+            && outcomes.entry_count() == ledger.entry_count()
+            && outcomes.operation_outcomes().len() == ledger.entry_count();
+
+    if !gate_context_matches || !outcome_context_matches {
+        push_unique(&mut report.issues, QopsIssue::OutcomeLedgerContextMismatch);
+        report.outcome_evidence_status = OutcomeEvidenceStatus::Invalid;
+        report.outcome_trust_policy_id = Some(outcomes.trust_policy_id().to_string());
+        report.outcome_trust_policy_digest_sha256 = Some(outcomes.trust_policy_digest_sha256().to_string());
+        report.status = QopsStatus::Invalid;
+        report.classified_outcomes = 0;
+        report.qualified_successes = 0;
+        report.correct_denials = 0;
+        report.unexpected_denials = 0;
+        report.known_failures = 0;
+        report.unknown_outcomes = 0;
+        report.duplicate_external_effects = 0;
+        report.offered_operations_per_second = None;
+        report.qualified_operations_per_second = None;
+        report.qualified_success_fraction = None;
+        return report;
+    }
+
+    report.outcome_evidence_status = OutcomeEvidenceStatus::Verified;
+    report.outcome_ledger_digest_sha256 = Some(outcomes.ledger_digest_sha256().to_string());
+    report.outcome_ledger_entry_count = outcomes.entry_count();
+    report.outcome_attestation_count = outcomes.attestation_count();
+    report.outcome_trust_policy_id = Some(outcomes.trust_policy_id().to_string());
+    report.outcome_trust_policy_digest_sha256 = Some(outcomes.trust_policy_digest_sha256().to_string());
+    report.classified_outcomes = outcomes.entry_count();
+    report.qualified_successes = outcomes.qualified_successes();
+    report.correct_denials = outcomes.correct_denials();
+    report.unexpected_denials = outcomes.unexpected_denials();
+    report.known_failures = outcomes.failures();
+    report.unknown_outcomes = outcomes.unknown_outcomes();
+    report.duplicate_external_effects = outcomes.duplicate_effects();
+
+    if report.unknown_outcomes > 0 {
+        push_unique(&mut report.issues, QopsIssue::OutcomeLedgerIncomplete);
+        report.outcome_evidence_status = OutcomeEvidenceStatus::Incomplete;
+    }
+    if report.duplicate_external_effects > 0 {
+        push_unique(&mut report.issues, QopsIssue::DuplicateExternalEffect);
+        report.outcome_evidence_status = OutcomeEvidenceStatus::Invalid;
+    }
+    if report.unexpected_denials > 0 {
+        push_unique(&mut report.issues, QopsIssue::UnexpectedDenialObserved);
+    }
+
+    let is_incomplete = report.issues.iter().any(|issue| {
+        matches!(
+            issue,
+            QopsIssue::MetricIntegrityIncomplete
+                | QopsIssue::CrossHostMetricIntegrityIncomplete
+                | QopsIssue::CorrectnessGateSetIncomplete
+                | QopsIssue::OutcomeLedgerIncomplete
+        )
+    });
+    let is_invalid = report.issues.iter().any(|issue| {
+        !matches!(
+            issue,
+            QopsIssue::MetricIntegrityIncomplete
+                | QopsIssue::CrossHostMetricIntegrityIncomplete
+                | QopsIssue::CorrectnessGateSetIncomplete
+                | QopsIssue::OutcomeLedgerIncomplete
+        )
+    });
+    report.status = if is_invalid {
+        QopsStatus::Invalid
+    } else if is_incomplete {
+        QopsStatus::Incomplete
+    } else {
+        QopsStatus::Eligible
+    };
+
+    if report.status == QopsStatus::Eligible && report.offered_operations > 0 {
+        let window_seconds = ledger.measurement_window_ns() as f64 / 1_000_000_000.0;
+        report.offered_operations_per_second =
+            Some(report.offered_operations as f64 / window_seconds);
+        report.qualified_operations_per_second =
+            Some(report.qualified_successes as f64 / window_seconds);
+        report.qualified_success_fraction =
+            Some(report.qualified_successes as f64 / report.offered_operations as f64);
+    } else {
+        report.offered_operations_per_second = None;
+        report.qualified_operations_per_second = None;
+        report.qualified_success_fraction = None;
+    }
+
+    report
 }
 
 #[cfg(test)]
