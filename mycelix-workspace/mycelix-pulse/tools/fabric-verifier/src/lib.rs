@@ -869,6 +869,16 @@ fn evidence_reference(event: &EventRecord, kind: &str) -> Option<&EvidenceRefere
     event.evidence_refs.iter().find(|reference| reference.kind == kind)
 }
 
+fn has_direct_causal_edge(
+    child: &EventRecord,
+    parent: &EventRecord,
+    relation: &str,
+) -> bool {
+    child.predecessors.iter().any(|edge| {
+        edge.event_id == parent.event_id && edge.relation == relation
+    })
+}
+
 fn verify_success_projection(
     events: &[EventRecord],
     by_id: &HashMap<String, usize>,
@@ -935,6 +945,28 @@ fn verify_success_projection(
             };
             let receipt_ancestors = ancestors(receipt, by_id, events);
 
+            let intent = events.iter().find(|event| {
+                event.event_type == "intent_recorded"
+                    && event.logical_operation_id == receipt.logical_operation_id
+                    && receipt_ancestors.contains(&event.event_id)
+            });
+            let crypto_profile = events.iter().find(|event| {
+                event.event_type == "crypto_profile_selected"
+                    && event.logical_operation_id == receipt.logical_operation_id
+                    && receipt_ancestors.contains(&event.event_id)
+            });
+            let outbox = events.iter().find(|event| {
+                event.event_type == "outbox_committed"
+                    && event.logical_operation_id == receipt.logical_operation_id
+                    && receipt_ancestors.contains(&event.event_id)
+            });
+            let transport_started = events.iter().find(|event| {
+                event.event_type == "transport_attempt_started"
+                    && event.logical_operation_id == receipt.logical_operation_id
+                    && event.attempt_id.as_deref() == Some(attempt_id)
+                    && receipt_ancestors.contains(&event.event_id)
+            });
+
             let has_operation_event = |event_type: &str| {
                 events.iter().any(|event| {
                     event.event_type == event_type
@@ -997,7 +1029,19 @@ fn verify_success_projection(
                 continue;
             }
 
+            let direct_crypto_intent = matches!((crypto_profile, intent), (Some(child), Some(parent))
+                if has_direct_causal_edge(child, parent, "derived_from"));
+            let direct_host_crypto = matches!((host_admission, crypto_profile), (Some(child), Some(parent))
+                if has_direct_causal_edge(child, parent, "derived_from"));
+            let direct_domain_host = matches!((domain_authorization, host_admission), (Some(child), Some(parent))
+                if has_direct_causal_edge(child, parent, "derived_from"));
+
+            if !direct_crypto_intent || !direct_host_crypto || !direct_domain_host {
+                continue;
+            }
+
             let source_action = events.iter().find(|event| {
+
                 event.event_type == "source_action_authored"
                     && event.logical_operation_id == receipt.logical_operation_id
                     && event.attempt_id.as_deref() == Some(attempt_id)
@@ -1031,7 +1075,18 @@ fn verify_success_projection(
             };
             let validation_receipt_present = integrity_acceptance
                 .is_some_and(|event| evidence_reference(event, "validation_receipt").is_some());
-            if !action_hashes_match || !validation_receipt_present {
+            let direct_source_domain = matches!((source_action, domain_authorization), (Some(child), Some(parent))
+                if has_direct_causal_edge(child, parent, "derived_from"));
+            let direct_integrity_source = matches!((integrity_acceptance, source_action), (Some(child), Some(parent))
+                if has_direct_causal_edge(child, parent, "verifies"));
+            let direct_dht_integrity = matches!((dht_projection, integrity_acceptance), (Some(child), Some(parent))
+                if has_direct_causal_edge(child, parent, "derived_from"));
+            if !action_hashes_match
+                || !validation_receipt_present
+                || !direct_source_domain
+                || !direct_integrity_source
+                || !direct_dht_integrity
+            {
                 continue;
             }
 
@@ -1065,6 +1120,42 @@ fn verify_success_projection(
             else {
                 continue;
             };
+
+            let direct_transport_integrity =
+                matches!((transport_started, integrity_acceptance), (Some(child), Some(parent))
+                    if has_direct_causal_edge(child, parent, "transport_for"));
+            let direct_transport_outbox =
+                matches!((transport_started, outbox), (Some(child), Some(parent))
+                    if has_direct_causal_edge(child, parent, "attempt_for"));
+            let direct_admission_transport =
+                matches!((admitted, transport_started), (Some(child), Some(parent))
+                    if has_direct_causal_edge(child, parent, "request_response"));
+            let direct_admission_dht =
+                matches!((admitted, dht_projection), (Some(child), Some(parent))
+                    if has_direct_causal_edge(child, parent, "derived_from"));
+            let direct_commit_admission =
+                has_direct_causal_edge(committed, admitted, "commits");
+            let direct_decrypt_commit =
+                has_direct_causal_edge(decrypted, committed, "verifies");
+            let direct_receipt_decrypt =
+                has_direct_causal_edge(created, decrypted, "receipt_for");
+            let direct_verify_created =
+                has_direct_causal_edge(receipt, created, "verifies");
+            let direct_projection_receipt =
+                has_direct_causal_edge(projection, receipt, "derived_from");
+
+            if !direct_transport_integrity
+                || !direct_transport_outbox
+                || !direct_admission_transport
+                || !direct_admission_dht
+                || !direct_commit_admission
+                || !direct_decrypt_commit
+                || !direct_receipt_decrypt
+                || !direct_verify_created
+                || !direct_projection_receipt
+            {
+                continue;
+            }
 
             let commitments: Vec<Option<&str>> = events
                 .iter()
@@ -1870,6 +1961,19 @@ mod tests {
         let result = verify_trace(&trace, None);
         assert!(result.is_ok(), "{result:?}");
         assert_eq!(result.unwrap().terminal_disposition, "UNKNOWN");
+    }
+
+    #[test]
+    fn rejects_complete_ancestor_inventory_with_wrong_direct_authority_edge() {
+        let mut trace = valid_trace();
+        let host = event_index(&trace, "host-admitted");
+        trace["events"][host]["causal_predecessors"] =
+            json!([{"event_id": "crypto-profile", "relation": "attempt_for"}]);
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().iter().any(|item| {
+            item.message.contains("lacks a causally connected")
+        }));
     }
 
     #[test]
