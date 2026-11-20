@@ -1720,6 +1720,24 @@ mod tests {
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
+                    rule_id: "plan.digital_model_entities_array_count".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Product"),
+                        expanded("PartSet"),
+                        expanded("*"),
+                        expanded("DefinitionExternal"),
+                        expanded("DigitalModel"),
+                        expanded("Entities"),
+                    ],
+                    capture: LocatorCaptureMode::ArrayCount,
+                    min_occurrences: 1,
+                    max_occurrences: Some(1),
+                    capture_attributes: vec!["{}n".into()],
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
                     rule_id: "plan.digital_model_external_entity".into(),
                     document_role: QifDocumentRole::Plan,
                     expanded_path: vec![
@@ -1738,26 +1756,7 @@ mod tests {
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
                 },
-                TraceLocatorRuleV1 {
-                    rule_id: "plan.external_entity_persistent_id".into(),
-                    document_role: QifDocumentRole::Plan,
-                    expanded_path: vec![
-                        expanded("QIFDocument"),
-                        expanded("Product"),
-                        expanded("PartSet"),
-                        expanded("*"),
-                        expanded("DefinitionExternal"),
-                        expanded("DigitalModel"),
-                        expanded("Entities"),
-                        expanded("Entity"),
-                        expanded("EntityId"),
-                    ],
-                    capture: LocatorCaptureMode::Text,
-                    min_occurrences: 1,
-                    max_occurrences: None,
-                    capture_attributes: Vec::new(),
-                    declares_external_document_reference: false,
-                },
+
             ],
             limits: TraceLocatorLimitsV1 {
                 max_documents: 16,
@@ -1855,9 +1854,7 @@ mod tests {
             <q:Name>Example model</q:Name>
             <q:File><q:Name>example.step</q:Name></q:File>
             <q:Entities n="1">
-              <q:Entity id="9001">
-                <q:EntityId>550e8400-e29b-41d4-a716-446655440000</q:EntityId>
-              </q:Entity>
+              <q:Entity id="9001"/>
             </q:Entities>
           </q:DigitalModel>
         </q:DefinitionExternal>
@@ -2155,6 +2152,22 @@ mod tests {
             derive_trace_locator_inventory("depth-limit", &shallow, &docs(deep.as_bytes(), PLAN.as_bytes())),
             Err(InventoryError::DepthLimitExceeded)
         );
+    }
+
+    #[test]
+    fn digital_model_entities_array_n_is_verified() {
+        let plan = PLAN.replace(
+            "<q:Entities n=\"1\">",
+            "<q:Entities n=\"2\">"
+        );
+        assert!(matches!(
+            derive_trace_locator_inventory(
+                "bad-digital-model-entities-count",
+                &profile(),
+                &docs(RESULTS.as_bytes(), plan.as_bytes())
+            ),
+            Err(InventoryError::ArrayCountMismatch(_))
+        ));
     }
 
     #[test]
