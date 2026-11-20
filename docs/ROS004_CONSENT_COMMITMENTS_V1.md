@@ -37,3 +37,49 @@ These vectors lock this v1 encoding. Any semantic or byte-format change requires
 ## Qualification scope
 
 The dedicated exact-head workflow pins Rust 1.96.1 and runs formatting, tests and strict Clippy for `mycelix-core-types`. This PR is stacked on #3692; it does not qualify ROS-005 parent-chain semantics, Holochain 0.7.1, DHT currentness, signatures, or downstream Xenia enforcement.
+
+
+## Independent known-answer fixture
+
+The frozen fixture uses:
+
+- relationship: `RelationshipId::derive("test", b"relationship")`;
+- grantor: participant namespace `did`, identifier `alice`;
+- audience: participant namespace `did`, identifier `bob`;
+- purpose: `ConsentPurpose::Named("relationship-support")`;
+- disclosure mode: `Disclose`;
+- data classes: `[Contact]`;
+- field set: `["email"]`;
+- granted-at: `100`;
+- expires-at: `Some(200)`;
+- authority epoch: `7`.
+
+All hexadecimal strings below are lowercase, with no separators. Integer lengths are unsigned 64-bit little-endian values, except the relationship epoch/time fields, which follow the existing ROS-004 v1 canonical encoding.
+
+**Consent-profile payload** (the exact output of `Consent::canonical_bytes()`, 190 bytes):
+
+```text
+6d7963656c69782e636f6e73656e742d636f6e74656e742e763100
+96af77b8e32e0179ce20562595a4f82c078dceb742d50449498266c46b173c7c
+0300000000000000646964
+0500000000000000616c696365
+0300000000000000646964
+0300000000000000626f62
+00140000000000000072656c6174696f6e736869702d737570706f7274
+0101000000000000000201000000000000000500000000000000656d61696c
+640000000000000001c8000000000000000700000000000000
+```
+
+**Purpose payload** (the existing typed purpose tag plus length-prefixed UTF-8 value):
+
+```text
+00140000000000000072656c6174696f6e736869702d737570706f7274
+```
+
+**Data-class-set payload** (one class, tag `Contact = 0x02`):
+
+```text
+010000000000000002
+```
+
+Applying the domain + payload-length framing specified above must produce the three digest vectors in the previous section. These payloads and digests are intended to be copied into independently implemented known-answer tests; changes require a new commitment schema/domain version.
