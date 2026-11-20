@@ -1593,7 +1593,7 @@ mod tests {
         let names = [
             "QIFDocument", "QPId", "ExternalQIFReferences", "ExternalQIFDocument", "URI",
             "Results", "MeasurementResultsSet", "MeasurementResults", "MeasuredCharacteristics",
-            "CharacteristicMeasurements", "LinearCharacteristicMeasurement", "CharacteristicItemId",
+            "CharacteristicMeasurements", "LinearCharacteristicMeasurement", "Status", "CharacteristicStatusEnum", "CharacteristicItemId",
         ];
         let mut results_prefixed = RESULTS.replace(
             "xmlns=\"http://qifstandards.org/xsd/qif3\"",
