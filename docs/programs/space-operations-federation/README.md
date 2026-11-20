@@ -264,7 +264,83 @@ For performance, measure ingestion throughput, p50/p95/p99 processing latency, b
 
 Commercial comparisons should include the published capabilities of LeoLabs, Slingshot Aerospace, Kayhan Space and COMSPOC. Vendor claims are not independent test results. The competitive question is whether Luminous reduces evidence semantic loss, stale-data acceptance, false corroboration, policy ambiguity, coordination friction and recovery failure—not whether it owns better sensors or currently predicts orbits more accurately.
 
-## 9. Delivery gates
+## 9. Industry baseline snapshot and fair comparison (2026-11-20)
+
+This portfolio is not entering an empty market. The following are **provider-published capability descriptions**, not independently reproduced performance results:
+
+| Organisation / service | Publicly described capability | Implication for the benchmark |
+|---|---|---|
+| NOAA Office of Space Commerce — TraCSS | Public civil SSA and operator coordination. Its November 2026 overview reports 90 pilot user organisations representing more than 15,580 satellites and 13 national government accounts. | Treat TraCSS as a public interoperability and operational adoption reference, not as an adversary to replace. |
+| LeoLabs | Radar-based space-domain awareness. Its site advertises a 29K+ object catalog, state-vector accuracy below 15 metres and latency below two minutes for specified products. | Vendor-published metrics only; require orbit-regime, object class, epoch, sensor coverage and independent truth before comparison. |
+| Slingshot Aerospace | Global Sensor Network and orbital-data products; Agatha AI anomaly analytics; Digital Space Twin; TALOS AI maneuver decision support; Beacon conjunction alerts and operator-to-operator coordination; developer APIs and tracking tasking. | This already covers many product concepts in our initial proposal. Our differentiation cannot simply be “AI + digital twin + coordination”; it must be measured semantic fidelity, evidence lineage, replay, rights and multi-provider resilience. |
+| COMSPOC | On-premise Space Situational Awareness Suite, multi-sensor ingestion/fusion, Extended Kalman Filter-Smoother orbit estimation and covariance, mission-awareness analysis, training/event simulation and data portal. | Treat orbit/covariance estimation and on-premise processing as mature comparison categories. We must compare against reference data and never assume our current orbit estimates are better. |
+| Kayhan Space | Autonomous safety-of-flight alerts and notifications, decision plans, satellite catalog and Dynamics astrodynamics estimation/simulation. | Operator alert latency and decision-support usefulness are existing competitive capabilities, not a novel claim for Luminous. |
+| NASA CARA | Published 2-D and 3-D probability-of-collision methods, Monte Carlo, single-covariance maximum Pc, covariance-realism and collision-consequence tools, plus operational process guidance. | Use as a primary technical reference and method-applicability baseline, rather than treating generic algorithm labels as equivalent implementations. |
+
+Primary public references:
+- TraCSS overview / November 2026 pilot figures: https://space.commerce.gov/traffic-coordination-system-for-space-tracss/
+- LeoLabs Space Domain Awareness product claims: https://leolabs.space/space-domain-awareness/
+- Slingshot product overview: https://www.slingshot.space/product-overview
+- COMSPOC SSASuite: https://www.comspoc.com/ssasuite
+- Kayhan Space: https://kayhan.space/
+- NASA CARA public software: https://www.nasa.gov/cara/publicly-available-cara-software/
+
+Do not convert vendor-published figures into a common league table: their sensor coverage, orbit populations, object classes, latency definitions, coordinate conventions and data-access products are not matched.
+
+### Where Luminous should compete
+
+The defensible initial position is **not better sensors, larger catalogs or more accurate orbit determination**. It is a complementary assurance/federation layer:
+
+1. Preserve source-native CDM/OEM/OCM bytes, schema revision, units, frame, covariance and event-time semantics.
+2. Bind every projection, transform, hypothesis and decision to exact inputs, code/configuration revision, rights scope and digest.
+3. Expose unknown common-source dependencies rather than counting mirrors, brokers or model summaries as independent observations.
+4. Let operators share only authorized projections while retaining their local records, policy and operational authority.
+5. Reproduce a decision from immutable inputs after partitions, corrections, retractions and software upgrades.
+6. Separate a proposed decision, operator acknowledgement, operator authorization, execution report and independently observed outcome.
+7. Abstain when evidence is stale, clock/frame-incomparable, out of domain or insufficient for the requested decision.
+
+These are programme hypotheses. Public product pages do not establish that competitors lack these properties; the comparison must be performed by testing actual interfaces, data products and independently available evidence.
+
+### Fair comparative protocol
+
+For any performance comparison, freeze the same input artifacts and evaluation budget across systems. Bind:
+
+- product/version, configuration and API/schema profile;
+- source observation set and access permissions;
+- orbital regime, object class and sensor coverage;
+- epoch, time scale, reference frame, origin and units;
+- covariance provenance, correlation assumptions and hard-body radius;
+- screening volumes, propagation model, force model and reference truth;
+- hardware/compute budget, tasking budget and observation cut-off;
+- exact output bytes, latency definition, failures and missing-data behavior.
+
+If the competitor's required input, model configuration or result is unavailable, report **not comparable**; do not fill the gap with a marketing claim or synthetic substitute.
+
+### Metrics to publish separately
+
+| Layer | Required measurements |
+|---|---|
+| Tracking / orbit estimation | Position and velocity residuals by orbit regime and lead time; empirical covariance coverage; maneuver/uncorrelated-track detection; latency and custody gaps |
+| Conjunction assessment | Event recall at fixed false-alert burden; Pc calibration and interval coverage; applicability/abstention rate by method; correlated-error sensitivity; false-negative severity |
+| Interoperability | Byte/digest preservation; mandatory/optional field correctness; unit/frame/time/covariance semantic loss; schema-version support; duplicate/correction handling |
+| Evidence and governance | Replay equality; provenance coverage; dependency completeness; unauthorized disclosure/action rejection; revocation and purpose enforcement |
+| Federation | Partition visibility; stale-view detection; reconciliation correctness; recovery time; silent-overwrite count; local autonomy during disconnection |
+| Decision support | Human review time; decision lead time; recommendation calibration; abstention quality; operator acceptance/rejection and later observed outcome |
+
+No single composite score should hide a poor result in one safety-critical category.
+
+### Stretch targets — prospective, not achieved
+
+- 100% correct source-field disposition on the frozen supported-message corpus; zero silent unit, frame, time or covariance reinterpretation.
+- Zero unauthorized reads/writes and zero false-independent corroboration on the frozen negative-control corpus.
+- 100% deterministic replay of the frozen evidence projection for identical inputs, parser, model and policy revisions.
+- Three independent federation nodes survive delayed/duplicate/reordered delivery and partition/recovery with no silent overwrite.
+- At matched detection recall on a held-out, independently adjudicated corpus, target 20% fewer false alerts than the strongest matched baseline.
+- At equivalent correctness and provenance completeness, target 2× faster cross-operator evidence reconciliation than the measured baseline.
+
+The last two are research targets. They become claims only after preregistration, matched hardware/data/coverage, a blind holdout, exact-head CI, independent oracle and external review.
+
+## 10. Delivery gates
 
 - **P0 — contract freeze:** envelope, authority matrix, rights model, time/frame semantics, reason codes and claim ceilings.
 - **P1 — corpus:** 30+ synthetic cases, independent oracle, positive/negative controls.
@@ -274,7 +350,7 @@ Commercial comparisons should include the published capabilities of LeoLabs, Sli
 - **P5 — independent review:** security, privacy, orbital-safety, governance and standards review.
 - **P6 — consented shadow pilot:** read-only exchange with operators; no command or maneuver execution path.
 
-## 10. Non-claims
+## 11. Non-claims
 
 A passing synthetic corpus does not establish sensor accuracy, physical truth, orbit determination quality, calibrated probability of collision, maneuver safety, flight qualification, cybersecurity certification, legal authority, spacecraft control or readiness for operational deployment.
 
