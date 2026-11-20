@@ -383,7 +383,7 @@ fn valid_uuid(value: &str) -> bool {
         if matches!(index, 8 | 13 | 18 | 23) {
             byte == b'-'
         } else {
-            byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()
+            byte.is_ascii_hexdigit()
         }
     })
 }
