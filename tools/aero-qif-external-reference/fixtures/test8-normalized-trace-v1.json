@@ -48,38 +48,38 @@
     ],
     "measurements": [
       {
-        "measurement_id": "measurement:pass",
-        "result_set_id": "result-set:1",
+        "measurement_id": 901,
+        "result_set_id": 701,
         "external_document_reference_id": 7,
         "xid": 301,
         "status": "passed"
       },
       {
-        "measurement_id": "measurement:fail",
-        "result_set_id": "result-set:1",
+        "measurement_id": 902,
+        "result_set_id": 701,
         "external_document_reference_id": 7,
         "xid": 302,
         "status": "failed"
       },
       {
-        "measurement_id": "measurement:second-plan",
-        "result_set_id": "result-set:2",
+        "measurement_id": 903,
+        "result_set_id": 702,
         "external_document_reference_id": 8,
         "xid": 301,
         "status": "not_evaluated"
       },
       {
-        "measurement_id": "measurement:multi-entity",
-        "result_set_id": "result-set:3",
+        "measurement_id": 904,
+        "result_set_id": 703,
         "external_document_reference_id": 7,
         "xid": 303,
         "status": "unknown"
       }
     ],
     "result_set_ids": [
-      "result-set:1",
-      "result-set:2",
-      "result-set:3"
+      701,
+      702,
+      703
     ]
   },
   "plans": [
