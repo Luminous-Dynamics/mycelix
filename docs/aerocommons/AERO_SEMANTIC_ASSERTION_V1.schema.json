@@ -249,5 +249,58 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_class": {
+            "const": "external_reference"
+          }
+        },
+        "required": [
+          "source_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source_manifest": {
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "rights_status": {
+                  "enum": [
+                    "CLEARED_FOR_TESTING",
+                    "CLEARED_FOR_REDISTRIBUTION"
+                  ]
+                }
+              },
+              "required": [
+                "rights_status"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "case_kind": {
+            "const": "interoperability_reference"
+          }
+        },
+        "required": [
+          "case_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source_class": {
+            "const": "external_reference"
+          }
+        }
+      }
+    }
+  ]
 }
