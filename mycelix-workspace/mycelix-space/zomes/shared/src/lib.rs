@@ -318,6 +318,7 @@ pub struct ScreenInput {
 /// Why a requested conjunction-screening set cannot be considered complete.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ScreeningCoverageError {
+    InvalidNoradId { norad_id: u32 },
     DuplicateRequestedObject { norad_id: u32 },
     DuplicateReturnedObject { norad_id: u32 },
     UnexpectedReturnedObject { norad_id: u32 },
@@ -336,6 +337,11 @@ pub fn validate_screening_coverage(
 ) -> Result<(), ScreeningCoverageError> {
     let mut requested = BTreeSet::new();
     for norad_id in requested_norad_ids {
+        if *norad_id == 0 || *norad_id > 999_999 {
+            return Err(ScreeningCoverageError::InvalidNoradId {
+                norad_id: *norad_id,
+            });
+        }
         if !requested.insert(*norad_id) {
             return Err(ScreeningCoverageError::DuplicateRequestedObject {
                 norad_id: *norad_id,
@@ -345,6 +351,11 @@ pub fn validate_screening_coverage(
 
     let mut returned = BTreeSet::new();
     for norad_id in returned_norad_ids {
+        if *norad_id == 0 || *norad_id > 999_999 {
+            return Err(ScreeningCoverageError::InvalidNoradId {
+                norad_id: *norad_id,
+            });
+        }
         if !returned.insert(*norad_id) {
             return Err(ScreeningCoverageError::DuplicateReturnedObject {
                 norad_id: *norad_id,
