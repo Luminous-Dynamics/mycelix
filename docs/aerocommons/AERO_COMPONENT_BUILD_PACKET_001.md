@@ -73,3 +73,11 @@ These are software targets, not manufacturing acceptance criteria:
 ## Claim ceiling
 
 STRUCTURALLY_COMPLETE means only that the submitted synthetic packet is internally complete under this verifier's rules. It is not a finding of material suitability, process capability, dimensional conformity, metrology traceability, test adequacy, part acceptance, certification, airworthiness or permission to fabricate, install, operate or fly.
+
+## Standards version notes (checked 20 November 2026)
+
+- ISO 10303-242:2025 Edition 4 remains the published AP242 baseline. ISO/CD 10303-242 Edition 5 is under development; its committee-draft consultation closed 22 April 2026 and the draft was referred back to the working group. Do not silently upgrade the packet's declared design format until the exact edition/profile is selected and fixture-tested.
+- ISO 23952:2020 (QIF) was confirmed current by ISO on 14 June 2026.
+- ISO 23247-5:2026 was published in June 2026 and provides principles/methods for the manufacturing digital thread across design, planning, production and testing.
+
+This packet uses those as interoperability anchors. It does not claim conformance to their normative schemas or profiles.
