@@ -41,6 +41,40 @@ pub enum CdmParseError {
     IncompleteCovariance { object: String, missing: String },
     #[error("CREATION_DATE ({creation}) is after TCA ({tca}) — CDM is malformed")]
     CreationAfterTca { creation: String, tca: String },
+    #[error("Object1 and Object2 must use the same REF_FRAME; got {object1} and {object2}")]
+    MismatchedReferenceFrames { object1: String, object2: String },
+    #[error("Unsupported REF_FRAME value for {field}: {value}")]
+    UnsupportedReferenceFrame { field: String, value: String },
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CdmParseReport {
+    /// Optional source keywords that were absent and projected to legacy placeholders.
+    pub absent_optional_fields: Vec<String>,
+}
+
+impl CdmParseReport {
+    pub fn has_projection_loss(&self) -> bool {
+        !self.absent_optional_fields.is_empty()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ParsedCdmKvn {
+    pub message: ConjunctionDataMessage,
+    pub report: CdmParseReport,
+}
+
+fn parse_finite_f64(field: &str, raw: &str) -> Result<f64, CdmParseError> {
+    let value = strip_units(raw).to_string();
+    let parsed = value.parse::<f64>().map_err(|_| CdmParseError::InvalidValue {
+        field: field.to_string(),
+        value: value.clone(),
+    })?;
+    if !parsed.is_finite() {
+        return Err(CdmParseError::InvalidValue { field: field.to_string(), value });
+    }
+    Ok(parsed)
 }
 
 /// Parse a CCSDS CDM in KVN (Keyword-Value Notation) format.
@@ -52,6 +86,12 @@ pub enum CdmParseError {
 /// 4. Object 1 data (metadata + state vector + optional covariance)
 /// 5. Object 2 data (metadata + state vector + optional covariance)
 pub fn parse_cdm_kvn(input: &str) -> Result<ConjunctionDataMessage, CdmParseError> {
+    parse_cdm_kvn_with_report(input).map(|parsed| parsed.message)
+}
+
+/// Parse CCSDS 508.0-B-1 CDM KVN v1.0 while reporting absent optional fields.
+/// This is not an XML, JSON, TraCSS v2.1, or original-byte-preserving adapter.
+pub fn parse_cdm_kvn_with_report(input: &str) -> Result<ParsedCdmKvn, CdmParseError> {
     if input.trim().is_empty() {
         return Err(CdmParseError::EmptyInput);
     }
@@ -79,15 +119,28 @@ pub fn parse_cdm_kvn(input: &str) -> Result<ConjunctionDataMessage, CdmParseErro
     };
 
     let get_f64 = |key: &str| -> Result<f64, CdmParseError> {
-        let val = get(key)?;
-        val.parse::<f64>().map_err(|_| CdmParseError::InvalidValue {
-            field: key.to_string(),
-            value: val,
-        })
+        let raw = lines.iter().find(|(k, _)| *k == key).map(|(_, v)| *v)
+            .ok_or_else(|| CdmParseError::MissingField(key.to_string()))?;
+        parse_finite_f64(key, raw)
     };
 
-    let get_opt_f64 =
-        |key: &str| -> Option<f64> { get(key).ok().and_then(|v| v.parse::<f64>().ok()) };
+    let get_opt_f64 = |key: &str| -> Result<Option<f64>, CdmParseError> {
+        match lines.iter().find(|(k, _)| *k == key) {
+            Some((_, raw)) => parse_finite_f64(key, raw).map(Some),
+            None => Ok(None),
+        }
+    };
+
+    let mut report = CdmParseReport::default();
+    let mut optional_number = |key: &str| -> Result<f64, CdmParseError> {
+        match get_opt_f64(key)? {
+            Some(value) => Ok(value),
+            None => {
+                report.absent_optional_fields.push(key.to_string());
+                Ok(0.0)
+            }
+        }
+    };
 
     // --- Header ---
     let version = get("CCSDS_CDM_VERS")?;
@@ -102,14 +155,14 @@ pub fn parse_cdm_kvn(input: &str) -> Result<ConjunctionDataMessage, CdmParseErro
     // --- Relative Metadata ---
     let tca = parse_cdm_datetime(&get("TCA")?, "TCA")?;
     let miss_distance = get_f64("MISS_DISTANCE")?;
-    let relative_speed = get_f64("RELATIVE_SPEED")?;
+    let relative_speed = optional_number("RELATIVE_SPEED")?;
 
-    let relative_position_r = get_f64("RELATIVE_POSITION_R").unwrap_or(0.0);
-    let relative_position_t = get_f64("RELATIVE_POSITION_T").unwrap_or(0.0);
-    let relative_position_n = get_f64("RELATIVE_POSITION_N").unwrap_or(0.0);
-    let relative_velocity_r = get_f64("RELATIVE_VELOCITY_R").unwrap_or(0.0);
-    let relative_velocity_t = get_f64("RELATIVE_VELOCITY_T").unwrap_or(0.0);
-    let relative_velocity_n = get_f64("RELATIVE_VELOCITY_N").unwrap_or(0.0);
+    let relative_position_r = optional_number("RELATIVE_POSITION_R")?;
+    let relative_position_t = optional_number("RELATIVE_POSITION_T")?;
+    let relative_position_n = optional_number("RELATIVE_POSITION_N")?;
+    let relative_velocity_r = optional_number("RELATIVE_VELOCITY_R")?;
+    let relative_velocity_t = optional_number("RELATIVE_VELOCITY_T")?;
+    let relative_velocity_n = optional_number("RELATIVE_VELOCITY_N")?;
 
     // --- Freshness validation: CREATION_DATE must be <= TCA ---
     if creation_date > tca {
@@ -120,19 +173,36 @@ pub fn parse_cdm_kvn(input: &str) -> Result<ConjunctionDataMessage, CdmParseErro
     }
 
     // --- Probability ---
-    let collision_probability = get_f64("COLLISION_PROBABILITY")?;
-    let collision_probability_method_str = get("COLLISION_PROBABILITY_METHOD")?;
-    let collision_probability_method =
-        PcMethod::from_str_permissive(&collision_probability_method_str);
+    let collision_probability = optional_number("COLLISION_PROBABILITY")?;
+    if !(0.0..=1.0).contains(&collision_probability) {
+        return Err(CdmParseError::InvalidValue {
+            field: "COLLISION_PROBABILITY".to_string(),
+            value: collision_probability.to_string(),
+        });
+    }
+    let collision_probability_method = match lines.iter().find(|(k, _)| *k == "COLLISION_PROBABILITY_METHOD") {
+        Some((_, value)) => PcMethod::from_str_permissive(strip_units(value)),
+        None => {
+            report.absent_optional_fields.push("COLLISION_PROBABILITY_METHOD".to_string());
+            PcMethod::Other("UNSPECIFIED".to_string())
+        }
+    };
 
     // --- Object Data ---
     let object1 = parse_object_block(&lines, "OBJECT1")?;
     let object2 = parse_object_block(&lines, "OBJECT2")?;
+    if object1.metadata.ref_frame != object2.metadata.ref_frame {
+        return Err(CdmParseError::MismatchedReferenceFrames {
+            object1: object1.metadata.ref_frame.to_string(),
+            object2: object2.metadata.ref_frame.to_string(),
+        });
+    }
 
     // --- Optional fields ---
-    let hard_body_radius = get_opt_f64("HARD_BODY_RADIUS");
+    let hard_body_radius = get_opt_f64("HARD_BODY_RADIUS")?;
 
-    Ok(ConjunctionDataMessage {
+    Ok(ParsedCdmKvn {
+        message: ConjunctionDataMessage {
         ccsds_cdm_vers: version,
         creation_date,
         originator,
@@ -153,6 +223,8 @@ pub fn parse_cdm_kvn(input: &str) -> Result<ConjunctionDataMessage, CdmParseErro
         screening_entry_time: None,
         screening_data_source: None,
         hard_body_radius,
+        },
+        report,
     })
 }
 
@@ -179,8 +251,13 @@ fn parse_object_block(
         })
     };
 
-    let get_opt_f64 =
-        |suffix: &str| -> Option<f64> { get(suffix).ok().and_then(|v| v.parse::<f64>().ok()) };
+    let get_opt_f64 = |suffix: &str| -> Result<Option<f64>, CdmParseError> {
+        let key = format!("{}_{}", prefix, suffix);
+        match lines.iter().find(|(k, _)| *k == key) {
+            Some((_, raw)) => parse_finite_f64(&key, raw).map(Some),
+            None => Ok(None),
+        }
+    };
 
     // Metadata
     let metadata = CdmObjectMetadata {
@@ -196,7 +273,7 @@ fn parse_object_block(
         ephemeris_name: get("EPHEMERIS_NAME").unwrap_or_else(|_| "NONE".to_string()),
         covariance_method: get("COVARIANCE_METHOD").unwrap_or_else(|_| "CALCULATED".to_string()),
         maneuverable: parse_maneuverable(&get("MANEUVERABLE").unwrap_or_else(|_| "N/A".into())),
-        ref_frame: parse_ref_frame(&get("REF_FRAME").unwrap_or_else(|_| "EME2000".into())),
+        ref_frame: parse_ref_frame(&get("REF_FRAME")?, &format!("{}_REF_FRAME", prefix))?,
     };
 
     // State vector
@@ -209,39 +286,25 @@ fn parse_object_block(
         z_dot: get_f64("Z_DOT")?,
     };
 
-    // Covariance (optional — but if CR_R is present, all 21 elements are required
-    // per CCSDS 508.0-B-1 Section 5.2.5)
-    let covariance = if get_opt_f64("CR_R").is_some() {
-        // All 21 lower-triangular covariance elements
-        const COV_ELEMENTS: &[&str] = &[
-            "CR_R",
-            "CT_R",
-            "CT_T",
-            "CN_R",
-            "CN_T",
-            "CN_N",
-            "CRDOT_R",
-            "CRDOT_T",
-            "CRDOT_N",
-            "CRDOT_RDOT",
-            "CTDOT_R",
-            "CTDOT_T",
-            "CTDOT_N",
-            "CTDOT_RDOT",
-            "CTDOT_TDOT",
-            "CNDOT_R",
-            "CNDOT_T",
-            "CNDOT_N",
-            "CNDOT_RDOT",
-            "CNDOT_TDOT",
-            "CNDOT_NDOT",
-        ];
-
-        let missing: Vec<&str> = COV_ELEMENTS
-            .iter()
-            .filter(|elem| get_opt_f64(elem).is_none())
-            .copied()
-            .collect();
+    // If any covariance term is present, all 21 terms are required. Malformed values
+    // are rejected rather than being interpreted as an absent covariance.
+    const COV_ELEMENTS: &[&str] = &[
+        "CR_R", "CT_R", "CT_T", "CN_R", "CN_T", "CN_N",
+        "CRDOT_R", "CRDOT_T", "CRDOT_N", "CRDOT_RDOT",
+        "CTDOT_R", "CTDOT_T", "CTDOT_N", "CTDOT_RDOT", "CTDOT_TDOT",
+        "CNDOT_R", "CNDOT_T", "CNDOT_N", "CNDOT_RDOT", "CNDOT_TDOT", "CNDOT_NDOT",
+    ];
+    let has_any_covariance = COV_ELEMENTS.iter().any(|suffix| {
+        let key = format!("{}_{}", prefix, suffix);
+        lines.iter().any(|(found, _)| *found == key)
+    });
+    let covariance = if has_any_covariance {
+        let mut missing = Vec::new();
+        for elem in COV_ELEMENTS {
+            if get_opt_f64(elem)?.is_none() {
+                missing.push(*elem);
+            }
+        }
 
         if !missing.is_empty() {
             return Err(CdmParseError::IncompleteCovariance {
@@ -251,27 +314,27 @@ fn parse_object_block(
         }
 
         Some(CdmCovariance {
-            cr_r: get_opt_f64("CR_R").unwrap(),
-            ct_r: get_opt_f64("CT_R").unwrap(),
-            ct_t: get_opt_f64("CT_T").unwrap(),
-            cn_r: get_opt_f64("CN_R").unwrap(),
-            cn_t: get_opt_f64("CN_T").unwrap(),
-            cn_n: get_opt_f64("CN_N").unwrap(),
-            crdot_r: get_opt_f64("CRDOT_R").unwrap(),
-            crdot_t: get_opt_f64("CRDOT_T").unwrap(),
-            crdot_n: get_opt_f64("CRDOT_N").unwrap(),
-            crdot_rdot: get_opt_f64("CRDOT_RDOT").unwrap(),
-            ctdot_r: get_opt_f64("CTDOT_R").unwrap(),
-            ctdot_t: get_opt_f64("CTDOT_T").unwrap(),
-            ctdot_n: get_opt_f64("CTDOT_N").unwrap(),
-            ctdot_rdot: get_opt_f64("CTDOT_RDOT").unwrap(),
-            ctdot_tdot: get_opt_f64("CTDOT_TDOT").unwrap(),
-            cndot_r: get_opt_f64("CNDOT_R").unwrap(),
-            cndot_t: get_opt_f64("CNDOT_T").unwrap(),
-            cndot_n: get_opt_f64("CNDOT_N").unwrap(),
-            cndot_rdot: get_opt_f64("CNDOT_RDOT").unwrap(),
-            cndot_tdot: get_opt_f64("CNDOT_TDOT").unwrap(),
-            cndot_ndot: get_opt_f64("CNDOT_NDOT").unwrap(),
+            cr_r: get_f64("CR_R")?,
+            ct_r: get_f64("CT_R")?,
+            ct_t: get_f64("CT_T")?,
+            cn_r: get_f64("CN_R")?,
+            cn_t: get_f64("CN_T")?,
+            cn_n: get_f64("CN_N")?,
+            crdot_r: get_f64("CRDOT_R")?,
+            crdot_t: get_f64("CRDOT_T")?,
+            crdot_n: get_f64("CRDOT_N")?,
+            crdot_rdot: get_f64("CRDOT_RDOT")?,
+            ctdot_r: get_f64("CTDOT_R")?,
+            ctdot_t: get_f64("CTDOT_T")?,
+            ctdot_n: get_f64("CTDOT_N")?,
+            ctdot_rdot: get_f64("CTDOT_RDOT")?,
+            ctdot_tdot: get_f64("CTDOT_TDOT")?,
+            cndot_r: get_f64("CNDOT_R")?,
+            cndot_t: get_f64("CNDOT_T")?,
+            cndot_n: get_f64("CNDOT_N")?,
+            cndot_rdot: get_f64("CNDOT_RDOT")?,
+            cndot_tdot: get_f64("CNDOT_TDOT")?,
+            cndot_ndot: get_f64("CNDOT_NDOT")?,
         })
     } else {
         None
@@ -333,14 +396,16 @@ fn parse_maneuverable(s: &str) -> Maneuverable {
     }
 }
 
-fn parse_ref_frame(s: &str) -> CdmRefFrame {
+/// CCSDS 508.0-B-1 CDM v1.0 permits GCRF, EME2000 and ITRF.
+fn parse_ref_frame(s: &str, field: &str) -> Result<CdmRefFrame, CdmParseError> {
     match s.to_uppercase().as_str() {
-        "EME2000" => CdmRefFrame::EME2000,
-        "GCRF" => CdmRefFrame::GCRF,
-        "ITRF" => CdmRefFrame::ITRF,
-        "TEME" => CdmRefFrame::TEME,
-        "TOD" => CdmRefFrame::TOD,
-        _ => CdmRefFrame::EME2000, // Default per CCSDS standard
+        "EME2000" => Ok(CdmRefFrame::EME2000),
+        "GCRF" => Ok(CdmRefFrame::GCRF),
+        "ITRF" => Ok(CdmRefFrame::ITRF),
+        _ => Err(CdmParseError::UnsupportedReferenceFrame {
+            field: field.to_string(),
+            value: s.to_string(),
+        }),
     }
 }
 
@@ -375,7 +440,7 @@ OBJECT1_OBJECT_TYPE = PAYLOAD
 OBJECT1_EPHEMERIS_NAME = MYCELIX-SPACE
 OBJECT1_COVARIANCE_METHOD = CALCULATED
 OBJECT1_MANEUVERABLE = YES
-OBJECT1_REF_FRAME = TEME
+OBJECT1_REF_FRAME = EME2000
 OBJECT1_X = 6800.000000 [km]
 OBJECT1_Y = 100.000000 [km]
 OBJECT1_Z = 50.000000 [km]
@@ -392,7 +457,7 @@ OBJECT2_OBJECT_TYPE = DEBRIS
 OBJECT2_EPHEMERIS_NAME = MYCELIX-SPACE
 OBJECT2_COVARIANCE_METHOD = CALCULATED
 OBJECT2_MANEUVERABLE = NO
-OBJECT2_REF_FRAME = TEME
+OBJECT2_REF_FRAME = EME2000
 OBJECT2_X = 6800.500000 [km]
 OBJECT2_Y = 100.000000 [km]
 OBJECT2_Z = 50.000000 [km]
@@ -417,7 +482,7 @@ OBJECT2_Z_DOT = 0.050000000 [km/s]
         assert_eq!(cdm.object1.metadata.object_designator, "25544");
         assert_eq!(cdm.object1.metadata.object_name, "ISS (ZARYA)");
         assert_eq!(cdm.object1.metadata.maneuverable, Maneuverable::Yes);
-        assert_eq!(cdm.object1.metadata.ref_frame, CdmRefFrame::TEME);
+        assert_eq!(cdm.object1.metadata.ref_frame, CdmRefFrame::EME2000);
         assert!((cdm.object1.state_vector.x - 6800.0).abs() < 0.001);
 
         // Object 2
@@ -683,6 +748,82 @@ OBJECT2_Z_DOT = 0.0 [km/s]
             CdmParseError::CreationAfterTca { .. } => {} // expected
             other => panic!("Expected CreationAfterTca, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn optional_fields_are_reported_instead_of_inferred_from_zero() {
+        let minimal = SAMPLE_CDM
+            .lines()
+            .filter(|line| !line.starts_with("RELATIVE_SPEED = "))
+            .filter(|line| !line.starts_with("RELATIVE_POSITION_"))
+            .filter(|line| !line.starts_with("RELATIVE_VELOCITY_"))
+            .filter(|line| !line.starts_with("COLLISION_PROBABILITY = "))
+            .filter(|line| !line.starts_with("COLLISION_PROBABILITY_METHOD = "))
+            .collect::<Vec<_>>()
+            .join("\\n");
+        let parsed = parse_cdm_kvn_with_report(&minimal).unwrap();
+        assert_eq!(parsed.message.relative_speed, 0.0);
+        assert!(parsed.report.has_projection_loss());
+        for key in [
+            "RELATIVE_SPEED", "RELATIVE_POSITION_R", "RELATIVE_POSITION_T", "RELATIVE_POSITION_N",
+            "RELATIVE_VELOCITY_R", "RELATIVE_VELOCITY_T", "RELATIVE_VELOCITY_N",
+            "COLLISION_PROBABILITY", "COLLISION_PROBABILITY_METHOD",
+        ] {
+            assert!(parsed.report.absent_optional_fields.iter().any(|field| field == key), "missing {key}");
+        }
+    }
+
+    #[test]
+    fn required_reference_frame_is_not_defaulted() {
+        let missing = SAMPLE_CDM.replace("OBJECT1_REF_FRAME = EME2000\\n", "");
+        assert!(matches!(
+            parse_cdm_kvn(&missing),
+            Err(CdmParseError::MissingField(field)) if field == "OBJECT1_REF_FRAME"
+        ));
+    }
+
+    #[test]
+    fn unsupported_reference_frame_is_not_coerced() {
+        let unsupported = SAMPLE_CDM.replace("OBJECT1_REF_FRAME = EME2000", "OBJECT1_REF_FRAME = TEME");
+        assert!(matches!(
+            parse_cdm_kvn(&unsupported),
+            Err(CdmParseError::UnsupportedReferenceFrame { field, value })
+                if field == "OBJECT1_REF_FRAME" && value == "TEME"
+        ));
+    }
+
+    #[test]
+    fn mismatched_object_reference_frames_are_rejected() {
+        let mismatched = SAMPLE_CDM.replace("OBJECT2_REF_FRAME = EME2000", "OBJECT2_REF_FRAME = GCRF");
+        assert!(matches!(
+            parse_cdm_kvn(&mismatched),
+            Err(CdmParseError::MismatchedReferenceFrames { .. })
+        ));
+    }
+
+    #[test]
+    fn malformed_optional_numeric_is_not_treated_as_absent() {
+        let malformed = SAMPLE_CDM.replace(
+            "RELATIVE_SPEED = 14500.000000 [m/s]",
+            "RELATIVE_SPEED = not-a-number [m/s]"
+        );
+        assert!(matches!(
+            parse_cdm_kvn_with_report(&malformed),
+            Err(CdmParseError::InvalidValue { field, .. }) if field == "RELATIVE_SPEED"
+        ));
+    }
+
+    #[test]
+    fn malformed_first_covariance_term_is_not_treated_as_absent_covariance() {
+        let bad_cov = format!(
+            "{}\\n{}",
+            SAMPLE_CDM,
+            full_covariance_kvn("OBJECT1").replacen("1.0e-04", "NaN", 1)
+        );
+        assert!(matches!(
+            parse_cdm_kvn(&bad_cov),
+            Err(CdmParseError::InvalidValue { field, .. }) if field == "OBJECT1_CR_R"
+        ));
     }
 
     #[test]
