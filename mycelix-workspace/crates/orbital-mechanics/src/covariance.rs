@@ -194,13 +194,32 @@ impl CovarianceMatrix {
         (eigenvalues[0], eigenvalues[1], eigenvalues[2])
     }
 
-    /// Check if covariance is positive semi-definite (valid)
+    /// Check whether the matrix is finite, symmetric and positive semidefinite.
+    ///
+    /// This is a mathematical structure check only; it does not authenticate the
+    /// source, establish covariance realism, or calibrate orbital uncertainty.
     pub fn is_valid(&self) -> bool {
         if !self.data.iter().all(|value| value.is_finite()) {
             return false;
         }
+
+        // Deserialization can bypass constructors that symmetrize their input.
+        // Reject materially asymmetric matrices before passing them to a symmetric
+        // eigensolver, and reject norm overflow even when individual entries are finite.
+        let scale = self.data.norm();
+        let asymmetry = (self.data - self.data.transpose()).norm();
+        if !scale.is_finite() || !asymmetry.is_finite() {
+            return false;
+        }
+        if asymmetry > 1e-12 * scale.max(1.0) {
+            return false;
+        }
+
         let eigen = SymmetricEigen::new(self.data);
-        eigen.eigenvalues.iter().all(|&v| v >= -1e-10)
+        eigen
+            .eigenvalues
+            .iter()
+            .all(|&value| value.is_finite() && value >= -1e-10)
     }
 
     /// Scale covariance (e.g., for k-sigma calculations)
@@ -358,6 +377,54 @@ mod tests {
         teme.frame = CovarianceFrame::TEME;
 
         assert!(mahalanobis_distance(&delta, &eci, &teme).is_none());
+    }
+
+    fn make_serialized_matrix_asymmetric(value: &mut serde_json::Value) -> bool {
+        if let Some(array) = value.as_array_mut() {
+            if array.len() == 36 && array.iter().all(|entry| entry.is_number()) {
+                // For row-major or column-major flat 6x6 storage, these are a
+                // transposed pair: (0, 1) and (1, 0).
+                array[1] = serde_json::json!(0.25);
+                array[6] = serde_json::json!(0.0);
+                return true;
+            }
+            if array.len() == 6
+                && array.iter().all(|row| {
+                    row.as_array().is_some_and(|entries| {
+                        entries.len() == 6 && entries.iter().all(|entry| entry.is_number())
+                    })
+                })
+            {
+                array[0][1] = serde_json::json!(0.25);
+                array[1][0] = serde_json::json!(0.0);
+                return true;
+            }
+            for child in array.iter_mut() {
+                if make_serialized_matrix_asymmetric(child) {
+                    return true;
+                }
+            }
+        }
+        if let Some(object) = value.as_object_mut() {
+            for child in object.values_mut() {
+                if make_serialized_matrix_asymmetric(child) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    #[test]
+    fn asymmetric_deserialized_covariance_is_invalid() {
+        let covariance = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
+        let mut serialized = serde_json::to_value(covariance).unwrap();
+        assert!(
+            make_serialized_matrix_asymmetric(&mut serialized),
+            "test must mutate the serialized nalgebra matrix representation"
+        );
+        let decoded: CovarianceMatrix = serde_json::from_value(serialized).unwrap();
+        assert!(!decoded.is_valid());
     }
 
     #[test]
