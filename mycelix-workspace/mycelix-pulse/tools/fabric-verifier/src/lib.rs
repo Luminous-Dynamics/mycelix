@@ -659,6 +659,11 @@ fn verify_success_projection(
             }
 
             let receipt_ancestors = ancestors(receipt, by_id, events);
+            let admitted = events.iter().find(|event| {
+                event.event_type == "recipient_admitted"
+                    && event.logical_operation_id == receipt.logical_operation_id
+                    && receipt_ancestors.contains(&event.event_id)
+            });
             let committed = events.iter().find(|event| {
                 event.event_type == "recipient_inbox_committed"
                     && event.logical_operation_id == receipt.logical_operation_id
@@ -675,8 +680,8 @@ fn verify_success_projection(
                     && receipt_ancestors.contains(&event.event_id)
             });
 
-            let (Some(committed), Some(decrypted), Some(created)) =
-                (committed, decrypted, created)
+            let (Some(admitted), Some(committed), Some(decrypted), Some(created)) =
+                (admitted, committed, decrypted, created)
             else {
                 continue;
             };
@@ -694,8 +699,12 @@ fn verify_success_projection(
                 continue;
             }
 
-            let recipient_actor = committed.actor_ref.as_str();
-            if receipt.actor_ref == recipient_actor {
+            let recipient_actor = admitted.actor_ref.as_str();
+            if committed.actor_ref != recipient_actor
+                || decrypted.actor_ref != recipient_actor
+                || created.actor_ref != recipient_actor
+                || receipt.actor_ref == recipient_actor
+            {
                 continue;
             }
             if !receipt.evidence_kinds.iter().any(|kind| {
@@ -1139,14 +1148,24 @@ mod tests {
             "events": [
                 event("intent", "intent_recorded", "client", "sender", None, None, 1, vec![]),
                 event(
+                    "admitted",
+                    "recipient_admitted",
+                    "recipient",
+                    "recipient",
+                    Some("attempt-1"),
+                    None,
+                    2,
+                    vec![("intent", "request_response")]
+                ),
+                event(
                     "commit",
                     "recipient_inbox_committed",
                     "recipient",
                     "recipient",
                     Some("attempt-1"),
                     Some(&commitment),
-                    2,
-                    vec![("intent", "request_response")]
+                    3,
+                    vec![("admitted", "commits")]
                 ),
                 event(
                     "decrypt",
@@ -1155,7 +1174,7 @@ mod tests {
                     "recipient",
                     Some("attempt-1"),
                     Some(&commitment),
-                    3,
+                    4,
                     vec![("commit", "verifies")]
                 ),
                 event(
@@ -1165,7 +1184,7 @@ mod tests {
                     "recipient",
                     Some("attempt-1"),
                     Some(&commitment),
-                    4,
+                    5,
                     vec![("decrypt", "receipt_for")]
                 ),
                 event(
@@ -1175,7 +1194,7 @@ mod tests {
                     "independent-verifier",
                     Some("attempt-1"),
                     Some(&commitment),
-                    5,
+                    6,
                     vec![("receipt-created", "verifies")]
                 ),
                 event(
@@ -1185,7 +1204,7 @@ mod tests {
                     "sender-ui",
                     None,
                     None,
-                    6,
+                    7,
                     vec![("receipt-verified", "derived_from")]
                 )
             ],
@@ -1294,7 +1313,7 @@ mod tests {
     #[test]
     fn rejects_dangling_causal_edge() {
         let mut trace = valid_trace();
-        trace["events"][1]["causal_predecessors"] =
+        trace["events"][2]["causal_predecessors"] =
             json!([{"event_id": "missing", "relation": "request_response"}]);
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
@@ -1318,7 +1337,7 @@ mod tests {
     #[test]
     fn rejects_event_role_confusion() {
         let mut trace = valid_trace();
-        trace["events"][1]["evidence_role"] = json!("transport_adapter");
+        trace["events"][2]["evidence_role"] = json!("transport_adapter");
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
@@ -1329,7 +1348,7 @@ mod tests {
     #[test]
     fn rejects_missing_attempt_id_for_receipt_verification() {
         let mut trace = valid_trace();
-        trace["events"][4]["attempt_id"] = Value::Null;
+        trace["events"][5]["attempt_id"] = Value::Null;
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
@@ -1340,8 +1359,8 @@ mod tests {
     #[test]
     fn rejects_duplicate_logical_inbox_effect() {
         let mut trace = valid_trace();
-        let duplicate = trace["events"][1].clone();
-        trace["events"].as_array_mut().unwrap().insert(2, duplicate);
+        let duplicate = trace["events"][2].clone();
+        trace["events"].as_array_mut().unwrap().insert(3, duplicate);
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
@@ -1363,7 +1382,7 @@ mod tests {
     #[test]
     fn rejects_success_when_receipt_verifier_is_recipient() {
         let mut trace = valid_trace();
-        trace["events"][4]["actor_ref"] = json!("recipient");
+        trace["events"][5]["actor_ref"] = json!("recipient");
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
     }
