@@ -569,8 +569,14 @@ mod tests {
         assert_eq!(verified.run_id(), "run-001");
         assert_eq!(verified.scenario_id(), "MCRB-03");
         assert_eq!(verified.operation_contract_registry_digest_sha256(), contracts.registry_digest_sha256());
-        assert_eq!(verified.offered_operation("op-1").unwrap().contract_id(), "MCRB-OP-REMOTE-DHT-PUBLICATION");
-        assert_eq!(verified.offered_operation("op-1").unwrap().expected_qops_outcome(), OperationOutcomeClass::QualifiedSuccess);
+        let offered = verified.offered_operation("op-1").unwrap();
+        assert_eq!(offered.contract_id(), "MCRB-OP-REMOTE-DHT-PUBLICATION");
+        assert_eq!(offered.expected_qops_outcome(), OperationOutcomeClass::QualifiedSuccess);
+        assert_eq!(offered.contract_profile().digest_sha256(), offered.contract_digest_sha256());
+        assert!(offered.contract_profile().requires_cross_host_visibility());
+        assert!(offered.contract_profile().requires_independent_observer());
+        assert!(offered.contract_profile().requires_complete_coverage());
+        assert!(offered.contract_profile().required_evidence_kinds().contains(&crate::operation_contract::EvidenceKind::CrossPeerRead));
         assert_eq!(verified.ledger_digest_sha256(), envelope.ledger_digest_sha256.as_str());
     }
 
@@ -651,6 +657,25 @@ mod tests {
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
         assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err()
             .contains(&OfferLedgerIssue::DuplicateOperationId("op-1".into())));
+    }
+
+    #[test]
+    fn verified_offer_carries_the_exact_pre_dispatch_contract_policy() {
+        let envelope = valid_envelope();
+        let contracts = embedded_contract_registry();
+        let verified = verify_offer_ledger(&envelope, &contracts).unwrap();
+        let offered = verified.offered_operation("op-1").unwrap();
+
+        assert_eq!(offered.contract_profile().contract_id(), offered.contract_id());
+        assert_eq!(offered.contract_profile().contract_version(), offered.contract_version());
+        assert_eq!(offered.contract_profile().digest_sha256(), offered.contract_digest_sha256());
+        assert_eq!(
+            offered.contract_profile().expected_qops_outcome(),
+            offered.expected_qops_outcome()
+        );
+        assert!(offered.contract_profile().requires_cross_host_visibility());
+        assert!(offered.contract_profile().requires_independent_observer());
+        assert!(offered.contract_profile().requires_complete_coverage());
     }
 
     #[test]
