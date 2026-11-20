@@ -1617,6 +1617,43 @@ mod tests {
     }
 
     #[test]
+    fn missing_mapping_row_cannot_shrink_the_frozen_source_inventory() {
+        let (mut qualification, _) = fixture();
+        qualification.body.extraction.as_mut().unwrap().mappings.pop();
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::SourceMappingInventoryMismatch)
+        );
+    }
+
+    #[test]
+    fn mapping_row_cannot_add_a_locator_outside_the_frozen_inventory() {
+        let (mut qualification, _) = fixture();
+        let extraction = qualification.body.extraction.as_mut().unwrap();
+        extraction.mappings[0].source_path.push_str("/UnlistedField");
+        refresh_mapping_manifest(extraction);
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::SourceMappingInventoryMismatch)
+        );
+    }
+
+    #[test]
+    fn duplicate_required_source_locator_is_rejected() {
+        let (mut qualification, _) = fixture();
+        let extraction = qualification.body.extraction.as_mut().unwrap();
+        extraction.required_locators[1] = extraction.required_locators[0].clone();
+        refresh_mapping_manifest(extraction);
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(matches!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::DuplicateSourceMappingLocator(_))
+        ));
+    }
+
+    #[test]
     fn source_mapping_manifest_bytes_are_order_invariant() {
         let (qualification, _) = fixture();
         let extraction = qualification.body.extraction.as_ref().unwrap();
