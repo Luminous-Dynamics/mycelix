@@ -60,6 +60,8 @@ pub struct TraceLocatorRuleV1 {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TraceLocatorLimitsV1 {
+    pub max_documents: u32,
+    pub max_total_source_bytes: u64,
     pub max_source_bytes: u64,
     pub max_elements: u64,
     pub max_depth: u32,
@@ -190,6 +192,10 @@ pub enum InventoryError {
     RuleMaximumExceeded(String),
     #[error("source document exceeds maximum bytes")]
     SourceTooLarge,
+    #[error("source document count exceeds profile limit")]
+    DocumentCountExceeded,
+    #[error("aggregate source bytes exceed profile limit")]
+    AggregateSourceTooLarge,
     #[error("source document is not UTF-8 under the declared profile")]
     UnsupportedEncoding,
     #[error("XML declaration specifies an unsupported encoding")]
@@ -387,7 +393,11 @@ pub fn validate_profile(profile: &TraceLocatorProfileV1) -> Result<(), Inventory
         return Err(InventoryError::EmptyProfile);
     }
     let limits = &profile.limits;
-    if limits.max_source_bytes == 0
+    if limits.max_documents == 0
+        || limits.max_documents > 64
+        || limits.max_total_source_bytes == 0
+        || limits.max_total_source_bytes > 250 * 1024 * 1024
+        || limits.max_source_bytes == 0
         || limits.max_source_bytes > 100 * 1024 * 1024
         || limits.max_elements == 0
         || limits.max_elements > 2_000_000
@@ -1036,6 +1046,17 @@ pub fn derive_trace_locator_inventory(
     if inventory_id.trim().is_empty() || documents.is_empty() {
         return Err(InventoryError::InvalidIdentity("inventory_id/documents".into()));
     }
+    if documents.len() > profile.limits.max_documents as usize {
+        return Err(InventoryError::DocumentCountExceeded);
+    }
+    let aggregate_bytes = documents.iter().try_fold(0u64, |total, document| {
+        total.checked_add(document.bytes.len() as u64)
+            .ok_or(InventoryError::AggregateSourceTooLarge)
+    })?;
+    if aggregate_bytes > profile.limits.max_total_source_bytes {
+        return Err(InventoryError::AggregateSourceTooLarge);
+    }
+
     let profile_sha256 = compute_profile_digest(profile)?;
     if !valid_sha256(&profile_sha256) {
         return Err(InventoryError::ProfileDigestMismatch);
@@ -1739,6 +1760,8 @@ mod tests {
                 },
             ],
             limits: TraceLocatorLimitsV1 {
+                max_documents: 16,
+                max_total_source_bytes: 2 * 1024 * 1024,
                 max_source_bytes: 1024 * 1024,
                 max_elements: 10_000,
                 max_depth: 32,
@@ -2131,6 +2154,23 @@ mod tests {
         assert_eq!(
             derive_trace_locator_inventory("depth-limit", &shallow, &docs(deep.as_bytes(), PLAN.as_bytes())),
             Err(InventoryError::DepthLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn document_count_and_aggregate_bytes_are_bounded_before_parsing() {
+        let mut limits = profile();
+        limits.limits.max_documents = 1;
+        assert_eq!(
+            derive_trace_locator_inventory("too-many-documents", &limits, &docs(RESULTS.as_bytes(), PLAN.as_bytes())),
+            Err(InventoryError::DocumentCountExceeded)
+        );
+
+        let mut aggregate = profile();
+        aggregate.limits.max_total_source_bytes = (RESULTS.len() + PLAN.len() - 1) as u64;
+        assert_eq!(
+            derive_trace_locator_inventory("aggregate-too-large", &aggregate, &docs(RESULTS.as_bytes(), PLAN.as_bytes())),
+            Err(InventoryError::AggregateSourceTooLarge)
         );
     }
 
