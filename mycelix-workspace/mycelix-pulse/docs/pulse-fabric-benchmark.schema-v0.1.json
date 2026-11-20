@@ -1,0 +1,450 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pulse-fabric-benchmark-v0.1.json",
+  "title": "Pulse Fabric Benchmark Protocol v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "status",
+    "checked_at",
+    "source_snapshot",
+    "primary_outcome",
+    "comparison_layers",
+    "candidate_profiles",
+    "platforms",
+    "workload",
+    "experimental_protocol",
+    "metrics",
+    "non_compensable_gates",
+    "proposed_targets_not_measurements",
+    "reporting_rules",
+    "sources"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "benchmark_id": {
+      "const": "PULSE-FABRIC-BENCH-001"
+    },
+    "status": {
+      "const": "pre_registered_not_executed"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date"
+    },
+    "source_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "main_sha",
+        "qualification_branch"
+      ],
+      "properties": {
+        "main_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "qualification_branch": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "primary_outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "symbol",
+        "numerator",
+        "denominator",
+        "unknown_counts_as_success",
+        "duplicate_effect_counts_as_success",
+        "deadline_ms"
+      ],
+      "properties": {
+        "name": {
+          "const": "verified_delivery_rate_by_deadline"
+        },
+        "symbol": {
+          "const": "VDR_D"
+        },
+        "numerator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "denominator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unknown_counts_as_success": {
+          "const": false
+        },
+        "duplicate_effect_counts_as_success": {
+          "const": false
+        },
+        "deadline_ms": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "comparison_layers": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "primitive_protocol",
+              "delivery_semantics",
+              "end_to_end_system"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "candidate_profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "class",
+          "role",
+          "known_limitations",
+          "comparability"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "class": {
+            "enum": [
+              "implemented_baseline",
+              "mature_rust_reference",
+              "mature_protocol_reference",
+              "mature_rust_group_reference",
+              "standards_track_specification"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "string"
+          },
+          "known_limitations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "comparability": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "platforms": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payload_bytes",
+        "rtt_ms",
+        "packet_loss_percent",
+        "peer_counts",
+        "group_sizes",
+        "offline_windows_seconds",
+        "delivery_deadlines_ms",
+        "failure_classes",
+        "crypto_experiments",
+        "metadata_observer_vantages"
+      ],
+      "properties": {
+        "payload_bytes": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "rtt_ms": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "packet_loss_percent": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "peer_counts": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "group_sizes": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2
+          }
+        },
+        "offline_windows_seconds": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "delivery_deadlines_ms": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "failure_classes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "crypto_experiments": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "metadata_observer_vantages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "experimental_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "independent_replicates_per_condition",
+        "minimum_logical_intents_per_replicate",
+        "warmup_seconds",
+        "measured_runs_must_use_same_seeded_fault_schedule",
+        "randomize_candidate_order",
+        "use_fresh_state_between_replicates",
+        "publish_all_exclusions_and_failed_runs",
+        "confidence_interval_level",
+        "paired_interval_method",
+        "quantiles",
+        "energy_measurement",
+        "candidate_environment_must_bind"
+      ],
+      "properties": {
+        "independent_replicates_per_condition": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minimum_logical_intents_per_replicate": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "warmup_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "measured_runs_must_use_same_seeded_fault_schedule": {
+          "const": true
+        },
+        "randomize_candidate_order": {
+          "const": true
+        },
+        "use_fresh_state_between_replicates": {
+          "const": true
+        },
+        "publish_all_exclusions_and_failed_runs": {
+          "const": true
+        },
+        "confidence_interval_level": {
+          "const": 0.95
+        },
+        "paired_interval_method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantiles": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "p50",
+              "p95",
+              "p99"
+            ]
+          }
+        },
+        "energy_measurement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_environment_must_bind": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "unit",
+          "required"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "quantiles": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "p50",
+                "p95",
+                "p99"
+              ]
+            }
+          },
+          "required": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "non_compensable_gates": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "proposed_targets_not_measurements": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0
+      }
+    },
+    "reporting_rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "url",
+          "checked_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      }
+    }
+  }
+}
