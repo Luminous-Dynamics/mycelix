@@ -793,3 +793,99 @@ mod tests {
         assert!(matches!(error, TrustPolicyError::DigestMismatch { .. }));
     }
 }
+
+
+/// Test-only helper for exercising QOPS with a genuine verifier-produced gate
+/// capability. It still signs and verifies every manifest-derived gate.
+#[cfg(test)]
+pub(crate) fn verified_gate_set_for_test(
+    run_id: &str,
+    scenario_id: &str,
+    scenario_contract_digest_sha256: &str,
+) -> VerifiedCorrectnessGateSet {
+    use ed25519_dalek::SigningKey;
+
+    let now = 1_800_000_000_000_u64;
+    let context = GateAttestationContext {
+        run_id: run_id.to_string(),
+        scenario_id: scenario_id.to_string(),
+        scenario_contract_digest_sha256: scenario_contract_digest_sha256.to_string(),
+        source_sha: "a".repeat(40),
+        source_tree_git_sha: "b".repeat(40),
+        runtime_identity_digest_sha256: sha256_hex(b"test-runtime"),
+        topology_profile_digest_sha256: sha256_hex(b"test-topology"),
+        now_unix_ms: now,
+    };
+    let required = required_gate_ids(scenario_id).expect("test scenario must exist");
+    let signing_key = SigningKey::from_bytes(&[73_u8; 32]);
+    let public_key_hex = signing_key
+        .verifying_key()
+        .to_bytes()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    let document = GateTrustPolicyDocument {
+        schema_version: "mycelix-mcrb-trust-policy-v0.1".to_string(),
+        policy_id: "mcrb-qops-test-policy-v0.1".to_string(),
+        policy_owner: "independent-qops-test-policy-owner".to_string(),
+        valid_from_unix_ms: now - 1000,
+        expires_at_unix_ms: now + 1_000_000,
+        signers: vec![TrustedGateSigner {
+            key_id: "mcrb-qops-test-key".to_string(),
+            verifier_identity: "mcrb-qops-test-verifier".to_string(),
+            public_key_hex,
+            allowed_gate_ids: required.clone(),
+            allowed_builder_ids: vec!["mcrb-qops-test-builder".to_string()],
+            valid_from_unix_ms: now - 1000,
+            expires_at_unix_ms: now + 1_000_000,
+            revoked: false,
+        }],
+    };
+    let pin = sha256_hex(
+        &serde_json::to_vec(&document).expect("test trust policy must serialize"),
+    );
+    let policy = VerifiedGateTrustPolicy::load_pinned(document, &pin)
+        .expect("test trust policy pin must match");
+
+    let envelopes = required
+        .iter()
+        .map(|gate_id| {
+            let predicate = GateAttestationPredicate {
+                schema_version: GATE_ATTESTATION_SCHEMA_VERSION.to_string(),
+                predicate_type: GATE_PREDICATE_TYPE.to_string(),
+                run_id: context.run_id.clone(),
+                scenario_id: context.scenario_id.clone(),
+                scenario_contract_digest_sha256: context
+                    .scenario_contract_digest_sha256
+                    .clone(),
+                source_sha: context.source_sha.clone(),
+                source_tree_git_sha: context.source_tree_git_sha.clone(),
+                runtime_identity_digest_sha256: context
+                    .runtime_identity_digest_sha256
+                    .clone(),
+                topology_profile_digest_sha256: context
+                    .topology_profile_digest_sha256
+                    .clone(),
+                gate_id: gate_id.clone(),
+                outcome: GateOutcome::Pass,
+                evidence_artifact_digests_sha256: vec![sha256_hex(gate_id.as_bytes())],
+                verifier_identity: "mcrb-qops-test-verifier".to_string(),
+                verifier_version: "0.1.0".to_string(),
+                verifier_binary_digest_sha256: sha256_hex(b"test-verifier-binary"),
+                builder_identity: "mcrb-qops-test-builder".to_string(),
+                trust_policy_id: policy.policy_id().to_string(),
+                trust_policy_digest_sha256: policy.digest_sha256().to_string(),
+                issued_at_unix_ms: now - 1,
+            };
+            sign_gate_predicate(&predicate, "mcrb-qops-test-key", &signing_key)
+                .expect("test gate must sign")
+        })
+        .collect::<Vec<_>>();
+
+    match verify_gate_set(&envelopes, &policy, &context) {
+        GateSetVerification::Verified(value) => value,
+        GateSetVerification::Rejected(report) => {
+            panic!("test gate set must verify: {:?}", report.issues)
+        }
+    }
+}
