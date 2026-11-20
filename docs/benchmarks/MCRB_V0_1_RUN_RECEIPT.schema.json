@@ -562,7 +562,12 @@
         "cross_host_aggregate_eligible",
         "offer_ledger_verification_status",
         "offer_ledger_issues",
-        "correctness_gate_set"
+        "correctness_gate_set",
+        "correctness_gate_set_digest_sha256",
+        "correctness_trust_policy_id",
+        "correctness_trust_policy_digest_sha256",
+        "correctness_required_gate_count",
+        "correctness_attestation_count"
       ],
       "properties": {
         "status": {
@@ -963,6 +968,34 @@
               "uniqueItems": true
             }
           }
+        },
+        "correctness_gate_set_digest_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "correctness_trust_policy_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "correctness_trust_policy_digest_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "correctness_required_gate_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "correctness_attestation_count": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "allOf": [
@@ -1091,9 +1124,6 @@
               "duplicate_external_effects": {
                 "const": 0
               },
-              "hard_correctness_gates_passed": {
-                "const": true
-              },
               "metric_integrity_status": {
                 "const": "valid"
               },
@@ -1109,6 +1139,34 @@
                 "type": "number",
                 "minimum": 0,
                 "maximum": 1
+              },
+              "correctness_gate_set_digest_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "correctness_trust_policy_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "correctness_trust_policy_digest_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "correctness_required_gate_count": {
+                "minimum": 1
+              },
+              "correctness_attestation_count": {
+                "minimum": 1
+              },
+              "correctness_gate_set": {
+                "properties": {
+                  "status": {
+                    "const": "valid"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
               }
             },
             "required": [
@@ -1116,11 +1174,16 @@
               "unexpected_outcome_samples",
               "duplicate_outcome_samples",
               "duplicate_external_effects",
-              "hard_correctness_gates_passed",
               "metric_integrity_status",
               "qualified_operations_per_second",
               "offered_operations_per_second",
-              "qualified_success_fraction"
+              "qualified_success_fraction",
+              "correctness_gate_set_digest_sha256",
+              "correctness_trust_policy_id",
+              "correctness_trust_policy_digest_sha256",
+              "correctness_required_gate_count",
+              "correctness_attestation_count",
+              "correctness_gate_set"
             ]
           }
         }
