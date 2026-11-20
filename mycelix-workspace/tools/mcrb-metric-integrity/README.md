@@ -139,7 +139,7 @@ The current Rust verifier computes each contract digest from the typed, versione
 
 ```text
 SHA256(
-  "MYCELIX-MCRB-OPERATION-CONTRACT\\0v0.1\\0"
+  "MYCELIX-MCRB-OPERATION-CONTRACT\0v0.1\0"
   || serde_json::to_vec(typed_contract)
 )
 ```
@@ -153,7 +153,7 @@ Offer producers call `idempotency_key_commitment(raw_key)` while the raw key rem
 
 ```text
 SHA256(
-  "MYCELIX-MCRB-IDEMPOTENCY-KEY\\0v0.1\\0"
+  "MYCELIX-MCRB-IDEMPOTENCY-KEY\0v0.1\0"
   || u64_be(raw_key.len())
   || raw_key
 )
