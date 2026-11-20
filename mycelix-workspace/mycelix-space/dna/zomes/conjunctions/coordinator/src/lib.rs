@@ -11,10 +11,10 @@ use hdk::prelude::*;
 use mycelix_space_shared::{
     AlertPriority, AlertType, ConjunctionAlert, ConjunctionAssessment, ConjunctionDataMessage,
     ManeuverAlert, ManeuverType as SharedManeuverType, PaginatedResponse, PaginationParams,
-    QualityScore, ScreenInput, SpaceError, SpaceErrorCode, SpaceSignal, SpaceTimestamp,
+    ScreenInput, SpaceError, SpaceErrorCode, SpaceSignal, SpaceTimestamp,
     validate_screening_coverage,
-    StalenessAwareAssessment, StalenessConfig, TleWithMetadata, compute_staleness,
-    gate_space_operation, requirement_for_conjunction_creation, requirement_for_negotiation,
+    StalenessAwareAssessment, StalenessConfig, TleWithMetadata, gate_space_operation,
+    requirement_for_conjunction_creation, requirement_for_negotiation,
     requirement_for_risk_update,
 };
 use orbital_mechanics::conjunction::ConjunctionAnalyzer;
@@ -661,119 +661,21 @@ pub fn get_maneuvers_for_event(event_id: String) -> ExternResult<Vec<AvoidanceMa
 /// Max 100 secondaries per call (SGP4 in WASM is expensive).
 #[hdk_extern]
 pub fn screen_conjunction(input: ScreenInput) -> ExternResult<Vec<ConjunctionAssessment>> {
-    // Bound secondary count to avoid excessive WASM computation
-    if input.secondary_norad_ids.len() > 100 {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidInput,
-            "Maximum 100 secondary objects per screening call",
-        )
-        .with_context(format!("count: {}", input.secondary_norad_ids.len()))
-        .into_wasm_error());
-    }
-
-    if input.hours_ahead <= 0.0 || input.hours_ahead > 720.0 {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidInput,
-            "hours_ahead must be between 0 and 720 (30 days)",
-        )
-        .with_context(format!("value: {}", input.hours_ahead))
-        .into_wasm_error());
-    }
-
-    // Collect all NORAD IDs we need
-    let mut all_ids: Vec<u32> = vec![input.primary_norad_id];
-    for id in &input.secondary_norad_ids {
-        all_ids.push(*id);
-    }
-
-    // Cross-zome call to orbital_objects to fetch latest TLEs
-    let response = call(
-        CallTargetCell::Local,
-        ZomeName::new("orbital_objects"),
-        FunctionName::new("get_latest_tles"),
-        None,
-        all_ids.clone(),
-    )?;
-
-    let response_bytes = match response {
-        ZomeCallResponse::Ok(bytes) => bytes,
-        ZomeCallResponse::Unauthorized(..) => {
-            return Err(SpaceError::new(
-                SpaceErrorCode::Unauthorized,
-                "Unauthorized cross-zome call to orbital_objects",
-            )
-            .into_wasm_error());
-        }
-        _ => {
-            return Err(SpaceError::new(
-                SpaceErrorCode::InvalidInput,
-                "Cross-zome call to orbital_objects failed",
-            )
-            .into_wasm_error());
-        }
-    };
-
-    let tle_lines: Vec<TleLinesResponse> = response_bytes.decode().map_err(|e| {
-        SpaceError::new(
-            SpaceErrorCode::InvalidInput,
-            format!("Failed to decode TLE response: {:?}", e),
-        )
-        .into_wasm_error()
-    })?;
-
-    // The DHT response must account for the exact requested set. A partial or
-    // duplicate response cannot be presented as a complete negative screening.
-    let returned_ids: Vec<u32> = tle_lines.iter().map(|tle| tle.norad_id).collect();
-    validate_screening_coverage(&all_ids, &returned_ids).map_err(|error| {
-        SpaceError::new(
-            SpaceErrorCode::InvalidInput,
-            format!("Incomplete conjunction TLE coverage: {:?}", error),
-        )
-        .into_wasm_error()
-    })?;
-
-    // Build a lookup only after exact-set validation succeeds.
-    let tle_map: std::collections::HashMap<u32, &TleLinesResponse> =
-        tle_lines.iter().map(|t| (t.norad_id, t)).collect();
-
-    // Get primary TLE
-    let primary_tle_data = tle_map.get(&input.primary_norad_id).ok_or_else(|| {
-        SpaceError::new(
-            SpaceErrorCode::NotFound,
-            format!("No TLE found for primary object {}", input.primary_norad_id),
-        )
-        .with_context(format!("norad_id: {}", input.primary_norad_id))
-        .into_wasm_error()
-    })?;
-
-    // Every requested secondary was validated above; do not silently filter
-    // an absent ID into a smaller screening set.
-    let secondary_tles: Vec<(String, String)> = input
-        .secondary_norad_ids
-        .iter()
-        .map(|id| {
-            let tle = tle_map.get(id).ok_or_else(|| {
-                SpaceError::new(
-                    SpaceErrorCode::InvalidInput,
-                    format!("Missing secondary TLE after coverage validation: {}", id),
-                )
-                .into_wasm_error()
-            })?;
-            Ok((tle.line1.clone(), tle.line2.clone()))
-        })
-        .collect::<ExternResult<Vec<_>>>()?;
-
-    let from_tles_input = ScreenFromTlesInput {
-        primary_tle: (
-            primary_tle_data.line1.clone(),
-            primary_tle_data.line2.clone(),
-        ),
-        secondary_tles,
+    // The legacy Vec result has no place to report partial coverage or
+    // unqualified inputs. Route through the metadata-aware path, which rejects
+    // missing, duplicate, stale, future-dated and below-floor TLEs.
+    let assessments = screen_conjunction_with_staleness(ScreenWithStalenessInput {
+        primary_norad_id: input.primary_norad_id,
+        secondary_norad_ids: input.secondary_norad_ids,
         hours_ahead: input.hours_ahead,
         pc_threshold: input.pc_threshold,
-    };
+        staleness_config: StalenessConfig::default(),
+    })?;
 
-    screen_conjunction_from_tles(from_tles_input)
+    Ok(assessments
+        .into_iter()
+        .map(|result| result.assessment)
+        .collect())
 }
 
 /// Input for staleness-aware conjunction screening
@@ -802,6 +704,19 @@ pub fn screen_conjunction_with_staleness(
             "Maximum 100 secondary objects per screening call",
         )
         .with_context(format!("count: {}", input.secondary_norad_ids.len()))
+        .into_wasm_error());
+    }
+
+    if !input.hours_ahead.is_finite()
+        || input.hours_ahead <= 0.0
+        || input.hours_ahead > 720.0
+        || !input.pc_threshold.is_finite()
+        || !(0.0..=1.0).contains(&input.pc_threshold)
+    {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "hours_ahead must be finite in (0, 720] and pc_threshold finite in [0, 1]",
+        )
         .into_wasm_error());
     }
 
@@ -866,8 +781,17 @@ pub fn screen_conjunction_with_staleness(
     // Enforce the configured quality floor and freshness policy before
     // propagating. A stale, future-dated or below-floor source cannot support
     // a complete negative screening result in this legacy Vec-returning API.
-    let all_metadata = std::iter::once(*primary_meta)
-        .chain(input.secondary_norad_ids.iter().filter_map(|id| meta_map.get(id).copied()));
+    let mut all_metadata = vec![*primary_meta];
+    for id in &input.secondary_norad_ids {
+        let metadata = meta_map.get(id).copied().ok_or_else(|| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Missing secondary metadata after coverage validation: {}", id),
+            )
+            .into_wasm_error()
+        })?;
+        all_metadata.push(metadata);
+    }
     for metadata in all_metadata {
         if metadata.staleness.is_stale
             || metadata.staleness.age_secs < 0
@@ -915,36 +839,39 @@ pub fn screen_conjunction_with_staleness(
     // Run standard screening
     let assessments = screen_conjunction_from_tles(from_tles_input)?;
 
-    // Enrich with staleness metadata
+    // Enrich only after the exact requested set was validated above. Missing
+    // metadata is an error, never a fabricated epoch or default quality.
     let primary_staleness = primary_meta.staleness.clone();
 
-    Ok(assessments
+    assessments
         .into_iter()
         .map(|assessment| {
             let secondary_staleness = meta_map
                 .get(&assessment.secondary_norad_id)
-                .map(|m| m.staleness.clone())
-                .unwrap_or_else(|| {
-                    // Fallback: unknown staleness (shouldn't happen)
-                    compute_staleness(
-                        &SpaceTimestamp { micros: 0 },
-                        &QualityScore::new(0),
-                        &input.staleness_config,
+                .map(|metadata| metadata.staleness.clone())
+                .ok_or_else(|| {
+                    SpaceError::new(
+                        SpaceErrorCode::InvalidInput,
+                        format!(
+                            "Missing staleness metadata for screened NORAD {}",
+                            assessment.secondary_norad_id
+                        ),
                     )
-                });
+                    .into_wasm_error()
+                })?;
 
             let combined_confidence = primary_staleness.confidence * secondary_staleness.confidence;
             let has_stale_data = primary_staleness.is_stale || secondary_staleness.is_stale;
 
-            StalenessAwareAssessment {
+            Ok(StalenessAwareAssessment {
                 assessment,
                 primary_staleness: primary_staleness.clone(),
                 secondary_staleness,
                 combined_confidence,
                 has_stale_data,
-            }
+            })
         })
-        .collect())
+        .collect::<ExternResult<Vec<_>>>()
 }
 
 /// Mirror of orbital_objects GetTlesWithMetadataInput for cross-zome serialization
@@ -972,12 +899,16 @@ pub fn screen_conjunction_from_tles(
         .into_wasm_error());
     }
 
-    if input.hours_ahead <= 0.0 || input.hours_ahead > 720.0 {
+    if !input.hours_ahead.is_finite()
+        || input.hours_ahead <= 0.0
+        || input.hours_ahead > 720.0
+        || !input.pc_threshold.is_finite()
+        || !(0.0..=1.0).contains(&input.pc_threshold)
+    {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidInput,
-            "hours_ahead must be between 0 and 720 (30 days)",
+            "hours_ahead must be finite in (0, 720] and pc_threshold finite in [0, 1]",
         )
-        .with_context(format!("value: {}", input.hours_ahead))
         .into_wasm_error());
     }
 
@@ -1023,10 +954,12 @@ pub fn screen_conjunction_from_tles(
         })?;
         secondary_props.push((norad_id, prop));
     }
-    validate_screening_coverage(&secondary_ids, &secondary_ids).map_err(|error| {
+    let mut requested_ids = vec![primary_tle.norad_id];
+    requested_ids.extend(secondary_ids);
+    validate_screening_coverage(&requested_ids, &requested_ids).map_err(|error| {
         SpaceError::new(
             SpaceErrorCode::InvalidInput,
-            format!("Invalid secondary screening set: {:?}", error),
+            format!("Invalid requested screening set: {:?}", error),
         )
         .into_wasm_error()
     })?;
@@ -1063,6 +996,13 @@ pub fn screen_conjunction_from_tles(
                 .into_wasm_error()
             })?;
             let dist = distance_between(&p_state, &s_state);
+            if !dist.is_finite() || dist < 0.0 {
+                return Err(SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Invalid coarse miss distance at sample {}", i),
+                )
+                .into_wasm_error());
+            }
             if dist < best_distance {
                 best_distance = dist;
                 best_step = i * coarse_step_secs;
@@ -1093,6 +1033,13 @@ pub fn screen_conjunction_from_tles(
                 .into_wasm_error()
             })?;
             let dist = distance_between(&p_state, &s_state);
+            if !dist.is_finite() || dist < 0.0 {
+                return Err(SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Invalid fine miss distance at sample {}", t_secs),
+                )
+                .into_wasm_error());
+            }
             if dist < tca_distance {
                 tca_distance = dist;
                 tca_offset = t_secs;
@@ -1126,8 +1073,27 @@ pub fn screen_conjunction_from_tles(
         })?;
 
         let assessment = analyzer.assess(&p_state, &s_state);
+        let pc = assessment.collision_probability.pc;
+        if !pc.is_finite() || !(0.0..=1.0).contains(&pc) {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Invalid Pc for secondary {}: {}", _norad_id, pc),
+            )
+            .into_wasm_error());
+        }
+        if !assessment.miss_distance_km.is_finite()
+            || assessment.miss_distance_km < 0.0
+            || !assessment.relative_velocity_kms.is_finite()
+            || assessment.relative_velocity_kms < 0.0
+        {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Invalid conjunction geometry for secondary {}", _norad_id),
+            )
+            .into_wasm_error());
+        }
 
-        if assessment.collision_probability.pc >= input.pc_threshold {
+        if pc >= input.pc_threshold {
             let shared_assessment = ConjunctionAssessment {
                 primary_norad_id: assessment.primary_norad_id,
                 secondary_norad_id: assessment.secondary_norad_id,
