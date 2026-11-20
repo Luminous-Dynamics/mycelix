@@ -85,7 +85,10 @@ the exact checked-in schemas and tested scenarios remain the claim boundary.
 
 ## Test intent
 
-The unit corpus includes controls for valid receipt-backed success, source SHA
-mismatch, transport-ACK-only false success, UNKNOWN delivery, dangling causal
-edges, causal cycles, role confusion, missing attempt IDs, duplicate inbox
-effects, secret-bearing fields, and recipient/verifier identity collision.
+The unit corpus checks the three checked-in Draft 2020-12 schemas/data pairs,
+catalog uniqueness and all seven scenario families, plus controls for valid
+receipt-backed success, source SHA mismatch, transport-ACK-only false success,
+UNKNOWN delivery, dangling causal edges, causal cycles, same-clock ordering,
+role confusion, missing attempt IDs, cross-operation attempt reuse, duplicate
+inbox effects, secret-bearing fields, mismatched commitments, changed recipient
+identity, missing recipient admission, and recipient/verifier identity collision.
