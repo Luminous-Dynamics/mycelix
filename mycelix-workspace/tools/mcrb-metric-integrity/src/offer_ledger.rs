@@ -199,7 +199,7 @@ fn push_optional_string(bytes: &mut Vec<u8>, value: Option<&str>) {
 }
 
 const IDEMPOTENCY_KEY_COMMITMENT_DOMAIN: &[u8] =
-    b"MYCELIX-MCRB-IDEMPOTENCY-KEY\\0v0.1\\0";
+    b"MYCELIX-MCRB-IDEMPOTENCY-KEY\0v0.1\0";
 
 /// Create the public commitment for an idempotency key without exposing the
 /// raw key in offer-ledger artifacts. The caller retains the raw key for the
