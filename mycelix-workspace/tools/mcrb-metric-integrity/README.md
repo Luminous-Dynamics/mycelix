@@ -145,3 +145,18 @@ SHA256(
 ```
 
 The registry artifact digest is SHA-256 over the exact committed registry file bytes. The scenario manifest is separately bound by Git blob SHA. These identifiers serve different purposes and must not be substituted for one another.
+
+
+### Idempotency-key commitment algorithm
+
+Offer producers call `idempotency_key_commitment(raw_key)` while the raw key remains in the execution component. The public ledger stores only:
+
+```text
+SHA256(
+  "MYCELIX-MCRB-IDEMPOTENCY-KEY\\0v0.1\\0"
+  || u64_be(raw_key.len())
+  || raw_key
+)
+```
+
+This is a domain-separated content commitment, not an encryption mechanism. Do not place raw keys in trace logs, benchmark offers, outcome attestations or public receipts.
