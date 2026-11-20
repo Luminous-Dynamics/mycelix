@@ -269,3 +269,56 @@ The outcome verifier should consume a frozen dependency-relationship qualificati
 ## 14. Claim ceiling
 
 This contract and its schemas are design artifacts, not an implemented verifier. They do not establish a live independent observer, source honesty, physical truth, application effect, Holochain DHT convergence, external payment finality, or benchmark superiority. No QOPS rate is eligible until the complete outcome verification path is implemented and independently qualified.
+
+
+## 12. Pre-dispatch operation-contract binding
+
+The v0.1 contract registry is tracked by [#6392](https://github.com/Luminous-Dynamics/mycelix/issues/6392) and is now a required dependency of the frozen scenario manifest.
+
+Every outcome attestation and outcome-ledger entry must bind:
+
+- `operation_contract_registry_digest_sha256`;
+- exact `operation_contract_id` and `operation_contract_version`;
+- domain-separated `operation_contract_digest_sha256`;
+- `attempt_state` independently from `effect_state`;
+- `outcome_class` independently from the effect assertion.
+
+The offer ledger binds the same registry digest at envelope level and the exact operation contract ID/version/digest on every offered entry. The contract is selected before dispatch; the outcome verifier must not accept a post-hoc contract substitution.
+
+### Expected outcome is not the same as effect state
+
+A contract may expect a mutation to apply (`QualifiedSuccess`) or may expect a protected mutation to be denied (`CorrectDenial`). Therefore the expected QOPS outcome cannot be inferred from `effect_state` alone.
+
+For example, the revocation contract requires:
+
+- expected disposition: `must-deny`;
+- expected QOPS outcome class: `CorrectDenial`;
+- expected effect state: `confirmed-not-applied`.
+
+That is a successful security-control result, but it is not a successful business effect and must not inflate the QOPS business-success numerator.
+
+### Attempt/effect truth table
+
+| Attempt state | Effect state | Interpretation |
+|---|---|---|
+| not-dispatched | not-attempted | no dispatch; not evidence of a successful effect |
+| dispatched | unknown | the operation may have taken effect; reconcile before retry |
+| accepted-at-local-boundary | unknown | local acceptance does not prove a remote effect |
+| timed-out | unknown | timeout is not failure-no-effect |
+| reconciled | applied | use the frozen proposition and required evidence to classify |
+| reconciled | confirmed-not-applied | may support a correct denial or confirmed non-effect, depending on the contract |
+| reconciled | partial | blocks QOPS until the explicit expected-action set and reconciliation policy are satisfied |
+| unsupported | not-attempted | unsupported path remains explicit; it cannot silently become success |
+
+The operation-contract verifier in `mcrb-metric-integrity` currently validates the registry's schema-level structure, expected source-manifest Git blob, scenario visibility, contract digests, denial semantics, and fail-closed Unknown/partial policies. The offer-ledger verifier requires that validated registry and commits the per-operation binding.
+
+This does **not** yet implement the independent signed outcome ledger in #6357. Caller outcome labels remain diagnostic only; QOPS remains Incomplete and all performance rates remain withheld until independent outcome/source verification is implemented and qualified.
+
+### Digest boundaries
+
+- **Scenario manifest Git blob SHA:** exact committed scenario contract identity.
+- **Operation-contract registry SHA-256:** exact registry artifact bytes, supplied from protected verifier configuration.
+- **Operation-contract digest:** domain-separated digest of one typed contract projection.
+- **Offer-ledger digest:** commits the registry digest and each offer's exact operation-contract binding.
+
+These are intentionally distinct commitments. A digest proves content binding, not governance approval, signer authenticity, source independence, an external effect, or runtime qualification.
