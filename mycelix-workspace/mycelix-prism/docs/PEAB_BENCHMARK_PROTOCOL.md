@@ -628,3 +628,29 @@ Report duplicate remote effects per logical operation, false DefinitelyNotApplie
 Report conservative quarantine's availability cost separately. Do not use a blended score that lets throughput compensate for duplicate effects or false absence claims.
 
 These are target thresholds and benchmark hypotheses, not measured results. Do not claim exactly-once delivery: at-most-one remote effect is conditional on the remote service enforcing the scoped idempotency contract.
+
+
+## 15. Durable dispatch journal crash qualification
+
+The dependency-free reference model at prism-egress/tests/durable_journal_model.rs contains 25 source-level tests. It models append-only ordered records, a durable-prefix watermark, process-crash truncation of the volatile suffix, scope-bound dispatch tokens, and a one-use transport adapter gate. Its 64-bit deterministic checksum is only a model checksum, not a production cryptographic digest.
+
+### Hard write-ahead rule
+
+A DispatchToken can be returned only after the exact DispatchMarked record has been appended and durably flushed. The token is private and non-Clone. The transport adapter consumes it once. A replayed DispatchMarked record never recreates a token.
+
+Consequences:
+- crash before durable flush: the unflushed record disappears from replay; only the earlier Authorized state remains, so the transport could not have started;
+- crash after durable flush: the attempt is DispatchMayHaveOccurred; the ephemeral token is lost, and recovery must query authoritative remote state or hold unknown;
+- crash during/after the first write: the durable DispatchMarked state remains conservative even when the later write/response receipt was not flushed.
+
+No send-then-fsync-later sequence is valid. A bounded group-commit implementation may issue the token only after the flush acknowledgment for the batch containing that exact DispatchMarked record.
+
+### Actual-storage qualification
+
+The Rust reference model does not invoke fsync/fdatasync or simulate power loss. The next production qualification must inject process termination, host/power loss, disk-full, short writes, flush errors, torn tail records, directory-entry creation/rename, log rotation, and concurrent-writer crashes against the real journal implementation. Record filesystem, mount options, device, controller cache and power-loss assumptions.
+
+Measure fsync/fdatasync p50/p95/p99, marker-to-token latency, token-to-first-byte latency, throughput, write amplification, bytes per attempt, WAL growth/rotation, recovery scan time, invalid-tail handling, and request latency for HTTP/1 and HTTP/2 under concurrency. Compare per-record flush with bounded group commit, but never release a token before its own marker is durable.
+
+Provisional performance objective after a real baseline exists: target no more than 10% throughput loss and no more than 15% p99 latency overhead versus an otherwise-identical no-journal transport under a healthy supported-storage profile. Treat these as research targets, not acceptance gates or achieved measurements; publish the durability/latency/throughput Pareto curve when the target cannot be met.
+
+Hard security gates are independent of performance: zero writes without a durable token; zero token reconstruction after replay; zero automatic retry from dispatched unknown state; zero silent acceptance of a corrupt durable prefix.
