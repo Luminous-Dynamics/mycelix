@@ -12,8 +12,9 @@ use mycelix_space_shared::{
     AlertPriority, AlertType, ConjunctionAlert, ConjunctionAssessment, ConjunctionDataMessage,
     ManeuverAlert, ManeuverType as SharedManeuverType, PaginatedResponse, PaginationParams,
     ScreenInput, SpaceError, SpaceErrorCode, SpaceSignal, SpaceTimestamp, StalenessAwareAssessment,
-    StalenessConfig, TleWithMetadata, gate_space_operation, requirement_for_conjunction_creation,
-    requirement_for_negotiation, requirement_for_risk_update, validate_staleness_config,
+    StalenessConfig, TleWithMetadata, gate_space_operation, inclusive_time_offsets,
+    requirement_for_conjunction_creation, requirement_for_negotiation, requirement_for_risk_update,
+    validate_screening_coverage, validate_staleness_config,
 };
 use orbital_mechanics::conjunction::ConjunctionAnalyzer;
 use orbital_mechanics::propagator::Propagator;
@@ -731,92 +732,21 @@ pub fn get_maneuvers_for_event(event_id: String) -> ExternResult<Vec<AvoidanceMa
 /// Max 100 secondaries per call (SGP4 in WASM is expensive).
 #[hdk_extern]
 pub fn screen_conjunction(input: ScreenInput) -> ExternResult<Vec<ConjunctionAssessment>> {
-    // Bound secondary count to avoid excessive WASM computation
-    if input.secondary_norad_ids.len() > 100 {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidInput,
-            "Maximum 100 secondary objects per screening call",
-        )
-        .with_context(format!("count: {}", input.secondary_norad_ids.len()))
-        .into_wasm_error());
-    }
-
-    // Reject non-finite horizons and thresholds before performing network/DHT work.
-    validate_screening_parameters(input.hours_ahead, input.pc_threshold)?;
-    validate_requested_secondary_ids(input.primary_norad_id, &input.secondary_norad_ids)?;
-
-    // Collect all NORAD IDs we need
-    let mut all_ids: Vec<u32> = vec![input.primary_norad_id];
-    for id in &input.secondary_norad_ids {
-        all_ids.push(*id);
-    }
-
-    // Cross-zome call to orbital_objects to fetch latest TLEs
-    let response = call(
-        CallTargetCell::Local,
-        ZomeName::new("orbital_objects"),
-        FunctionName::new("get_latest_tles"),
-        None,
-        all_ids,
-    )?;
-
-    let response_bytes = match response {
-        ZomeCallResponse::Ok(bytes) => bytes,
-        ZomeCallResponse::Unauthorized(..) => {
-            return Err(SpaceError::new(
-                SpaceErrorCode::Unauthorized,
-                "Unauthorized cross-zome call to orbital_objects",
-            )
-            .into_wasm_error());
-        }
-        _ => {
-            return Err(SpaceError::new(
-                SpaceErrorCode::InvalidInput,
-                "Cross-zome call to orbital_objects failed",
-            )
-            .into_wasm_error());
-        }
-    };
-
-    let tle_lines: Vec<TleLinesResponse> = response_bytes.decode().map_err(|e| {
-        SpaceError::new(
-            SpaceErrorCode::InvalidInput,
-            format!("Failed to decode TLE response: {:?}", e),
-        )
-        .into_wasm_error()
-    })?;
-
-    // Build a lookup by NORAD ID
-    let tle_map: std::collections::HashMap<u32, &TleLinesResponse> =
-        tle_lines.iter().map(|t| (t.norad_id, t)).collect();
-
-    // Get primary TLE
-    let primary_tle_data = tle_map.get(&input.primary_norad_id).ok_or_else(|| {
-        SpaceError::new(
-            SpaceErrorCode::NotFound,
-            format!("No TLE found for primary object {}", input.primary_norad_id),
-        )
-        .with_context(format!("norad_id: {}", input.primary_norad_id))
-        .into_wasm_error()
-    })?;
-
-    // Delegate to the TLE-based screening function
-    let secondary_tles: Vec<(String, String)> =
-        require_secondary_items(&input.secondary_norad_ids, |id| {
-            tle_map.get(&id).map(|t| (t.line1.clone(), t.line2.clone()))
-        })?;
-
-    let from_tles_input = ScreenFromTlesInput {
-        primary_tle: (
-            primary_tle_data.line1.clone(),
-            primary_tle_data.line2.clone(),
-        ),
-        secondary_tles,
+    // The legacy vector API cannot represent per-object uncertainty or an
+    // indeterminate result. Route through the metadata-qualified path so stale,
+    // future-dated and below-floor TLEs cannot silently become ordinary Pc values.
+    let assessments = screen_conjunction_with_staleness(ScreenWithStalenessInput {
+        primary_norad_id: input.primary_norad_id,
+        secondary_norad_ids: input.secondary_norad_ids,
         hours_ahead: input.hours_ahead,
         pc_threshold: input.pc_threshold,
-    };
+        staleness_config: StalenessConfig::default(),
+    })?;
 
-    screen_conjunction_from_tles(from_tles_input)
+    Ok(assessments
+        .into_iter()
+        .map(|result| result.assessment)
+        .collect())
 }
 
 /// Input for staleness-aware conjunction screening
@@ -864,7 +794,7 @@ pub fn screen_conjunction_with_staleness(
         FunctionName::new("get_tles_with_metadata"),
         None,
         GetTlesWithMetadataCallInput {
-            norad_ids: all_ids,
+            norad_ids: all_ids.clone(),
             staleness_config: input.staleness_config.clone(),
         },
     )?;
@@ -884,6 +814,15 @@ pub fn screen_conjunction_with_staleness(
         SpaceError::new(
             SpaceErrorCode::InvalidInput,
             format!("Failed to decode TLE metadata response: {:?}", e),
+        )
+        .into_wasm_error()
+    })?;
+
+    let returned_ids: Vec<u32> = tle_meta.iter().map(|tle| tle.norad_id).collect();
+    validate_screening_coverage(&all_ids, &returned_ids).map_err(|error| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!("Incomplete staleness-aware screening TLE coverage: {:?}", error),
         )
         .into_wasm_error()
     })?;
@@ -1056,14 +995,27 @@ pub fn screen_conjunction_from_tles(
         secondary_props.push((norad_id, prop));
     }
 
-    // Sweep the time window to find TCA (time of closest approach) for each pair.
-    // Step size: 10 minutes for coarse scan, then refine around the minimum.
-    let total_seconds = (input.hours_ahead * 3600.0) as i64;
-    // Keep every coarse sample inside the requested window, including windows
-    // shorter than ten minutes and a final interval shorter than ten minutes.
-    let coarse_step_secs: i64 = 600.min(total_seconds);
-    let fine_step_secs: i64 = 10; // 10 seconds for refinement
-    let num_coarse_steps = (total_seconds + coarse_step_secs - 1) / coarse_step_secs;
+    // Capture one UTC start for every pair. The declared horizon is future time
+    // from this screening execution, not from the potentially old TLE epoch.
+    let screening_start = chrono::Utc::now();
+    let total_seconds = (input.hours_ahead * 3600.0).floor() as i64;
+    if total_seconds <= 0 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "Screening horizon must contain at least one whole second",
+        )
+        .into_wasm_error());
+    }
+    let coarse_step_secs: i64 = 600;
+    let fine_step_secs: i64 = 10;
+    let coarse_offsets = inclusive_time_offsets(0, total_seconds, coarse_step_secs)
+        .map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Invalid coarse screening schedule: {:?}", error),
+            )
+            .into_wasm_error()
+        })?;
 
     let analyzer = ConjunctionAnalyzer::new();
     let mut results: Vec<ConjunctionAssessment> = Vec::new();
@@ -1074,9 +1026,9 @@ pub fn screen_conjunction_from_tles(
         let mut best_distance = f64::MAX;
         let mut best_step: i64 = 0;
 
-        for i in 0..=num_coarse_steps {
-            let coarse_offset = (i * coarse_step_secs).min(total_seconds);
-            let t = primary_tle.epoch + chrono::Duration::seconds(coarse_offset);
+        for coarse_offset in &coarse_offsets {
+            let coarse_offset = *coarse_offset;
+            let t = screening_start + chrono::Duration::seconds(coarse_offset);
             let p_state = primary_prop.propagate_to(t).map_err(|error| {
                 SpaceError::new(
                     SpaceErrorCode::InvalidInput,
@@ -1110,9 +1062,17 @@ pub fn screen_conjunction_from_tles(
         let mut tca_offset = best_step;
         let mut tca_distance = best_distance;
 
-        let mut t_secs = fine_start;
-        while t_secs <= fine_end {
-            let t = primary_tle.epoch + chrono::Duration::seconds(t_secs);
+        let fine_offsets = inclusive_time_offsets(fine_start, fine_end, fine_step_secs)
+            .map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Invalid fine screening schedule: {:?}", error),
+                )
+                .into_wasm_error()
+            })?;
+
+        for t_secs in fine_offsets {
+            let t = screening_start + chrono::Duration::seconds(t_secs);
             let p_state = primary_prop.propagate_to(t).map_err(|error| {
                 SpaceError::new(
                     SpaceErrorCode::InvalidInput,
@@ -1137,11 +1097,10 @@ pub fn screen_conjunction_from_tles(
                 tca_distance = dist;
                 tca_offset = t_secs;
             }
-            t_secs += fine_step_secs;
         }
 
         // Assess at TCA
-        let tca_time = primary_tle.epoch + chrono::Duration::seconds(tca_offset);
+        let tca_time = screening_start + chrono::Duration::seconds(tca_offset);
         let p_state = primary_prop.propagate_to(tca_time).map_err(|error| {
             SpaceError::new(
                 SpaceErrorCode::InvalidInput,
@@ -1308,6 +1267,14 @@ fn validate_requested_secondary_ids(
         )
         .into_wasm_error());
     }
+    if primary_norad_id == 0 || primary_norad_id > 999_999 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "Primary NORAD ID must be between 1 and 999999",
+        )
+        .with_context(format!("norad_id: {}", primary_norad_id))
+        .into_wasm_error());
+    }
     if secondary_norad_ids.len() > 100 {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidInput,
@@ -1318,6 +1285,14 @@ fn validate_requested_secondary_ids(
     }
     let mut seen = std::collections::HashSet::with_capacity(secondary_norad_ids.len());
     for norad_id in secondary_norad_ids {
+        if *norad_id == 0 || *norad_id > 999_999 {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Secondary NORAD ID must be between 1 and 999999",
+            )
+            .with_context(format!("norad_id: {}", norad_id))
+            .into_wasm_error());
+        }
         if *norad_id == primary_norad_id {
             return Err(SpaceError::new(
                 SpaceErrorCode::SelfConjunction,
