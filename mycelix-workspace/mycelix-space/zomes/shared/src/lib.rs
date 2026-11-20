@@ -124,7 +124,11 @@ pub const TLE_STALE_THRESHOLD_SECS: i64 = 30 * 24 * 3600;
 pub struct StalenessConfig {
     /// Seconds after which a TLE is considered stale (default: 30 days)
     pub stale_threshold_secs: i64,
-    /// Quality score below which a TLE is rejected (default: 20)
+    /// Caller policy floor (default: 20).
+    ///
+    /// `compute_staleness` reports this value but does not enforce it. Consumers
+    /// must explicitly compare `effective_quality` against this policy threshold
+    /// and represent a below-floor TLE as unqualified.
     pub min_quality: u8,
 }
 
@@ -153,15 +157,21 @@ pub struct TleStaleness {
     pub original_quality: QualityScore,
     /// Effective quality after age-based degradation
     pub effective_quality: QualityScore,
-    /// Confidence multiplier for Pc calculations (1.0 = full, 0.0 = no confidence)
+    /// Legacy heuristic freshness multiplier (1.0 = full, 0.0 = no confidence).
+    ///
+    /// This is not a statistically calibrated confidence interval, Pc bound or
+    /// covariance-realism statement. Consumers must not interpret it as one.
     pub confidence: f64,
 }
 
-/// Compute age-degraded quality and confidence for a TLE.
+/// Compute the legacy age-degraded TLE quality and heuristic freshness multiplier.
 ///
-/// Quality degrades linearly: loses ~1 point per day after 7 days.
-/// Confidence drops from 1.0 at epoch to 0.3 at the stale threshold,
-/// and continues to 0.1 at 2x the threshold.
+/// Quality degrades linearly by approximately one point per day after a seven-day
+/// grace period. The legacy multiplier is not statistically calibrated: for a
+/// positive threshold its value is 1.0 at age zero, 0.65 at the configured
+/// threshold, and 0.3 at twice the threshold. A non-positive threshold retains
+/// the historical value of 1.0. Future-dated epochs receive zero quality and
+/// zero multiplier. The caller's `min_quality` policy floor is not enforced here.
 pub fn compute_staleness(
     epoch: &SpaceTimestamp,
     quality: &QualityScore,
