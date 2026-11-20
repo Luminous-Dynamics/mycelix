@@ -6,7 +6,6 @@
   "additionalProperties": false,
   "required": [
     "schema_version",
-    "predicate_type",
     "run_id",
     "scenario_id",
     "scenario_contract_digest_sha256",
@@ -28,9 +27,6 @@
   "properties": {
     "schema_version": {
       "const": "mycelix-mcrb-gate-attestation-v0.1"
-    },
-    "predicate_type": {
-      "const": "https://luminousdynamics.io/attestations/mcrb-correctness-gate/v0.1"
     },
     "run_id": {
       "type": "string",
