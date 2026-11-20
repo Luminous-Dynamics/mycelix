@@ -218,6 +218,8 @@ pub enum InventoryError {
     InvalidExternalPlanQpid(String),
     #[error("external Plan QPId at {0} does not match any supplied Plan document")]
     UnknownExternalPlanQpid(String),
+    #[error("duplicate Results external-document reference ID {0}")]
+    DuplicateExternalReferenceId(u32),
     #[error("duplicate Results external-document reference id {0}")]
     DuplicateExternalReferenceId(u32),
     #[error("inventory canonicalization failed")]
@@ -539,6 +541,18 @@ fn finalize_frame(
             LocatorCaptureMode::ElementId => {
                 let element_id = frame.element_id
                     .ok_or_else(|| InventoryError::InvalidElementId(frame.locator_path.clone()))?;
+                if rule.declares_external_document_reference {
+                    let target_qpid = frame.captured_attributes.get("{}QPId")
+                        .ok_or_else(|| InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()))?;
+                    if !valid_qpid(target_qpid) {
+                        return Err(InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()));
+                    }
+                    if frame.captured_attributes.get("{}URI")
+                        .is_some_and(|uri| uri.chars().any(|character| character.is_control()))
+                    {
+                        return Err(InventoryError::InvalidIdentity(format!("external_uri:{}", frame.locator_path)));
+                    }
+                }
                 append_locator(
                     locators,
                     rule,
@@ -840,6 +854,36 @@ pub fn derive_trace_locator_inventory(
     }
     let declared_external_document_reference_ids = results[0]
         .declared_external_ids.iter().copied().collect::<Vec<_>>();
+    let plan_qpids: BTreeSet<_> = scanned.iter()
+        .filter(|document| document.source.role == QifDocumentRole::Plan)
+        .map(|document| document.source.qpid.to_ascii_lowercase())
+        .collect();
+    let mut external_document_references = Vec::new();
+    let mut external_reference_ids = BTreeSet::new();
+    for record in &results[0].locators {
+        if record.rule_id != "results.external_document_reference" {
+            continue;
+        }
+        let local_reference_id = record.locator.source_element_id
+            .ok_or_else(|| InventoryError::InvalidElementId(record.locator.source_path.clone()))?;
+        if !external_reference_ids.insert(local_reference_id) {
+            return Err(InventoryError::DuplicateExternalReferenceId(local_reference_id));
+        }
+        let plan_qpid = record.captured_attributes.get("{}QPId")
+            .ok_or_else(|| InventoryError::InvalidExternalPlanQpid(record.locator.source_path.clone()))?
+            .to_ascii_lowercase();
+        if !plan_qpids.contains(&plan_qpid) {
+            return Err(InventoryError::UnknownExternalPlanQpid(record.locator.source_path.clone()));
+        }
+        external_document_references.push(ExternalQifDocumentReferenceV1 {
+            results_qpid: results[0].source.qpid.to_ascii_lowercase(),
+            local_reference_id,
+            plan_qpid,
+            source_uri: record.captured_attributes.get("{}URI").cloned(),
+            source_locator: record.locator.source_path.clone(),
+        });
+    }
+    external_document_references.sort_by(|left, right| left.local_reference_id.cmp(&right.local_reference_id));
 
     let mut source_documents = scanned.iter().map(|document| document.source.clone()).collect::<Vec<_>>();
     source_documents.sort_by(|left, right| left.qpid.cmp(&right.qpid));
@@ -858,6 +902,7 @@ pub fn derive_trace_locator_inventory(
         documents: source_documents,
         locators,
         declared_external_document_reference_ids,
+        external_document_references,
     };
     let mut inventory = TraceLocatorInventoryV1 {
         schema: INVENTORY_SCHEMA.into(),
