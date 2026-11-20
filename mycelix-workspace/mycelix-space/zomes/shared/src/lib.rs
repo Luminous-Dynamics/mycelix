@@ -326,6 +326,7 @@ pub enum TleLatestDecision {
 /// A same-epoch TLE ambiguity or DHT anchor/entry identity mismatch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TleLatestConflict {
+    InvalidNoradId { norad_id: u32 },
     WrongAnchor { expected_norad_id: u32, actual_norad_id: u32 },
     SameEpochOrbitConflict { norad_id: u32 },
     SameEpochMetadataConflict { norad_id: u32 },
@@ -356,6 +357,16 @@ pub fn select_latest_tle_candidate(
     candidate: TleLatestCandidate<'_>,
     compare_metadata: bool,
 ) -> Result<TleLatestDecision, TleLatestConflict> {
+    if expected_norad_id == 0 || expected_norad_id > 999_999 {
+        return Err(TleLatestConflict::InvalidNoradId {
+            norad_id: expected_norad_id,
+        });
+    }
+    if candidate.norad_id == 0 || candidate.norad_id > 999_999 {
+        return Err(TleLatestConflict::InvalidNoradId {
+            norad_id: candidate.norad_id,
+        });
+    }
     if candidate.norad_id != expected_norad_id {
         return Err(TleLatestConflict::WrongAnchor {
             expected_norad_id,
@@ -366,6 +377,11 @@ pub fn select_latest_tle_candidate(
     let Some(current) = current else {
         return Ok(TleLatestDecision::Insert);
     };
+    if current.norad_id == 0 || current.norad_id > 999_999 {
+        return Err(TleLatestConflict::InvalidNoradId {
+            norad_id: current.norad_id,
+        });
+    }
     if current.norad_id != expected_norad_id {
         return Err(TleLatestConflict::WrongAnchor {
             expected_norad_id,
