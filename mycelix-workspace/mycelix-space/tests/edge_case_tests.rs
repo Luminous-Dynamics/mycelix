@@ -83,6 +83,99 @@ fn test_norad_id_hash_equality() {
 // Timestamp Edge Case Tests
 // =============================================================================
 
+/// Freeze the legacy TLE freshness multiplier semantics; this is not a calibration claim.
+#[test]
+fn test_tle_legacy_freshness_multiplier_boundaries() {
+    let now = Utc::now();
+    let quality = QualityScore::new(90);
+    let threshold = 30 * 24 * 3600;
+    let config = StalenessConfig {
+        stale_threshold_secs: threshold,
+        min_quality: 20,
+    };
+
+    let fresh = compute_staleness(
+        &SpaceTimestamp::from_datetime(now),
+        &quality,
+        &config,
+    );
+    assert!((fresh.confidence - 1.0).abs() < 1e-9);
+
+    let at_threshold = compute_staleness(
+        &SpaceTimestamp::from_datetime(now - Duration::seconds(threshold)),
+        &quality,
+        &config,
+    );
+    assert!((at_threshold.confidence - 0.65).abs() < 1e-6);
+    assert!(at_threshold.is_stale);
+
+    let twice_threshold = compute_staleness(
+        &SpaceTimestamp::from_datetime(now - Duration::seconds(2 * threshold)),
+        &quality,
+        &config,
+    );
+    assert!((twice_threshold.confidence - 0.3).abs() < 1e-6);
+    assert!(twice_threshold.is_stale);
+}
+
+/// The quality floor is policy input for callers; this function reports but does not enforce it.
+#[test]
+fn test_tle_min_quality_is_caller_policy_not_implicit_gate() {
+    let now = Utc::now();
+    let below_floor = compute_staleness(
+        &SpaceTimestamp::from_datetime(now),
+        &QualityScore::new(10),
+        &StalenessConfig {
+            stale_threshold_secs: 30 * 24 * 3600,
+            min_quality: 20,
+        },
+    );
+    assert_eq!(below_floor.effective_quality.value(), 10);
+    assert!(!below_floor.is_stale);
+    assert!(!below_floor.future_dated);
+}
+
+/// Older serialized staleness records default the newly-added future flag to false.
+#[test]
+fn test_tle_staleness_backward_compatible_deserialization() {
+    let legacy = r#"{
+        "age_secs": 30,
+        "is_stale": false,
+        "original_quality": 80,
+        "effective_quality": 80,
+        "confidence": 1.0
+    }"#;
+    let decoded: TleStaleness = serde_json::from_str(legacy).unwrap();
+    assert!(!decoded.future_dated);
+}
+
+/// An out-of-range serialized timestamp remains invalid rather than becoming wall-clock now.
+#[test]
+fn test_timestamp_out_of_range_is_not_substituted() {
+    assert!(SpaceTimestamp { micros: i64::MAX }.try_to_datetime().is_none());
+    assert!(SpaceTimestamp { micros: i64::MIN }.try_to_datetime().is_none());
+
+    // Extreme age arithmetic must saturate rather than overflow.
+    assert!(SpaceTimestamp { micros: i64::MIN }.age_seconds() > 0);
+}
+
+/// Future-dated TLEs are explicitly unqualified rather than treated as fresh.
+#[test]
+fn test_future_dated_tle_is_not_fresh() {
+    let future = Utc::now() + Duration::milliseconds(100);
+    let epoch = SpaceTimestamp::from_datetime(future);
+    let assessment = compute_staleness(
+        &epoch,
+        &QualityScore::new(100),
+        &StalenessConfig::default(),
+    );
+
+    assert!(assessment.future_dated);
+    assert!(assessment.is_stale, "legacy consumers must reject future-dated TLEs");
+    assert_eq!(assessment.confidence, 0.0);
+    assert_eq!(assessment.effective_quality.value(), 0);
+}
+
 /// Test SpaceTimestamp with very old date (Unix epoch)
 #[test]
 fn test_timestamp_unix_epoch() {
@@ -91,7 +184,7 @@ fn test_timestamp_unix_epoch() {
     let ts = SpaceTimestamp::from_datetime(epoch);
 
     assert_eq!(ts.micros, 0);
-    let reconstructed = ts.to_datetime();
+    let reconstructed = ts.try_to_datetime().expect("valid test timestamp");
     assert_eq!(reconstructed.timestamp(), 0);
 }
 
@@ -103,7 +196,7 @@ fn test_timestamp_before_epoch() {
     let ts = SpaceTimestamp::from_datetime(before_epoch);
 
     assert!(ts.micros < 0);
-    let reconstructed = ts.to_datetime();
+    let reconstructed = ts.try_to_datetime().expect("valid test timestamp");
     assert!(reconstructed.year() == 1960);
 }
 
@@ -113,7 +206,7 @@ fn test_timestamp_future_date() {
     let future = Utc::now() + Duration::days(365 * 100); // 100 years in future
     let ts = SpaceTimestamp::from_datetime(future);
 
-    let reconstructed = ts.to_datetime();
+    let reconstructed = ts.try_to_datetime().expect("valid test timestamp");
     assert!(reconstructed > Utc::now());
 }
 
@@ -152,7 +245,7 @@ fn test_timestamp_future_age_negative() {
 fn test_timestamp_microsecond_precision() {
     let now = Utc::now();
     let ts = SpaceTimestamp::from_datetime(now);
-    let reconstructed = ts.to_datetime();
+    let reconstructed = ts.try_to_datetime().expect("valid test timestamp");
 
     // Difference should be less than 1 microsecond
     let diff = (now - reconstructed).num_microseconds().unwrap_or(i64::MAX);

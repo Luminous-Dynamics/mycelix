@@ -62,14 +62,25 @@ impl SpaceTimestamp {
         }
     }
 
-    pub fn to_datetime(&self) -> DateTime<Utc> {
-        DateTime::from_timestamp_micros(self.micros).unwrap_or_else(Utc::now)
+    /// Fallible conversion. Returns None when the serialized microsecond value is
+    /// outside Chrono's representable UTC range.
+    pub fn try_to_datetime(&self) -> Option<DateTime<Utc>> {
+        DateTime::from_timestamp_micros(self.micros)
     }
 
-    /// Age in seconds from now
+    /// Lossy compatibility conversion.
+    ///
+    /// Invalid timestamps historically fell back to the current wall clock. New
+    /// operational code must use `try_to_datetime` and reject an invalid value.
+    #[deprecated(note = "Use try_to_datetime() and handle invalid timestamps explicitly")]
+    pub fn to_datetime(&self) -> DateTime<Utc> {
+        self.try_to_datetime().unwrap_or_else(Utc::now)
+    }
+
+    /// Age in seconds from now. Saturates at the i64 boundary for extreme inputs.
     pub fn age_seconds(&self) -> i64 {
         let now = Self::now();
-        (now.micros - self.micros) / 1_000_000
+        now.micros.saturating_sub(self.micros) / 1_000_000
     }
 }
 
@@ -113,7 +124,11 @@ pub const TLE_STALE_THRESHOLD_SECS: i64 = 30 * 24 * 3600;
 pub struct StalenessConfig {
     /// Seconds after which a TLE is considered stale (default: 30 days)
     pub stale_threshold_secs: i64,
-    /// Quality score below which a TLE is rejected (default: 20)
+    /// Caller policy floor (default: 20).
+    ///
+    /// `compute_staleness` reports this value but does not enforce it. Consumers
+    /// must explicitly compare `effective_quality` against this policy threshold
+    /// and represent a below-floor TLE as unqualified.
     pub min_quality: u8,
 }
 
@@ -131,48 +146,72 @@ impl Default for StalenessConfig {
 pub struct TleStaleness {
     /// Age of the TLE epoch in seconds
     pub age_secs: i64,
-    /// Whether the TLE exceeds the staleness threshold
+    /// Whether the TLE is unusable due to age or a future-dated epoch.
+    /// Future-dated values are also stale for legacy callers that only inspect this flag.
     pub is_stale: bool,
+    /// Whether its epoch is in the future relative to the evaluator clock.
+    /// Future-dated records are not treated as fresh.
+    #[serde(default)]
+    pub future_dated: bool,
     /// Original quality score (as submitted)
     pub original_quality: QualityScore,
     /// Effective quality after age-based degradation
     pub effective_quality: QualityScore,
-    /// Confidence multiplier for Pc calculations (1.0 = full, 0.0 = no confidence)
+    /// Legacy heuristic freshness multiplier (1.0 = full, 0.0 = no confidence).
+    ///
+    /// This is not a statistically calibrated confidence interval, Pc bound or
+    /// covariance-realism statement. Consumers must not interpret it as one.
     pub confidence: f64,
 }
 
-/// Compute age-degraded quality and confidence for a TLE.
+/// Compute the legacy age-degraded TLE quality and heuristic freshness multiplier.
 ///
-/// Quality degrades linearly: loses ~1 point per day after 7 days.
-/// Confidence drops from 1.0 at epoch to 0.3 at the stale threshold,
-/// and continues to 0.1 at 2x the threshold.
+/// Quality degrades linearly by approximately one point per day after a seven-day
+/// grace period. The legacy multiplier is not statistically calibrated: for a
+/// positive threshold its value is 1.0 at age zero, 0.65 at the configured
+/// threshold, and 0.3 at twice the threshold. A non-positive threshold retains
+/// the historical value of 1.0. Future-dated epochs receive zero quality and
+/// zero multiplier. The caller's `min_quality` policy floor is not enforced here.
 pub fn compute_staleness(
     epoch: &SpaceTimestamp,
     quality: &QualityScore,
     config: &StalenessConfig,
 ) -> TleStaleness {
-    let age_secs = epoch.age_seconds();
+    let now = SpaceTimestamp::now();
+    let age_micros = now.micros.saturating_sub(epoch.micros);
+    let age_secs = age_micros / 1_000_000;
+    let future_dated = age_micros < 0;
 
-    // Quality degrades: ~1 point per day after 7 days of age
-    let grace_period_secs: i64 = 7 * 24 * 3600;
-    let days_past_grace = ((age_secs - grace_period_secs).max(0) as f64) / 86400.0;
-    let degraded = (quality.value() as f64 - days_past_grace).max(0.0) as u8;
-    let effective_quality = QualityScore::new(degraded);
+    // A future epoch indicates a clock, parsing or source-semantics problem.
+    // Do not grant it full freshness confidence or usable effective quality.
+    let effective_quality = if future_dated {
+        QualityScore::new(0)
+    } else {
+        // Quality degrades: ~1 point per day after 7 days of age.
+        let grace_period_secs: i64 = 7 * 24 * 3600;
+        let days_past_grace = ((age_secs - grace_period_secs).max(0) as f64) / 86400.0;
+        let degraded = (quality.value() as f64 - days_past_grace).max(0.0) as u8;
+        QualityScore::new(degraded)
+    };
 
-    // Confidence: 1.0 for fresh TLEs, decays towards 0.1 for very old ones
+    // Confidence: future-dated records are unqualified; otherwise decay with age.
     let threshold = config.stale_threshold_secs as f64;
     let age_f = age_secs.max(0) as f64;
-    let confidence = if threshold <= 0.0 {
+    let confidence = if future_dated {
+        0.0
+    } else if threshold <= 0.0 {
         1.0
     } else {
         (1.0 - 0.7 * (age_f / threshold).min(2.0) / 2.0).max(0.1)
     };
 
-    let is_stale = age_secs > config.stale_threshold_secs;
+    // Preserve a fail-closed signal for older clients that only inspect is_stale.
+    let is_stale = future_dated || age_secs > config.stale_threshold_secs;
 
     TleStaleness {
         age_secs,
         is_stale,
+        future_dated,
         original_quality: *quality,
         effective_quality,
         confidence,
