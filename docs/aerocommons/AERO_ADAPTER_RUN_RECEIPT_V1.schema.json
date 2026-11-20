@@ -54,13 +54,13 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "arguments_sha256", "environment_profile_sha256", "configuration_sha256",
+        "arguments", "environment_profile", "configuration_sha256",
         "locale", "timezone", "network_policy", "declared_egress",
         "observed_egress", "timeout_ms"
       ],
       "properties": {
-        "arguments_sha256": { "$ref": "#/$defs/sha256" },
-        "environment_profile_sha256": { "$ref": "#/$defs/sha256" },
+        "arguments": { "$ref": "#/$defs/contentArtifact" },
+        "environment_profile": { "$ref": "#/$defs/contentArtifact" },
         "configuration_sha256": { "$ref": "#/$defs/sha256" },
         "locale": { "type": "string", "minLength": 1 },
         "timezone": { "type": "string", "minLength": 1 },
