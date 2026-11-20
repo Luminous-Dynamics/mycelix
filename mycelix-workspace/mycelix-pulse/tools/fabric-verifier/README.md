@@ -12,6 +12,7 @@ From the public workspace checkout:
 ```bash
 cargo fmt --manifest-path mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.toml -- --check
 cargo test --manifest-path mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.toml
+cargo test --manifest-path mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.toml --test cli
 cargo run --manifest-path mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.toml -- \
   verify path/to/trace.json --schema mycelix-workspace/mycelix-pulse/docs/pulse-fabric-trace.schema-v0.1.json \
   --expected-source-sha <40-character-source-sha>
