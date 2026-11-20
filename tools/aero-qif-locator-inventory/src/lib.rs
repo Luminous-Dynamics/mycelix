@@ -42,6 +42,8 @@ pub struct TraceLocatorRuleV1 {
     /// Prefix-independent Clark names, including the QIFDocument root.
     pub expanded_path: Vec<String>,
     pub capture: LocatorCaptureMode,
+    /// Expanded attribute names captured as inert source metadata, e.g. "{}QPId" and "{}URI".
+    pub capture_attributes: Vec<String>,
     /// This rule captures the Results document's ExternalQIFDocumentReference/@id.
     pub declares_external_document_reference: bool,
 }
@@ -78,6 +80,8 @@ pub struct TraceLocatorRecordV1 {
     pub locator: SourceFieldLocatorV1,
     /// SHA-256 of simple-content bytes after XML entity decoding; raw values are not copied.
     pub field_value_sha256: Option<String>,
+    /// Selected expanded-name attributes retained as source metadata; never dereferenced.
+    pub captured_attributes: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -104,6 +108,17 @@ pub struct TraceLocatorInventoryBodyV1 {
     pub documents: Vec<TraceLocatorSourceDocumentV1>,
     pub locators: Vec<TraceLocatorRecordV1>,
     pub declared_external_document_reference_ids: Vec<u32>,
+    pub external_document_references: Vec<ExternalQifDocumentReferenceV1>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExternalQifDocumentReferenceV1 {
+    pub results_qpid: String,
+    pub local_reference_id: u32,
+    pub plan_qpid: String,
+    pub source_uri: Option<String>,
+    pub source_locator: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -199,6 +214,12 @@ pub enum InventoryError {
     InvalidElementId(String),
     #[error("QIF reference at {0} points to an undeclared Results external-document ID {1}")]
     UndeclaredExternalReference(String, u32),
+    #[error("external Plan QPId is missing or invalid at {0}")]
+    InvalidExternalPlanQpid(String),
+    #[error("external Plan QPId at {0} does not match any supplied Plan document")]
+    UnknownExternalPlanQpid(String),
+    #[error("duplicate Results external-document reference id {0}")]
+    DuplicateExternalReferenceId(u32),
     #[error("inventory canonicalization failed")]
     CanonicalizationFailed,
     #[error("inventory digest is malformed or does not match its body")]
@@ -216,6 +237,7 @@ struct ElementFrame {
     matching_rules: Vec<usize>,
     element_id: Option<u32>,
     external_xid: Option<u32>,
+    captured_attributes: BTreeMap<String, String>,
     direct_text: String,
     has_child_element: bool,
 }
@@ -361,9 +383,13 @@ pub fn validate_profile(profile: &TraceLocatorProfileV1) -> Result<(), Inventory
         if !selectors.insert(selector) {
             return Err(InventoryError::DuplicateSelector(rule.rule_id.clone()));
         }
+        if rule.capture_attributes.iter().any(|name| !name.starts_with("{}") || name.len() <= 2) {
+            return Err(InventoryError::InvalidRule(rule.rule_id.clone()));
+        }
         if rule.declares_external_document_reference
             && (rule.document_role != QifDocumentRole::Results
-                || rule.capture != LocatorCaptureMode::ElementId)
+                || rule.capture != LocatorCaptureMode::ElementId
+                || !rule.capture_attributes.iter().any(|name| name == "{}QPId"))
         {
             return Err(InventoryError::InvalidRule(rule.rule_id.clone()));
         }
