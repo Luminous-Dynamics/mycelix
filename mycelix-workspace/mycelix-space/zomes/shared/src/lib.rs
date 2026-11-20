@@ -142,7 +142,8 @@ impl Default for StalenessConfig {
 pub struct TleStaleness {
     /// Age of the TLE epoch in seconds
     pub age_secs: i64,
-    /// Whether the TLE exceeds the staleness threshold
+    /// Whether the TLE is unusable due to age or a future-dated epoch.
+    /// Future-dated values are also stale for legacy callers that only inspect this flag.
     pub is_stale: bool,
     /// Whether its epoch is in the future relative to the evaluator clock.
     /// Future-dated records are not treated as fresh.
@@ -194,7 +195,8 @@ pub fn compute_staleness(
         (1.0 - 0.7 * (age_f / threshold).min(2.0) / 2.0).max(0.1)
     };
 
-    let is_stale = !future_dated && age_secs > config.stale_threshold_secs;
+    // Preserve a fail-closed signal for older clients that only inspect is_stale.
+    let is_stale = future_dated || age_secs > config.stale_threshold_secs;
 
     TleStaleness {
         age_secs,
