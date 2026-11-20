@@ -47,9 +47,21 @@ The envelope binds the clock source, measurement window, tick frequency, entry c
 Use the verifier before QOPS:
 
 ```rust
+let raw_contract_registry = std::fs::read(contract_registry_path)?;
+let verified_contracts = validate_operation_contract_registry(
+    &raw_contract_registry,
+    &protected_registry_digest_sha256,
+    &expected_scenario_manifest_git_blob_sha,
+)?;
+
 let ledger: OfferLedgerEnvelope = serde_json::from_slice(&raw_ledger_bytes)?;
-let verified = verify_offer_ledger(&ledger)?;
-let report = compute_qops(&verified, &qops_input, &metric_integrity);
+let verified = verify_offer_ledger(&ledger, &verified_contracts)?;
+let report = compute_qops(
+    &verified,
+    &qops_input,
+    &metric_integrity,
+    &correctness_gate_set,
+);
 ```
 
 The returned VerifiedOfferLedger is opaque; callers cannot construct it or replace its operation-ID set. It supplies the denominator and measurement window directly to QOPS.
@@ -94,3 +106,42 @@ A committed `Cargo.lock` is required for this standalone crate. CI explicitly ch
 Until the independently verified outcome ledger tracked by #6357 is implemented, `QopsInput.outcomes` is diagnostic-only. Its caller-supplied labels are exposed under `asserted_outcome_samples` for debugging, while authoritative outcome counters (`qualified_successes`, denials, failures, unknowns, duplicate effects and classified outcomes) remain zero. QOPS status stays `Incomplete`, and all performance rates remain absent.
 
 The run-receipt schema makes this separation explicit and requires a verified outcome ledger plus a verified source trust policy with complete dependency closure before an `eligible` QOPS result can be represented. A caller label such as `QualifiedSuccess` is not a measured success.
+
+
+## Pre-dispatch operation contracts
+
+The offer ledger now requires a `ValidatedOperationContractRegistry` before it can produce a `VerifiedOfferLedger`.
+
+Each offered operation binds:
+
+- `operation_contract_id`, version and domain-separated contract digest;
+- exact scenario ID and operation class;
+- request digest and the idempotency-key SHA-256 commitment (never the raw idempotency key);
+- registry digest committed into the offer ledger envelope and canonical ledger digest.
+
+The registry is structurally validated against the frozen scenario manifest's Git blob SHA. The verifier derives each operation's expected QOPS outcome class and cross-host requirement from the referenced contract. A contract mismatch, unregistered contract, missing idempotency commitment or registry-digest mismatch rejects the offer ledger.
+
+The contract registry is **not** self-authenticating. Production callers must supply its exact SHA-256 artifact digest and scenario-manifest Git blob identity from protected run configuration. This structural capability does not prove who approved the registry or whether the operation later occurred.
+
+### Two outcome axes
+
+- `attempt_state`: whether the request was dispatched, accepted locally, timed out, reconciled, not dispatched or unsupported.
+- `effect_state`: whether the effect was applied, confirmed not applied, partial, unknown or not attempted.
+- `outcome_class`: how the result relates to the frozen proposition, e.g. `QualifiedSuccess`, `CorrectDenial`, `UnexpectedDenial`, `Failed`, `Unknown` or `DuplicateEffect`.
+
+A revocation test can correctly pass its security proposition when the protected effect is confirmed not applied. That is a `CorrectDenial`, not a business `QualifiedSuccess`; it does not enter the QOPS success numerator.
+
+The offer-ledger envelope stores only `idempotency_key_digest_sha256`. Raw idempotency keys remain with the execution component and must not be placed in public benchmark evidence.
+
+### Canonical operation-contract digest
+
+The current Rust verifier computes each contract digest from the typed, versioned contract projection using:
+
+```text
+SHA256(
+  "MYCELIX-MCRB-OPERATION-CONTRACT\\0v0.1\\0"
+  || serde_json::to_vec(typed_contract)
+)
+```
+
+The registry artifact digest is SHA-256 over the exact committed registry file bytes. The scenario manifest is separately bound by Git blob SHA. These identifiers serve different purposes and must not be substituted for one another.
