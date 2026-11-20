@@ -1365,35 +1365,54 @@ mod tests {
     }
 
     const RESULTS: &str = r#"
-<QIFDocument xmlns="urn:qif-test-v3">
+<QIFDocument xmlns="http://qifstandards.org/xsd/qif3">
+  <QPId>10000000-0000-4000-8000-000000000001</QPId>
+  <ExternalQIFReferences n="1">
+    <ExternalQIFDocument id="7">
+      <QPId>20000000-0000-4000-8000-000000000002</QPId>
+      <URI>https://vendor.example/qif/Plan-A.qif</URI>
+    </ExternalQIFDocument>
+  </ExternalQIFReferences>
   <Results>
-    <ExternalQIFDocumentReference id="7" QPId="20000000-0000-4000-8000-000000000002" URI="Plan.qif"/>
-    <MeasurementResultsSet id="10">
-      <CharacteristicMeasurement id="901">
-        <CharacteristicItemId xId="301">7</CharacteristicItemId>
-      </CharacteristicMeasurement>
-      <CharacteristicMeasurement id="902">
-        <CharacteristicItemId xId="302">7</CharacteristicItemId>
-      </CharacteristicMeasurement>
-    </MeasurementResultsSet>
-    <MeasurementResultsSet id="11">
-      <CharacteristicMeasurement id="903">
-        <CharacteristicItemId xId="301">7</CharacteristicItemId>
-      </CharacteristicMeasurement>
+    <MeasurementResultsSet n="1">
+      <MeasurementResults id="100">
+        <MeasuredCharacteristics>
+          <CharacteristicMeasurements n="3">
+            <LinearCharacteristicMeasurement id="901">
+              <CharacteristicItemId xId="301">7</CharacteristicItemId>
+            </LinearCharacteristicMeasurement>
+            <LinearCharacteristicMeasurement id="902">
+              <CharacteristicItemId xId="302">7</CharacteristicItemId>
+            </LinearCharacteristicMeasurement>
+            <LinearCharacteristicMeasurement id="903">
+              <CharacteristicItemId xId="301">7</CharacteristicItemId>
+            </LinearCharacteristicMeasurement>
+          </CharacteristicMeasurements>
+        </MeasuredCharacteristics>
+      </MeasurementResults>
     </MeasurementResultsSet>
   </Results>
 </QIFDocument>
 "#;
 
     const PLAN: &str = r#"
-<q:QIFDocument xmlns:q="urn:qif-test-v3">
-  <q:Plan>
-    <q:CharacteristicItem id="301"/>
-    <q:CharacteristicItem id="302"/>
-    <q:CharacteristicNominal id="501">
-      <q:EntityExternalIds><q:Id>9001</q:Id></q:EntityExternalIds>
-    </q:CharacteristicNominal>
-  </q:Plan>
+<q:QIFDocument xmlns:q="http://qifstandards.org/xsd/qif3">
+  <q:QPId>20000000-0000-4000-8000-000000000002</q:QPId>
+  <q:Characteristics>
+    <q:CharacteristicNominals n="1">
+      <q:LinearCharacteristicNominal id="501">
+        <q:EntityExternalIds n="1"><q:Id>9001</q:Id></q:EntityExternalIds>
+      </q:LinearCharacteristicNominal>
+    </q:CharacteristicNominals>
+    <q:CharacteristicItems n="2">
+      <q:LinearCharacteristicItem id="301">
+        <q:CharacteristicNominalId>501</q:CharacteristicNominalId>
+      </q:LinearCharacteristicItem>
+      <q:LinearCharacteristicItem id="302">
+        <q:CharacteristicNominalId>501</q:CharacteristicNominalId>
+      </q:LinearCharacteristicItem>
+    </q:CharacteristicItems>
+  </q:Characteristics>
 </q:QIFDocument>
 "#;
 
