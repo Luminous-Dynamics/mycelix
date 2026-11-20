@@ -1649,6 +1649,11 @@ mod tests {
       <URI>https://vendor.example/qif/Plan-A.qif</URI>
     </ExternalQIFDocument>
   </ExternalQIFReferences>
+  <Characteristics>
+    <CharacteristicItems n="1">
+      <LinearCharacteristicItem id="777"/>
+    </CharacteristicItems>
+  </Characteristics>
   <Results>
     <MeasurementResultsSet n="1">
       <MeasurementResults id="100">
@@ -1663,7 +1668,7 @@ mod tests {
               <CharacteristicItemId xId="302">7</CharacteristicItemId>
             </LinearCharacteristicMeasurement>
             <LinearCharacteristicMeasurement id="903">
-              <Status><OtherCharacteristicStatus>NOT_EVALUATED</OtherCharacteristicStatus></Status>
+              <Status><OtherCharacteristicStatus>Sensor timeout - result not evaluated</OtherCharacteristicStatus></Status>
               <CharacteristicItemId xId="301">7</CharacteristicItemId>
             </LinearCharacteristicMeasurement>
           </CharacteristicMeasurements>
@@ -1792,10 +1797,10 @@ mod tests {
         assert_eq!(report.disposition, InventoryDisposition::Complete);
         assert_eq!(report.source_document_count, 2);
         assert_eq!(report.declared_external_reference_count, 1);
-        assert_eq!(report.locator_count, 23);
+        assert_eq!(report.locator_count, 26);
         assert_eq!(
             inventory_required_locators(&inventory).unwrap().len(),
-            23
+            26
         );
     }
 
@@ -1827,7 +1832,7 @@ mod tests {
             ))
             .filter_map(|record| record.captured_value.as_deref())
             .collect();
-        assert_eq!(statuses, vec!["PASS", "FAIL", "NOT_EVALUATED"]);
+        assert_eq!(statuses, vec!["PASS", "FAIL", "Sensor timeout - result not evaluated"]);
     }
 
     #[test]
@@ -1835,7 +1840,7 @@ mod tests {
         let names = [
             "QIFDocument", "QPId", "ExternalQIFReferences", "ExternalQIFDocument", "URI",
             "Results", "MeasurementResultsSet", "MeasurementResults", "MeasuredCharacteristics",
-            "CharacteristicMeasurements", "LinearCharacteristicMeasurement", "Status", "CharacteristicStatusEnum", "CharacteristicItemId",
+            "CharacteristicMeasurements", "LinearCharacteristicMeasurement", "Status", "CharacteristicStatusEnum", "OtherCharacteristicStatus", "CharacteristicItemId", "Characteristics", "CharacteristicItems", "LinearCharacteristicItem",
         ];
         let mut results_prefixed = RESULTS.replace(
             "xmlns=\"http://qifstandards.org/xsd/qif3\"",
