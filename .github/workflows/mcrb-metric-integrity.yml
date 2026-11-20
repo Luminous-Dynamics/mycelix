@@ -6,6 +6,8 @@ on:
       - "docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.json"
       - "docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.schema.json"
       - "docs/benchmarks/MCRB_V0_1_RUN_RECEIPT.schema.json"
+      - "docs/benchmarks/MCRB_GATE_ATTESTATION_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_ATTESTATION_PROFILE_V0_1.md"
       - "mycelix-workspace/tools/mcrb-metric-integrity/**"
       - ".github/workflows/mcrb-metric-integrity.yml"
   push:
@@ -14,6 +16,8 @@ on:
       - "docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.json"
       - "docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.schema.json"
       - "docs/benchmarks/MCRB_V0_1_RUN_RECEIPT.schema.json"
+      - "docs/benchmarks/MCRB_GATE_ATTESTATION_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_ATTESTATION_PROFILE_V0_1.md"
       - "mycelix-workspace/tools/mcrb-metric-integrity/**"
       - ".github/workflows/mcrb-metric-integrity.yml"
 
