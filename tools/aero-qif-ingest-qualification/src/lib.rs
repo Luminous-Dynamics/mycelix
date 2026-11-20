@@ -51,7 +51,7 @@ pub struct ExternalDocumentBindingV1 {
     pub local_reference_id: u32,
     pub target_plan_qpid: String,
     /// Original URI from QIF, retained as source metadata.
-    pub source_uri: String,
+    pub source_uri: Option<String>,
     /// Relative path in the sealed, read-only staging root.
     pub staged_relative_path: String,
 }
@@ -587,8 +587,8 @@ pub fn validate_ingest_qualification(
         if plan.role != QifDocumentRole::Plan {
             return Err(IngestError::MissingPlanDocument(binding.target_plan_qpid.clone()));
         }
-        if !valid_source_uri(&binding.source_uri) {
-            return Err(IngestError::InvalidSourceUri(binding.source_uri.clone()));
+        if binding.source_uri.as_ref().is_some_and(|uri| !valid_source_uri(uri)) {
+            return Err(IngestError::InvalidSourceUri(binding.source_uri.clone().unwrap_or_default()));
         }
         if !safe_relative_path(&binding.staged_relative_path) {
             return Err(IngestError::UnsafeStagedPath(binding.staged_relative_path.clone()));
@@ -603,7 +603,7 @@ pub fn validate_ingest_qualification(
                 binding.target_plan_qpid.to_ascii_lowercase(),
             );
         }
-        if plan.source_uri.as_ref().is_some_and(|uri| uri != &binding.source_uri) {
+        if plan.source_uri != binding.source_uri {
             return Err(IngestError::SourceUriMismatch(binding.target_plan_qpid.clone()));
         }
         linked_plans.insert(binding.target_plan_qpid.to_ascii_lowercase());
@@ -988,7 +988,7 @@ mod tests {
                     results_qpid: "10000000-0000-4000-8000-000000000001".into(),
                     local_reference_id: 7,
                     target_plan_qpid: "20000000-0000-4000-8000-000000000002".into(),
-                    source_uri: "https://vendor.example/qif/Plan%20A.qif".into(),
+                    source_uri: Some("https://vendor.example/qif/Plan%20A.qif".into()),
                     staged_relative_path: "linked/Plan-A.qif".into(),
                 },
             ],
@@ -1081,13 +1081,22 @@ mod tests {
         let (qualification, _) = fixture();
         assert!(validate_ingest_qualification(&qualification).is_ok());
         assert_eq!(
-            qualification.body.external_document_bindings[0].source_uri,
-            "https://vendor.example/qif/Plan%20A.qif"
+            qualification.body.external_document_bindings[0].source_uri.as_deref(),
+            Some("https://vendor.example/qif/Plan%20A.qif")
         );
         assert_eq!(
             qualification.body.external_document_bindings[0].staged_relative_path,
             "linked/Plan-A.qif"
         );
+    }
+
+    #[test]
+    fn missing_optional_source_uri_is_admitted_with_explicit_staged_path() {
+        let (mut qualification, _) = fixture();
+        qualification.body.documents[1].source_uri = None;
+        qualification.body.external_document_bindings[0].source_uri = None;
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(validate_ingest_qualification(&qualification).is_ok());
     }
 
     #[test]
