@@ -35,6 +35,21 @@ fn scenario_manifest_and_schema_agree_on_offer_ledger_policy() {
             .any(|value| value == "offer_ledger_policy")
     );
     assert_eq!(
+        manifest["offer_ledger_policy"]["operation_contract_registry"]["schema_version"],
+        "mycelix-mcrb-operation-contract-registry-v0.1"
+    );
+    assert_eq!(
+        manifest["offer_ledger_policy"]["operation_contract_registry"]["registry_path"],
+        "docs/benchmarks/MCRB_OPERATION_CONTRACTS_V0_1.json"
+    );
+    assert!(
+        schema["properties"]["offer_ledger_policy"]["required"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value == "operation_contract_registry")
+    );
+    assert_eq!(
         schema["properties"]["offer_ledger_policy"]["properties"]
             ["cross_host_requirement_source"]["type"],
         "string"
@@ -65,6 +80,7 @@ fn offer_ledger_schema_binds_the_fields_consumed_by_the_rust_verifier() {
         "scenario_id",
         "requires_cross_host_visibility",
         "scenario_contract_digest_sha256",
+        "operation_contract_registry_digest_sha256",
         "workload_manifest_digest_sha256",
         "generator_digest_sha256",
         "parameter_set_digest_sha256",
@@ -88,7 +104,10 @@ fn offer_ledger_schema_binds_the_fields_consumed_by_the_rust_verifier() {
         "sequence",
         "operation_id",
         "request_digest_sha256",
-        "idempotency_key",
+        "idempotency_key_digest_sha256",
+        "operation_contract_id",
+        "operation_contract_version",
+        "operation_contract_digest_sha256",
         "scheduled_monotonic_tick",
         "requires_idempotency_key",
         "monotonic_clock_id",
@@ -114,6 +133,7 @@ fn run_receipt_binds_the_verified_ledger_and_scenario_visibility_policy() {
         "scenario_id",
         "requires_cross_host_visibility",
         "scenario_contract_digest_sha256",
+        "operation_contract_registry_digest_sha256",
         "digest_sha256",
         "entry_count",
         "generator_digest_sha256",
@@ -258,7 +278,13 @@ fn outcome_attestation_schemas_preserve_evidence_and_dependency_dimensions() {
         "offer_ledger_digest_sha256",
         "operation_id",
         "request_digest_sha256",
+        "operation_contract_registry_digest_sha256",
+        "operation_contract_id",
+        "operation_contract_version",
+        "operation_contract_digest_sha256",
+        "attempt_state",
         "effect_state",
+        "outcome_class",
         "attestations",
     ] {
         assert!(
@@ -282,7 +308,13 @@ fn outcome_attestation_schemas_preserve_evidence_and_dependency_dimensions() {
         "offer_sequence",
         "request_digest_sha256",
         "idempotency_key_digest_sha256",
+        "operation_contract_registry_digest_sha256",
+        "operation_contract_id",
+        "operation_contract_version",
+        "operation_contract_digest_sha256",
+        "attempt_state",
         "effect_state",
+        "outcome_class",
         "source",
         "evidence",
         "trust_policy_digest_sha256",
