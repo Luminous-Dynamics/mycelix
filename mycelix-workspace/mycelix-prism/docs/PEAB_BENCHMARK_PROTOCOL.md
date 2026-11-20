@@ -775,3 +775,27 @@ Measure:
 - downstream outbox delivery, consumer inbox dedup and duplicate external effects.
 
 Hard acceptance: zero business-effect commits without the matching durable idempotency record; zero cached result leaks across principal/workload/origin namespaces; zero second effects during key retention; and no retry success inferred from an in-progress conflict. No exactly-once claim may be made for external side effects without a downstream idempotency or inbox/outbox guarantee.
+
+
+## 18. Hierarchical retry and hedge amplification budgets
+
+The test-only model at prism-egress/tests/retry_budget_model.rs has 22 deterministic tests. It treats semantics eligibility and amplification capacity as independent gates: an ineligible operation cannot spend a retry token, regardless of free capacity.
+
+The proposed hierarchy adds:
+- global concurrent extra-attempt ratio and absolute in-flight cap;
+- per-workload ratio and concurrency cap for noisy-neighbor fairness;
+- lifetime extra-attempt limit per logical operation;
+- separate in-flight hedge ceiling;
+- single-use reservation permits and non-reusable logical operation IDs.
+
+### Industry comparison
+
+Envoy v1.40 already has a cluster retry budget that limits concurrent retries relative to active and pending requests. Its retry budget docs state a default 20% budget and minimum concurrency of 3; the v1.40 circuit-breaker example shows 25% and minimum 10. Prism should match this capability, then test whether hierarchical workload and per-operation limits improve fairness without sacrificing recovery throughput.
+
+References:
+- https://www.envoyproxy.io/docs/envoy/v1.40.0/configuration/upstream/cluster_manager/cluster_circuit_breakers
+- https://www.envoyproxy.io/docs/envoy/v1.40.0/intro/arch_overview/http/http_routing
+
+Compare Envoy default and matched 25%/min 10 settings against global-only Prism, hierarchical Prism, and unbudgeted control. Use balanced, noisy-neighbor, one-destination-failed, all-destinations-failed and partial-recovery workloads. Report retry/hedge amplification, active extras, per-workload share, starvation duration, p50/p95/p99 latency, retry rejection reasons, permit contention and budget-state failover/recovery.
+
+Hard gates: no ineligible extra attempts; no double-spent permits; no attempt-limit reset by operation-ID reuse; no per-workload bypass of the global ceiling. Production integration remains planned; no runtime or performance claims are made from the model.
