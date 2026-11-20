@@ -1,0 +1,332 @@
+{
+  "schema_version": "mcrb-witness-governance-scenarios-v0.1",
+  "programme_id": "MCRB-WITNESS-GOV",
+  "status": "proposed-not-executed",
+  "tracking_issue": 6402,
+  "scenarios": [
+    {
+      "id": "MWG-01",
+      "name": "duplicate keys and repeated signature deduplication",
+      "objective": "One cryptographic identity counts once per gate and context.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-02",
+      "name": "multiple keys under one administrative domain",
+      "objective": "Distinct keys under one controller cannot satisfy distinct-admin quorum.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-03",
+      "name": "shared builder and runner domain",
+      "objective": "Different organizations sharing an execution platform do not satisfy execution-diversity requirements.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-04",
+      "name": "unknown evidence-source relationship",
+      "objective": "Unknown dependency closure cannot satisfy a required evidence-independence constraint.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-05",
+      "name": "single compromised witness",
+      "objective": "One malicious signer cannot make a standard quorum eligible.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-06",
+      "name": "quorum boundary",
+      "objective": "Exactly threshold, threshold-minus-one and threshold-plus-one are classified correctly.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-07",
+      "name": "conflicting gate attestations",
+      "objective": "PASS/FAIL conflict for the same context is preserved and rejected, not majority-voted away.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-08",
+      "name": "context and evidence digest mismatch",
+      "objective": "Attestations with different source/runtime/evidence context cannot be combined.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-09",
+      "name": "signer rotation and revocation",
+      "objective": "Expired, revoked, replaced and stale keys are handled according to pinned policy.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-10",
+      "name": "trust policy changed after run",
+      "objective": "A new policy cannot retroactively change the policy digest bound at run time.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-11",
+      "name": "missing transparency inclusion",
+      "objective": "Signed attestation without inclusion proof remains not transparency-qualified.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-12",
+      "name": "consistency proof and stale checkpoint",
+      "objective": "A stale or inconsistent checkpoint cannot be accepted as append-only continuation.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-13",
+      "name": "split view and equivocation",
+      "objective": "Two witnesses seeing incompatible log heads produce a detected conflict.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-14",
+      "name": "delayed inclusion promise",
+      "objective": "A signed promise is pending and cannot be treated as inclusion.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-15",
+      "name": "private evidence commitment leakage",
+      "objective": "Low-entropy raw hashes are not published as privacy-safe commitments.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-16",
+      "name": "offline receipt verification",
+      "objective": "Complete proof bundle verifies offline without trusting a fresh online lookup.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-17",
+      "name": "transparency service outage",
+      "objective": "No silent quorum downgrade occurs when the log is unavailable.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    },
+    {
+      "id": "MWG-18",
+      "name": "witness common-mode compromise",
+      "objective": "Simulated shared identity provider, organization admin or CI fleet invalidates independence as configured.",
+      "failure_injections": [
+        "missing evidence",
+        "duplicate or replayed witness",
+        "stale or mismatched trust policy",
+        "unknown dependency relationship"
+      ],
+      "metrics": [
+        "classification_correctness",
+        "verification_latency_ms",
+        "resource_cost_bytes",
+        "witness_availability"
+      ],
+      "status": "proposed-not-executed"
+    }
+  ]
+}
