@@ -1,0 +1,43 @@
+name: AeroCommons QIF Ingest Qualification
+
+on:
+  pull_request:
+    paths:
+      - "tools/aero-qif-ingest-qualification/**"
+      - "tools/aero-adapter-run-receipt/**"
+      - "tools/mycelix-commons/crates/aero-evidence-types/**"
+      - "mycelix-commons/crates/aero-evidence-types/**"
+      - "docs/aerocommons/AERO_QIF_INGEST_QUALIFICATION_V1.schema.json"
+      - "docs/aerocommons/AERO_QIF_INGEST_001.md"
+      - ".github/workflows/aerocommons-qif-ingest-qualification.yml"
+  push:
+    branches:
+      - "research/aerocommons-qif-ingest-envelope-001"
+    paths:
+      - "tools/aero-qif-ingest-qualification/**"
+      - "tools/aero-adapter-run-receipt/**"
+      - "mycelix-commons/crates/aero-evidence-types/**"
+      - "docs/aerocommons/AERO_QIF_INGEST_QUALIFICATION_V1.schema.json"
+      - "docs/aerocommons/AERO_QIF_INGEST_001.md"
+      - ".github/workflows/aerocommons-qif-ingest-qualification.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  qif-ingest-envelope:
+    name: QIF ingest envelope and exact payload replay
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install Rust 1.96.1
+        uses: dtolnay/rust-toolchain@1.96.1
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/aero-qif-ingest-qualification/Cargo.toml -- --check
+      - name: Run ingest qualification tests
+        run: cargo test --manifest-path tools/aero-qif-ingest-qualification/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path tools/aero-qif-ingest-qualification/Cargo.toml --all-targets -- -D warnings
