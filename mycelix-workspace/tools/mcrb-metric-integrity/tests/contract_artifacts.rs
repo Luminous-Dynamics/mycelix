@@ -208,3 +208,41 @@ fn correctness_gate_predicate_schema_binds_run_source_runtime_and_trust_policy()
     );
 }
 
+
+
+#[test]
+fn dsse_envelope_uses_the_standard_payload_type_wire_name() {
+    use mycelix_mcrb_metric_integrity::attestation::{DsseEnvelope, DsseSignature};
+
+    let envelope = DsseEnvelope {
+        payload_type: "application/vnd.in-toto+json".to_string(),
+        payload: "e30=".to_string(),
+        signatures: vec![DsseSignature {
+            keyid: "test-key".to_string(),
+            sig: "AA==".to_string(),
+        }],
+    };
+    let value = serde_json::to_value(&envelope).expect("DSSE envelope must serialize");
+
+    assert_eq!(value["payloadType"], "application/vnd.in-toto+json");
+    assert!(value.get("payload_type").is_none());
+
+    let interoperable_json = serde_json::json!({
+        "payloadType": "application/vnd.in-toto+json",
+        "payload": "e30=",
+        "signatures": [{"keyid": "test-key", "sig": "AA=="}]
+    });
+    let decoded: DsseEnvelope = serde_json::from_value(interoperable_json)
+        .expect("standard DSSE payloadType envelope must deserialize");
+    assert_eq!(decoded.payload_type, "application/vnd.in-toto+json");
+}
+
+#[test]
+fn dsse_schema_requires_the_standard_payload_type_wire_name() {
+    let schema = load_json("docs/benchmarks/MCRB_DSSE_ENVELOPE_V0_1.schema.json");
+    let required = schema["required"].as_array().unwrap();
+    assert!(required.iter().any(|value| value == "payloadType"));
+    assert!(!required.iter().any(|value| value == "payload_type"));
+    assert!(schema["properties"].get("payloadType").is_some());
+    assert!(schema["properties"].get("payload_type").is_none());
+}
