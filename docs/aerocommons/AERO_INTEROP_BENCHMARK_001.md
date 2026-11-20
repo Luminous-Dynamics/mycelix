@@ -54,7 +54,7 @@ The first Rust increment implements:
 - case-level source artifacts and per-claim labels;
 - exact corpus and oracle payload-byte verification before scoring;
 - reuse of `AeroAdapterRunReceiptV1` for each executed tool × case;
-- exact receipt binding to benchmark, case, registered tool and declared input identities;
+- exact receipt binding to benchmark, case, registered tool, pinned invocation profile and exact one-to-one declared input set;
 - complete tool × case grid, including Blocked and NotRun slots;
 - exactly one observation per claim for every successful run;
 - separate Failed/TimedOut receipts, which never yield semantic observations;
@@ -94,7 +94,7 @@ The present unit-test fixture is synthetic and does not claim to reproduce offic
 | Reproducibility | 100% exact digest replay for source, tool, receipt, report and output artifacts |
 | Execution security | 0 unmanifested file/network access in hostile-input worker tests |
 
-Performance scorecards must publish p50/p95 latency, peak memory/CPU, bytes processed, throughput and total cost. Every claim needs numerator, denominator, corpus digest, tool/runtime/config digest, exclusion policy and matched hardware. Budget accounting includes setup, tuning, aborted runs, failures, audit and acquisition overhead.
+Performance scorecards currently publish receipt-backed p50/p95/min/max wall time over successful, failed and timed-out attempts; blocked/not-run slots are retained but have no fabricated duration. Peak memory/CPU, bytes processed, throughput and total cost require separately instrumented evidence and are not yet implemented in this scorer. Every claim needs numerator, denominator, corpus digest, tool/runtime/config digest, exclusion policy and matched hardware. Budget accounting includes setup, tuning, aborted runs, failures, audit and acquisition overhead.
 
 ## Relationship to the rest of AeroCommons
 
