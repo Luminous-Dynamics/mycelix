@@ -1,10 +1,11 @@
 //! Independent structural and causal-consistency checks for Pulse Fabric traces.
 //!
-//! This crate deliberately does not implement cryptography, Holochain authority,
-//! JSON Schema Draft 2020-12, or the candidate application's delivery decisions.
-//! It checks that a redacted trace is internally coherent and that a
-//! SUCCESS_VERIFIED projection is supported by a causally connected recipient
-//! commit, decryption verification, and independently attributed receipt record.
+//! This crate delegates Draft 2020-12 instance validation to a pinned,
+//! network-disabled schema engine. Its semantic layer does not implement
+//! cryptography, Holochain authority, or the candidate application's delivery
+//! decisions. It checks causal consistency and requires a SUCCESS_VERIFIED
+//! projection to be supported by recipient-side events and a separately
+//! attributed receipt-verifier event.
 
 use serde_json::{Map, Value};
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
