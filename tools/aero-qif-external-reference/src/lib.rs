@@ -61,8 +61,18 @@ pub struct CharacteristicMeasurementReferenceV1 {
 pub struct ResultsDocumentV1 {
     pub qpid: String,
     pub artifact: ContentArtifactV1,
+    /// IDs of MeasurementResultsSet objects in this Results document.
+    pub result_set_ids: Vec<String>,
     pub external_documents: Vec<ExternalQifDocumentReferenceV1>,
     pub measurements: Vec<CharacteristicMeasurementReferenceV1>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OtherPlanObjectV1 {
+    /// ID of another QIF object type in the Plan, used to distinguish wrong-type xId.
+    pub object_id: u32,
+    pub object_kind: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -102,6 +112,7 @@ pub struct QifPlanDocumentV1 {
     pub step_document: ContentArtifactV1,
     /// Subset of Product/Part/DefinitionExternal/DigitalModel/Entities.
     pub digital_model_entities: Vec<DigitalModelExternalEntityV1>,
+    pub other_objects: Vec<OtherPlanObjectV1>,
     pub characteristic_items: Vec<PlanCharacteristicItemV1>,
     pub characteristic_nominals: Vec<PlanCharacteristicNominalV1>,
 }
@@ -194,6 +205,10 @@ pub enum TraceError {
     PlanReferenceMismatch(u32),
     #[error("missing Plan CharacteristicItem xId {xid} in QPId {qpid}")]
     MissingExternalObject { qpid: String, xid: u32 },
+    #[error("xId {xid} in QPId {qpid} resolves to wrong QIF object type {object_kind}")]
+    WrongExternalObjectKind { qpid: String, xid: u32, object_kind: String },
+    #[error("MeasurementResultsSet {0} is not declared in the Results document")]
+    MissingResultSet(String),
     #[error("CharacteristicNominal {nominal_id} missing in Plan {qpid}")]
     MissingCharacteristicNominal { qpid: String, nominal_id: u32 },
     #[error("CharacteristicNominal {nominal_id} has no EntityExternalIds")]
@@ -235,8 +250,8 @@ pub fn parse_trace_case_json(bytes: &[u8]) -> Result<QifExternalReferenceTraceCa
     check_fields(
         results,
         "case.results",
-        &["qpid", "artifact", "external_documents", "measurements"],
-        &["qpid", "artifact", "external_documents", "measurements"],
+        &["qpid", "artifact", "result_set_ids", "external_documents", "measurements"],
+        &["qpid", "artifact", "result_set_ids", "external_documents", "measurements"],
     )?;
     check_content_artifact(
         results.get("artifact").ok_or_else(|| TraceError::MissingField {
@@ -244,6 +259,12 @@ pub fn parse_trace_case_json(bytes: &[u8]) -> Result<QifExternalReferenceTraceCa
         })?,
         "case.results.artifact",
     )?;
+
+    let result_set_ids = results.get("result_set_ids").and_then(Value::as_array)
+        .ok_or_else(|| TraceError::MalformedObject("case.results.result_set_ids".into()))?;
+    if result_set_ids.iter().any(|id| id.as_str().is_none_or(|value| value.trim().is_empty())) {
+        return Err(TraceError::MalformedObject("case.results.result_set_ids".into()));
+    }
 
     let external_documents = results.get("external_documents").and_then(Value::as_array)
         .ok_or_else(|| TraceError::MalformedObject("case.results.external_documents".into()))?;
@@ -273,8 +294,8 @@ pub fn parse_trace_case_json(bytes: &[u8]) -> Result<QifExternalReferenceTraceCa
     for (index, plan) in plans.iter().enumerate() {
         let scope = format!("case.plans[{index}]");
         check_fields(plan, &scope,
-            &["qpid", "artifact", "step_document", "digital_model_entities", "characteristic_items", "characteristic_nominals"],
-            &["qpid", "artifact", "step_document", "digital_model_entities", "characteristic_items", "characteristic_nominals"])?;
+            &["qpid", "artifact", "step_document", "digital_model_entities", "other_objects", "characteristic_items", "characteristic_nominals"],
+            &["qpid", "artifact", "step_document", "digital_model_entities", "other_objects", "characteristic_items", "characteristic_nominals"])?;
         check_content_artifact(plan.get("artifact").ok_or_else(|| TraceError::MissingField {
             scope: scope.clone(), field: "artifact".into()
         })?, &format!("{scope}.artifact"))?;
@@ -289,6 +310,12 @@ pub fn parse_trace_case_json(bytes: &[u8]) -> Result<QifExternalReferenceTraceCa
             check_fields(entity, &entity_scope,
                 &["entity_id", "step_uuid", "step_entity_kind"],
                 &["entity_id", "step_uuid", "step_entity_kind"])?;
+        }
+        let other_objects = plan.get("other_objects").and_then(Value::as_array)
+            .ok_or_else(|| TraceError::MalformedObject(format!("{scope}.other_objects")))?;
+        for (object_index, object) in other_objects.iter().enumerate() {
+            let object_scope = format!("{scope}.other_objects[{object_index}]");
+            check_fields(object, &object_scope, &["object_id", "object_kind"], &["object_id", "object_kind"])?;
         }
         let items = plan.get("characteristic_items").and_then(Value::as_array)
             .ok_or_else(|| TraceError::MalformedObject(format!("{scope}.characteristic_items")))?;
@@ -448,6 +475,16 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         }
     }
 
+    let mut result_set_ids = BTreeSet::new();
+    for result_set_id in &case.results.result_set_ids {
+        if result_set_id.trim().is_empty() || !result_set_ids.insert(result_set_id.clone()) {
+            return Err(TraceError::DuplicateIdentifier(format!("MeasurementResultsSet {}", result_set_id)));
+        }
+    }
+    if result_set_ids.is_empty() {
+        return Err(TraceError::InvalidIdentity("results.result_set_ids".into()));
+    }
+
     let mut plans_by_qpid = BTreeMap::new();
     for plan in &case.plans {
         if !valid_uuid(&plan.qpid) {
@@ -533,6 +570,15 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
             digital_entities.insert(mapping.entity_id, mapping);
         }
 
+        for other in &plan.other_objects {
+            if other.object_id == 0 || other.object_kind.trim().is_empty() {
+                return Err(TraceError::InvalidIdentity(format!("other Plan object {}", other.object_id)));
+            }
+            if !local_ids.insert(other.object_id) {
+                return Err(TraceError::DuplicateIdentifier(format!("QIF Plan id {} in {}", other.object_id, plan.qpid)));
+            }
+        }
+
         let mut nominal_ids = BTreeMap::new();
         for nominal in &plan.characteristic_nominals {
             if nominal.object_id == 0 {
@@ -595,6 +641,9 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         if !measurement_ids.insert(measurement.measurement_id.clone()) {
             return Err(TraceError::DuplicateIdentifier(format!("measurement {}", measurement.measurement_id)));
         }
+        if !result_set_ids.contains(&measurement.result_set_id) {
+            return Err(TraceError::MissingResultSet(measurement.result_set_id.clone()));
+        }
         if measurement.external_document_reference_id == 0 || measurement.xid == 0 {
             return Err(TraceError::ZeroIdentifier(format!("measurement {}", measurement.measurement_id)));
         }
@@ -606,11 +655,23 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         if external.plan_artifact != plan.artifact {
             return Err(TraceError::PlanReferenceMismatch(external.local_reference_id));
         }
-        let item = plan.characteristic_items.iter()
+        let item = match plan.characteristic_items.iter()
             .find(|item| item.object_id == measurement.xid)
-            .ok_or_else(|| TraceError::MissingExternalObject {
-                qpid: plan.qpid.clone(), xid: measurement.xid
-            })?;
+        {
+            Some(item) => item,
+            None => {
+                if let Some(other) = plan.other_objects.iter().find(|item| item.object_id == measurement.xid) {
+                    return Err(TraceError::WrongExternalObjectKind {
+                        qpid: plan.qpid.clone(),
+                        xid: measurement.xid,
+                        object_kind: other.object_kind.clone(),
+                    });
+                }
+                return Err(TraceError::MissingExternalObject {
+                    qpid: plan.qpid.clone(), xid: measurement.xid
+                });
+            }
+        };
         let nominal = plan.characteristic_nominals.iter()
             .find(|nominal| nominal.object_id == item.characteristic_nominal_id)
             .ok_or_else(|| TraceError::MissingCharacteristicNominal {
