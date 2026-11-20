@@ -72,6 +72,45 @@ fn scenario_manifest_and_schema_agree_on_offer_ledger_policy() {
 }
 
 #[test]
+fn operation_contract_registry_artifact_is_bound_to_exact_scenario_manifest() {
+    let manifest = load_json("docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.json");
+    let registry = load_json("docs/benchmarks/MCRB_OPERATION_CONTRACTS_V0_1.json");
+    let schema = load_json("docs/benchmarks/MCRB_OPERATION_CONTRACT_REGISTRY_V0_1.schema.json");
+
+    assert_eq!(
+        registry["schema_version"],
+        "mycelix-mcrb-operation-contract-registry-v0.1"
+    );
+    assert_eq!(
+        registry["source_scenario_manifest_git_blob_sha"],
+        "11f3383ba9c2f5a37b9d5fcce01fc4dbbfc44a3c"
+    );
+    assert_eq!(
+        registry["source_scenario_manifest_git_blob_sha"],
+        "11f3383ba9c2f5a37b9d5fcce01fc4dbbfc44a3c"
+    );
+    assert!(
+        schema["required"].as_array().unwrap().iter().any(|value| value == "source_scenario_manifest_git_blob_sha")
+    );
+    assert_eq!(
+        manifest["offer_ledger_policy"]["operation_contract_registry"]["registry_path"],
+        "docs/benchmarks/MCRB_OPERATION_CONTRACTS_V0_1.json"
+    );
+
+    let contracts = registry["contracts"].as_array().unwrap();
+    let mut identities = BTreeSet::new();
+    for contract in contracts {
+        let id = contract["contract_id"].as_str().expect("contract id");
+        let version = contract["contract_version"].as_str().expect("contract version");
+        assert!(identities.insert(format!("{id}@{version}")), "duplicate contract {id}@{version}");
+        assert!(contract["expected_qops_outcome"].is_string());
+        assert!(contract["qualification_proposition"]["proposition_id"].is_string());
+        assert!(contract["attempt_state_policy"]["allowed_states"].is_array());
+        assert!(contract["effect_state_policy"]["allowed_states"].is_array());
+    }
+}
+
+#[test]
 fn offer_ledger_schema_binds_the_fields_consumed_by_the_rust_verifier() {
     let schema = load_json("docs/benchmarks/MCRB_OFFER_LEDGER_V0_1.schema.json");
     let required = schema["required"].as_array().unwrap();
@@ -180,6 +219,7 @@ fn run_receipt_binds_the_verified_ledger_and_scenario_visibility_policy() {
         .unwrap();
     for field in [
         "offer_ledger_artifact_digest_sha256",
+        "operation_contract_registry_artifact_digest_sha256",
         "in_toto_bundle_digest_sha256",
         "attestation_trust_policy_digest_sha256",
         "slsa_build_provenance_digests",
