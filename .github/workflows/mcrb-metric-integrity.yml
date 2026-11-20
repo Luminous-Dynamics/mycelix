@@ -20,6 +20,9 @@ on:
       - "docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.schema.json"
       - "docs/benchmarks/MCRB_V0_1_RUN_RECEIPT.schema.json"
       - "docs/benchmarks/MCRB_GATE_ATTESTATION_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_DSSE_ENVELOPE_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_IN_TOTO_STATEMENT_V1.schema.json"
+      - "docs/benchmarks/MCRB_GATE_TRUST_POLICY_V0_1.schema.json"
       - "docs/benchmarks/MCRB_ATTESTATION_PROFILE_V0_1.md"
       - "mycelix-workspace/tools/mcrb-metric-integrity/**"
       - ".github/workflows/mcrb-metric-integrity.yml"
@@ -42,11 +45,14 @@ jobs:
         with:
           components: rustfmt clippy
 
+      - name: Require committed dependency lock
+        run: test -f mycelix-workspace/tools/mcrb-metric-integrity/Cargo.lock
+
       - name: Format
         run: cargo fmt --manifest-path mycelix-workspace/tools/mcrb-metric-integrity/Cargo.toml -- --check
 
       - name: Unit tests
-        run: cargo test --manifest-path mycelix-workspace/tools/mcrb-metric-integrity/Cargo.toml
+        run: cargo test --locked --manifest-path mycelix-workspace/tools/mcrb-metric-integrity/Cargo.toml
 
       - name: Clippy
-        run: cargo clippy --manifest-path mycelix-workspace/tools/mcrb-metric-integrity/Cargo.toml --all-targets -- -D warnings
+        run: cargo clippy --locked --manifest-path mycelix-workspace/tools/mcrb-metric-integrity/Cargo.toml --all-targets -- -D warnings
