@@ -127,13 +127,84 @@ fn run_receipt_binds_the_verified_ledger_and_scenario_visibility_policy() {
         );
     }
 
+    let qops_required = qops["required"].as_array().unwrap();
+    assert!(
+        qops_required.iter().any(|value| value == "correctness_gate_set"),
+        "QOPS receipt must require an independently verified correctness gate set"
+    );
+    assert!(
+        qops["properties"].get("hard_correctness_gates_passed").is_none(),
+        "a caller-supplied boolean must not qualify QOPS"
+    );
+
+    let gate_set = &qops["properties"]["correctness_gate_set"];
+    let gate_required = gate_set["required"].as_array().unwrap();
+    for field in [
+        "status",
+        "scenario_contract_digest_sha256",
+        "trust_policy_digest_sha256",
+        "required_gate_ids",
+        "gate_results",
+        "attestation_bundle_digest_sha256",
+        "verifier_artifact_digest_sha256",
+        "slsa_build_provenance_digests",
+    ] {
+        assert!(
+            gate_required.iter().any(|value| value == field),
+            "correctness gate set missing field {field}"
+        );
+    }
+
     let evidence_required = receipt["properties"]["evidence"]["required"]
         .as_array()
         .unwrap();
-    assert!(
-        evidence_required
-            .iter()
-            .any(|value| value == "offer_ledger_artifact_digest_sha256")
+    for field in [
+        "offer_ledger_artifact_digest_sha256",
+        "in_toto_bundle_digest_sha256",
+        "attestation_trust_policy_digest_sha256",
+        "slsa_build_provenance_digests",
+    ] {
+        assert!(
+            evidence_required.iter().any(|value| value == field),
+            "run receipt evidence missing field {field}"
+        );
+    }
+}
+
+#[test]
+fn correctness_gate_predicate_schema_binds_run_source_runtime_and_trust_policy() {
+    let schema = load_json("docs/benchmarks/MCRB_GATE_ATTESTATION_V0_1.schema.json");
+    let required = schema["required"].as_array().unwrap();
+
+    for field in [
+        "run_id",
+        "scenario_id",
+        "scenario_contract_digest_sha256",
+        "source",
+        "runtime",
+        "topology",
+        "gate",
+        "evidence",
+        "verifier",
+        "trust_policy",
+    ] {
+        assert!(
+            required.iter().any(|value| value == field),
+            "gate predicate schema missing field {field}"
+        );
+    }
+
+    assert_eq!(
+        schema["properties"]["gate"]["properties"]["result"]["enum"][0],
+        "pass"
+    );
+    assert_eq!(
+        schema["properties"]["gate"]["properties"]["result"]["enum"][1],
+        "fail"
+    );
+    assert_eq!(
+        schema["properties"]["gate"]["properties"]["result"]["enum"][2],
+        "incomplete"
     );
 }
 
