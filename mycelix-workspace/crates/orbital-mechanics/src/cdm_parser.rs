@@ -1,21 +1,14 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
-//! CCSDS Conjunction Data Message (CDM) KVN Parser
+//! Legacy project-prefixed CDM key/value parser.
 //!
-//! Parses Conjunction Data Messages in CCSDS 508.0-B-1 Keyword-Value Notation
-//! (KVN) format into [`ConjunctionDataMessage`] structs.
+//! This parser handles Mycelix's historical flattened representation, where object
+//! fields use `OBJECT1_*` and `OBJECT2_*` prefixes. It is **not** a standards-native
+//! CCSDS 508.0-B-1 KVN parser: CCSDS KVN uses `OBJECT = OBJECT1` / `OBJECT = OBJECT2`
+//! blocks and unprefixed object fields. Standards-native parsing is tracked in issue #6369.
 //!
-//! # KVN Format
-//! ```text
-//! CCSDS_CDM_VERS = 1.0
-//! CREATION_DATE = 2024-01-15T12:00:00.000
-//! ORIGINATOR = MYCELIX-SPACE
-//! ...
-//! ```
-//!
-//! Lines are `KEY = VALUE` pairs. Comments start with `COMMENT`.
-//! Object data blocks are distinguished by `OBJECT1_` and `OBJECT2_` prefixes.
+//! The legacy input is line-oriented `KEY = VALUE` data with `COMMENT` lines.
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 
@@ -65,6 +58,20 @@ pub struct ParsedCdmKvn {
     pub report: CdmParseReport,
 }
 
+fn project_optional_number(
+    value: Option<f64>,
+    field: &str,
+    report: &mut CdmParseReport,
+) -> f64 {
+    match value {
+        Some(value) => value,
+        None => {
+            report.absent_optional_fields.push(field.to_string());
+            0.0
+        }
+    }
+}
+
 fn parse_finite_f64(field: &str, raw: &str) -> Result<f64, CdmParseError> {
     let value = strip_units(raw).to_string();
     let parsed = value.parse::<f64>().map_err(|_| CdmParseError::InvalidValue {
@@ -77,20 +84,18 @@ fn parse_finite_f64(field: &str, raw: &str) -> Result<f64, CdmParseError> {
     Ok(parsed)
 }
 
-/// Parse a CCSDS CDM in KVN (Keyword-Value Notation) format.
+/// Parse the legacy Mycelix prefixed CDM representation.
 ///
-/// Handles the standard layout:
-/// 1. Header (CCSDS_CDM_VERS, CREATION_DATE, ORIGINATOR, MESSAGE_ID)
-/// 2. Relative metadata (TCA, MISS_DISTANCE, etc.)
-/// 3. Collision probability
-/// 4. Object 1 data (metadata + state vector + optional covariance)
-/// 5. Object 2 data (metadata + state vector + optional covariance)
+/// This compatibility API discards the parse report. New consumers that need to
+/// distinguish absent optional values from numeric zero must use
+/// `parse_cdm_kvn_with_report`. Neither API parses standards-native CCSDS KVN.
 pub fn parse_cdm_kvn(input: &str) -> Result<ConjunctionDataMessage, CdmParseError> {
     parse_cdm_kvn_with_report(input).map(|parsed| parsed.message)
 }
 
-/// Parse CCSDS 508.0-B-1 CDM KVN v1.0 while reporting absent optional fields.
-/// This is not an XML, JSON, TraCSS v2.1, or original-byte-preserving adapter.
+/// Parse the legacy prefixed representation and report absent optional fields.
+/// The embedded version marker is not proof of CCSDS KVN conformance. This API
+/// does not parse standards-native KVN object blocks, XML, JSON, or TraCSS CDM v2.1.
 pub fn parse_cdm_kvn_with_report(input: &str) -> Result<ParsedCdmKvn, CdmParseError> {
     if input.trim().is_empty() {
         return Err(CdmParseError::EmptyInput);
@@ -132,15 +137,6 @@ pub fn parse_cdm_kvn_with_report(input: &str) -> Result<ParsedCdmKvn, CdmParseEr
     };
 
     let mut report = CdmParseReport::default();
-    let mut optional_number = |key: &str| -> Result<f64, CdmParseError> {
-        match get_opt_f64(key)? {
-            Some(value) => Ok(value),
-            None => {
-                report.absent_optional_fields.push(key.to_string());
-                Ok(0.0)
-            }
-        }
-    };
 
     // --- Header ---
     let version = get("CCSDS_CDM_VERS")?;
@@ -155,14 +151,42 @@ pub fn parse_cdm_kvn_with_report(input: &str) -> Result<ParsedCdmKvn, CdmParseEr
     // --- Relative Metadata ---
     let tca = parse_cdm_datetime(&get("TCA")?, "TCA")?;
     let miss_distance = get_f64("MISS_DISTANCE")?;
-    let relative_speed = optional_number("RELATIVE_SPEED")?;
+    let relative_speed = project_optional_number(
+        get_opt_f64("RELATIVE_SPEED")?,
+        "RELATIVE_SPEED",
+        &mut report,
+    );
 
-    let relative_position_r = optional_number("RELATIVE_POSITION_R")?;
-    let relative_position_t = optional_number("RELATIVE_POSITION_T")?;
-    let relative_position_n = optional_number("RELATIVE_POSITION_N")?;
-    let relative_velocity_r = optional_number("RELATIVE_VELOCITY_R")?;
-    let relative_velocity_t = optional_number("RELATIVE_VELOCITY_T")?;
-    let relative_velocity_n = optional_number("RELATIVE_VELOCITY_N")?;
+    let relative_position_r = project_optional_number(
+        get_opt_f64("RELATIVE_POSITION_R")?,
+        "RELATIVE_POSITION_R",
+        &mut report,
+    );
+    let relative_position_t = project_optional_number(
+        get_opt_f64("RELATIVE_POSITION_T")?,
+        "RELATIVE_POSITION_T",
+        &mut report,
+    );
+    let relative_position_n = project_optional_number(
+        get_opt_f64("RELATIVE_POSITION_N")?,
+        "RELATIVE_POSITION_N",
+        &mut report,
+    );
+    let relative_velocity_r = project_optional_number(
+        get_opt_f64("RELATIVE_VELOCITY_R")?,
+        "RELATIVE_VELOCITY_R",
+        &mut report,
+    );
+    let relative_velocity_t = project_optional_number(
+        get_opt_f64("RELATIVE_VELOCITY_T")?,
+        "RELATIVE_VELOCITY_T",
+        &mut report,
+    );
+    let relative_velocity_n = project_optional_number(
+        get_opt_f64("RELATIVE_VELOCITY_N")?,
+        "RELATIVE_VELOCITY_N",
+        &mut report,
+    );
 
     // --- Freshness validation: CREATION_DATE must be <= TCA ---
     if creation_date > tca {
@@ -173,7 +197,11 @@ pub fn parse_cdm_kvn_with_report(input: &str) -> Result<ParsedCdmKvn, CdmParseEr
     }
 
     // --- Probability ---
-    let collision_probability = optional_number("COLLISION_PROBABILITY")?;
+    let collision_probability = project_optional_number(
+        get_opt_f64("COLLISION_PROBABILITY")?,
+        "COLLISION_PROBABILITY",
+        &mut report,
+    );
     if !(0.0..=1.0).contains(&collision_probability) {
         return Err(CdmParseError::InvalidValue {
             field: "COLLISION_PROBABILITY".to_string(),
@@ -189,8 +217,8 @@ pub fn parse_cdm_kvn_with_report(input: &str) -> Result<ParsedCdmKvn, CdmParseEr
     };
 
     // --- Object Data ---
-    let object1 = parse_object_block(&lines, "OBJECT1")?;
-    let object2 = parse_object_block(&lines, "OBJECT2")?;
+    let object1 = parse_object_block(&lines, "OBJECT1", &mut report)?;
+    let object2 = parse_object_block(&lines, "OBJECT2", &mut report)?;
     if object1.metadata.ref_frame != object2.metadata.ref_frame {
         return Err(CdmParseError::MismatchedReferenceFrames {
             object1: object1.metadata.ref_frame.to_string(),
@@ -232,6 +260,7 @@ pub fn parse_cdm_kvn_with_report(input: &str) -> Result<ParsedCdmKvn, CdmParseEr
 fn parse_object_block(
     lines: &[(&str, &str)],
     prefix: &str,
+    report: &mut CdmParseReport,
 ) -> Result<CdmObjectData, CdmParseError> {
     let get = |suffix: &str| -> Result<String, CdmParseError> {
         let key = format!("{}_{}", prefix, suffix);
@@ -244,11 +273,12 @@ fn parse_object_block(
 
     let get_f64 = |suffix: &str| -> Result<f64, CdmParseError> {
         let key = format!("{}_{}", prefix, suffix);
-        let val = get(suffix)?;
-        val.parse::<f64>().map_err(|_| CdmParseError::InvalidValue {
-            field: key,
-            value: val,
-        })
+        let raw = lines
+            .iter()
+            .find(|(found, _)| *found == key)
+            .map(|(_, value)| *value)
+            .ok_or_else(|| CdmParseError::MissingField(key.clone()))?;
+        parse_finite_f64(&key, raw)
     };
 
     let get_opt_f64 = |suffix: &str| -> Result<Option<f64>, CdmParseError> {
@@ -259,21 +289,35 @@ fn parse_object_block(
         }
     };
 
-    // Metadata
+    // Required metadata fields are not silently defaulted. An absent international
+    // designator must be represented by the explicit source value "UNKNOWN".
+    let object_type_key = format!("{}_OBJECT_TYPE", prefix);
+    let object_type = match lines.iter().find(|(key, _)| *key == object_type_key) {
+        Some((_, value)) => strip_units(value).to_string(),
+        None => {
+            report.absent_optional_fields.push(object_type_key);
+            "UNKNOWN".to_string()
+        }
+    };
+    let maneuverable_key = format!("{}_MANEUVERABLE", prefix);
+    let maneuverable = parse_maneuverable(&get("MANEUVERABLE")?, &maneuverable_key)?;
+
     let metadata = CdmObjectMetadata {
         object_designator: get("OBJECT_DESIGNATOR")?,
-        catalog_name: get("CATALOG_NAME").unwrap_or_else(|_| "SATCAT".to_string()),
+        catalog_name: get("CATALOG_NAME")?,
         object_name: get("OBJECT_NAME")?,
-        international_designator: get("INTERNATIONAL_DESIGNATOR")
-            .unwrap_or_else(|_| "UNKNOWN".to_string()),
-        object_type: get("OBJECT_TYPE").unwrap_or_else(|_| "UNKNOWN".to_string()),
+        international_designator: get("INTERNATIONAL_DESIGNATOR")?,
+        object_type,
         operator_organization: get("OPERATOR_ORGANIZATION").ok(),
         operator_phone: get("OPERATOR_PHONE").ok(),
         operator_email: get("OPERATOR_EMAIL").ok(),
-        ephemeris_name: get("EPHEMERIS_NAME").unwrap_or_else(|_| "NONE".to_string()),
-        covariance_method: get("COVARIANCE_METHOD").unwrap_or_else(|_| "CALCULATED".to_string()),
-        maneuverable: parse_maneuverable(&get("MANEUVERABLE").unwrap_or_else(|_| "N/A".into())),
-        ref_frame: parse_ref_frame(&get("REF_FRAME")?, &format!("{}_REF_FRAME", prefix))?,
+        ephemeris_name: get("EPHEMERIS_NAME")?,
+        covariance_method: get("COVARIANCE_METHOD")?,
+        maneuverable,
+        ref_frame: parse_ref_frame(
+            &get("REF_FRAME")?,
+            &format!("{}_REF_FRAME", prefix),
+        )?,
     };
 
     // State vector
@@ -388,11 +432,15 @@ fn strip_units(value: &str) -> &str {
     }
 }
 
-fn parse_maneuverable(s: &str) -> Maneuverable {
+fn parse_maneuverable(s: &str, field: &str) -> Result<Maneuverable, CdmParseError> {
     match s.to_uppercase().as_str() {
-        "YES" => Maneuverable::Yes,
-        "NO" => Maneuverable::No,
-        _ => Maneuverable::Unknown,
+        "YES" => Ok(Maneuverable::Yes),
+        "NO" => Ok(Maneuverable::No),
+        "N/A" => Ok(Maneuverable::Unknown),
+        _ => Err(CdmParseError::InvalidValue {
+            field: field.to_string(),
+            value: s.to_string(),
+        }),
     }
 }
 
@@ -612,7 +660,11 @@ COLLISION_PROBABILITY = 1.0e-06
 COLLISION_PROBABILITY_METHOD = ALFANO-2005
 
 OBJECT1_OBJECT_DESIGNATOR = 11111
+OBJECT1_CATALOG_NAME = SATCAT
 OBJECT1_OBJECT_NAME = SAT-A
+OBJECT1_INTERNATIONAL_DESIGNATOR = UNKNOWN
+OBJECT1_EPHEMERIS_NAME = NONE
+OBJECT1_COVARIANCE_METHOD = CALCULATED
 OBJECT1_REF_FRAME = EME2000
 OBJECT1_MANEUVERABLE = YES
 OBJECT1_X = 7000.0 [km]
@@ -623,7 +675,11 @@ OBJECT1_Y_DOT = 7.5 [km/s]
 OBJECT1_Z_DOT = 0.0 [km/s]
 {cov1}
 OBJECT2_OBJECT_DESIGNATOR = 22222
+OBJECT2_CATALOG_NAME = SATCAT
 OBJECT2_OBJECT_NAME = DEBRIS-B
+OBJECT2_INTERNATIONAL_DESIGNATOR = UNKNOWN
+OBJECT2_EPHEMERIS_NAME = NONE
+OBJECT2_COVARIANCE_METHOD = CALCULATED
 OBJECT2_REF_FRAME = EME2000
 OBJECT2_MANEUVERABLE = NO
 OBJECT2_X = 7000.5 [km]
@@ -665,7 +721,11 @@ COLLISION_PROBABILITY = 1.0e-06
 COLLISION_PROBABILITY_METHOD = ALFANO-2005
 
 OBJECT1_OBJECT_DESIGNATOR = 11111
+OBJECT1_CATALOG_NAME = SATCAT
 OBJECT1_OBJECT_NAME = SAT-A
+OBJECT1_INTERNATIONAL_DESIGNATOR = UNKNOWN
+OBJECT1_EPHEMERIS_NAME = NONE
+OBJECT1_COVARIANCE_METHOD = CALCULATED
 OBJECT1_REF_FRAME = EME2000
 OBJECT1_MANEUVERABLE = YES
 OBJECT1_X = 7000.0 [km]
@@ -679,7 +739,11 @@ OBJECT1_CT_R = 2.0e-05 [km**2]
 OBJECT1_CT_T = 5.0e-04 [km**2]
 
 OBJECT2_OBJECT_DESIGNATOR = 22222
+OBJECT2_CATALOG_NAME = SATCAT
 OBJECT2_OBJECT_NAME = DEBRIS-B
+OBJECT2_INTERNATIONAL_DESIGNATOR = UNKNOWN
+OBJECT2_EPHEMERIS_NAME = NONE
+OBJECT2_COVARIANCE_METHOD = CALCULATED
 OBJECT2_REF_FRAME = EME2000
 OBJECT2_MANEUVERABLE = NO
 OBJECT2_X = 7000.5 [km]
@@ -721,7 +785,11 @@ COLLISION_PROBABILITY = 1.0e-06
 COLLISION_PROBABILITY_METHOD = FOSTER-1992
 
 OBJECT1_OBJECT_DESIGNATOR = 11111
+OBJECT1_CATALOG_NAME = SATCAT
 OBJECT1_OBJECT_NAME = SAT-A
+OBJECT1_INTERNATIONAL_DESIGNATOR = UNKNOWN
+OBJECT1_EPHEMERIS_NAME = NONE
+OBJECT1_COVARIANCE_METHOD = CALCULATED
 OBJECT1_REF_FRAME = EME2000
 OBJECT1_MANEUVERABLE = YES
 OBJECT1_X = 7000.0 [km]
@@ -732,7 +800,11 @@ OBJECT1_Y_DOT = 7.5 [km/s]
 OBJECT1_Z_DOT = 0.0 [km/s]
 
 OBJECT2_OBJECT_DESIGNATOR = 22222
+OBJECT2_CATALOG_NAME = SATCAT
 OBJECT2_OBJECT_NAME = DEBRIS-B
+OBJECT2_INTERNATIONAL_DESIGNATOR = UNKNOWN
+OBJECT2_EPHEMERIS_NAME = NONE
+OBJECT2_COVARIANCE_METHOD = CALCULATED
 OBJECT2_REF_FRAME = EME2000
 OBJECT2_MANEUVERABLE = NO
 OBJECT2_X = 7000.5 [km]
@@ -810,6 +882,39 @@ OBJECT2_Z_DOT = 0.0 [km/s]
         assert!(matches!(
             parse_cdm_kvn_with_report(&malformed),
             Err(CdmParseError::InvalidValue { field, .. }) if field == "RELATIVE_SPEED"
+        ));
+    }
+
+    #[test]
+    fn missing_required_ephemeris_metadata_is_rejected() {
+        let missing = SAMPLE_CDM.replace("OBJECT1_EPHEMERIS_NAME = MYCELIX-SPACE\\n", "");
+        assert!(matches!(
+            parse_cdm_kvn(&missing),
+            Err(CdmParseError::MissingField(field)) if field == "OBJECT1_EPHEMERIS_NAME"
+        ));
+    }
+
+    #[test]
+    fn non_finite_state_vector_value_is_rejected() {
+        let invalid = SAMPLE_CDM.replace(
+            "OBJECT1_X = 6800.000000 [km]",
+            "OBJECT1_X = NaN [km]",
+        );
+        assert!(matches!(
+            parse_cdm_kvn(&invalid),
+            Err(CdmParseError::InvalidValue { field, .. }) if field == "OBJECT1_X"
+        ));
+    }
+
+    #[test]
+    fn invalid_maneuverable_value_is_rejected() {
+        let invalid = SAMPLE_CDM.replace(
+            "OBJECT1_MANEUVERABLE = YES",
+            "OBJECT1_MANEUVERABLE = MAYBE",
+        );
+        assert!(matches!(
+            parse_cdm_kvn(&invalid),
+            Err(CdmParseError::InvalidValue { field, .. }) if field == "OBJECT1_MANEUVERABLE"
         ));
     }
 
