@@ -379,7 +379,12 @@ pub fn validate_profile(profile: &TraceLocatorProfileV1) -> Result<(), Inventory
         if rule.rule_id.trim().is_empty()
             || rule.expanded_path.len() < 2
             || rule.expanded_path.first().is_none_or(|root| !root.ends_with("}QIFDocument"))
-            || rule.expanded_path.iter().any(|name| !name.starts_with('{') || !name.contains('}'))
+            || rule.expanded_path.iter().enumerate().any(|(index, name)| {
+                !name.starts_with('{')
+                    || !name.contains('}')
+                    || (name.ends_with("}*") && name.len() <= 3)
+                    || (name.ends_with("}*") && index == 0)
+            })
         {
             return Err(InventoryError::InvalidRule(rule.rule_id.clone()));
         }
@@ -406,6 +411,18 @@ pub fn validate_profile(profile: &TraceLocatorProfileV1) -> Result<(), Inventory
         }
     }
     Ok(())
+}
+
+fn expanded_path_matches(pattern: &[String], actual: &[String]) -> bool {
+    pattern.len() == actual.len()
+        && pattern.iter().zip(actual).all(|(expected, observed)| {
+            if expected.ends_with("}*") {
+                observed.starts_with(expected.trim_end_matches('*'))
+                    && observed.len() > expected.len() - 1
+            } else {
+                expected == observed
+            }
+        })
 }
 
 fn parse_utf8_profile(bytes: &[u8]) -> Result<&str, InventoryError> {
@@ -754,7 +771,7 @@ fn scan_document(
                 };
                 let matching_rules = profile.rules.iter().enumerate()
                     .filter_map(|(index, rule)| {
-                        (rule.document_role == role && rule.expanded_path == expanded_path)
+                        (rule.document_role == role && expanded_path_matches(&rule.expanded_path, &expanded_path))
                             .then_some(index)
                     })
                     .collect::<Vec<_>>();
