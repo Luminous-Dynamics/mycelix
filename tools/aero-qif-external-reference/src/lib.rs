@@ -737,6 +737,38 @@ mod tests {
     }
 
     #[test]
+    fn checked_in_normalized_test8_fixture_replays_exact_bytes() {
+        let case = parse_trace_case_json(
+            include_bytes!("../fixtures/test8-normalized-trace-v1.json")
+        ).expect("checked-in normalized trace fixture parses");
+        let payloads = [
+            (&case.results.artifact.reference, include_bytes!("../fixtures/results.qif").as_slice()),
+            (&case.plans[0].artifact.reference, include_bytes!("../fixtures/plan-a.qif").as_slice()),
+            (&case.plans[1].artifact.reference, include_bytes!("../fixtures/plan-b.qif").as_slice()),
+            (&case.step_documents[0].artifact.reference, include_bytes!("../fixtures/source.step").as_slice()),
+        ];
+        let report = verify_and_resolve_trace_case(&case, &payloads)
+            .expect("all checked-in source bytes and trace links match");
+        assert_eq!(report.resolved_measurements.len(), 3);
+        assert_eq!(report.checked_artifacts, 4);
+        assert_eq!(report.resolved_measurements[1].status, MeasurementStatus::Failed);
+    }
+
+    #[test]
+    fn external_plan_qpid_mismatch_is_rejected() {
+        let (mut case, _) = fixture();
+        case.results.external_documents[0].plan_qpid = "70000000-0000-4000-8000-000000000007".into();
+        assert!(matches!(validate_trace_case(&case), Err(TraceError::MissingPlan(_))));
+    }
+
+    #[test]
+    fn plan_step_artifact_must_match_exact_step_document_metadata() {
+        let (mut case, _) = fixture();
+        case.plans[0].step_document.byte_length += 1;
+        assert!(matches!(validate_trace_case(&case), Err(TraceError::StepDocumentReferenceMismatch(_))));
+    }
+
+    #[test]
     fn resolves_two_external_plans_without_xid_namespace_collision() {
         let (case, payloads) = fixture();
         let report = verify_and_resolve_trace_case(&case, &refs_and_bytes(&payloads)).unwrap();
