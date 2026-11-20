@@ -13,7 +13,7 @@ An outbound request has at least four distinct facts:
 
 These facts must not be collapsed into one boolean named success. A TCP connect is not an HTTP request. A request write is not proof of a server-side commit. A response read is not, by itself, an independently reconciled business effect. A missing response is not proof that the request was not applied.
 
-The reference model is prism-egress/tests/execution_recovery_model.rs. It has 25 deterministic tests and no non-standard dependencies. The tests are source-present only until executed on the exact PR head.
+The reference model is prism-egress/tests/execution_recovery_model.rs. It has 33 deterministic tests and no non-standard dependencies. The tests are source-present only until executed on the exact PR head.
 
 ## Durable dispatch boundary
 
