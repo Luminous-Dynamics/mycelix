@@ -1504,10 +1504,10 @@ mod tests {
                         expanded("Results"),
                         expanded("MeasurementResultsSet"),
                     ],
-                    capture: LocatorCaptureMode::Element,
+                    capture: LocatorCaptureMode::ArrayCount,
                     min_occurrences: 1,
                     max_occurrences: None,
-                    capture_attributes: Vec::new(),
+                    capture_attributes: vec!["{}n".into()],
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
@@ -1790,6 +1790,121 @@ mod tests {
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
+                    rule_id: "plan.part_set_array_count".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Product"),
+                        expanded("PartSet"),
+                    ],
+                    capture: LocatorCaptureMode::ArrayCount,
+                    min_occurrences: 0,
+                    max_occurrences: Some(1),
+                    capture_attributes: vec!["{}n".into()],
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.part".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Product"),
+                        expanded("PartSet"),
+                        expanded("Part"),
+                    ],
+                    capture: LocatorCaptureMode::ElementId,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.definition_external_array_count".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Product"),
+                        expanded("PartSet"),
+                        expanded("Part"),
+                        expanded("DefinitionExternal"),
+                    ],
+                    capture: LocatorCaptureMode::ArrayCount,
+                    min_occurrences: 0,
+                    max_occurrences: Some(1),
+                    capture_attributes: vec!["{}n".into()],
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.definition_external_id".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Product"),
+                        expanded("PartSet"),
+                        expanded("Part"),
+                        expanded("DefinitionExternal"),
+                    ],
+                    capture: LocatorCaptureMode::ElementId,
+                    min_occurrences: 0,
+                    max_occurrences: Some(1),
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.digital_model_id".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Product"),
+                        expanded("PartSet"),
+                        expanded("Part"),
+                        expanded("DefinitionExternal"),
+                        expanded("DigitalModel"),
+                    ],
+                    capture: LocatorCaptureMode::ElementId,
+                    min_occurrences: 0,
+                    max_occurrences: Some(1),
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.digital_model_name".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Product"),
+                        expanded("PartSet"),
+                        expanded("Part"),
+                        expanded("DefinitionExternal"),
+                        expanded("DigitalModel"),
+                        expanded("Name"),
+                    ],
+                    capture: LocatorCaptureMode::Text,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.digital_model_file_name".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Product"),
+                        expanded("PartSet"),
+                        expanded("Part"),
+                        expanded("DefinitionExternal"),
+                        expanded("DigitalModel"),
+                        expanded("File"),
+                        expanded("Name"),
+                    ],
+                    capture: LocatorCaptureMode::Text,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
                     rule_id: "plan.digital_model_entities_array_count".into(),
                     document_role: QifDocumentRole::Plan,
                     expanded_path: vec![
@@ -2025,7 +2140,7 @@ mod tests {
             &profile(),
             &docs(RESULTS.as_bytes(), PLAN.as_bytes())
         ).unwrap();
-        assert_eq!(report.locator_count, 34);
+        assert_eq!(report.locator_count, 41);
         let counts: BTreeMap<_, usize> = inventory.body.locators.iter()
             .fold(BTreeMap::new(), |mut counts, row| {
                 *counts.entry(row.rule_id.as_str()).or_insert(0) += 1;
@@ -2076,10 +2191,10 @@ mod tests {
         assert_eq!(report.disposition, InventoryDisposition::Complete);
         assert_eq!(report.source_document_count, 2);
         assert_eq!(report.declared_external_reference_count, 1);
-        assert_eq!(report.locator_count, 34);
+        assert_eq!(report.locator_count, 41)
         assert_eq!(
             inventory_required_locators(&inventory).unwrap().len(),
-            34
+            41
         );
     }
 
@@ -2119,7 +2234,7 @@ mod tests {
         let names = [
             "QIFDocument", "QPId", "ExternalQIFReferences", "ExternalQIFDocument", "URI",
             "Results", "MeasurementResultsSet", "MeasurementResults", "MeasuredCharacteristics",
-            "CharacteristicMeasurements", "LinearCharacteristicMeasurement", "Status", "CharacteristicStatusEnum", "OtherCharacteristicStatus", "CharacteristicItemId", "Characteristics", "CharacteristicItems", "LinearCharacteristicItem",
+            "CharacteristicMeasurements", "LinearCharacteristicMeasurement", "Status", "CharacteristicStatusEnum", "OtherCharacteristicStatus", "CharacteristicItemId", "Characteristics", "CharacteristicItems", "LinearCharacteristicItem", "Product", "PartSet", "Part", "DefinitionExternal", "DigitalModel", "File",
         ];
         let mut results_prefixed = RESULTS.replace(
             "xmlns=\"http://qifstandards.org/xsd/qif3\"",
@@ -2286,6 +2401,51 @@ mod tests {
                 &docs(RESULTS.as_bytes(), plan.as_bytes())
             ),
             Err(InventoryError::UnknownLocalReference(_, 9002))
+        ));
+    }
+
+    #[test]
+    fn measurement_results_set_array_n_must_match_measurement_results() {
+        let results = RESULTS.replace(
+            "<MeasurementResultsSet n=\"1\">",
+            "<MeasurementResultsSet n=\"2\">"
+        );
+        assert!(matches!(
+            derive_trace_locator_inventory(
+                "bad-measurement-results-set-count",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::ArrayCountMismatch(_))
+        ));
+    }
+
+    #[test]
+    fn external_definition_array_n_must_match_definition_children() {
+        let plan = PLAN.replace(
+            "<q:DefinitionExternal id=\"6002\" n=\"1\">",
+            "<q:DefinitionExternal id=\"6002\" n=\"2\">"
+        );
+        assert!(matches!(
+            derive_trace_locator_inventory(
+                "bad-definition-external-count",
+                &profile(),
+                &docs(RESULTS.as_bytes(), plan.as_bytes())
+            ),
+            Err(InventoryError::ArrayCountMismatch(_))
+        ));
+    }
+
+    #[test]
+    fn part_set_array_n_must_match_part_children() {
+        let plan = PLAN.replace("<q:PartSet n=\"1\">", "<q:PartSet n=\"2\">");
+        assert!(matches!(
+            derive_trace_locator_inventory(
+                "bad-part-set-count",
+                &profile(),
+                &docs(RESULTS.as_bytes(), plan.as_bytes())
+            ),
+            Err(InventoryError::ArrayCountMismatch(_))
         ));
     }
 
