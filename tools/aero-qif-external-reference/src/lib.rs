@@ -456,6 +456,20 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
     let mut qpid_set = BTreeSet::new();
     qpid_set.insert(results_qpid_key);
 
+    let mut results_local_ids = BTreeSet::new();
+    let mut result_set_ids = BTreeSet::new();
+    for result_set_id in &case.results.result_set_ids {
+        if *result_set_id == 0 {
+            return Err(TraceError::ZeroIdentifier("MeasurementResultsSet id".into()));
+        }
+        if !result_set_ids.insert(*result_set_id) || !results_local_ids.insert(*result_set_id) {
+            return Err(TraceError::DuplicateIdentifier(format!("Results QIF id {}", result_set_id)));
+        }
+    }
+    if result_set_ids.is_empty() {
+        return Err(TraceError::InvalidIdentity("results.result_set_ids".into()));
+    }
+
     let mut refs_by_id = BTreeMap::new();
     for external in &case.results.external_documents {
         if external.local_reference_id == 0 {
@@ -463,6 +477,9 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         }
         if !valid_uuid(&external.plan_qpid) {
             return Err(TraceError::InvalidUuid("external_documents.plan_qpid".into()));
+        }
+        if !results_local_ids.insert(external.local_reference_id) {
+            return Err(TraceError::DuplicateIdentifier(format!("Results QIF id {}", external.local_reference_id)));
         }
         if refs_by_id.insert(external.local_reference_id, external).is_some() {
             return Err(TraceError::DuplicateIdentifier(format!("external ref {}", external.local_reference_id)));
@@ -473,16 +490,6 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         {
             return Err(TraceError::InvalidArtifact(external.plan_artifact.reference.id.clone()));
         }
-    }
-
-    let mut result_set_ids = BTreeSet::new();
-    for result_set_id in &case.results.result_set_ids {
-        if *result_set_id == 0 || !result_set_ids.insert(*result_set_id) {
-            return Err(TraceError::DuplicateIdentifier(format!("MeasurementResultsSet {}", result_set_id)));
-        }
-    }
-    if result_set_ids.is_empty() {
-        return Err(TraceError::InvalidIdentity("results.result_set_ids".into()));
     }
 
     let mut plans_by_qpid = BTreeMap::new();
@@ -638,8 +645,8 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         if measurement.measurement_id == 0 || measurement.result_set_id == 0 {
             return Err(TraceError::ZeroIdentifier("measurement_id/result_set_id".into()));
         }
-        if !measurement_ids.insert(measurement.measurement_id.clone()) {
-            return Err(TraceError::DuplicateIdentifier(format!("measurement {}", measurement.measurement_id)));
+        if !measurement_ids.insert(measurement.measurement_id) || !results_local_ids.insert(measurement.measurement_id) {
+            return Err(TraceError::DuplicateIdentifier(format!("Results QIF id {}", measurement.measurement_id)));
         }
         if !result_set_ids.contains(&measurement.result_set_id) {
             return Err(TraceError::MissingResultSet(measurement.result_set_id));
@@ -1113,6 +1120,16 @@ mod tests {
         let parsed = parse_trace_case_json(&bytes).unwrap();
         assert_eq!(parsed.results.external_documents[0].uri, None);
         assert!(validate_trace_case(&parsed).is_ok());
+    }
+
+    #[test]
+    fn results_document_qif_ids_are_unique_across_result_sets_refs_and_measurements() {
+        let (mut case, _) = fixture();
+        case.results.measurements[0].measurement_id = 701;
+        assert!(matches!(
+            validate_trace_case(&case),
+            Err(TraceError::DuplicateIdentifier(_))
+        ));
     }
 
     #[test]
