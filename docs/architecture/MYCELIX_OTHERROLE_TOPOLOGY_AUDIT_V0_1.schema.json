@@ -7,6 +7,8 @@
   "required": [
     "schema_version",
     "report_kind",
+    "scan_status",
+    "manual_review_required",
     "source",
     "scope",
     "manifests",
@@ -25,6 +27,15 @@
     },
     "report_kind": {
       "const": "advisory-static-ast-inventory"
+    },
+    "scan_status": {
+      "enum": [
+        "complete",
+        "incomplete"
+      ]
+    },
+    "manual_review_required": {
+      "type": "boolean"
     },
     "source": {
       "type": "object",
