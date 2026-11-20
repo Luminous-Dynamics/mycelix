@@ -328,7 +328,7 @@ fn required_gate_ids(scenario_id: &str) -> Result<Vec<String>, GateSetIssue> {
     let scenarios = manifest["scenarios"].as_array()
         .ok_or(GateSetIssue::EmbeddedScenarioManifestInvalid)?;
     let scenario = scenarios.iter()
-        .find(|s| s["scenario_id"].as_str() == Some(scenario_id))
+        .find(|s| s["id"].as_str() == Some(scenario_id))
         .ok_or_else(|| GateSetIssue::UnknownScenario(scenario_id.to_string()))?;
     let invariants = scenario["hard_invariants"].as_array()
         .ok_or(GateSetIssue::EmbeddedScenarioManifestInvalid)?;
@@ -691,7 +691,7 @@ mod tests {
 
     #[test]
     fn complete_manifest_derived_gate_set_verifies() {
-        let c = ctx("single-agent-append-read");
+        let c = ctx("MCRB-01");
         let (envelopes, p, _) = complete(&c);
         let result = verify_gate_set(&envelopes, &p, &c);
         let set = result.verified().unwrap();
@@ -703,7 +703,7 @@ mod tests {
 
     #[test]
     fn missing_gate_is_incomplete() {
-        let c = ctx("single-agent-append-read");
+        let c = ctx("MCRB-01");
         let (mut envelopes, p, _) = complete(&c);
         envelopes.pop();
         let result = verify_gate_set(&envelopes, &p, &c);
@@ -713,7 +713,7 @@ mod tests {
 
     #[test]
     fn duplicate_and_unexpected_gates_are_invalid() {
-        let c = ctx("single-agent-append-read");
+        let c = ctx("MCRB-01");
         let (mut envelopes, p, k) = complete(&c);
         envelopes.push(envelopes[0].clone());
         envelopes.push(signed(&c, &p, &k, "not-in-contract", GateOutcome::Pass));
@@ -725,7 +725,7 @@ mod tests {
 
     #[test]
     fn failed_gate_is_invalid_and_incomplete_gate_is_incomplete() {
-        let c = ctx("single-agent-append-read");
+        let c = ctx("MCRB-01");
         let (mut envelopes, p, k) = complete(&c);
         let gate = required_gate_ids(&c.scenario_id).unwrap()[0].clone();
         envelopes[0] = signed(&c, &p, &k, &gate, GateOutcome::Fail);
@@ -740,7 +740,7 @@ mod tests {
 
     #[test]
     fn wrong_source_signature_and_revoked_signer_are_rejected() {
-        let c = ctx("single-agent-append-read");
+        let c = ctx("MCRB-01");
         let (envelopes, p, _) = complete(&c);
         let mut wrong = c.clone();
         wrong.source_sha = "c".repeat(40);
@@ -759,7 +759,7 @@ mod tests {
 
     #[test]
     fn untrusted_signer_is_rejected() {
-        let c = ctx("single-agent-append-read");
+        let c = ctx("MCRB-01");
         let (mut envelopes, p, _) = complete(&c);
         envelopes[0].signatures[0].keyid = "unknown-key".into();
         assert!(verify_gate_set(&envelopes, &p, &c).verified().is_none());
@@ -767,7 +767,7 @@ mod tests {
 
     #[test]
     fn trust_policy_pin_mismatch_is_rejected() {
-        let c = ctx("single-agent-append-read");
+        let c = ctx("MCRB-01");
         let gates = required_gate_ids(&c.scenario_id).unwrap();
         let k = key();
         let public_hex = k.verifying_key().to_bytes().iter().map(|b| format!("{b:02x}")).collect::<String>();
