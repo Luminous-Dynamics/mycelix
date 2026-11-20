@@ -273,7 +273,7 @@ pub struct SourceMappingRecordV1 {
     pub source_path: String,
     /// Local QIF element ID when the source element has an @id.
     pub source_element_id: Option<u32>,
-    /// ExternalQIFDocumentReference local ID, paired with external_xid.
+    /// Results-local ExternalQIFDocumentReference ID; xId is optional in QIF 3.0.
     pub external_document_reference_id: Option<u32>,
     /// QIFReferenceType/@xId in the selected external QIF document.
     pub external_xid: Option<u32>,
@@ -1653,6 +1653,31 @@ mod tests {
         assert!(matches!(
             validate_ingest_qualification(&qualification),
             Err(IngestError::DuplicateSourceMappingLocator(_))
+        ));
+    }
+
+    #[test]
+    fn local_external_document_reference_without_optional_xid_is_admitted() {
+        let (mut qualification, _) = fixture();
+        let extraction = qualification.body.extraction.as_mut().unwrap();
+        extraction.required_locators[0].external_xid = None;
+        extraction.mappings[0].external_xid = None;
+        refresh_mapping_manifest(extraction);
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(validate_ingest_qualification(&qualification).is_ok());
+    }
+
+    #[test]
+    fn external_xid_without_local_reference_id_is_rejected() {
+        let (mut qualification, _) = fixture();
+        let extraction = qualification.body.extraction.as_mut().unwrap();
+        extraction.required_locators[0].external_document_reference_id = None;
+        extraction.mappings[0].external_document_reference_id = None;
+        refresh_mapping_manifest(extraction);
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(matches!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::InvalidSourceMappingLocator(_))
         ));
     }
 
