@@ -212,7 +212,7 @@ fn expected_scenario_visibility(scenario_id: &str) -> Result<bool, OfferLedgerIs
         .ok_or(OfferLedgerIssue::EmbeddedScenarioManifestInvalid)?;
     let scenario = scenarios
         .iter()
-        .find(|scenario| scenario["scenario_id"].as_str() == Some(scenario_id))
+        .find(|scenario| scenario["id"].as_str() == Some(scenario_id))
         .ok_or_else(|| OfferLedgerIssue::UnknownScenarioInEmbeddedManifest(scenario_id.to_string()))?;
     scenario["qops_requires_cross_host_visibility"]
         .as_bool()
