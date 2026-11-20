@@ -723,6 +723,13 @@ pub fn screen_conjunction_with_staleness(
     // Collect all NORAD IDs
     let mut all_ids: Vec<u32> = vec![input.primary_norad_id];
     all_ids.extend_from_slice(&input.secondary_norad_ids);
+    validate_screening_coverage(&all_ids, &all_ids).map_err(|error| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!("Invalid requested conjunction set: {:?}", error),
+        )
+        .into_wasm_error()
+    })?;
 
     // Cross-zome call to get TLEs with metadata
     let response = call(
@@ -966,10 +973,17 @@ pub fn screen_conjunction_from_tles(
 
     // Sweep the time window to find TCA (time of closest approach) for each pair.
     // Step size: 10 minutes for coarse scan, then refine around the minimum.
-    let total_seconds = (input.hours_ahead * 3600.0) as i64;
+    let total_seconds = (input.hours_ahead * 3600.0).floor() as i64;
+    if total_seconds <= 0 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "hours_ahead must represent at least one whole second",
+        )
+        .into_wasm_error());
+    }
     let coarse_step_secs: i64 = 600; // 10 minutes
     let fine_step_secs: i64 = 10; // 10 seconds for refinement
-    let num_coarse_steps = (total_seconds / coarse_step_secs).max(1);
+    let num_coarse_steps = ((total_seconds + coarse_step_secs - 1) / coarse_step_secs).max(1);
 
     let analyzer = ConjunctionAnalyzer::new();
     let mut results: Vec<ConjunctionAssessment> = Vec::new();
@@ -980,7 +994,9 @@ pub fn screen_conjunction_from_tles(
         let mut best_step: i64 = 0;
 
         for i in 0..=num_coarse_steps {
-            let t = primary_tle.epoch + chrono::Duration::seconds(i * coarse_step_secs);
+            // Clamp the last coarse sample to the declared window endpoint.
+            let offset_secs = (i * coarse_step_secs).min(total_seconds);
+            let t = primary_tle.epoch + chrono::Duration::seconds(offset_secs);
             let p_state = primary_prop.propagate_to(t).map_err(|error| {
                 SpaceError::new(
                     SpaceErrorCode::InvalidInput,
@@ -1005,7 +1021,7 @@ pub fn screen_conjunction_from_tles(
             }
             if dist < best_distance {
                 best_distance = dist;
-                best_step = i * coarse_step_secs;
+                best_step = offset_secs;
             }
         }
 
@@ -1015,8 +1031,21 @@ pub fn screen_conjunction_from_tles(
         let mut tca_offset = best_step;
         let mut tca_distance = best_distance;
 
+        let mut fine_offsets = Vec::new();
         let mut t_secs = fine_start;
-        while t_secs <= fine_end {
+        while t_secs < fine_end {
+            fine_offsets.push(t_secs);
+            let next = t_secs.saturating_add(fine_step_secs);
+            if next >= fine_end {
+                break;
+            }
+            t_secs = next;
+        }
+        if fine_offsets.last().copied() != Some(fine_end) {
+            fine_offsets.push(fine_end);
+        }
+
+        for t_secs in fine_offsets {
             let t = primary_tle.epoch + chrono::Duration::seconds(t_secs);
             let p_state = primary_prop.propagate_to(t).map_err(|error| {
                 SpaceError::new(
@@ -1044,7 +1073,6 @@ pub fn screen_conjunction_from_tles(
                 tca_distance = dist;
                 tca_offset = t_secs;
             }
-            t_secs += fine_step_secs;
         }
 
         // Assess at TCA
