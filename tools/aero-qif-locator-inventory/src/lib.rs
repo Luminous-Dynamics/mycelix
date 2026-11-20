@@ -755,6 +755,7 @@ fn scan_document(
     let mut locator_rows = Vec::new();
     let mut declared_external_ids = BTreeSet::new();
     let mut element_count = 0u64;
+    let mut max_element_id_observed = 0u32;
     let mut max_depth = 0u32;
     let mut total_text_bytes = 0u64;
     let mut root_expanded_name = None;
@@ -781,6 +782,9 @@ fn scan_document(
                     profile.limits.max_attributes_per_element,
                     &expanded,
                 )?;
+                if let Some(id) = element_id {
+                    max_element_id_observed = max_element_id_observed.max(id);
+                }
 
                 let occurrence = if let Some(parent) = stack.last_mut() {
                     parent.has_child_element = true;
@@ -954,6 +958,25 @@ fn scan_document(
         }
     }
 
+    let metadata_rule = match role {
+        QifDocumentRole::Results => "results.document_metadata",
+        QifDocumentRole::Plan => "plan.document_metadata",
+        QifDocumentRole::Auxiliary => return Err(InventoryError::InvalidRootMetadata),
+    };
+    let metadata = locator_rows.iter().find(|record| record.rule_id == metadata_rule)
+        .ok_or(InventoryError::InvalidRootMetadata)?;
+    let id_max = metadata.captured_attributes.get("{}idMax")
+        .ok_or(InventoryError::InvalidRootMetadata)?
+        .parse::<u32>().map_err(|_| InventoryError::InvalidRootMetadata)?;
+    let version_qif = metadata.captured_attributes.get("{}versionQIF")
+        .cloned().ok_or(InventoryError::InvalidRootMetadata)?;
+    if version_qif != profile.qif_standard_version {
+        return Err(InventoryError::QifVersionMismatch);
+    }
+    if id_max != max_element_id_observed {
+        return Err(InventoryError::IdMaxMismatch);
+    }
+
     Ok(ScannedDocument {
         source: TraceLocatorSourceDocumentV1 {
             qpid: qpid.to_ascii_lowercase(),
@@ -961,6 +984,9 @@ fn scan_document(
             sha256: sha256_hex(bytes),
             byte_length: bytes.len() as u64,
             root_expanded_name: root_expanded_name.unwrap_or_default(),
+            version_qif,
+            id_max,
+            max_element_id_observed,
             element_count,
             max_observed_depth: max_depth,
             text_bytes: total_text_bytes,
