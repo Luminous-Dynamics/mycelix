@@ -204,6 +204,8 @@ We welcome documentation improvements! To contribute:
 - **[Evidence trace schema](pulse-fabric-trace.schema-v0.1.json)** — redacted JSON Schema for role-separated events and causal predecessors.
 - **[Initial adversarial scenarios](pulse-fabric-scenarios-v0.1.json)** — synthetic positive, negative and UNKNOWN/INCOMPLETE cases.
 - **[Pulse Fabric Verifier](../tools/fabric-verifier/README.md)** — standalone Rust prototype for structural checks and causal consistency; its claim ceiling and non-goals are explicit.
+- **[Communications Benchmark Protocol v0.1](PULSE_COMMUNICATIONS_BENCHMARK_PROTOCOL_V0_1.md)** — pre-registered fair comparison design, workload matrix, statistical protocol and non-compensable safety gates.
+- **[Machine-readable benchmark profile](pulse-fabric-benchmark-v0.1.json)** and [schema](pulse-fabric-benchmark.schema-v0.1.json) — validated benchmark definition; no measurements are claimed.
 
 These artifacts define a research and qualification contract only. The scenario catalog is not executed evidence, and none of these files qualifies the current runtime or promotes a product security claim.
 
