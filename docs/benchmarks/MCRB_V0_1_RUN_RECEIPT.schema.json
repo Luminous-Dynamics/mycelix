@@ -287,7 +287,10 @@
         "raw_trace_digests",
         "log_digests",
         "artifact_digests",
-        "offer_ledger_artifact_digest_sha256"
+        "offer_ledger_artifact_digest_sha256",
+        "in_toto_bundle_digest_sha256",
+        "attestation_trust_policy_digest_sha256",
+        "slsa_build_provenance_digests"
       ],
       "properties": {
         "raw_trace_digests": {
@@ -311,6 +314,22 @@
         "offer_ledger_artifact_digest_sha256": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
+        },
+        "in_toto_bundle_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "attestation_trust_policy_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "slsa_build_provenance_digests": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "uniqueItems": true
         }
       }
     },
@@ -534,7 +553,6 @@
         "missing_outcomes",
         "unexpected_outcome_samples",
         "duplicate_outcome_samples",
-        "hard_correctness_gates_passed",
         "metric_integrity_status",
         "offered_operations_per_second",
         "qualified_operations_per_second",
@@ -543,7 +561,8 @@
         "cross_host_status",
         "cross_host_aggregate_eligible",
         "offer_ledger_verification_status",
-        "offer_ledger_issues"
+        "offer_ledger_issues",
+        "correctness_gate_set"
       ],
       "properties": {
         "status": {
@@ -722,9 +741,6 @@
           "type": "integer",
           "minimum": 0
         },
-        "hard_correctness_gates_passed": {
-          "type": "boolean"
-        },
         "metric_integrity_status": {
           "enum": [
             "valid",
@@ -782,8 +798,213 @@
           "items": {
             "type": "string"
           }
+        },
+        "correctness_gate_set": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "scenario_contract_digest_sha256",
+            "trust_policy_id",
+            "trust_policy_digest_sha256",
+            "required_gate_ids",
+            "required_gate_count",
+            "pass_count",
+            "fail_count",
+            "incomplete_count",
+            "missing_count",
+            "unexpected_count",
+            "duplicate_count",
+            "gate_results",
+            "attestation_bundle_digest_sha256",
+            "verifier_id",
+            "verifier_version",
+            "verifier_artifact_digest_sha256",
+            "slsa_build_provenance_digests"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "valid",
+                "invalid",
+                "incomplete",
+                "not-evaluated"
+              ]
+            },
+            "scenario_contract_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "trust_policy_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "trust_policy_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "required_gate_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "required_gate_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "pass_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "fail_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "incomplete_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missing_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unexpected_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "duplicate_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "gate_results": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "gate_id",
+                  "result",
+                  "statement_digest_sha256",
+                  "envelope_digest_sha256",
+                  "verifier_id",
+                  "signer_identity",
+                  "builder_id",
+                  "evidence_digests_sha256"
+                ],
+                "properties": {
+                  "gate_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "result": {
+                    "enum": [
+                      "pass",
+                      "fail",
+                      "incomplete"
+                    ]
+                  },
+                  "statement_digest_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "envelope_digest_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "verifier_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "signer_identity": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "builder_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "evidence_digests_sha256": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            },
+            "attestation_bundle_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "verifier_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "verifier_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "verifier_artifact_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "slsa_build_provenance_digests": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "uniqueItems": true
+            }
+          }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "eligible"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "correctness_gate_set": {
+                "properties": {
+                  "status": {
+                    "const": "valid"
+                  }
+                }
+              },
+              "offer_ledger_verification_status": {
+                "const": "valid"
+              },
+              "metric_integrity_status": {
+                "const": "valid"
+              },
+              "offered_operations_per_second": {
+                "type": "number"
+              },
+              "qualified_operations_per_second": {
+                "type": "number"
+              },
+              "qualified_success_fraction": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      ]
     }
   },
   "allOf": [
