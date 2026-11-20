@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mcrb-witness-governance-scenarios-v0.1.json",
+  "title": "MCRB Witness Governance Scenario Pack v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "programme_id",
+    "status",
+    "tracking_issue",
+    "scenarios"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mcrb-witness-governance-scenarios-v0.1"
+    },
+    "programme_id": {
+      "const": "MCRB-WITNESS-GOV"
+    },
+    "status": {
+      "enum": [
+        "proposed-not-executed",
+        "pilot",
+        "qualified"
+      ]
+    },
+    "tracking_issue": {
+      "const": 6402
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "objective",
+          "failure_injections",
+          "metrics",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^MWG-[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "objective": {
+            "type": "string",
+            "minLength": 1
+          },
+          "failure_injections": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "metrics": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "status": {
+            "enum": [
+              "proposed-not-executed",
+              "pilot",
+              "qualified"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
