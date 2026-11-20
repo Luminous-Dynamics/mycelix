@@ -537,6 +537,11 @@ pub fn verify_benchmark_corpus_payloads(
 ) -> Result<usize, BenchmarkError> {
     validate_benchmark_manifest(manifest)?;
     let mut expected = BTreeMap::new();
+    for tool in &manifest.body.tools {
+        add_expected_artifact(&mut expected, &tool.executable)?;
+        add_expected_artifact(&mut expected, &tool.arguments)?;
+        add_expected_artifact(&mut expected, &tool.environment_profile)?;
+    }
     for case in &manifest.body.cases {
         for input in &case.inputs {
             add_expected_artifact(&mut expected, &input.artifact)?;
@@ -1000,6 +1005,9 @@ mod tests {
         run_payloads: &[(ArtifactRef, Vec<u8>)],
     ) -> Vec<(ArtifactRef, Vec<u8>)> {
         vec![
+            (run_payloads[0].0.clone(), run_payloads[0].1.clone()),
+            (run_payloads[1].0.clone(), run_payloads[1].1.clone()),
+            (run_payloads[2].0.clone(), run_payloads[2].1.clone()),
             (run_payloads[3].0.clone(), run_payloads[3].1.clone()),
             (run_payloads[4].0.clone(), run_payloads[4].1.clone()),
             (
@@ -1206,6 +1214,18 @@ mod tests {
             verify_benchmark_corpus_payloads(&manifest, &corpus_borrowed),
             Err(BenchmarkError::CorpusArtifactVerification(_))
         ));
+    }
+
+    #[test]
+    fn missing_tool_binary_is_rejected_even_for_blocked_slots() {
+        let (manifest, _, payloads) = fixture();
+        let mut corpus_owned = corpus_payloads(&manifest, &payloads);
+        corpus_owned.remove(0);
+        let corpus_borrowed = borrowed(&corpus_owned);
+        assert_eq!(
+            verify_benchmark_corpus_payloads(&manifest, &corpus_borrowed),
+            Err(BenchmarkError::CorpusPayloadSetMismatch)
+        );
     }
 
     #[test]
