@@ -3,7 +3,6 @@
   "registry_id": "mcrb-operation-contracts",
   "registry_version": "0.1.0",
   "status": "proposed-not-executed",
-  "source_scenario_manifest_digest_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "contracts": [
     {
       "contract_id": "MCRB-OP-LOCAL-APPEND-READ",
@@ -12,11 +11,6 @@
       "operation_class": "local-source-chain-append-read",
       "effect_boundary": "local-source-chain",
       "expected_disposition": "must-apply",
-      "success_proposition": {
-        "proposition_id": "authored-record-appended-and-read-back",
-        "verifier_profile": "local-record-author-and-entry-hash-v0.1",
-        "description": "A record with the exact requested payload is authored by the expected agent and can be read back from the declared local cell; this does not imply DHT convergence."
-      },
       "attempt_state_policy": {
         "allowed_states": [
           "not-dispatched",
@@ -40,12 +34,12 @@
           "unknown",
           "not-attempted"
         ],
-        "qualified_success_states": [
-          "applied"
-        ],
         "requires_reconciliation": [
           "partial",
           "unknown"
+        ],
+        "expected_effect_states": [
+          "applied"
         ]
       },
       "evidence_policy": {
@@ -87,7 +81,13 @@
         "requires_explicit_expected_action_set": true,
         "requires_reconciliation": true
       },
-      "notes": "This is deliberately local. Do not use it to qualify remote visibility, replication, or an external side effect."
+      "notes": "This is deliberately local. Do not use it to qualify remote visibility, replication, or an external side effect.",
+      "qualification_proposition": {
+        "proposition_id": "authored-record-appended-and-read-back",
+        "verifier_profile": "local-record-author-and-entry-hash-v0.1",
+        "description": "A record with the exact requested payload is authored by the expected agent and can be read back from the declared local cell; this does not imply DHT convergence."
+      },
+      "expected_qops_outcome": "QualifiedSuccess"
     },
     {
       "contract_id": "MCRB-OP-REMOTE-DHT-PUBLICATION",
@@ -96,11 +96,6 @@
       "operation_class": "remote-dht-publication-and-observation",
       "effect_boundary": "remote-dht",
       "expected_disposition": "must-observe",
-      "success_proposition": {
-        "proposition_id": "exact-record-observed-by-independent-remote-peer",
-        "verifier_profile": "cross-peer-record-digest-and-author-v0.1",
-        "description": "The exact record digest and source author are observed by at least one expected remote peer under the frozen topology and measurement window."
-      },
       "attempt_state_policy": {
         "allowed_states": [
           "not-dispatched",
@@ -124,12 +119,12 @@
           "unknown",
           "not-attempted"
         ],
-        "qualified_success_states": [
-          "applied"
-        ],
         "requires_reconciliation": [
           "partial",
           "unknown"
+        ],
+        "expected_effect_states": [
+          "applied"
         ]
       },
       "evidence_policy": {
@@ -173,7 +168,13 @@
         "requires_explicit_expected_action_set": true,
         "requires_reconciliation": true
       },
-      "notes": "A local zome-call return is not a remote observation and cannot satisfy this proposition."
+      "notes": "A local zome-call return is not a remote observation and cannot satisfy this proposition.",
+      "qualification_proposition": {
+        "proposition_id": "exact-record-observed-by-independent-remote-peer",
+        "verifier_profile": "cross-peer-record-digest-and-author-v0.1",
+        "description": "The exact record digest and source author are observed by at least one expected remote peer under the frozen topology and measurement window."
+      },
+      "expected_qops_outcome": "QualifiedSuccess"
     },
     {
       "contract_id": "MCRB-OP-CAPABILITY-REVOCATION",
@@ -182,11 +183,6 @@
       "operation_class": "capability-revocation-protected-call",
       "effect_boundary": "policy-decision",
       "expected_disposition": "must-deny",
-      "success_proposition": {
-        "proposition_id": "protected-effect-denied-after-revocation-barrier",
-        "verifier_profile": "revocation-barrier-and-call-observation-v0.1",
-        "description": "After the declared revocation acknowledgement barrier, a protected call using the revoked grant is denied and no protected effect occurs; a distinct valid grant remains independently tested."
-      },
       "attempt_state_policy": {
         "allowed_states": [
           "not-dispatched",
@@ -210,12 +206,12 @@
           "unknown",
           "not-attempted"
         ],
-        "qualified_success_states": [
-          "confirmed-not-applied"
-        ],
         "requires_reconciliation": [
           "partial",
           "unknown"
+        ],
+        "expected_effect_states": [
+          "confirmed-not-applied"
         ]
       },
       "evidence_policy": {
@@ -267,7 +263,13 @@
         "requires_explicit_expected_action_set": true,
         "requires_reconciliation": true
       },
-      "notes": "For this contract, the qualified proposition is denial after the barrier (not an applied effect). This demonstrates why the operation contract must define its expected disposition before QOPS counts success."
+      "notes": "For this contract, the qualified proposition is denial after the barrier (not an applied effect). This demonstrates why the operation contract must define its expected disposition before QOPS counts success.",
+      "qualification_proposition": {
+        "proposition_id": "protected-effect-denied-after-revocation-barrier",
+        "verifier_profile": "revocation-barrier-and-call-observation-v0.1",
+        "description": "After the declared revocation acknowledgement barrier, a protected call using the revoked grant is denied and no protected effect occurs; a distinct valid grant remains independently tested."
+      },
+      "expected_qops_outcome": "CorrectDenial"
     },
     {
       "contract_id": "MCRB-OP-EXTERNAL-EFFECT",
@@ -276,11 +278,6 @@
       "operation_class": "external-effect-with-idempotent-reconciliation",
       "effect_boundary": "external-provider-effect",
       "expected_disposition": "must-apply",
-      "success_proposition": {
-        "proposition_id": "exact-external-effect-independently-observed",
-        "verifier_profile": "external-effect-observation-independence-v0.1",
-        "description": "The exact effect is observed under a complete expected-action set by a source with qualified independent dependency closure; provider acknowledgement alone is insufficient."
-      },
       "attempt_state_policy": {
         "allowed_states": [
           "not-dispatched",
@@ -304,12 +301,12 @@
           "unknown",
           "not-attempted"
         ],
-        "qualified_success_states": [
-          "applied"
-        ],
         "requires_reconciliation": [
           "partial",
           "unknown"
+        ],
+        "expected_effect_states": [
+          "applied"
         ]
       },
       "evidence_policy": {
@@ -353,7 +350,14 @@
         "requires_explicit_expected_action_set": true,
         "requires_reconciliation": true
       },
-      "notes": "This contract requires #6140-compatible source independence and complete effect coverage; it must not trust a provider acknowledgement as independent proof."
+      "notes": "This contract requires #6140-compatible source independence and complete effect coverage; it must not trust a provider acknowledgement as independent proof.",
+      "qualification_proposition": {
+        "proposition_id": "exact-external-effect-independently-observed",
+        "verifier_profile": "external-effect-observation-independence-v0.1",
+        "description": "The exact effect is observed under a complete expected-action set by a source with qualified independent dependency closure; provider acknowledgement alone is insufficient."
+      },
+      "expected_qops_outcome": "QualifiedSuccess"
     }
-  ]
+  ],
+  "source_scenario_manifest_git_blob_sha": "3135aa6c0aff8e20814f151faa4f85d931980004"
 }
