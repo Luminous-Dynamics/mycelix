@@ -82,7 +82,8 @@
           "subject",
           "dependencies",
           "expected_impact",
-          "reason_path"
+          "reason_path",
+          "dependency_coverage"
         ],
         "properties": {
           "evidence_id": {
@@ -112,6 +113,13 @@
             "items": {
               "type": "string"
             }
+          },
+          "dependency_coverage": {
+            "enum": [
+              "COMPLETE",
+              "INCOMPLETE",
+              "UNKNOWN"
+            ]
           }
         }
       }
