@@ -586,7 +586,8 @@
         "generator_authenticity",
         "claim_ceiling",
         "cross_host_requirement_source",
-        "cross_host_requirement_binding"
+        "cross_host_requirement_binding",
+        "operation_contract_registry"
       ],
       "properties": {
         "schema_version": {
@@ -630,6 +631,46 @@
         },
         "cross_host_requirement_binding": {
           "type": "string"
+        },
+        "operation_contract_registry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "registry_path",
+            "registry_schema_path",
+            "offer_ledger_schema_path",
+            "digest_policy",
+            "source_manifest_binding",
+            "per_operation_binding",
+            "claim_ceiling"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "mycelix-mcrb-operation-contract-registry-v0.1"
+            },
+            "registry_path": {
+              "type": "string"
+            },
+            "registry_schema_path": {
+              "type": "string"
+            },
+            "offer_ledger_schema_path": {
+              "type": "string"
+            },
+            "digest_policy": {
+              "type": "string"
+            },
+            "source_manifest_binding": {
+              "type": "string"
+            },
+            "per_operation_binding": {
+              "type": "string"
+            },
+            "claim_ceiling": {
+              "type": "string"
+            }
+          }
         }
       }
     }
