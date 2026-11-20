@@ -43,7 +43,8 @@ transitive dependency resolution is not yet frozen.
 - Source SHA and supplied digests have the expected lowercase hexadecimal
   shape; an optional external source pin must match exactly.
 - Event identifiers are unique; each causal predecessor resolves; relation
-  types are enumerated; the graph is acyclic.
+  types are enumerated and checked against supported event/role/identity
+  combinations; the graph is acyclic.
 - Same-clock causal predecessors cannot have a later monotonic timestamp.
   Wall-clock timestamps and timestamps from different clock domains are never
   used to invent a global ordering.
@@ -58,6 +59,11 @@ transitive dependency resolution is not yet frozen.
   DHT projection observation, one transport attempt, recipient admission,
   inbox commit, decryption verification, receipt creation, and separately
   attributed receipt verification.
+- Host admission and domain authorization must reference the same grant hash,
+  scope and exact cell. The authored source-action hash must match the DHT
+  projection's action hash. Receipt creation and verification must reference
+  the same recipient-receipt digest and scope. These are consistency checks on
+  supplied references, not signature or host-state verification.
 - Attempt-scoped authority, authorship, validation, transport and recipient
   events must bind to the same concrete attempt ID. Logical intent, crypto
   selection, outbox commit and DHT observation remain operation-scoped.
@@ -76,7 +82,9 @@ This prototype does **not**:
   exercised subset are correctly implemented by the selected engine;
 - verify signatures, hashes of external artifacts, capability grants, Holochain
   source-chain lineage, DHT validation, cryptographic protocol correctness, or
-  transport truth;
+  transport truth. Matching evidence digests and scope strings do not prove
+  that the referenced artifacts are authentic or that the referenced actors
+  are independent;
 - prove that the trace producer told the truth or that actor references
   correspond to real independent principals;
 - establish forward secrecy, post-compromise security, anonymity, availability,
@@ -101,4 +109,7 @@ receipt-backed success, source SHA mismatch, transport-ACK-only false success,
 UNKNOWN delivery, dangling causal edges, causal cycles, same-clock ordering,
 role confusion, missing attempt IDs, cross-operation attempt reuse, duplicate
 inbox effects, secret-bearing fields, mismatched commitments, changed recipient
-identity, missing recipient admission, and recipient/verifier identity collision.
+identity, missing recipient admission, recipient/verifier identity collision, semantically invalid resolved causal
+relations, host/domain grant mismatch, DHT/source-action hash mismatch, and
+recipient receipt mismatch. The benchmark profile and its schema are also
+validated by tests; they remain pre-registered artifacts, not measured results.
