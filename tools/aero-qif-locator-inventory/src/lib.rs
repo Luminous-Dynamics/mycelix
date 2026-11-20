@@ -1366,6 +1366,23 @@ mod tests {
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
+                    rule_id: "results.inspection_status".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                        expanded("InspectionStatus"),
+                        expanded("InspectionStatusEnum"),
+                    ],
+                    capture: LocatorCaptureMode::Text,
+                    min_occurrences: 1,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
                     rule_id: "results.characteristic_measurement_status".into(),
                     document_role: QifDocumentRole::Results,
                     expanded_path: vec![
@@ -1505,6 +1522,7 @@ mod tests {
             </LinearCharacteristicMeasurement>
           </CharacteristicMeasurements>
         </MeasuredCharacteristics>
+        <InspectionStatus><InspectionStatusEnum>PASS</InspectionStatusEnum></InspectionStatus>
       </MeasurementResults>
     </MeasurementResultsSet>
   </Results>
@@ -1611,11 +1629,24 @@ mod tests {
         assert_eq!(report.disposition, InventoryDisposition::Complete);
         assert_eq!(report.source_document_count, 2);
         assert_eq!(report.declared_external_reference_count, 1);
-        assert_eq!(report.locator_count, 22);
+        assert_eq!(report.locator_count, 23);
         assert_eq!(
             inventory_required_locators(&inventory).unwrap().len(),
-            22
+            23
         );
+    }
+
+    #[test]
+    fn overall_measurement_results_inspection_status_is_inventory_evidence() {
+        let (inventory, _) = derive_trace_locator_inventory(
+            "inspection-status",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+        ).unwrap();
+        let status = inventory.body.locators.iter()
+            .find(|record| record.rule_id == "results.inspection_status")
+            .and_then(|record| record.captured_value.as_deref());
+        assert_eq!(status, Some("PASS"));
     }
 
     #[test]
