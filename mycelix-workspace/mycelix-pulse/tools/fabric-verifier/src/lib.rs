@@ -2324,6 +2324,42 @@ mod tests {
                     })
                 }))
         );
+        let fanout = &benchmark["group_fanout_semantics"];
+        assert!(
+            fanout["recipient_child_identity"]
+                .as_str()
+                .is_some_and(|value| value.contains("one stable logical_operation_id"))
+        );
+        assert!(
+            fanout["aggregate_complete"]
+                .as_str()
+                .is_some_and(|value| value.contains("every recipient"))
+        );
+        assert!(
+            fanout["partial_and_unknown"]
+                .as_str()
+                .is_some_and(|value| value.contains("never count as successful"))
+        );
+        let metric_ids: Vec<&str> = benchmark["metrics"]
+            .as_array()
+            .expect("benchmark metrics")
+            .iter()
+            .map(|metric| metric["id"].as_str().expect("metric id"))
+            .collect();
+        for required_metric in [
+            "per_recipient_verified_delivery_rate_by_deadline",
+            "complete_group_delivery_rate_by_deadline",
+            "partial_fanout_coverage",
+            "worst_required_recipient_latency",
+            "group_epoch_commit_latency",
+            "post_removal_new_message_acceptance_rate",
+        ] {
+            assert!(
+                metric_ids.contains(&required_metric),
+                "missing group metric: {required_metric}"
+            );
+        }
+
         assert_eq!(
             benchmark["status"].as_str(),
             Some("pre_registered_not_executed"),
