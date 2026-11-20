@@ -56,7 +56,7 @@ pub struct ExternalQifDocumentReferenceV1 {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CharacteristicMeasurementReferenceV1 {
-    pub measurement_id: String,
+    pub measurement_id: u32,
     /// Local QIF ID selecting ExternalQIFDocumentReference in this Results doc.
     pub external_document_reference_id: u32,
     /// External QIF object id (QIFReferenceType xId) inside the selected Plan.
@@ -478,11 +478,11 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
 
     let mut measurement_ids = BTreeSet::new();
     for measurement in &case.results.measurements {
-        if measurement.measurement_id.trim().is_empty() {
-            return Err(TraceError::InvalidIdentity("measurement_id".into()));
+        if measurement.measurement_id == 0 {
+            return Err(TraceError::ZeroIdentifier("measurement_id".into()));
         }
-        if !measurement_ids.insert(measurement.measurement_id.clone()) {
-            return Err(TraceError::DuplicateIdentifier(measurement.measurement_id.clone()));
+        if !measurement_ids.insert(measurement.measurement_id) {
+            return Err(TraceError::DuplicateIdentifier(format!("measurement {}", measurement.measurement_id)));
         }
         if measurement.external_document_reference_id == 0 || measurement.xid == 0 {
             return Err(TraceError::ZeroIdentifier(format!("measurement {}", measurement.measurement_id)));
@@ -754,7 +754,7 @@ mod tests {
         assert_eq!(report.checked_artifacts, 4);
         assert_eq!(
             report.resolved_measurements.iter()
-                .find(|item| item.measurement_id == "measurement:fail")
+                .find(|item| item.measurement_id == 902)
                 .expect("failed measurement retained").status,
             MeasurementStatus::Failed
         );
@@ -782,13 +782,13 @@ mod tests {
         assert_eq!(report.resolved_measurements.len(), 3);
         assert_eq!(
             report.resolved_measurements.iter()
-                .find(|item| item.measurement_id == "measurement:pass")
+                .find(|item| item.measurement_id == 901)
                 .expect("passed measurement retained").status,
             MeasurementStatus::Passed
         );
         assert_eq!(
             report.resolved_measurements.iter()
-                .find(|item| item.measurement_id == "measurement:fail")
+                .find(|item| item.measurement_id == 902)
                 .expect("failed measurement retained").status,
             MeasurementStatus::Failed
         );
