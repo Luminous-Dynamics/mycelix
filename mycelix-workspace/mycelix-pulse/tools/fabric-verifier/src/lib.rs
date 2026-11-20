@@ -645,6 +645,7 @@ fn verify_success_projection(
         "intent_recorded",
         "crypto_profile_selected",
         "outbox_committed",
+        "dht_projection_observed",
     ];
     const ATTEMPT_EVENTS: &[&str] = &[
         "authority_host_admitted",
@@ -1303,13 +1304,23 @@ mod tests {
                     vec![("intent", "local_program_order")]
                 ),
                 event(
+                    "dht-projection",
+                    "dht_projection_observed",
+                    "dht_observer",
+                    "remote-dht-observer",
+                    None,
+                    None,
+                    7,
+                    vec![("integrity-accepted", "derived_from")]
+                ),
+                event(
                     "transport-started",
                     "transport_attempt_started",
                     "transport_adapter",
                     "transport",
                     Some("attempt-1"),
                     Some(&commitment),
-                    7,
+                    8,
                     vec![
                         ("integrity-accepted", "transport_for"),
                         ("outbox", "attempt_for")
@@ -1322,8 +1333,11 @@ mod tests {
                     "recipient",
                     Some("attempt-1"),
                     None,
-                    8,
-                    vec![("transport-started", "request_response")]
+                    9,
+                    vec![
+                        ("transport-started", "request_response"),
+                        ("dht-projection", "derived_from")
+                    ]
                 ),
                 event(
                     "recipient-commit",
@@ -1332,7 +1346,7 @@ mod tests {
                     "recipient",
                     Some("attempt-1"),
                     Some(&commitment),
-                    9,
+                    10,
                     vec![("recipient-admitted", "commits")]
                 ),
                 event(
@@ -1342,7 +1356,7 @@ mod tests {
                     "recipient",
                     Some("attempt-1"),
                     Some(&commitment),
-                    10,
+                    11,
                     vec![("recipient-commit", "verifies")]
                 ),
                 event(
@@ -1352,7 +1366,7 @@ mod tests {
                     "recipient",
                     Some("attempt-1"),
                     Some(&commitment),
-                    11,
+                    12,
                     vec![("decrypt", "receipt_for")]
                 ),
                 event(
@@ -1362,7 +1376,7 @@ mod tests {
                     "independent-verifier",
                     Some("attempt-1"),
                     Some(&commitment),
-                    12,
+                    13,
                     vec![("receipt-created", "verifies")]
                 ),
                 event(
@@ -1372,7 +1386,7 @@ mod tests {
                     "sender-ui",
                     None,
                     None,
-                    13,
+                    14,
                     vec![("receipt-verified", "derived_from")]
                 )
             ],
