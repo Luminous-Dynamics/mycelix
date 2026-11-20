@@ -135,7 +135,9 @@
           "class",
           "mandatory",
           "reason_path",
-          "demotable"
+          "demotable",
+          "state",
+          "closure_receipt"
         ],
         "properties": {
           "obligation_id": {
@@ -165,6 +167,22 @@
           },
           "demotable": {
             "const": false
+          },
+          "state": {
+            "enum": [
+              "OPEN",
+              "CLOSED"
+            ]
+          },
+          "closure_receipt": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ref"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       }
@@ -283,7 +301,8 @@
           "UNKNOWN_NEVER_UNAFFECTED",
           "REASON_PATH_COMPLETE",
           "DETERMINISTIC_REPLAY",
-          "OPTIONAL_TESTS_ADMISSIBILITY_GATED"
+          "OPTIONAL_TESTS_ADMISSIBILITY_GATED",
+          "OPTIONAL_TESTS_WAIT_FOR_MANDATORY_CLOSURE"
         ]
       }
     }
