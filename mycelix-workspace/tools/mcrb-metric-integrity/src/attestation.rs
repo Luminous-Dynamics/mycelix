@@ -249,6 +249,10 @@ pub struct VerifiedCorrectnessGateSet {
     run_id: String,
     scenario_id: String,
     scenario_contract_digest_sha256: String,
+    source_sha: String,
+    source_tree_git_sha: String,
+    runtime_identity_digest_sha256: String,
+    topology_profile_digest_sha256: String,
     trust_policy_id: String,
     trust_policy_digest_sha256: String,
     required_gate_ids: Vec<String>,
@@ -260,6 +264,10 @@ impl VerifiedCorrectnessGateSet {
     pub fn run_id(&self) -> &str { &self.run_id }
     pub fn scenario_id(&self) -> &str { &self.scenario_id }
     pub fn scenario_contract_digest_sha256(&self) -> &str { &self.scenario_contract_digest_sha256 }
+    pub fn source_sha(&self) -> &str { &self.source_sha }
+    pub fn source_tree_git_sha(&self) -> &str { &self.source_tree_git_sha }
+    pub fn runtime_identity_digest_sha256(&self) -> &str { &self.runtime_identity_digest_sha256 }
+    pub fn topology_profile_digest_sha256(&self) -> &str { &self.topology_profile_digest_sha256 }
     pub fn trust_policy_id(&self) -> &str { &self.trust_policy_id }
     pub fn trust_policy_digest_sha256(&self) -> &str { &self.trust_policy_digest_sha256 }
     pub fn required_gate_ids(&self) -> &[String] { &self.required_gate_ids }
@@ -567,6 +575,10 @@ pub fn verify_gate_set(
         run_id: context.run_id.clone(),
         scenario_id: context.scenario_id.clone(),
         scenario_contract_digest_sha256: context.scenario_contract_digest_sha256.clone(),
+        source_sha: context.source_sha.clone(),
+        source_tree_git_sha: context.source_tree_git_sha.clone(),
+        runtime_identity_digest_sha256: context.runtime_identity_digest_sha256.clone(),
+        topology_profile_digest_sha256: context.topology_profile_digest_sha256.clone(),
         trust_policy_id: policy.policy_id().to_string(),
         trust_policy_digest_sha256: policy.digest_sha256().to_string(),
         required_gate_count: 0,
