@@ -247,6 +247,7 @@ struct ElementFrame {
     element_id: Option<u32>,
     external_xid: Option<u32>,
     external_document_reference_id: Option<u32>,
+    is_external_document_reference: bool,
     captured_attributes: BTreeMap<String, String>,
     direct_text: String,
     has_child_element: bool,
@@ -498,6 +499,7 @@ fn append_locator(
     external_reference_id: Option<u32>,
     external_xid: Option<u32>,
     field_value: Option<&str>,
+    captured_value: Option<&str>,
     captured_attributes: &BTreeMap<String, String>,
     max_locators: u64,
 ) -> Result<(), InventoryError> {
@@ -517,6 +519,7 @@ fn append_locator(
         capture: rule.capture,
         locator,
         field_value_sha256,
+        captured_value: captured_value.map(str::to_owned),
         captured_attributes: captured_attributes.clone(),
     });
     Ok(())
@@ -542,6 +545,7 @@ fn finalize_frame(
                     None,
                     None,
                     None,
+                    None,
                     &frame.captured_attributes,
                     profile.limits.max_locators,
                 )?;
@@ -549,18 +553,6 @@ fn finalize_frame(
             LocatorCaptureMode::ElementId => {
                 let element_id = frame.element_id
                     .ok_or_else(|| InventoryError::InvalidElementId(frame.locator_path.clone()))?;
-                if rule.declares_external_document_reference {
-                    let target_qpid = frame.captured_attributes.get("{}QPId")
-                        .ok_or_else(|| InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()))?;
-                    if !valid_qpid(target_qpid) {
-                        return Err(InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()));
-                    }
-                    if frame.captured_attributes.get("{}URI")
-                        .is_some_and(|uri| uri.chars().any(|character| character.is_control()))
-                    {
-                        return Err(InventoryError::InvalidIdentity(format!("external_uri:{}", frame.locator_path)));
-                    }
-                }
                 append_locator(
                     locators,
                     rule,
@@ -570,6 +562,7 @@ fn finalize_frame(
                     None,
                     None,
                     Some(&element_id.to_string()),
+                    None,
                     &frame.captured_attributes,
                     profile.limits.max_locators,
                 )?;
@@ -587,6 +580,7 @@ fn finalize_frame(
                     None,
                     None,
                     Some(&frame.direct_text),
+                    None,
                     &frame.captured_attributes,
                     profile.limits.max_locators,
                 )?;
