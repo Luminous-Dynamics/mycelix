@@ -16,8 +16,8 @@ const EMBEDDED_SCENARIO_MANIFEST: &str =
 pub const GATE_ATTESTATION_SCHEMA_VERSION: &str = "mycelix-mcrb-gate-attestation-v0.1";
 pub const GATE_PREDICATE_TYPE: &str =
     "https://luminousdynamics.io/attestations/mcrb-correctness-gate/v0.1";
-pub const GATE_PAYLOAD_TYPE: &str =
-    "application/vnd.luminousdynamics.mcrb-correctness-gate.v0.1+json";
+pub const GATE_PAYLOAD_TYPE: &str = "application/vnd.in-toto+json";
+pub const IN_TOTO_STATEMENT_V1: &str = "https://in-toto.io/Statement/v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -60,6 +60,27 @@ pub struct DsseEnvelope {
     pub payload_type: String,
     pub payload: String,
     pub signatures: Vec<DsseSignature>,
+}
+
+/// in-toto Statement v1 carried inside the DSSE payload. Each subject binds
+/// one raw evidence artifact digest; the predicate binds run, source, runtime,
+/// topology, gate, verifier and trust-policy context.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InTotoSubject {
+    pub name: String,
+    pub digest: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InTotoStatement {
+    #[serde(rename = "_type")]
+    pub statement_type: String,
+    pub subject: Vec<InTotoSubject>,
+    #[serde(rename = "predicateType")]
+    pub predicate_type: String,
+    pub predicate: GateAttestationPredicate,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -356,7 +377,27 @@ pub fn sign_gate_predicate(
     signing_key: &ed25519_dalek::SigningKey,
 ) -> Result<DsseEnvelope, String> {
     use ed25519_dalek::Signer;
-    let payload = serde_json::to_vec(predicate).map_err(|e| e.to_string())?;
+
+    let subjects = predicate
+        .evidence_artifact_digests_sha256
+        .iter()
+        .enumerate()
+        .map(|(index, digest)| {
+            let mut digests = BTreeMap::new();
+            digests.insert("sha256".to_string(), digest.clone());
+            InTotoSubject {
+                name: format!("mcrb-evidence/{}/{index}", predicate.gate_id),
+                digest: digests,
+            }
+        })
+        .collect();
+    let statement = InTotoStatement {
+        statement_type: IN_TOTO_STATEMENT_V1.to_string(),
+        subject: subjects,
+        predicate_type: GATE_PREDICATE_TYPE.to_string(),
+        predicate: predicate.clone(),
+    };
+    let payload = serde_json::to_vec(&statement).map_err(|e| e.to_string())?;
     let signature = signing_key.sign(&dsse_pae(GATE_PAYLOAD_TYPE, &payload));
     Ok(DsseEnvelope {
         payload_type: GATE_PAYLOAD_TYPE.to_string(),
@@ -380,14 +421,40 @@ fn verify_one_envelope(
     }
     let payload = STANDARD.decode(&envelope.payload)
         .map_err(|_| GateSetIssue::InvalidPayloadBase64(index))?;
-    let predicate: GateAttestationPredicate = serde_json::from_slice(&payload)
+    let statement: InTotoStatement = serde_json::from_slice(&payload)
         .map_err(|_| GateSetIssue::InvalidPredicateJson(index))?;
-    if serde_json::to_vec(&predicate).map_err(|_| GateSetIssue::InvalidPredicateJson(index))? != payload {
+    if serde_json::to_vec(&statement)
+        .map_err(|_| GateSetIssue::InvalidPredicateJson(index))? != payload
+    {
         return Err(GateSetIssue::NonCanonicalPredicate(index));
     }
-    if predicate.schema_version != GATE_ATTESTATION_SCHEMA_VERSION
-        || predicate.predicate_type != GATE_PREDICATE_TYPE
+    if statement.statement_type != IN_TOTO_STATEMENT_V1
+        || statement.predicate_type != GATE_PREDICATE_TYPE
     {
+        return Err(GateSetIssue::UnsupportedPredicate(index));
+    }
+    let predicate = statement.predicate;
+
+    let expected_subjects = predicate
+        .evidence_artifact_digests_sha256
+        .iter()
+        .enumerate()
+        .map(|(subject_index, digest)| {
+            let mut digests = BTreeMap::new();
+            digests.insert("sha256".to_string(), digest.clone());
+            InTotoSubject {
+                name: format!("mcrb-evidence/{}/{subject_index}", predicate.gate_id),
+                digest: digests,
+            }
+        })
+        .collect::<Vec<_>>();
+    if statement.subject != expected_subjects {
+        return Err(GateSetIssue::InvalidEvidenceDigest {
+            gate_id: predicate.gate_id.clone(),
+        });
+    }
+
+    if predicate.schema_version != GATE_ATTESTATION_SCHEMA_VERSION {
         return Err(GateSetIssue::UnsupportedPredicate(index));
     }
 
