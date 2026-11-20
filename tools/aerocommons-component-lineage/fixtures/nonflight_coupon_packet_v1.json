@@ -11,11 +11,11 @@
   },
   "design_definition": {
     "reference": {
-      "id": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+      "id": "sha256:0786e7f77a61f509a17ae72db2df0fe3850d4c25edfcd9ee58b3eeca3f1f9b07",
       "kind": "design_definition"
     },
-    "sha256": "0000000000000000000000000000000000000000000000000000000000000001",
-    "byte_length": 128,
+    "sha256": "0786e7f77a61f509a17ae72db2df0fe3850d4c25edfcd9ee58b3eeca3f1f9b07",
+    "byte_length": 63,
     "media_type": "application/step",
     "format_id": "ISO_10303_242:2025"
   },
@@ -31,11 +31,11 @@
   ],
   "process_plan": {
     "reference": {
-      "id": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+      "id": "sha256:04b28be5ac58cd95d3621c6ead0e1c1facf80b429709267437182aa3291829bf",
       "kind": "manufacturing_process_plan"
     },
-    "sha256": "0000000000000000000000000000000000000000000000000000000000000002",
-    "byte_length": 128,
+    "sha256": "04b28be5ac58cd95d3621c6ead0e1c1facf80b429709267437182aa3291829bf",
+    "byte_length": 82,
     "media_type": "application/json",
     "format_id": "AERO_PROCESS_PLAN_V1"
   },
@@ -182,11 +182,11 @@
   },
   "inspection_result": {
     "reference": {
-      "id": "sha256:0000000000000000000000000000000000000000000000000000000000000003",
+      "id": "sha256:7cce13ec0987bc6fdffa0df82ed40a2d0c5aa075ade5e2516a38d96e8f69309d",
       "kind": "qif_result"
     },
-    "sha256": "0000000000000000000000000000000000000000000000000000000000000003",
-    "byte_length": 128,
+    "sha256": "7cce13ec0987bc6fdffa0df82ed40a2d0c5aa075ade5e2516a38d96e8f69309d",
+    "byte_length": 105,
     "media_type": "application/xml",
     "format_id": "ISO_23952:2020"
   },
@@ -310,11 +310,11 @@
   },
   "test_result": {
     "reference": {
-      "id": "sha256:0000000000000000000000000000000000000000000000000000000000000004",
+      "id": "sha256:78c5e8224027ec672f9b0cf9b06d0fe962e7bb62678747338456038876dd91aa",
       "kind": "test_result"
     },
-    "sha256": "0000000000000000000000000000000000000000000000000000000000000004",
-    "byte_length": 128,
+    "sha256": "78c5e8224027ec672f9b0cf9b06d0fe962e7bb62678747338456038876dd91aa",
+    "byte_length": 74,
     "media_type": "application/json",
     "format_id": "AERO_TEST_RESULT_V1"
   },
