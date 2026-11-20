@@ -348,7 +348,8 @@ pub fn apply_mutation(
         MutationOperation::ChangeSubjectId
         | MutationOperation::DuplicatePersistentId
         | MutationOperation::StaleRevision => {
-            observed[index].subject.id = format!("mutated:{}", observed[index].subject.id);
+            let mutated_id = format!("mutated:{}", observed[index].subject.id);
+            observed[index].subject.id = mutated_id;
         }
         MutationOperation::ShiftEventTime => {
             observed[index].value = match observed[index].value.as_i64() {
