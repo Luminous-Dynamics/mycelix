@@ -272,7 +272,7 @@ struct ElementFrame {
     matching_rules: Vec<usize>,
     element_id: Option<u32>,
     external_xid: Option<u32>,
-    external_document_reference_id: Option<u32>,
+    parent_external_document_reference_id: Option<u32>,
     is_external_document_reference: bool,
     captured_attributes: BTreeMap<String, String>,
     direct_text: String,
@@ -554,6 +554,7 @@ fn append_locator(
     path: &str,
     element_id: Option<u32>,
     local_reference_id: Option<u32>,
+    parent_external_document_reference_id: Option<u32>,
     external_reference_id: Option<u32>,
     external_xid: Option<u32>,
     field_value: Option<&str>,
@@ -569,6 +570,7 @@ fn append_locator(
         source_path: path.to_owned(),
         source_element_id: element_id,
         local_reference_id,
+        parent_external_document_reference_id,
         external_document_reference_id: external_reference_id,
         external_xid,
     };
@@ -597,7 +599,7 @@ fn finalize_frame(
             LocatorCaptureMode::Element => {
                 append_locator(
                     locators, rule, qpid, &frame.locator_path,
-                    frame.element_id, None, None, None, None, None,
+                    frame.element_id, None, None, None, None, None, None,
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
@@ -606,20 +608,20 @@ fn finalize_frame(
                     .ok_or_else(|| InventoryError::InvalidElementId(frame.locator_path.clone()))?;
                 append_locator(
                     locators, rule, qpid, &format!("{}@id", frame.locator_path),
-                    Some(element_id), None, None, None,
+                    Some(element_id), None, None, None, None,
                     Some(&element_id.to_string()), None,
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
-                if rule.declares_external_document_reference {
-                    if !declared_external_ids.insert(element_id) {
-                        return Err(InventoryError::DuplicateExternalReferenceId(element_id));
-                    }
+                if rule.declares_external_document_reference
+                    && !declared_external_ids.insert(element_id)
+                {
+                    return Err(InventoryError::DuplicateExternalReferenceId(element_id));
                 }
             }
             LocatorCaptureMode::Text => {
                 append_locator(
                     locators, rule, qpid, &format!("{}#text", frame.locator_path),
-                    frame.element_id, None, None, None,
+                    frame.element_id, None, None, None, None,
                     Some(&frame.direct_text), Some(&frame.direct_text),
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
@@ -637,7 +639,7 @@ fn finalize_frame(
                     .map_err(|_| InventoryError::InvalidQifReference(frame.locator_path.clone()))?;
                 append_locator(
                     locators, rule, qpid, &format!("{}#local-qif-reference", frame.locator_path),
-                    frame.element_id, Some(value), None, None,
+                    frame.element_id, Some(value), None, None, None,
                     Some(&frame.direct_text), Some(&value.to_string()),
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
@@ -652,7 +654,7 @@ fn finalize_frame(
                 }
                 append_locator(
                     locators, rule, qpid, &format!("{}#qpid", frame.locator_path),
-                    None, None, None, None, Some(value), Some(value),
+                    None, None, None, None, None, Some(value), Some(value),
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
@@ -664,11 +666,11 @@ fn finalize_frame(
                 if !valid_qpid(value) {
                     return Err(InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()));
                 }
-                let reference_id = frame.external_document_reference_id
+                let parent_id = frame.parent_external_document_reference_id
                     .ok_or_else(|| InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()))?;
                 append_locator(
                     locators, rule, qpid, &format!("{}#qpid", frame.locator_path),
-                    None, Some(reference_id), None, None, Some(value), Some(value),
+                    None, None, Some(parent_id), None, None, Some(value), Some(value),
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
@@ -678,11 +680,11 @@ fn finalize_frame(
                 {
                     return Err(InventoryError::InvalidIdentity(frame.locator_path.clone()));
                 }
-                let reference_id = frame.external_document_reference_id
+                let parent_id = frame.parent_external_document_reference_id
                     .ok_or_else(|| InventoryError::InvalidIdentity(frame.locator_path.clone()))?;
                 append_locator(
                     locators, rule, qpid, &format!("{}#uri", frame.locator_path),
-                    None, Some(reference_id), None, None,
+                    None, None, Some(parent_id), None, None,
                     Some(&frame.direct_text), Some(&frame.direct_text),
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
@@ -698,7 +700,7 @@ fn finalize_frame(
                 }
                 append_locator(
                     locators, rule, qpid, &format!("{}/@idMax", frame.locator_path),
-                    None, None, None, None, None, None,
+                    None, None, None, None, None, None, None,
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
@@ -723,7 +725,7 @@ fn finalize_frame(
                         }
                         append_locator(
                             locators, rule, qpid, &format!("{}#external-qif-reference", frame.locator_path),
-                            frame.element_id, None, Some(reference_id), Some(external_xid),
+                            frame.element_id, None, None, Some(reference_id), Some(external_xid),
                             Some(&frame.direct_text), None,
                             &frame.captured_attributes, profile.limits.max_locators,
                         )?;
@@ -731,7 +733,7 @@ fn finalize_frame(
                     None => {
                         append_locator(
                             locators, rule, qpid, &format!("{}#local-qif-reference", frame.locator_path),
-                            frame.element_id, Some(reference_id), None, None,
+                            frame.element_id, Some(reference_id), None, None, None,
                             Some(&frame.direct_text), Some(&reference_id.to_string()),
                             &frame.captured_attributes, profile.limits.max_locators,
                         )?;
@@ -835,7 +837,7 @@ fn scan_document(
 
                 let is_external_document_reference = matching_rules.iter()
                     .any(|rule_index| profile.rules[*rule_index].declares_external_document_reference);
-                let parent_external_reference_id = stack.iter().rev()
+                let parent_external_document_reference_id = stack.iter().rev()
                     .find(|parent| parent.is_external_document_reference)
                     .and_then(|parent| parent.element_id);
                 let frame = ElementFrame {
@@ -846,10 +848,10 @@ fn scan_document(
                     matching_rules,
                     element_id,
                     external_xid,
-                    external_document_reference_id: if is_external_document_reference {
+                    parent_external_document_reference_id: if is_external_document_reference {
                         element_id
                     } else {
-                        parent_external_reference_id
+                        parent_external_document_reference_id
                     },
                     is_external_document_reference,
                     captured_attributes,
@@ -1100,7 +1102,7 @@ pub fn derive_trace_locator_inventory(
         let plan_qpid_records: Vec<_> = results[0].locators.iter()
             .filter(|candidate| {
                 candidate.rule_id == "results.external_document_plan_qpid"
-                    && candidate.locator.local_reference_id == Some(local_reference_id)
+                    && candidate.locator.parent_external_document_reference_id == Some(local_reference_id)
             })
             .collect();
         if plan_qpid_records.len() != 1 {
@@ -1115,7 +1117,7 @@ pub fn derive_trace_locator_inventory(
         let uri_records: Vec<_> = results[0].locators.iter()
             .filter(|candidate| {
                 candidate.rule_id == "results.external_document_uri"
-                    && candidate.locator.local_reference_id == Some(local_reference_id)
+                    && candidate.locator.parent_external_document_reference_id == Some(local_reference_id)
             })
             .collect();
         if uri_records.len() > 1 {
