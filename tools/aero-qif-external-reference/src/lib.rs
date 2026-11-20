@@ -752,7 +752,12 @@ mod tests {
             .expect("all checked-in source bytes and trace links match");
         assert_eq!(report.resolved_measurements.len(), 3);
         assert_eq!(report.checked_artifacts, 4);
-        assert_eq!(report.resolved_measurements[1].status, MeasurementStatus::Failed);
+        assert_eq!(
+            report.resolved_measurements.iter()
+                .find(|item| item.measurement_id == "measurement:fail")
+                .expect("failed measurement retained").status,
+            MeasurementStatus::Failed
+        );
     }
 
     #[test]
@@ -775,8 +780,18 @@ mod tests {
         let report = verify_and_resolve_trace_case(&case, &refs_and_bytes(&payloads)).unwrap();
         assert_eq!(report.disposition, TraceDisposition::AllMeasurementReferencesResolved);
         assert_eq!(report.resolved_measurements.len(), 3);
-        assert_eq!(report.resolved_measurements[0].status, MeasurementStatus::Passed);
-        assert_eq!(report.resolved_measurements[1].status, MeasurementStatus::Failed);
+        assert_eq!(
+            report.resolved_measurements.iter()
+                .find(|item| item.measurement_id == "measurement:pass")
+                .expect("passed measurement retained").status,
+            MeasurementStatus::Passed
+        );
+        assert_eq!(
+            report.resolved_measurements.iter()
+                .find(|item| item.measurement_id == "measurement:fail")
+                .expect("failed measurement retained").status,
+            MeasurementStatus::Failed
+        );
         assert_eq!(report.resolved_measurements[2].plan_object_id, 301);
         assert_eq!(report.resolved_measurements[2].plan_qpid, "30000000-0000-4000-8000-000000000003");
         assert_eq!(report.checked_artifacts, 4);
