@@ -11,7 +11,7 @@
   ],
   "properties": {
     "payload_type": {
-      "const": "application/vnd.luminousdynamics.mcrb-correctness-gate.v0.1+json"
+      "const": "application/vnd.in-toto+json"
     },
     "payload": {
       "type": "string",
@@ -43,5 +43,5 @@
       }
     }
   },
-  "description": "One Ed25519 DSSE signature per v0.1 gate-attestation envelope. Multiple independent gate attestations are supplied as separate envelopes."
+  "description": "DSSE v1 envelope whose payload is an in-toto Statement v1. The Statement predicate is the MCRB gate predicate. Each v0.1 envelope contains exactly one Ed25519 signature; multiple gate attestations are separate envelopes."
 }
