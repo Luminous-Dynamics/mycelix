@@ -1423,27 +1423,29 @@ mod tests {
         assert_eq!(report.disposition, InventoryDisposition::Complete);
         assert_eq!(report.source_document_count, 2);
         assert_eq!(report.declared_external_reference_count, 1);
-        assert_eq!(report.locator_count, 13);
+        assert_eq!(report.locator_count, 19);
         assert_eq!(
             inventory_required_locators(&inventory).unwrap().len(),
-            13
+            19
         );
     }
 
     #[test]
     fn prefixes_do_not_change_expanded_name_identity_or_inventory() {
-        let results_prefixed = RESULTS
-            .replace("<QIFDocument xmlns=\"urn:qif-test-v3\">", "<a:QIFDocument xmlns:a=\"urn:qif-test-v3\">")
-            .replace("</QIFDocument>", "</a:QIFDocument>")
-            .replace("<Results>", "<a:Results>").replace("</Results>", "</a:Results>")
-            .replace("<ExternalQIFDocumentReference", "<a:ExternalQIFDocumentReference")
-            .replace("/>", "/>")
-            .replace("<MeasurementResultsSet", "<a:MeasurementResultsSet")
-            .replace("</MeasurementResultsSet>", "</a:MeasurementResultsSet>")
-            .replace("<CharacteristicMeasurement", "<a:CharacteristicMeasurement")
-            .replace("</CharacteristicMeasurement>", "</a:CharacteristicMeasurement>")
-            .replace("<CharacteristicItemId", "<a:CharacteristicItemId")
-            .replace("</CharacteristicItemId>", "</a:CharacteristicItemId>");
+        let names = [
+            "QIFDocument", "QPId", "ExternalQIFReferences", "ExternalQIFDocument", "URI",
+            "Results", "MeasurementResultsSet", "MeasurementResults", "MeasuredCharacteristics",
+            "CharacteristicMeasurements", "LinearCharacteristicMeasurement", "CharacteristicItemId",
+        ];
+        let mut results_prefixed = RESULTS.replace(
+            "xmlns=\"http://qifstandards.org/xsd/qif3\"",
+            "xmlns:a=\"http://qifstandards.org/xsd/qif3\""
+        );
+        for name in names {
+            results_prefixed = results_prefixed
+                .replace(&format!("<{name}"), &format!("<a:{name}"))
+                .replace(&format!("</{name}>"), &format!("</a:{name}>"));
+        }
         let docs1 = docs(RESULTS.as_bytes(), PLAN.as_bytes());
         let docs2 = docs(results_prefixed.as_bytes(), PLAN.as_bytes());
         let (first, _) = derive_trace_locator_inventory("same", &profile(), &docs1).unwrap();
@@ -1455,13 +1457,34 @@ mod tests {
 
     #[test]
     fn same_numeric_xid_in_other_plan_document_does_not_change_source_inventory() {
-        let plan2 = PLAN.replace("id=\"301\"", "id=\"301\"");
-        let docs = docs(RESULTS.as_bytes(), plan2.as_bytes());
-        let (inventory, _) = derive_trace_locator_inventory("id-scope", &profile(), &docs).unwrap();
-        let xid_refs: Vec<_> = inventory.body.locators.iter()
-            .filter_map(|record| record.locator.external_xid)
+        let plan2 = PLAN
+            .replace("20000000-0000-4000-8000-000000000002", "30000000-0000-4000-8000-000000000003")
+            .replace("id=\"301\"", "id=\"301\"");
+        let documents = vec![
+            RawQifDocument {
+                qpid: "10000000-0000-4000-8000-000000000001",
+                role: QifDocumentRole::Results,
+                bytes: RESULTS.as_bytes(),
+            },
+            RawQifDocument {
+                qpid: "20000000-0000-4000-8000-000000000002",
+                role: QifDocumentRole::Plan,
+                bytes: PLAN.as_bytes(),
+            },
+            RawQifDocument {
+                qpid: "30000000-0000-4000-8000-000000000003",
+                role: QifDocumentRole::Plan,
+                bytes: plan2.as_bytes(),
+            },
+        ];
+        let (inventory, _) = derive_trace_locator_inventory("id-scope", &profile(), &documents).unwrap();
+        let duplicate_item_ids: Vec<_> = inventory.body.locators.iter()
+            .filter(|record| record.rule_id == "plan.characteristic_item")
+            .filter_map(|record| record.locator.source_element_id.map(|id| (record.locator.document_qpid.clone(), id)))
+            .filter(|(_, id)| *id == 301)
             .collect();
-        assert_eq!(xid_refs, vec![301, 302, 301]);
+        assert_eq!(duplicate_item_ids.len(), 2);
+        assert_ne!(duplicate_item_ids[0].0, duplicate_item_ids[1].0);
     }
 
     #[test]
@@ -1478,7 +1501,7 @@ mod tests {
 
     #[test]
     fn dtd_and_doctype_are_rejected_without_external_resolution() {
-        let xml = r#"<!DOCTYPE QIFDocument SYSTEM "file:///etc/passwd"><QIFDocument xmlns="urn:qif-test-v3"><Results/></QIFDocument>"#;
+        let xml = r#"<!DOCTYPE QIFDocument SYSTEM "file:///etc/passwd"><QIFDocument xmlns="http://qifstandards.org/xsd/qif3"><Results/></QIFDocument>"#;
         assert_eq!(
             derive_trace_locator_inventory("doctype", &profile(), &docs(xml.as_bytes(), PLAN.as_bytes())),
             Err(InventoryError::DoctypeForbidden)
@@ -1487,7 +1510,7 @@ mod tests {
 
     #[test]
     fn custom_entity_is_rejected_but_predefined_and_numeric_refs_are_preserved() {
-        let custom = r#"<!DOCTYPE QIFDocument [<!ENTITY p "7">]><QIFDocument xmlns="urn:qif-test-v3"><Results><ExternalQIFDocumentReference id="&p;"/></Results></QIFDocument>"#;
+        let custom = r#"<!DOCTYPE QIFDocument [<!ENTITY p "7">]><QIFDocument xmlns="http://qifstandards.org/xsd/qif3"><Results/></QIFDocument>"#;
         assert_eq!(
             derive_trace_locator_inventory("custom-entity", &profile(), &docs(custom.as_bytes(), PLAN.as_bytes())),
             Err(InventoryError::DoctypeForbidden)
@@ -1502,7 +1525,7 @@ mod tests {
 
     #[test]
     fn malformed_end_tag_is_rejected() {
-        let broken = RESULTS.replace("</CharacteristicMeasurement>", "</MeasurementResultsSet>");
+        let broken = RESULTS.replace("</LinearCharacteristicMeasurement>", "</MeasurementResultsSet>");
         assert!(matches!(
             derive_trace_locator_inventory("malformed", &profile(), &docs(broken.as_bytes(), PLAN.as_bytes())),
             Err(InventoryError::XmlParse { .. }) | Err(InventoryError::ElementStackMismatch)
@@ -1511,7 +1534,7 @@ mod tests {
 
     #[test]
     fn unbound_prefix_is_rejected() {
-        let xml = r#"<q:QIFDocument><q:Results/></q:QIFDocument>"#;
+        let xml = r#"<q:QIFDocument><q:QPId>10000000-0000-4000-8000-000000000001</q:QPId><q:Results/></q:QIFDocument>"#;
         assert!(matches!(
             derive_trace_locator_inventory("unbound", &profile(), &docs(xml.as_bytes(), PLAN.as_bytes())),
             Err(InventoryError::UnboundNamespace(_))
@@ -1526,7 +1549,7 @@ mod tests {
             derive_trace_locator_inventory("byte-limit", &small, &docs(RESULTS.as_bytes(), PLAN.as_bytes())),
             Err(InventoryError::SourceTooLarge)
         );
-        let deep = r#"<QIFDocument xmlns="urn:qif-test-v3"><Results><MeasurementResultsSet><CharacteristicMeasurement><CharacteristicItemId>7</CharacteristicItemId></CharacteristicMeasurement></MeasurementResultsSet></Results></QIFDocument>"#;
+        let deep = r#"<QIFDocument xmlns="http://qifstandards.org/xsd/qif3"><QPId>10000000-0000-4000-8000-000000000001</QPId><Results><MeasurementResultsSet><MeasurementResults><MeasuredCharacteristics><CharacteristicMeasurements><LinearCharacteristicMeasurement><CharacteristicItemId>7</CharacteristicItemId></LinearCharacteristicMeasurement></CharacteristicMeasurements></MeasuredCharacteristics></MeasurementResults></MeasurementResultsSet></Results></QIFDocument>"#;
         let mut shallow = profile();
         shallow.limits.max_depth = 2;
         assert_eq!(
