@@ -17,7 +17,7 @@
 use chrono::{DateTime, Utc};
 use hdi::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 /// NORAD Catalog Number - unique identifier for tracked space objects
 /// Valid range: 1 to 999999 (currently ~60,000 active objects)
@@ -313,6 +313,59 @@ pub struct ScreenInput {
     pub hours_ahead: f64,
     /// Minimum collision probability to include in results
     pub pc_threshold: f64,
+}
+
+/// Why a requested conjunction-screening set cannot be considered complete.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ScreeningCoverageError {
+    DuplicateRequestedObject { norad_id: u32 },
+    DuplicateReturnedObject { norad_id: u32 },
+    UnexpectedReturnedObject { norad_id: u32 },
+    MissingRequestedObject { norad_id: u32 },
+}
+
+/// Validate that a screening response contains exactly one result for every
+/// requested NORAD ID, with no duplicates or unsolicited objects.
+///
+/// This is a set-integrity check, not proof that the subsequent propagation
+/// or probability calculation was physically valid. Those stages must report
+/// their own failures and must not silently skip samples.
+pub fn validate_screening_coverage(
+    requested_norad_ids: &[u32],
+    returned_norad_ids: &[u32],
+) -> Result<(), ScreeningCoverageError> {
+    let mut requested = BTreeSet::new();
+    for norad_id in requested_norad_ids {
+        if !requested.insert(*norad_id) {
+            return Err(ScreeningCoverageError::DuplicateRequestedObject {
+                norad_id: *norad_id,
+            });
+        }
+    }
+
+    let mut returned = BTreeSet::new();
+    for norad_id in returned_norad_ids {
+        if !returned.insert(*norad_id) {
+            return Err(ScreeningCoverageError::DuplicateReturnedObject {
+                norad_id: *norad_id,
+            });
+        }
+        if !requested.contains(norad_id) {
+            return Err(ScreeningCoverageError::UnexpectedReturnedObject {
+                norad_id: *norad_id,
+            });
+        }
+    }
+
+    for norad_id in requested_norad_ids {
+        if !returned.contains(norad_id) {
+            return Err(ScreeningCoverageError::MissingRequestedObject {
+                norad_id: *norad_id,
+            });
+        }
+    }
+
+    Ok(())
 }
 
 /// Conjunction screening request
