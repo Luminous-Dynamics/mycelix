@@ -375,8 +375,35 @@
             "type": "array",
             "uniqueItems": true,
             "items": {
-              "type": "string",
-              "minLength": 1
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "event_id",
+                "relation"
+              ],
+              "properties": {
+                "event_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "relation": {
+                  "enum": [
+                    "local_program_order",
+                    "source_chain_successor",
+                    "request_response",
+                    "attempt_for",
+                    "transport_for",
+                    "commits",
+                    "receipt_for",
+                    "verifies",
+                    "revokes",
+                    "checkpoint_descendant_of",
+                    "recovered_from",
+                    "derived_from"
+                  ]
+                }
+              }
             }
           },
           "evidence_refs": {
