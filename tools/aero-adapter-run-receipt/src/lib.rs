@@ -725,6 +725,24 @@ mod tests {
     }
 
     #[test]
+    fn argument_vector_bytes_are_verified() {
+        let receipt = fixture();
+        let mut bytes = payloads();
+        bytes[1].1.push(b' ');
+        let borrowed: Vec<_> = bytes.iter().map(|(reference, payload)| (reference, payload.as_slice())).collect();
+        assert!(matches!(verify_artifact_payloads(&receipt, &borrowed), Err(ReceiptError::ArtifactByteLengthMismatch(_))));
+    }
+
+    #[test]
+    fn environment_profile_bytes_are_verified() {
+        let receipt = fixture();
+        let mut bytes = payloads();
+        bytes[2].1[0] = b'[';
+        let borrowed: Vec<_> = bytes.iter().map(|(reference, payload)| (reference, payload.as_slice())).collect();
+        assert!(matches!(verify_artifact_payloads(&receipt, &borrowed), Err(ReceiptError::ArtifactDigestMismatch(_))));
+    }
+
+    #[test]
     fn input_payload_mutation_is_rejected() {
         let receipt = fixture();
         let mut bytes = payloads();
