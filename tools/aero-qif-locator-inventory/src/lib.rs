@@ -1352,6 +1352,21 @@ mod tests {
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
+                    rule_id: "results.characteristic_item".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Characteristics"),
+                        expanded("CharacteristicItems"),
+                        expanded("*"),
+                    ],
+                    capture: LocatorCaptureMode::ElementId,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
                     rule_id: "plan.characteristic_item".into(),
                     document_role: QifDocumentRole::Plan,
                     expanded_path: vec![
