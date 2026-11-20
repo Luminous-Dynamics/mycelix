@@ -423,7 +423,7 @@ mod tests {
                 scenario_id: scenario_id.clone(),
                 operation_id: format!("op-{}", index + 1),
                 request_digest_sha256: digest(&format!("request-{index}")),
-                idempotency_key: Some(format!("idem-{index}")),
+                idempotency_key_digest_sha256: Some(digest(&format!("idem-{index}"))),
                 scheduled_monotonic_tick: index + 10,
                 monotonic_clock_id: clock_id.clone(),
                 monotonic_clock_epoch: epoch.clone(),
