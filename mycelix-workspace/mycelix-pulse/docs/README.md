@@ -203,6 +203,7 @@ We welcome documentation improvements! To contribute:
 - **[Qualification profile schema](pulse-fabric-profile.schema-v0.1.json)** and **[scenario catalog schema](pulse-fabric-scenarios.schema-v0.1.json)** — strict Draft 2020-12 schemas for the versioned machine-readable inputs.
 - **[Evidence trace schema](pulse-fabric-trace.schema-v0.1.json)** — redacted JSON Schema for role-separated events and causal predecessors.
 - **[Initial adversarial scenarios](pulse-fabric-scenarios-v0.1.json)** — synthetic positive, negative and UNKNOWN/INCOMPLETE cases.
+- **[Pulse Fabric Verifier](../tools/fabric-verifier/README.md)** — standalone Rust prototype for structural checks and causal consistency; its claim ceiling and non-goals are explicit.
 
 These artifacts define a research and qualification contract only. The scenario catalog is not executed evidence, and none of these files qualifies the current runtime or promotes a product security claim.
 
