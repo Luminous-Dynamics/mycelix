@@ -32,9 +32,9 @@ Primary evidence must use the same component and configuration. Calibration evid
 
 ## Structural invariants
 
-- Unknown packet fields are rejected.
+- Unknown and missing packet, reference, artifact and nested evidence fields are rejected at the strict JSON admission boundary.
 - Artifact references must include expected kind, nonzero byte length, media type, format identifier and a lowercase SHA-256-shaped identifier whose sha256 reference matches the declared digest.
-- The digest is syntax-checked only; v1 does not read artifact bytes to recompute it.
+- Structural packet validation checks digest syntax. The separate whole-packet payload verifier recomputes SHA-256 and byte length for all four content artifacts. The checked-in synthetic payloads prove this exact-byte replay path; they are not valid normative AP242/QIF files.
 - Build evidence must reference design, process, material, requirements, machine and tooling.
 - Inspection evidence must reference build evidence, inspection plan/instrument, instrument calibration evidence and a QIF artifact.
 - Test evidence must reference build and inspection evidence, test plan/instrument, instrument calibration evidence and a test result artifact.
@@ -43,6 +43,18 @@ Primary evidence must use the same component and configuration. Calibration evid
 - The serialized physical unit is distinct from the component definition. Build, inspection and test claims bind to that unit; the build record also links back to its component definition.
 - The recorded times are replay metadata only; this packet does not establish clock accuracy or synchronization.
 - Unknown, contradicted or missing records never become positive completeness.
+
+## Standards baseline and interoperability gap
+
+As of 20 November 2026, ISO 10303-242:2025 Edition 4 is published (August 2025) and ISO lists Edition 5 as under development. ISO 23952:2020 (QIF) was reviewed and confirmed current in June 2026. ISO 23247-5:2026 was published in June 2026 for manufacturing digital-thread principles and methods. The pilot references these standards but does not implement normative parsers or claim conformance.
+
+NIST's Digital Thread for Manufacturing programme explicitly identifies remaining gaps in semantic product/manufacturing information, GUID linkage, hybrid geometry and composite representation, as well as the need for conformance testing and trust/cybersecurity. This is the next interoperability benchmark target: measure semantic preservation across AP242 → process planning → QIF → evidence and unit identity, not merely whether files parse or hashes match.
+
+Official references:
+- ISO 10303-242:2025: https://www.iso.org/standard/84300.html
+- ISO 23952:2020: https://www.iso.org/standard/77461.html
+- ISO 23247-5:2026: https://www.iso.org/standard/87425.html
+- NIST Digital Thread for Manufacturing: https://www.nist.gov/programs-projects/digital-thread-manufacturing
 
 ## Matched evaluation
 
