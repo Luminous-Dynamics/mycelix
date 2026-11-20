@@ -868,6 +868,10 @@ mod tests {
                     step_entity_kind: StepEntityKind::Datum,
                 },
             ],
+            other_objects: vec![OtherPlanObjectV1 {
+                object_id: 304,
+                object_kind: "FeatureItem".into(),
+            }],
             characteristic_items: vec![
                 PlanCharacteristicItemV1 { object_id: 301, characteristic_nominal_id: 401 },
                 PlanCharacteristicItemV1 { object_id: 302, characteristic_nominal_id: 402 },
@@ -903,6 +907,7 @@ mod tests {
                     step_entity_kind: StepEntityKind::Datum,
                 },
             ],
+            other_objects: Vec::new(),
             characteristic_items: vec![
                 PlanCharacteristicItemV1 { object_id: 301, characteristic_nominal_id: 401 },
             ],
@@ -922,6 +927,11 @@ mod tests {
             results: ResultsDocumentV1 {
                 qpid: "10000000-0000-4000-8000-000000000001".into(),
                 artifact: results_artifact.clone(),
+                result_set_ids: vec![
+                    "result-set:1".into(),
+                    "result-set:2".into(),
+                    "result-set:3".into(),
+                ],
                 external_documents: vec![
                     ExternalQifDocumentReferenceV1 {
                         local_reference_id: 7,
@@ -1103,6 +1113,30 @@ mod tests {
         let parsed = parse_trace_case_json(&bytes).unwrap();
         assert_eq!(parsed.results.external_documents[0].uri, None);
         assert!(validate_trace_case(&parsed).is_ok());
+    }
+
+    #[test]
+    fn wrong_type_external_xid_is_not_reported_as_missing() {
+        let (mut case, _) = fixture();
+        case.results.measurements[0].xid = 304;
+        assert!(matches!(
+            validate_trace_case(&case),
+            Err(TraceError::WrongExternalObjectKind {
+                xid: 304,
+                object_kind,
+                ..
+            }) if object_kind == "FeatureItem"
+        ));
+    }
+
+    #[test]
+    fn missing_measurement_result_set_is_rejected() {
+        let (mut case, _) = fixture();
+        case.results.measurements[0].result_set_id = "result-set:missing".into();
+        assert_eq!(
+            validate_trace_case(&case),
+            Err(TraceError::MissingResultSet("result-set:missing".into()))
+        );
     }
 
     #[test]
