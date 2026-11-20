@@ -1,0 +1,58 @@
+name: Temporal compute placement oracle
+
+on:
+  push:
+    branches: [research/temporal-compute-placement-v0-1-2026-11-19]
+    paths:
+      - "mycelix-workspace/tools/temporal-compute-placement-v0.1/**"
+      - ".github/workflows/temporal-compute-placement-v0-1.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/tools/temporal-compute-placement-v0.1/**"
+      - ".github/workflows/temporal-compute-placement-v0-1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  temporal-oracle:
+    name: Schema, interval tests and strict Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.96.1
+        with:
+          components: rustfmt, clippy
+      - name: Install pinned JSON Schema validator
+        run: python -m pip install --disable-pip-version-check jsonschema==4.26.0
+      - name: Validate fixed-window fixture
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator, FormatChecker
+
+          root = Path("mycelix-workspace/tools/temporal-compute-placement-v0.1")
+          schema = json.loads((root / "schema/temporal-compute-placement-v0.1.schema.json").read_text())
+          fixture = json.loads((root / "fixtures/adjacent-intervals-known-answer-v0.1.json").read_text())
+          Draft202012Validator.check_schema(schema)
+          errors = sorted(
+              Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(fixture),
+              key=lambda error: list(error.path),
+          )
+          if errors:
+              raise SystemExit("\\n".join(error.message for error in errors))
+          first, second = fixture["tasks"]
+          if first["end_ms"] != second["start_ms"]:
+              raise SystemExit("known-answer tasks must be exactly adjacent")
+          if first["cpu_millis"] != fixture["workers"][0]["cpu_millis"] or second["cpu_millis"] != fixture["workers"][0]["cpu_millis"]:
+              raise SystemExit("each task must consume the worker's full declared CPU capacity")
+          PY
+      - name: Formatting
+        run: cargo fmt --manifest-path mycelix-workspace/tools/temporal-compute-placement-v0.1/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path mycelix-workspace/tools/temporal-compute-placement-v0.1/Cargo.toml --locked
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path mycelix-workspace/tools/temporal-compute-placement-v0.1/Cargo.toml --locked --all-targets -- -D warnings
