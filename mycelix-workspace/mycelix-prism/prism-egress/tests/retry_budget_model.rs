@@ -92,6 +92,7 @@ impl RetryBudget {
         Ok(Self {
             policy: policy.validate()?,
             active_operations: HashMap::new(),
+            seen_operations: HashSet::new(),
             permits: HashMap::new(),
             total_extra_attempts_by_operation: HashMap::new(),
             next_permit_id: 1,
