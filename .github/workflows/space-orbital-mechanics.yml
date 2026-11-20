@@ -70,3 +70,18 @@ jobs:
 
       - name: Compile conjunction coordinator for Holochain WASM
         run: cargo check --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p conjunctions_coordinator --target wasm32-unknown-unknown
+
+      - name: Test orbital objects coordinator
+        run: cargo test --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p orbital_objects
+
+      - name: Compile orbital objects coordinator for Holochain WASM
+        run: cargo check --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p orbital_objects --target wasm32-unknown-unknown
+
+      - name: Run Space integration and edge-case contracts
+        run: >-
+          cargo test
+          --manifest-path mycelix-workspace/mycelix-space/tests/Cargo.toml
+          --test edge_cases
+          --test conjunctions
+          --test orbital_objects
+          --test space_coordination_e2e
