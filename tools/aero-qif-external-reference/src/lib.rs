@@ -62,7 +62,7 @@ pub struct ResultsDocumentV1 {
     pub qpid: String,
     pub artifact: ContentArtifactV1,
     /// IDs of MeasurementResultsSet objects in this Results document.
-    pub result_set_ids: Vec<String>,
+    pub result_set_ids: Vec<u32>,
     pub external_documents: Vec<ExternalQifDocumentReferenceV1>,
     pub measurements: Vec<CharacteristicMeasurementReferenceV1>,
 }
@@ -152,8 +152,8 @@ pub struct ResolvedStepEntityV1 {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedMeasurementTraceV1 {
-    pub measurement_id: String,
-    pub result_set_id: String,
+    pub measurement_id: u32,
+    pub result_set_id: u32,
     pub status: MeasurementStatus,
     pub results_qpid: String,
     pub external_document_reference_id: u32,
@@ -262,7 +262,7 @@ pub fn parse_trace_case_json(bytes: &[u8]) -> Result<QifExternalReferenceTraceCa
 
     let result_set_ids = results.get("result_set_ids").and_then(Value::as_array)
         .ok_or_else(|| TraceError::MalformedObject("case.results.result_set_ids".into()))?;
-    if result_set_ids.iter().any(|id| id.as_str().is_none_or(|value| value.trim().is_empty())) {
+    if result_set_ids.iter().any(|id| id.as_u64().filter(|value| *value > 0 && *value <= u32::MAX as u64).is_none()) {
         return Err(TraceError::MalformedObject("case.results.result_set_ids".into()));
     }
 
@@ -477,7 +477,7 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
 
     let mut result_set_ids = BTreeSet::new();
     for result_set_id in &case.results.result_set_ids {
-        if result_set_id.trim().is_empty() || !result_set_ids.insert(result_set_id.clone()) {
+        if *result_set_id == 0 || !result_set_ids.insert(*result_set_id) {
             return Err(TraceError::DuplicateIdentifier(format!("MeasurementResultsSet {}", result_set_id)));
         }
     }
@@ -635,14 +635,14 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
 
     let mut measurement_ids = BTreeSet::new();
     for measurement in &case.results.measurements {
-        if measurement.measurement_id.trim().is_empty() || measurement.result_set_id.trim().is_empty() {
-            return Err(TraceError::InvalidIdentity("measurement_id/result_set_id".into()));
+        if measurement.measurement_id == 0 || measurement.result_set_id == 0 {
+            return Err(TraceError::ZeroIdentifier("measurement_id/result_set_id".into()));
         }
         if !measurement_ids.insert(measurement.measurement_id.clone()) {
             return Err(TraceError::DuplicateIdentifier(format!("measurement {}", measurement.measurement_id)));
         }
         if !result_set_ids.contains(&measurement.result_set_id) {
-            return Err(TraceError::MissingResultSet(measurement.result_set_id.clone()));
+            return Err(TraceError::MissingResultSet(measurement.result_set_id.to_string()));
         }
         if measurement.external_document_reference_id == 0 || measurement.xid == 0 {
             return Err(TraceError::ZeroIdentifier(format!("measurement {}", measurement.measurement_id)));
@@ -928,9 +928,9 @@ mod tests {
                 qpid: "10000000-0000-4000-8000-000000000001".into(),
                 artifact: results_artifact.clone(),
                 result_set_ids: vec![
-                    "result-set:1".into(),
-                    "result-set:2".into(),
-                    "result-set:3".into(),
+                    701,
+                    702,
+                    703,
                 ],
                 external_documents: vec![
                     ExternalQifDocumentReferenceV1 {
@@ -948,29 +948,29 @@ mod tests {
                 ],
                 measurements: vec![
                     CharacteristicMeasurementReferenceV1 {
-                        measurement_id: "measurement:pass".into(),
-                        result_set_id: "result-set:1".into(),
+                        measurement_id: 901,
+                        result_set_id: 701,
                         external_document_reference_id: 7,
                         xid: 301,
                         status: MeasurementStatus::Passed,
                     },
                     CharacteristicMeasurementReferenceV1 {
-                        measurement_id: "measurement:fail".into(),
-                        result_set_id: "result-set:1".into(),
+                        measurement_id: 902,
+                        result_set_id: 701,
                         external_document_reference_id: 7,
                         xid: 302,
                         status: MeasurementStatus::Failed,
                     },
                     CharacteristicMeasurementReferenceV1 {
-                        measurement_id: "measurement:second-plan".into(),
-                        result_set_id: "result-set:2".into(),
+                        measurement_id: 903,
+                        result_set_id: 702,
                         external_document_reference_id: 8,
                         xid: 301,
                         status: MeasurementStatus::NotEvaluated,
                     },
                     CharacteristicMeasurementReferenceV1 {
-                        measurement_id: "measurement:multi-entity".into(),
-                        result_set_id: "result-set:3".into(),
+                        measurement_id: 904,
+                        result_set_id: 703,
                         external_document_reference_id: 7,
                         xid: 303,
                         status: MeasurementStatus::Unknown,
@@ -1017,7 +1017,7 @@ mod tests {
 
     fn resolved<'a>(
         report: &'a TraceVerificationReport,
-        measurement_id: &str,
+        measurement_id: u32,
     ) -> &'a ResolvedMeasurementTraceV1 {
         report.resolved_measurements.iter()
             .find(|item| item.measurement_id == measurement_id)
@@ -1040,11 +1040,11 @@ mod tests {
         assert_eq!(report.resolved_measurements.len(), 4);
         assert_eq!(report.checked_artifacts, 4);
         assert_eq!(
-            resolved(&report, "measurement:fail").status,
+            resolved(&report, 902).status,
             MeasurementStatus::Failed
         );
         assert_eq!(
-            resolved(&report, "measurement:multi-entity").step_entities.len(),
+            resolved(&report, 904).step_entities.len(),
             2
         );
     }
@@ -1053,7 +1053,7 @@ mod tests {
     fn resolves_xid_through_item_nominal_external_id_and_step_uuid() {
         let (case, payloads) = fixture();
         let report = verify_and_resolve_trace_case(&case, &refs_and_bytes(&payloads)).unwrap();
-        let trace = resolved(&report, "measurement:pass");
+        let trace = resolved(&report, 901);
         assert_eq!(trace.plan_characteristic_item_id, 301);
         assert_eq!(trace.characteristic_nominal_id, 401);
         assert_eq!(trace.characteristic_id, "characteristic:hole-dia");
@@ -1077,7 +1077,7 @@ mod tests {
         let (case, payloads) = fixture();
         let report = verify_and_resolve_trace_case(&case, &refs_and_bytes(&payloads)).unwrap();
         let first = resolved(&report, "measurement:pass");
-        let second = resolved(&report, "measurement:second-plan");
+        let second = resolved(&report, 903);
         assert_eq!(first.plan_characteristic_item_id, 301);
         assert_eq!(second.plan_characteristic_item_id, 301);
         assert_ne!(first.plan_qpid, second.plan_qpid);
@@ -1132,10 +1132,10 @@ mod tests {
     #[test]
     fn missing_measurement_result_set_is_rejected() {
         let (mut case, _) = fixture();
-        case.results.measurements[0].result_set_id = "result-set:missing".into();
+        case.results.measurements[0].result_set_id = 799;
         assert_eq!(
             validate_trace_case(&case),
-            Err(TraceError::MissingResultSet("result-set:missing".into()))
+            Err(TraceError::MissingResultSet("799".into()))
         );
     }
 
