@@ -44,7 +44,13 @@ The adapter configuration must also appear as exactly one input with role adapte
 V1 computes SHA-256 over UTF-8 JSON serialization of a fixed Rust struct payload, excluding receipt_sha256. The struct field order is part of the versioned profile. Input and output arrays are sorted by (role, artifact reference ID, artifact reference kind); declared/observed egress, warnings and unsupported assertion IDs are sorted. The canonicalization profile is schema-specific; it is not a claim of RFC 8785/JCS compatibility.
 
 Known-answer digest for the checked-in synthetic receipt:
-`186fc52282cbd1417cb30ebb1852d15aaa26fe07a292777d7daf1049a6ca46d6`
+`2ed4668318885864f34c28304b9ffddfae819011463a22ab5869498d5d3e2986`
+
+The exact argument-vector and non-secret environment-profile files are part of the verified artifact set:
+- arguments: `6c0ef43428d609b7a9518e8f2a06bc48886d1bbc2160734ded4fc83679e1a98a` (83 bytes)
+- environment profile: `56fb082d5fbdcb4ada57fda4c31c3c7c16507393cda0bee55a8c67a8db9ec0ea` (53 bytes)
+
+The argument and environment profiles are descriptive non-secret manifests. Do not place credentials, tokens or other secret values in them.
 
 Every artifact reference ID is `sha256:<lowercase digest>`. The byte verifier requires an exact payload set: missing, duplicate or unexpected references fail.
 
