@@ -27,7 +27,6 @@ pub enum GateOutcome { Pass, Fail, Incomplete }
 #[serde(deny_unknown_fields)]
 pub struct GateAttestationPredicate {
     pub schema_version: String,
-    pub predicate_type: String,
     pub run_id: String,
     pub scenario_id: String,
     pub scenario_contract_digest_sha256: String,
@@ -919,7 +918,6 @@ pub(crate) fn verified_gate_set_for_test(
         .map(|gate_id| {
             let predicate = GateAttestationPredicate {
                 schema_version: GATE_ATTESTATION_SCHEMA_VERSION.to_string(),
-                predicate_type: GATE_PREDICATE_TYPE.to_string(),
                 run_id: context.run_id.clone(),
                 scenario_id: context.scenario_id.clone(),
                 scenario_contract_digest_sha256: context
