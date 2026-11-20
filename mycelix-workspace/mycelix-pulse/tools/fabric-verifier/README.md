@@ -10,9 +10,11 @@ transport, and receipt decision paths.
 From the public workspace checkout:
 
 ```bash
+cargo fmt --manifest-path mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.toml -- --check
 cargo test --manifest-path mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.toml
 cargo run --manifest-path mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.toml -- \
-  verify path/to/trace.json --expected-source-sha <40-character-source-sha>
+  verify path/to/trace.json --schema mycelix-workspace/mycelix-pulse/docs/pulse-fabric-trace.schema-v0.1.json \
+  --expected-source-sha <40-character-source-sha>
 ```
 
 The expected source SHA is an optional external pin. Without a trusted value
@@ -25,6 +27,14 @@ file error. A valid trace with terminal disposition `UNKNOWN` or
 `INCOMPLETE` exits 0 because it can be a valid record of an unresolved
 outcome. Consumers must inspect `terminal_disposition`; verifier success is
 not message-delivery success.
+
+The CLI first meta-validates the supplied schema and validates the trace with
+JSON Schema Draft 2020-12, then applies the causal and lifecycle checks below.
+The schema engine is pinned to `jsonschema = 0.61.2`; default features are
+disabled so the verifier cannot resolve remote schema references at runtime.
+Keep the schema self-contained. The direct dependency is pinned, but a
+package-specific Cargo.lock has not yet been generated and committed, so
+transitive dependency resolution is not yet frozen.
 
 ## v0.1 invariants
 
@@ -68,9 +78,10 @@ independence must be anchored by a separately authenticated trust policy in a
 future qualification layer. This binary checks evidence-graph consistency;
 it is not a trust root.
 
-The full Draft 2020-12 schemas remain normative for shape validation and must
-be run through a conforming schema engine in the dedicated validation gate.
-This crate's checks are additive semantic checks, not a replacement.
+The full Draft 2020-12 schema is supplied at the CLI and checked before the
+semantic verifier runs. The selected engine advertises Draft 2020-12 support,
+but this does not establish compliance for every keyword in the specification;
+the exact checked-in schemas and tested scenarios remain the claim boundary.
 
 ## Test intent
 
