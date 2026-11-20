@@ -1,7 +1,7 @@
 //! Deterministic model of hierarchical retry and hedge amplification budgets.
 //! Eligibility is supplied by a separately qualified operation-semantics
 //! contract; budget capacity can never make an ineligible retry eligible.
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum RetryMode {
@@ -49,6 +49,7 @@ enum BudgetError {
     InvalidPolicy,
     InvalidIdentity,
     OperationAlreadyActive,
+    OperationIdReused,
     OperationNotActive,
     WorkloadMismatch,
     SemanticsNotEligible,
@@ -80,6 +81,7 @@ struct PermitRecord {
 struct RetryBudget {
     policy: BudgetPolicy,
     active_operations: HashMap<u64, u64>,
+    seen_operations: HashSet<u64>,
     permits: HashMap<u64, PermitRecord>,
     total_extra_attempts_by_operation: HashMap<u64, u32>,
     next_permit_id: u64,
@@ -106,6 +108,9 @@ impl RetryBudget {
         }
         if self.active_operations.contains_key(&operation_id) {
             return Err(BudgetError::OperationAlreadyActive);
+        }
+        if !self.seen_operations.insert(operation_id) {
+            return Err(BudgetError::OperationIdReused);
         }
         self.active_operations.insert(operation_id, workload_id);
         Ok(())
@@ -626,5 +631,19 @@ fn zero_identity_cannot_open_retry_budget_operation() {
     assert_eq!(
         budget.begin_operation(1, 0),
         Err(BudgetError::InvalidIdentity)
+    );
+}
+
+
+#[test]
+fn finished_logical_operation_id_cannot_reset_its_attempt_budget() {
+    let mut budget = RetryBudget::new(policy()).unwrap();
+    begin(&mut budget, 1, 7);
+    let permit = retry(&mut budget, 1, 7);
+    budget.complete_extra(&permit).unwrap();
+    budget.finish_operation(1).unwrap();
+    assert_eq!(
+        budget.begin_operation(1, 7),
+        Err(BudgetError::OperationIdReused)
     );
 }
