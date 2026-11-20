@@ -24,7 +24,7 @@ pub struct OfferLedgerEntry {
     pub scenario_id: String,
     pub operation_id: String,
     pub request_digest_sha256: String,
-    pub idempotency_key: Option<String>,
+    pub idempotency_key_digest_sha256: Option<String>,
     pub scheduled_monotonic_tick: u64,
     pub monotonic_clock_id: String,
     pub monotonic_clock_epoch: String,
@@ -87,7 +87,7 @@ pub enum OfferLedgerIssue {
     EmptyOperationId(usize),
     DuplicateOperationId(String),
     InvalidRequestDigest(usize),
-    EmptyIdempotencyKey(usize),
+    InvalidIdempotencyKeyDigest(usize),
     MissingIdempotencyKeyForExternalEffect(usize),
     DuplicateIdempotencyKey(String),
     EmptyOperationClass(usize),
@@ -198,18 +198,6 @@ fn push_optional_string(bytes: &mut Vec<u8>, value: Option<&str>) {
     }
 }
 
-fn idempotency_key_digest(key: &str) -> String {
-    let mut material = b"MYCELIX-MCRB-IDEMPOTENCY-KEY\0v0.1\0".to_vec();
-    material.extend_from_slice(key.as_bytes());
-    let digest = Sha256::digest(material);
-    let mut hex = String::with_capacity(64);
-    for byte in digest {
-        use std::fmt::Write as _;
-        let _ = write!(&mut hex, "{byte:02x}");
-    }
-    hex
-}
-
 fn canonical_offer_ledger_bytes(envelope: &OfferLedgerEnvelope) -> Vec<u8> {
     let mut bytes = Vec::new();
     bytes.extend_from_slice(DOMAIN_SEPARATOR);
@@ -238,7 +226,7 @@ fn canonical_offer_ledger_bytes(envelope: &OfferLedgerEnvelope) -> Vec<u8> {
         push_string(&mut bytes, &entry.scenario_id);
         push_string(&mut bytes, &entry.operation_id);
         push_string(&mut bytes, &entry.request_digest_sha256);
-        push_optional_string(&mut bytes, entry.idempotency_key.as_deref());
+        push_optional_string(&mut bytes, entry.idempotency_key_digest_sha256.as_deref());
         push_u64(&mut bytes, entry.scheduled_monotonic_tick);
         push_string(&mut bytes, &entry.monotonic_clock_id);
         push_string(&mut bytes, &entry.monotonic_clock_epoch);
@@ -364,11 +352,11 @@ pub fn verify_offer_ledger(
         if entry.requires_idempotency_key && entry.idempotency_key.is_none() {
             issues.push(OfferLedgerIssue::MissingIdempotencyKeyForExternalEffect(index));
         }
-        if let Some(key) = entry.idempotency_key.as_deref() {
-            if key.trim().is_empty() {
-                issues.push(OfferLedgerIssue::EmptyIdempotencyKey(index));
-            } else if !seen_idempotency_keys.insert(key.to_string()) {
-                issues.push(OfferLedgerIssue::DuplicateIdempotencyKey(key.to_string()));
+        if let Some(key_digest) = entry.idempotency_key_digest_sha256.as_deref() {
+            if !valid_sha256_hex(key_digest) {
+                issues.push(OfferLedgerIssue::InvalidIdempotencyKeyDigest(index));
+            } else if !seen_idempotency_keys.insert(key_digest.to_string()) {
+                issues.push(OfferLedgerIssue::DuplicateIdempotencyKey(key_digest.to_string()));
             }
         }
         if entry.operation_class.trim().is_empty() { issues.push(OfferLedgerIssue::EmptyOperationClass(index)); }
@@ -401,7 +389,7 @@ pub fn verify_offer_ledger(
                     sequence: entry.sequence,
                     operation_id: entry.operation_id.clone(),
                     request_digest_sha256: entry.request_digest_sha256.clone(),
-                    idempotency_key_digest_sha256: entry.idempotency_key.as_deref().map(idempotency_key_digest),
+                    idempotency_key_digest_sha256: entry.idempotency_key_digest_sha256.as_deref().map(idempotency_key_digest),
                     contract_id: entry.operation_contract_id.clone(),
                     contract_version: entry.operation_contract_version.clone(),
                     contract_digest_sha256: entry.operation_contract_digest_sha256.clone(),
@@ -528,7 +516,7 @@ mod tests {
                 scenario_id: scenario_id.clone(),
                 operation_id: format!("op-{}", index + 1),
                 request_digest_sha256: digest(&format!("request-{index}")),
-                idempotency_key: Some(format!("idem-{index}")),
+                idempotency_key_digest_sha256: Some(digest(&format!("idem-{index}"))),
                 scheduled_monotonic_tick: 2_000 + index * 1_000,
                 monotonic_clock_id: clock_id.clone(),
                 monotonic_clock_epoch: clock_epoch.clone(),
@@ -645,7 +633,7 @@ mod tests {
     #[test]
     fn duplicate_idempotency_key_is_rejected() {
         let mut envelope = valid_envelope();
-        envelope.entries[1].idempotency_key = envelope.entries[0].idempotency_key.clone();
+        envelope.entries[1].idempotency_key_digest_sha256 = envelope.entries[0].idempotency_key_digest_sha256.clone();
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
         assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err()
             .contains(&OfferLedgerIssue::DuplicateIdempotencyKey("idem-0".into())));
@@ -707,7 +695,7 @@ mod tests {
     #[test]
     fn missing_idempotency_key_is_rejected_for_external_effect_offers() {
         let mut envelope = valid_envelope();
-        envelope.entries[2].idempotency_key = None;
+        envelope.entries[2].idempotency_key_digest_sha256 = None;
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
         assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err()
             .contains(&OfferLedgerIssue::MissingIdempotencyKeyForExternalEffect(2)));
@@ -716,7 +704,7 @@ mod tests {
     #[test]
     fn idempotency_key_may_be_absent_for_non_mutating_operations() {
         let mut envelope = valid_envelope();
-        envelope.entries[0].idempotency_key = None;
+        envelope.entries[0].idempotency_key_digest_sha256 = None;
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
         assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).is_ok());
     }
