@@ -59,6 +59,7 @@ transitive dependency resolution is not yet frozen.
   DHT projection observation, one transport attempt, recipient admission,
   inbox commit, decryption verification, receipt creation, and separately
   attributed receipt verification.
+- Host admission and domain authorization must reference the same grant hash,
   scope and exact cell. The authored source-action hash must match the DHT
   projection's action hash. Receipt creation and verification must reference
   the same recipient-receipt digest and scope. These are consistency checks on
@@ -68,7 +69,7 @@ transitive dependency resolution is not yet frozen.
   selection, outbox commit and DHT observation remain operation-scoped.
 - One recipient identity and one content commitment must persist through
   admission, commit, decryption, receipt creation and receipt verification.
-  The verifier must reference a recipient receipt or signed statement.
+  The verified event must reference the same recipient-receipt digest.
 - Obvious plaintext and secret-bearing field names are rejected.
 
 ## Explicit non-goals and limitations
