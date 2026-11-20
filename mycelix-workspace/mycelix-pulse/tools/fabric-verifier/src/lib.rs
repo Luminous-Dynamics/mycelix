@@ -964,6 +964,39 @@ fn verify_success_projection(
                 continue;
             }
 
+            let host_admission = events.iter().find(|event| {
+                event.event_type == "authority_host_admitted"
+                    && event.logical_operation_id == receipt.logical_operation_id
+                    && event.attempt_id.as_deref() == Some(attempt_id)
+                    && receipt_ancestors.contains(&event.event_id)
+            });
+            let domain_authorization = events.iter().find(|event| {
+                event.event_type == "domain_authorized"
+                    && event.logical_operation_id == receipt.logical_operation_id
+                    && event.attempt_id.as_deref() == Some(attempt_id)
+                    && receipt_ancestors.contains(&event.event_id)
+            });
+            let grant_references_match = match (host_admission, domain_authorization) {
+                (Some(host), Some(domain)) => {
+                    match (
+                        evidence_reference(host, "grant_action_hash"),
+                        evidence_reference(domain, "grant_action_hash"),
+                    ) {
+                        (Some(host_grant), Some(domain_grant)) => {
+                            host_grant.sha256 == domain_grant.sha256
+                                && host_grant.scope == domain_grant.scope
+                                && host.cell_ref.is_some()
+                                && host.cell_ref == domain.cell_ref
+                        }
+                        _ => false,
+                    }
+                }
+                _ => false,
+            };
+            if !grant_references_match {
+                continue;
+            }
+
             let source_action = events.iter().find(|event| {
                 event.event_type == "source_action_authored"
                     && event.logical_operation_id == receipt.logical_operation_id
@@ -1062,11 +1095,19 @@ fn verify_success_projection(
             {
                 continue;
             }
-            if !receipt
-                .evidence_refs
-                .iter()
-                .any(|reference| reference.kind == "recipient_receipt" || reference.kind == "signed_statement")
-            {
+            let created_receipt_reference = evidence_reference(created, "recipient_receipt");
+            let verified_receipt_reference = evidence_reference(receipt, "recipient_receipt");
+            let receipt_references_match = match (
+                created_receipt_reference,
+                verified_receipt_reference,
+            ) {
+                (Some(created_ref), Some(verified_ref)) => {
+                    created_ref.sha256 == verified_ref.sha256
+                        && created_ref.scope == verified_ref.scope
+                }
+                _ => false,
+            };
+            if !receipt_references_match {
                 continue;
             }
 
@@ -1459,6 +1500,14 @@ mod tests {
             "event_type": event_type,
             "evidence_role": role,
             "actor_ref": actor,
+            "cell_ref": if matches!(
+                event_type,
+                "authority_host_admitted" | "domain_authorized" | "source_action_authored"
+            ) {
+                json!("cell-sender")
+            } else {
+                Value::Null
+            },
             "content_commitment": commitment,
             "observed_at": {
                 "clock_domain": "test-clock",
@@ -1471,7 +1520,12 @@ mod tests {
                 "authority_host_admitted" => vec![json!({
                     "kind": "grant_action_hash",
                     "sha256": "6".repeat(64),
-                    "scope": "cell-grant"
+                    "scope": "cell-sender:send_message_v2"
+                })],
+                "domain_authorized" => vec![json!({
+                    "kind": "grant_action_hash",
+                    "sha256": "6".repeat(64),
+                    "scope": "cell-sender:send_message_v2"
                 })],
                 "source_action_authored" | "dht_projection_observed" => vec![json!({
                     "kind": "action_hash",
@@ -1483,7 +1537,7 @@ mod tests {
                     "sha256": "8".repeat(64),
                     "scope": "integrity-acceptance"
                 })],
-                "receipt_verified" => vec![json!({
+                "receipt_created" | "receipt_verified" => vec![json!({
                     "kind": "recipient_receipt",
                     "sha256": "f".repeat(64),
                     "scope": "recipient-commitment"
@@ -1929,6 +1983,30 @@ mod tests {
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
     }
+    #[test]
+    fn rejects_domain_authorization_for_a_different_host_grant() {
+        let mut trace = valid_trace();
+        let domain = event_index(&trace, "domain-authorized");
+        trace["events"][domain]["evidence_refs"][0]["sha256"] = json!("9".repeat(64));
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().iter().any(|item| {
+            item.message.contains("lacks a causally connected")
+        }));
+    }
+
+    #[test]
+    fn rejects_receipt_verification_for_a_different_recipient_receipt() {
+        let mut trace = valid_trace();
+        let receipt = event_index(&trace, "receipt-verified");
+        trace["events"][receipt]["evidence_refs"][0]["sha256"] = json!("9".repeat(64));
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().iter().any(|item| {
+            item.message.contains("lacks a causally connected")
+        }));
+    }
+
     #[test]
     fn rejects_dht_projection_for_a_different_source_action_hash() {
         let mut trace = valid_trace();
