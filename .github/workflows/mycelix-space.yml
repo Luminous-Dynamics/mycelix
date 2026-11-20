@@ -1,0 +1,71 @@
+name: Mycelix Space workspace
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-space/**"
+      - ".github/workflows/mycelix-space.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/mycelix-space/**"
+      - ".github/workflows/mycelix-space.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mycelix-space-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  space-workspace:
+    name: Space Holochain workspace (native + WASM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.96.0"
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-workspace/mycelix-space -> mycelix-workspace/mycelix-space/target
+      - name: Check Space workspace formatting
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-space/Cargo.toml --all -- --check
+      - name: Test all Space workspace members
+        run: cargo test --manifest-path mycelix-workspace/mycelix-space/Cargo.toml --workspace
+      - name: Build default WASM zome members
+        run: cargo build --manifest-path mycelix-workspace/mycelix-space/Cargo.toml --release --target wasm32-unknown-unknown
+
+  space-integration-tests:
+    name: Space integration and edge-case tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libclang-dev pkg-config libssl-dev
+          libclang_path="$(dirname "$(find /usr/lib -name 'libclang.so' -print -quit)")"
+          test -n "$libclang_path"
+          echo "LIBCLANG_PATH=$libclang_path" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.96.0"
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-workspace/mycelix-space/tests -> mycelix-workspace/mycelix-space/tests/target
+            mycelix-workspace/crates/orbital-mechanics -> mycelix-workspace/crates/orbital-mechanics/target
+      - name: Check separate integration workspace formatting
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-space/tests/Cargo.toml --all -- --check
+      - name: Run Space integration workspace tests
+        run: cargo test --manifest-path mycelix-workspace/mycelix-space/tests/Cargo.toml --workspace
+
