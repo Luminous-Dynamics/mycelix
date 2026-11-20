@@ -52,11 +52,18 @@ transitive dependency resolution is not yet frozen.
 - Evidence roles are constrained for host, domain, source-chain, integrity,
   DHT, transport, recipient, receipt, recovery, and UI observations.
 - One logical operation cannot produce multiple recipient inbox commits.
-- A `SUCCESS_VERIFIED` UI projection must have a causal path to a separately
-  attributed receipt verifier, which in turn has causal ancestors for recipient
-  inbox commit, recipient decryption verification, and receipt creation. The
-  content commitment must match across those events, and the verifier must
-  reference a recipient receipt or signed statement.
+- A `SUCCESS_VERIFIED` UI projection must have one causally connected
+  lifecycle: user intent, selected crypto profile, host admission, domain
+  authorization, source-chain authorship, integrity acceptance, durable outbox,
+  DHT projection observation, one transport attempt, recipient admission,
+  inbox commit, decryption verification, receipt creation, and separately
+  attributed receipt verification.
+- Attempt-scoped authority, authorship, validation, transport and recipient
+  events must bind to the same concrete attempt ID. Logical intent, crypto
+  selection, outbox commit and DHT observation remain operation-scoped.
+- One recipient identity and one content commitment must persist through
+  admission, commit, decryption, receipt creation and receipt verification.
+  The verifier must reference a recipient receipt or signed statement.
 - Obvious plaintext and secret-bearing field names are rejected.
 
 ## Explicit non-goals and limitations
