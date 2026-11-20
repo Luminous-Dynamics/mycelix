@@ -2092,6 +2092,32 @@
       "execution_status": "not_run_exact_head",
       "negative_control_required": true,
       "execution_evidence": null
+    },
+    {
+      "id": "ENVOY-005",
+      "family": "retry_policy_boundary",
+      "title": "Envoy reset-before-request retries only before upstream request headers are sent",
+      "setup": "inject reset before and after upstream request headers; record attempt count and upstream bytes",
+      "expected_decision": "retry_pre_send_only",
+      "oracle": "the configured narrow retry behavior is distinguished from any claim about remote effect reconciliation",
+      "source_coverage": "planned",
+      "source_test": null,
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "ENVOY-006",
+      "family": "retry_policy_boundary",
+      "title": "Envoy broad reset and 5xx retry effects are measured separately",
+      "setup": "receiver commits before upstream reset or response loss under broad reset/5xx retry policy",
+      "expected_decision": "measure_duplicate_effect_and_retry_amplification",
+      "oracle": "retry policy behavior is not mistaken for server-side deduplication or transaction reconciliation",
+      "source_coverage": "planned",
+      "source_test": null,
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
     }
   ]
 }
