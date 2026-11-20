@@ -171,6 +171,7 @@ struct EventRecord {
     event_type: String,
     evidence_role: String,
     actor_ref: String,
+    cell_ref: Option<String>,
     content_commitment: Option<String>,
     clock_domain: String,
     monotonic_ns: u64,
@@ -361,6 +362,18 @@ fn parse_event(
     let event_type = string_field(object, "event_type", &path, findings)?;
     let evidence_role = string_field(object, "evidence_role", &path, findings)?;
     let actor_ref = string_field(object, "actor_ref", &path, findings)?;
+    let cell_ref = match object.get("cell_ref") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(value)) if !value.trim().is_empty() => Some(value.clone()),
+        _ => {
+            finding(
+                findings,
+                format!("{path}.cell_ref"),
+                "cell_ref must be null or a non-empty string",
+            );
+            None
+        }
+    };
     let _redaction_profile = string_field(object, "redaction_profile", &path, findings)?;
 
     if !EVENT_TYPES.contains(&event_type.as_str()) {
@@ -528,6 +541,7 @@ fn parse_event(
         event_type,
         evidence_role,
         actor_ref,
+        cell_ref,
         content_commitment,
         clock_domain,
         monotonic_ns,
@@ -561,6 +575,204 @@ fn ancestors(
     result
 }
 
+fn same_operation(left: &EventRecord, right: &EventRecord) -> bool {
+    left.logical_operation_id == right.logical_operation_id
+}
+
+fn same_attempt(left: &EventRecord, right: &EventRecord) -> bool {
+    left.attempt_id.is_some() && left.attempt_id == right.attempt_id
+}
+
+fn causal_relation_error(
+    predecessor: &EventRecord,
+    child: &EventRecord,
+    relation: &str,
+) -> Option<&'static str> {
+    let is_transport = |event_type: &str| {
+        matches!(
+            event_type,
+            "transport_attempt_started"
+                | "transport_attempt_outcome_unknown"
+                | "transport_ack_observed"
+        )
+    };
+    let is_recovery = |event_type: &str| {
+        matches!(
+            event_type,
+            "recovery_started" | "recovery_partial" | "recovery_completed"
+        )
+    };
+
+    match relation {
+        "local_program_order" => {
+            if !same_operation(predecessor, child)
+                || predecessor.actor_ref != child.actor_ref
+                || predecessor.clock_domain != child.clock_domain
+                || predecessor.monotonic_ns > child.monotonic_ns
+            {
+                Some(
+                    "local_program_order requires the same operation, actor and clock domain with nondecreasing monotonic time",
+                )
+            } else {
+                None
+            }
+        }
+        "source_chain_successor" => {
+            if predecessor.evidence_role != "source_chain_author"
+                || child.evidence_role != "source_chain_author"
+                || predecessor.actor_ref != child.actor_ref
+                || predecessor.cell_ref.is_none()
+                || predecessor.cell_ref != child.cell_ref
+                || predecessor.event_type != "source_action_authored"
+                || child.event_type != "source_action_authored"
+            {
+                Some(
+                    "source_chain_successor requires two authored source actions from the same actor and exact cell",
+                )
+            } else {
+                None
+            }
+        }
+        "request_response" => {
+            if predecessor.event_type != "transport_attempt_started"
+                || child.event_type != "recipient_admitted"
+                || !same_operation(predecessor, child)
+                || !same_attempt(predecessor, child)
+            {
+                Some(
+                    "request_response in v0.1 requires a matching transport-start and recipient-admission attempt",
+                )
+            } else {
+                None
+            }
+        }
+        "attempt_for" => {
+            if !same_operation(predecessor, child)
+                || predecessor.attempt_id.is_some()
+                || child.attempt_id.is_none()
+            {
+                Some(
+                    "attempt_for requires an operation-scoped predecessor and an attempt-scoped child for the same logical operation",
+                )
+            } else {
+                None
+            }
+        }
+        "transport_for" => {
+            if !matches!(
+                predecessor.event_type.as_str(),
+                "source_action_authored" | "integrity_validation_accepted"
+            ) || !is_transport(&child.event_type)
+                || !same_operation(predecessor, child)
+                || !same_attempt(predecessor, child)
+            {
+                Some(
+                    "transport_for requires a transport event bound to the same logical operation and attempt as its authored/validated source",
+                )
+            } else {
+                None
+            }
+        }
+        "commits" => {
+            if predecessor.event_type != "recipient_admitted"
+                || child.event_type != "recipient_inbox_committed"
+                || !same_operation(predecessor, child)
+                || !same_attempt(predecessor, child)
+                || predecessor.actor_ref != child.actor_ref
+            {
+                Some(
+                    "commits requires recipient inbox commit to follow admission for the same recipient, operation and attempt",
+                )
+            } else {
+                None
+            }
+        }
+        "receipt_for" => {
+            if predecessor.event_type != "recipient_decryption_verified"
+                || child.event_type != "receipt_created"
+                || !same_operation(predecessor, child)
+                || !same_attempt(predecessor, child)
+                || predecessor.actor_ref != child.actor_ref
+            {
+                Some(
+                    "receipt_for requires receipt creation to follow decryption verification by the same recipient and attempt",
+                )
+            } else {
+                None
+            }
+        }
+        "verifies" => {
+            let valid_pair = matches!(
+                (predecessor.event_type.as_str(), child.event_type.as_str()),
+                ("source_action_authored", "integrity_validation_accepted")
+                    | ("source_action_authored", "integrity_validation_rejected")
+                    | ("recipient_inbox_committed", "recipient_decryption_verified")
+                    | ("receipt_created", "receipt_verified")
+                    | ("receipt_created", "receipt_rejected")
+            );
+            if !valid_pair
+                || !same_operation(predecessor, child)
+                || !same_attempt(predecessor, child)
+            {
+                Some(
+                    "verifies requires a supported validation/decryption/receipt-verification pair for the same operation and attempt",
+                )
+            } else {
+                None
+            }
+        }
+        "revokes" => {
+            if !matches!(
+                predecessor.event_type.as_str(),
+                "authority_host_admitted" | "authority_host_denied"
+            ) || child.event_type != "revocation_committed"
+                || predecessor.cell_ref.is_none()
+                || predecessor.cell_ref != child.cell_ref
+            {
+                Some(
+                    "revokes requires a host authority event and a revocation event bound to the same exact cell",
+                )
+            } else {
+                None
+            }
+        }
+        "checkpoint_descendant_of" => {
+            if !predecessor.evidence_kinds.iter().any(|kind| kind == "source_checkpoint")
+                || !child.evidence_kinds.iter().any(|kind| kind == "source_checkpoint")
+            {
+                Some(
+                    "checkpoint_descendant_of requires source-checkpoint evidence on both events",
+                )
+            } else {
+                None
+            }
+        }
+        "recovered_from" => {
+            if predecessor.event_type != "recovery_started"
+                || !matches!(
+                    child.event_type.as_str(),
+                    "recovery_partial" | "recovery_completed"
+                )
+                || !same_operation(predecessor, child)
+            {
+                Some(
+                    "recovered_from requires partial/completed recovery to descend from recovery_started for the same operation",
+                )
+            } else {
+                None
+            }
+        }
+        "derived_from" => {
+            if !same_operation(predecessor, child) {
+                Some("derived_from cannot cross logical operation identities")
+            } else {
+                None
+            }
+        }
+        _ => Some("unsupported causal relation"),
+    }
+}
+
 fn verify_acyclic_graph(
     events: &[EventRecord],
     by_id: &HashMap<String, usize>,
@@ -592,6 +804,21 @@ fn verify_acyclic_graph(
                     outgoing[*parent_index].push(child_index);
 
                     let parent = &events[*parent_index];
+                    if let Some(message) =
+                        causal_relation_error(parent, event, &predecessor.relation)
+                    {
+                        finding(
+                            findings,
+                            format!(
+                                "$.events.{}.causal_predecessors",
+                                event.event_id
+                            ),
+                            format!(
+                                "causal relation {} from {} is semantically invalid: {message}",
+                                predecessor.relation, predecessor.event_id
+                            ),
+                        );
+                    }
                     if parent.clock_domain == event.clock_domain
                         && parent.monotonic_ns > event.monotonic_ns
                     {
@@ -1261,7 +1488,7 @@ mod tests {
                     Some("attempt-1"),
                     None,
                     3,
-                    vec![("crypto-profile", "request_response")]
+                    vec![("crypto-profile", "derived_from")]
                 ),
                 event(
                     "domain-authorized",
@@ -1271,7 +1498,7 @@ mod tests {
                     Some("attempt-1"),
                     None,
                     4,
-                    vec![("host-admitted", "request_response")]
+                    vec![("host-admitted", "derived_from")]
                 ),
                 event(
                     "source-action",
@@ -1281,7 +1508,7 @@ mod tests {
                     Some("attempt-1"),
                     Some(&commitment),
                     5,
-                    vec![("domain-authorized", "source_chain_successor")]
+                    vec![("domain-authorized", "derived_from")]
                 ),
                 event(
                     "integrity-accepted",
@@ -1531,6 +1758,35 @@ mod tests {
         let result = verify_trace(&trace, None);
         assert!(result.is_ok(), "{result:?}");
         assert_eq!(result.unwrap().terminal_disposition, "UNKNOWN");
+    }
+
+    #[test]
+    fn rejects_semantically_invalid_causal_relation_even_when_edge_resolves() {
+        let mut trace = valid_trace();
+        let commit = event_index(&trace, "recipient-commit");
+        trace["events"][commit]["causal_predecessors"] =
+            json!([{"event_id": "recipient-admitted", "relation": "derived_from"}]);
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().iter().any(|item| {
+            item.message.contains("causal relation derived_from")
+                && item.message.contains("semantically invalid")
+        }));
+    }
+
+    #[test]
+    fn rejects_attempt_for_edge_to_another_operation() {
+        let mut trace = valid_trace();
+        let outbox = event_index(&trace, "outbox");
+        let transport = event_index(&trace, "transport-started");
+        trace["events"][outbox]["logical_operation_id"] = json!("logical-other");
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().iter().any(|item| {
+            item.message.contains("attempt_for")
+                && item.message.contains("same logical operation")
+        }));
+        assert_ne!(outbox, transport);
     }
 
     #[test]
