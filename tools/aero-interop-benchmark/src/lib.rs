@@ -597,9 +597,11 @@ fn validate_claim_observations(
 
 pub fn evaluate_benchmark(
     manifest: &BenchmarkManifestV1,
+    corpus_payloads: &[(&ArtifactRef, &[u8])],
     runs: &[ToolRunEvidence<'_>],
 ) -> Result<BenchmarkScorecard, BenchmarkError> {
     validate_benchmark_manifest(manifest)?;
+    verify_benchmark_corpus_payloads(manifest, corpus_payloads)?;
     let expected_slots = manifest.body.tools.len() * manifest.body.cases.len();
     if runs.len() != expected_slots {
         return Err(BenchmarkError::RunGridMismatch {
@@ -841,6 +843,20 @@ mod tests {
         payloads.iter().map(|(reference, bytes)| (reference, bytes.as_slice())).collect()
     }
 
+    fn corpus_payloads(
+        manifest: &BenchmarkManifestV1,
+        run_payloads: &[(ArtifactRef, Vec<u8>)],
+    ) -> Vec<(ArtifactRef, Vec<u8>)> {
+        vec![
+            (run_payloads[3].0.clone(), run_payloads[3].1.clone()),
+            (run_payloads[4].0.clone(), run_payloads[4].1.clone()),
+            (
+                manifest.body.cases[0].oracle_artifact.reference.clone(),
+                ORACLE_BYTES.to_vec(),
+            ),
+        ]
+    }
+
     fn run<'a>(
         tool_id: &'a str,
         case_id: &'a str,
@@ -863,6 +879,8 @@ mod tests {
     fn full_grid_verifies_receipt_and_reports_false_pass_without_aggregate_score() {
         let (manifest, receipt, payloads) = fixture();
         let borrowed = borrowed(&payloads);
+        let corpus_owned = corpus_payloads(&manifest, &payloads);
+        let corpus_borrowed = borrowed(&corpus_owned);
         let observations = vec![
             ClaimObservationV1 {
                 claim_id: "trace.characteristic_identity".into(),
@@ -887,7 +905,7 @@ mod tests {
             &borrowed,
             &observations,
         );
-        let score = evaluate_benchmark(&manifest, &[run]).unwrap();
+        let score = evaluate_benchmark(&manifest, &corpus_borrowed, &[run]).unwrap();
         let tool = &score.tools[0];
         let identity = &tool.dimensions[&BenchmarkDimension::IdentityResolution];
         assert_eq!(identity.true_accepts, 1);
@@ -907,6 +925,8 @@ mod tests {
         receipt.outputs.clear();
         receipt.receipt_sha256 = compute_receipt_digest(&receipt).unwrap();
         let borrowed = borrowed(&payloads[..5]);
+        let corpus_owned = corpus_payloads(&manifest, &payloads);
+        let corpus_borrowed = borrowed(&corpus_owned);
         let run = ToolRunEvidence {
             tool_id: "synthetic-step-to-qif",
             case_id: "synthetic-ap242-qif-001",
@@ -916,7 +936,7 @@ mod tests {
             observed_claims: &[],
             reason_code: None,
         };
-        assert_eq!(evaluate_benchmark(&manifest, &[run]), Err(BenchmarkError::MissingAttemptReason));
+        assert_eq!(evaluate_benchmark(&manifest, &corpus_borrowed, &[run]), Err(BenchmarkError::MissingAttemptReason));
     }
 
     #[test]
@@ -939,9 +959,11 @@ mod tests {
 
     #[test]
     fn missing_tool_case_slot_is_not_removed_from_denominator() {
-        let (manifest, _, _) = fixture();
+        let (manifest, _, payloads) = fixture();
+        let corpus_owned = corpus_payloads(&manifest, &payloads);
+        let corpus_borrowed = borrowed(&corpus_owned);
         assert_eq!(
-            evaluate_benchmark(&manifest, &[]),
+            evaluate_benchmark(&manifest, &corpus_borrowed, &[]),
             Err(BenchmarkError::RunGridMismatch { expected: 1, actual: 0 })
         );
     }
@@ -950,6 +972,8 @@ mod tests {
     fn duplicate_claim_observation_is_rejected() {
         let (manifest, receipt, payloads) = fixture();
         let borrowed = borrowed(&payloads);
+        let corpus_owned = corpus_payloads(&manifest, &payloads);
+        let corpus_borrowed = borrowed(&corpus_owned);
         let observations = vec![
             ClaimObservationV1 { claim_id: "trace.characteristic_identity".into(), disposition: ClaimObservationDisposition::Accepted, reason_code: None },
             ClaimObservationV1 { claim_id: "trace.characteristic_identity".into(), disposition: ClaimObservationDisposition::Accepted, reason_code: None },
@@ -957,7 +981,7 @@ mod tests {
             ClaimObservationV1 { claim_id: "pmi.semantic_pmi_preserved".into(), disposition: ClaimObservationDisposition::Unknown, reason_code: Some("ORACLE_NOT_ADJUDICATED".into()) },
         ];
         let run = run("synthetic-step-to-qif", "synthetic-ap242-qif-001", &receipt, &borrowed, &observations);
-        assert!(matches!(evaluate_benchmark(&manifest, &[run]), Err(BenchmarkError::ClaimObservationSetMismatch)));
+        assert!(matches!(evaluate_benchmark(&manifest, &corpus_borrowed, &[run]), Err(BenchmarkError::ClaimObservationSetMismatch)));
     }
 
     #[test]
@@ -966,13 +990,15 @@ mod tests {
         receipt.case_id = "other-case".into();
         receipt.receipt_sha256 = compute_receipt_digest(&receipt).unwrap();
         let borrowed = borrowed(&payloads);
+        let corpus_owned = corpus_payloads(&manifest, &payloads);
+        let corpus_borrowed = borrowed(&corpus_owned);
         let observations = vec![
             ClaimObservationV1 { claim_id: "trace.characteristic_identity".into(), disposition: ClaimObservationDisposition::Accepted, reason_code: None },
             ClaimObservationV1 { claim_id: "trace.wrong_document_join".into(), disposition: ClaimObservationDisposition::Rejected, reason_code: None },
             ClaimObservationV1 { claim_id: "pmi.semantic_pmi_preserved".into(), disposition: ClaimObservationDisposition::Unknown, reason_code: Some("ORACLE_NOT_ADJUDICATED".into()) },
         ];
         let run = run("synthetic-step-to-qif", "synthetic-ap242-qif-001", &receipt, &borrowed, &observations);
-        assert_eq!(evaluate_benchmark(&manifest, &[run]), Err(BenchmarkError::ReceiptIdentityMismatch));
+        assert_eq!(evaluate_benchmark(&manifest, &corpus_borrowed, &[run]), Err(BenchmarkError::ReceiptIdentityMismatch));
     }
 
     #[test]
