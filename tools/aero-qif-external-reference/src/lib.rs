@@ -276,8 +276,8 @@ pub fn parse_trace_case_json(bytes: &[u8]) -> Result<QifExternalReferenceTraceCa
     for (index, item) in measurements.iter().enumerate() {
         let scope = format!("case.results.measurements[{index}]");
         check_fields(item, &scope,
-            &["measurement_id", "external_document_reference_id", "xid", "status"],
-            &["measurement_id", "external_document_reference_id", "xid", "status"])?;
+            &["measurement_id", "result_set_id", "external_document_reference_id", "xid", "status"],
+            &["measurement_id", "result_set_id", "external_document_reference_id", "xid", "status"])?;
     }
 
     let plans = value.get("plans").and_then(Value::as_array)
@@ -317,6 +317,11 @@ pub fn parse_trace_case_json(bytes: &[u8]) -> Result<QifExternalReferenceTraceCa
             check_fields(nominal, &nominal_scope,
                 &["object_id", "characteristic_id", "entity_external_ids"],
                 &["object_id", "characteristic_id", "entity_external_ids"])?;
+            let ids = nominal.get("entity_external_ids").and_then(Value::as_array)
+                .ok_or_else(|| TraceError::MalformedObject(format!("{nominal_scope}.entity_external_ids")))?;
+            if ids.iter().any(|id| id.as_u64().filter(|value| *value > 0 && *value <= u32::MAX as u64).is_none()) {
+                return Err(TraceError::MalformedObject(format!("{nominal_scope}.entity_external_ids")));
+            }
         }
     }
 
@@ -367,7 +372,7 @@ fn check_content_artifact(value: &Value, scope: &str) -> Result<(), TraceError> 
 }
 
 fn valid_sha256(value: &str) -> bool {
-    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn valid_uuid(value: &str) -> bool {
@@ -690,40 +695,73 @@ pub fn verify_and_resolve_trace_case(
 fn resolve_without_bytes(
     case: &QifExternalReferenceTraceCaseV1,
 ) -> Result<(TraceDisposition, Vec<ResolvedMeasurementTraceV1>), TraceError> {
-    // Reuse the same checked graph resolver by requiring all structural
-    // invariants here, but do not duplicate byte verification.
     validate_trace_case(case)?;
     let refs: BTreeMap<_, _> = case.results.external_documents.iter()
         .map(|item| (item.local_reference_id, item))
         .collect();
-    let plans: BTreeMap<_, _> = case.plans.iter().map(|plan| (plan.qpid.clone(), plan)).collect();
+    let plans: BTreeMap<_, _> = case.plans.iter()
+        .map(|plan| (normalized_uuid(&plan.qpid), plan))
+        .collect();
     let steps: BTreeMap<_, _> = case.step_documents.iter()
-        .map(|document| ((document.artifact.reference.id.clone(), document.artifact.reference.kind.clone()), document)).collect();
+        .map(|document| (
+            (document.artifact.reference.id.clone(), document.artifact.reference.kind.clone()),
+            document,
+        ))
+        .collect();
+
     let mut resolved = Vec::new();
     for measurement in &case.results.measurements {
         let external = refs[&measurement.external_document_reference_id];
-        let plan = plans[&external.plan_qpid];
-        let object = plan.objects.iter().find(|item| item.object_id == measurement.xid)
-            .expect("validated Plan xId");
-        let step_key = (plan.step_document.reference.id.clone(), plan.step_document.reference.kind.clone());
-        let step = steps[&step_key];
-        let entity = step.entities.iter().find(|item| item.uuid == object.step_uuid)
-            .expect("validated STEP UUID");
+        let plan = plans[&normalized_uuid(&external.plan_qpid)];
+        let item = plan.characteristic_items.iter()
+            .find(|item| item.object_id == measurement.xid)
+            .expect("validated CharacteristicItem xId");
+        let nominal = plan.characteristic_nominals.iter()
+            .find(|nominal| nominal.object_id == item.characteristic_nominal_id)
+            .expect("validated CharacteristicNominalId");
+        let step_key = (
+            plan.step_document.reference.id.clone(),
+            plan.step_document.reference.kind.clone(),
+        );
+        let step_document = steps[&step_key];
+
+        let mut step_entities = Vec::new();
+        for entity_external_id in &nominal.entity_external_ids {
+            let mapping = plan.digital_model_entities.iter()
+                .find(|mapping| mapping.entity_id == *entity_external_id)
+                .expect("validated EntityExternalId");
+            let step_entity = step_document.entities.iter()
+                .find(|entity| normalized_uuid(&entity.uuid) == normalized_uuid(&mapping.step_uuid))
+                .expect("validated STEP UUID mapping");
+            step_entities.push(ResolvedStepEntityV1 {
+                entity_external_id: *entity_external_id,
+                step_uuid: step_entity.uuid.clone(),
+                step_entity_kind: step_entity.kind,
+                step_document: step_document.artifact.clone(),
+            });
+        }
+        step_entities.sort_by(|left, right| {
+            left.entity_external_id.cmp(&right.entity_external_id)
+        });
+
         resolved.push(ResolvedMeasurementTraceV1 {
             measurement_id: measurement.measurement_id.clone(),
+            result_set_id: measurement.result_set_id.clone(),
             status: measurement.status,
             results_qpid: case.results.qpid.clone(),
             external_document_reference_id: external.local_reference_id,
             plan_qpid: plan.qpid.clone(),
             plan_artifact: plan.artifact.clone(),
-            plan_object_id: object.object_id,
-            characteristic_id: object.characteristic_id.clone(),
-            step_document: step.artifact.clone(),
-            step_uuid: object.step_uuid.clone(),
-            step_entity_kind: entity.kind,
+            plan_characteristic_item_id: item.object_id,
+            characteristic_nominal_id: nominal.object_id,
+            characteristic_id: nominal.characteristic_id.clone(),
+            step_entities,
         });
     }
-    resolved.sort_by(|left, right| left.measurement_id.cmp(&right.measurement_id));
+    resolved.sort_by(|left, right| {
+        (&left.result_set_id, &left.measurement_id)
+            .cmp(&(&right.result_set_id, &right.measurement_id))
+    });
     Ok((TraceDisposition::AllMeasurementReferencesResolved, resolved))
 }
 
