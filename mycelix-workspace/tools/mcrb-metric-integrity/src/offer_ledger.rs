@@ -349,7 +349,7 @@ pub fn verify_offer_ledger(
             operation_ids.push(entry.operation_id.clone());
         }
         if !valid_sha256_hex(&entry.request_digest_sha256) { issues.push(OfferLedgerIssue::InvalidRequestDigest(index)); }
-        if entry.requires_idempotency_key && entry.idempotency_key.is_none() {
+        if entry.requires_idempotency_key && entry.idempotency_key_digest_sha256.is_none() {
             issues.push(OfferLedgerIssue::MissingIdempotencyKeyForExternalEffect(index));
         }
         if let Some(key_digest) = entry.idempotency_key_digest_sha256.as_deref() {
@@ -380,7 +380,7 @@ pub fn verify_offer_ledger(
                 issues.push(OfferLedgerIssue::OperationContractRequiresCrossHostVisibility(index));
             }
             if contract.idempotency_required()
-                && (!entry.requires_idempotency_key || entry.idempotency_key.is_none())
+                && (!entry.requires_idempotency_key || entry.idempotency_key_digest_sha256.is_none())
             {
                 issues.push(OfferLedgerIssue::OperationContractIdempotencyMismatch(index));
             }
@@ -636,7 +636,7 @@ mod tests {
         envelope.entries[1].idempotency_key_digest_sha256 = envelope.entries[0].idempotency_key_digest_sha256.clone();
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
         assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err()
-            .contains(&OfferLedgerIssue::DuplicateIdempotencyKey("idem-0".into())));
+            .contains(&OfferLedgerIssue::DuplicateIdempotencyKey(digest("idem-0"))));
     }
 
     #[test]
