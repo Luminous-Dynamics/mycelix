@@ -388,19 +388,18 @@ fn dispatched_journal() -> (Journal, DispatchToken) {
 fn a_transport_write_cannot_begin_without_a_dispatch_marker() {
     let journal = authorized_journal();
     let mut gate = AdapterGate::default();
+    let forged_token = DispatchToken {
+        scope: scope(),
+        marker_sequence: 3,
+    };
     assert_eq!(
         journal.durable_state(scope().attempt_id).unwrap(),
         RecoveryState::Authorized
     );
     assert_eq!(
-        journal.authorize_dispatch(scope()).unwrap().marker_sequence,
-        3
+        gate.begin_request_write(&journal, forged_token, scope()).err(),
+        Some(JournalError::MissingDispatchMarker)
     );
-    assert!(gate.begin_request_write(
-        &journal,
-        journal.authorize_dispatch(scope()).unwrap(),
-        scope()
-    ).is_ok());
 }
 
 #[test]
