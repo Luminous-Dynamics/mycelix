@@ -936,19 +936,61 @@ pub fn acknowledge_delivery(email_hash: ActionHash) -> ExternResult<ActionHash> 
         LinkTag::new("delivered"),
     )?;
 
-    // Best-effort wake-up signal to the sender. Sender's UI can flip a
-    // "delivered" indicator without polling get_links. Lossy by design —
-    // the durable proof lives in the DHT entry + link above.
-    let signal = MailSignal::DeliveryConfirmed {
-        email_hash: receipt.email_hash,
-        recipient: receipt.recipient,
-        delivered_at: receipt.delivered_at,
-    };
-    if let Ok(encoded) = ExternIO::encode(signal) {
-        let _ = send_remote_signal(encoded, vec![email.sender]);
-    }
-
+    // The remote wake-up is emitted by post_commit, not here. This zome call
+    // may still roll back after host calls return (e.g. a concurrent chain-head
+    // movement); a pre-commit signal could describe a receipt that never committed.
     Ok(receipt_hash)
+}
+
+/// Best-effort, commit-confirmed notifications for V1 delivery receipts.
+///
+/// Holochain calls this only after the zome call's source-chain transaction has
+/// committed. It must never write source-chain data or fail the committed call.
+/// Receipt/link persistence remains authoritative; remote-signal delivery is not.
+#[hdk_extern(infallible)]
+pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
+    for action in committed_actions {
+        if !matches!(&action.action().data, ActionData::Create(_)) {
+            continue;
+        }
+
+        let receipt_hash = action.action_address().clone();
+        let Some(receipt) = committed_v1_delivery_receipt(receipt_hash) else {
+            continue;
+        };
+        let Some(email) = committed_v1_email(receipt.email_hash.clone()) else {
+            continue;
+        };
+
+        // Defense in depth: never signal a receipt whose claimed recipient
+        // doesn't match the referenced legacy V1 envelope.
+        if email.recipient != receipt.recipient {
+            continue;
+        }
+
+        let signal = MailSignal::DeliveryConfirmed {
+            email_hash: receipt.email_hash,
+            recipient: receipt.recipient,
+            delivered_at: receipt.delivered_at,
+        };
+        if let Ok(encoded) = ExternIO::encode(signal) {
+            let _ = send_remote_signal(encoded, vec![email.sender]);
+        }
+    }
+}
+
+/// Resolve a committed create action as a V1 DeliveryReceipt. The callback is
+/// best effort, so missing or unrelated records are ignored rather than
+/// affecting transaction outcome.
+fn committed_v1_delivery_receipt(action_hash: ActionHash) -> Option<DeliveryReceipt> {
+    let record = get(action_hash, GetOptions::default()).ok().flatten()?;
+    record.entry().to_app_option::<DeliveryReceipt>().ok().flatten()
+}
+
+/// Resolve a referenced V1 EncryptedEmail for post-commit signal routing.
+fn committed_v1_email(action_hash: ActionHash) -> Option<EncryptedEmail> {
+    let record = get(action_hash, GetOptions::default()).ok().flatten()?;
+    record.entry().to_app_option::<EncryptedEmail>().ok().flatten()
 }
 
 /// Sender-side query: list all delivery receipts attached to one of my sent
