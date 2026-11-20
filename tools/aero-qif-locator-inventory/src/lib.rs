@@ -1608,7 +1608,7 @@ mod tests {
                         expanded("InspectionStatusEnum"),
                     ],
                     capture: LocatorCaptureMode::Text,
-                    min_occurrences: 1,
+                    min_occurrences: 0,
                     max_occurrences: None,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
@@ -1662,7 +1662,7 @@ mod tests {
                         expanded("CharacteristicItems"),
                     ],
                     capture: LocatorCaptureMode::ArrayCount,
-                    min_occurrences: 1,
+                    min_occurrences: 0,
                     max_occurrences: Some(1),
                     capture_attributes: vec!["{}n".into()],
                     declares_external_document_reference: false,
@@ -1767,7 +1767,7 @@ mod tests {
                         expanded("EntityExternalIds"),
                     ],
                     capture: LocatorCaptureMode::ArrayCount,
-                    min_occurrences: 1,
+                    min_occurrences: 0,
                     max_occurrences: Some(1),
                     capture_attributes: vec!["{}n".into()],
                     declares_external_document_reference: false,
@@ -1784,7 +1784,7 @@ mod tests {
                         expanded("Id"),
                     ],
                     capture: LocatorCaptureMode::LocalQifReference,
-                    min_occurrences: 1,
+                    min_occurrences: 0,
                     max_occurrences: None,
                     capture_attributes: vec!["{}asmPathId".into(), "{}asmPathXId".into()],
                     declares_external_document_reference: false,
@@ -1802,7 +1802,7 @@ mod tests {
                         expanded("Entities"),
                     ],
                     capture: LocatorCaptureMode::ArrayCount,
-                    min_occurrences: 1,
+                    min_occurrences: 0,
                     max_occurrences: Some(1),
                     capture_attributes: vec!["{}n".into()],
                     declares_external_document_reference: false,
@@ -1821,7 +1821,7 @@ mod tests {
                         expanded("Entity"),
                     ],
                     capture: LocatorCaptureMode::ElementId,
-                    min_occurrences: 1,
+                    min_occurrences: 0,
                     max_occurrences: None,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
@@ -1988,6 +1988,58 @@ mod tests {
     }
 
     #[test]
+    fn inspection_status_may_use_either_enum_or_other_text_but_not_both() {
+        let results = RESULTS
+            .replace(
+                "<InspectionStatus><InspectionStatusEnum>PASS</InspectionStatusEnum></InspectionStatus>",
+                "<InspectionStatus><OtherInspectionStatus>Supplier-reported partial inspection</OtherInspectionStatus></InspectionStatus>"
+            );
+        let (inventory, _) = derive_trace_locator_inventory(
+            "other-inspection-status",
+            &profile(),
+            &docs(results.as_bytes(), PLAN.as_bytes())
+        ).unwrap();
+        assert!(inventory.body.locators.iter().any(|row|
+            row.rule_id == "results.inspection_status_other"
+                && row.captured_value.as_deref() == Some("Supplier-reported partial inspection")
+        ));
+
+        let invalid = RESULTS.replace(
+            "<InspectionStatus><InspectionStatusEnum>PASS</InspectionStatusEnum></InspectionStatus>",
+            "<InspectionStatus><InspectionStatusEnum>PASS</InspectionStatusEnum><OtherInspectionStatus>contradictory</OtherInspectionStatus></InspectionStatus>"
+        );
+        assert!(matches!(
+            derive_trace_locator_inventory(
+                "two-inspection-statuses",
+                &profile(),
+                &docs(invalid.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::SourceRuleCoverageMismatch(_))
+        ));
+    }
+
+    #[test]
+    fn independent_profile_denominator_is_34_and_by_rule() {
+        let (inventory, report) = derive_trace_locator_inventory(
+            "golden-denominator",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+        ).unwrap();
+        assert_eq!(report.locator_count, 34);
+        let counts: BTreeMap<_, usize> = inventory.body.locators.iter()
+            .fold(BTreeMap::new(), |mut counts, row| {
+                *counts.entry(row.rule_id.as_str()).or_insert(0) += 1;
+                counts
+            });
+        assert_eq!(counts["results.characteristic_measurement"], 3);
+        assert_eq!(counts["results.characteristic_item_external_reference"], 3);
+        assert_eq!(counts["results.characteristic_measurement_status_enum"], 2);
+        assert_eq!(counts["results.characteristic_measurement_other_status"], 1);
+        assert_eq!(counts["plan.characteristic_item"], 2);
+        assert_eq!(counts["plan.characteristic_nominal"], 1);
+    }
+
+    #[test]
     fn external_plan_qpid_and_uri_are_child_elements_not_attributes() {
         let (inventory, _) = derive_trace_locator_inventory(
             "qif-child-fields",
@@ -2024,10 +2076,10 @@ mod tests {
         assert_eq!(report.disposition, InventoryDisposition::Complete);
         assert_eq!(report.source_document_count, 2);
         assert_eq!(report.declared_external_reference_count, 1);
-        assert_eq!(report.locator_count, 32);
+        assert_eq!(report.locator_count, 34);
         assert_eq!(
             inventory_required_locators(&inventory).unwrap().len(),
-            32
+            34
         );
     }
 
