@@ -74,6 +74,13 @@ pub struct EvidenceImpactInput {
     pub reason_path: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ObligationState {
+    Open,
+    Closed,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ObligationInput {
@@ -83,6 +90,8 @@ pub struct ObligationInput {
     pub mandatory: bool,
     pub reason_path: Vec<String>,
     pub demotable: bool,
+    pub state: ObligationState,
+    pub closure_receipt: Option<ArtifactRef>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -158,6 +167,7 @@ pub enum ExpectedInvariant {
     ReasonPathComplete,
     DeterministicReplay,
     OptionalTestsAdmissibilityGated,
+    OptionalTestsWaitForMandatoryClosure,
 }
 
 impl ExpectedInvariant {
@@ -168,6 +178,7 @@ impl ExpectedInvariant {
             Self::ReasonPathComplete => "REASON_PATH_COMPLETE",
             Self::DeterministicReplay => "DETERMINISTIC_REPLAY",
             Self::OptionalTestsAdmissibilityGated => "OPTIONAL_TESTS_ADMISSIBILITY_GATED",
+            Self::OptionalTestsWaitForMandatoryClosure => "OPTIONAL_TESTS_WAIT_FOR_MANDATORY_CLOSURE",
         }
     }
 }
@@ -192,6 +203,7 @@ pub struct ChangeToTestCaseV1 {
 pub enum CandidateDisposition {
     Ranked,
     AdmissibleUncalibrated,
+    BlockedByMandatory,
     Rejected,
     Indeterminate,
 }
@@ -210,6 +222,7 @@ pub struct RequalificationPlan {
     pub mandatory_obligations: Vec<ObligationInput>,
     pub conditional_obligations: Vec<ObligationInput>,
     pub unknown_obligations: Vec<ObligationInput>,
+    pub mandatory_closure_complete: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -246,6 +259,10 @@ pub enum QualificationError {
     ObligationSetMismatch(String),
     #[error("mandatory obligation is demotable or not marked mandatory: {0}")]
     MandatoryObligationDemoted(String),
+    #[error("closure receipt is missing, malformed, or not bound to a closed obligation: {0}")]
+    InvalidClosureReceipt(String),
+    #[error("unknown impact cannot be closed without a new canonical impact assessment: {0}")]
+    UnknownImpactCannotBeClosed(String),
     #[error("non-mandatory obligation has mandatory flag set: {0}")]
     InvalidMandatoryFlag(String),
     #[error("optional candidate cannot substitute for a mandatory obligation: {0}")]
@@ -437,6 +454,8 @@ pub fn parse_case_json(bytes: &[u8]) -> Result<ChangeToTestCaseV1, Qualification
         "mandatory",
         "reason_path",
         "demotable",
+        "state",
+        "closure_receipt",
     ];
     check_array_of_objects(
         value.get("obligations").ok_or_else(|| QualificationError::MissingField {
@@ -623,6 +642,23 @@ fn derive_plan(case: &ChangeToTestCaseV1) -> Result<RequalificationPlan, Qualifi
         if obligation.reason_path.is_empty() {
             return Err(QualificationError::MissingReasonPath(obligation.evidence_id.clone()));
         }
+        match obligation.state {
+            ObligationState::Open if obligation.closure_receipt.is_some() => {
+                return Err(QualificationError::InvalidClosureReceipt(obligation.obligation_id.clone()));
+            }
+            ObligationState::Open => {}
+            ObligationState::Closed => {
+                let Some(receipt) = &obligation.closure_receipt else {
+                    return Err(QualificationError::InvalidClosureReceipt(obligation.obligation_id.clone()));
+                };
+                if !valid_ref(receipt) || receipt.kind != "requalification_closure_receipt" {
+                    return Err(QualificationError::InvalidClosureReceipt(obligation.obligation_id.clone()));
+                }
+                if obligation.class == ObligationClass::Unknown {
+                    return Err(QualificationError::UnknownImpactCannotBeClosed(obligation.obligation_id.clone()));
+                }
+            }
+        }
     }
 
     let mut mandatory = Vec::new();
@@ -662,15 +698,31 @@ fn derive_plan(case: &ChangeToTestCaseV1) -> Result<RequalificationPlan, Qualifi
     conditional.sort_by(|a, b| a.obligation_id.cmp(&b.obligation_id));
     unknown.sort_by(|a, b| a.obligation_id.cmp(&b.obligation_id));
 
+    let mandatory_closure_complete = unknown.is_empty()
+        && mandatory.iter().all(|item| item.state == ObligationState::Closed)
+        && conditional.iter().all(|item| item.state == ObligationState::Closed);
+
     Ok(RequalificationPlan {
         case_id: case.case_id.clone(),
         mandatory_obligations: mandatory,
         conditional_obligations: conditional,
         unknown_obligations: unknown,
+        mandatory_closure_complete,
     })
 }
 
-fn evaluate_candidate(candidate: &OptionalCandidate) -> CandidateEvaluation {
+fn evaluate_candidate(
+    candidate: &OptionalCandidate,
+    mandatory_closure_complete: bool,
+) -> CandidateEvaluation {
+    if !mandatory_closure_complete {
+        return CandidateEvaluation {
+            candidate_id: candidate.candidate_id.clone(),
+            disposition: CandidateDisposition::BlockedByMandatory,
+            score_lower_bound_per_cost: None,
+            reason: "mandatory/conditional/unknown requalification obligations remain open; optional experiments cannot be ranked".into(),
+        };
+    }
     let disposition = candidate.admissibility.evaluate();
     match disposition {
         CandidateDisposition::Rejected => CandidateEvaluation {
@@ -711,8 +763,11 @@ fn evaluate_candidate(candidate: &OptionalCandidate) -> CandidateEvaluation {
 pub fn evaluate_case(case: &ChangeToTestCaseV1) -> Result<ChangeToTestReport, QualificationError> {
     validate_case(case)?;
     let plan = derive_plan(case)?;
+    let mandatory_closure_complete = plan.mandatory_closure_complete;
 
-    let mut optional_candidates: Vec<_> = case.optional_candidates.iter().map(evaluate_candidate).collect();
+    let mut optional_candidates: Vec<_> = case.optional_candidates.iter()
+        .map(|candidate| evaluate_candidate(candidate, mandatory_closure_complete))
+        .collect();
     optional_candidates.sort_by(|a, b| a.candidate_id.cmp(&b.candidate_id));
 
     let mut ranked: Vec<_> = optional_candidates
@@ -743,18 +798,33 @@ mod tests {
             .expect("fixture JSON")
     }
 
+    fn close_resolvable_obligations(case: &mut ChangeToTestCaseV1) {
+        for obligation in &mut case.obligations {
+            if obligation.class != ObligationClass::Unknown {
+                obligation.state = ObligationState::Closed;
+                obligation.closure_receipt = Some(ArtifactRef {
+                    id: format!("receipt:{}", obligation.obligation_id),
+                    kind: "requalification_closure_receipt".into(),
+                });
+            }
+        }
+    }
+
     #[test]
     fn checked_in_case_derives_three_non_demotable_mandatory_obligations() {
         let report = evaluate_case(&fixture()).expect("valid case");
         assert_eq!(report.plan.mandatory_obligations.len(), 3);
         assert!(report.plan.conditional_obligations.is_empty());
         assert!(report.plan.unknown_obligations.is_empty());
+        assert!(!report.plan.mandatory_closure_complete);
         assert!(report.plan.mandatory_obligations.iter().all(|item| item.mandatory && !item.demotable));
     }
 
     #[test]
     fn ineligible_optional_candidate_is_not_ranked() {
-        let report = evaluate_case(&fixture()).expect("valid case");
+        let mut case = fixture();
+        close_resolvable_obligations(&mut case);
+        let report = evaluate_case(&case).expect("valid case");
         let candidate = report.optional_candidates.iter().find(|item| item.candidate_id == "candidate:repeat-nominal-measurement").unwrap();
         assert_eq!(candidate.disposition, CandidateDisposition::Indeterminate);
         assert!(candidate.score_lower_bound_per_cost.is_none());
@@ -763,7 +833,9 @@ mod tests {
 
     #[test]
     fn uncalibrated_candidate_is_visible_but_unranked() {
-        let report = evaluate_case(&fixture()).expect("valid case");
+        let mut case = fixture();
+        close_resolvable_obligations(&mut case);
+        let report = evaluate_case(&case).expect("valid case");
         let candidate = report.optional_candidates.iter().find(|item| item.candidate_id == "candidate:nde-angle-study").unwrap();
         assert_eq!(candidate.disposition, CandidateDisposition::AdmissibleUncalibrated);
         assert!(candidate.score_lower_bound_per_cost.is_none());
@@ -773,6 +845,7 @@ mod tests {
     #[test]
     fn calibrated_optional_candidates_rank_by_lower_bound_per_cost() {
         let mut case = fixture();
+        close_resolvable_obligations(&mut case);
         for candidate in &mut case.optional_candidates {
             candidate.admissibility.independent_reference = GateStatus::Admitted;
             candidate.decision_value.calibrated = true;
@@ -792,6 +865,13 @@ mod tests {
                 "candidate:nde-angle-study".to_owned()
             ]
         );
+    }
+
+    #[test]
+    fn optional_tests_are_blocked_until_all_mandatory_obligations_close() {
+        let report = evaluate_case(&fixture()).expect("open requalification case");
+        assert_eq!(report.ranked_optional_candidate_ids.len(), 0);
+        assert!(report.optional_candidates.iter().all(|item| item.disposition == CandidateDisposition::BlockedByMandatory));
     }
 
     #[test]
@@ -842,9 +922,13 @@ mod tests {
             mandatory: false,
             reason_path: evidence.reason_path.clone(),
             demotable: false,
+            state: ObligationState::Open,
+            closure_receipt: None,
         });
         let report = evaluate_case(&case).expect("unknown must remain explicit");
         assert_eq!(report.plan.unknown_obligations.len(), 1);
+        assert!(!report.plan.mandatory_closure_complete);
+        assert!(report.optional_candidates.iter().all(|item| item.disposition == CandidateDisposition::BlockedByMandatory));
     }
 
     #[test]
@@ -876,6 +960,28 @@ mod tests {
         case.optional_candidates.reverse();
         let second = evaluate_case(&case).unwrap();
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn unknown_impact_cannot_be_closed_by_a_generic_receipt() {
+        let mut case = fixture();
+        let evidence = case.evidence.iter_mut().find(|item| item.expected_impact == ImpactClass::Unaffected).unwrap();
+        evidence.expected_impact = ImpactClass::Unknown;
+        evidence.reason_path = vec!["change:process-plan-rev-002".into(), "unknown-dependency".into()];
+        case.obligations.push(ObligationInput {
+            obligation_id: "obligation:unknown-impact".into(),
+            evidence_id: evidence.evidence_id.clone(),
+            class: ObligationClass::Unknown,
+            mandatory: false,
+            reason_path: evidence.reason_path.clone(),
+            demotable: false,
+            state: ObligationState::Closed,
+            closure_receipt: Some(ArtifactRef {
+                id: "receipt:resolve-unknown".into(),
+                kind: "requalification_closure_receipt".into(),
+            }),
+        });
+        assert!(matches!(evaluate_case(&case), Err(QualificationError::UnknownImpactCannotBeClosed(_))));
     }
 
     #[test]
