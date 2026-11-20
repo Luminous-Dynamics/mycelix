@@ -1194,12 +1194,12 @@ mod tests {
                 ),
                 source_element_id: Some(900 + id),
                 external_document_reference_id: Some(7),
-                external_xid: Some(301),
+                external_xid: Some(300 + id),
                 mapping_rule_id: "qif.characteristic_item.external_xid".into(),
                 mapping_profile_version: "AERO_QIF_SOURCE_MAPPING_V1".into(),
                 disposition: SourceMappingDisposition::Mapped,
                 target_object_kind: Some("normalized_characteristic_item".into()),
-                target_object_id: Some(format!("characteristic-item:{}", id)),
+                target_object_id: Some(format!("characteristic-item:{}", 300 + id)),
                 reason_code: None,
             }
         }).collect();
