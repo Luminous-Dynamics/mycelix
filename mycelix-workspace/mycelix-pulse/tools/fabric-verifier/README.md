@@ -61,7 +61,9 @@ are not yet pinned across separate runs by source control.
   authorization, source-chain authorship, integrity acceptance, durable outbox,
   DHT projection observation, one transport attempt, recipient admission,
   inbox commit, decryption verification, receipt creation, and separately
-  attributed receipt verification.
+  attributed receipt verification. Each required transition must be represented
+  by the specified direct causal edge; a list of unrelated events connected
+  through generic ancestry is not sufficient.
 - Host admission and domain authorization must reference the same grant hash,
   scope and exact cell. The authored source-action hash must match the DHT
   projection's action hash. Receipt creation and verification must reference
