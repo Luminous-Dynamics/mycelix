@@ -1035,6 +1035,16 @@ mod tests {
     }
 
     #[test]
+    fn omitted_external_qif_uri_is_admitted() {
+        let (mut case, _) = fixture();
+        case.results.external_documents[0].uri = None;
+        let bytes = serde_json::to_vec(&case).unwrap();
+        let parsed = parse_trace_case_json(&bytes).unwrap();
+        assert_eq!(parsed.results.external_documents[0].uri, None);
+        assert!(validate_trace_case(&parsed).is_ok());
+    }
+
+    #[test]
     fn wrong_local_external_reference_is_rejected() {
         let (mut case, _) = fixture();
         case.results.measurements[0].external_document_reference_id = 999;
