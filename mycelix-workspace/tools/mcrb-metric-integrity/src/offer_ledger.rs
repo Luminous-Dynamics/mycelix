@@ -8,6 +8,9 @@
 use sha2::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
+use crate::operation_contract::{
+    OperationOutcomeClass, ValidatedOperationContractRegistry,
+};
 
 pub const OFFER_LEDGER_SCHEMA_VERSION: &str = "mycelix-mcrb-offer-ledger-v0.1";
 const DOMAIN_SEPARATOR: &[u8] = b"MYCELIX-MCRB-OFFER-LEDGER\0v0.1\0";
@@ -26,6 +29,9 @@ pub struct OfferLedgerEntry {
     pub monotonic_clock_id: String,
     pub monotonic_clock_epoch: String,
     pub operation_class: String,
+    pub operation_contract_id: String,
+    pub operation_contract_version: String,
+    pub operation_contract_digest_sha256: String,
     pub requires_idempotency_key: bool,
     pub generator_digest_sha256: String,
     pub workload_manifest_digest_sha256: String,
@@ -39,6 +45,7 @@ pub struct OfferLedgerEnvelope {
     pub scenario_id: String,
     pub measurement_window_id: String,
     pub scenario_contract_digest_sha256: String,
+    pub operation_contract_registry_digest_sha256: String,
     pub requires_cross_host_visibility: bool,
     pub workload_manifest_digest_sha256: String,
     pub generator_digest_sha256: String,
@@ -84,6 +91,14 @@ pub enum OfferLedgerIssue {
     MissingIdempotencyKeyForExternalEffect(usize),
     DuplicateIdempotencyKey(String),
     EmptyOperationClass(usize),
+    InvalidOperationContractRegistryDigest,
+    OperationContractRegistryDigestMismatch { expected: String, actual: String },
+    MissingOperationContractIdentity(usize),
+    UnknownOperationContract(usize),
+    OperationContractContextMismatch(usize),
+    OperationContractDigestMismatch(usize),
+    OperationContractRequiresCrossHostVisibility(usize),
+    OperationContractIdempotencyMismatch(usize),
     EntryRunIdMismatch(usize),
     EntryScenarioIdMismatch(usize),
     EntryClockIdMismatch(usize),
@@ -102,6 +117,7 @@ pub struct VerifiedOfferLedger {
     scenario_id: String,
     measurement_window_id: String,
     scenario_contract_digest_sha256: String,
+    operation_contract_registry_digest_sha256: String,
     requires_cross_host_visibility: bool,
     generator_digest_sha256: String,
     workload_manifest_digest_sha256: String,
@@ -114,6 +130,30 @@ pub struct VerifiedOfferLedger {
     measurement_window_ns: u64,
     ledger_digest_sha256: String,
     operation_ids: Vec<String>,
+    offered_operations: Vec<VerifiedOfferedOperation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VerifiedOfferedOperation {
+    sequence: u64,
+    operation_id: String,
+    request_digest_sha256: String,
+    idempotency_key_digest_sha256: Option<String>,
+    contract_id: String,
+    contract_version: String,
+    contract_digest_sha256: String,
+    expected_qops_outcome: OperationOutcomeClass,
+}
+
+impl VerifiedOfferedOperation {
+    pub fn sequence(&self) -> u64 { self.sequence }
+    pub fn operation_id(&self) -> &str { &self.operation_id }
+    pub fn request_digest_sha256(&self) -> &str { &self.request_digest_sha256 }
+    pub fn idempotency_key_digest_sha256(&self) -> Option<&str> { self.idempotency_key_digest_sha256.as_deref() }
+    pub fn contract_id(&self) -> &str { &self.contract_id }
+    pub fn contract_version(&self) -> &str { &self.contract_version }
+    pub fn contract_digest_sha256(&self) -> &str { &self.contract_digest_sha256 }
+    pub fn expected_qops_outcome(&self) -> OperationOutcomeClass { self.expected_qops_outcome }
 }
 
 impl VerifiedOfferLedger {
@@ -121,7 +161,12 @@ impl VerifiedOfferLedger {
     pub fn scenario_id(&self) -> &str { &self.scenario_id }
     pub fn measurement_window_id(&self) -> &str { &self.measurement_window_id }
     pub fn scenario_contract_digest_sha256(&self) -> &str { &self.scenario_contract_digest_sha256 }
+    pub fn operation_contract_registry_digest_sha256(&self) -> &str { &self.operation_contract_registry_digest_sha256 }
     pub fn requires_cross_host_visibility(&self) -> bool { self.requires_cross_host_visibility }
+    pub fn offered_operations(&self) -> &[VerifiedOfferedOperation] { &self.offered_operations }
+    pub fn offered_operation(&self, operation_id: &str) -> Option<&VerifiedOfferedOperation> {
+        self.offered_operations.iter().find(|operation| operation.operation_id == operation_id)
+    }
     pub fn generator_digest_sha256(&self) -> &str { &self.generator_digest_sha256 }
     pub fn workload_manifest_digest_sha256(&self) -> &str { &self.workload_manifest_digest_sha256 }
     pub fn parameter_set_digest_sha256(&self) -> &str { &self.parameter_set_digest_sha256 }
@@ -153,6 +198,18 @@ fn push_optional_string(bytes: &mut Vec<u8>, value: Option<&str>) {
     }
 }
 
+fn idempotency_key_digest(key: &str) -> String {
+    let mut material = b"MYCELIX-MCRB-IDEMPOTENCY-KEY\\0v0.1\\0".to_vec();
+    material.extend_from_slice(key.as_bytes());
+    let digest = Sha256::digest(material);
+    let mut hex = String::with_capacity(64);
+    for byte in digest {
+        use std::fmt::Write as _;
+        let _ = write!(&mut hex, \"{byte:02x}\");
+    }
+    hex
+}
+
 fn canonical_offer_ledger_bytes(envelope: &OfferLedgerEnvelope) -> Vec<u8> {
     let mut bytes = Vec::new();
     bytes.extend_from_slice(DOMAIN_SEPARATOR);
@@ -161,6 +218,7 @@ fn canonical_offer_ledger_bytes(envelope: &OfferLedgerEnvelope) -> Vec<u8> {
     push_string(&mut bytes, &envelope.scenario_id);
     push_string(&mut bytes, &envelope.measurement_window_id);
     push_string(&mut bytes, &envelope.scenario_contract_digest_sha256);
+    push_string(&mut bytes, &envelope.operation_contract_registry_digest_sha256);
     bytes.push(u8::from(envelope.requires_cross_host_visibility));
     push_string(&mut bytes, &envelope.workload_manifest_digest_sha256);
     push_string(&mut bytes, &envelope.generator_digest_sha256);
@@ -185,6 +243,9 @@ fn canonical_offer_ledger_bytes(envelope: &OfferLedgerEnvelope) -> Vec<u8> {
         push_string(&mut bytes, &entry.monotonic_clock_id);
         push_string(&mut bytes, &entry.monotonic_clock_epoch);
         push_string(&mut bytes, &entry.operation_class);
+        push_string(&mut bytes, &entry.operation_contract_id);
+        push_string(&mut bytes, &entry.operation_contract_version);
+        push_string(&mut bytes, &entry.operation_contract_digest_sha256);
         bytes.push(u8::from(entry.requires_idempotency_key));
         push_string(&mut bytes, &entry.generator_digest_sha256);
         push_string(&mut bytes, &entry.workload_manifest_digest_sha256);
@@ -236,6 +297,7 @@ pub fn calculate_offer_ledger_digest(envelope: &OfferLedgerEnvelope) -> String {
 /// set, clock identity/epoch and predeclared monotonic measurement window.
 pub fn verify_offer_ledger(
     envelope: &OfferLedgerEnvelope,
+    contracts: &ValidatedOperationContractRegistry,
 ) -> Result<VerifiedOfferLedger, Vec<OfferLedgerIssue>> {
     let mut issues = Vec::new();
     if envelope.schema_version != OFFER_LEDGER_SCHEMA_VERSION { issues.push(OfferLedgerIssue::UnsupportedSchemaVersion); }
@@ -249,6 +311,15 @@ pub fn verify_offer_ledger(
     if !valid_sha256_hex(&envelope.generator_digest_sha256) { issues.push(OfferLedgerIssue::InvalidGeneratorDigest); }
     if !valid_sha256_hex(&envelope.parameter_set_digest_sha256) { issues.push(OfferLedgerIssue::InvalidParameterSetDigest); }
     if !valid_sha256_hex(&envelope.scenario_contract_digest_sha256) { issues.push(OfferLedgerIssue::InvalidScenarioContractDigest); }
+    if !valid_sha256_hex(&envelope.operation_contract_registry_digest_sha256) {
+        issues.push(OfferLedgerIssue::InvalidOperationContractRegistryDigest);
+    }
+    if envelope.operation_contract_registry_digest_sha256 != contracts.registry_digest_sha256() {
+        issues.push(OfferLedgerIssue::OperationContractRegistryDigestMismatch {
+            expected: contracts.registry_digest_sha256().to_string(),
+            actual: envelope.operation_contract_registry_digest_sha256.clone(),
+        });
+    }
     let expected_contract_digest = embedded_scenario_manifest_digest();
     if envelope.scenario_contract_digest_sha256 != expected_contract_digest {
         issues.push(OfferLedgerIssue::ScenarioContractDigestMismatch {
@@ -273,6 +344,7 @@ pub fn verify_offer_ledger(
     if envelope.entry_count != envelope.entries.len() as u64 { issues.push(OfferLedgerIssue::EntryCountMismatch); }
 
     let mut operation_ids = Vec::with_capacity(envelope.entries.len());
+    let mut offered_operations = Vec::with_capacity(envelope.entries.len());
     let mut seen_operations = BTreeSet::new();
     let mut seen_idempotency_keys = BTreeSet::new();
 
@@ -300,6 +372,45 @@ pub fn verify_offer_ledger(
             }
         }
         if entry.operation_class.trim().is_empty() { issues.push(OfferLedgerIssue::EmptyOperationClass(index)); }
+        if entry.operation_contract_id.trim().is_empty()
+            || entry.operation_contract_version.trim().is_empty()
+        {
+            issues.push(OfferLedgerIssue::MissingOperationContractIdentity(index));
+        } else if let Some(contract) = contracts.find(
+            &entry.operation_contract_id,
+            &entry.operation_contract_version,
+        ) {
+            if contract.scenario_id() != envelope.scenario_id
+                || contract.operation_class() != entry.operation_class
+            {
+                issues.push(OfferLedgerIssue::OperationContractContextMismatch(index));
+            }
+            if contract.digest_sha256() != entry.operation_contract_digest_sha256 {
+                issues.push(OfferLedgerIssue::OperationContractDigestMismatch(index));
+            }
+            if contract.requires_cross_host_visibility() && !envelope.requires_cross_host_visibility {
+                issues.push(OfferLedgerIssue::OperationContractRequiresCrossHostVisibility(index));
+            }
+            if contract.idempotency_required()
+                && (!entry.requires_idempotency_key || entry.idempotency_key.is_none())
+            {
+                issues.push(OfferLedgerIssue::OperationContractIdempotencyMismatch(index));
+            }
+            if !entry.operation_id.trim().is_empty() {
+                offered_operations.push(VerifiedOfferedOperation {
+                    sequence: entry.sequence,
+                    operation_id: entry.operation_id.clone(),
+                    request_digest_sha256: entry.request_digest_sha256.clone(),
+                    idempotency_key_digest_sha256: entry.idempotency_key.as_deref().map(idempotency_key_digest),
+                    contract_id: entry.operation_contract_id.clone(),
+                    contract_version: entry.operation_contract_version.clone(),
+                    contract_digest_sha256: entry.operation_contract_digest_sha256.clone(),
+                    expected_qops_outcome: contract.expected_qops_outcome(),
+                });
+            }
+        } else {
+            issues.push(OfferLedgerIssue::UnknownOperationContract(index));
+        }
         if entry.run_id != envelope.run_id { issues.push(OfferLedgerIssue::EntryRunIdMismatch(index)); }
         if entry.scenario_id != envelope.scenario_id { issues.push(OfferLedgerIssue::EntryScenarioIdMismatch(index)); }
         if entry.monotonic_clock_id != envelope.monotonic_clock_id { issues.push(OfferLedgerIssue::EntryClockIdMismatch(index)); }
@@ -336,6 +447,7 @@ pub fn verify_offer_ledger(
         scenario_id: envelope.scenario_id.clone(),
         measurement_window_id: envelope.measurement_window_id.clone(),
         scenario_contract_digest_sha256: envelope.scenario_contract_digest_sha256.clone(),
+        operation_contract_registry_digest_sha256: envelope.operation_contract_registry_digest_sha256.clone(),
         requires_cross_host_visibility: envelope.requires_cross_host_visibility,
         generator_digest_sha256: envelope.generator_digest_sha256.clone(),
         workload_manifest_digest_sha256: envelope.workload_manifest_digest_sha256.clone(),
@@ -348,6 +460,7 @@ pub fn verify_offer_ledger(
         measurement_window_ns: window_ns as u64,
         ledger_digest_sha256: envelope.ledger_digest_sha256.clone(),
         operation_ids,
+        offered_operations,
     })
 }
 
