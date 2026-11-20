@@ -1,0 +1,124 @@
+{
+  "schema": "luminous.space.benchmark-corpus/v1",
+  "corpus_id": "noaa-tracss-cav-aerospaceivv-20251009a",
+  "title": "TraCSS Dataset for Conjunction Assessment Verification",
+  "publisher": "NOAA Office of Space Commerce / Traffic Coordination System for Space",
+  "announcement_date": "2026-03-18",
+  "source_url": "https://space.commerce.gov/dataset-for-conjunction-assessment-verification/",
+  "license": {
+    "identifier": "CC0-1.0",
+    "name": "Creative Commons Universal Public Domain Dedication",
+    "source_assertion": "OSC states the dataset is available on a full and open basis under CC0-1.0."
+  },
+  "acquisition": {
+    "status": "not_acquired",
+    "access_method": "Google Drive access request or OSC-published access form",
+    "note": "No source bytes have been downloaded or locally verified by this manifest. Do not assign an artifact digest until the exact bytes are acquired.",
+    "contact": "TraCSS.Outreach@noaa.gov"
+  },
+  "claim_ceiling": {
+    "intended_use": "Voluntary self-assessment of conjunction event-screening algorithms.",
+    "not_intended_for": [
+      "live operations",
+      "formal system certification",
+      "formal system validation"
+    ],
+    "limitations": "OSC says the dataset is not comprehensive; it includes stressing cases and an operational catalog, but not all possible orbit/conjunction geometries.",
+    "not_ground_truth_for": [
+      "orbit-determination accuracy",
+      "covariance realism",
+      "probability-of-collision calibration",
+      "continuous-time event recall outside the corpus"
+    ]
+  },
+  "artifacts": [
+    {
+      "id": "input_ephemeris",
+      "role": "input_ephemeris_archive",
+      "filename": "AerospaceIVVDataset_20251009a.tar.gz",
+      "published_size": "20.73 GB",
+      "media_type": "application/gzip",
+      "acquisition_status": "not_acquired",
+      "sha256": null,
+      "local_path": null
+    },
+    {
+      "id": "spherical_results",
+      "role": "spherical_screening_answer_key",
+      "filename": "IVV_Releasable_Dataset_Spherical_DefaultHBR.csv.gz",
+      "published_size": "198.8 MB",
+      "media_type": "application/gzip",
+      "acquisition_status": "not_acquired",
+      "sha256": null,
+      "local_path": null
+    },
+    {
+      "id": "sfsh_results",
+      "role": "sfsh_rectangular_screening_answer_key",
+      "filename": "IVV_Releasable_Dataset_SFSH_DiscreteHBR.csv.gz",
+      "published_size": "62.4 MB",
+      "media_type": "application/gzip",
+      "acquisition_status": "not_acquired",
+      "sha256": null,
+      "local_path": null
+    },
+    {
+      "id": "sfsh_mapping",
+      "role": "sfsh_object_to_screening_volume_mapping",
+      "filename": "AerospaceIVVDataset_20251009a_Size_ScreeningVolumes.csv.gz",
+      "published_size": "145 KB",
+      "media_type": "application/gzip",
+      "acquisition_status": "not_acquired",
+      "sha256": null,
+      "local_path": null
+    },
+    {
+      "id": "user_guide",
+      "role": "benchmark_user_guide",
+      "filename": "Conjunction_Screening_Testset_Users_Guide.pdf",
+      "published_size": "363 KB",
+      "media_type": "application/pdf",
+      "acquisition_status": "not_acquired",
+      "sha256": null,
+      "local_path": null
+    }
+  ],
+  "evaluation_profiles": [
+    {
+      "id": "spherical_constant_volume",
+      "artifact_id": "spherical_results",
+      "screening_volume": "constant spherical volume",
+      "mapping_artifact_id": null,
+      "status": "specification_known_artifact_not_acquired",
+      "report_separately": true
+    },
+    {
+      "id": "sfsh_rectangular_volume",
+      "artifact_id": "sfsh_results",
+      "screening_volume": "Space Flight Safety Handbook (SFSH) rectangular screening volumes",
+      "mapping_artifact_id": "sfsh_mapping",
+      "status": "specification_known_artifacts_not_acquired",
+      "report_separately": true
+    }
+  ],
+  "verification_policy": {
+    "compute_sha256_before_parse": true,
+    "verify_published_size_before_parse": true,
+    "preserve_original_compressed_bytes": true,
+    "preserve_archive_member_manifest": true,
+    "reject_path_traversal": true,
+    "reject_duplicate_members": true,
+    "stream_large_archives": true,
+    "bounded_memory_required": true,
+    "never_merge_screening_profiles": true,
+    "never_use_missing_digest_as_verified_identity": true
+  },
+  "provenance": {
+    "importer_revision": null,
+    "importer_configuration_digest": null,
+    "acquired_at_utc": null,
+    "downloaded_by": null,
+    "archive_member_manifest_digest": null,
+    "note": "Fields remain null until acquisition and verification actually occur."
+  }
+}
