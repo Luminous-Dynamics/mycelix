@@ -1,0 +1,746 @@
+{
+  "schema": "luminous.port_city.service_equivalence_golden_trace",
+  "schema_version": "0.1.0",
+  "fixture_id": "port-city-service-equivalence-4slot-v0-1",
+  "snapshot_date": "2026-11-19",
+  "evidence_class": "synthetic_known_answer_integration_fixture",
+  "claim_ceiling": "Hand-computable PCC arithmetic and cross-owner claim composition only. Not a South African site model, operating schedule, RO water result, marine permit, CFD validation, grid study or commercial performance.",
+  "scenario": {
+    "site_id": "synthetic-port-city",
+    "timezone": "UTC-for-fixture-only",
+    "interval_minutes": 15,
+    "interval_semantics": "half-open [start,end)",
+    "intervals": [
+      "09:00",
+      "09:15",
+      "09:30",
+      "09:45"
+    ],
+    "pcc_resource_id": "synthetic-pcc-001",
+    "pcc_import_limit_kw": 8200,
+    "settlement_window": "four contiguous 15-minute intervals",
+    "resource_profiles_kw": {
+      "fixed_port_kw": [
+        800,
+        800,
+        800,
+        800
+      ],
+      "vessel_shore_power_kw": [
+        2000,
+        2000,
+        0,
+        0
+      ],
+      "terminal_equipment_kw": [
+        1000,
+        1500,
+        800,
+        500
+      ],
+      "ro_electric_kw": [
+        700,
+        700,
+        700,
+        700
+      ],
+      "wind_pv_kw": [
+        900,
+        1200,
+        800,
+        800
+      ],
+      "pcc_import_limit_kw": [
+        8200,
+        8200,
+        8200,
+        8200
+      ]
+    },
+    "service_assumptions": {
+      "vessel_id": "synthetic-vessel-001",
+      "berth_id": "synthetic-berth-001",
+      "shore_power_connection_ready": true,
+      "shore_power_authorized": true,
+      "shore_power_energy_mwh": 1,
+      "terminal_service_units": 1000,
+      "terminal_energy_mwh": 0.95,
+      "compute_job_set": [
+        "synthetic-batch-job-A",
+        "synthetic-batch-job-B"
+      ],
+      "required_compute_work_units": 100,
+      "compute_energy_mwh": 3,
+      "compute_deadline_by_interval": 3,
+      "cooling_electric_energy_mwh": 0.6,
+      "ro_electric_energy_mwh": 0.7,
+      "ro_thermal_sink": {
+        "sink_id": "synthetic-ro-feedwater-sink",
+        "heat_demand_kw": 250,
+        "available_capacity_kw": 300,
+        "required_source_heat_kw": 312.5,
+        "exchanger_efficiency": 0.8,
+        "useful_heat_delivered_kw": 250,
+        "recovery_loss_to_seawater_kw": 62.5,
+        "heat_delivery_observation_id": "synthetic-ro-heat-meter-001",
+        "feedwater_quality_evidence": "not_supplied",
+        "qualified_product_water_m3": null
+      }
+    }
+  },
+  "policies": [
+    {
+      "policy_id": "baseline-inflexible",
+      "compute_kw": [
+        3000,
+        3000,
+        3000,
+        3000
+      ],
+      "cooling_electric_kw": [
+        600,
+        600,
+        600,
+        600
+      ],
+      "compute_work_units": [
+        25,
+        25,
+        25,
+        25
+      ],
+      "pcc_import_kw": [
+        7200,
+        7400,
+        5100,
+        4800
+      ],
+      "pcc_peak_kw": 7400,
+      "pcc_energy_mwh": 6.125,
+      "pcc_limit_exceedance_kw": 0,
+      "compute_energy_mwh": 3,
+      "cooling_energy_mwh": 0.6,
+      "compute_work_total": 100,
+      "vessel_shore_energy_mwh": 1,
+      "terminal_energy_mwh": 0.95,
+      "fixed_port_energy_mwh": 0.8,
+      "ro_electric_energy_mwh": 0.7
+    },
+    {
+      "policy_id": "naive-carbon-objective-only",
+      "compute_kw": [
+        1500,
+        4500,
+        3000,
+        3000
+      ],
+      "cooling_electric_kw": [
+        300,
+        900,
+        600,
+        600
+      ],
+      "compute_work_units": [
+        12.5,
+        37.5,
+        25,
+        25
+      ],
+      "pcc_import_kw": [
+        5400,
+        9200,
+        5100,
+        4800
+      ],
+      "pcc_peak_kw": 9200,
+      "pcc_energy_mwh": 6.125,
+      "pcc_limit_exceedance_kw": 1000,
+      "compute_energy_mwh": 3,
+      "cooling_energy_mwh": 0.6,
+      "compute_work_total": 100,
+      "vessel_shore_energy_mwh": 1,
+      "terminal_energy_mwh": 0.95,
+      "fixed_port_energy_mwh": 0.8,
+      "ro_electric_energy_mwh": 0.7
+    },
+    {
+      "policy_id": "no-new-peak-admitted",
+      "compute_kw": [
+        3000,
+        1500,
+        4500,
+        3000
+      ],
+      "cooling_electric_kw": [
+        600,
+        300,
+        900,
+        600
+      ],
+      "compute_work_units": [
+        25,
+        12.5,
+        37.5,
+        25
+      ],
+      "pcc_import_kw": [
+        7200,
+        5600,
+        6900,
+        4800
+      ],
+      "pcc_peak_kw": 7200,
+      "pcc_energy_mwh": 6.125,
+      "pcc_limit_exceedance_kw": 0,
+      "compute_energy_mwh": 3,
+      "cooling_energy_mwh": 0.6,
+      "compute_work_total": 100,
+      "vessel_shore_energy_mwh": 1,
+      "terminal_energy_mwh": 0.95,
+      "fixed_port_energy_mwh": 0.8,
+      "ro_electric_energy_mwh": 0.7
+    }
+  ],
+  "expected_summary": {
+    "baseline_peak_kw": 7400,
+    "baseline_pcc_import_energy_mwh": 6.125,
+    "naive_objective_only_peak_kw": 9200,
+    "naive_objective_only_cap_exceedance_kw": 1000,
+    "naive_objective_only_peak_increase_vs_baseline_fraction": 0.24324324324324326,
+    "no_new_peak_candidate_peak_kw": 7200,
+    "no_new_peak_peak_reduction_vs_baseline_fraction": 0.02702702702702703,
+    "all_policy_pcc_energy_mwh": 6.125,
+    "all_policy_compute_energy_mwh": 3,
+    "all_policy_compute_work_units": 100,
+    "all_policy_cooling_energy_mwh": 0.6,
+    "all_policy_vessel_shore_energy_mwh": 1,
+    "all_policy_terminal_energy_mwh": 0.95,
+    "all_policy_fixed_port_energy_mwh": 0.8,
+    "all_policy_ro_electric_energy_mwh": 0.7,
+    "all_policy_renewable_energy_mwh": 0.925
+  },
+  "heat_partition_at_0915": {
+    "evidence_class": "synthetic",
+    "it_heat_source_kw": 3000,
+    "recovered_source_heat_kw": 312.5,
+    "useful_sink_heat_kw": 250,
+    "recovery_loss_to_seawater_kw": 62.5,
+    "direct_it_heat_to_seawater_kw": 2687.5,
+    "recovery_heat_residual_kw": 0,
+    "it_heat_residual_kw": 0,
+    "seawater_heat_residual_kw": 0,
+    "ro_sec_improvement": null,
+    "qualified_water_output": null,
+    "environmental_discharge_limit": null,
+    "claim": "Heat partition only; no RO, potable-water or environmental compliance credit.",
+    "policy_id": "baseline-inflexible"
+  },
+  "cases": [
+    {
+      "case_id": "baseline-positive-control",
+      "category": "Positive",
+      "mutation": "All owner-native inputs are present; baseline W/Wh, readiness and service obligations pass.",
+      "expected_disposition": "PASS",
+      "case_index": 1
+    },
+    {
+      "case_id": "naive-objective-shift-new-peak",
+      "category": "Negative",
+      "mutation": "Shift 1.5 MW compute plus 0.3 MW cooling from 09:00 into 09:15 without aggregate PCC guard.",
+      "expected_disposition": "REJECT_PCC_LIMIT",
+      "case_index": 2
+    },
+    {
+      "case_id": "no-new-peak-service-equivalent-candidate",
+      "category": "Positive",
+      "mutation": "Shift 1.5 MW compute plus 0.3 MW cooling from 09:15 into 09:30; preserve all job IDs and useful work.",
+      "expected_disposition": "PASS_SYNTHETIC_ENVELOPE_ONLY",
+      "case_index": 3
+    },
+    {
+      "case_id": "compute-energy-down-deadline-missed",
+      "category": "Negative",
+      "mutation": "Reduce IT energy by dropping a required job instead of shifting it.",
+      "expected_disposition": "REJECT_SERVICE_FLOOR",
+      "case_index": 4
+    },
+    {
+      "case_id": "deferred-work-rebound-peak",
+      "category": "Negative",
+      "mutation": "Move deferred compute into 09:45, creating a later peak beyond the frozen baseline/limit.",
+      "expected_disposition": "REJECT_REBOUND",
+      "case_index": 5
+    },
+    {
+      "case_id": "vessel-arrival-delay-trigger",
+      "category": "Positive",
+      "mutation": "Increase vessel arrival delay beyond soft threshold while grid signals remain inside limits.",
+      "expected_disposition": "REPLAN_NORMAL",
+      "case_index": 6
+    },
+    {
+      "case_id": "shore-power-interface-not-ready",
+      "category": "Unknown",
+      "mutation": "Remove commissioned/compatible/authorized berth connection readiness.",
+      "expected_disposition": "BLOCK_SHORE_POWER_CLAIM",
+      "case_index": 7
+    },
+    {
+      "case_id": "instantaneous-power-pass-energy-quota-fail",
+      "category": "Negative",
+      "mutation": "All interval kW values pass, but cumulative import Wh exceeds a separate settlement quota.",
+      "expected_disposition": "REJECT_ENERGY_QUOTA",
+      "case_index": 8
+    },
+    {
+      "case_id": "energy-quota-pass-instantaneous-power-fail",
+      "category": "Negative",
+      "mutation": "Cumulative Wh is under quota but simultaneous PCC import exceeds interval kW limit.",
+      "expected_disposition": "REJECT_PCC_LIMIT",
+      "case_index": 9
+    },
+    {
+      "case_id": "duplicate-pcc-load-profile",
+      "category": "Negative",
+      "mutation": "Count the same canonical equipment profile twice at the PCC.",
+      "expected_disposition": "REJECT_DUPLICATE_RESOURCE_ID",
+      "case_index": 10
+    },
+    {
+      "case_id": "future-renewable-forecast",
+      "category": "Negative",
+      "mutation": "Use a renewable forecast revision whose first-available time is after the decision cutoff.",
+      "expected_disposition": "REJECT_LOOKAHEAD",
+      "case_index": 11
+    },
+    {
+      "case_id": "stale-pcc-meter",
+      "category": "Unknown",
+      "mutation": "PCC import/headroom meter exceeds its freshness limit.",
+      "expected_disposition": "DATA_INCOMPLETE",
+      "case_index": 12
+    },
+    {
+      "case_id": "feeder-outage-hard-trigger",
+      "category": "Positive",
+      "mutation": "A feeder derating creates a hard import-margin breach during normal cooldown.",
+      "expected_disposition": "REPLAN_HARD",
+      "case_index": 13
+    },
+    {
+      "case_id": "thermal-store-reserve-shortfall",
+      "category": "Negative",
+      "mutation": "Opening thermal store energy plus admissible charge cannot meet declared reserve/service state.",
+      "expected_disposition": "REJECT_THERMAL_RESERVE",
+      "case_index": 14
+    },
+    {
+      "case_id": "thermal-store-simultaneous-charge-discharge",
+      "category": "Negative",
+      "mutation": "Charge and discharge are both positive in one exclusive resolution interval.",
+      "expected_disposition": "REJECT_THERMAL_STATE",
+      "case_index": 15
+    },
+    {
+      "case_id": "cooling-discharge-hard-margin",
+      "category": "Positive",
+      "mutation": "A site-qualified cooling margin crosses its hard lower bound.",
+      "expected_disposition": "REPLAN_HARD",
+      "case_index": 16
+    },
+    {
+      "case_id": "heat-sink-unavailable",
+      "category": "Negative",
+      "mutation": "Heat recovery sink availability falls to zero; useful heat credit must be zero and cooling path must account for residual heat.",
+      "expected_disposition": "REJECT_HEAT_RECOVERY_CREDIT",
+      "case_index": 17
+    },
+    {
+      "case_id": "heat-sink-capacity-breach",
+      "category": "Positive",
+      "mutation": "Available sink capacity falls below the declared minimum while recovery is planned.",
+      "expected_disposition": "REPLAN_HARD",
+      "case_index": 18
+    },
+    {
+      "case_id": "heat-delivery-observation-missing",
+      "category": "Unknown",
+      "mutation": "A sink ID exists but no delivery observation reference is supplied.",
+      "expected_disposition": "NO_USEFUL_HEAT_CREDIT",
+      "case_index": 19
+    },
+    {
+      "case_id": "recovery-loss-unaccounted",
+      "category": "Negative",
+      "mutation": "Recovered source heat does not equal useful sink heat plus losses.",
+      "expected_disposition": "REJECT_RECOVERY_BALANCE",
+      "case_index": 20
+    },
+    {
+      "case_id": "heat-double-counted-as-sink-and-ocean",
+      "category": "Negative",
+      "mutation": "The same recovery source is credited as useful sink delivery and also fully counted as ocean rejection.",
+      "expected_disposition": "REJECT_THERMAL_CLOSURE",
+      "case_index": 21
+    },
+    {
+      "case_id": "feedwater-demand-stale",
+      "category": "Unknown",
+      "mutation": "RO feedwater heat demand telemetry is stale or out of decision-time scope.",
+      "expected_disposition": "DATA_INCOMPLETE",
+      "case_index": 22
+    },
+    {
+      "case_id": "water-quality-unknown",
+      "category": "Unknown",
+      "mutation": "Thermal preheat is modeled but product-water sample and intended-use quality assessment are missing.",
+      "expected_disposition": "NO_QUALIFIED_WATER_CREDIT",
+      "case_index": 23
+    },
+    {
+      "case_id": "brine-outfall-rights-unknown",
+      "category": "Unknown",
+      "mutation": "Water production is proposed without qualified receiving-water/outfall and authorization evidence.",
+      "expected_disposition": "ENVIRONMENTAL_CLAIM_INCOMPLETE",
+      "case_index": 24
+    },
+    {
+      "case_id": "cable-routes-share-landing",
+      "category": "Negative",
+      "mutation": "Two fibre paths share the same landing/duct/corridor dependency.",
+      "expected_disposition": "NO_ROUTE_INDEPENDENCE_CLAIM",
+      "case_index": 25
+    },
+    {
+      "case_id": "telecom-repair-rate-used-for-power-cable",
+      "category": "Negative",
+      "mutation": "Telecommunications cable repair records are used as a submarine power-cable failure probability.",
+      "expected_disposition": "REJECT_EVIDENCE_CATEGORY",
+      "case_index": 26
+    },
+    {
+      "case_id": "common-cause-inventory-stale",
+      "category": "Unknown",
+      "mutation": "The dependency inventory used by Mycelix #5762 is stale or incomplete.",
+      "expected_disposition": "UNKNOWN_DEPENDENCY",
+      "case_index": 27
+    },
+    {
+      "case_id": "grid-and-fibre-outage",
+      "category": "Positive",
+      "mutation": "Grid and fibre fail concurrently; only explicitly supported local safe-service and restoration claims are retained.",
+      "expected_disposition": "DEGRADE_WITHIN_LOCAL_AUTHORITY",
+      "case_index": 28
+    },
+    {
+      "case_id": "grid-outage-recovery",
+      "category": "Positive",
+      "mutation": "Grid outage then restoration; restore compute only after local power, cooling and connectivity envelopes recover.",
+      "expected_disposition": "REPLAY_RECOVERY",
+      "case_index": 29
+    },
+    {
+      "case_id": "persistent-hard-event",
+      "category": "Positive",
+      "mutation": "Same hard reason persists across consecutive snapshots.",
+      "expected_disposition": "SUPPRESS_DUPLICATE_REQUEST",
+      "case_index": 30
+    },
+    {
+      "case_id": "new-hard-reason-during-existing-event",
+      "category": "Positive",
+      "mutation": "A new hard boundary is breached while another hard event persists.",
+      "expected_disposition": "REPLAN_HARD",
+      "case_index": 31
+    },
+    {
+      "case_id": "soft-hysteresis-reset",
+      "category": "Positive",
+      "mutation": "Soft deviation returns below the lower reset threshold before monitor rearms.",
+      "expected_disposition": "REARM",
+      "case_index": 32
+    },
+    {
+      "case_id": "critical-heat-sink-signal-missing",
+      "category": "Unknown",
+      "mutation": "Critical heat-sink availability signal is absent.",
+      "expected_disposition": "DATA_INCOMPLETE",
+      "case_index": 33
+    },
+    {
+      "case_id": "owner-source-revision-changed",
+      "category": "Conflict",
+      "mutation": "Source/model revision changes after plan preparation; prior receipt remains historical, current plan requalifies.",
+      "expected_disposition": "REQUALIFY_CURRENT_PLAN",
+      "case_index": 34
+    },
+    {
+      "case_id": "idempotent-snapshot-same-digest",
+      "category": "Positive",
+      "mutation": "Same sequence, snapshot ID and digest replay.",
+      "expected_disposition": "IDEMPOTENT_REPLAY",
+      "case_index": 35
+    },
+    {
+      "case_id": "snapshot-id-same-sequence-changed-digest",
+      "category": "Conflict",
+      "mutation": "Same sequence/ID is reintroduced with changed canonical digest.",
+      "expected_disposition": "REJECT_DIGEST_CONFLICT",
+      "case_index": 36
+    },
+    {
+      "case_id": "symthaea-proposal-fails-independent-oracle",
+      "category": "Negative",
+      "mutation": "A candidate suggested by Symthaea violates independent PCC or service verifier.",
+      "expected_disposition": "REJECT_CANDIDATE",
+      "case_index": 37
+    },
+    {
+      "case_id": "missing-owner-output",
+      "category": "Unknown",
+      "mutation": "One owner verifier or authority output is absent from the composite trace.",
+      "expected_disposition": "INCOMPLETE_NOT_PASS",
+      "case_index": 38
+    },
+    {
+      "case_id": "eskom_idr_contract_6s_profile_match",
+      "category": "Positive",
+      "mutation": "Synthetic authorized 10 MW load provider has special metering and full measured response within 6 seconds sustained 10 minutes.",
+      "expected_disposition": "PASS_PRODUCT_PROFILE_ONLY"
+    },
+    {
+      "case_id": "sawem_instantaneous_reserve_10s_profile_match",
+      "category": "Positive",
+      "mutation": "Synthetic registered Trading Unit meets SAWEM Market Code ten-second response and ten-minute sustain definition.",
+      "expected_disposition": "PASS_MARKET_CODE_PROFILE_ONLY"
+    },
+    {
+      "case_id": "eskom_idr_and_sawem_profiles_conflated",
+      "category": "Negative",
+      "mutation": "A single ten-second response is submitted against an Eskom six-second IDR contract.",
+      "expected_disposition": "REJECT_PRODUCT_PROFILE_MISMATCH"
+    },
+    {
+      "case_id": "supplemental_dr_profile_short_sustain",
+      "category": "Negative",
+      "mutation": "Supplemental DR offer sustains only 90 minutes where the published programme requires two hours.",
+      "expected_disposition": "REJECT_SERVICE_DURATION"
+    },
+    {
+      "case_id": "thirty_minute_meter_claims_six_second_service",
+      "category": "Unknown",
+      "mutation": "30-minute interval metering is the only evidence supplied for a six-second IDR response.",
+      "expected_disposition": "METERING_EVIDENCE_INSUFFICIENT"
+    },
+    {
+      "case_id": "ten_mw_product_without_aggregator_authority",
+      "category": "Negative",
+      "mutation": "Individual site offers less than 10 MW but is represented as qualifying for a 10 MW product without a valid aggregator/participant contract.",
+      "expected_disposition": "REJECT_CAPACITY_AND_AUTHORITY"
+    },
+    {
+      "case_id": "pre_feasibility_grid_headroom_as_dr_capacity",
+      "category": "Negative",
+      "mutation": "Ngqura/Durban spare substation estimate is promoted to dispatchable, contracted flexible load MW.",
+      "expected_disposition": "REJECT_EVIDENCE_CLASS"
+    },
+    {
+      "case_id": "emergency_load_reduction_as_voluntary_dr",
+      "category": "Negative",
+      "mutation": "NRS 048-9 emergency load reduction is represented as a voluntary contracted DR offer.",
+      "expected_disposition": "REJECT_AUTHORITY_AND_PRODUCT_CLASS"
+    },
+    {
+      "case_id": "adjacent_private_solar_bess_assumed_port_capacity",
+      "category": "Negative",
+      "mutation": "Add Coega Steels private 7 MWp PV and 50 MWh BESS to the TNPA port/data-centre dispatch portfolio based only on geographic proximity.",
+      "expected_disposition": "REJECT_UNPROVEN_RESOURCE_JOIN"
+    },
+    {
+      "case_id": "adjacent_private_bess_missing_commissioning_and_power",
+      "category": "Unknown",
+      "mutation": "Treat a 50 MWh BESS reported as nearing commissioning as dispatchable reserve without commissioned status, MW rating, usable energy, SOC, meter and dispatch rights.",
+      "expected_disposition": "DATA_INCOMPLETE_NO_RESERVE_CREDIT"
+    }
+  ],
+  "owner_contracts": {
+    "symtropy": {
+      "port_schedule_verifier": "issue:#4582",
+      "compute_flex": "issue:#6211",
+      "ocean_thermal_cable": "issue:#6228",
+      "event_trigger": "issue:#6255",
+      "water_heat_coupling": "issue:#6258",
+      "thermal_store": "issue:#2683/#1916",
+      "marine_forecast_replay": "issue:#6209"
+    },
+    "symthaea": {
+      "separation_semantics": "issue:#5199",
+      "maritime_services": "issue:#11572/#11473",
+      "role": "propose_and_abstain_not_self_certify"
+    },
+    "sol_atlas": {
+      "spatial_marine_water_evidence": "issues:#654/#942",
+      "role": "source_qualified_site_and_environment_context"
+    },
+    "mycelix": {
+      "integration_oracle": "issue:#5974",
+      "common_cause_dependencies": "issue:#5762",
+      "role": "authority_provenance_and_cross_owner_handoff"
+    }
+  },
+  "comparison_protocol": {
+    "same_scenario_ids": true,
+    "same_vessel_service": true,
+    "same_terminal_service": true,
+    "same_compute_job_set": true,
+    "same_useful_work": true,
+    "same_cooling_service_boundary": true,
+    "same_ro_electric_service": true,
+    "same_water_quality_evidence": true,
+    "same_weather_and_grid_realization": true,
+    "compare_metrics": [
+      "pcc_peak_kw",
+      "pcc_import_energy_mwh",
+      "shore_power_service",
+      "terminal_service",
+      "compute_useful_work",
+      "deadline_completion",
+      "cooling_energy_mwh",
+      "ro_electric_energy_mwh",
+      "heat_useful_delivery_kw",
+      "heat_rejection_kw",
+      "qualified_water_m3",
+      "carbon_kg",
+      "cost",
+      "replan_invocations",
+      "hard_event_misses",
+      "rebound_peak_kw",
+      "plan_churn"
+    ],
+    "prohibited_scalar_winner": true
+  },
+  "case_count": 48,
+  "heat_partitions_by_policy": [
+    {
+      "policy_id": "baseline-inflexible",
+      "it_heat_source_kw": 3000,
+      "recovered_source_heat_kw": 312.5,
+      "useful_sink_heat_kw": 250,
+      "recovery_loss_to_seawater_kw": 62.5,
+      "direct_it_heat_to_seawater_kw": 2687.5,
+      "recovery_heat_residual_kw": 0,
+      "it_heat_residual_kw": 0,
+      "claim": "Synthetic heat partition only; no RO SEC, water-quality or environmental compliance credit."
+    },
+    {
+      "policy_id": "naive-carbon-objective-only",
+      "it_heat_source_kw": 4500,
+      "recovered_source_heat_kw": 312.5,
+      "useful_sink_heat_kw": 250,
+      "recovery_loss_to_seawater_kw": 62.5,
+      "direct_it_heat_to_seawater_kw": 4187.5,
+      "recovery_heat_residual_kw": 0,
+      "it_heat_residual_kw": 0,
+      "claim": "Synthetic heat partition only; no RO SEC, water-quality or environmental compliance credit."
+    },
+    {
+      "policy_id": "no-new-peak-admitted",
+      "it_heat_source_kw": 1500,
+      "recovered_source_heat_kw": 312.5,
+      "useful_sink_heat_kw": 250,
+      "recovery_loss_to_seawater_kw": 62.5,
+      "direct_it_heat_to_seawater_kw": 1187.5,
+      "recovery_heat_residual_kw": 0,
+      "it_heat_residual_kw": 0,
+      "claim": "Synthetic heat partition only; no RO SEC, water-quality or environmental compliance credit."
+    }
+  ],
+  "south_african_flexibility_products": [
+    {
+      "product_id": "eskom-instantaneous-demand-response",
+      "provider": "Eskom Distribution",
+      "source": "https://www.eskom.co.za/distribution/instantaneous-demand-response-programme/",
+      "evidence_class": "published_programme_description",
+      "profile": {
+        "minimum_entry_mw": 10,
+        "full_response_seconds": 6,
+        "sustain_minutes": 10,
+        "maximum_events_per_day": 3,
+        "metering": "special metering requirements",
+        "payment": "standby only per public page"
+      },
+      "requirement": "Exact participant contract, baseline, special metering and current eligibility remain required."
+    },
+    {
+      "product_id": "sawem-instantaneous-reserve-demand-side",
+      "provider": "NTCSA / SAWEM",
+      "source": "https://www.ntcsa.co.za/wp-content/uploads/2026/02/Market-Code-v2.3.pdf",
+      "evidence_class": "market_code_rev_2_3_february_2026_definition",
+      "profile": {
+        "full_response_seconds": 10,
+        "sustain_minutes": 10,
+        "resource_type": "generation or demand-side managed load"
+      },
+      "requirement": "Exact Trading Unit registration, market implementation status, qualification and performance evidence remain required."
+    },
+    {
+      "product_id": "ntcsa-supplemental-demand-response",
+      "provider": "NTCSA",
+      "source": "https://www.ntcsa.co.za/supplemental-demand-response-programme-2/",
+      "evidence_class": "published_programme_description",
+      "profile": {
+        "notice_minutes": [
+          30,
+          360
+        ],
+        "minimum_entry": "greater of 500 kW or 15% of average plant demand",
+        "sustain_minutes": 120,
+        "frequency": "once per day under published description",
+        "metering": "30-minute interval remote metering",
+        "payment": "standby plus energy"
+      },
+      "requirement": "Exact participant contract, baseline, meter and current eligibility remain required."
+    },
+    {
+      "product_id": "nrs-048-9-emergency-load-reduction",
+      "provider": "System Operator / utility authority under applicable NRS 048-9 arrangements",
+      "source": "https://www.kaya959.co.za/wp-content/uploads/2024/04/NERSA-Approved-Version-of-NRS-048-9-2023-Edition-3.pdf",
+      "evidence_class": "emergency_load_reduction_code_of_practice",
+      "profile": {
+        "type": "mandatory emergency load reduction / restoration"
+      },
+      "requirement": "Not a voluntary market DR product and not a self-authorized scheduler action."
+    }
+  ],
+  "adjacent_industrial_assets": [
+    {
+      "asset_id": "coega-steels-private-energy-assets-2026-10",
+      "owner": "Coega Steels / Fedgroup energy asset arrangement",
+      "location": "Coega Special Economic Zone, separate private industrial site",
+      "evidence_sources": [
+        "https://www.bizcommunity.com/PressOffice/PressRelease.aspx?ai=272996&cid=752422",
+        "https://www.engineeringnews.co.za/article/fedgroup-funds-renewable-energy-infrastructure-for-coega-steels-new-rolling-mill-2026-10-30",
+        "https://thenational.co.za/news/2026-11-06-fedgroup-backs-coega-steels-energy-expansion-amid-rising-power-demand/"
+      ],
+      "reported": {
+        "solar_pv_mwp": 7,
+        "solar_generation_kwh_to_2026_10_30": 6000000,
+        "bess_energy_mwh": 50,
+        "bess_status": "reported_nearing_commissioning_as_of_2026_10_30",
+        "future_solar_mwp": 19.8,
+        "future_solar_target": "2027-end",
+        "future_solar_funding": "not_finalized_as_reported_2026-11-06"
+      },
+      "unknowns": {
+        "exact_pcc_or_meter_boundary": null,
+        "interval_solar_meter_data_and_calibration": null,
+        "bess_power_rating_and_usable_energy": null,
+        "bess_commissioning_and_operating_status": null,
+        "state_of_charge_and_dispatch_availability": null,
+        "wheeling_export_or_shared_network_rights": null,
+        "aggregation_or_demand_response_contract": null
+      },
+      "rule": "Do not include in port-city shared dispatch, reserve or resilience capacity without exact resource join, as-built/commissioning, meter, participant authority and network/contract rights."
+    }
+  ]
+}
