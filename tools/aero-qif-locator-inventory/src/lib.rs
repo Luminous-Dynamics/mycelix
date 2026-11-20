@@ -660,9 +660,8 @@ fn scan_document(
             Event::End(end) => {
                 let frame = stack.pop().ok_or(InventoryError::ElementStackMismatch)?;
                 let local_name = end.name().local_name();
-                let expected = frame.expanded_name;
                 let actual = expanded_name(resolution, local_name.as_ref())?;
-                if expected != actual {
+                if frame.expanded_name != actual {
                     return Err(InventoryError::ElementStackMismatch);
                 }
                 finalize_frame(frame, profile, qpid, &mut locator_rows, &mut declared_external_ids)?;
