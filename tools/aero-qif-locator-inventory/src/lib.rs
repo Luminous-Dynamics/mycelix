@@ -1414,7 +1414,7 @@ mod tests {
     }
 
     const RESULTS: &str = r#"
-<QIFDocument xmlns="http://qifstandards.org/xsd/qif3">
+<QIFDocument xmlns="http://qifstandards.org/xsd/qif3" idMax="9999" versionQIF="3.0.0">
   <QPId>10000000-0000-4000-8000-000000000001</QPId>
   <ExternalQIFReferences n="1">
     <ExternalQIFDocument id="7">
@@ -1445,7 +1445,7 @@ mod tests {
 "#;
 
     const PLAN: &str = r#"
-<q:QIFDocument xmlns:q="http://qifstandards.org/xsd/qif3">
+<q:QIFDocument xmlns:q="http://qifstandards.org/xsd/qif3" idMax="9999" versionQIF="3.0.0">
   <q:QPId>20000000-0000-4000-8000-000000000002</q:QPId>
   <q:Characteristics>
     <q:CharacteristicNominals n="1">
@@ -1464,6 +1464,78 @@ mod tests {
   </q:Characteristics>
 </q:QIFDocument>
 "#;
+
+    #[test]
+    fn source_document_qpid_must_match_the_external_supplied_identity() {
+        let results = RESULTS.replace(
+            "10000000-0000-4000-8000-000000000001</QPId>",
+            "90000000-0000-4000-8000-000000000009</QPId>"
+        );
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "wrong-document-qpid",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::DocumentQpidMismatch(
+                "/QIFDocument/{http://qifstandards.org/xsd/qif3}QPId[1]".into()
+            ))
+        );
+    }
+
+    #[test]
+    fn external_plan_qpid_must_resolve_to_one_of_the_supplied_plan_documents() {
+        let results = RESULTS.replace(
+            "20000000-0000-4000-8000-000000000002</QPId>",
+            "30000000-0000-4000-8000-000000000003</QPId>"
+        );
+        assert!(matches!(
+            derive_trace_locator_inventory(
+                "unmatched-plan-qpid",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::UnknownExternalPlanQpid(_))
+        ));
+    }
+
+    #[test]
+    fn external_plan_uri_is_optional_and_never_dereferenced() {
+        let results = RESULTS.replace(
+            "<URI>https://vendor.example/qif/Plan-A.qif</URI>",
+            ""
+        );
+        let (inventory, _) = derive_trace_locator_inventory(
+            "no-uri",
+            &profile(),
+            &docs(results.as_bytes(), PLAN.as_bytes())
+        ).unwrap();
+        assert_eq!(inventory.body.external_document_references.len(), 1);
+        assert_eq!(inventory.body.external_document_references[0].source_uri, None);
+        assert_eq!(
+            inventory.body.external_document_references[0].plan_qpid,
+            "20000000-0000-4000-8000-000000000002"
+        );
+    }
+
+    #[test]
+    fn external_plan_qpid_and_uri_are_child_elements_not_attributes() {
+        let (inventory, _) = derive_trace_locator_inventory(
+            "qif-child-fields",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+        ).unwrap();
+        let reference = &inventory.body.external_document_references[0];
+        assert_eq!(reference.local_reference_id, 7);
+        assert_eq!(
+            reference.plan_qpid,
+            "20000000-0000-4000-8000-000000000002"
+        );
+        assert_eq!(
+            reference.source_uri.as_deref(),
+            Some("https://vendor.example/qif/Plan-A.qif")
+        );
+    }
 
     #[test]
     fn derives_namespace_aware_inventory_from_raw_results_and_plan() {
