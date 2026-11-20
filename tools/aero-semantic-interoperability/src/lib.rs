@@ -182,6 +182,8 @@ pub enum EvaluationError {
     DuplicateExpectedAssertion(String),
     #[error("duplicate observed assertion id: {0}")]
     DuplicateObservedAssertion(String),
+    #[error("mutation target assertion not found: {0}")]
+    MutationTargetNotFound(String),
     #[error("invalid semantic case JSON: {0}")]
     InvalidCaseJson(String),
     #[error("unknown field in {scope}: {field}")]
@@ -295,6 +297,73 @@ pub fn validate_case(case: &SemanticCaseV1) -> Result<(), EvaluationError> {
         }
     }
     Ok(())
+}
+
+/// Apply one deterministic adversarial mutation to a normalized assertion set.
+///
+/// The returned unsupported set is explicit: an omitted assertion is classified
+/// as unsupported only when the adapter declares that limitation; otherwise a
+/// missing required assertion is semantic loss.
+pub fn apply_mutation(
+    assertions: &[SemanticAssertionV1],
+    mutation: &MutationControlV1,
+) -> Result<(Vec<SemanticAssertionV1>, BTreeSet<String>), EvaluationError> {
+    let mut observed = assertions.to_vec();
+    let mut unsupported = BTreeSet::new();
+    let Some(index) = observed
+        .iter()
+        .position(|item| item.assertion_id == mutation.target_assertion_id)
+    else {
+        return Err(EvaluationError::MutationTargetNotFound(
+            mutation.target_assertion_id.clone(),
+        ));
+    };
+
+    match mutation.operation {
+        MutationOperation::DropField => {
+            observed.remove(index);
+        }
+        MutationOperation::OmitUnsupportedField => {
+            observed.remove(index);
+            unsupported.insert(mutation.target_assertion_id.clone());
+        }
+        MutationOperation::ChangeValue => {
+            observed[index].value = Value::Null;
+        }
+        MutationOperation::ChangeUnit => {
+            observed[index].unit = Some("mutation-unit".to_owned());
+        }
+        MutationOperation::ChangeToleranceType => {
+            let mut value = observed[index]
+                .value
+                .as_object()
+                .cloned()
+                .unwrap_or_default();
+            value.insert("kind".to_owned(), Value::String("mutated_tolerance_kind".to_owned()));
+            observed[index].value = Value::Object(value);
+        }
+        MutationOperation::ChangeDatum => {
+            observed[index].value = serde_json::json!({"datum": "B", "order": 2});
+        }
+        MutationOperation::ChangeSubjectId
+        | MutationOperation::DuplicatePersistentId
+        | MutationOperation::StaleRevision => {
+            observed[index].subject.id = format!("mutated:{}", observed[index].subject.id);
+        }
+        MutationOperation::ShiftEventTime => {
+            observed[index].value = match observed[index].value.as_i64() {
+                Some(value) => serde_json::json!(value.saturating_add(1)),
+                None => serde_json::json!({"mutated_time": true}),
+            };
+        }
+        MutationOperation::DropTraceEdge => {
+            observed[index].requirement = None;
+        }
+        MutationOperation::ReplaceSemanticWithGraphicOnly => {
+            observed[index].semantic_type = SemanticType::FeatureAssociation;
+        }
+    }
+    Ok((observed, unsupported))
 }
 
 /// Compare two normalized assertion sets. Source locators are intentionally
@@ -441,6 +510,15 @@ mod tests {
         assert_eq!(case.assertions.len(), 6);
         assert_eq!(case.mutations.len(), 6);
         assert_eq!(validate_case(&case), Ok(()));
+        let baseline = evaluate_assertions(
+            &case.benchmark_id,
+            &case.case_id,
+            &case.assertions,
+            &case.assertions,
+            &BTreeSet::new(),
+        ).expect("baseline assertion parity");
+        assert_eq!(baseline.disposition, AssertionStatus::Preserved);
+        assert_eq!(baseline.counts.preserved, case.assertions.len());
     }
 
     #[test]
@@ -507,6 +585,41 @@ mod tests {
         let first = evaluate_assertions("bench", "case", &[a.clone(), b.clone()], &[a.clone(), b.clone()], &BTreeSet::new()).unwrap();
         let second = evaluate_assertions("bench", "case", &[b.clone(), a.clone()], &[b, a], &BTreeSet::new()).unwrap();
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn frozen_mutation_corpus_matches_expected_dispositions() {
+        let case = fixture_case();
+        for mutation in &case.mutations {
+            let (observed, unsupported) =
+                apply_mutation(&case.assertions, mutation).expect("valid mutation target");
+            let report = evaluate_assertions(
+                &case.benchmark_id,
+                &format!("{}:{}", case.case_id, mutation.mutation_id),
+                &case.assertions,
+                &observed,
+                &unsupported,
+            ).expect("evaluate mutation");
+            let expected = match mutation.expected_disposition.as_str() {
+                "PRESERVED" => AssertionStatus::Preserved,
+                "SEMANTIC_LOSS" => AssertionStatus::SemanticLoss,
+                "WRONG_SUBJECT_JOIN" => AssertionStatus::WrongSubjectJoin,
+                "UNSUPPORTED" => AssertionStatus::Unsupported,
+                "AMBIGUOUS" => AssertionStatus::Ambiguous,
+                other => panic!("unexpected mutation disposition: {other}"),
+            };
+            assert_eq!(report.disposition, expected, "mutation {}", mutation.mutation_id);
+        }
+    }
+
+    #[test]
+    fn strict_parser_rejects_missing_mutation_fields() {
+        let mut value: Value = serde_json::from_slice(
+            include_bytes!("../../../fixtures/aero-semantic-interop/reference-cases-v1.json"),
+        ).unwrap();
+        value["mutations"][0].as_object_mut().unwrap().remove("operation");
+        let bytes = serde_json::to_vec(&value).unwrap();
+        assert!(matches!(parse_semantic_case(&bytes), Err(EvaluationError::MissingField { .. })));
     }
 
     #[test]
