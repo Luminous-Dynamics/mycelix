@@ -761,8 +761,9 @@ mod tests {
         let (envelopes, p, _) = complete(&c);
         let result = verify_gate_set(&envelopes, &p, &c);
         let set = result.verified().unwrap();
-        assert_eq!(set.required_gate_ids().len(), 7);
-        assert_eq!(set.attestation_digests_sha256().len(), 7);
+        let expected_gate_count = required_gate_ids(&c.scenario_id).unwrap().len();
+        assert_eq!(set.required_gate_ids().len(), expected_gate_count);
+        assert_eq!(set.attestation_digests_sha256().len(), expected_gate_count);
         assert_eq!(set.run_id(), c.run_id);
         assert_eq!(set.scenario_id(), c.scenario_id);
     }
