@@ -75,12 +75,29 @@ pub struct ResultsDocumentV1 {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PlanCharacteristicObjectV1 {
-    /// The QIF object id within this Plan document, selected by external xId.
+pub struct PlanCharacteristicItemV1 {
+    /// QIF CharacteristicItem id selected by CharacteristicItemId/@xId.
     pub object_id: u32,
-    pub kind: PlanObjectKind,
+    /// CharacteristicItem/CharacteristicNominalId, local to this Plan.
+    pub characteristic_nominal_id: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlanCharacteristicNominalV1 {
+    /// QIF CharacteristicNominal id, local to this Plan.
+    pub object_id: u32,
     pub characteristic_id: String,
-    /// STEP persistent UUID reached through the Plan object's external-ID map.
+    /// EntityExternalIds/Id values referencing DigitalModel/Entities/Entity/@id.
+    pub entity_external_ids: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DigitalModelExternalEntityV1 {
+    /// QIF Entity/@id within this Plan's Product/Part/DefinitionExternal/DigitalModel.
+    pub entity_id: u32,
+    /// Entity/EntityId: persistent UUID of the source STEP entity.
     pub step_uuid: String,
     pub step_entity_kind: StepEntityKind,
 }
@@ -91,7 +108,10 @@ pub struct QifPlanDocumentV1 {
     pub qpid: String,
     pub artifact: ContentArtifactV1,
     pub step_document: ContentArtifactV1,
-    pub objects: Vec<PlanCharacteristicObjectV1>,
+    /// Subset of Product/Part/DefinitionExternal/DigitalModel/Entities.
+    pub digital_model_entities: Vec<DigitalModelExternalEntityV1>,
+    pub characteristic_items: Vec<PlanCharacteristicItemV1>,
+    pub characteristic_nominals: Vec<PlanCharacteristicNominalV1>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,18 +140,26 @@ pub struct QifExternalReferenceTraceCaseV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedStepEntityV1 {
+    pub entity_external_id: u32,
+    pub step_uuid: String,
+    pub step_entity_kind: StepEntityKind,
+    pub step_document: ContentArtifactV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedMeasurementTraceV1 {
     pub measurement_id: String,
+    pub result_set_id: String,
     pub status: MeasurementStatus,
     pub results_qpid: String,
     pub external_document_reference_id: u32,
     pub plan_qpid: String,
-    pub plan_artifact: aero_adapter_run_receipt::ContentArtifactV1,
-    pub plan_object_id: u32,
+    pub plan_artifact: ContentArtifactV1,
+    pub plan_characteristic_item_id: u32,
+    pub characteristic_nominal_id: u32,
     pub characteristic_id: String,
-    pub step_document: ContentArtifactV1,
-    pub step_uuid: String,
-    pub step_entity_kind: StepEntityKind,
+    pub step_entities: Vec<ResolvedStepEntityV1>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -172,8 +200,14 @@ pub enum TraceError {
     MissingPlan(String),
     #[error("external Plan identity or content does not match reference {0}")]
     PlanReferenceMismatch(u32),
-    #[error("missing Plan object xId {xid} in QPId {qpid}")]
+    #[error("missing Plan CharacteristicItem xId {xid} in QPId {qpid}")]
     MissingExternalObject { qpid: String, xid: u32 },
+    #[error("CharacteristicNominal {nominal_id} missing in Plan {qpid}")]
+    MissingCharacteristicNominal { qpid: String, nominal_id: u32 },
+    #[error("CharacteristicNominal {nominal_id} has no EntityExternalIds")]
+    MissingEntityExternalIds { nominal_id: u32 },
+    #[error("EntityExternalId {entity_id} missing in DigitalModel map for Plan {qpid}")]
+    MissingDigitalModelEntity { qpid: String, entity_id: u32 },
     #[error("xId {xid} in QPId {qpid} resolved to a non-CharacteristicItem")]
     WrongExternalObjectKind { qpid: String, xid: u32 },
     #[error("missing STEP document for Plan {0}")]
@@ -186,6 +220,8 @@ pub enum TraceError {
     MissingStepEntity { document: String, uuid: String },
     #[error("STEP UUID {uuid} has a kind mismatch in document {document}")]
     StepEntityKindMismatch { document: String, uuid: String },
+    #[error("Plan {qpid} uses uppercase UUID {uuid}; UUID comparison requires canonical lowercase")]
+    NonCanonicalUuid { qpid: String, uuid: String },
     #[error("invalid content artifact {0}")]
     InvalidArtifact(String),
     #[error("duplicate artifact reference {0}")]
@@ -248,8 +284,9 @@ pub fn parse_trace_case_json(bytes: &[u8]) -> Result<QifExternalReferenceTraceCa
         .ok_or_else(|| TraceError::MalformedObject("case.plans".into()))?;
     for (index, plan) in plans.iter().enumerate() {
         let scope = format!("case.plans[{index}]");
-        check_fields(plan, &scope, &["qpid", "artifact", "step_document", "objects"],
-            &["qpid", "artifact", "step_document", "objects"])?;
+        check_fields(plan, &scope,
+            &["qpid", "artifact", "step_document", "digital_model_entities", "characteristic_items", "characteristic_nominals"],
+            &["qpid", "artifact", "step_document", "digital_model_entities", "characteristic_items", "characteristic_nominals"])?;
         check_content_artifact(plan.get("artifact").ok_or_else(|| TraceError::MissingField {
             scope: scope.clone(), field: "artifact".into()
         })?, &format!("{scope}.artifact"))?;
@@ -257,13 +294,29 @@ pub fn parse_trace_case_json(bytes: &[u8]) -> Result<QifExternalReferenceTraceCa
             scope: scope.clone(), field: "step_document".into()
         })?, &format!("{scope}.step_document"))?;
 
-        let objects = plan.get("objects").and_then(Value::as_array)
-            .ok_or_else(|| TraceError::MalformedObject(format!("{scope}.objects")))?;
-        for (object_index, object) in objects.iter().enumerate() {
-            let object_scope = format!("{scope}.objects[{object_index}]");
-            check_fields(object, &object_scope,
-                &["object_id", "kind", "characteristic_id", "step_uuid", "step_entity_kind"],
-                &["object_id", "kind", "characteristic_id", "step_uuid", "step_entity_kind"])?;
+        let digital_entities = plan.get("digital_model_entities").and_then(Value::as_array)
+            .ok_or_else(|| TraceError::MalformedObject(format!("{scope}.digital_model_entities")))?;
+        for (entity_index, entity) in digital_entities.iter().enumerate() {
+            let entity_scope = format!("{scope}.digital_model_entities[{entity_index}]");
+            check_fields(entity, &entity_scope,
+                &["entity_id", "step_uuid", "step_entity_kind"],
+                &["entity_id", "step_uuid", "step_entity_kind"])?;
+        }
+        let items = plan.get("characteristic_items").and_then(Value::as_array)
+            .ok_or_else(|| TraceError::MalformedObject(format!("{scope}.characteristic_items")))?;
+        for (item_index, item) in items.iter().enumerate() {
+            let item_scope = format!("{scope}.characteristic_items[{item_index}]");
+            check_fields(item, &item_scope,
+                &["object_id", "characteristic_nominal_id"],
+                &["object_id", "characteristic_nominal_id"])?;
+        }
+        let nominals = plan.get("characteristic_nominals").and_then(Value::as_array)
+            .ok_or_else(|| TraceError::MalformedObject(format!("{scope}.characteristic_nominals")))?;
+        for (nominal_index, nominal) in nominals.iter().enumerate() {
+            let nominal_scope = format!("{scope}.characteristic_nominals[{nominal_index}]");
+            check_fields(nominal, &nominal_scope,
+                &["object_id", "characteristic_id", "entity_external_ids"],
+                &["object_id", "characteristic_id", "entity_external_ids"])?;
         }
     }
 
