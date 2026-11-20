@@ -384,7 +384,7 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         if refs_by_id.insert(external.local_reference_id, external).is_some() {
             return Err(TraceError::DuplicateIdentifier(format!("external ref {}", external.local_reference_id)));
         }
-        add_artifact(&external.plan_artifact)?;
+        validate_content_artifact(&external.plan_artifact)?;
         if external.plan_artifact.reference.kind != "qif_plan"
             || external.plan_artifact.format_id != "QIF_3.0"
         {
