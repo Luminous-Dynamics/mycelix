@@ -84,6 +84,7 @@ pub struct QopsReport {
     pub run_id: String,
     pub scenario_id: String,
     pub offer_ledger_digest_sha256: String,
+    pub operation_contract_registry_digest_sha256: String,
     pub scenario_contract_digest_sha256: String,
     pub offer_ledger_entry_count: usize,
     pub generator_digest_sha256: String,
@@ -303,6 +304,7 @@ pub fn compute_qops(
         run_id: ledger.run_id().to_string(),
         scenario_id: ledger.scenario_id().to_string(),
         offer_ledger_digest_sha256: ledger.ledger_digest_sha256().to_string(),
+        operation_contract_registry_digest_sha256: ledger.operation_contract_registry_digest_sha256().to_string(),
         scenario_contract_digest_sha256: ledger.scenario_contract_digest_sha256().to_string(),
         offer_ledger_entry_count: offered_operations,
         generator_digest_sha256: ledger.generator_digest_sha256().to_string(),
@@ -519,6 +521,7 @@ mod tests {
         assert_eq!(report.correctness_attestation_count, expected_gate_count);
         assert!(report.correctness_gate_set_digest_sha256.is_some());
         assert_eq!(report.offer_ledger_digest_sha256, ledger.ledger_digest_sha256());
+        assert_eq!(report.operation_contract_registry_digest_sha256, ledger.operation_contract_registry_digest_sha256());
     }
 
     #[test]
