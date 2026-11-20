@@ -8,7 +8,7 @@ An evidence-backed, vendor-neutral QIF/AP242 differential benchmark evaluator.
 - Requires a complete tool × case run grid. A missing run is not silently removed from the denominator.
 - Verifies the exact bytes of every corpus input and oracle record before scoring.
 - Reuses AeroAdapterRunReceiptV1 validation and exact payload verification for every executed tool run. Pins each tool's argument vector, environment-profile bytes, configuration digest, locale, timezone, timeout and network policy before the run.
-- Binds each run to the registered tool ID/version/executable, benchmark ID, case ID and exact declared source inputs.
+- Binds each run to the registered tool ID/version/executable, predeclared invocation profile, benchmark ID, case ID and exact one-to-one source input set.
 - Requires a successful run to report each expected claim exactly once.
 - Preserves Failed, TimedOut, Blocked and NotRun attempts; failure and timeout receipts remain in the score denominator.
 - Reports confusion matrices and execution outcomes separately by engineering dimension.
@@ -26,10 +26,10 @@ An evidence-backed, vendor-neutral QIF/AP242 differential benchmark evaluator.
 
 `AeroInteropBenchmarkV1` contains:
 - benchmark/profile and QIF/AP242 edition identities;
-- a tool roster with exact executable artifacts and tool category;
+- a tool roster with exact executable, argument-vector and environment-profile artifacts, configuration digest, locale/timezone, timeout, network policy and tool category;
 - cases with exact input artifacts and explicit testing/redistribution rights;
-- a separately pinned oracle artifact and rights status;
-- an oracle method/profile version;
+- a separately pinned oracle artifact and rights status, distinct from every source input;
+- a constrained oracle method (independent hand enumeration, dual review, independent tool plus review, published reference, or explicitly unadjudicated) and profile version; no LLM-only oracle mode;
 - claim-level labels: Accept, Reject or Unadjudicated;
 - source locator, rationale code and safety criticality per claim.
 
@@ -75,7 +75,7 @@ NIST STEP Analyzer, CAx-IF practice reports, QIF XSD/XSLT outputs and commercial
 - zero missing tool × case cells or unaccounted claim observations;
 - 100% explicit reporting of warning/unknown/unsupported/error/timeout/blocked states.
 
-Performance is reported separately: p50/p95 latency, peak memory/CPU, bytes processed, throughput and total execution cost. No performance/SOTA claim is valid without matched hardware, tool version/configuration, input bytes, corpus digest and complete budget accounting (including failed runs, setup, tuning and audit).
+Receipt-backed wall-time p50/p95/min/max includes succeeded, failed and timed-out attempts; blocked/not-run cells remain visible but have no fabricated duration. Peak memory/CPU, bytes processed, throughput and total execution cost require separate instrumentation and are not yet implemented in this scorer. No performance/SOTA claim is valid without matched hardware, tool version/configuration, input bytes, corpus digest and complete budget accounting (including failed runs, setup, tuning and audit).
 
 ## Claim ceiling
 
