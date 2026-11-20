@@ -1400,7 +1400,11 @@ mod tests {
     fn normative_schema_rejects_missing_required_evidence_field() {
         let schema = trace_schema();
         let mut trace = valid_trace();
-        trace["events"][event_index(&trace, "receipt-created")].as_object_mut().unwrap().remove("evidence_refs");
+        let receipt_created = event_index(&trace, "receipt-created");
+        trace["events"][receipt_created]
+            .as_object_mut()
+            .unwrap()
+            .remove("evidence_refs");
         let errors = validate_against_schema(&trace, &schema).unwrap_err();
         assert!(errors.iter().any(|item| item.contains("evidence_refs")));
     }
@@ -1481,7 +1485,8 @@ mod tests {
     #[test]
     fn rejects_dangling_causal_edge() {
         let mut trace = valid_trace();
-        trace["events"][event_index(&trace, "recipient-commit")]["causal_predecessors"] =
+        let commit = event_index(&trace, "recipient-commit");
+        trace["events"][commit]["causal_predecessors"] =
             json!([{"event_id": "missing", "relation": "request_response"}]);
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
@@ -1505,7 +1510,8 @@ mod tests {
     #[test]
     fn rejects_event_role_confusion() {
         let mut trace = valid_trace();
-        trace["events"][event_index(&trace, "recipient-commit")]["evidence_role"] = json!("transport_adapter");
+        let commit = event_index(&trace, "recipient-commit");
+        trace["events"][commit]["evidence_role"] = json!("transport_adapter");
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
@@ -1516,7 +1522,8 @@ mod tests {
     #[test]
     fn rejects_missing_attempt_id_for_receipt_verification() {
         let mut trace = valid_trace();
-        trace["events"][event_index(&trace, "receipt-verified")]["attempt_id"] = Value::Null;
+        let receipt = event_index(&trace, "receipt-verified");
+        trace["events"][receipt]["attempt_id"] = Value::Null;
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
@@ -1527,7 +1534,8 @@ mod tests {
     #[test]
     fn rejects_duplicate_logical_inbox_effect() {
         let mut trace = valid_trace();
-        let duplicate = trace["events"][event_index(&trace, "recipient-commit")].clone();
+        let commit = event_index(&trace, "recipient-commit");
+        let duplicate = trace["events"][commit].clone();
         trace["events"].as_array_mut().unwrap().push(duplicate);
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
