@@ -31,7 +31,8 @@
       "additionalProperties": false,
       "required": [
         "repository",
-        "commit"
+        "commit",
+        "tree_sha"
       ],
       "properties": {
         "repository": {
@@ -42,6 +43,10 @@
             "string",
             "null"
           ],
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "tree_sha": {
+          "type": "string",
           "pattern": "^[0-9a-f]{40}$"
         }
       }
@@ -54,7 +59,9 @@
         "rust_source_file_count",
         "nearest_manifest_context_file_count",
         "without_nearest_manifest_context_file_count",
-        "nearest_manifest_context_coverage"
+        "nearest_manifest_context_coverage",
+        "source_selection",
+        "excluded_path_components"
       ],
       "properties": {
         "manifest_count": {
@@ -77,6 +84,16 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1
+        },
+        "source_selection": {
+          "const": "git-tracked-files-only-clean-tracked-worktree"
+        },
+        "excluded_path_components": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
         }
       }
     },
