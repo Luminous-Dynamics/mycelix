@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/pulse-fabric-verifier.yml"
       - "mycelix-workspace/mycelix-pulse/tools/fabric-verifier/**"
       - "mycelix-workspace/mycelix-pulse/docs/pulse-fabric-*.json"
   pull_request:
