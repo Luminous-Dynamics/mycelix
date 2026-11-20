@@ -252,6 +252,7 @@ pub fn compute_qops(
                 | QopsIssue::MetricIntegrityIncomplete
                 | QopsIssue::CrossHostMetricIntegrityIncomplete
                 | QopsIssue::CorrectnessGateSetIncomplete
+                | QopsIssue::OutcomeEvidenceNotVerified
         )
     });
     let status = if is_invalid {
