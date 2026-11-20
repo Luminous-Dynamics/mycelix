@@ -561,9 +561,6 @@ pub fn validate_ingest_qualification(
             QifDocumentRole::Auxiliary => {}
         }
     }
-    if total_source_bytes > body.sandbox.max_total_input_bytes {
-        return Err(IngestError::TotalInputExceedsLimit);
-    }
     if results_docs.len() != 1 {
         return Err(IngestError::ResultsDocumentCardinality);
     }
@@ -616,6 +613,17 @@ pub fn validate_ingest_qualification(
     validate_bundle_files(&body.bundles.xsd.entrypoint, &body.bundles.xsd.files)?;
     validate_bundle_files(&body.bundles.xslt.root_stylesheet, &body.bundles.xslt.files)?;
     validate_content_artifact(&body.bundles.xslt.check_parameters)?;
+    let bundle_bytes = body.bundles.xsd.files.iter()
+        .chain(body.bundles.xslt.files.iter())
+        .try_fold(body.bundles.xslt.check_parameters.byte_length, |total, file| {
+            total.checked_add(file.artifact.byte_length)
+        })
+        .ok_or(IngestError::TotalInputExceedsLimit)?;
+    let total_staged_bytes = total_source_bytes.checked_add(bundle_bytes)
+        .ok_or(IngestError::TotalInputExceedsLimit)?;
+    if total_staged_bytes > body.sandbox.max_total_input_bytes {
+        return Err(IngestError::TotalInputExceedsLimit);
+    }
     let expected_xslt_format = match body.qif_profile {
         QifValidationProfile::Qif3Normative => "QIF_3.0_XSLT",
         QifValidationProfile::Qif3PlusPreview => "QIF3PLUS_PREVIEW_XSLT",
@@ -1180,6 +1188,43 @@ mod tests {
         assert_eq!(
             validate_ingest_qualification(&qualification),
             Err(IngestError::TooManyDocuments)
+        );
+    }
+
+    #[test]
+    fn total_input_limit_includes_schema_stylesheets_and_parameters() {
+        let (mut qualification, _) = fixture();
+        qualification.body.sandbox.max_total_input_bytes = 100;
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::TotalInputExceedsLimit)
+        );
+    }
+
+    #[test]
+    fn dotnet_core_31_cannot_be_declared_supported() {
+        let (mut qualification, _) = fixture();
+        qualification.body.runtime.runtime_version = "3.1.32".into();
+        qualification.body.runtime.support = RuntimeSupport::SupportedLts;
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::LegacyRuntimeMisclassified)
+        );
+    }
+
+    #[test]
+    fn source_uri_must_match_the_declared_external_document_metadata() {
+        let (mut qualification, _) = fixture();
+        qualification.body.external_document_bindings[0].source_uri =
+            Some("https://other.example/Plan.qif".into());
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::SourceUriMismatch(
+                "20000000-0000-4000-8000-000000000002".into()
+            ))
         );
     }
 
