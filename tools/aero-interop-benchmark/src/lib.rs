@@ -1024,13 +1024,15 @@ mod tests {
     fn oracle_unadjudicated_is_not_scored_as_accept_or_reject() {
         let (manifest, receipt, payloads) = fixture();
         let borrowed = borrowed(&payloads);
+        let corpus_owned = corpus_payloads(&manifest, &payloads);
+        let corpus_borrowed = borrowed(&corpus_owned);
         let observations = vec![
             ClaimObservationV1 { claim_id: "trace.characteristic_identity".into(), disposition: ClaimObservationDisposition::Accepted, reason_code: None },
             ClaimObservationV1 { claim_id: "trace.wrong_document_join".into(), disposition: ClaimObservationDisposition::Rejected, reason_code: None },
             ClaimObservationV1 { claim_id: "pmi.semantic_pmi_preserved".into(), disposition: ClaimObservationDisposition::Accepted, reason_code: None },
         ];
         let run = run("synthetic-step-to-qif", "synthetic-ap242-qif-001", &receipt, &borrowed, &observations);
-        let score = evaluate_benchmark(&manifest, &[run]).unwrap();
+        let score = evaluate_benchmark(&manifest, &corpus_borrowed, &[run]).unwrap();
         let semantic = &score.tools[0].dimensions[&BenchmarkDimension::SemanticPreservation];
         assert_eq!(semantic.oracle_unadjudicated, 1);
         assert_eq!(semantic.true_accepts + semantic.false_accepts + semantic.true_rejects + semantic.false_rejects, 0);
