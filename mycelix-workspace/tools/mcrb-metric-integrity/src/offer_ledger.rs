@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use crate::operation_contract::{
-    OperationOutcomeClass, ValidatedOperationContractRegistry,
+    OperationOutcomeClass, ValidatedOperationContract, ValidatedOperationContractRegistry,
 };
 
 pub const OFFER_LEDGER_SCHEMA_VERSION: &str = "mycelix-mcrb-offer-ledger-v0.1";
