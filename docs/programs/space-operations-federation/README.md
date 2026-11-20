@@ -301,6 +301,24 @@ The defensible initial position is **not better sensors, larger catalogs or more
 
 These are programme hypotheses. Public product pages do not establish that competitors lack these properties; the comparison must be performed by testing actual interfaces, data products and independently available evidence.
 
+### 9.1 Operational cross-provider parity baseline (2026-10-07)
+
+The most useful new industry benchmark is the joint **TraCSS–EU SST operational information exchange study**, published by the Office of Space Commerce on October 7, 2026:
+https://space.commerce.gov/eusst-tracss-publish-joint-study-on-operational-information-exchange/
+
+For its specific analysis period, the study reports that TraCSS published about **45× as many conjunction events** as EU SST, while publishing CDMs for **65% of EU SST's 1,432 events**. Approximately 70% of TraCSS-only LEO events involved SPCAT ephemerides for Starlink secondaries that EU SST generally does not publish when preferable orbit sources are available; 95% of TraCSS-only GEO events were below general EU SST publication-risk thresholds. The report describes EU SST as prioritizing actionable products from high-priority sources and TraCSS as screening/distributing more comprehensively. It also notes that output converges when both services use comparable operator-provided data. OSC explicitly cautions that the methodological differences do not establish superiority of either system.
+
+The operational implications are important:
+
+1. **Do not use event count as an accuracy metric.** A higher CDM volume may result from wider input populations, more permissive publication thresholds, or more comprehensive screening—not better orbit estimates.
+2. **Separate detection from publication.** Measure the internal candidate-event set and the events distributed to operators as distinct stages.
+3. **Stratify by input lineage.** Compare operator ephemeris/covariance, government catalog, SPCAT-like elements, commercial tracks, sensor-network solutions and TLE-only cases separately.
+4. **Normalize the experiment.** Re-run common inputs using matched time windows, screening volumes, HBR assumptions, covariance availability, frame/time conventions and publication policy.
+5. **Explain every unmatched event.** Distinguish missing inputs, source-quality differences, no covariance, screening-volume differences, event-search differences, publication thresholds and unknown causes.
+6. **Measure convergence on shared operator data.** This is the strongest publicly described signal in the joint study for separating source-data effects from analysis-policy effects.
+
+The published study's scope and numbers are not universal. They must not be turned into a vendor ranking or generalized false-negative rate. The dedicated comparison protocol is tracked in #6388.
+
 ### Fair comparative protocol
 
 For any performance comparison, freeze the same input artifacts and evaluation budget across systems. Bind:
@@ -322,6 +340,7 @@ If the competitor's required input, model configuration or result is unavailable
 |---|---|
 | Tracking / orbit estimation | Position and velocity residuals by orbit regime and lead time; empirical covariance coverage; maneuver/uncorrelated-track detection; latency and custody gaps |
 | Conjunction assessment | Event recall and false-alert burden reported separately for TraCSS spherical and SFSH screening volumes; TCA/miss-distance error against independent trajectory truth; Pc calibration and interval coverage against method-compatible references; applicability/abstention rate by method; correlated-error sensitivity; false-negative severity |
+| Cross-provider parity | Common-input event overlap, source-class-specific miss rates, unmatched-event reason distribution, detection-vs-publication split, operator-data convergence |
 | Interoperability | Byte/digest preservation; mandatory/optional field correctness; unit/frame/time/covariance semantic loss; schema-version support; duplicate/correction handling |
 | Evidence and governance | Replay equality; provenance coverage; dependency completeness; unauthorized disclosure/action rejection; revocation and purpose enforcement |
 | Federation | Partition visibility; stale-view detection; reconciliation correctness; recovery time; silent-overwrite count; local autonomy during disconnection |
