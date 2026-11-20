@@ -14,9 +14,13 @@ The token is not reconstructed from a journal replay. This closes an important c
 
 A durable DispatchMarked record therefore acts as an irrevocable one-attempt dispatch boundary, not as a reusable permit.
 
+## Logical-operation lineage
+
+A logical operation may have multiple transport attempts, but those attempts are serialized and share a stable semantic identity. A new attempt ID is permitted only when the prior attempt never crossed the durable dispatch boundary (Intent/Authorized only), or when an authoritative, tuple-bound remote record proves DefinitelyNotApplied. If the previous attempt is DispatchMarked, RequestWriteStarted, or ResponseObserved without authoritative resolution, the journal rejects a new attempt. If the remote record says Applied, the journal rejects another attempt. A permitted retry must preserve logical operation ID, workload, principal, origin, request digest and idempotency-key digest; it receives a fresh attempt ID and may refresh policy/network generations. A superseded attempt cannot append further records.
+
 ## Model
 
-The Rust model is prism-egress/tests/durable_journal_model.rs and currently contains 25 deterministic test functions.
+The Rust model is prism-egress/tests/durable_journal_model.rs and currently contains 32 deterministic test functions.
 
 Each record binds:
 - monotonically increasing journal sequence;
@@ -27,7 +31,7 @@ Each record binds:
 - optional logical idempotency-key digest;
 - record kind, previous-record digest and record digest.
 
-Record kinds are Intent, Authorized, DispatchMarked, RequestWriteStarted, ResponseObserved, and RemoteReconciled. The reference state machine rejects invalid transitions, identity/scope drift, out-of-order records, sequence gaps, prior-digest mismatch and payload tampering.
+Record kinds are Intent, Authorized, DispatchMarked, RequestWriteStarted, ResponseObserved, and RemoteReconciled. A reconciliation record is typed as Applied or DefinitelyNotApplied; an unknown result is not persisted as a final reconciliation. The reference state machine rejects invalid transitions, identity/scope drift, out-of-order records, sequence gaps, prior-digest mismatch and payload tampering.
 
 The durable_len watermark represents the durable prefix. flush() advances it only after validating the appended sequence. recover_after_crash() discards the volatile suffix and reconstructs the durable prefix. This is a model of a durability contract, not an implementation of fsync or a proof that a particular file system or storage device honors it.
 
