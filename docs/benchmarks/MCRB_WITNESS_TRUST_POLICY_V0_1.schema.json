@@ -1,0 +1,259 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mcrb-witness-trust-policy-v0.1.json",
+  "title": "MCRB Witness Trust Policy v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy_id",
+    "policy_owner",
+    "valid_from_unix_ms",
+    "expires_at_unix_ms",
+    "independence_dimensions",
+    "quorum_profiles",
+    "witnesses",
+    "relationships"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mcrb-witness-trust-policy-v0.1"
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_owner": {
+      "type": "string",
+      "minLength": 1
+    },
+    "valid_from_unix_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "expires_at_unix_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "independence_dimensions": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "administrative_control",
+          "execution_platform",
+          "evidence_source",
+          "cryptographic_identity"
+        ]
+      }
+    },
+    "quorum_profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "profile_id",
+          "eligibility_class",
+          "min_valid_witnesses",
+          "min_distinct_admin_domains",
+          "min_distinct_execution_domains",
+          "min_distinct_evidence_domains",
+          "allow_unknown_relationships",
+          "transparency_requirement"
+        ],
+        "properties": {
+          "profile_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "eligibility_class": {
+            "enum": [
+              "diagnostic-only",
+              "standard-eligible",
+              "high-consequence-eligible"
+            ]
+          },
+          "min_valid_witnesses": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "min_distinct_admin_domains": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "min_distinct_execution_domains": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "min_distinct_evidence_domains": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "allow_unknown_relationships": {
+            "const": false
+          },
+          "transparency_requirement": {
+            "enum": [
+              "none-diagnostic-only",
+              "inclusion-proof",
+              "inclusion-and-consistency-proof"
+            ]
+          }
+        }
+      }
+    },
+    "witnesses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "witness_id",
+          "key_id",
+          "public_key_hex",
+          "organization_id",
+          "admin_control_domain",
+          "execution_domain",
+          "verifier_identity",
+          "verifier_version",
+          "verifier_binary_digest_sha256",
+          "allowed_gate_ids",
+          "allowed_builder_ids",
+          "evidence_source_domains",
+          "valid_from_unix_ms",
+          "expires_at_unix_ms",
+          "revoked"
+        ],
+        "properties": {
+          "witness_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "key_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "public_key_hex": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{64}$"
+          },
+          "organization_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "admin_control_domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "execution_domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verifier_identity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verifier_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verifier_binary_digest_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "allowed_gate_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowed_builder_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence_source_domains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "valid_from_unix_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expires_at_unix_ms": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "rotation_predecessor_key_id": {
+            "type": "string"
+          },
+          "independence_review_digest_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "left_domain",
+          "right_domain",
+          "dimension",
+          "disposition",
+          "evidence_digest_sha256"
+        ],
+        "properties": {
+          "left_domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "right_domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dimension": {
+            "enum": [
+              "administrative_control",
+              "execution_platform",
+              "evidence_source",
+              "cryptographic_identity"
+            ]
+          },
+          "disposition": {
+            "enum": [
+              "independent",
+              "known-shared",
+              "unknown"
+            ]
+          },
+          "evidence_digest_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "reviewed_at_unix_ms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}
