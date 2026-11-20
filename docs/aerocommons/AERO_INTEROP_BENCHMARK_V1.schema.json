@@ -165,6 +165,8 @@
         "inputs",
         "oracle_artifact",
         "oracle_rights_status",
+        "oracle_method",
+        "oracle_profile_version",
         "claims"
       ],
       "properties": {
@@ -200,6 +202,14 @@
           "items": {
             "$ref": "#/$defs/claim"
           }
+        },
+        "oracle_method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "oracle_profile_version": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
