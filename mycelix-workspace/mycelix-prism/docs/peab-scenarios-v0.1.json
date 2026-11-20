@@ -2469,6 +2469,97 @@
       "execution_status": "not_run_exact_head",
       "negative_control_required": true,
       "execution_evidence": null
+    },
+    {
+      "id": "WAL-028",
+      "family": "logical_operation_lineage",
+      "title": "Unresolved dispatched operation blocks a new attempt",
+      "setup": "new attempt ID is requested for a logical operation whose prior attempt has DispatchMarked but no authoritative reconciliation",
+      "expected_decision": "hold_unknown",
+      "oracle": "one logical operation has a serialized attempt lineage; a new attempt requires safe pre-dispatch state or authoritative not-applied proof and preserves semantic request identity",
+      "source_coverage": "present",
+      "source_test": "unresolved_dispatch_blocks_a_new_attempt_for_the_same_logical_operation",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "WAL-029",
+      "family": "logical_operation_lineage",
+      "title": "Applied operation cannot be reissued",
+      "setup": "authoritative server reconciliation records Applied, followed by a second attempt request",
+      "expected_decision": "deny_new_attempt",
+      "oracle": "one logical operation has a serialized attempt lineage; a new attempt requires safe pre-dispatch state or authoritative not-applied proof and preserves semantic request identity",
+      "source_coverage": "present",
+      "source_test": "applied_operation_cannot_be_reissued_as_a_new_attempt",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "WAL-030",
+      "family": "logical_operation_lineage",
+      "title": "Authoritative absence permits a fresh attempt with stable logical identity",
+      "setup": "server proves DefinitelyNotApplied; next attempt changes attempt ID and refreshes policy/network generations",
+      "expected_decision": "allow_new_attempt_same_key",
+      "oracle": "one logical operation has a serialized attempt lineage; a new attempt requires safe pre-dispatch state or authoritative not-applied proof and preserves semantic request identity",
+      "source_coverage": "present",
+      "source_test": "authoritative_not_applied_reconciliation_allows_fresh_attempt_identity",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "WAL-031",
+      "family": "logical_operation_lineage",
+      "title": "Absence proof cannot authorize changed request bytes",
+      "setup": "new attempt uses a different request digest after DefinitelyNotApplied",
+      "expected_decision": "deny_scope_mismatch",
+      "oracle": "one logical operation has a serialized attempt lineage; a new attempt requires safe pre-dispatch state or authoritative not-applied proof and preserves semantic request identity",
+      "source_coverage": "present",
+      "source_test": "definitely_not_applied_does_not_authorize_changed_request_bytes",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "WAL-032",
+      "family": "logical_operation_lineage",
+      "title": "Retry retains idempotency key and principal identity",
+      "setup": "new attempt changes key or principal after DefinitelyNotApplied",
+      "expected_decision": "deny_scope_mismatch",
+      "oracle": "one logical operation has a serialized attempt lineage; a new attempt requires safe pre-dispatch state or authoritative not-applied proof and preserves semantic request identity",
+      "source_coverage": "present",
+      "source_test": "new_attempt_requires_same_idempotency_key_and_principal",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "WAL-033",
+      "family": "logical_operation_lineage",
+      "title": "Superseded attempt cannot continue after replacement begins",
+      "setup": "new attempt intent is appended, then prior attempt tries to append an authorization record",
+      "expected_decision": "deny_superseded_attempt",
+      "oracle": "one logical operation has a serialized attempt lineage; a new attempt requires safe pre-dispatch state or authoritative not-applied proof and preserves semantic request identity",
+      "source_coverage": "present",
+      "source_test": "superseded_attempt_cannot_append_records_after_retry_identity_is_created",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "WAL-034",
+      "family": "journal_integrity",
+      "title": "Attempt ID cannot be reused across logical operations",
+      "setup": "a second logical operation attempts to reuse an existing attempt ID",
+      "expected_decision": "deny_attempt_id_reuse",
+      "oracle": "one logical operation has a serialized attempt lineage; a new attempt requires safe pre-dispatch state or authoritative not-applied proof and preserves semantic request identity",
+      "source_coverage": "present",
+      "source_test": "attempt_id_cannot_be_reused_for_a_second_logical_operation",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
     }
   ]
 }
