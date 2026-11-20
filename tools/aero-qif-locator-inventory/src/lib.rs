@@ -602,6 +602,77 @@ fn finalize_frame(
                     Some(reference_id),
                     frame.external_xid,
                     Some(&frame.direct_text),
+                    None,
+                    &frame.captured_attributes,
+                    profile.limits.max_locators,
+                )?;
+            }
+            LocatorCaptureMode::DocumentQpid => {
+                if frame.has_child_element {
+                    return Err(InventoryError::InvalidQpid(frame.locator_path.clone()));
+                }
+                let value = frame.direct_text.trim();
+                if !valid_qpid(value) || !value.eq_ignore_ascii_case(qpid) {
+                    return Err(InventoryError::DocumentQpidMismatch(frame.locator_path.clone()));
+                }
+                append_locator(
+                    locators,
+                    rule,
+                    qpid,
+                    &format!("{}#qpid", frame.locator_path),
+                    None,
+                    None,
+                    None,
+                    Some(value),
+                    Some(value),
+                    &frame.captured_attributes,
+                    profile.limits.max_locators,
+                )?;
+            }
+            LocatorCaptureMode::ExternalPlanQpid => {
+                if frame.has_child_element {
+                    return Err(InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()));
+                }
+                let value = frame.direct_text.trim();
+                if !valid_qpid(value) {
+                    return Err(InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()));
+                }
+                let external_reference_id = frame.external_document_reference_id
+                    .ok_or_else(|| InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()))?;
+                append_locator(
+                    locators,
+                    rule,
+                    qpid,
+                    &format!("{}#qpid", frame.locator_path),
+                    None,
+                    Some(external_reference_id),
+                    None,
+                    Some(value),
+                    Some(value),
+                    &frame.captured_attributes,
+                    profile.limits.max_locators,
+                )?;
+            }
+            LocatorCaptureMode::ExternalPlanUri => {
+                if frame.has_child_element {
+                    return Err(InventoryError::InvalidIdentity(frame.locator_path.clone()));
+                }
+                if frame.direct_text.chars().any(|character| character.is_control()) {
+                    return Err(InventoryError::InvalidIdentity(format!("external_uri:{}", frame.locator_path)));
+                }
+                let external_reference_id = frame.external_document_reference_id
+                    .ok_or_else(|| InventoryError::InvalidIdentity(frame.locator_path.clone()))?;
+                append_locator(
+                    locators,
+                    rule,
+                    qpid,
+                    &format!("{}#uri", frame.locator_path),
+                    None,
+                    Some(external_reference_id),
+                    None,
+                    Some(&frame.direct_text),
+                    Some(&frame.direct_text),
+                    &frame.captured_attributes,
                     profile.limits.max_locators,
                 )?;
             }
@@ -696,6 +767,11 @@ fn scan_document(
                     }
                 }
 
+                let is_external_document_reference = matching_rules.iter()
+                    .any(|rule_index| profile.rules[*rule_index].declares_external_document_reference);
+                let parent_external_reference_id = stack.iter().rev()
+                    .find(|parent| parent.is_external_document_reference)
+                    .and_then(|parent| parent.element_id);
                 let frame = ElementFrame {
                     expanded_name: expanded,
                     expanded_path,
@@ -704,6 +780,12 @@ fn scan_document(
                     matching_rules,
                     element_id,
                     external_xid,
+                    external_document_reference_id: if is_external_document_reference {
+                        element_id
+                    } else {
+                        parent_external_reference_id
+                    },
+                    is_external_document_reference,
                     captured_attributes,
                     direct_text: String::new(),
                     has_child_element: false,
