@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/aero-adapter-replay-panel-v1.json",
+  "title": "AeroCommons Adapter Replay Panel V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "benchmark_id", "version", "status", "scenarios"],
+  "properties": {
+    "schema": { "const": "AeroAdapterReplayPanelV1" },
+    "benchmark_id": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "const": "1.0.0" },
+    "status": { "enum": ["synthetic_test_plan", "frozen_external_corpus", "executed"] },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["scenario_id", "description", "expected_disposition", "class"],
+        "properties": {
+          "scenario_id": { "type": "string", "pattern": "^AARP-[0-9]{3}$" },
+          "description": { "type": "string", "minLength": 1 },
+          "expected_disposition": {
+            "enum": [
+              "EXACT_BYTE_REPLAY",
+              "ASSERTIONS_BYTE_STABLE_RAW_OUTPUT_DRIFT",
+              "NORMALIZED_ASSERTIONS_BYTE_DRIFT",
+              "INCOMPARABLE_CONTEXT",
+              "RUN_NOT_ELIGIBLE",
+              "REJECT_INVALID_RECEIPT"
+            ]
+          },
+          "class": { "enum": ["positive", "negative", "unknown", "metamorphic"] }
+        }
+      }
+    }
+  }
+}
