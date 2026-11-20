@@ -437,13 +437,19 @@ class CapabilitiesZomeClient {
   constructor(private client: MycelixHolochainClient) {}
 
   async grantCapability(
+    operationId: string,
     grantee: AgentPubKey,
     accessType: string,
     permissions: object,
     restrictions?: object,
     expiresAt?: number
   ): Promise<ActionHash> {
+    const operationIdBytes = new TextEncoder().encode(operationId);
+    if (!operationId.trim() || operationIdBytes.byteLength > 128 || operationId.includes('\0')) {
+      throw new Error('operationId must contain 1-128 non-whitespace UTF-8 bytes and no NUL');
+    }
     return this.client.callZome('capabilities', 'grant_capability', {
+      operation_id: operationId,
       grantee,
       access_type: accessType,
       permissions,

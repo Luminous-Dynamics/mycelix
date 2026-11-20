@@ -7,7 +7,7 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-hdi = "0.7"
+hdi = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 # Required by hdk_entry_helper macro expansion — without this, every
 # #[hdk_entry_helper] struct fails to derive TryFrom<SerializedBytes>.

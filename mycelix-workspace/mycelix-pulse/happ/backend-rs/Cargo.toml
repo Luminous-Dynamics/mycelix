@@ -27,11 +27,11 @@ tower-http = { version = "0.5", features = ["cors", "trace", "compression-gzip"]
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 
-# Holochain client
-holochain_client = "=0.8.1" # client 0.8.1 <-> Holochain 0.6.1; "0.7" was the Holochain 0.5 client
-holochain_types = "0.5"
-holochain_zome_types = "0.5"
-holochain_keystore = "0.5"  # For lair keystore integration
+# Holochain 0.7 client and matching core types
+holochain_client = "=0.9.0"
+holochain_types = "=0.7.0"
+holochain_zome_types = "=0.7.0"
+holochain_keystore = "=0.7.0"  # 0.7-series keystore integration
 
 # Shared types from integrity zome
 mycelix_mail_integrity = { path = "../dna/integrity" }
@@ -108,3 +108,6 @@ hyper = { version = "1", features = ["full"] }
 lto = true
 codegen-units = 1
 opt-level = 3
+# This executable is a standalone application inside the repository's umbrella
+# tree. Keep its dependency graph independent of the umbrella workspace.
+[workspace]

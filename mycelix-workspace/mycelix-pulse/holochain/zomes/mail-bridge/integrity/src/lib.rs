@@ -1146,274 +1146,265 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::MailBridgeQuery(query) => {
-                    if query.requester != action.author {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Requester must match author".to_string(),
-                        ));
-                    }
-                    if query.domain.is_empty() || query.query_type.is_empty() {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Domain and query_type cannot be empty".to_string(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                EntryTypes::SenderProofConsumption(consumption) => {
-                    validate_sender_proof_consumption(&consumption, &action)
-                }
-                EntryTypes::SenderProofVerifierArtifactRecord(record) => {
-                    validate_sender_proof_verifier_artifact_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierTransparencyRecord(record) => {
-                    validate_sender_proof_verifier_transparency_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierCompatibilityRecord(record) => {
-                    validate_sender_proof_verifier_compatibility_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierRolloutPlanRecord(record) => {
-                    validate_sender_proof_verifier_rollout_plan_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierRolloutStateRecord(record) => {
-                    validate_sender_proof_verifier_rollout_state_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierRolloutCheckpointRecord(record) => {
-                    validate_sender_proof_verifier_rollout_checkpoint_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierRolloutHealthRecord(record) => {
-                    validate_sender_proof_verifier_rollout_health_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierRolloutSafetyActionRecord(record) => {
-                    validate_sender_proof_verifier_rollout_safety_action_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierTelemetryRetentionRecord(record) => {
-                    validate_sender_proof_verifier_telemetry_retention_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierRollbackDrillRecord(record) => {
-                    validate_sender_proof_verifier_rollback_drill_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierReleaseAttestationRecord(record) => {
-                    validate_sender_proof_verifier_release_attestation_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierCustodyCeremonyRecord(record) => {
-                    validate_sender_proof_verifier_custody_ceremony_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierCustodyCompromiseRecord(record) => {
-                    validate_sender_proof_verifier_custody_compromise_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierCustodyRecoveryRecord(record) => {
-                    validate_sender_proof_verifier_custody_recovery_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierCustodyRotationRecord(record) => {
-                    validate_sender_proof_verifier_custody_rotation_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierCustodyRotationCheckpointRecord(record) => {
-                    validate_sender_proof_verifier_custody_rotation_checkpoint_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierDeviceLossNoticeRecord(record) => {
-                    validate_sender_proof_verifier_device_loss_notice_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceSuccessionRecord(record) => {
-                    validate_sender_proof_verifier_device_succession_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceSuccessionCheckpointRecord(record) => {
-                    validate_sender_proof_verifier_device_succession_checkpoint_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierDeviceAttestationRecord(record) => {
-                    validate_sender_proof_verifier_device_attestation_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceCloneEvidenceRecord(record) => {
-                    validate_sender_proof_verifier_device_clone_evidence_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceDecommissionRecord(record) => {
-                    validate_sender_proof_verifier_device_decommission_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceAttestationCheckpointRecord(record) => {
-                    validate_sender_proof_verifier_device_attestation_checkpoint_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierDeviceTrustPolicyRecord(record) => {
-                    validate_sender_proof_verifier_device_trust_policy_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceMeasurementPolicyRecord(record) => {
-                    validate_sender_proof_verifier_device_measurement_policy_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierDeviceAttestationRootRotationRecord(record) => {
-                    validate_sender_proof_verifier_device_attestation_root_rotation_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierDeviceTrustBindingRecord(record) => {
-                    validate_sender_proof_verifier_device_trust_binding_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceTrustCheckpointRecord(record) => {
-                    validate_sender_proof_verifier_device_trust_checkpoint_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierMeasuredBootPolicyRecord(record) => {
-                    validate_sender_proof_verifier_measured_boot_policy_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierMeasuredBootEvidenceRecord(record) => {
-                    validate_sender_proof_verifier_measured_boot_evidence_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceTrustRevocationSetRecord(record) => {
-                    validate_sender_proof_verifier_device_trust_revocation_set_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierMeasurementRecoveryRecord(record) => {
-                    validate_sender_proof_verifier_measurement_recovery_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierMeasuredBootCheckpointRecord(record) => {
-                    validate_sender_proof_verifier_measured_boot_checkpoint_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierEndorsementPolicyRecord(record) => {
-                    validate_sender_proof_verifier_endorsement_policy_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierManufacturerRootSetRecord(record) => {
-                    validate_sender_proof_verifier_manufacturer_root_set_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierEndorsementChainEvidenceRecord(record) => {
-                    validate_sender_proof_verifier_endorsement_chain_evidence_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierEndorsementRevocationSetRecord(record) => {
-                    validate_sender_proof_verifier_endorsement_revocation_set_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierEndorsementCheckpointRecord(record) => {
-                    validate_sender_proof_verifier_endorsement_checkpoint_record(&record, &action)
-                }
-                EntryTypes::SenderProofConflictEvidence(evidence) => {
-                    validate_sender_proof_conflict_evidence(&evidence, &action)
-                }
-                EntryTypes::SenderProofAuthorityForkEvidence(evidence) => {
-                    validate_sender_proof_authority_fork_evidence(&evidence, &action)
-                }
-                EntryTypes::SenderProofConflictQuarantine(quarantine) => {
-                    validate_sender_proof_conflict_quarantine(&quarantine, &action)
-                }
-                EntryTypes::SenderProofActivationPolicyRecord(record) => {
-                    validate_sender_proof_activation_policy_record(&record, &action)
-                }
-                EntryTypes::SenderProofActivationAuditEvent(event) => {
-                    validate_sender_proof_activation_audit_event(&event, &action)
-                }
-                EntryTypes::MailBridgeEvent(_) => Ok(ValidateCallbackResult::Valid),
-            },
-            OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::SenderProofConsumption(_) => Ok(ValidateCallbackResult::Invalid(
-                    "sender-proof consumption records are append-only".to_string(),
-                )),
-                EntryTypes::SenderProofVerifierArtifactRecord(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "sender-proof verifier artifact records are append-only".to_string(),
-                    ))
-                }
-                EntryTypes::SenderProofVerifierTransparencyRecord(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "sender-proof verifier transparency records are append-only".to_string(),
-                    ))
-                }
-                EntryTypes::SenderProofVerifierCompatibilityRecord(_)
-                | EntryTypes::SenderProofVerifierRolloutPlanRecord(_)
-                | EntryTypes::SenderProofVerifierRolloutStateRecord(_)
-                | EntryTypes::SenderProofVerifierRolloutCheckpointRecord(_)
-                | EntryTypes::SenderProofVerifierRolloutHealthRecord(_)
-                | EntryTypes::SenderProofVerifierRolloutSafetyActionRecord(_)
-                | EntryTypes::SenderProofVerifierTelemetryRetentionRecord(_)
-                | EntryTypes::SenderProofVerifierRollbackDrillRecord(_)
-                | EntryTypes::SenderProofVerifierReleaseAttestationRecord(_)
-                | EntryTypes::SenderProofVerifierCustodyCeremonyRecord(_)
-                | EntryTypes::SenderProofVerifierCustodyCompromiseRecord(_)
-                | EntryTypes::SenderProofVerifierCustodyRecoveryRecord(_)
-                | EntryTypes::SenderProofVerifierCustodyRotationRecord(_)
-                | EntryTypes::SenderProofVerifierCustodyRotationCheckpointRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceLossNoticeRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceSuccessionRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceSuccessionCheckpointRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceAttestationRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceCloneEvidenceRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceDecommissionRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceAttestationCheckpointRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceTrustPolicyRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceMeasurementPolicyRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceAttestationRootRotationRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceTrustBindingRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceTrustCheckpointRecord(_)
-                | EntryTypes::SenderProofVerifierMeasuredBootPolicyRecord(_)
-                | EntryTypes::SenderProofVerifierMeasuredBootEvidenceRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceTrustRevocationSetRecord(_)
-                | EntryTypes::SenderProofVerifierMeasurementRecoveryRecord(_)
-                | EntryTypes::SenderProofVerifierMeasuredBootCheckpointRecord(_)
-                | EntryTypes::SenderProofVerifierEndorsementPolicyRecord(_)
-                | EntryTypes::SenderProofVerifierManufacturerRootSetRecord(_)
-                | EntryTypes::SenderProofVerifierEndorsementChainEvidenceRecord(_)
-                | EntryTypes::SenderProofVerifierEndorsementRevocationSetRecord(_)
-                | EntryTypes::SenderProofVerifierEndorsementCheckpointRecord(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "sender-proof verifier rollout records are append-only".to_string(),
-                    ))
-                }
-                EntryTypes::SenderProofConflictEvidence(_) => Ok(ValidateCallbackResult::Invalid(
-                    "sender-proof conflict evidence is append-only".to_string(),
-                )),
-                EntryTypes::SenderProofAuthorityForkEvidence(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "sender-proof authority-fork evidence is append-only".to_string(),
-                    ))
-                }
-                EntryTypes::SenderProofConflictQuarantine(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "sender-proof conflict quarantine is append-only".to_string(),
-                    ))
-                }
-                EntryTypes::SenderProofActivationPolicyRecord(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "sender-proof activation policy records are append-only".to_string(),
-                    ))
-                }
-                EntryTypes::SenderProofActivationAuditEvent(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "sender-proof activation audit events are append-only".to_string(),
-                    ))
-                }
-                _ => Ok(ValidateCallbackResult::Valid),
-            },
-            // Neither entry type has a real update_entry call anywhere in the coordinator
-            // (confirmed via direct grep) -- reject outright rather than leave the previous
-            // unbound dead-code path (P0 wide-open RegisterUpdate gap, confirmed 50+ times
-            // elsewhere in this pass).
-            OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
-                "Mail bridge entries cannot be updated".to_string(),
-            )),
+        FlatOp::CreateEntry(store_entry) => match store_entry {
+            OpEntry::CreateEntry { app_entry, action } => {
+                validate_create_entry(app_entry, action.into())
+            }
+            OpEntry::UpdateEntry { app_entry, .. } => validate_update_entry(app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        // Mail-bridge entries are audit records and are never deleted. This
-        // also makes sender-proof consumption durable once observed.
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
-            "mail-bridge audit records cannot be deleted".to_string(),
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => {
+                validate_create_entry(app_entry, action.into())
+            }
+            OpRecord::UpdateEntry { app_entry, .. } => validate_update_entry(app_entry),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::Update(OpUpdate::Entry { app_entry, .. }) => validate_update_entry(app_entry),
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Mail bridge records are immutable".to_string(),
         )),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
-            "Mail bridge entries cannot be updated".to_string(),
+        // Mail-bridge entries are audit records and are never deleted.
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
+            "mail-bridge audit records cannot be deleted".to_string(),
         )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
 
+// Shared validation functions keep the HDI 0.8 StoreEntry, StoreRecord, and Update
+// operations on the same policy path.
+fn validate_create_entry(
+    entry: EntryTypes,
+    action: TypedAction<EntryCreationData>,
+) -> ExternResult<ValidateCallbackResult> {
+    match entry {
+        EntryTypes::MailBridgeQuery(query) => {
+            if query.requester != *action.author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Requester must match author".to_string(),
+                ));
+            }
+            if query.domain.is_empty() || query.query_type.is_empty() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Domain and query_type cannot be empty".to_string(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        EntryTypes::SenderProofConsumption(consumption) => {
+            validate_sender_proof_consumption(&consumption, &action)
+        }
+        EntryTypes::SenderProofVerifierArtifactRecord(record) => {
+            validate_sender_proof_verifier_artifact_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierTransparencyRecord(record) => {
+            validate_sender_proof_verifier_transparency_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierCompatibilityRecord(record) => {
+            validate_sender_proof_verifier_compatibility_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierRolloutPlanRecord(record) => {
+            validate_sender_proof_verifier_rollout_plan_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierRolloutStateRecord(record) => {
+            validate_sender_proof_verifier_rollout_state_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierRolloutCheckpointRecord(record) => {
+            validate_sender_proof_verifier_rollout_checkpoint_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierRolloutHealthRecord(record) => {
+            validate_sender_proof_verifier_rollout_health_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierRolloutSafetyActionRecord(record) => {
+            validate_sender_proof_verifier_rollout_safety_action_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierTelemetryRetentionRecord(record) => {
+            validate_sender_proof_verifier_telemetry_retention_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierRollbackDrillRecord(record) => {
+            validate_sender_proof_verifier_rollback_drill_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierReleaseAttestationRecord(record) => {
+            validate_sender_proof_verifier_release_attestation_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierCustodyCeremonyRecord(record) => {
+            validate_sender_proof_verifier_custody_ceremony_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierCustodyCompromiseRecord(record) => {
+            validate_sender_proof_verifier_custody_compromise_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierCustodyRecoveryRecord(record) => {
+            validate_sender_proof_verifier_custody_recovery_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierCustodyRotationRecord(record) => {
+            validate_sender_proof_verifier_custody_rotation_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierCustodyRotationCheckpointRecord(record) => {
+            validate_sender_proof_verifier_custody_rotation_checkpoint_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceLossNoticeRecord(record) => {
+            validate_sender_proof_verifier_device_loss_notice_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceSuccessionRecord(record) => {
+            validate_sender_proof_verifier_device_succession_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceSuccessionCheckpointRecord(record) => {
+            validate_sender_proof_verifier_device_succession_checkpoint_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceAttestationRecord(record) => {
+            validate_sender_proof_verifier_device_attestation_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceCloneEvidenceRecord(record) => {
+            validate_sender_proof_verifier_device_clone_evidence_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceDecommissionRecord(record) => {
+            validate_sender_proof_verifier_device_decommission_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceAttestationCheckpointRecord(record) => {
+            validate_sender_proof_verifier_device_attestation_checkpoint_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceTrustPolicyRecord(record) => {
+            validate_sender_proof_verifier_device_trust_policy_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceMeasurementPolicyRecord(record) => {
+            validate_sender_proof_verifier_device_measurement_policy_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceAttestationRootRotationRecord(record) => {
+            validate_sender_proof_verifier_device_attestation_root_rotation_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceTrustBindingRecord(record) => {
+            validate_sender_proof_verifier_device_trust_binding_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceTrustCheckpointRecord(record) => {
+            validate_sender_proof_verifier_device_trust_checkpoint_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierMeasuredBootPolicyRecord(record) => {
+            validate_sender_proof_verifier_measured_boot_policy_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierMeasuredBootEvidenceRecord(record) => {
+            validate_sender_proof_verifier_measured_boot_evidence_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceTrustRevocationSetRecord(record) => {
+            validate_sender_proof_verifier_device_trust_revocation_set_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierMeasurementRecoveryRecord(record) => {
+            validate_sender_proof_verifier_measurement_recovery_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierMeasuredBootCheckpointRecord(record) => {
+            validate_sender_proof_verifier_measured_boot_checkpoint_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierEndorsementPolicyRecord(record) => {
+            validate_sender_proof_verifier_endorsement_policy_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierManufacturerRootSetRecord(record) => {
+            validate_sender_proof_verifier_manufacturer_root_set_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierEndorsementChainEvidenceRecord(record) => {
+            validate_sender_proof_verifier_endorsement_chain_evidence_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierEndorsementRevocationSetRecord(record) => {
+            validate_sender_proof_verifier_endorsement_revocation_set_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierEndorsementCheckpointRecord(record) => {
+            validate_sender_proof_verifier_endorsement_checkpoint_record(&record, &action)
+        }
+        EntryTypes::SenderProofConflictEvidence(evidence) => {
+            validate_sender_proof_conflict_evidence(&evidence, &action)
+        }
+        EntryTypes::SenderProofAuthorityForkEvidence(evidence) => {
+            validate_sender_proof_authority_fork_evidence(&evidence, &action)
+        }
+        EntryTypes::SenderProofConflictQuarantine(quarantine) => {
+            validate_sender_proof_conflict_quarantine(&quarantine, &action)
+        }
+        EntryTypes::SenderProofActivationPolicyRecord(record) => {
+            validate_sender_proof_activation_policy_record(&record, &action)
+        }
+        EntryTypes::SenderProofActivationAuditEvent(event) => {
+            validate_sender_proof_activation_audit_event(&event, &action)
+        }
+        EntryTypes::MailBridgeEvent(_) => Ok(ValidateCallbackResult::Valid),
+    }
+}
+
+fn validate_update_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
+    match entry {
+        EntryTypes::SenderProofConsumption(_) => Ok(ValidateCallbackResult::Invalid(
+            "sender-proof consumption records are append-only".to_string(),
+        )),
+        EntryTypes::SenderProofVerifierArtifactRecord(_) => Ok(ValidateCallbackResult::Invalid(
+            "sender-proof verifier artifact records are append-only".to_string(),
+        )),
+        EntryTypes::SenderProofVerifierTransparencyRecord(_) => {
+            Ok(ValidateCallbackResult::Invalid(
+                "sender-proof verifier transparency records are append-only".to_string(),
+            ))
+        }
+        EntryTypes::SenderProofVerifierCompatibilityRecord(_)
+        | EntryTypes::SenderProofVerifierRolloutPlanRecord(_)
+        | EntryTypes::SenderProofVerifierRolloutStateRecord(_)
+        | EntryTypes::SenderProofVerifierRolloutCheckpointRecord(_)
+        | EntryTypes::SenderProofVerifierRolloutHealthRecord(_)
+        | EntryTypes::SenderProofVerifierRolloutSafetyActionRecord(_)
+        | EntryTypes::SenderProofVerifierTelemetryRetentionRecord(_)
+        | EntryTypes::SenderProofVerifierRollbackDrillRecord(_)
+        | EntryTypes::SenderProofVerifierReleaseAttestationRecord(_)
+        | EntryTypes::SenderProofVerifierCustodyCeremonyRecord(_)
+        | EntryTypes::SenderProofVerifierCustodyCompromiseRecord(_)
+        | EntryTypes::SenderProofVerifierCustodyRecoveryRecord(_)
+        | EntryTypes::SenderProofVerifierCustodyRotationRecord(_)
+        | EntryTypes::SenderProofVerifierCustodyRotationCheckpointRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceLossNoticeRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceSuccessionRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceSuccessionCheckpointRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceAttestationRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceCloneEvidenceRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceDecommissionRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceAttestationCheckpointRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceTrustPolicyRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceMeasurementPolicyRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceAttestationRootRotationRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceTrustBindingRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceTrustCheckpointRecord(_)
+        | EntryTypes::SenderProofVerifierMeasuredBootPolicyRecord(_)
+        | EntryTypes::SenderProofVerifierMeasuredBootEvidenceRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceTrustRevocationSetRecord(_)
+        | EntryTypes::SenderProofVerifierMeasurementRecoveryRecord(_)
+        | EntryTypes::SenderProofVerifierMeasuredBootCheckpointRecord(_)
+        | EntryTypes::SenderProofVerifierEndorsementPolicyRecord(_)
+        | EntryTypes::SenderProofVerifierManufacturerRootSetRecord(_)
+        | EntryTypes::SenderProofVerifierEndorsementChainEvidenceRecord(_)
+        | EntryTypes::SenderProofVerifierEndorsementRevocationSetRecord(_)
+        | EntryTypes::SenderProofVerifierEndorsementCheckpointRecord(_) => {
+            Ok(ValidateCallbackResult::Invalid(
+                "sender-proof verifier rollout records are append-only".to_string(),
+            ))
+        }
+        EntryTypes::SenderProofConflictEvidence(_) => Ok(ValidateCallbackResult::Invalid(
+            "sender-proof conflict evidence is append-only".to_string(),
+        )),
+        EntryTypes::SenderProofAuthorityForkEvidence(_) => Ok(ValidateCallbackResult::Invalid(
+            "sender-proof authority-fork evidence is append-only".to_string(),
+        )),
+        EntryTypes::SenderProofConflictQuarantine(_) => Ok(ValidateCallbackResult::Invalid(
+            "sender-proof conflict quarantine is append-only".to_string(),
+        )),
+        EntryTypes::SenderProofActivationPolicyRecord(_) => Ok(ValidateCallbackResult::Invalid(
+            "sender-proof activation policy records are append-only".to_string(),
+        )),
+        EntryTypes::SenderProofActivationAuditEvent(_) => Ok(ValidateCallbackResult::Invalid(
+            "sender-proof activation audit events are append-only".to_string(),
+        )),
+        _ => Ok(ValidateCallbackResult::Invalid(
+            "Mail bridge entries are append-only".to_string(),
+        )),
+    }
+}
+
 fn validate_sender_proof_verifier_compatibility_record(
     record: &SenderProofVerifierCompatibilityRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const MIN_CASES: u64 = 128;
@@ -1447,7 +1438,7 @@ fn validate_sender_proof_verifier_compatibility_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author || record.recorded_at != action.timestamp {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier compatibility record provenance must match its action".to_string(),
         ));
@@ -1457,7 +1448,7 @@ fn validate_sender_proof_verifier_compatibility_record(
 
 fn validate_sender_proof_verifier_rollout_plan_record(
     record: &SenderProofVerifierRolloutPlanRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const MAX_WINDOW_MICROS: i64 = 30 * 24 * 60 * 60 * 1_000_000;
@@ -1495,7 +1486,7 @@ fn validate_sender_proof_verifier_rollout_plan_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author || record.recorded_at != action.timestamp {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier rollout plan provenance must match its action".to_string(),
         ));
@@ -1512,7 +1503,7 @@ fn rollout_stage_known(stage: &str) -> bool {
 
 fn validate_sender_proof_verifier_rollout_state_record(
     record: &SenderProofVerifierRolloutStateRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     let genesis_shape = record.state_epoch != 1
@@ -1539,7 +1530,7 @@ fn validate_sender_proof_verifier_rollout_state_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.authenticated_by != action.author || record.recorded_at != action.timestamp {
+    if record.authenticated_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier rollout state provenance must match its action".to_string(),
         ));
@@ -1549,7 +1540,7 @@ fn validate_sender_proof_verifier_rollout_state_record(
 
 fn validate_sender_proof_verifier_rollout_checkpoint_record(
     record: &SenderProofVerifierRolloutCheckpointRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     if record.contract_id != CONTRACT_ID
@@ -1570,7 +1561,7 @@ fn validate_sender_proof_verifier_rollout_checkpoint_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.pinned_by != action.author || record.recorded_at != action.timestamp {
+    if record.pinned_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier rollout checkpoint provenance must match its action".to_string(),
         ));
@@ -1580,7 +1571,7 @@ fn validate_sender_proof_verifier_rollout_checkpoint_record(
 
 fn validate_sender_proof_verifier_rollout_health_record(
     record: &SenderProofVerifierRolloutHealthRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY: &str = "mycelix.proof.verifier-rollout.health-policy.v1";
@@ -1633,7 +1624,7 @@ fn validate_sender_proof_verifier_rollout_health_record(
             "rollout health action contradicts mismatch evidence".to_string(),
         ));
     }
-    if record.authenticated_by != action.author || record.recorded_at != action.timestamp {
+    if record.authenticated_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier rollout health provenance must match its action".to_string(),
         ));
@@ -1643,7 +1634,7 @@ fn validate_sender_proof_verifier_rollout_health_record(
 
 fn validate_sender_proof_verifier_rollout_safety_action_record(
     record: &SenderProofVerifierRolloutSafetyActionRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     let expected_epoch = record.triggering_state_epoch.checked_add(1);
@@ -1668,7 +1659,7 @@ fn validate_sender_proof_verifier_rollout_safety_action_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.applied_by != action.author || record.recorded_at != action.timestamp {
+    if record.applied_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier rollout safety action provenance must match its action".to_string(),
         ));
@@ -1678,7 +1669,7 @@ fn validate_sender_proof_verifier_rollout_safety_action_record(
 
 fn validate_sender_proof_verifier_telemetry_retention_record(
     record: &SenderProofVerifierTelemetryRetentionRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY: &str = "mycelix.proof.verifier-rollout.telemetry-retention-policy.v1";
@@ -1711,7 +1702,7 @@ fn validate_sender_proof_verifier_telemetry_retention_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author || record.recorded_at != action.timestamp {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "telemetry retention provenance must match its action".to_string(),
         ));
@@ -1721,7 +1712,7 @@ fn validate_sender_proof_verifier_telemetry_retention_record(
 
 fn validate_sender_proof_verifier_rollback_drill_record(
     record: &SenderProofVerifierRollbackDrillRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY: &str = "mycelix.proof.verifier-rollout.rollback-drill-policy.v1";
@@ -1758,7 +1749,7 @@ fn validate_sender_proof_verifier_rollback_drill_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author || record.recorded_at != action.timestamp {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "rollback drill provenance must match its action".to_string(),
         ));
@@ -1768,7 +1759,7 @@ fn validate_sender_proof_verifier_rollback_drill_record(
 
 fn validate_sender_proof_verifier_release_attestation_record(
     record: &SenderProofVerifierReleaseAttestationRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const AUTHORITY_SET: &str = "mycelix.proof.verifier-release.authority-set.v1";
@@ -1832,7 +1823,7 @@ fn validate_sender_proof_verifier_release_attestation_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author || record.recorded_at != action.timestamp {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier release provenance must match its action".to_string(),
         ));
@@ -1854,7 +1845,7 @@ fn verifier_authority_role_known(role: &str) -> bool {
 
 fn validate_sender_proof_verifier_custody_ceremony_record(
     record: &SenderProofVerifierCustodyCeremonyRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY: &str = "mycelix.proof.verifier-key-custody.policy.v1";
@@ -1898,7 +1889,7 @@ fn validate_sender_proof_verifier_custody_ceremony_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author || record.recorded_at != action.timestamp {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "custody ceremony provenance must match its action".to_string(),
         ));
@@ -1908,7 +1899,7 @@ fn validate_sender_proof_verifier_custody_ceremony_record(
 
 fn validate_sender_proof_verifier_custody_compromise_record(
     record: &SenderProofVerifierCustodyCompromiseRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const NOTICE: &str = "mycelix.proof.verifier-key-custody.compromise-notice.v1";
@@ -1938,7 +1929,7 @@ fn validate_sender_proof_verifier_custody_compromise_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author || record.recorded_at != action.timestamp {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "custody compromise provenance must match its action".to_string(),
         ));
@@ -1948,7 +1939,7 @@ fn validate_sender_proof_verifier_custody_compromise_record(
 
 fn validate_sender_proof_verifier_custody_recovery_record(
     record: &SenderProofVerifierCustodyRecoveryRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const RECOVERY: &str = "mycelix.proof.verifier-key-custody.recovery.v1";
@@ -1984,7 +1975,7 @@ fn validate_sender_proof_verifier_custody_recovery_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author || record.recorded_at != action.timestamp {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "custody recovery provenance must match its action".to_string(),
         ));
@@ -1994,7 +1985,7 @@ fn validate_sender_proof_verifier_custody_recovery_record(
 
 fn validate_sender_proof_verifier_custody_rotation_record(
     record: &SenderProofVerifierCustodyRotationRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY: &str = "mycelix.proof.verifier-key-rotation.policy.v1";
@@ -2053,8 +2044,8 @@ fn validate_sender_proof_verifier_custody_rotation_record(
     }
     if record.retiring_quorum_hash == Some([0u8; 32])
         || record.recovery_quorum_hash == Some([0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "rotation quorum or provenance is invalid".to_string(),
@@ -2065,7 +2056,7 @@ fn validate_sender_proof_verifier_custody_rotation_record(
 
 fn validate_sender_proof_verifier_custody_rotation_checkpoint_record(
     record: &SenderProofVerifierCustodyRotationCheckpointRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const CHECKPOINT: &str = "mycelix.proof.verifier-key-rotation.checkpoint.v1";
@@ -2095,7 +2086,7 @@ fn validate_sender_proof_verifier_custody_rotation_checkpoint_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author || record.recorded_at != action.timestamp {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "rotation checkpoint provenance must match its action".to_string(),
         ));
@@ -2105,7 +2096,7 @@ fn validate_sender_proof_verifier_custody_rotation_checkpoint_record(
 
 fn validate_sender_proof_verifier_device_loss_notice_record(
     record: &SenderProofVerifierDeviceLossNoticeRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-loss.notice.v1";
@@ -2131,8 +2122,8 @@ fn validate_sender_proof_verifier_device_loss_notice_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier device loss notice".to_string(),
@@ -2143,7 +2134,7 @@ fn validate_sender_proof_verifier_device_loss_notice_record(
 
 fn validate_sender_proof_verifier_device_succession_record(
     record: &SenderProofVerifierDeviceSuccessionRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY: &str = "mycelix.proof.verifier-device-succession.policy.v1";
@@ -2198,8 +2189,8 @@ fn validate_sender_proof_verifier_device_succession_record(
         || record.retiring_device_approval_hash == Some([0u8; 32])
         || record.recovery_quorum_hash == Some([0u8; 32])
         || record.loss_notice_hash == Some([0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier device succession evidence".to_string(),
@@ -2210,7 +2201,7 @@ fn validate_sender_proof_verifier_device_succession_record(
 
 fn validate_sender_proof_verifier_device_succession_checkpoint_record(
     record: &SenderProofVerifierDeviceSuccessionCheckpointRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const CHECKPOINT: &str = "mycelix.proof.verifier-device-succession.checkpoint.v1";
@@ -2235,8 +2226,8 @@ fn validate_sender_proof_verifier_device_succession_checkpoint_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier device succession checkpoint".to_string(),
@@ -2247,7 +2238,7 @@ fn validate_sender_proof_verifier_device_succession_checkpoint_record(
 
 fn validate_sender_proof_verifier_device_attestation_record(
     record: &SenderProofVerifierDeviceAttestationRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY: &str = "mycelix.proof.verifier-device-attestation.policy.v1";
@@ -2288,8 +2279,8 @@ fn validate_sender_proof_verifier_device_attestation_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier device attestation evidence".to_string(),
@@ -2300,7 +2291,7 @@ fn validate_sender_proof_verifier_device_attestation_record(
 
 fn validate_sender_proof_verifier_device_clone_evidence_record(
     record: &SenderProofVerifierDeviceCloneEvidenceRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-clone-evidence.v1";
@@ -2317,8 +2308,8 @@ fn validate_sender_proof_verifier_device_clone_evidence_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier device clone evidence".to_string(),
@@ -2329,7 +2320,7 @@ fn validate_sender_proof_verifier_device_clone_evidence_record(
 
 fn validate_sender_proof_verifier_device_decommission_record(
     record: &SenderProofVerifierDeviceDecommissionRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-decommission.record.v1";
@@ -2350,8 +2341,8 @@ fn validate_sender_proof_verifier_device_decommission_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier device decommission evidence".to_string(),
@@ -2362,7 +2353,7 @@ fn validate_sender_proof_verifier_device_decommission_record(
 
 fn validate_sender_proof_verifier_device_attestation_checkpoint_record(
     record: &SenderProofVerifierDeviceAttestationCheckpointRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-attestation.checkpoint.v1";
@@ -2384,8 +2375,8 @@ fn validate_sender_proof_verifier_device_attestation_checkpoint_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier device attestation checkpoint".to_string(),
@@ -2396,7 +2387,7 @@ fn validate_sender_proof_verifier_device_attestation_checkpoint_record(
 
 fn validate_sender_proof_verifier_device_trust_policy_record(
     record: &SenderProofVerifierDeviceTrustPolicyRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-trust.policy.v1";
@@ -2410,8 +2401,8 @@ fn validate_sender_proof_verifier_device_trust_policy_record(
         || !record.require_external_checkpoint
         || record.maximum_root_handoff_micros <= 0
         || record.maximum_root_handoff_micros > MAX_HANDOFF_MICROS
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier device trust policy".to_string(),
@@ -2422,7 +2413,7 @@ fn validate_sender_proof_verifier_device_trust_policy_record(
 
 fn validate_sender_proof_verifier_device_measurement_policy_record(
     record: &SenderProofVerifierDeviceMeasurementPolicyRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-measurement.policy.v1";
@@ -2444,8 +2435,8 @@ fn validate_sender_proof_verifier_device_measurement_policy_record(
         || record.approved_measurement_set_hash == [0u8; 32]
         || record.issued_at_micros <= 0
         || lifetime.map_or(true, |value| value <= 0 || value > MAX_POLICY_MICROS)
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier device measurement policy".to_string(),
@@ -2456,7 +2447,7 @@ fn validate_sender_proof_verifier_device_measurement_policy_record(
 
 fn validate_sender_proof_verifier_device_attestation_root_rotation_record(
     record: &SenderProofVerifierDeviceAttestationRootRotationRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-attestation-root-rotation.v1";
@@ -2485,8 +2476,8 @@ fn validate_sender_proof_verifier_device_attestation_root_rotation_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier device attestation-root rotation".to_string(),
@@ -2497,7 +2488,7 @@ fn validate_sender_proof_verifier_device_attestation_root_rotation_record(
 
 fn validate_sender_proof_verifier_device_trust_binding_record(
     record: &SenderProofVerifierDeviceTrustBindingRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-trust-binding.v1";
@@ -2517,8 +2508,8 @@ fn validate_sender_proof_verifier_device_trust_binding_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier device trust binding".to_string(),
@@ -2529,7 +2520,7 @@ fn validate_sender_proof_verifier_device_trust_binding_record(
 
 fn validate_sender_proof_verifier_device_trust_checkpoint_record(
     record: &SenderProofVerifierDeviceTrustCheckpointRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-trust-checkpoint.v1";
@@ -2554,8 +2545,8 @@ fn validate_sender_proof_verifier_device_trust_checkpoint_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier device trust checkpoint".to_string(),
@@ -2566,7 +2557,7 @@ fn validate_sender_proof_verifier_device_trust_checkpoint_record(
 
 fn validate_sender_proof_verifier_measured_boot_policy_record(
     record: &SenderProofVerifierMeasuredBootPolicyRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-measured-boot.policy.v1";
@@ -2585,8 +2576,8 @@ fn validate_sender_proof_verifier_measured_boot_policy_record(
         || !record.require_complete_log
         || !record.require_revocation_check
         || !record.require_external_checkpoint
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier measured-boot policy".to_string(),
@@ -2597,7 +2588,7 @@ fn validate_sender_proof_verifier_measured_boot_policy_record(
 
 fn validate_sender_proof_verifier_measured_boot_evidence_record(
     record: &SenderProofVerifierMeasuredBootEvidenceRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-measured-boot.evidence.v1";
@@ -2626,8 +2617,8 @@ fn validate_sender_proof_verifier_measured_boot_evidence_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier measured-boot evidence".to_string(),
@@ -2638,7 +2629,7 @@ fn validate_sender_proof_verifier_measured_boot_evidence_record(
 
 fn validate_sender_proof_verifier_device_trust_revocation_set_record(
     record: &SenderProofVerifierDeviceTrustRevocationSetRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-device-trust-revocations.v1";
@@ -2656,8 +2647,8 @@ fn validate_sender_proof_verifier_device_trust_revocation_set_record(
         || record.revocation_set_hash == [0u8; 32]
         || record.revocation_entry_set_hash == [0u8; 32]
         || record.issued_at_micros <= 0
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier device trust revocation set".to_string(),
@@ -2668,7 +2659,7 @@ fn validate_sender_proof_verifier_device_trust_revocation_set_record(
 
 fn validate_sender_proof_verifier_measurement_recovery_record(
     record: &SenderProofVerifierMeasurementRecoveryRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-measurement-recovery.v1";
@@ -2688,8 +2679,8 @@ fn validate_sender_proof_verifier_measurement_recovery_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier measurement recovery record".to_string(),
@@ -2700,7 +2691,7 @@ fn validate_sender_proof_verifier_measurement_recovery_record(
 
 fn validate_sender_proof_verifier_measured_boot_checkpoint_record(
     record: &SenderProofVerifierMeasuredBootCheckpointRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-measured-boot.checkpoint.v1";
@@ -2725,8 +2716,8 @@ fn validate_sender_proof_verifier_measured_boot_checkpoint_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier measured-boot checkpoint".to_string(),
@@ -2737,7 +2728,7 @@ fn validate_sender_proof_verifier_measured_boot_checkpoint_record(
 
 fn validate_sender_proof_verifier_endorsement_policy_record(
     record: &SenderProofVerifierEndorsementPolicyRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-endorsement.policy.v1";
@@ -2755,8 +2746,8 @@ fn validate_sender_proof_verifier_endorsement_policy_record(
         || !record.require_revocation_check
         || !record.require_firmware_anti_rollback
         || !record.require_external_checkpoint
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier endorsement policy".to_string(),
@@ -2767,7 +2758,7 @@ fn validate_sender_proof_verifier_endorsement_policy_record(
 
 fn validate_sender_proof_verifier_manufacturer_root_set_record(
     record: &SenderProofVerifierManufacturerRootSetRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-endorsement.manufacturer-root-set.v1";
@@ -2786,8 +2777,8 @@ fn validate_sender_proof_verifier_manufacturer_root_set_record(
         || [record.root_set_hash, record.active_root_set_hash]
             .iter()
             .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier manufacturer root set".to_string(),
@@ -2798,7 +2789,7 @@ fn validate_sender_proof_verifier_manufacturer_root_set_record(
 
 fn validate_sender_proof_verifier_endorsement_chain_evidence_record(
     record: &SenderProofVerifierEndorsementChainEvidenceRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-endorsement.chain-evidence.v1";
@@ -2829,8 +2820,8 @@ fn validate_sender_proof_verifier_endorsement_chain_evidence_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier endorsement-chain evidence".to_string(),
@@ -2841,7 +2832,7 @@ fn validate_sender_proof_verifier_endorsement_chain_evidence_record(
 
 fn validate_sender_proof_verifier_endorsement_revocation_set_record(
     record: &SenderProofVerifierEndorsementRevocationSetRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-endorsement.revocations.v1";
@@ -2865,8 +2856,8 @@ fn validate_sender_proof_verifier_endorsement_revocation_set_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier endorsement revocation set".to_string(),
@@ -2877,7 +2868,7 @@ fn validate_sender_proof_verifier_endorsement_revocation_set_record(
 
 fn validate_sender_proof_verifier_endorsement_checkpoint_record(
     record: &SenderProofVerifierEndorsementCheckpointRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const PROTOCOL: &str = "mycelix.proof.verifier-endorsement.checkpoint.v1";
@@ -2906,8 +2897,8 @@ fn validate_sender_proof_verifier_endorsement_checkpoint_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author
-        || record.recorded_at != action.timestamp
+        || record.recorded_by != *action.author()
+        || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
             "invalid verifier endorsement checkpoint".to_string(),
@@ -2918,7 +2909,7 @@ fn validate_sender_proof_verifier_endorsement_checkpoint_record(
 
 fn validate_sender_proof_verifier_artifact_record(
     record: &SenderProofVerifierArtifactRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const MAX_ARTIFACT_BYTES: u64 = 64 * 1024 * 1024;
@@ -2958,7 +2949,7 @@ fn validate_sender_proof_verifier_artifact_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author || record.recorded_at != action.timestamp {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier artifact record author and timestamp must match action provenance"
                 .to_string(),
@@ -2969,7 +2960,7 @@ fn validate_sender_proof_verifier_artifact_record(
 
 fn validate_sender_proof_verifier_transparency_record(
     record: &SenderProofVerifierTransparencyRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     if record.contract_id != CONTRACT_ID
@@ -3007,7 +2998,7 @@ fn validate_sender_proof_verifier_transparency_record(
             "invalid verifier transparency lifecycle fields".to_string(),
         ));
     }
-    if record.recorded_by != action.author || record.recorded_at != action.timestamp {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier transparency record author and timestamp must match action provenance"
                 .to_string(),
@@ -3018,7 +3009,7 @@ fn validate_sender_proof_verifier_transparency_record(
 
 fn validate_sender_proof_activation_policy_record(
     record: &SenderProofActivationPolicyRecord,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
     const POLICY_ID: &str = "mycelix.mail.sender-proof-activation.operator-quorum.v2";
@@ -3094,7 +3085,7 @@ fn validate_sender_proof_activation_policy_record(
             "invalid activation mode or transition semantics".to_string(),
         ));
     }
-    if record.recorded_by != action.author || record.recorded_at != action.timestamp {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "activation policy record author and timestamp must match action provenance"
                 .to_string(),
@@ -3105,7 +3096,7 @@ fn validate_sender_proof_activation_policy_record(
 
 fn validate_sender_proof_activation_audit_event(
     event: &SenderProofActivationAuditEvent,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const AUDIT_PROTOCOL: &str = "mycelix.mail.sender-proof-activation.audit-event.v1";
     if event.audit_event_protocol != AUDIT_PROTOCOL {
@@ -3162,7 +3153,7 @@ fn validate_sender_proof_activation_audit_event(
             "activation audit blocker codes must be nonempty, unique, and canonical".to_string(),
         ));
     }
-    if event.observed_by != action.author || event.observed_at != action.timestamp {
+    if event.observed_by != *action.author() || event.observed_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "activation audit author and timestamp must match action provenance".to_string(),
         ));
@@ -3172,7 +3163,7 @@ fn validate_sender_proof_activation_audit_event(
 
 fn validate_sender_proof_conflict_evidence(
     evidence: &SenderProofConflictEvidence,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     for (name, value) in [
         ("first_receipt_hash", evidence.first_receipt_hash),
@@ -3227,12 +3218,12 @@ fn validate_sender_proof_conflict_evidence(
             "conflict evidence authority epochs must be nonzero".to_string(),
         ));
     }
-    if evidence.detected_by != action.author {
+    if evidence.detected_by != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "conflict detector must match action author".to_string(),
         ));
     }
-    if evidence.detected_at != action.timestamp {
+    if evidence.detected_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "conflict detection timestamp must match action timestamp".to_string(),
         ));
@@ -3242,7 +3233,7 @@ fn validate_sender_proof_conflict_evidence(
 
 fn validate_sender_proof_authority_fork_evidence(
     evidence: &SenderProofAuthorityForkEvidence,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     for (name, value) in [
         (
@@ -3283,7 +3274,7 @@ fn validate_sender_proof_authority_fork_evidence(
             "authority-fork effective time must be positive".to_string(),
         ));
     }
-    if evidence.detected_by != action.author || evidence.detected_at != action.timestamp {
+    if evidence.detected_by != *action.author() || evidence.detected_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "authority-fork detector must match action provenance".to_string(),
         ));
@@ -3293,7 +3284,7 @@ fn validate_sender_proof_authority_fork_evidence(
 
 fn validate_sender_proof_conflict_quarantine(
     quarantine: &SenderProofConflictQuarantine,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     for (name, value) in [
         ("conflict_evidence_hash", quarantine.conflict_evidence_hash),
@@ -3315,7 +3306,9 @@ fn validate_sender_proof_conflict_quarantine(
             "unsupported sender-proof conflict disposition".to_string(),
         ));
     }
-    if quarantine.quarantined_by != action.author || quarantine.quarantined_at != action.timestamp {
+    if quarantine.quarantined_by != *action.author()
+        || quarantine.quarantined_at != action.timestamp()
+    {
         return Ok(ValidateCallbackResult::Invalid(
             "conflict quarantine author and timestamp must match action provenance".to_string(),
         ));
@@ -3325,7 +3318,7 @@ fn validate_sender_proof_conflict_quarantine(
 
 fn validate_sender_proof_consumption(
     consumption: &SenderProofConsumption,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     const CONTRACT_ID: &str = "mycelix.mail.sender-membership.v1";
 
@@ -3360,12 +3353,12 @@ fn validate_sender_proof_consumption(
     if consumption.epoch == 0 {
         return Ok(ValidateCallbackResult::Invalid("zero epoch".to_string()));
     }
-    if consumption.verifier != action.author {
+    if consumption.verifier != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier must match action author".to_string(),
         ));
     }
-    if consumption.verified_at != action.timestamp {
+    if consumption.verified_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verified_at must match action timestamp".to_string(),
         ));
