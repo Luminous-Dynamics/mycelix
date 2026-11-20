@@ -574,7 +574,8 @@
         "outcome_attestation_count",
         "outcome_ledger",
         "outcome_trust_policy",
-        "asserted_outcome_samples"
+        "asserted_outcome_samples",
+        "operation_contract_registry_digest_sha256"
       ],
       "properties": {
         "status": {
@@ -602,7 +603,8 @@
             "parameter_set_digest_sha256",
             "monotonic_clock_id",
             "monotonic_clock_epoch",
-            "artifact_digest_sha256"
+            "artifact_digest_sha256",
+            "operation_contract_registry_digest_sha256"
           ],
           "properties": {
             "schema_version": {
@@ -656,6 +658,10 @@
               "type": "boolean"
             },
             "scenario_contract_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "operation_contract_registry_digest_sha256": {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$"
             }
@@ -1050,7 +1056,8 @@
             "known_shared_source_count",
             "unknown_source_relationship_count",
             "partial_outcome_count",
-            "unresolved_outcome_count"
+            "unresolved_outcome_count",
+            "operation_contract_registry_digest_sha256"
           ],
           "properties": {
             "schema_version": {
@@ -1110,6 +1117,13 @@
             "unresolved_outcome_count": {
               "type": "integer",
               "minimum": 0
+            },
+            "operation_contract_registry_digest_sha256": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[a-f0-9]{64}$"
             }
           }
         },
@@ -1198,6 +1212,13 @@
               "minimum": 0
             }
           }
+        },
+        "operation_contract_registry_digest_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
         }
       },
       "allOf": [
@@ -1285,6 +1306,24 @@
               "out_of_run_duration_count",
               "send_receive_counter_mismatch_count"
             ]
+          },
+          "outcome_evidence_status": {
+            "const": "verified"
+          },
+          "operation_contract_registry_digest_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "qops": {
+            "properties": {
+              "outcome_ledger": {
+                "properties": {
+                  "verification_status": {
+                    "const": "verified"
+                  }
+                }
+              }
+            }
           }
         }
       }
