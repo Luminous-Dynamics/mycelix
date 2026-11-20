@@ -641,6 +641,31 @@ fn verify_success_projection(
     by_id: &HashMap<String, usize>,
     findings: &mut Vec<Finding>,
 ) {
+    const OPERATION_EVENTS: &[&str] = &[
+        "intent_recorded",
+        "crypto_profile_selected",
+        "outbox_committed",
+    ];
+    const ATTEMPT_EVENTS: &[&str] = &[
+        "authority_host_admitted",
+        "domain_authorized",
+        "source_action_authored",
+        "integrity_validation_accepted",
+        "transport_attempt_started",
+        "recipient_admitted",
+        "recipient_inbox_committed",
+        "recipient_decryption_verified",
+        "receipt_created",
+    ];
+    const COMMITMENT_EVENTS: &[&str] = &[
+        "source_action_authored",
+        "transport_attempt_started",
+        "recipient_inbox_committed",
+        "recipient_decryption_verified",
+        "receipt_created",
+        "receipt_verified",
+    ];
+
     let projection_indices: Vec<usize> = events
         .iter()
         .enumerate()
@@ -671,25 +696,62 @@ fn verify_success_projection(
                 continue;
             }
 
+            let Some(attempt_id) = receipt.attempt_id.as_deref() else {
+                continue;
+            };
             let receipt_ancestors = ancestors(receipt, by_id, events);
+
+            let has_operation_event = |event_type: &str| {
+                events.iter().any(|event| {
+                    event.event_type == event_type
+                        && event.logical_operation_id == receipt.logical_operation_id
+                        && receipt_ancestors.contains(&event.event_id)
+                })
+            };
+            let has_attempt_event = |event_type: &str| {
+                events.iter().any(|event| {
+                    event.event_type == event_type
+                        && event.logical_operation_id == receipt.logical_operation_id
+                        && event.attempt_id.as_deref() == Some(attempt_id)
+                        && receipt_ancestors.contains(&event.event_id)
+                })
+            };
+
+            if OPERATION_EVENTS
+                .iter()
+                .any(|event_type| !has_operation_event(event_type))
+            {
+                continue;
+            }
+            if ATTEMPT_EVENTS
+                .iter()
+                .any(|event_type| !has_attempt_event(event_type))
+            {
+                continue;
+            }
+
             let admitted = events.iter().find(|event| {
                 event.event_type == "recipient_admitted"
                     && event.logical_operation_id == receipt.logical_operation_id
+                    && event.attempt_id.as_deref() == Some(attempt_id)
                     && receipt_ancestors.contains(&event.event_id)
             });
             let committed = events.iter().find(|event| {
                 event.event_type == "recipient_inbox_committed"
                     && event.logical_operation_id == receipt.logical_operation_id
+                    && event.attempt_id.as_deref() == Some(attempt_id)
                     && receipt_ancestors.contains(&event.event_id)
             });
             let decrypted = events.iter().find(|event| {
                 event.event_type == "recipient_decryption_verified"
                     && event.logical_operation_id == receipt.logical_operation_id
+                    && event.attempt_id.as_deref() == Some(attempt_id)
                     && receipt_ancestors.contains(&event.event_id)
             });
             let created = events.iter().find(|event| {
                 event.event_type == "receipt_created"
                     && event.logical_operation_id == receipt.logical_operation_id
+                    && event.attempt_id.as_deref() == Some(attempt_id)
                     && receipt_ancestors.contains(&event.event_id)
             });
 
@@ -699,15 +761,24 @@ fn verify_success_projection(
                 continue;
             };
 
-            let commitments = [
-                committed.content_commitment.as_deref(),
-                decrypted.content_commitment.as_deref(),
-                created.content_commitment.as_deref(),
-                receipt.content_commitment.as_deref(),
-            ];
-            let first_commitment = commitments[0];
+            let commitments: Vec<Option<&str>> = events
+                .iter()
+                .filter(|event| {
+                    COMMITMENT_EVENTS.contains(&event.event_type.as_str())
+                        && event.logical_operation_id == receipt.logical_operation_id
+                        && (event.event_type == "receipt_verified"
+                            || event.attempt_id.as_deref() == Some(attempt_id))
+                        && receipt_ancestors.contains(&event.event_id)
+                })
+                .map(|event| event.content_commitment.as_deref())
+                .collect();
+
+            let first_commitment = commitments.first().copied().flatten();
             if first_commitment.is_none()
-                || commitments.iter().any(|candidate| *candidate != first_commitment)
+                || commitments.len() != COMMITMENT_EVENTS.len()
+                || commitments
+                    .iter()
+                    .any(|candidate| *candidate != first_commitment)
             {
                 continue;
             }
@@ -720,9 +791,11 @@ fn verify_success_projection(
             {
                 continue;
             }
-            if !receipt.evidence_kinds.iter().any(|kind| {
-                kind == "recipient_receipt" || kind == "signed_statement"
-            }) {
+            if !receipt
+                .evidence_kinds
+                .iter()
+                .any(|kind| kind == "recipient_receipt" || kind == "signed_statement")
+            {
                 continue;
             }
 
@@ -734,12 +807,11 @@ fn verify_success_projection(
             finding(
                 findings,
                 format!("$.events.{}", projection.event_id),
-                "SUCCESS_VERIFIED projection is not causally supported by a recipient commit, recipient decryption verification, matching content commitment, and a separately attributed receipt verifier with receipt evidence",
+                "SUCCESS_VERIFIED projection lacks a causally connected intent, crypto profile, host admission, domain authorization, source action, integrity acceptance, durable outbox, single transport attempt, recipient admission/commit/decryption, content commitment, and separately attributed receipt verification",
             );
         }
     }
 }
-
 fn validate_run_and_scenario(
     root: &Map<String, Value>,
     findings: &mut Vec<Finding>,
@@ -1137,6 +1209,15 @@ mod tests {
         })
     }
 
+    fn event_index(trace: &Value, event_id: &str) -> usize {
+        trace["events"]
+            .as_array()
+            .expect("events array")
+            .iter()
+            .position(|event| event["event_id"].as_str() == Some(event_id))
+            .expect("event id in fixture")
+    }
+
     fn valid_trace() -> Value {
         let commitment = "a".repeat(64);
         json!({
@@ -1163,24 +1244,97 @@ mod tests {
             "events": [
                 event("intent", "intent_recorded", "client", "sender", None, None, 1, vec![]),
                 event(
-                    "admitted",
+                    "crypto-profile",
+                    "crypto_profile_selected",
+                    "client",
+                    "sender",
+                    None,
+                    None,
+                    2,
+                    vec![("intent", "derived_from")]
+                ),
+                event(
+                    "host-admitted",
+                    "authority_host_admitted",
+                    "host_conductor",
+                    "sender-conductor",
+                    Some("attempt-1"),
+                    None,
+                    3,
+                    vec![("crypto-profile", "request_response")]
+                ),
+                event(
+                    "domain-authorized",
+                    "domain_authorized",
+                    "domain_coordinator",
+                    "sender-domain",
+                    Some("attempt-1"),
+                    None,
+                    4,
+                    vec![("host-admitted", "request_response")]
+                ),
+                event(
+                    "source-action",
+                    "source_action_authored",
+                    "source_chain_author",
+                    "sender",
+                    Some("attempt-1"),
+                    Some(&commitment),
+                    5,
+                    vec![("domain-authorized", "source_chain_successor")]
+                ),
+                event(
+                    "integrity-accepted",
+                    "integrity_validation_accepted",
+                    "integrity_validator",
+                    "validation-network",
+                    Some("attempt-1"),
+                    None,
+                    6,
+                    vec![("source-action", "verifies")]
+                ),
+                event(
+                    "outbox",
+                    "outbox_committed",
+                    "client",
+                    "sender",
+                    None,
+                    None,
+                    3,
+                    vec![("intent", "local_program_order")]
+                ),
+                event(
+                    "transport-started",
+                    "transport_attempt_started",
+                    "transport_adapter",
+                    "transport",
+                    Some("attempt-1"),
+                    Some(&commitment),
+                    7,
+                    vec![
+                        ("integrity-accepted", "transport_for"),
+                        ("outbox", "attempt_for")
+                    ]
+                ),
+                event(
+                    "recipient-admitted",
                     "recipient_admitted",
                     "recipient",
                     "recipient",
                     Some("attempt-1"),
                     None,
-                    2,
-                    vec![("intent", "request_response")]
+                    8,
+                    vec![("transport-started", "request_response")]
                 ),
                 event(
-                    "commit",
+                    "recipient-commit",
                     "recipient_inbox_committed",
                     "recipient",
                     "recipient",
                     Some("attempt-1"),
                     Some(&commitment),
-                    3,
-                    vec![("admitted", "commits")]
+                    9,
+                    vec![("recipient-admitted", "commits")]
                 ),
                 event(
                     "decrypt",
@@ -1189,8 +1343,8 @@ mod tests {
                     "recipient",
                     Some("attempt-1"),
                     Some(&commitment),
-                    4,
-                    vec![("commit", "verifies")]
+                    10,
+                    vec![("recipient-commit", "verifies")]
                 ),
                 event(
                     "receipt-created",
@@ -1199,7 +1353,7 @@ mod tests {
                     "recipient",
                     Some("attempt-1"),
                     Some(&commitment),
-                    5,
+                    11,
                     vec![("decrypt", "receipt_for")]
                 ),
                 event(
@@ -1209,7 +1363,7 @@ mod tests {
                     "independent-verifier",
                     Some("attempt-1"),
                     Some(&commitment),
-                    6,
+                    12,
                     vec![("receipt-created", "verifies")]
                 ),
                 event(
@@ -1219,7 +1373,7 @@ mod tests {
                     "sender-ui",
                     None,
                     None,
-                    7,
+                    13,
                     vec![("receipt-verified", "derived_from")]
                 )
             ],
@@ -1230,7 +1384,6 @@ mod tests {
             ]
         })
     }
-
     fn trace_schema() -> Value {
         serde_json::from_str(include_str!("../../../docs/pulse-fabric-trace.schema-v0.1.json"))
             .expect("checked-in trace schema must parse")
@@ -1247,7 +1400,7 @@ mod tests {
     fn normative_schema_rejects_missing_required_evidence_field() {
         let schema = trace_schema();
         let mut trace = valid_trace();
-        trace["events"][4].as_object_mut().unwrap().remove("evidence_refs");
+        trace["events"][event_index(&trace, "receipt-created")].as_object_mut().unwrap().remove("evidence_refs");
         let errors = validate_against_schema(&trace, &schema).unwrap_err();
         assert!(errors.iter().any(|item| item.contains("evidence_refs")));
     }
@@ -1328,7 +1481,7 @@ mod tests {
     #[test]
     fn rejects_dangling_causal_edge() {
         let mut trace = valid_trace();
-        trace["events"][2]["causal_predecessors"] =
+        trace["events"][event_index(&trace, "recipient-commit")]["causal_predecessors"] =
             json!([{"event_id": "missing", "relation": "request_response"}]);
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
@@ -1352,7 +1505,7 @@ mod tests {
     #[test]
     fn rejects_event_role_confusion() {
         let mut trace = valid_trace();
-        trace["events"][2]["evidence_role"] = json!("transport_adapter");
+        trace["events"][event_index(&trace, "recipient-commit")]["evidence_role"] = json!("transport_adapter");
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
@@ -1363,7 +1516,7 @@ mod tests {
     #[test]
     fn rejects_missing_attempt_id_for_receipt_verification() {
         let mut trace = valid_trace();
-        trace["events"][5]["attempt_id"] = Value::Null;
+        trace["events"][event_index(&trace, "receipt-verified")]["attempt_id"] = Value::Null;
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
@@ -1374,8 +1527,8 @@ mod tests {
     #[test]
     fn rejects_duplicate_logical_inbox_effect() {
         let mut trace = valid_trace();
-        let duplicate = trace["events"][2].clone();
-        trace["events"].as_array_mut().unwrap().insert(3, duplicate);
+        let duplicate = trace["events"][event_index(&trace, "recipient-commit")].clone();
+        trace["events"].as_array_mut().unwrap().push(duplicate);
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
@@ -1386,7 +1539,8 @@ mod tests {
     #[test]
     fn rejects_embedded_secret_fields() {
         let mut trace = valid_trace();
-        trace["events"][0]["private_key"] = json!("must-not-appear");
+        let intent = event_index(&trace, "intent");
+        trace["events"][intent]["private_key"] = json!("must-not-appear");
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
@@ -1397,14 +1551,16 @@ mod tests {
     #[test]
     fn rejects_success_when_receipt_verifier_is_recipient() {
         let mut trace = valid_trace();
-        trace["events"][5]["actor_ref"] = json!("recipient");
+        let receipt = event_index(&trace, "receipt-verified");
+        trace["events"][receipt]["actor_ref"] = json!("recipient");
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
     }
     #[test]
     fn rejects_success_when_decryption_commitment_differs() {
         let mut trace = valid_trace();
-        trace["events"][3]["content_commitment"] = json!("b".repeat(64));
+        let decrypt = event_index(&trace, "decrypt");
+        trace["events"][decrypt]["content_commitment"] = json!("b".repeat(64));
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
@@ -1415,7 +1571,8 @@ mod tests {
     #[test]
     fn rejects_success_when_recipient_identity_changes_mid_lifecycle() {
         let mut trace = valid_trace();
-        trace["events"][3]["actor_ref"] = json!("different-recipient");
+        let decrypt = event_index(&trace, "decrypt");
+        trace["events"][decrypt]["actor_ref"] = json!("different-recipient");
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
     }
@@ -1423,9 +1580,11 @@ mod tests {
     #[test]
     fn rejects_success_without_recipient_admission() {
         let mut trace = valid_trace();
-        trace["events"].as_array_mut().unwrap().remove(1);
-        trace["events"][1]["causal_predecessors"] =
-            json!([{"event_id": "intent", "relation": "verifies"}]);
+        let admitted = event_index(&trace, "recipient-admitted");
+        trace["events"].as_array_mut().unwrap().remove(admitted);
+        let commit = event_index(&trace, "recipient-commit");
+        trace["events"][commit]["causal_predecessors"] =
+            json!([{"event_id": "transport-started", "relation": "request_response"}]);
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
     }
@@ -1433,7 +1592,8 @@ mod tests {
     #[test]
     fn rejects_causal_predecessor_after_child_on_same_clock() {
         let mut trace = valid_trace();
-        trace["events"][2]["observed_at"]["monotonic_ns"] = json!(0);
+        let commit = event_index(&trace, "recipient-commit");
+        trace["events"][commit]["observed_at"]["monotonic_ns"] = json!(0);
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
@@ -1444,7 +1604,8 @@ mod tests {
     #[test]
     fn rejects_attempt_id_reuse_across_logical_operations() {
         let mut trace = valid_trace();
-        trace["events"][2]["logical_operation_id"] = json!("logical-2");
+        let commit = event_index(&trace, "recipient-commit");
+        trace["events"][commit]["logical_operation_id"] = json!("logical-2");
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
@@ -1518,7 +1679,8 @@ mod tests {
     #[test]
     fn rejects_secret_aliases_in_trace_extensions() {
         let mut trace = valid_trace();
-        trace["events"][0]["message_body"] = json!("plain text");
+        let intent = event_index(&trace, "intent");
+        trace["events"][intent]["message_body"] = json!("plain text");
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
     }
