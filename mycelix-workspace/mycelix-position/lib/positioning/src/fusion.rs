@@ -5,7 +5,7 @@
 //! This module deliberately separates statistical fusion from trust/admission.
 //! Peer trust and confidence fields are not interpreted as measurement precision.
 
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize};
 use std::fmt;
 
 /// Error returned when a covariance-intersection input or result is invalid.
@@ -66,11 +66,43 @@ impl From<f32> for SigmaInput {
 /// name. Serialisation emits only covariance_diag; a payload containing both
 /// names is rejected by Serde as a duplicate field rather than allowing two
 /// independently authoritative covariance values.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct GaussianEstimate3D {
     pub mean: [f64; 3],
-    #[serde(alias = "covariance")]
     pub covariance_diag: [f64; 3],
+}
+
+#[derive(Deserialize)]
+struct GaussianEstimate3DFields {
+    mean: [f64; 3],
+    #[serde(default)]
+    covariance_diag: Option<[f64; 3]>,
+    #[serde(default)]
+    covariance: Option<[f64; 3]>,
+}
+
+impl<'de> Deserialize<'de> for GaussianEstimate3D {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let fields = GaussianEstimate3DFields::deserialize(deserializer)?;
+        let covariance_diag = match (fields.covariance_diag, fields.covariance) {
+            (Some(primary), Some(legacy)) if primary == legacy => primary,
+            (Some(_), Some(_)) => {
+                return Err(de::Error::custom(
+                    "covariance_diag and legacy covariance fields disagree",
+                ));
+            }
+            (Some(primary), None) => primary,
+            (None, Some(legacy)) => legacy,
+            (None, None) => return Err(de::Error::missing_field("covariance_diag")),
+        };
+        Ok(Self {
+            mean: fields.mean,
+            covariance_diag,
+        })
+    }
 }
 
 impl GaussianEstimate3D {
@@ -320,6 +352,28 @@ mod tests {
             timestamp_us: 1,
             confidence: 0.9,
         }
+    }
+
+
+    #[test]
+    fn legacy_dual_covariance_payload_migrates_only_when_values_agree() {
+        let matching = r#"{"mean":[1.0,2.0,3.0],"covariance_diag":[4.0,5.0,6.0],"covariance":[4.0,5.0,6.0]}"#;
+        let decoded: GaussianEstimate3D = serde_json::from_str(matching).unwrap();
+        assert_eq!(decoded, GaussianEstimate3D::new([1.0, 2.0, 3.0], [4.0, 5.0, 6.0]));
+
+        let conflicting = r#"{"mean":[1.0,2.0,3.0],"covariance_diag":[4.0,5.0,6.0],"covariance":[40.0,50.0,60.0]}"#;
+        assert!(serde_json::from_str::<GaussianEstimate3D>(conflicting).is_err());
+    }
+
+    #[test]
+    fn canonical_payload_and_legacy_single_field_payload_are_accepted() {
+        let canonical = r#"{"mean":[1.0,2.0,3.0],"covariance_diag":[4.0,5.0,6.0]}"#;
+        let decoded: GaussianEstimate3D = serde_json::from_str(canonical).unwrap();
+        assert_eq!(decoded, GaussianEstimate3D::new([1.0, 2.0, 3.0], [4.0, 5.0, 6.0]));
+
+        let legacy = r#"{"mean":[1.0,2.0,3.0],"covariance":[4.0,5.0,6.0]}"#;
+        let decoded: GaussianEstimate3D = serde_json::from_str(legacy).unwrap();
+        assert_eq!(decoded, GaussianEstimate3D::new([1.0, 2.0, 3.0], [4.0, 5.0, 6.0]));
     }
 
     #[test]
