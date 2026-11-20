@@ -838,4 +838,83 @@ mod tests {
         assert!(!commons_alias.present_elsewhere);
     }
 
+    #[test]
+    fn real_fabrication_callers_are_not_assigned_uninstalled_identity_commons_or_knowledge_roles() {
+        // End-to-end static regression for #4249 using the actual tracked
+        // Fabrication hApp manifest and coordinator source, not synthetic
+        // source strings or a global role-name allowlist.
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
+        let (manifests, manifest_errors) = discover_manifests(&root).unwrap();
+        let fabrication_manifest = root.join("mycelix-workspace/happs/fabrication/happ.yaml");
+        let fabrication_source = root.join(
+            "mycelix-workspace/happs/fabrication/zomes/bridge/coordinator/src/lib.rs",
+        );
+
+        let context = find_nearest_manifest(&fabrication_source, &manifests)
+            .expect("Fabrication source should have its own manifest context");
+        assert_eq!(context.path, fabrication_manifest);
+        assert_eq!(context.name, "fabrication");
+        assert_eq!(
+            context.role_names,
+            BTreeSet::from(["fabrication".to_string()])
+        );
+
+        let source_text = fs::read_to_string(&fabrication_source).unwrap();
+        let syntax: File = syn::parse_file(&source_text).unwrap();
+        let mut constants = ConstCollector::default();
+        constants.visit_file(&syntax);
+        let mut visitor = OtherRoleVisitor::new(&constants.values);
+        visitor.visit_file(&syntax);
+
+        let observed_targets: BTreeSet<String> = visitor
+            .calls
+            .into_iter()
+            .filter_map(|(_, target, _)| target)
+            .collect();
+
+        for target in ["mycelix-identity", "mycelix-commons"] {
+            assert!(
+                observed_targets.contains(target),
+                "expected the real Fabrication bridge source to contain target {target}"
+            );
+            let classification = classify_target(Some(context), Some(target), &manifests);
+            assert!(
+                !classification.declared_in_context,
+                "Fabrication hApp does not declare {target}"
+            );
+            assert_ne!(
+                classification.classification,
+                "nearest-manifest-declared",
+                "an absent role must never be promoted by source proximity"
+            );
+        }
+
+        let verification_source = root.join(
+            "mycelix-workspace/happs/fabrication/zomes/verification/coordinator/src/lib.rs",
+        );
+        let verification_text = fs::read_to_string(&verification_source).unwrap();
+        let verification_syntax: File = syn::parse_file(&verification_text).unwrap();
+        let mut verification_constants = ConstCollector::default();
+        verification_constants.visit_file(&verification_syntax);
+        let mut verification_visitor = OtherRoleVisitor::new(&verification_constants.values);
+        verification_visitor.visit_file(&verification_syntax);
+        let knowledge_target_present = verification_visitor
+            .calls
+            .iter()
+            .any(|(_, target, _)| target.as_deref() == Some("mycelix-knowledge"));
+        assert!(knowledge_target_present, "expected actual Fabrication verification source to target mycelix-knowledge");
+
+        let knowledge_classification =
+            classify_target(Some(context), Some("mycelix-knowledge"), &manifests);
+        assert!(!knowledge_classification.declared_in_context);
+        assert_ne!(
+            knowledge_classification.classification,
+            "nearest-manifest-declared"
+        );
+
+        // Manifest parse errors remain separately visible; this focused
+        // fixture does not silently claim that every manifest was classified.
+        let _advisory_manifest_error_count = manifest_errors.len();
+    }
+
 }
