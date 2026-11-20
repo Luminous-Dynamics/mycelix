@@ -691,7 +691,7 @@ fn finalize_frame(
                     return Err(InventoryError::QifVersionMismatch);
                 }
                 append_locator(
-                    locators, rule, qpid, &format!("{}#document-metadata", frame.locator_path),
+                    locators, rule, qpid, &format!("{}/@idMax", frame.locator_path),
                     None, None, None, None, None, None,
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
@@ -1434,7 +1434,7 @@ mod tests {
                     capture: LocatorCaptureMode::QifReference,
                     min_occurrences: 1,
                     max_occurrences: None,
-                    capture_attributes: Vec::new(),
+                    capture_attributes: vec!["{}asmPathId".into(), "{}asmPathXId".into()],
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
@@ -1537,7 +1537,7 @@ mod tests {
                     capture: LocatorCaptureMode::LocalQifReference,
                     min_occurrences: 1,
                     max_occurrences: None,
-                    capture_attributes: Vec::new(),
+                    capture_attributes: vec!["{}asmPathId".into(), "{}asmPathXId".into()],
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
