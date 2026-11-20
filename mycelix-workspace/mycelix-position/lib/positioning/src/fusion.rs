@@ -62,10 +62,10 @@ impl From<f32> for SigmaInput {
 
 /// 3D Gaussian estimate with a single canonical diagonal covariance.
 ///
-/// The covariance serde alias accepts legacy payloads that used that field
-/// name. Serialisation emits only covariance_diag; a payload containing both
-/// names is rejected by Serde as a duplicate field rather than allowing two
-/// independently authoritative covariance values.
+/// Deserialization accepts canonical-only and legacy-only payloads. Historical
+/// payloads containing both names migrate only when the two values agree;
+/// conflicting dual-field payloads fail closed. Serialisation emits only the
+/// canonical covariance_diag field.
 #[derive(Debug, Clone, Serialize)]
 pub struct GaussianEstimate3D {
     pub mean: [f64; 3],
