@@ -958,6 +958,18 @@ mod tests {
     }
 
     #[test]
+    fn changed_corpus_bytes_cannot_be_scored_against_frozen_manifest() {
+        let (manifest, _, payloads) = fixture();
+        let mut corpus_owned = corpus_payloads(&manifest, &payloads);
+        corpus_owned[0].1.push(b'X');
+        let corpus_borrowed = borrowed(&corpus_owned);
+        assert!(matches!(
+            verify_benchmark_corpus_payloads(&manifest, &corpus_borrowed),
+            Err(BenchmarkError::CorpusArtifactVerification(_))
+        ));
+    }
+
+    #[test]
     fn missing_tool_case_slot_is_not_removed_from_denominator() {
         let (manifest, _, payloads) = fixture();
         let corpus_owned = corpus_payloads(&manifest, &payloads);
