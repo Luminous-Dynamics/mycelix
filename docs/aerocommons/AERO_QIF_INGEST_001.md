@@ -84,6 +84,19 @@ A QIF external URI is preserved as inert provenance metadata and is optional whe
 
 This separation avoids rewriting source evidence just because an offline runner uses a different local staging layout.
 
+## Source locator inventory and extraction fidelity
+
+The extraction evidence now contains two separate collections:
+
+1. `required_locators`: the frozen expected source-field inventory;
+2. `mappings`: one disposition record for each expected locator.
+
+The verifier canonicalizes and hashes both collections together as `AeroQifSourceMappingManifestV1`. It requires exact set equality: every expected locator has one row, no row can introduce an unlisted locator, and duplicate locators reject. Each mapping row must provide a versioned mapping rule and profile, plus either a concrete normalized target (`Mapped`) or a reason code (`Unresolved`, `Ambiguous`, `Unsupported`, or `Dropped`). The outcome counts are recomputed from rows, not trusted from the caller.
+
+**This is not yet proof that the inventory is complete relative to the entire QIF standard.** The verifier proves row coverage against the frozen inventory supplied to it. That inventory could itself omit a QIF field. The next independent qualification target is a version-pinned, XSD/profile-derived locator inventory generator, tested against the complete normative QIF 3.0 schema dependency set and a separately hand-enumerated oracle. Its executable, schema bundle, profile, generated inventory, and report must be independently bound into the ingest receipt before claiming schema-wide extraction coverage.
+
+The initial synthetic corpus uses ten authored Results/CharacteristicItemId locators. They are a frozen synthetic source inventory, not an exhaustive QIF 3.0 inventory and not extracted from a rights-cleared CAx-IF Test 8 archive.
+
 ## What the first Rust increment does
 
 - strict Serde structures with unknown-field rejection;
@@ -98,6 +111,7 @@ This separation avoids rewriting source evidence just because an offline runner 
 - all seven stage results exactly once, including NotRun and Blocked;
 - stage/tool-type compatibility and prerequisite ordering;
 - extraction accounting identity: mapped + unresolved + ambiguous + unsupported + dropped = total required;
+- exact one-to-one coverage between frozen source-field locator inventory and mapping rows; mapping-manifest canonical bytes/digest bind both;
 - unique source locators, source QPId/document membership, valid Results-local external-reference binding and target/reason-code consistency for each mapping row;
 - recomputed canonical source-mapping-manifest bytes and SHA-256 must match the declared manifest artifact exactly;
 - no Passed extraction with unresolved, ambiguous, unsupported or dropped mappings;
@@ -130,4 +144,4 @@ The current CI corpus must remain synthetic until the official CAx-IF Test 7/8 p
 
 ## Claim ceiling
 
-A successful verifier result proves structural consistency of this envelope and exact byte identity for every listed payload. It does not prove the validator actually executed, the worker was isolated, tools were authentic, QIF XML passed its XSD/XSLT checks, raw extraction was faithful, AP242/QIF meaning was preserved, metrology was valid, or a part is acceptable or airworthy.
+A successful verifier result proves structural consistency of this envelope, exact byte identity for every listed payload, and exact mapping-row coverage against the declared frozen source-locator inventory. It does not prove that inventory is exhaustive against the complete QIF standard. It does not prove the validator actually executed, the worker was isolated, tools were authentic, QIF XML passed its XSD/XSLT checks, raw extraction was faithful, AP242/QIF meaning was preserved, metrology was valid, or a part is acceptable or airworthy.
