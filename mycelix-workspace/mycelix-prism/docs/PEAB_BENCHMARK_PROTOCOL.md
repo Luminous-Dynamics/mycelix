@@ -586,3 +586,45 @@ Envoy v1.40.0 DFP warns that an untrusted client may use the proxy's reachabilit
 - Cilium 1.21.0-dev documents endpoint DNSCache/TTL tracking separately from its global DNSCache, and DNSZombieMapping retention pending conntrack GC. Compare endpoint observation, global policy population and established-connection behavior separately. Reference: https://docs.cilium.io/en/latest/contributing/development/debugging/
 - Linux BPF ringbuf uses non-blocking reservation; full-ring reservation fails. It also supports map-in-map topologies for global, per-CPU and sharded rings. Reference: https://kernel.org/doc/html/latest/bpf/ringbuf.html
 - Hyper 1.12.0 added max_header_size to the HTTP/1 client and server; the client API bounds response headers including status line and chunked trailers. Reference: https://docs.rs/hyper/1.12.0/hyper/client/conn/http1/struct.Builder.html and https://github.com/hyperium/hyper/releases/tag/v1.12.0
+
+
+## 14. Transactional execution and ambiguous-outcome qualification
+
+Prism must not equate a connected socket, a dispatched request, an application response, and a remote side effect. The reference model at prism-egress/tests/execution_recovery_model.rs defines a conservative recovery state machine; its 25 tests are source-present only until exact-head execution.
+
+### Required crash contract
+
+The production transport boundary must enforce write-ahead ordering: a durable Prepared record, a durable Authorized record, then a durable DispatchMarked record immediately before any request bytes can be handed to the transport. DispatchMarked means "may have dispatched", not "definitely dispatched". If journal durability or ordering is uncertain, the absence of a marker is not proof of no dispatch.
+
+A dispatch-marked attempt with no final response or authoritative remote result is Unknown. A timeout, restart, cancellation, missing kernel connect event, or eventually-consistent not-found lookup must not trigger a new mutating request.
+
+### Recovery and idempotency rules
+
+- Before a durable DispatchMarked record: a fresh attempt may be authorized only when write-ahead enforcement proves the adapter could not have written.
+- After DispatchMarked: first use a non-mutating operation-status/idempotency lookup when the server supports one; otherwise quarantine for reconciliation.
+- A remote Applied result must reconcile the original logical operation without issuing another mutation.
+- A retry is permitted only after a tuple-bound, linearizable proof of DefinitelyNotApplied. It must use a fresh attempt ID, fresh one-use ExchangeCapability, fresh policy/network authorization, and the same stable logical idempotency key.
+- Same-key use requires an explicit remote contract covering origin, principal, request digest, concurrent duplicate behavior, linearizable lookup and retention longer than the recovery horizon. A stale or eventually consistent cache miss is not an absence proof.
+- A response plus a matching kernel connection event corroborates transport/peer identity only. It does not prove server-side business effect.
+- No kernel connect event cannot prove that no HTTP request was sent: pooled HTTP/1 and HTTP/2 connections carry requests without a new connect event.
+
+### PEAB comparison matrix
+
+Run the same receiver, fault schedule, request body, concurrency and durability mode against: (1) no-retry control; (2) generic automatic retries without remote idempotency; (3) retries with a server-enforced idempotency key; (4) Envoy retry policy with an explicit server contract; (5) durable workflow activity with an idempotent receiver; (6) Prism write-ahead dispatch gate plus authoritative status lookup; and (7) Prism plus independent socket/peer reconciliation.
+
+Inject termination or power loss before and after each journal append and durable flush; between DispatchMarked and the first byte; during partial writes; after full write; after server commit but before response; during response read; after response but before receipt flush; on pooled HTTP/1 reuse; during concurrent HTTP/2 streams; during cancellation; and during observer loss/detach.
+
+Report duplicate remote effects per logical operation, false DefinitelyNotApplied classifications, retries from unknown state, unresolved-outcome hold correctness, pre-dispatch recovery precision, reconciliation coverage and latency, crash-to-reconciled p50/p95/p99, journal fsync latency and write amplification, recovery scan time, transport attempts per logical operation, idempotency collisions, CPU/RSS/allocations, TLS handshakes, connection reuse, and request tail latency.
+
+### Non-compensatory acceptance thresholds
+
+- Duplicate remote effects: **0** under the declared server idempotency contract.
+- False absence proofs: **0**.
+- Automatic mutating retries from unresolved dispatched state: **0**.
+- Correctly held unknown outcomes: **100%**.
+- Pre-dispatch recovery precision: **100%** when the durable write-ahead gate is verified.
+- Any unauthorized peer, contradictory receipt, or missing mandatory evidence: fail the security gate regardless of latency or throughput.
+
+Report conservative quarantine's availability cost separately. Do not use a blended score that lets throughput compensate for duplicate effects or false absence claims.
+
+These are target thresholds and benchmark hypotheses, not measured results. Do not claim exactly-once delivery: at-most-one remote effect is conditional on the remote service enforcing the scoped idempotency contract.
