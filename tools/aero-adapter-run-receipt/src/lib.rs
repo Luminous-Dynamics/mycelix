@@ -722,7 +722,7 @@ mod tests {
              include_bytes!("../fixtures/adapter-run/adapter.bin").to_vec()),
             (ArtifactRef { id: "sha256:6c0ef43428d609b7a9518e8f2a06bc48886d1bbc2160734ded4fc83679e1a98a".into(), kind: "adapter_arguments".into() },
              include_bytes!("../fixtures/adapter-run/arguments.json").to_vec()),
-            (ArtifactRef { id: "sha256:56fb082d5fbdcb4ada57fda4c31c3c7c16507393cda0bee55a8c67a8db9ec0ea".into(), kind: "environment_profile".into() },
+            (ArtifactRef { id: "sha256:9839f815354d2ff6f0033e1161d7fce6a74f9d85eccac1ce1bfe0e80bff21c19".into(), kind: "environment_profile".into() },
              include_bytes!("../fixtures/adapter-run/environment-profile.json").to_vec()),
             (ArtifactRef { id: "sha256:8362e44d47f7f89da4a972ecd585d851f6ca3abcf5735294bc7737d3554c1d33".into(), kind: "step_file".into() },
              include_bytes!("../fixtures/adapter-run/source.step").to_vec()),
