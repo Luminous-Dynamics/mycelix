@@ -106,6 +106,20 @@ These cannot be traded for performance. Do not compute an overall weighted score
 
 The numerical targets must be revisited after a blinded baseline pilot. They are not evidence of present Pulse performance or a guarantee of statistical power.
 
+## Group fan-out: per-recipient truth before aggregate claims
+
+Group messaging uses a parent fanout identity and independent recipient-child logical operations. The parent identity and recipient-set commitment are coordination metadata, not delivery receipts or bearer authority. Every required recipient gets one stable child logical operation; retries and alternate routes create new attempt IDs without creating a second logical recipient effect.
+
+The recipient-set snapshot binds the send to a declared membership/epoch state. Qualification traces carry only a redacted commitment and the exact policy/runtime evidence references; they do not expose the raw roster. A child is successful only after recipient admission, one logical inbox commit, decryption verification, and an independently verified receipt for that recipient and content commitment.
+
+The default aggregate policy is **all required recipients**. The group may be shown as COMPLETE_VERIFIED only after every child in the committed recipient-set snapshot has a verified receipt by the declared deadline. PARTIAL, UNKNOWN, INCOMPLETE, EXPIRED and FAILED remain distinct. A quorum/threshold override is permitted only as an explicit user-visible policy bound to an authenticated policy snapshot; it must not be silently substituted for full completion.
+
+Device semantics also need a declared policy. A receipt from one device does not imply all-device synchronization. Membership removal, late join and historical-message decryption are separate cases evaluated against the precise membership epoch; the benchmark must not infer their security from the group cipher name alone.
+
+Group-specific metrics now include per-recipient verified delivery by deadline, complete-group delivery by deadline, partial fan-out coverage distribution, worst-required-recipient latency, group epoch commit time/bytes, post-removal acceptance, and late-joiner historical-decrypt acceptance. Report both recipient-level and aggregate results; a high average must not hide one unreachable or unauthorized member.
+
+This group fan-out qualification is tracked separately in [PULSE-GROUP-FANOUT-QUAL-001 / #6401](https://github.com/Luminous-Dynamics/mycelix/issues/6401), and composes with [PULSE-FABRIC-QUAL-001 / #6376](https://github.com/Luminous-Dynamics/mycelix/issues/6376).
+
 ## Execution order
 
 1. Freeze source, lockfiles, runtime tuple, protocol versions, hardware and corpus.
