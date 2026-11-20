@@ -596,13 +596,6 @@ fn causal_relation_error(
                 | "transport_ack_observed"
         )
     };
-    let is_recovery = |event_type: &str| {
-        matches!(
-            event_type,
-            "recovery_started" | "recovery_partial" | "recovery_completed"
-        )
-    };
-
     match relation {
         "local_program_order" => {
             if !same_operation(predecessor, child)
