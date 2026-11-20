@@ -247,8 +247,13 @@
           }
         },
         "oracle_method": {
-          "type": "string",
-          "minLength": 1
+          "enum": [
+            "independent_hand_enumeration",
+            "dual_review_adjudication",
+            "independent_tool_and_review",
+            "external_published_reference",
+            "unadjudicated"
+          ]
         },
         "oracle_profile_version": {
           "type": "string",
