@@ -255,7 +255,10 @@
             "maxLength": 128
           },
           "attempt_id": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "minLength": 1,
             "maxLength": 128
           },
@@ -464,7 +467,47 @@
             ],
             "maxLength": 128
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "event_type": {
+                  "enum": [
+                    "authority_host_admitted",
+                    "authority_host_denied",
+                    "domain_authorized",
+                    "domain_denied",
+                    "source_action_authored",
+                    "integrity_validation_accepted",
+                    "integrity_validation_rejected",
+                    "transport_attempt_started",
+                    "transport_attempt_outcome_unknown",
+                    "transport_ack_observed",
+                    "recipient_admitted",
+                    "recipient_inbox_committed",
+                    "recipient_decryption_verified",
+                    "receipt_created",
+                    "receipt_verified",
+                    "receipt_rejected"
+                  ]
+                }
+              },
+              "required": [
+                "event_type"
+              ]
+            },
+            "then": {
+              "properties": {
+                "attempt_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "terminal_disposition": {
