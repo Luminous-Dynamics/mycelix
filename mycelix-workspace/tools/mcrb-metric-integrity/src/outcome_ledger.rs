@@ -609,7 +609,7 @@ fn verify_attestation(
         name: format!("mcrb-evidence/{}/{}", entry.operation_id, predicate.evidence_kind.as_str()),
         digest: BTreeMap::from([("sha256".to_string(), predicate.evidence_artifact_digest_sha256.clone())]),
     };
-    if statement.subject.as_slice() != [expected_subject] {
+    if statement.subject.len() != 1 || statement.subject[0] != expected_subject {
         return Err(OutcomeLedgerIssue::InvalidSubject(entry.operation_id.clone()));
     }
 
@@ -901,7 +901,6 @@ pub fn verify_outcome_ledger(
 
     let mut operations = BTreeSet::new();
     let mut operation_outcomes = Vec::with_capacity(envelope.entries.len());
-    let mut attestation_digests = BTreeSet::new();
     for (index, entry) in envelope.entries.iter().enumerate() {
         let expected_sequence = index as u64 + 1;
         if entry.sequence != expected_sequence {
@@ -956,7 +955,6 @@ pub fn verify_outcome_ledger(
                             source_id: predicate.source_id.clone(),
                         });
                     }
-                    attestation_digests.insert(digest);
                     predicates.push((predicate, relationship, digest));
                     report.attestation_count += 1;
                 }
@@ -1004,28 +1002,20 @@ pub fn verify_outcome_ledger(
                 | OutcomeLedgerIssue::MissingOperation(_)
                 | OutcomeLedgerIssue::UnknownDependencyClosureCannotSupportSuccess(_)
                 | OutcomeLedgerIssue::SharedDependencyCannotSupportSuccess(_)
+                | OutcomeLedgerIssue::InvalidEvidenceKindForOutcome { .. }
         )
     });
+    // Every issue not explicitly classified as incomplete is a hard invalidity.
+    // This prevents newly added verifier errors from accidentally falling
+    // through to an Incomplete-but-otherwise-accepted status.
     let invalid_issues = report.issues.iter().any(|issue| {
-        matches!(
+        !matches!(
             issue,
-            OutcomeLedgerIssue::DuplicateEffect(_)
-                | OutcomeLedgerIssue::DuplicateOperation(_)
-                | OutcomeLedgerIssue::InvalidSequence { .. }
-                | OutcomeLedgerIssue::OperationBindingMismatch { .. }
-                | OutcomeLedgerIssue::ConflictingAttestation { .. }
-                | OutcomeLedgerIssue::InvalidSignature(_)
-                | OutcomeLedgerIssue::LedgerDigestMismatch
-                | OutcomeLedgerIssue::UnknownSource(_)
-                | OutcomeLedgerIssue::RevokedSource(_)
-                | OutcomeLedgerIssue::UnauthorizedEvidenceKind(_)
-                | OutcomeLedgerIssue::UnauthorizedEffectState(_)
+            OutcomeLedgerIssue::MissingAttestation(_)
+                | OutcomeLedgerIssue::MissingOperation(_)
+                | OutcomeLedgerIssue::UnknownDependencyClosureCannotSupportSuccess(_)
+                | OutcomeLedgerIssue::SharedDependencyCannotSupportSuccess(_)
                 | OutcomeLedgerIssue::InvalidEvidenceKindForOutcome { .. }
-                | OutcomeLedgerIssue::InvalidEffectStateForOutcome { .. }
-                | OutcomeLedgerIssue::ContextMismatch(_)
-                | OutcomeLedgerIssue::TrustPolicyMismatch
-                | OutcomeLedgerIssue::MeasurementWindowMismatch
-                | OutcomeLedgerIssue::InvalidDigest(_)
         )
     });
     report.status = if invalid_issues {
