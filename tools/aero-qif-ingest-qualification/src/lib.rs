@@ -963,7 +963,25 @@ pub fn validate_ingest_qualification(
         (disposition, Some(extraction)) => {
             validate_content_artifact(&extraction.normalized_trace_artifact)?;
             validate_content_artifact(&extraction.source_mapping_manifest)?;
+            if extraction.source_mapping_manifest.reference.kind != "source_mapping"
+                || extraction.source_mapping_manifest.format_id != "AERO_QIF_SOURCE_MAPPING_V1"
+                || extraction.normalized_trace_artifact.reference.kind != "normalized_qif_trace"
+            {
+                return Err(IngestError::InvalidExtractionEvidence);
+            }
             let counts = &extraction.mapping_counts;
+            validate_source_mapping_records(
+                &extraction.mappings,
+                counts,
+                &documents,
+                &reference_ids,
+            )?;
+            let canonical_mapping_bytes = source_mapping_manifest_bytes(&extraction.mappings)?;
+            if extraction.source_mapping_manifest.byte_length != canonical_mapping_bytes.len() as u64
+                || extraction.source_mapping_manifest.sha256 != digest_hex(&canonical_mapping_bytes)
+            {
+                return Err(IngestError::SourceMappingManifestMismatch);
+            }
             let accounted = counts.mapped
                 .checked_add(counts.unresolved)
                 .and_then(|value| value.checked_add(counts.ambiguous))
