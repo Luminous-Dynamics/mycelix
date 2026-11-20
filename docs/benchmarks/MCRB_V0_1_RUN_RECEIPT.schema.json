@@ -290,7 +290,8 @@
         "offer_ledger_artifact_digest_sha256",
         "in_toto_bundle_digest_sha256",
         "attestation_trust_policy_digest_sha256",
-        "slsa_build_provenance_digests"
+        "slsa_build_provenance_digests",
+        "operation_contract_registry_artifact_digest_sha256"
       ],
       "properties": {
         "raw_trace_digests": {
@@ -330,6 +331,10 @@
             "pattern": "^[a-f0-9]{64}$"
           },
           "uniqueItems": true
+        },
+        "operation_contract_registry_artifact_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
       }
     },
