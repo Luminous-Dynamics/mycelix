@@ -208,7 +208,7 @@ pub enum TraceError {
     #[error("xId {xid} in QPId {qpid} resolves to wrong QIF object type {object_kind}")]
     WrongExternalObjectKind { qpid: String, xid: u32, object_kind: String },
     #[error("MeasurementResultsSet {0} is not declared in the Results document")]
-    MissingResultSet(String),
+    MissingResultSet(u32),
     #[error("CharacteristicNominal {nominal_id} missing in Plan {qpid}")]
     MissingCharacteristicNominal { qpid: String, nominal_id: u32 },
     #[error("CharacteristicNominal {nominal_id} has no EntityExternalIds")]
@@ -642,7 +642,7 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
             return Err(TraceError::DuplicateIdentifier(format!("measurement {}", measurement.measurement_id)));
         }
         if !result_set_ids.contains(&measurement.result_set_id) {
-            return Err(TraceError::MissingResultSet(measurement.result_set_id.to_string()));
+            return Err(TraceError::MissingResultSet(measurement.result_set_id));
         }
         if measurement.external_document_reference_id == 0 || measurement.xid == 0 {
             return Err(TraceError::ZeroIdentifier(format!("measurement {}", measurement.measurement_id)));
@@ -1135,7 +1135,7 @@ mod tests {
         case.results.measurements[0].result_set_id = 799;
         assert_eq!(
             validate_trace_case(&case),
-            Err(TraceError::MissingResultSet("799".into()))
+            Err(TraceError::MissingResultSet(799))
         );
     }
 
