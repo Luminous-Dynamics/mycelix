@@ -80,6 +80,7 @@ pub struct ScreeningVolumeCaptureTarget {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ScreeningVolumeProfile {
     pub profile_id: String,
+    pub source_url: String,
     pub source_revision: String,
     pub capture_target: Option<ScreeningVolumeCaptureTarget>,
     pub volumes: BTreeMap<OrbitRegime, RegimeScreeningVolume>,
@@ -105,6 +106,8 @@ pub enum ScreeningVolumeError {
     InvalidSphereRadius,
     InvalidCaptureThreshold,
     InvalidCaptureRateTarget,
+    EmptyCaptureEnvironmentScope,
+    RegimeKeyMismatch { map_key: OrbitRegime, declared_regime: OrbitRegime },
 }
 
 /// Build NASA CARA's public regime-volume profile implemented since March 2026.
@@ -177,6 +180,7 @@ pub fn nasa_cara_march_2026_profile() -> ScreeningVolumeProfile {
 
     ScreeningVolumeProfile {
         profile_id: "nasa-cara-screening-volume-2026-03".to_string(),
+        source_url: "https://www.nasa.gov/cara/unique-conjunction-events/".to_string(),
         source_revision: "NASA CARA Unique Conjunction Events page; accessed 2026-11-20"
             .to_string(),
         capture_target: Some(ScreeningVolumeCaptureTarget {
@@ -269,6 +273,7 @@ pub fn nasa_cara_pre_march_2026_profile() -> ScreeningVolumeProfile {
 
     ScreeningVolumeProfile {
         profile_id: "nasa-cara-screening-volume-through-2026-02".to_string(),
+        source_url: "https://www.nasa.gov/cara/unique-conjunction-events/".to_string(),
         source_revision: "NASA CARA Unique Conjunction Events page; accessed 2026-11-20"
             .to_string(),
         capture_target: None,
@@ -282,10 +287,16 @@ impl ScreeningVolumeProfile {
         if self.profile_id.trim().is_empty() {
             return Err(ScreeningVolumeError::EmptyProfileId);
         }
+        if self.source_url.trim().is_empty() {
+            return Err(ScreeningVolumeError::EmptySourceRevision);
+        }
         if self.source_revision.trim().is_empty() {
             return Err(ScreeningVolumeError::EmptySourceRevision);
         }
         if let Some(target) = &self.capture_target {
+            if target.environment_scope.trim().is_empty() {
+                return Err(ScreeningVolumeError::EmptyCaptureEnvironmentScope);
+            }
             if !target.pc_threshold_exclusive.is_finite()
                 || target.pc_threshold_exclusive <= 0.0
                 || target.pc_threshold_exclusive > 1.0
@@ -299,7 +310,13 @@ impl ScreeningVolumeProfile {
             }
         }
 
-        for volume in self.volumes.values() {
+        for (map_key, volume) in &self.volumes {
+            if *map_key != volume.regime {
+                return Err(ScreeningVolumeError::RegimeKeyMismatch {
+                    map_key: *map_key,
+                    declared_regime: volume.regime,
+                });
+            }
             match volume.shape {
                 ScreeningVolumeShape::RicRectangular {
                     radial_half_width_km,
@@ -519,6 +536,20 @@ mod tests {
                 },
             ),
             Err(ScreeningVolumeError::NonFiniteRicOffset)
+        );
+    }
+
+    #[test]
+    fn profile_regime_map_keys_must_match_declared_regime_values() {
+        let mut profile = nasa_cara_march_2026_profile();
+        let wrong = profile.volumes.get(&OrbitRegime::Leo1).unwrap().clone();
+        profile.volumes.insert(OrbitRegime::Leo2, wrong);
+        assert_eq!(
+            profile.validate(),
+            Err(ScreeningVolumeError::RegimeKeyMismatch {
+                map_key: OrbitRegime::Leo2,
+                declared_regime: OrbitRegime::Leo1,
+            })
         );
     }
 
