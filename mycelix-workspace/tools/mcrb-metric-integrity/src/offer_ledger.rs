@@ -691,8 +691,8 @@ mod tests {
             .contains(&OfferLedgerIssue::InvalidIdempotencyKeyDigest(0)));
 
         let encoded = serde_json::to_string(&valid_envelope()).unwrap();
-        assert!(!encoded.contains("\\\"idempotency_key\\\":"));
-        assert!(encoded.contains("\\\"idempotency_key_digest_sha256\\\":"));
+        assert!(!encoded.contains("\"idempotency_key\":"));
+        assert!(encoded.contains("\"idempotency_key_digest_sha256\":"));
     }
 
     #[test]
