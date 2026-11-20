@@ -165,7 +165,7 @@ fn validate_feed(
             });
         }
         if let Some(expected) = provider_id {
-            if expected != event.provider_id {
+            if expected != event.provider_id.as_str() {
                 return Err(EventReconciliationError::MixedProviderFeed {
                     provider_side,
                     expected_provider_id: expected.to_string(),
