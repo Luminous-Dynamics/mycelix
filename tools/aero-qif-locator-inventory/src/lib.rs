@@ -1039,7 +1039,7 @@ pub fn derive_trace_locator_inventory(
         let plan_qpid_records: Vec<_> = results[0].locators.iter()
             .filter(|candidate| {
                 candidate.rule_id == "results.external_document_plan_qpid"
-                    && candidate.locator.external_document_reference_id == Some(local_reference_id)
+                    && candidate.locator.local_reference_id == Some(local_reference_id)
             })
             .collect();
         if plan_qpid_records.len() != 1 {
@@ -1076,6 +1076,73 @@ pub fn derive_trace_locator_inventory(
     if linked_plan_qpids != plan_qpids {
         let unlinked = plan_qpids.difference(&linked_plan_qpids).next().cloned().unwrap_or_default();
         return Err(InventoryError::UnlinkedPlanDocument(unlinked));
+    }
+
+    let external_plan_by_reference: BTreeMap<u32, &ExternalQifDocumentReferenceV1> =
+        external_document_references.iter()
+            .map(|reference| (reference.local_reference_id, reference))
+            .collect();
+    let local_results_item_ids: BTreeSet<u32> = results[0].locators.iter()
+        .filter(|record| record.rule_id == "results.characteristic_item")
+        .filter_map(|record| record.locator.source_element_id)
+        .collect();
+    for record in results[0].locators.iter()
+        .filter(|record| record.rule_id == "results.characteristic_item_external_reference")
+    {
+        match (
+            record.locator.local_reference_id,
+            record.locator.external_document_reference_id,
+            record.locator.external_xid,
+        ) {
+            (Some(local_id), None, None) => {
+                if !local_results_item_ids.contains(&local_id) {
+                    return Err(InventoryError::UnknownLocalReference(
+                        record.locator.source_path.clone(), local_id,
+                    ));
+                }
+            }
+            (None, Some(reference_id), Some(xid)) => {
+                let target = external_plan_by_reference.get(&reference_id)
+                    .ok_or_else(|| InventoryError::UndeclaredExternalReference(
+                        record.locator.source_path.clone(), reference_id,
+                    ))?;
+                let target_plan = scanned.iter()
+                    .find(|document| {
+                        document.source.role == QifDocumentRole::Plan
+                            && document.source.qpid.eq_ignore_ascii_case(&target.plan_qpid)
+                    })
+                    .ok_or_else(|| InventoryError::UnknownExternalPlanQpid(record.locator.source_path.clone()))?;
+                let target_item_exists = target_plan.locators.iter().any(|candidate| {
+                    candidate.rule_id == "plan.characteristic_item"
+                        && candidate.locator.source_element_id == Some(xid)
+                });
+                if !target_item_exists {
+                    return Err(InventoryError::UnknownExternalObjectReference(
+                        record.locator.source_path.clone(), xid,
+                    ));
+                }
+            }
+            _ => return Err(InventoryError::InvalidQifReference(record.locator.source_path.clone())),
+        }
+    }
+
+    for plan in scanned.iter().filter(|document| document.source.role == QifDocumentRole::Plan) {
+        let nominal_ids: BTreeSet<u32> = plan.locators.iter()
+            .filter(|record| record.rule_id == "plan.characteristic_nominal")
+            .filter_map(|record| record.locator.source_element_id)
+            .collect();
+        for record in plan.locators.iter()
+            .filter(|record| record.rule_id == "plan.characteristic_item_nominal_reference")
+        {
+            let Some(local_id) = record.locator.local_reference_id else {
+                return Err(InventoryError::InvalidQifReference(record.locator.source_path.clone()));
+            };
+            if !nominal_ids.contains(&local_id) {
+                return Err(InventoryError::UnknownLocalReference(
+                    record.locator.source_path.clone(), local_id,
+                ));
+            }
+        }
     }
 
     let plan_items = scanned.iter()
