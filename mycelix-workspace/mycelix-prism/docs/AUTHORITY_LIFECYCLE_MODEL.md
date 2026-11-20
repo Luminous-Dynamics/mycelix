@@ -65,7 +65,7 @@ Revoking an application exchange permit is not proof that packets on an establis
 
 ## 4. Executable tests
 
-The dependency-free integration test `prism-egress/tests/authority_lifecycle_model.rs` contains 28 deterministic tests. It covers:
+The dependency-free integration test `prism-egress/tests/authority_lifecycle_model.rs` contains 30 deterministic tests. It covers:
 
 - single-use connect authority, expired grants, cross-workload attempts and denied-peer token consumption;
 - TLS identity mismatch and DNS/parent expiry;

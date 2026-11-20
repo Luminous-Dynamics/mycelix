@@ -530,7 +530,10 @@ fn exchange_budget_is_bounded_even_when_in_flight_slots_are_released() {
     let permit = admit(&mut lease, &mut first, 120).unwrap();
     assert_eq!(lease.finish_exchange(permit, 121), Ok(()));
     let mut second = exchange_capability(9, 55, 778, 170);
-    assert_eq!(admit(&mut lease, &mut second, 122).err(), Some(AuthorityError::ExchangeBudgetExhausted));
+    assert_eq!(
+        admit(&mut lease, &mut second, 122).err(),
+        Some(AuthorityError::ExchangeBudgetExhausted)
+    );
 }
 
 #[test]
@@ -549,7 +552,10 @@ fn draining_connection_lease_rejects_new_exchanges_but_allows_bounded_in_flight_
     lease.begin_drain(140);
 
     let mut second = exchange_capability(9, 55, 778, 170);
-    assert_eq!(admit(&mut lease, &mut second, 121).err(), Some(AuthorityError::ConnectionNotActive));
+    assert_eq!(
+        admit(&mut lease, &mut second, 121).err(),
+        Some(AuthorityError::ConnectionNotActive)
+    );
     assert_eq!(lease.finish_exchange(permit, 130), Ok(()));
     assert_eq!(lease.in_flight, 0);
 }
@@ -560,7 +566,10 @@ fn drain_deadline_bounds_existing_exchange_completion() {
     let mut first = exchange_capability(8, 55, 777, 170);
     let permit = admit(&mut lease, &mut first, 120).unwrap();
     lease.begin_drain(125);
-    assert_eq!(lease.finish_exchange(permit, 126).err(), Some(AuthorityError::DrainDeadlineExceeded));
+    assert_eq!(
+        lease.finish_exchange(permit, 126).err(),
+        Some(AuthorityError::DrainDeadlineExceeded)
+    );
     assert_eq!(lease.in_flight, 0);
 }
 
@@ -674,7 +683,10 @@ fn connection_lease_expiry_transition_is_explicit() {
     lease.expire_if_due(180);
     assert_eq!(lease.state, LeaseState::Expired);
     let mut cap = exchange_capability(8, 55, 777, 190);
-    assert_eq!(admit(&mut lease, &mut cap, 181).err(), Some(AuthorityError::Expired));
+    assert_eq!(
+        lease.admit_exchange(&mut cap, 181, &scope(), 250, 250, 30).err(),
+        Some(AuthorityError::Expired)
+    );
 }
 
 #[test]
