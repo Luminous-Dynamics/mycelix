@@ -227,6 +227,10 @@ pub enum InventoryError {
     InvalidElementId(String),
     #[error("QIF reference at {0} points to an undeclared Results external-document ID {1}")]
     UndeclaredExternalReference(String, u32),
+    #[error("local QIF reference at {0} does not resolve to a declared object ID {1}")]
+    UnknownLocalReference(String, u32),
+    #[error("external xId at {0} does not resolve to a CharacteristicItem in the selected Plan: {1}")]
+    UnknownExternalObjectReference(String, u32),
     #[error("external Plan QPId is missing or invalid at {0}")]
     InvalidExternalPlanQpid(String),
     #[error("source document QPId element does not match the supplied document identity: {0}")]
@@ -241,8 +245,6 @@ pub enum InventoryError {
     UnsupportedAssemblyPathReference(String),
     #[error("a supplied Plan document is not linked by any Results external reference: {0}")]
     UnlinkedPlanDocument(String),
-    #[error("duplicate Results external-document reference id {0}")]
-    DuplicateExternalReferenceId(u32),
     #[error("inventory canonicalization failed")]
     CanonicalizationFailed,
     #[error("inventory digest is malformed or does not match its body")]
