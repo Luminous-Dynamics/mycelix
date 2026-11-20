@@ -1,0 +1,1606 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mcrb-run-receipt-v0.1.json",
+  "title": "Mycelix MCRB Run Receipt v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "run_id",
+    "status",
+    "source",
+    "runtime",
+    "topology",
+    "environment",
+    "workload",
+    "timing",
+    "scenario_results",
+    "metrics",
+    "evidence",
+    "verifier",
+    "claim_ceiling",
+    "metric_integrity",
+    "qops"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix-mcrb-run-receipt-v0.1"
+    },
+    "benchmark_id": {
+      "const": "MCRB"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "queued",
+        "running",
+        "executed-pass",
+        "executed-fail",
+        "non-executed",
+        "superseded"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "commit",
+        "tree_digest"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "tree_digest": {
+          "type": "string",
+          "minLength": 32
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conductor_version",
+        "hdk_version",
+        "hdi_version",
+        "rust_client_version",
+        "js_client_version",
+        "lair_version",
+        "kitsune2_version",
+        "runtime_binary_digest",
+        "lockfile_digests"
+      ],
+      "properties": {
+        "conductor_version": {
+          "type": "string"
+        },
+        "hdk_version": {
+          "type": "string"
+        },
+        "hdi_version": {
+          "type": "string"
+        },
+        "rust_client_version": {
+          "type": "string"
+        },
+        "js_client_version": {
+          "type": "string"
+        },
+        "lair_version": {
+          "type": "string"
+        },
+        "kitsune2_version": {
+          "type": "string"
+        },
+        "runtime_binary_digest": {
+          "type": "string"
+        },
+        "lockfile_digests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "manifest_digest",
+        "conductor_count",
+        "peer_layout"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string"
+        },
+        "manifest_digest": {
+          "type": "string"
+        },
+        "conductor_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "peer_layout": {
+          "type": "string"
+        },
+        "network_seed_digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hardware_profile",
+        "os_kernel",
+        "network_profile"
+      ],
+      "properties": {
+        "hardware_profile": {
+          "type": "string"
+        },
+        "os_kernel": {
+          "type": "string"
+        },
+        "network_profile": {
+          "type": "string"
+        },
+        "region": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_digest",
+        "seed",
+        "parameters"
+      ],
+      "properties": {
+        "manifest_digest": {
+          "type": "string"
+        },
+        "seed": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "object"
+        }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "started_at",
+        "ended_at",
+        "warmup_seconds",
+        "measurement_seconds"
+      ],
+      "properties": {
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "warmup_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "measurement_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "scenario_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "outcome",
+          "executed_head",
+          "assertions",
+          "artifacts"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "pass",
+              "fail",
+              "not-executed",
+              "skipped",
+              "cancelled",
+              "superseded"
+            ]
+          },
+          "executed_head": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          },
+          "assertions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "boolean",
+                "integer",
+                "number",
+                "string"
+              ]
+            }
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "integer",
+          "number",
+          "string",
+          "null"
+        ]
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_trace_digests",
+        "log_digests",
+        "artifact_digests",
+        "offer_ledger_artifact_digest_sha256",
+        "in_toto_bundle_digest_sha256",
+        "attestation_trust_policy_digest_sha256",
+        "slsa_build_provenance_digests",
+        "operation_contract_registry_artifact_digest_sha256"
+      ],
+      "properties": {
+        "raw_trace_digests": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "log_digests": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "artifact_digests": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "offer_ledger_artifact_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "in_toto_bundle_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "attestation_trust_policy_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "slsa_build_provenance_digests": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "uniqueItems": true
+        },
+        "operation_contract_registry_artifact_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "verifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "digest"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        }
+      }
+    },
+    "claim_ceiling": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "metric_integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "clock_source",
+        "clock_sync_method",
+        "host_clock_observations",
+        "duration_clock",
+        "negative_duration_count",
+        "non_finite_duration_count",
+        "out_of_run_duration_count",
+        "outlier_count",
+        "outliers_preserved",
+        "peer_sample_coverage",
+        "send_receive_counter_mismatch_count",
+        "aggregate_eligible",
+        "raw_monotonic_tick_derived_count",
+        "clock_epoch_mismatch_count",
+        "unmatched_cross_host_event_count",
+        "cross_host_latency_lower_bound_ms",
+        "cross_host_latency_upper_bound_ms",
+        "point_latency_emitted_count",
+        "monotonic_clock_id_mismatch_count",
+        "reversed_monotonic_tick_count",
+        "invalid_ticks_per_second_count",
+        "cross_host_interval_count",
+        "cross_host_point_latency_emitted_count",
+        "cross_host_calibration_invalid_count",
+        "event_pair_digest_mismatch_count"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "valid",
+            "invalid",
+            "incomplete"
+          ]
+        },
+        "clock_source": {
+          "type": "string"
+        },
+        "clock_sync_method": {
+          "type": "string"
+        },
+        "host_clock_observations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "host_id",
+              "clock_source",
+              "sync_method",
+              "offset_ms",
+              "uncertainty_ms",
+              "local_duration_clock"
+            ],
+            "properties": {
+              "host_id": {
+                "type": "string"
+              },
+              "clock_source": {
+                "type": "string"
+              },
+              "sync_method": {
+                "type": "string"
+              },
+              "offset_ms": {
+                "type": "number"
+              },
+              "uncertainty_ms": {
+                "type": "number",
+                "minimum": 0
+              },
+              "local_duration_clock": {
+                "const": "monotonic"
+              }
+            }
+          }
+        },
+        "duration_clock": {
+          "const": "monotonic"
+        },
+        "negative_duration_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "non_finite_duration_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "out_of_run_duration_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outlier_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outliers_preserved": {
+          "type": "boolean"
+        },
+        "peer_sample_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "send_receive_counter_mismatch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "aggregate_eligible": {
+          "type": "boolean"
+        },
+        "raw_monotonic_tick_derived_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "clock_epoch_mismatch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmatched_cross_host_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cross_host_latency_lower_bound_ms": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cross_host_latency_upper_bound_ms": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "point_latency_emitted_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "monotonic_clock_id_mismatch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reversed_monotonic_tick_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid_ticks_per_second_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cross_host_interval_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cross_host_point_latency_emitted_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cross_host_calibration_invalid_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "event_pair_digest_mismatch_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "qops": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "offer_ledger",
+        "measurement_window",
+        "offered_operations",
+        "classified_outcomes",
+        "qualified_successes",
+        "correct_denials",
+        "unexpected_denials",
+        "known_failures",
+        "unknown_outcomes",
+        "duplicate_external_effects",
+        "missing_outcomes",
+        "unexpected_outcome_samples",
+        "duplicate_outcome_samples",
+        "metric_integrity_status",
+        "offered_operations_per_second",
+        "qualified_operations_per_second",
+        "qualified_success_fraction",
+        "cross_host_measurement_required",
+        "cross_host_status",
+        "cross_host_aggregate_eligible",
+        "offer_ledger_verification_status",
+        "offer_ledger_issues",
+        "correctness_gate_set",
+        "correctness_gate_set_digest_sha256",
+        "correctness_trust_policy_id",
+        "correctness_trust_policy_digest_sha256",
+        "correctness_required_gate_count",
+        "correctness_attestation_count",
+        "outcome_evidence_status",
+        "outcome_ledger_digest_sha256",
+        "outcome_ledger_entry_count",
+        "outcome_attestation_count",
+        "outcome_ledger",
+        "outcome_trust_policy",
+        "asserted_outcome_samples",
+        "operation_contract_registry_digest_sha256"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "eligible",
+            "invalid",
+            "incomplete",
+            "not-evaluated"
+          ]
+        },
+        "offer_ledger": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "run_id",
+            "scenario_id",
+            "measurement_window_id",
+            "scenario_contract_digest_sha256",
+            "requires_cross_host_visibility",
+            "digest_sha256",
+            "entry_count",
+            "generator_digest_sha256",
+            "workload_manifest_digest_sha256",
+            "parameter_set_digest_sha256",
+            "monotonic_clock_id",
+            "monotonic_clock_epoch",
+            "artifact_digest_sha256",
+            "operation_contract_registry_digest_sha256"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "mycelix-mcrb-offer-ledger-v0.1"
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "scenario_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "measurement_window_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "entry_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "generator_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "workload_manifest_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "parameter_set_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "monotonic_clock_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "monotonic_clock_epoch": {
+              "type": "string",
+              "minLength": 1
+            },
+            "artifact_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "requires_cross_host_visibility": {
+              "type": "boolean"
+            },
+            "scenario_contract_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "operation_contract_registry_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "measurement_window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "window_id",
+            "clock_source",
+            "monotonic_clock_id",
+            "monotonic_clock_epoch",
+            "start_ticks",
+            "end_ticks",
+            "ticks_per_second",
+            "window_ns"
+          ],
+          "properties": {
+            "window_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "clock_source": {
+              "type": "string",
+              "minLength": 1
+            },
+            "monotonic_clock_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "monotonic_clock_epoch": {
+              "type": "string",
+              "minLength": 1
+            },
+            "start_ticks": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "end_ticks": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ticks_per_second": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "window_ns": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "offered_operations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "classified_outcomes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Verified outcome-ledger count only. Must remain zero while outcome_evidence_status is not verified."
+        },
+        "qualified_successes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Verified QualifiedSuccess outcomes only; caller-supplied labels are excluded. Must be zero until a VerifiedOutcomeLedger is integrated."
+        },
+        "correct_denials": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Verified outcome-ledger count only. Must remain zero while outcome_evidence_status is not verified."
+        },
+        "unexpected_denials": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Verified outcome-ledger count only. Must remain zero while outcome_evidence_status is not verified."
+        },
+        "known_failures": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Verified outcome-ledger count only. Must remain zero while outcome_evidence_status is not verified."
+        },
+        "unknown_outcomes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Verified outcome-ledger count only. Must remain zero while outcome_evidence_status is not verified."
+        },
+        "duplicate_external_effects": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Verified outcome-ledger count only. Must remain zero while outcome_evidence_status is not verified."
+        },
+        "missing_outcomes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unexpected_outcome_samples": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_outcome_samples": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "metric_integrity_status": {
+          "enum": [
+            "valid",
+            "invalid",
+            "incomplete",
+            "not-evaluated"
+          ]
+        },
+        "offered_operations_per_second": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "qualified_operations_per_second": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "qualified_success_fraction": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "cross_host_measurement_required": {
+          "type": "boolean"
+        },
+        "cross_host_status": {
+          "enum": [
+            "valid",
+            "invalid",
+            "incomplete",
+            "not-evaluated"
+          ]
+        },
+        "cross_host_aggregate_eligible": {
+          "type": "boolean"
+        },
+        "offer_ledger_verification_status": {
+          "enum": [
+            "valid",
+            "invalid",
+            "incomplete",
+            "not-evaluated"
+          ]
+        },
+        "offer_ledger_issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "correctness_gate_set": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "scenario_contract_digest_sha256",
+            "trust_policy_id",
+            "trust_policy_digest_sha256",
+            "required_gate_ids",
+            "required_gate_count",
+            "pass_count",
+            "fail_count",
+            "incomplete_count",
+            "missing_count",
+            "unexpected_count",
+            "duplicate_count",
+            "gate_results",
+            "attestation_bundle_digest_sha256",
+            "verifier_id",
+            "verifier_version",
+            "verifier_artifact_digest_sha256",
+            "slsa_build_provenance_digests"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "valid",
+                "invalid",
+                "incomplete",
+                "not-evaluated"
+              ]
+            },
+            "scenario_contract_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "trust_policy_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "trust_policy_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "required_gate_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "required_gate_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "pass_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "fail_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "incomplete_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missing_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unexpected_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "duplicate_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "gate_results": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "gate_id",
+                  "result",
+                  "statement_digest_sha256",
+                  "envelope_digest_sha256",
+                  "verifier_id",
+                  "signer_identity",
+                  "builder_id",
+                  "evidence_digests_sha256"
+                ],
+                "properties": {
+                  "gate_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "result": {
+                    "enum": [
+                      "pass",
+                      "fail",
+                      "incomplete"
+                    ]
+                  },
+                  "statement_digest_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "envelope_digest_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "verifier_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "signer_identity": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "builder_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "evidence_digests_sha256": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            },
+            "attestation_bundle_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "verifier_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "verifier_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "verifier_artifact_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "slsa_build_provenance_digests": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "correctness_gate_set_digest_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "correctness_trust_policy_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "correctness_trust_policy_digest_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "correctness_required_gate_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "correctness_attestation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outcome_evidence_status": {
+          "enum": [
+            "verified",
+            "invalid",
+            "incomplete",
+            "not-implemented"
+          ]
+        },
+        "outcome_ledger_digest_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "outcome_ledger_entry_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outcome_attestation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outcome_ledger": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "verification_status",
+            "run_id",
+            "scenario_id",
+            "offer_ledger_digest_sha256",
+            "ledger_digest_sha256",
+            "entry_count",
+            "attestation_count",
+            "qualified_independent_source_count",
+            "known_shared_source_count",
+            "unknown_source_relationship_count",
+            "partial_outcome_count",
+            "unresolved_outcome_count",
+            "operation_contract_registry_digest_sha256"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "mycelix-mcrb-outcome-ledger-v0.1"
+            },
+            "verification_status": {
+              "enum": [
+                "not-implemented",
+                "verified",
+                "invalid",
+                "incomplete"
+              ]
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "scenario_id": {
+              "type": "string",
+              "pattern": "^MCRB-[0-9]{2}$"
+            },
+            "offer_ledger_digest_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "ledger_digest_sha256": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "entry_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "attestation_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "qualified_independent_source_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "known_shared_source_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unknown_source_relationship_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "partial_outcome_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unresolved_outcome_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "operation_contract_registry_digest_sha256": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "outcome_trust_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy_id",
+            "policy_digest_sha256",
+            "verification_status",
+            "source_count",
+            "dependency_closure_complete"
+          ],
+          "properties": {
+            "policy_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "policy_digest_sha256": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "verification_status": {
+              "enum": [
+                "not-implemented",
+                "verified",
+                "invalid",
+                "expired",
+                "revoked"
+              ]
+            },
+            "source_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "dependency_closure_complete": {
+              "type": "boolean"
+            }
+          }
+        },
+        "asserted_outcome_samples": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Unverified labels supplied by the workload caller. Diagnostic only; never QOPS facts or the success numerator.",
+          "required": [
+            "classified_samples",
+            "qualified_success_labels",
+            "correct_denial_labels",
+            "unexpected_denial_labels",
+            "failure_labels",
+            "unknown_labels",
+            "duplicate_effect_labels"
+          ],
+          "properties": {
+            "classified_samples": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "qualified_success_labels": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "correct_denial_labels": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unexpected_denial_labels": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failure_labels": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unknown_labels": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "duplicate_effect_labels": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "operation_contract_registry_digest_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "eligible"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "correctness_gate_set": {
+                "properties": {
+                  "status": {
+                    "const": "valid"
+                  }
+                }
+              },
+              "offer_ledger_verification_status": {
+                "const": "valid"
+              },
+              "metric_integrity_status": {
+                "const": "valid"
+              },
+              "offered_operations_per_second": {
+                "type": "number"
+              },
+              "qualified_operations_per_second": {
+                "type": "number"
+              },
+              "qualified_success_fraction": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "executed-pass"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "metric_integrity": {
+            "properties": {
+              "status": {
+                "const": "valid"
+              },
+              "aggregate_eligible": {
+                "const": true
+              },
+              "negative_duration_count": {
+                "const": 0
+              },
+              "non_finite_duration_count": {
+                "const": 0
+              },
+              "out_of_run_duration_count": {
+                "const": 0
+              },
+              "send_receive_counter_mismatch_count": {
+                "const": 0
+              }
+            },
+            "required": [
+              "status",
+              "aggregate_eligible",
+              "negative_duration_count",
+              "non_finite_duration_count",
+              "out_of_run_duration_count",
+              "send_receive_counter_mismatch_count"
+            ]
+          },
+          "outcome_evidence_status": {
+            "const": "verified"
+          },
+          "operation_contract_registry_digest_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "qops": {
+            "properties": {
+              "outcome_ledger": {
+                "properties": {
+                  "verification_status": {
+                    "const": "verified"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "qops": {
+            "properties": {
+              "status": {
+                "const": "eligible"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "qops"
+        ]
+      },
+      "then": {
+        "properties": {
+          "qops": {
+            "properties": {
+              "classified_outcomes": {
+                "minimum": 1
+              },
+              "missing_outcomes": {
+                "const": 0
+              },
+              "unexpected_outcome_samples": {
+                "const": 0
+              },
+              "duplicate_outcome_samples": {
+                "const": 0
+              },
+              "duplicate_external_effects": {
+                "const": 0
+              },
+              "metric_integrity_status": {
+                "const": "valid"
+              },
+              "offered_operations_per_second": {
+                "type": "number",
+                "minimum": 0
+              },
+              "qualified_operations_per_second": {
+                "type": "number",
+                "minimum": 0
+              },
+              "qualified_success_fraction": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "correctness_gate_set_digest_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "correctness_trust_policy_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "correctness_trust_policy_digest_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "correctness_required_gate_count": {
+                "minimum": 1
+              },
+              "correctness_attestation_count": {
+                "minimum": 1
+              },
+              "correctness_gate_set": {
+                "properties": {
+                  "status": {
+                    "const": "valid"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              },
+              "outcome_evidence_status": {
+                "const": "verified"
+              },
+              "outcome_ledger_digest_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "outcome_ledger_entry_count": {
+                "minimum": 1
+              },
+              "outcome_attestation_count": {
+                "minimum": 1
+              }
+            },
+            "required": [
+              "missing_outcomes",
+              "unexpected_outcome_samples",
+              "duplicate_outcome_samples",
+              "duplicate_external_effects",
+              "metric_integrity_status",
+              "qualified_operations_per_second",
+              "offered_operations_per_second",
+              "qualified_success_fraction",
+              "correctness_gate_set_digest_sha256",
+              "correctness_trust_policy_id",
+              "correctness_trust_policy_digest_sha256",
+              "correctness_required_gate_count",
+              "correctness_attestation_count",
+              "correctness_gate_set",
+              "outcome_evidence_status",
+              "outcome_ledger_digest_sha256",
+              "outcome_ledger_entry_count",
+              "outcome_attestation_count"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "qops": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "invalid",
+                  "incomplete",
+                  "not-evaluated"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "qops"
+        ]
+      },
+      "then": {
+        "properties": {
+          "qops": {
+            "properties": {
+              "offered_operations_per_second": {
+                "type": "null"
+              },
+              "qualified_operations_per_second": {
+                "type": "null"
+              },
+              "qualified_success_fraction": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "offered_operations_per_second",
+              "qualified_operations_per_second",
+              "qualified_success_fraction"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "allOf": [
+          {
+            "properties": {
+              "qops": {
+                "properties": {
+                  "status": {
+                    "const": "eligible"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            },
+            "required": [
+              "qops"
+            ]
+          },
+          {
+            "properties": {
+              "qops": {
+                "properties": {
+                  "cross_host_measurement_required": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "cross_host_measurement_required"
+                ]
+              }
+            },
+            "required": [
+              "qops"
+            ]
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "qops": {
+            "properties": {
+              "cross_host_status": {
+                "const": "valid"
+              },
+              "cross_host_aggregate_eligible": {
+                "const": true
+              }
+            },
+            "required": [
+              "cross_host_status",
+              "cross_host_aggregate_eligible"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "qops": {
+            "properties": {
+              "status": {
+                "const": "eligible"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "qops"
+        ]
+      },
+      "then": {
+        "properties": {
+          "qops": {
+            "properties": {
+              "outcome_evidence_status": {
+                "const": "verified"
+              },
+              "outcome_ledger": {
+                "properties": {
+                  "verification_status": {
+                    "const": "verified"
+                  }
+                }
+              },
+              "outcome_trust_policy": {
+                "properties": {
+                  "verification_status": {
+                    "const": "verified"
+                  },
+                  "dependency_closure_complete": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

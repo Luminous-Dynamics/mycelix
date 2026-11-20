@@ -1,0 +1,1442 @@
+{
+  "schema_version": "mycelix-mcrb-v0.1",
+  "benchmark_id": "MCRB",
+  "status": "proposed-no-results",
+  "purpose": "Measure correctness, coordination performance, privacy and recoverability under matched and explicitly stated semantics.",
+  "execution_principle": "correctness-gate-before-performance",
+  "scale_ladder": [
+    {
+      "tier": "smoke",
+      "conductors_min": 3,
+      "conductors_max": 5,
+      "mode": "real-conductors-required"
+    },
+    {
+      "tier": "development",
+      "conductors": 20,
+      "mode": "real-conductors-required"
+    },
+    {
+      "tier": "qualification",
+      "conductors": 100,
+      "mode": "real-conductors-required"
+    },
+    {
+      "tier": "stress",
+      "conductors_min": 500,
+      "mode": "exploratory-real-conductors-or-explicitly-labelled-simulation"
+    }
+  ],
+  "comparators": [
+    {
+      "id": "holochain-0.6.1",
+      "class": "runtime-baseline",
+      "direct_comparison": "yes-after-semantic-equivalence",
+      "notes": "Use only an exact reproducible Holochain 0.6.1 runtime and declared hApp contract."
+    },
+    {
+      "id": "holochain-0.7.1",
+      "class": "runtime-candidate",
+      "direct_comparison": "yes-after-semantic-equivalence",
+      "notes": "Must pass dependency closure, fresh-conductor, multi-agent and client gates before qualification."
+    },
+    {
+      "id": "postgresql-single-writer-outbox",
+      "class": "centralized-architecture-baseline",
+      "direct_comparison": "same-intent-slice-only",
+      "notes": "Generic semantics profile. Compare the frozen PostgreSQL 18.6 baseline, the maintained PostgreSQL 18.7 line, and the latest-major PostgreSQL 19.0 challenger using pinned images/binary digests and custom pgbench transaction scripts. Report centralized authority and consistency semantics; do not imply peer-authority equivalence."
+    },
+    {
+      "id": "hyperledger-fabric-caliper",
+      "class": "permissioned-ledger-baseline",
+      "direct_comparison": "same-intent-slice-only",
+      "notes": "Caliper's current README lists Fabric v2.X; its Network SDK and Gateway SDK integrations are marked deprecated. Use only a pinned and verified v2.X connector path for this profile. Do not imply that Caliper currently supports Fabric 3.1.x."
+    },
+    {
+      "id": "libp2p-iroh-ipfs",
+      "class": "network-or-storage-component",
+      "direct_comparison": "component-only",
+      "notes": "Not an application-authority comparator unless validation, authorization, privacy and recovery semantics are built above it."
+    },
+    {
+      "id": "yjs-automerge",
+      "class": "crdt-collaboration-component",
+      "direct_comparison": "component-only",
+      "notes": "Compare offline document editing, conflict-free merge and convergence; not identity authority, revocation, legal consent or external-effect finality."
+    },
+    {
+      "id": "postgresql-18.6-pgbench",
+      "class": "frozen-centralized-architecture-baseline",
+      "direct_comparison": "same-intent-slice-only",
+      "notes": "Retain the v0.1 ADR's PostgreSQL 18.6 baseline as a frozen historical comparison. Publish exact image/binary digest, custom pgbench script and outbox transaction contract."
+    },
+    {
+      "id": "postgresql-18.7-pgbench",
+      "class": "current-centralized-architecture-candidate",
+      "direct_comparison": "same-intent-slice-only",
+      "notes": "PostgreSQL 18.7 was released 12 November 2026. Pin exact image/binary digest and use custom transaction scripts for the workflow; do not treat default TPC-B-like output as application equivalence."
+    },
+    {
+      "id": "postgresql-19.0-pgbench",
+      "class": "latest-major-centralized-architecture-candidate",
+      "direct_comparison": "same-intent-slice-only",
+      "notes": "PostgreSQL 19.0 was released 2026-11-19 and is listed as supported. Pin exact image/binary digest. Include custom transactional outbox and workflow scripts plus planner/maintenance settings; record release-specific features separately from generic OLTP. Never infer decentralized authority equivalence."
+    },
+    {
+      "id": "hyperledger-fabric-3.1.5-native",
+      "class": "permissioned-ledger-current-release-candidate",
+      "direct_comparison": "same-intent-slice-only",
+      "notes": "Fabric 3.1.5 is the latest release identified in the official release list. Use an independently version-pinned native Gateway/SDK workload adapter and publish endorsement/orderer/commit policy. This is not a Caliper profile: the current Caliper README lists Fabric v2.X and deprecated Network/Gateway SDK integrations."
+    }
+  ],
+  "metrics": [
+    {
+      "id": "p50_latency_ms",
+      "unit": "ms",
+      "aggregation": "p50"
+    },
+    {
+      "id": "p95_latency_ms",
+      "unit": "ms",
+      "aggregation": "p95"
+    },
+    {
+      "id": "p99_latency_ms",
+      "unit": "ms",
+      "aggregation": "p99"
+    },
+    {
+      "id": "qualified_operations_per_second",
+      "unit": "operations/s",
+      "aggregation": "rate"
+    },
+    {
+      "id": "dht_convergence_ms",
+      "unit": "ms",
+      "aggregation": "distribution"
+    },
+    {
+      "id": "revocation_enforcement_ms",
+      "unit": "ms",
+      "aggregation": "distribution"
+    },
+    {
+      "id": "restore_duration_ms",
+      "unit": "ms",
+      "aggregation": "distribution"
+    },
+    {
+      "id": "cpu_seconds",
+      "unit": "CPU-s",
+      "aggregation": "sum"
+    },
+    {
+      "id": "peak_rss_bytes",
+      "unit": "bytes",
+      "aggregation": "max"
+    },
+    {
+      "id": "disk_growth_bytes",
+      "unit": "bytes",
+      "aggregation": "delta"
+    },
+    {
+      "id": "network_bytes",
+      "unit": "bytes",
+      "aggregation": "sum"
+    },
+    {
+      "id": "energy_joules",
+      "unit": "J",
+      "aggregation": "sum-if-instrumented"
+    },
+    {
+      "id": "false_authorize_count",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "private_payload_leak_count",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "duplicate_effect_count",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "lost_acknowledged_records",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "oracle_mismatch_count",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "offered_operations_per_second",
+      "unit": "operations/s",
+      "aggregation": "offered-load-rate"
+    },
+    {
+      "id": "qualified_success_fraction",
+      "unit": "fraction",
+      "aggregation": "qualified-successes-divided-by-offered"
+    },
+    {
+      "id": "correct_authorization_denials",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "unexpected_authorization_denials",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "unknown_outcomes",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "duplicate_external_effects",
+      "unit": "count",
+      "aggregation": "sum"
+    },
+    {
+      "id": "outcome_ledger_verification_status",
+      "unit": "state",
+      "aggregation": "exact-authentication-status"
+    },
+    {
+      "id": "outcome_ledger_entry_count",
+      "unit": "count",
+      "aggregation": "verified-ledger-entries"
+    },
+    {
+      "id": "outcome_attestation_count",
+      "unit": "count",
+      "aggregation": "verified-attestations"
+    }
+  ],
+  "hard_gates": [
+    {
+      "id": "false-authorization",
+      "metric": "false_authorize_count",
+      "operator": "eq",
+      "value": 0
+    },
+    {
+      "id": "private-data-leakage",
+      "metric": "private_payload_leak_count",
+      "operator": "eq",
+      "value": 0
+    },
+    {
+      "id": "duplicate-external-effect",
+      "metric": "duplicate_effect_count",
+      "operator": "eq",
+      "value": 0
+    },
+    {
+      "id": "acknowledged-record-loss",
+      "metric": "lost_acknowledged_records",
+      "operator": "eq",
+      "value": 0
+    },
+    {
+      "id": "oracle-agreement",
+      "metric": "oracle_mismatch_count",
+      "operator": "eq",
+      "value": 0
+    },
+    {
+      "id": "outcome-ledger-authenticity",
+      "metric": "outcome_ledger_verification_status",
+      "operator": "eq",
+      "value": "verified"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "MCRB-01",
+      "scenario_id": "single-agent-append-read",
+      "objective": "Measure authored append/read cost and integrity behavior",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "no-invalid-history-rewrite",
+        "source-author-bound"
+      ],
+      "fault_injection": [
+        "malformed-entry",
+        "wrong-author",
+        "duplicate-identity"
+      ],
+      "required_metrics": [
+        "success_rate",
+        "p50_latency_ms",
+        "p95_latency_ms",
+        "p99_latency_ms",
+        "cpu_seconds",
+        "bytes_written"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": false
+    },
+    {
+      "id": "MCRB-02",
+      "scenario_id": "multi-agent-publication",
+      "objective": "Measure publication and retrieval across multiple independent agents",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "valid-record-integrity",
+        "author-bound-provenance"
+      ],
+      "fault_injection": [
+        "peer-offline",
+        "late-joiner",
+        "duplicate-publication"
+      ],
+      "required_metrics": [
+        "publication_success_rate",
+        "time_to_first_remote_read_ms",
+        "dht_convergence_ms",
+        "network_bytes"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": true
+    },
+    {
+      "id": "MCRB-03",
+      "scenario_id": "dht-convergence",
+      "objective": "Measure time until expected peers can retrieve valid records",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "convergence-within-declared-envelope",
+        "no-invalid-record-promotion"
+      ],
+      "fault_injection": [
+        "packet-loss",
+        "peer-churn",
+        "partial-arc"
+      ],
+      "required_metrics": [
+        "dht_convergence_ms",
+        "stale_read_rate",
+        "peer_coverage",
+        "network_bytes"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": true
+    },
+    {
+      "id": "MCRB-04",
+      "scenario_id": "cross-role-workflow",
+      "objective": "Qualify a multi-DNA workflow against the actual hApp role topology",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "all-roles-declared",
+        "typed-response-binding",
+        "no-authority-escalation"
+      ],
+      "fault_injection": [
+        "missing-role",
+        "wrong-role",
+        "unavailable-target",
+        "malformed-response"
+      ],
+      "required_metrics": [
+        "workflow_latency_ms",
+        "workflow_success_rate",
+        "cross_role_calls",
+        "denial_rate"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": false
+    },
+    {
+      "id": "MCRB-05",
+      "scenario_id": "partition-rejoin",
+      "objective": "Verify safe operation and reconciliation through network partitions",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "no-silent-overwrite",
+        "unknown-outcome-reconciled",
+        "eventual-valid-convergence"
+      ],
+      "fault_injection": [
+        "partition",
+        "asymmetric-link",
+        "simultaneous-writes",
+        "late-rejoin"
+      ],
+      "required_metrics": [
+        "rejoin_time_ms",
+        "reconciliation_time_ms",
+        "conflict_count",
+        "lost_acknowledged_records"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": true
+    },
+    {
+      "id": "MCRB-06",
+      "scenario_id": "capability-revocation",
+      "objective": "Measure revocation propagation and protected-effect enforcement",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "zero-protected-effects-after-revocation-barrier",
+        "stale-grant-denied"
+      ],
+      "fault_injection": [
+        "delayed-dht-visibility",
+        "in_flight-call",
+        "stale-hash",
+        "duplicate-revoke"
+      ],
+      "required_metrics": [
+        "revocation_visibility_ms",
+        "revocation_enforcement_ms",
+        "false_authorize_count"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": true
+    },
+    {
+      "id": "MCRB-07",
+      "scenario_id": "direct-signal-security",
+      "objective": "Qualify direct-signal capability and sender identity behavior",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "explicit-grant-required",
+        "sender-identity-bound",
+        "wire-version-mismatch-denied"
+      ],
+      "fault_injection": [
+        "missing-grant",
+        "wrong-sender",
+        "self-directed-signal",
+        "0.7.0-0.7.1-wire-mismatch"
+      ],
+      "required_metrics": [
+        "signal_delivery_rate",
+        "signal_latency_ms",
+        "unauthorized_signal_count"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": true
+    },
+    {
+      "id": "MCRB-08",
+      "scenario_id": "duplicate-replay-uncertain-outcome",
+      "objective": "Prevent duplicate effects when outcomes are lost or retried",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "unknown-outcome-reconciled-before-retry",
+        "idempotency-key-enforced",
+        "zero-duplicate-effects"
+      ],
+      "fault_injection": [
+        "response-timeout-after-commit",
+        "request-replay",
+        "duplicate-receipt",
+        "process-crash"
+      ],
+      "required_metrics": [
+        "duplicate_effect_count",
+        "reconciliation_time_ms",
+        "ambiguous_outcome_count"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": true
+    },
+    {
+      "id": "MCRB-09",
+      "scenario_id": "source-chain-recovery",
+      "objective": "Verify public source-chain restoration on the declared runtime and key identity",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "expected-agent-key-preserved",
+        "restore-state-explicit",
+        "no-private-data-promotion"
+      ],
+      "fault_injection": [
+        "missing-peer",
+        "partial-replica",
+        "wrong-agent-key",
+        "restore-timeout"
+      ],
+      "required_metrics": [
+        "restore_success_rate",
+        "restore_duration_ms",
+        "restored_record_count",
+        "unavailable_record_count"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": true
+    },
+    {
+      "id": "MCRB-10",
+      "scenario_id": "application-export-import",
+      "objective": "Test semantic application data export/import across runtime generations",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "source-lineage-preserved",
+        "old-action-hash-not-reused-as-new",
+        "external-effect-not-inferred"
+      ],
+      "fault_injection": [
+        "schema-evolution",
+        "partial-export",
+        "duplicate-import",
+        "missing-evidence-reference"
+      ],
+      "required_metrics": [
+        "export_duration_ms",
+        "import_duration_ms",
+        "reconciliation_mismatch_count",
+        "records_reconstructed"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": false
+    },
+    {
+      "id": "MCRB-11",
+      "scenario_id": "private-public-boundary",
+      "objective": "Verify private/source-chain-only records never leak into public channels",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "zero-private-payload-leakage",
+        "visibility-policy-preserved"
+      ],
+      "fault_injection": [
+        "signal-serialization",
+        "log-capture",
+        "projection-index",
+        "analytics-export"
+      ],
+      "required_metrics": [
+        "private_payload_leak_count",
+        "policy_denial_count",
+        "audit_coverage"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": true
+    },
+    {
+      "id": "MCRB-12",
+      "scenario_id": "adversarial-peers",
+      "objective": "Test validation and policy rejection under malicious or defective peer inputs",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "zero-false-authorization",
+        "invalid-record-rejected",
+        "equivocation-observable"
+      ],
+      "fault_injection": [
+        "forged-author",
+        "stale-claim",
+        "revoked-issuer",
+        "equivocation",
+        "wrong-scope",
+        "wrong-type"
+      ],
+      "required_metrics": [
+        "false_authorize_count",
+        "invalid_record_accept_count",
+        "equivocation_detection_ms"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": true
+    },
+    {
+      "id": "MCRB-13",
+      "scenario_id": "resource-exhaustion",
+      "objective": "Bound mutation, validation and query amplification",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "bounded-resource-use",
+        "rate-limit-enforced",
+        "fail-closed-on-exhaustion"
+      ],
+      "fault_injection": [
+        "request-flood",
+        "large-entry",
+        "validation-fanout",
+        "retry-storm"
+      ],
+      "required_metrics": [
+        "cpu_seconds",
+        "peak_rss_bytes",
+        "disk_growth_bytes",
+        "network_bytes",
+        "rejection_rate"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": true
+    },
+    {
+      "id": "MCRB-14",
+      "scenario_id": "deployment-profile-composition",
+      "objective": "Verify each static OtherRole call site against the actual deployment profile(s) containing its caller DNA; distinguish same-hApp bridge calls from separate-app orchestration.",
+      "actors": [
+        "agent-a",
+        "agent-b",
+        "independent-observer"
+      ],
+      "hard_invariants": [
+        "manifest-snapshot-matches",
+        "every-qualified-otherrole-target-present-in-same-profile",
+        "profile-dependent-call-sites-explicit",
+        "dynamic-targets-not-assumed-valid",
+        "unmapped-source-ownership-reported",
+        "no-hidden-role-assumption"
+      ],
+      "fault_injection": [
+        "missing-dna-artifact",
+        "stale-registry-snapshot",
+        "undeclared-otherrole",
+        "target-exists-only-in-another-happ",
+        "dynamic-role-expression",
+        "caller-dna-profile-ownership-unknown",
+        "duplicate-role-name"
+      ],
+      "required_metrics": [
+        "role_coverage",
+        "undeclared_target_count",
+        "manifest_drift_count",
+        "otherrole_callsite_count",
+        "source_owner_mapping_coverage",
+        "profile_dependent_call_count",
+        "cross_installed_happ_invalid_count",
+        "dynamic_target_count",
+        "unmapped_source_owner_count"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "topology-manifest-digest",
+        "otherrole-callsite-inventory-digest",
+        "profile-attribution-report-digest",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": false
+    },
+    {
+      "id": "MCRB-15",
+      "scenario_id": "qualification-receipt-tamper-and-stale-head",
+      "objective": "Prove that altered artifacts, stale source heads and incomplete run evidence cannot be promoted as qualified results.",
+      "actors": [
+        "benchmark-runner",
+        "independent-verifier",
+        "release-steward"
+      ],
+      "hard_invariants": [
+        "zero-tampered-receipt-acceptance",
+        "zero-stale-head-qualification",
+        "all-claims-bind-exact-artifacts"
+      ],
+      "fault_injection": [
+        "artifact-digest-mismatch",
+        "stale-source-head",
+        "missing-required-scenario",
+        "missing-workflow-job",
+        "superseded-run-replay",
+        "wrong-verifier-digest"
+      ],
+      "required_metrics": [
+        "tampered_receipt_accepted_count",
+        "stale_head_qualification_count",
+        "incomplete_receipt_accepted_count",
+        "receipt_verification_latency_ms"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "manifest-digest",
+        "raw-artifact-digests",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": false
+    },
+    {
+      "id": "MCRB-16",
+      "scenario_id": "clock-and-metric-integrity",
+      "objective": "Derive local durations from raw monotonic ticks and separately qualify cross-host publish/first-valid-observation pairs with record-digest binding and uncertainty intervals.",
+      "actors": [
+        "benchmark-runner",
+        "peer-observers",
+        "independent-verifier"
+      ],
+      "hard_invariants": [
+        "local-duration-derived-from-monotonic-ticks",
+        "clock-id-and-epoch-match-per-peer",
+        "tick-frequency-nonzero",
+        "no-caller-supplied-duration-authority",
+        "outliers-preserved-and-classified",
+        "aggregate-requires-valid-peer-samples",
+        "cross-host-event-pair-matches-record-digest",
+        "cross-host-latency-reports-uncertainty-interval",
+        "no-point-latency-when-clock-uncertainty-exceeds-tolerance",
+        "measurement-invalid-blocks-performance-claim"
+      ],
+      "fault_injection": [
+        "large-wall-clock-skew",
+        "clock-step-during-run",
+        "clock-epoch-change",
+        "reversed-monotonic-ticks",
+        "clock-id-mismatch",
+        "zero-tick-frequency",
+        "stale-clock-calibration",
+        "missing-peer-sample",
+        "unmatched-publish-observe-event",
+        "record-digest-mismatch",
+        "send-receive-counter-mismatch"
+      ],
+      "required_metrics": [
+        "raw_monotonic_tick_derived_count",
+        "monotonic_clock_id_mismatch_count",
+        "clock_epoch_mismatch_count",
+        "reversed_monotonic_tick_count",
+        "invalid_ticks_per_second_count",
+        "clock_offset_ms",
+        "clock_uncertainty_ms",
+        "out_of_run_duration_count",
+        "missing_peer_sample_count",
+        "unmatched_cross_host_event_count",
+        "cross_host_latency_lower_bound_ms",
+        "cross_host_latency_upper_bound_ms",
+        "send_receive_counter_mismatch_count",
+        "aggregate_rejection_count"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "runtime-identity",
+        "host-clock-observations",
+        "raw-monotonic-tick-pairs",
+        "clock-epoch-identifiers",
+        "publish-observe-event-pairs",
+        "record-digest-bindings",
+        "per-peer-raw-samples",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": true
+    },
+    {
+      "id": "MCRB-17",
+      "scenario_id": "multi-function-capability-revocation-regression",
+      "objective": "Reproduce the Holochain 0.7.x multi-function grant revocation behavior and verify that runtime-level grant handling composes safely with Mycelix's owner-native trajectory-wide revocation, one-shot consumption and effect-boundary contracts.",
+      "actors": [
+        "grant-administrator",
+        "grantee-agent",
+        "protected-effect-observer"
+      ],
+      "hard_invariants": [
+        "zero-protected-effects-after-revocation-acknowledgement-barrier",
+        "multi-function-grant-denied-after-revoke",
+        "revoking-one-grant-does-not-disable-a-distinct-reissued-grant",
+        "all-function-list-permutations-have-identical-revocation-semantics"
+      ],
+      "fault_injection": [
+        "three-function-capability-grant",
+        "function-list-order-permutation",
+        "revocation-during-in-flight-call",
+        "repeated-revoke",
+        "identical-content-grant-reissued-after-revocation",
+        "stale-capability-secret"
+      ],
+      "required_metrics": [
+        "revocation_ack_to_denial_ms",
+        "post_revocation_authorized_effect_count",
+        "multi_function_stale_grant_accept_count",
+        "reissued_grant_false_denial_count",
+        "revocation_observation_lag_ms"
+      ],
+      "upstream_references": [
+        "https://github.com/holochain/holochain/issues/6071",
+        "https://github.com/holochain/holochain/pull/6063",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/6236",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/6193",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/6189"
+      ],
+      "qualification_blocking": true,
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "released-runtime-version",
+        "lair-version",
+        "kitsune2-version",
+        "happ-and-dna-hashes",
+        "scenario-parameters",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": true
+    },
+    {
+      "id": "MCRB-18",
+      "scenario_id": "high-cardinality-gossip-convergence",
+      "objective": "Prove that two peers with large divergent DHT operation sets can complete gossip exchanges and converge without SQLite bind-limit failures.",
+      "actors": [
+        "peer-a",
+        "peer-b",
+        "independent-dht-observer"
+      ],
+      "hard_invariants": [
+        "all-expected-ops-converge",
+        "no-persistent-too-many-sql-variables-failure",
+        "storage-arcs-progress-beyond-empty",
+        "published-records-have-eligible-storage-peers"
+      ],
+      "fault_injection": [
+        "more-than-10922-missing-op-ids-per-peer",
+        "more-than-15000-divergent-ops",
+        "default-100-mib-gossip-budget",
+        "one-mib-gossip-budget",
+        "peer-restart-mid-convergence",
+        "repeated-gossip-exchange-failure"
+      ],
+      "required_metrics": [
+        "offered_op_id_count",
+        "missing_op_id_count",
+        "gossip_exchange_failure_count",
+        "sql_variable_limit_error_count",
+        "storage_arc_progress_ms",
+        "dht_convergence_ms",
+        "no_peers_for_location_publish_count",
+        "network_bytes"
+      ],
+      "upstream_references": [
+        "https://github.com/holochain/holochain/issues/6062"
+      ],
+      "qualification_blocking": true,
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "released-runtime-version",
+        "lair-version",
+        "kitsune2-version",
+        "happ-and-dna-hashes",
+        "scenario-parameters",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": true
+    },
+    {
+      "id": "MCRB-19",
+      "scenario_id": "time-slice-query-and-idle-conductor-regression",
+      "objective": "Measure DHT time-slice query cost, conductor startup and scheduled idle CPU at increasing operation counts, including the reported 15-minute update cadence.",
+      "actors": [
+        "conductor-under-test",
+        "host-resource-observer",
+        "independent-dht-observer"
+      ],
+      "hard_invariants": [
+        "conductor-eventually-idles-under-no-request-load",
+        "dht-update-does-not-starve-cell-startup",
+        "time-slice-query-cost-is-reported-by-op-count",
+        "no-unbounded-periodic-full-core-work"
+      ],
+      "fault_injection": [
+        "19000-ops",
+        "100000-ops",
+        "multiple-cells-same-dna",
+        "conductor-restart",
+        "quarter-hour-update-boundary",
+        "empty-network-no-peer-load"
+      ],
+      "required_metrics": [
+        "conductor_startup_ms",
+        "time_slice_update_duration_ms",
+        "time_slice_query_count",
+        "sqlite_read_bytes",
+        "idle_cpu_percent",
+        "full_core_burst_duration_ms",
+        "cell_not_running_duration_ms",
+        "ops_in_store"
+      ],
+      "upstream_references": [
+        "https://github.com/holochain/holochain/issues/6066"
+      ],
+      "qualification_blocking": true,
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "released-runtime-version",
+        "lair-version",
+        "kitsune2-version",
+        "happ-and-dna-hashes",
+        "scenario-parameters",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": false
+    },
+    {
+      "id": "MCRB-20",
+      "scenario_id": "wasmer-module-cache-memory-plateau",
+      "objective": "Determine whether repeated cell genesis, module eviction/reload and idle periods cause unbounded retained Wasmer machine-code memory.",
+      "actors": [
+        "conductor-under-test",
+        "cell-installer",
+        "host-resource-observer"
+      ],
+      "hard_invariants": [
+        "memory-growth-after-warmup-is-bounded",
+        "cell-install-churn-does-not-cause-unbounded-retained-module-memory",
+        "restart-baseline-is-recorded-separately",
+        "resource-envelope-is-measured-on-exact-runtime"
+      ],
+      "fault_injection": [
+        "repeated-cell-install",
+        "same-dna-multiple-agents",
+        "module-cache-eviction",
+        "one-hour-idle-interval",
+        "zome-reload-after-eviction",
+        "long-running-conductor"
+      ],
+      "required_metrics": [
+        "rss_bytes_by_elapsed_time",
+        "rss_delta_per_cell",
+        "rss_delta_per_idle_hour",
+        "wasm_module_load_count",
+        "module_cache_eviction_count",
+        "rss_reclaimed_after_restart",
+        "peak_rss_bytes"
+      ],
+      "upstream_references": [
+        "https://github.com/holochain/holochain/issues/6064"
+      ],
+      "qualification_blocking": true,
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "released-runtime-version",
+        "lair-version",
+        "kitsune2-version",
+        "happ-and-dna-hashes",
+        "scenario-parameters",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": false
+    },
+    {
+      "id": "MCRB-21",
+      "scenario_id": "lair-large-key-inventory-and-restore",
+      "objective": "Verify app install and public source-chain restore with an existing agent key when Lair contains a large key inventory.",
+      "actors": [
+        "lair-keystore",
+        "conductor-under-test",
+        "restore-network",
+        "independent-identity-observer"
+      ],
+      "hard_invariants": [
+        "existing-agent-key-install-succeeds-at-supported-key-count",
+        "restore-uses-the-original-agent-key",
+        "no-connection-aborted-or-partial-install",
+        "awaiting-restore-is-not-reported-as-enabled"
+      ],
+      "fault_injection": [
+        "3-existing-keys",
+        "40-existing-keys",
+        "41-existing-keys",
+        "80-existing-keys",
+        "120-existing-keys",
+        "explicit-agent-key-install",
+        "restore-from-dht-with-explicit-agent-key"
+      ],
+      "required_metrics": [
+        "lair_list_public_keys_response_bytes",
+        "app_install_success_rate",
+        "app_install_duration_ms",
+        "restore_duration_ms",
+        "connection_aborted_count",
+        "agent_key_identity_match"
+      ],
+      "upstream_references": [
+        "https://github.com/holochain/holochain/issues/6065",
+        "https://blog.holochain.org/dev-pulse-157-holochain-0-7-1-brings-chain-restore-direct-signal-security/"
+      ],
+      "qualification_blocking": true,
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "released-runtime-version",
+        "lair-version",
+        "kitsune2-version",
+        "happ-and-dna-hashes",
+        "scenario-parameters",
+        "raw-trace-digest",
+        "verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": true
+    },
+    {
+      "id": "MCRB-22",
+      "scenario_id": "wind-tunnel-holochain-071-compatibility",
+      "objective": "Establish an exact, immutable and reproducible Holochain Wind Tunnel dependency graph compatible with the Mycelix Holochain 0.7.1 target before consuming its substrate measurements.",
+      "actors": [
+        "harness-builder",
+        "toolchain-verifier",
+        "independent-conductor-observer"
+      ],
+      "hard_invariants": [
+        "wind-tunnel-version-is-distinct-from-holochain-version",
+        "exact-holochain-client-hdk-hdi-and-kitsune2-graph-recorded",
+        "no-holochain-0.6.3-or-0.7.0-dependency-leakage-in-0.7.1-qualification-profile",
+        "no-moving-main-or-floating-tag-in-qualification-receipt",
+        "minimal-real-conductor-scenario-built-and-run-on-exact-stack",
+        "all-substrate-results-bind-to-the-same-runtime-and-app-artifacts"
+      ],
+      "fault_injection": [
+        "wind-tunnel-v0.7.1-release-tag-with-holochain-0.6.3-dependencies",
+        "wind-tunnel-main-with-holochain-0.7.0-dependencies",
+        "mixed-hdk-hdi-version",
+        "kitsune2-crate-versus-bootstrap-server-version-confusion",
+        "mutable-git-ref",
+        "stale-cargo-lock",
+        "scenario-happ-built-against-different-client-graph"
+      ],
+      "required_metrics": [
+        "wind_tunnel_source_commit",
+        "wind_tunnel_semver",
+        "holochain_runtime_version",
+        "holochain_client_version",
+        "hdk_version",
+        "hdi_version",
+        "kitsune2_crate_family_version",
+        "bootstrap_server_source_version",
+        "unresolved_dependency_count",
+        "version_mismatch_count",
+        "scenario_build_success",
+        "fresh_conductor_run_count"
+      ],
+      "upstream_references": [
+        "https://github.com/holochain/wind-tunnel",
+        "https://github.com/holochain/wind-tunnel/releases/tag/v0.7.1",
+        "https://github.com/holochain/wind-tunnel/blob/main/Cargo.toml",
+        "https://github.com/Luminous-Dynamics/mycelix/issues/6337"
+      ],
+      "qualification_blocking": true,
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "wind-tunnel-source-commit",
+        "cargo-lock-digest",
+        "nix-lock-digest",
+        "runtime-and-client-version-manifest",
+        "happ-and-dna-hashes",
+        "raw-build-and-runtime-logs",
+        "independent-verifier-version",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": false
+    },
+    {
+      "id": "MCRB-23",
+      "scenario_id": "offer-ledger-integrity",
+      "objective": "Fix the QOPS denominator before dispatch with a canonical, ordered, independently verifiable append-only offer ledger",
+      "actors": [
+        "workload-generator",
+        "runner-orchestrator",
+        "independent-verifier"
+      ],
+      "hard_invariants": [
+        "offer-ledger-committed-before-dispatch",
+        "canonical-domain-separated-digest-valid",
+        "contiguous-unique-operation-ids",
+        "denominator-derived-from-verified-ledger",
+        "external-effects-require-idempotency-key",
+        "missing-outcome-remains-in-denominator",
+        "generator-authenticity-separate-from-hash-consistency"
+      ],
+      "fault_injection": [
+        "truncate-ledger-after-dispatch",
+        "omit-failed-offer",
+        "append-offer-after-results",
+        "duplicate-operation-id",
+        "duplicate-idempotency-key",
+        "reorder-sequence",
+        "mutate-request-digest",
+        "change-generator-or-manifest-digest",
+        "reuse-ledger-across-run-or-scenario",
+        "move-offer-outside-measurement-window",
+        "mix-clock-identity-or-epoch",
+        "omit-idempotency-key-for-external-effect"
+      ],
+      "required_metrics": [
+        "offer_ledger_verification_status",
+        "offer_ledger_entry_count",
+        "offer_ledger_digest_mismatch_count",
+        "duplicate_operation_id_count",
+        "duplicate_idempotency_key_count",
+        "qops_missing_outcome_count",
+        "qualified_operations_per_second"
+      ],
+      "status": "proposed-not-executed",
+      "evidence_required": [
+        "exact-source-sha",
+        "scenario-manifest-digest",
+        "canonical-offer-ledger-artifact-digest",
+        "generator-binary-digest",
+        "offer-ledger-verifier-digest",
+        "raw-ledger-entry-count",
+        "scenario-result"
+      ],
+      "qops_requires_cross_host_visibility": false,
+      "qualification_blocking": true,
+      "related_issue": "#6342"
+    }
+  ],
+  "receipt_schema": "MCRB_V0_1_RUN_RECEIPT.schema.json",
+  "harness_layers": [
+    {
+      "id": "substrate-runtime",
+      "name": "Holochain Wind Tunnel",
+      "purpose": "Reuse version-pinned substrate scenarios for DHT synchronization, zome calls, validation receipts, remote signals and host telemetry."
+    },
+    {
+      "id": "application-semantics",
+      "name": "Mycelix MCRB semantic layer",
+      "purpose": "Qualify author/authority correctness, revocation, privacy, idempotent effects, migration, recovery and evidence receipts."
+    }
+  ],
+  "wind_tunnel_reuse_policy": {
+    "use_existing_runtime_harness": true,
+    "version_specific_scenario_mapping_required": true,
+    "required_substrate_dimensions": [
+      "DHT synchronization/convergence",
+      "zome call latency",
+      "validation receipts",
+      "remote/direct signals",
+      "peer topology/churn",
+      "host CPU/memory/disk telemetry"
+    ],
+    "add_application_semantic_scenarios": true,
+    "never_compare_unmatched_runtime_versions": true,
+    "never_claim_upstream_metric_as_mycelix_application_qualification": true,
+    "wind_tunnel_compatibility": {
+      "status": "holochain-0.7.1-not-established-by-public-compatibility-matrix",
+      "observed_wind_tunnel_release": "v0.7.1",
+      "observed_published_compatibility_pair": "Holochain 0.6.3 / Kitsune2 0.4.1",
+      "observed_pinned_holochain_0_7_report": "Holochain 0.7.0 with 30 nodes; does not establish 0.7.1 compatibility",
+      "roadmap_snapshot_date": "2026-11-17",
+      "roadmap_wind_tunnel_for_0_7_completion": "77 percent (23/30 points)",
+      "required_before_0_7_1_use": [
+        "pin exact Wind Tunnel release or commit",
+        "pin exact Holochain 0.7.1 binary SHA and Kitsune2 graph",
+        "build the Wind Tunnel scenario graph against Holochain 0.7.1",
+        "run fresh-conductor smoke scenarios for app install, zome call, DHT sync and remote/direct signal",
+        "bind every run to exact runtime and raw artifacts",
+        "keep Wind Tunnel substrate metrics separate from Mycelix semantic qualification"
+      ],
+      "interim_policy": "Use Wind Tunnel methodology and compatible scenarios as reference. Port or adapt only after exact 0.7.1 build and smoke qualification; do not infer compatibility from Wind Tunnel's own 0.7.1 release tag."
+    }
+  },
+  "measurement_quality": {
+    "require_monotonic_local_durations": true,
+    "require_clock_source_and_sync_method": true,
+    "require_cross_host_offset_and_uncertainty": true,
+    "reject_negative_non_finite_or_out_of_run_durations": true,
+    "preserve_and_classify_outliers": true,
+    "silently_trim_or_clamp_outliers": false,
+    "require_per_peer_distributions": true,
+    "aggregate_only_after_member_samples_validate": true,
+    "require_send_receive_counter_reconciliation": true,
+    "invalid_measurements_block_performance_claims": true,
+    "run_statuses": [
+      "application-fail",
+      "measurement-invalid",
+      "infrastructure-incomplete",
+      "qualified"
+    ],
+    "require_raw_monotonic_tick_pairs": true,
+    "derive_local_duration_from_tick_delta": true,
+    "require_clock_epoch_identity_per_sample": true,
+    "require_publish_observe_event_pairing_for_cross_host_convergence": true,
+    "require_cross_host_uncertainty_interval": true,
+    "forbid_cross_host_point_latency_without_uncertainty_bound": true,
+    "cross_host_timing_claim_status": "not-qualified-until-mcrb-time-001"
+  },
+  "metric_integrity_verifier": {
+    "crate_path": "mycelix-workspace/tools/mcrb-metric-integrity",
+    "crate_name": "mycelix-mcrb-metric-integrity",
+    "api": "validate_batch",
+    "status": "local-monotonic-tick-derived-cross-host-interval-helper-authored-not-batch-integrated",
+    "output_states": [
+      "valid",
+      "invalid",
+      "incomplete"
+    ],
+    "metrics": [
+      "global_p50_p95_p99",
+      "per_peer_p50_p95_p99",
+      "raw_sample_count",
+      "outlier_sample_indexes",
+      "aggregate_eligible",
+      "duplicate_peer_operation_sample_count",
+      "clock_uncertainty_ms",
+      "counter_reconciliation_status",
+      "raw_monotonic_tick_derived_count",
+      "monotonic_clock_id_mismatch_count",
+      "clock_epoch_mismatch_count",
+      "reversed_monotonic_tick_count",
+      "invalid_ticks_per_second_count",
+      "cross_host_interval_count",
+      "cross_host_point_latency_emitted_count",
+      "cross_host_calibration_invalid_count",
+      "event_pair_digest_mismatch_count"
+    ],
+    "policy": [
+      "no_aggregate_when_invalid_or_incomplete",
+      "no_outlier_trimming",
+      "monotonic_local_durations",
+      "explicit_clock_source_and_sync_uncertainty",
+      "peer_coverage",
+      "counter_reconciliation",
+      "unique-operation-samples-per-peer",
+      "same-logical-operation-may-be-observed-by-multiple-peers",
+      "derive-duration-from-raw-monotonic-ticks",
+      "clock-id-and-epoch-must-match-per-peer",
+      "tick-frequency-must-be-nonzero",
+      "no-caller-supplied-duration-as-authority",
+      "cross-host-offset-correction-per-host",
+      "conservative-clock-uncertainty-sum",
+      "point-latency-withheld-above-uncertainty-threshold",
+      "calibration-validity-window-enforced",
+      "event-pair-binds-operation-and-record-digest"
+    ],
+    "known_limitations": [
+      "Clock calibration inputs are caller-supplied values and are not yet cryptographically or independently attested by the runner.",
+      "The cross-host interval primitive is not yet wired into MeasurementBatch or the canonical run-receipt emitter; uniqueness, completeness and signed raw event artifact binding remain unqualified."
+    ],
+    "follow_up_issue": "#6335"
+  },
+  "qualified_operations_policy": {
+    "name": "Qualified Operations Per Second",
+    "formula": "count(operations that satisfy the complete scenario-specific contract for verified authority, provenance, required peer visibility/freshness, and verified external-effect receipt when applicable) / fixed_measurement_window_seconds",
+    "invalid_when": [
+      "any_hard_correctness_gate_fails",
+      "metric_integrity_status_not_valid",
+      "outcome_evidence_status_not_verified"
+    ],
+    "required_companion_metrics": [
+      "offered_operations_per_second",
+      "qualified_success_fraction",
+      "correct_authorization_denials",
+      "unexpected_authorization_denials",
+      "unknown_outcomes",
+      "duplicate_external_effects",
+      "p50_latency_ms",
+      "p95_latency_ms",
+      "p99_latency_ms",
+      "qualified_operations_per_second",
+      "outcome_ledger_verification_status",
+      "outcome_ledger_entry_count",
+      "outcome_attestation_count"
+    ],
+    "no_silent_attempt_exclusion": true,
+    "denials_count_as_business_success": false,
+    "offer_ledger_requirement": "QOPS must consume an opaque verified offer-ledger result; callers cannot supply or reduce the expected operation ID denominator.",
+    "independent_authenticity_requirement": "The offer ledger generator/runner and each terminal outcome observer must be separately attested. A self-computed digest or caller-supplied outcome enum is not authenticity."
+  },
+  "offer_ledger_policy": {
+    "schema_version": "mycelix-mcrb-offer-ledger-v0.1",
+    "canonical_encoding": "domain-separated-length-prefixed-big-endian-v1",
+    "digest_algorithm": "SHA-256",
+    "sequence_start": 1,
+    "sequence_policy": "contiguous-increasing-no-reordering",
+    "operation_id_policy": "unique-within-run-and-scenario",
+    "idempotency_policy": "Unique domain-separated SHA-256 commitment when present; required for external effects; raw key is never serialized; algorithm id MYCELIX-MCRB-IDEMPOTENCY-KEY-v0.1.",
+    "qops_denominator_source": "verified-offer-ledger-entry-count",
+    "outcome_policy": "Exactly one authenticated terminal outcome or explicit Unknown per offer; Unknown remains in the denominator and suppresses QOPS until reconciled.",
+    "measurement_clock": "monotonic-clock-id-and-epoch-bound-ticks",
+    "generator_authenticity": "separate-signed-runner-or-orchestrator-receipt-required",
+    "claim_ceiling": "Digest validity proves internal ledger consistency, not independent generator, runner, observer or external-effect truth. A VerifiedOutcomeLedger and independently authenticated observer policy are required before outcome classifications can earn QOPS.",
+    "cross_host_requirement_source": "selected-scenario.qops_requires_cross_host_visibility",
+    "cross_host_requirement_binding": "the boolean is copied into the offer-ledger envelope and committed into the canonical ledger digest; QOPS reads it only from VerifiedOfferLedger",
+    "operation_contract_registry": {
+      "schema_version": "mycelix-mcrb-operation-contract-registry-v0.1",
+      "registry_path": "docs/benchmarks/MCRB_OPERATION_CONTRACTS_V0_1.json",
+      "registry_schema_path": "docs/benchmarks/MCRB_OPERATION_CONTRACT_REGISTRY_V0_1.schema.json",
+      "offer_ledger_schema_path": "docs/benchmarks/MCRB_OFFER_LEDGER_V0_1.schema.json",
+      "digest_policy": "SHA-256 of the exact committed registry artifact bytes; expected digest supplied by protected run configuration",
+      "source_manifest_binding": "registry.source_scenario_manifest_git_blob_sha must equal the Git blob SHA of this exact scenario manifest",
+      "per_operation_binding": "every offer binds contract_id, contract_version and domain-separated contract_digest_sha256 before dispatch",
+      "claim_ceiling": "structural validation and digest binding do not authenticate registry governance, runner, signer or outcome evidence"
+    }
+  }
+}

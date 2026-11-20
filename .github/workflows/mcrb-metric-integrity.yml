@@ -1,0 +1,70 @@
+name: MCRB Metric Integrity
+
+on:
+  pull_request:
+    paths:
+      - "docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.json"
+      - "docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.schema.json"
+      - "docs/benchmarks/MCRB_OPERATION_CONTRACTS_V0_1.json"
+      - "docs/benchmarks/MCRB_OPERATION_CONTRACTS_V0_1.md"
+      - "docs/benchmarks/MCRB_OPERATION_CONTRACT_REGISTRY_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_OFFER_LEDGER_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_OUTCOME_ATTESTATION_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_OUTCOME_LEDGER_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_V0_1_RUN_RECEIPT.schema.json"
+      - "docs/benchmarks/MCRB_GATE_ATTESTATION_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_DSSE_ENVELOPE_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_IN_TOTO_STATEMENT_V1.schema.json"
+      - "docs/benchmarks/MCRB_GATE_TRUST_POLICY_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_ATTESTATION_PROFILE_V0_1.md"
+      - "mycelix-workspace/tools/mcrb-metric-integrity/**"
+      - ".github/workflows/mcrb-metric-integrity.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.json"
+      - "docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.schema.json"
+      - "docs/benchmarks/MCRB_OPERATION_CONTRACTS_V0_1.json"
+      - "docs/benchmarks/MCRB_OPERATION_CONTRACTS_V0_1.md"
+      - "docs/benchmarks/MCRB_OPERATION_CONTRACT_REGISTRY_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_OFFER_LEDGER_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_OUTCOME_ATTESTATION_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_OUTCOME_LEDGER_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_V0_1_RUN_RECEIPT.schema.json"
+      - "docs/benchmarks/MCRB_GATE_ATTESTATION_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_DSSE_ENVELOPE_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_IN_TOTO_STATEMENT_V1.schema.json"
+      - "docs/benchmarks/MCRB_GATE_TRUST_POLICY_V0_1.schema.json"
+      - "docs/benchmarks/MCRB_ATTESTATION_PROFILE_V0_1.md"
+      - "mycelix-workspace/tools/mcrb-metric-integrity/**"
+      - ".github/workflows/mcrb-metric-integrity.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  metric-integrity:
+    name: Test MCRB metric-integrity verifier
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.1
+        with:
+          components: rustfmt clippy
+
+      - name: Require committed dependency lock
+        run: test -f mycelix-workspace/tools/mcrb-metric-integrity/Cargo.lock
+
+      - name: Format
+        run: cargo fmt --manifest-path mycelix-workspace/tools/mcrb-metric-integrity/Cargo.toml -- --check
+
+      - name: Unit tests
+        run: cargo test --locked --manifest-path mycelix-workspace/tools/mcrb-metric-integrity/Cargo.toml
+
+      - name: Clippy
+        run: cargo clippy --locked --manifest-path mycelix-workspace/tools/mcrb-metric-integrity/Cargo.toml --all-targets -- -D warnings

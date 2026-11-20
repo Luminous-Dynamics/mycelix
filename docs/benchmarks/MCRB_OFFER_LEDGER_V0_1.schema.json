@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mcrb-offer-ledger-v0.1.json",
+  "title": "Mycelix MCRB Offer Ledger v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "scenario_id",
+    "measurement_window_id",
+    "scenario_contract_digest_sha256",
+    "requires_cross_host_visibility",
+    "workload_manifest_digest_sha256",
+    "generator_digest_sha256",
+    "parameter_set_digest_sha256",
+    "clock_source",
+    "monotonic_clock_id",
+    "monotonic_clock_epoch",
+    "measurement_start_ticks",
+    "measurement_end_ticks",
+    "ticks_per_second",
+    "entry_count",
+    "entries",
+    "ledger_digest_sha256",
+    "operation_contract_registry_digest_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix-mcrb-offer-ledger-v0.1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "measurement_window_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workload_manifest_digest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "generator_digest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "parameter_set_digest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "clock_source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "monotonic_clock_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "monotonic_clock_epoch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "measurement_start_ticks": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "measurement_end_ticks": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "ticks_per_second": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "entry_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sequence",
+          "run_id",
+          "scenario_id",
+          "operation_id",
+          "request_digest_sha256",
+          "idempotency_key_digest_sha256",
+          "scheduled_monotonic_tick",
+          "monotonic_clock_id",
+          "monotonic_clock_epoch",
+          "operation_class",
+          "requires_idempotency_key",
+          "generator_digest_sha256",
+          "workload_manifest_digest_sha256",
+          "parameter_set_digest_sha256",
+          "operation_contract_id",
+          "operation_contract_version",
+          "operation_contract_digest_sha256"
+        ],
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "run_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scenario_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "request_digest_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "scheduled_monotonic_tick": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "monotonic_clock_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "monotonic_clock_epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_class": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requires_idempotency_key": {
+            "type": "boolean"
+          },
+          "generator_digest_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "workload_manifest_digest_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "parameter_set_digest_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "idempotency_key_digest_sha256": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Domain-separated SHA-256 commitment created from the raw key using the published MCRB idempotency-key commitment algorithm. Raw key material MUST NOT be serialized."
+          },
+          "operation_contract_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_contract_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_contract_digest_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "ledger_digest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "requires_cross_host_visibility": {
+      "type": "boolean"
+    },
+    "scenario_contract_digest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "operation_contract_registry_digest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

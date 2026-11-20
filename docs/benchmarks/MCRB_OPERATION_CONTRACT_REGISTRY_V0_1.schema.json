@@ -1,0 +1,389 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mcrb-operation-contract-registry-v0.1.json",
+  "title": "Mycelix MCRB Operation Contract Registry v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "registry_id",
+    "registry_version",
+    "status",
+    "source_scenario_manifest_git_blob_sha",
+    "contracts"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix-mcrb-operation-contract-registry-v0.1"
+    },
+    "registry_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "registry_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "proposed-not-executed",
+        "reviewed",
+        "qualified"
+      ]
+    },
+    "contracts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "contract_id",
+          "contract_version",
+          "scenario_id",
+          "operation_class",
+          "effect_boundary",
+          "expected_disposition",
+          "qualification_proposition",
+          "attempt_state_policy",
+          "effect_state_policy",
+          "evidence_policy",
+          "idempotency_required",
+          "unknown_policy",
+          "partial_policy",
+          "expected_qops_outcome"
+        ],
+        "properties": {
+          "contract_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contract_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^MCRB-[0-9]{2}$"
+          },
+          "operation_class": {
+            "type": "string",
+            "minLength": 1
+          },
+          "effect_boundary": {
+            "enum": [
+              "local-source-chain",
+              "remote-dht",
+              "policy-decision",
+              "external-provider-effect",
+              "recovery",
+              "read-observation",
+              "deployment-audit"
+            ]
+          },
+          "expected_disposition": {
+            "enum": [
+              "must-apply",
+              "must-deny",
+              "must-observe",
+              "must-reconcile",
+              "diagnostic-only"
+            ]
+          },
+          "attempt_state_policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "allowed_states",
+              "terminal_states"
+            ],
+            "properties": {
+              "allowed_states": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "not-dispatched",
+                    "dispatched",
+                    "accepted-at-local-boundary",
+                    "timed-out",
+                    "reconciled",
+                    "unsupported"
+                  ]
+                }
+              },
+              "terminal_states": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "not-dispatched",
+                    "reconciled",
+                    "unsupported"
+                  ]
+                }
+              }
+            }
+          },
+          "effect_state_policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "allowed_states",
+              "expected_effect_states",
+              "requires_reconciliation"
+            ],
+            "properties": {
+              "allowed_states": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "applied",
+                    "confirmed-not-applied",
+                    "partial",
+                    "unknown",
+                    "not-attempted"
+                  ]
+                }
+              },
+              "requires_reconciliation": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "partial",
+                    "unknown"
+                  ]
+                }
+              },
+              "expected_effect_states": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "applied",
+                    "confirmed-not-applied",
+                    "partial",
+                    "unknown",
+                    "not-attempted"
+                  ]
+                }
+              }
+            }
+          },
+          "evidence_policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "allowed_evidence_kinds",
+              "required_evidence_kinds",
+              "allowed_source_roles",
+              "requires_independent_observer",
+              "minimum_distinct_observer_sources",
+              "requires_cross_host_visibility",
+              "requires_complete_coverage"
+            ],
+            "properties": {
+              "allowed_evidence_kinds": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "application-record",
+                    "provider-acknowledgement",
+                    "provider-status-query",
+                    "independent-observation",
+                    "policy-decision",
+                    "failure-trace",
+                    "reconciliation",
+                    "cross-peer-read"
+                  ]
+                }
+              },
+              "required_evidence_kinds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "application-record",
+                    "provider-acknowledgement",
+                    "provider-status-query",
+                    "independent-observation",
+                    "policy-decision",
+                    "failure-trace",
+                    "reconciliation",
+                    "cross-peer-read"
+                  ]
+                }
+              },
+              "allowed_source_roles": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "effect-executor",
+                    "provider",
+                    "policy-engine",
+                    "independent-observer",
+                    "reconciliation-authority",
+                    "telemetry"
+                  ]
+                }
+              },
+              "requires_independent_observer": {
+                "type": "boolean"
+              },
+              "minimum_distinct_observer_sources": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "requires_cross_host_visibility": {
+                "type": "boolean"
+              },
+              "requires_complete_coverage": {
+                "type": "boolean"
+              }
+            }
+          },
+          "idempotency_required": {
+            "type": "boolean"
+          },
+          "correct_denial_policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "enabled",
+              "required_evidence_kinds"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "required_evidence_kinds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "policy-decision",
+                    "application-record",
+                    "independent-observation"
+                  ]
+                }
+              }
+            }
+          },
+          "unexpected_denial_policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "enabled",
+              "required_evidence_kinds"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "required_evidence_kinds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "policy-decision",
+                    "application-record",
+                    "independent-observation"
+                  ]
+                }
+              }
+            }
+          },
+          "unknown_policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "blocks_qops",
+              "requires_reconciliation",
+              "preserve_prior_attestation"
+            ],
+            "properties": {
+              "blocks_qops": {
+                "const": true
+              },
+              "requires_reconciliation": {
+                "const": true
+              },
+              "preserve_prior_attestation": {
+                "const": true
+              }
+            }
+          },
+          "partial_policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "blocks_qops",
+              "requires_explicit_expected_action_set",
+              "requires_reconciliation"
+            ],
+            "properties": {
+              "blocks_qops": {
+                "const": true
+              },
+              "requires_explicit_expected_action_set": {
+                "const": true
+              },
+              "requires_reconciliation": {
+                "const": true
+              }
+            }
+          },
+          "notes": {
+            "type": "string"
+          },
+          "qualification_proposition": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "proposition_id",
+              "verifier_profile",
+              "description"
+            ],
+            "properties": {
+              "proposition_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "verifier_profile": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "expected_qops_outcome": {
+            "enum": [
+              "QualifiedSuccess",
+              "CorrectDenial",
+              "UnexpectedDenial",
+              "Failed",
+              "Unknown",
+              "DuplicateEffect"
+            ]
+          }
+        }
+      }
+    },
+    "source_scenario_manifest_git_blob_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    }
+  }
+}

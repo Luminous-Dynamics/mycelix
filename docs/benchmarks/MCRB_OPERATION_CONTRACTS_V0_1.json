@@ -1,0 +1,363 @@
+{
+  "schema_version": "mycelix-mcrb-operation-contract-registry-v0.1",
+  "registry_id": "mcrb-operation-contracts",
+  "registry_version": "0.1.0",
+  "status": "proposed-not-executed",
+  "contracts": [
+    {
+      "contract_id": "MCRB-OP-LOCAL-APPEND-READ",
+      "contract_version": "0.1.0",
+      "scenario_id": "MCRB-01",
+      "operation_class": "local-source-chain-append-read",
+      "effect_boundary": "local-source-chain",
+      "expected_disposition": "must-apply",
+      "attempt_state_policy": {
+        "allowed_states": [
+          "not-dispatched",
+          "dispatched",
+          "accepted-at-local-boundary",
+          "timed-out",
+          "reconciled",
+          "unsupported"
+        ],
+        "terminal_states": [
+          "not-dispatched",
+          "reconciled",
+          "unsupported"
+        ]
+      },
+      "effect_state_policy": {
+        "allowed_states": [
+          "applied",
+          "confirmed-not-applied",
+          "partial",
+          "unknown",
+          "not-attempted"
+        ],
+        "requires_reconciliation": [
+          "partial",
+          "unknown"
+        ],
+        "expected_effect_states": [
+          "applied"
+        ]
+      },
+      "evidence_policy": {
+        "allowed_evidence_kinds": [
+          "application-record",
+          "failure-trace",
+          "reconciliation"
+        ],
+        "required_evidence_kinds": [
+          "application-record"
+        ],
+        "allowed_source_roles": [
+          "effect-executor",
+          "independent-observer",
+          "reconciliation-authority",
+          "telemetry"
+        ],
+        "requires_independent_observer": false,
+        "minimum_distinct_observer_sources": 0,
+        "requires_cross_host_visibility": false,
+        "requires_complete_coverage": true
+      },
+      "idempotency_required": false,
+      "correct_denial_policy": {
+        "enabled": false,
+        "required_evidence_kinds": []
+      },
+      "unexpected_denial_policy": {
+        "enabled": false,
+        "required_evidence_kinds": []
+      },
+      "unknown_policy": {
+        "blocks_qops": true,
+        "requires_reconciliation": true,
+        "preserve_prior_attestation": true
+      },
+      "partial_policy": {
+        "blocks_qops": true,
+        "requires_explicit_expected_action_set": true,
+        "requires_reconciliation": true
+      },
+      "notes": "This is deliberately local. Do not use it to qualify remote visibility, replication, or an external side effect.",
+      "qualification_proposition": {
+        "proposition_id": "authored-record-appended-and-read-back",
+        "verifier_profile": "local-record-author-and-entry-hash-v0.1",
+        "description": "A record with the exact requested payload is authored by the expected agent and can be read back from the declared local cell; this does not imply DHT convergence."
+      },
+      "expected_qops_outcome": "QualifiedSuccess"
+    },
+    {
+      "contract_id": "MCRB-OP-REMOTE-DHT-PUBLICATION",
+      "contract_version": "0.1.0",
+      "scenario_id": "MCRB-03",
+      "operation_class": "remote-dht-publication-and-observation",
+      "effect_boundary": "remote-dht",
+      "expected_disposition": "must-observe",
+      "attempt_state_policy": {
+        "allowed_states": [
+          "not-dispatched",
+          "dispatched",
+          "accepted-at-local-boundary",
+          "timed-out",
+          "reconciled",
+          "unsupported"
+        ],
+        "terminal_states": [
+          "not-dispatched",
+          "reconciled",
+          "unsupported"
+        ]
+      },
+      "effect_state_policy": {
+        "allowed_states": [
+          "applied",
+          "confirmed-not-applied",
+          "partial",
+          "unknown",
+          "not-attempted"
+        ],
+        "requires_reconciliation": [
+          "partial",
+          "unknown"
+        ],
+        "expected_effect_states": [
+          "applied"
+        ]
+      },
+      "evidence_policy": {
+        "allowed_evidence_kinds": [
+          "application-record",
+          "cross-peer-read",
+          "independent-observation",
+          "failure-trace",
+          "reconciliation"
+        ],
+        "required_evidence_kinds": [
+          "application-record",
+          "cross-peer-read"
+        ],
+        "allowed_source_roles": [
+          "effect-executor",
+          "independent-observer",
+          "reconciliation-authority"
+        ],
+        "requires_independent_observer": true,
+        "minimum_distinct_observer_sources": 1,
+        "requires_cross_host_visibility": true,
+        "requires_complete_coverage": true
+      },
+      "idempotency_required": false,
+      "correct_denial_policy": {
+        "enabled": false,
+        "required_evidence_kinds": []
+      },
+      "unexpected_denial_policy": {
+        "enabled": false,
+        "required_evidence_kinds": []
+      },
+      "unknown_policy": {
+        "blocks_qops": true,
+        "requires_reconciliation": true,
+        "preserve_prior_attestation": true
+      },
+      "partial_policy": {
+        "blocks_qops": true,
+        "requires_explicit_expected_action_set": true,
+        "requires_reconciliation": true
+      },
+      "notes": "A local zome-call return is not a remote observation and cannot satisfy this proposition.",
+      "qualification_proposition": {
+        "proposition_id": "exact-record-observed-by-independent-remote-peer",
+        "verifier_profile": "cross-peer-record-digest-and-author-v0.1",
+        "description": "The exact record digest and source author are observed by at least one expected remote peer under the frozen topology and measurement window."
+      },
+      "expected_qops_outcome": "QualifiedSuccess"
+    },
+    {
+      "contract_id": "MCRB-OP-CAPABILITY-REVOCATION",
+      "contract_version": "0.1.0",
+      "scenario_id": "MCRB-06",
+      "operation_class": "capability-revocation-protected-call",
+      "effect_boundary": "policy-decision",
+      "expected_disposition": "must-deny",
+      "attempt_state_policy": {
+        "allowed_states": [
+          "not-dispatched",
+          "dispatched",
+          "accepted-at-local-boundary",
+          "timed-out",
+          "reconciled",
+          "unsupported"
+        ],
+        "terminal_states": [
+          "not-dispatched",
+          "reconciled",
+          "unsupported"
+        ]
+      },
+      "effect_state_policy": {
+        "allowed_states": [
+          "applied",
+          "confirmed-not-applied",
+          "partial",
+          "unknown",
+          "not-attempted"
+        ],
+        "requires_reconciliation": [
+          "partial",
+          "unknown"
+        ],
+        "expected_effect_states": [
+          "confirmed-not-applied"
+        ]
+      },
+      "evidence_policy": {
+        "allowed_evidence_kinds": [
+          "policy-decision",
+          "application-record",
+          "cross-peer-read",
+          "independent-observation",
+          "failure-trace",
+          "reconciliation"
+        ],
+        "required_evidence_kinds": [
+          "policy-decision",
+          "cross-peer-read"
+        ],
+        "allowed_source_roles": [
+          "policy-engine",
+          "effect-executor",
+          "independent-observer",
+          "reconciliation-authority"
+        ],
+        "requires_independent_observer": true,
+        "minimum_distinct_observer_sources": 1,
+        "requires_cross_host_visibility": true,
+        "requires_complete_coverage": true
+      },
+      "idempotency_required": true,
+      "correct_denial_policy": {
+        "enabled": true,
+        "required_evidence_kinds": [
+          "policy-decision",
+          "cross-peer-read"
+        ]
+      },
+      "unexpected_denial_policy": {
+        "enabled": true,
+        "required_evidence_kinds": [
+          "policy-decision",
+          "cross-peer-read"
+        ]
+      },
+      "unknown_policy": {
+        "blocks_qops": true,
+        "requires_reconciliation": true,
+        "preserve_prior_attestation": true
+      },
+      "partial_policy": {
+        "blocks_qops": true,
+        "requires_explicit_expected_action_set": true,
+        "requires_reconciliation": true
+      },
+      "notes": "For this contract, the qualified proposition is denial after the barrier (not an applied effect). This demonstrates why the operation contract must define its expected disposition before QOPS counts success.",
+      "qualification_proposition": {
+        "proposition_id": "protected-effect-denied-after-revocation-barrier",
+        "verifier_profile": "revocation-barrier-and-call-observation-v0.1",
+        "description": "After the declared revocation acknowledgement barrier, a protected call using the revoked grant is denied and no protected effect occurs; a distinct valid grant remains independently tested."
+      },
+      "expected_qops_outcome": "CorrectDenial"
+    },
+    {
+      "contract_id": "MCRB-OP-EXTERNAL-EFFECT",
+      "contract_version": "0.1.0",
+      "scenario_id": "MCRB-08",
+      "operation_class": "external-effect-with-idempotent-reconciliation",
+      "effect_boundary": "external-provider-effect",
+      "expected_disposition": "must-apply",
+      "attempt_state_policy": {
+        "allowed_states": [
+          "not-dispatched",
+          "dispatched",
+          "accepted-at-local-boundary",
+          "timed-out",
+          "reconciled",
+          "unsupported"
+        ],
+        "terminal_states": [
+          "not-dispatched",
+          "reconciled",
+          "unsupported"
+        ]
+      },
+      "effect_state_policy": {
+        "allowed_states": [
+          "applied",
+          "confirmed-not-applied",
+          "partial",
+          "unknown",
+          "not-attempted"
+        ],
+        "requires_reconciliation": [
+          "partial",
+          "unknown"
+        ],
+        "expected_effect_states": [
+          "applied"
+        ]
+      },
+      "evidence_policy": {
+        "allowed_evidence_kinds": [
+          "provider-acknowledgement",
+          "provider-status-query",
+          "independent-observation",
+          "reconciliation",
+          "failure-trace"
+        ],
+        "required_evidence_kinds": [
+          "independent-observation"
+        ],
+        "allowed_source_roles": [
+          "provider",
+          "effect-executor",
+          "independent-observer",
+          "reconciliation-authority"
+        ],
+        "requires_independent_observer": true,
+        "minimum_distinct_observer_sources": 1,
+        "requires_cross_host_visibility": true,
+        "requires_complete_coverage": true
+      },
+      "idempotency_required": true,
+      "correct_denial_policy": {
+        "enabled": false,
+        "required_evidence_kinds": []
+      },
+      "unexpected_denial_policy": {
+        "enabled": false,
+        "required_evidence_kinds": []
+      },
+      "unknown_policy": {
+        "blocks_qops": true,
+        "requires_reconciliation": true,
+        "preserve_prior_attestation": true
+      },
+      "partial_policy": {
+        "blocks_qops": true,
+        "requires_explicit_expected_action_set": true,
+        "requires_reconciliation": true
+      },
+      "notes": "This contract requires #6140-compatible source independence and complete effect coverage; it must not trust a provider acknowledgement as independent proof.",
+      "qualification_proposition": {
+        "proposition_id": "exact-external-effect-independently-observed",
+        "verifier_profile": "external-effect-observation-independence-v0.1",
+        "description": "The exact effect is observed under a complete expected-action set by a source with qualified independent dependency closure; provider acknowledgement alone is insufficient."
+      },
+      "expected_qops_outcome": "QualifiedSuccess"
+    }
+  ],
+  "source_scenario_manifest_git_blob_sha": "e3fb66b94622fd7e4a1f9367ca45ba413a30722c"
+}

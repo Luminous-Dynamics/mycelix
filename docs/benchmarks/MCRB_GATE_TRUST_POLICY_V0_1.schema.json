@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mcrb-gate-trust-policy-v0.1.json",
+  "title": "MCRB Gate Trust Policy v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy_id",
+    "policy_owner",
+    "valid_from_unix_ms",
+    "expires_at_unix_ms",
+    "signers"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix-mcrb-trust-policy-v0.1"
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_owner": {
+      "type": "string",
+      "minLength": 1
+    },
+    "valid_from_unix_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "expires_at_unix_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "signers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key_id",
+          "verifier_identity",
+          "public_key_hex",
+          "allowed_gate_ids",
+          "allowed_builder_ids",
+          "valid_from_unix_ms",
+          "expires_at_unix_ms",
+          "revoked"
+        ],
+        "properties": {
+          "key_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verifier_identity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "public_key_hex": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "allowed_gate_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "allowed_builder_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "valid_from_unix_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expires_at_unix_ms": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "revoked": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+[workspace]
+resolver = "3"
+
+[package]
+name = "mycelix-platform-registry-audit"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Manifest-derived topology registry generator and verifier for Mycelix"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+yaml_serde = "=0.10.7"
+proc-macro2 = { version = "1.0", features = ["span-locations"] }
+syn = { version = "2.0", features = ["extra-traits", "full", "visit"] }

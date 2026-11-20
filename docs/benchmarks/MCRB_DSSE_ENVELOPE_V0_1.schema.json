@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mcrb-dsse-envelope-v0.1.json",
+  "title": "MCRB DSSE Envelope v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "payloadType",
+    "payload",
+    "signatures"
+  ],
+  "properties": {
+    "payload": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "minLength": 1
+    },
+    "signatures": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "keyid",
+          "sig"
+        ],
+        "properties": {
+          "keyid": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sig": {
+            "type": "string",
+            "contentEncoding": "base64",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "payloadType": {
+      "const": "application/vnd.in-toto+json"
+    }
+  },
+  "description": "DSSE v1 JSON envelope using the standard payloadType wire field. The payload is an in-toto Statement v1. The Statement predicate is the MCRB gate predicate. Each v0.1 envelope contains exactly one Ed25519 signature; multiple gate attestations are separate envelopes."
+}

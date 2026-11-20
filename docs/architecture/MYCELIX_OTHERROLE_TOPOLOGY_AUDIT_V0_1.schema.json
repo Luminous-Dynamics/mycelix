@@ -1,0 +1,324 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-otherrole-topology-audit-v0.1.json",
+  "title": "Mycelix OtherRole Topology Audit Report v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_kind",
+    "source",
+    "scope",
+    "manifests",
+    "manifest_errors",
+    "parse_errors",
+    "ast_otherrole_callsite_count",
+    "unmatched_textual_occurrence_count",
+    "unmatched_text_files",
+    "classification_counts",
+    "call_sites",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix-otherrole-topology-audit-v0.1"
+    },
+    "report_kind": {
+      "const": "advisory-static-ast-inventory"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "commit",
+        "tree_sha"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string"
+        },
+        "commit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "tree_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_count",
+        "rust_source_file_count",
+        "nearest_manifest_context_file_count",
+        "without_nearest_manifest_context_file_count",
+        "nearest_manifest_context_coverage",
+        "source_selection",
+        "excluded_path_components"
+      ],
+      "properties": {
+        "manifest_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rust_source_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "nearest_manifest_context_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "without_nearest_manifest_context_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "nearest_manifest_context_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "source_selection": {
+          "const": "git-tracked-files-only-clean-tracked-worktree"
+        },
+        "excluded_path_components": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "manifests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "path",
+          "git_blob_sha",
+          "roles",
+          "role_dna_paths"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "git_blob_sha": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "role_dna_paths": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "manifest_errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "error"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "parse_errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "error"
+        ],
+        "properties": {
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ast_otherrole_callsite_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unmatched_textual_occurrence_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unmatched_text_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "unmatched_textual_occurrence_count",
+          "review_note"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "unmatched_textual_occurrence_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "review_note": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "classification_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "call_sites": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_path",
+          "line",
+          "nearest_manifest_context",
+          "nearest_manifest_happ_name",
+          "context_roles",
+          "context_role_dna_paths",
+          "context_manifest_git_blob_sha",
+          "source_to_dna_identity",
+          "target_role",
+          "target_expression",
+          "classification",
+          "target_declared_in_nearest_manifest_context",
+          "target_present_elsewhere",
+          "matching_role_name_profiles",
+          "caveat"
+        ],
+        "properties": {
+          "source_path": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "nearest_manifest_context": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nearest_manifest_happ_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "context_roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "context_role_dna_paths": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "context_manifest_git_blob_sha": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_to_dna_identity": {
+            "const": "not-proven"
+          },
+          "target_role": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target_expression": {
+            "type": "string"
+          },
+          "classification": {
+            "enum": [
+              "source-context-unresolved",
+              "dynamic-unresolved",
+              "nearest-manifest-declared",
+              "profile-dependent-candidate",
+              "cross-profile-or-source-mapping-unresolved",
+              "missing-role-candidate"
+            ]
+          },
+          "target_declared_in_nearest_manifest_context": {
+            "type": "boolean"
+          },
+          "target_present_elsewhere": {
+            "type": "boolean"
+          },
+          "matching_role_name_profiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "caveat": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "claim_ceiling": {
+      "type": "string"
+    }
+  }
+}

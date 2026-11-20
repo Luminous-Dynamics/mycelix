@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-platform-registry-v0.1.json",
+  "title": "Mycelix Platform Registry v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot_kind",
+    "source",
+    "profiles",
+    "roles",
+    "known_discrepancies"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix-platform-registry-v0.1"
+    },
+    "snapshot_kind": {
+      "const": "non-authoritative-manifest-derived-snapshot"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "branch",
+        "commit",
+        "manifest_path",
+        "manifest_git_blob_sha"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "manifest_path": {
+          "type": "string"
+        },
+        "manifest_git_blob_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "profile_id",
+          "manifest_path",
+          "manifest_git_blob_sha",
+          "roles"
+        ],
+        "properties": {
+          "profile_id": {
+            "type": "string"
+          },
+          "manifest_path": {
+            "type": "string"
+          },
+          "manifest_git_blob_sha": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role_id",
+          "dna_artifact_path",
+          "deployment_presence",
+          "trust_classification",
+          "authority_classification"
+        ],
+        "properties": {
+          "role_id": {
+            "type": "string"
+          },
+          "dna_artifact_path": {
+            "type": "string"
+          },
+          "deployment_presence": {
+            "const": "manifest-listed"
+          },
+          "trust_classification": {
+            "enum": [
+              "unclassified",
+              "private-source-chain",
+              "permissioned-dht",
+              "public-dht",
+              "mixed-explicit-policy"
+            ]
+          },
+          "authority_classification": {
+            "enum": [
+              "unclassified",
+              "peer-authored-declaration",
+              "application-authority",
+              "projection-only",
+              "external-reference-only"
+            ]
+          },
+          "logical_domains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "known_discrepancies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "description",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "unresolved",
+              "resolved",
+              "accepted"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

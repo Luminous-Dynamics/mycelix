@@ -1,0 +1,678 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mcrb-scenario-manifest-v0.1.json",
+  "title": "Mycelix MCRB Scenario Manifest v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "status",
+    "purpose",
+    "execution_principle",
+    "scale_ladder",
+    "comparators",
+    "metrics",
+    "hard_gates",
+    "scenarios",
+    "receipt_schema",
+    "harness_layers",
+    "wind_tunnel_reuse_policy",
+    "measurement_quality",
+    "metric_integrity_verifier",
+    "qualified_operations_policy",
+    "offer_ledger_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix-mcrb-v0.1"
+    },
+    "benchmark_id": {
+      "const": "MCRB"
+    },
+    "status": {
+      "const": "proposed-no-results"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution_principle": {
+      "const": "correctness-gate-before-performance"
+    },
+    "scale_ladder": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "required": [
+          "tier",
+          "mode"
+        ],
+        "properties": {
+          "tier": {
+            "enum": [
+              "smoke",
+              "development",
+              "qualification",
+              "stress"
+            ]
+          },
+          "conductors_min": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "conductors_max": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "conductors": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "mode": {
+            "type": "string"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "conductors"
+            ]
+          },
+          {
+            "required": [
+              "conductors_min"
+            ]
+          }
+        ]
+      }
+    },
+    "comparators": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "class",
+          "direct_comparison",
+          "notes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "direct_comparison": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "unit",
+          "aggregation"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "aggregation": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "hard_gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "metric",
+          "operator",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "operator": {
+            "enum": [
+              "eq",
+              "ne",
+              "lt",
+              "lte",
+              "gt",
+              "gte"
+            ]
+          },
+          "value": {
+            "type": [
+              "integer",
+              "number",
+              "string",
+              "boolean"
+            ]
+          }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "scenario_id",
+          "objective",
+          "actors",
+          "hard_invariants",
+          "fault_injection",
+          "required_metrics",
+          "status",
+          "evidence_required",
+          "qops_requires_cross_host_visibility"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^MCRB-[0-9]{2}$"
+          },
+          "scenario_id": {
+            "type": "string"
+          },
+          "objective": {
+            "type": "string"
+          },
+          "actors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "hard_invariants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "fault_injection": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_metrics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "status": {
+            "const": "proposed-not-executed"
+          },
+          "evidence_required": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "upstream_references": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "uniqueItems": true
+          },
+          "qualification_blocking": {
+            "type": "boolean"
+          },
+          "qops_requires_cross_host_visibility": {
+            "type": "boolean"
+          },
+          "related_issue": {
+            "type": "string",
+            "pattern": "^#[1-9][0-9]*$"
+          }
+        }
+      }
+    },
+    "receipt_schema": {
+      "const": "MCRB_V0_1_RUN_RECEIPT.schema.json"
+    },
+    "harness_layers": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "wind_tunnel_reuse_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "use_existing_runtime_harness",
+        "version_specific_scenario_mapping_required",
+        "required_substrate_dimensions",
+        "add_application_semantic_scenarios",
+        "never_compare_unmatched_runtime_versions",
+        "never_claim_upstream_metric_as_mycelix_application_qualification",
+        "wind_tunnel_compatibility"
+      ],
+      "properties": {
+        "use_existing_runtime_harness": {
+          "const": true
+        },
+        "version_specific_scenario_mapping_required": {
+          "type": "boolean"
+        },
+        "required_substrate_dimensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "add_application_semantic_scenarios": {
+          "type": "boolean"
+        },
+        "never_compare_unmatched_runtime_versions": {
+          "type": "boolean"
+        },
+        "never_claim_upstream_metric_as_mycelix_application_qualification": {
+          "type": "boolean"
+        },
+        "wind_tunnel_compatibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "observed_wind_tunnel_release",
+            "observed_published_compatibility_pair",
+            "observed_pinned_holochain_0_7_report",
+            "roadmap_snapshot_date",
+            "roadmap_wind_tunnel_for_0_7_completion",
+            "required_before_0_7_1_use",
+            "interim_policy"
+          ],
+          "properties": {
+            "status": {
+              "const": "holochain-0.7.1-not-established-by-public-compatibility-matrix"
+            },
+            "observed_wind_tunnel_release": {
+              "type": "string"
+            },
+            "observed_published_compatibility_pair": {
+              "type": "string"
+            },
+            "observed_pinned_holochain_0_7_report": {
+              "type": "string"
+            },
+            "roadmap_snapshot_date": {
+              "type": "string",
+              "format": "date"
+            },
+            "roadmap_wind_tunnel_for_0_7_completion": {
+              "type": "string"
+            },
+            "required_before_0_7_1_use": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "interim_policy": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "measurement_quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "require_monotonic_local_durations",
+        "require_clock_source_and_sync_method",
+        "require_cross_host_offset_and_uncertainty",
+        "reject_negative_non_finite_or_out_of_run_durations",
+        "preserve_and_classify_outliers",
+        "silently_trim_or_clamp_outliers",
+        "require_per_peer_distributions",
+        "aggregate_only_after_member_samples_validate",
+        "require_send_receive_counter_reconciliation",
+        "invalid_measurements_block_performance_claims",
+        "run_statuses",
+        "require_raw_monotonic_tick_pairs",
+        "derive_local_duration_from_tick_delta",
+        "require_clock_epoch_identity_per_sample",
+        "require_publish_observe_event_pairing_for_cross_host_convergence",
+        "require_cross_host_uncertainty_interval",
+        "forbid_cross_host_point_latency_without_uncertainty_bound",
+        "cross_host_timing_claim_status"
+      ],
+      "properties": {
+        "require_monotonic_local_durations": {
+          "type": "boolean"
+        },
+        "require_clock_source_and_sync_method": {
+          "type": "boolean"
+        },
+        "require_cross_host_offset_and_uncertainty": {
+          "type": "boolean"
+        },
+        "reject_negative_non_finite_or_out_of_run_durations": {
+          "type": "boolean"
+        },
+        "preserve_and_classify_outliers": {
+          "type": "boolean"
+        },
+        "silently_trim_or_clamp_outliers": {
+          "const": false
+        },
+        "require_per_peer_distributions": {
+          "type": "boolean"
+        },
+        "aggregate_only_after_member_samples_validate": {
+          "type": "boolean"
+        },
+        "require_send_receive_counter_reconciliation": {
+          "type": "boolean"
+        },
+        "invalid_measurements_block_performance_claims": {
+          "type": "boolean"
+        },
+        "run_statuses": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "application-fail",
+              "measurement-invalid",
+              "infrastructure-incomplete",
+              "qualified"
+            ]
+          },
+          "minItems": 4
+        },
+        "require_raw_monotonic_tick_pairs": {
+          "const": true
+        },
+        "derive_local_duration_from_tick_delta": {
+          "const": true
+        },
+        "require_clock_epoch_identity_per_sample": {
+          "const": true
+        },
+        "require_publish_observe_event_pairing_for_cross_host_convergence": {
+          "const": true
+        },
+        "require_cross_host_uncertainty_interval": {
+          "const": true
+        },
+        "forbid_cross_host_point_latency_without_uncertainty_bound": {
+          "const": true
+        },
+        "cross_host_timing_claim_status": {
+          "const": "not-qualified-until-mcrb-time-001"
+        }
+      }
+    },
+    "metric_integrity_verifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "crate_path",
+        "crate_name",
+        "api",
+        "status",
+        "output_states",
+        "metrics",
+        "policy"
+      ],
+      "properties": {
+        "crate_path": {
+          "type": "string"
+        },
+        "crate_name": {
+          "type": "string"
+        },
+        "api": {
+          "const": "validate_batch"
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "source-and-tests-authored-ci-pending",
+            "qualified-exact-head"
+          ]
+        },
+        "output_states": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "valid",
+              "invalid",
+              "incomplete"
+            ]
+          },
+          "minItems": 3
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "policy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "qualified_operations_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "formula",
+        "invalid_when",
+        "required_companion_metrics",
+        "no_silent_attempt_exclusion",
+        "denials_count_as_business_success"
+      ],
+      "properties": {
+        "name": {
+          "const": "Qualified Operations Per Second"
+        },
+        "formula": {
+          "type": "string"
+        },
+        "invalid_when": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "required_companion_metrics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "no_silent_attempt_exclusion": {
+          "const": true
+        },
+        "denials_count_as_business_success": {
+          "const": false
+        },
+        "offer_ledger_requirement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "independent_authenticity_requirement": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "offer_ledger_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "canonical_encoding",
+        "digest_algorithm",
+        "sequence_start",
+        "sequence_policy",
+        "operation_id_policy",
+        "idempotency_policy",
+        "qops_denominator_source",
+        "outcome_policy",
+        "measurement_clock",
+        "generator_authenticity",
+        "claim_ceiling",
+        "cross_host_requirement_source",
+        "cross_host_requirement_binding",
+        "operation_contract_registry"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "mycelix-mcrb-offer-ledger-v0.1"
+        },
+        "canonical_encoding": {
+          "type": "string"
+        },
+        "digest_algorithm": {
+          "const": "SHA-256"
+        },
+        "sequence_start": {
+          "const": 1
+        },
+        "sequence_policy": {
+          "type": "string"
+        },
+        "operation_id_policy": {
+          "type": "string"
+        },
+        "idempotency_policy": {
+          "type": "string"
+        },
+        "qops_denominator_source": {
+          "const": "verified-offer-ledger-entry-count"
+        },
+        "outcome_policy": {
+          "type": "string"
+        },
+        "measurement_clock": {
+          "type": "string"
+        },
+        "generator_authenticity": {
+          "type": "string"
+        },
+        "claim_ceiling": {
+          "type": "string"
+        },
+        "cross_host_requirement_source": {
+          "type": "string"
+        },
+        "cross_host_requirement_binding": {
+          "type": "string"
+        },
+        "operation_contract_registry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "registry_path",
+            "registry_schema_path",
+            "offer_ledger_schema_path",
+            "digest_policy",
+            "source_manifest_binding",
+            "per_operation_binding",
+            "claim_ceiling"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "mycelix-mcrb-operation-contract-registry-v0.1"
+            },
+            "registry_path": {
+              "type": "string"
+            },
+            "registry_schema_path": {
+              "type": "string"
+            },
+            "offer_ledger_schema_path": {
+              "type": "string"
+            },
+            "digest_policy": {
+              "type": "string"
+            },
+            "source_manifest_binding": {
+              "type": "string"
+            },
+            "per_operation_binding": {
+              "type": "string"
+            },
+            "claim_ceiling": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
