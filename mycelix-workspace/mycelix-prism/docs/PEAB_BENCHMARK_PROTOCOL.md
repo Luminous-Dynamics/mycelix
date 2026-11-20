@@ -590,7 +590,7 @@ Envoy v1.40.0 DFP warns that an untrusted client may use the proxy's reachabilit
 
 ## 14. Transactional execution and ambiguous-outcome qualification
 
-Prism must not equate a connected socket, a dispatched request, an application response, and a remote side effect. The reference model at prism-egress/tests/execution_recovery_model.rs defines a conservative recovery state machine; its 25 tests are source-present only until exact-head execution.
+Prism must not equate a connected socket, a dispatched request, an application response, and a remote side effect. The reference model at prism-egress/tests/execution_recovery_model.rs defines a conservative recovery state machine; its 33 tests are source-present only until exact-head execution.
 
 ### Required crash contract
 
@@ -610,7 +610,7 @@ A dispatch-marked attempt with no final response or authoritative remote result 
 
 ### PEAB comparison matrix
 
-Run the same receiver, fault schedule, request body, concurrency and durability mode against: (1) no-retry control; (2) generic automatic retries without remote idempotency; (3) retries with a server-enforced idempotency key; (4) Envoy retry policy with an explicit server contract; (5) durable workflow activity with an idempotent receiver; (6) Prism write-ahead dispatch gate plus authoritative status lookup; and (7) Prism plus independent socket/peer reconciliation.
+Run the same receiver, fault schedule, request body, concurrency and durability mode against: (1) no-retry control; (2) generic automatic retries without remote idempotency; (3) retries with a server-enforced idempotency key; (4) Envoy v1.40 reset-before-request as a narrow pre-dispatch retry baseline (headers not yet sent upstream); (5) Envoy broad reset/5xx retry policies with retry budgets recorded, both without and with an explicit remote idempotency contract; (6) durable workflow activity with an idempotent receiver; (7) Prism write-ahead dispatch gate plus authoritative status lookup; and (8) Prism plus independent socket/peer reconciliation.
 
 Inject termination or power loss before and after each journal append and durable flush; between DispatchMarked and the first byte; during partial writes; after full write; after server commit but before response; during response read; after response but before receipt flush; on pooled HTTP/1 reuse; during concurrent HTTP/2 streams; during cancellation; and during observer loss/detach.
 
