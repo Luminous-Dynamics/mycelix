@@ -22,7 +22,6 @@ struct ReceiverRequest {
     method: &'static str,
     request_digest: u64,
     idempotency_key_digest: u64,
-    retention_until_ns: u64,
 }
 
 impl ReceiverRequest {
@@ -97,14 +96,27 @@ struct Receiver {
     applied_effects: HashMap<u64, u64>,
     next_nonce: u64,
     revision: u64,
+    key_retention_ns: u64,
 }
 
 impl Receiver {
     fn new() -> Self {
         Self {
             next_nonce: 1,
+            key_retention_ns: 10_000,
             ..Self::default()
         }
+    }
+
+    fn with_retention(key_retention_ns: u64) -> Result<Self, ReceiverError> {
+        if key_retention_ns == 0 {
+            return Err(ReceiverError::InvalidRequest);
+        }
+        Ok(Self {
+            next_nonce: 1,
+            key_retention_ns,
+            ..Self::default()
+        })
     }
 
     fn begin(
@@ -119,12 +131,14 @@ impl Receiver {
             || request.origin_digest == 0
             || request.request_digest == 0
             || request.idempotency_key_digest == 0
-            || request.retention_until_ns <= now_ns
             || request.method.is_empty()
         {
             return Err(ReceiverError::InvalidRequest);
         }
 
+        let expires_at_ns = now_ns
+            .checked_add(self.key_retention_ns)
+            .ok_or(ReceiverError::CounterOverflow)?;
         let key = request.key();
         if let Some(completed) = self.completed.get(&key) {
             if now_ns >= completed.expires_at_ns {
@@ -209,7 +223,7 @@ impl Receiver {
             Completed {
                 request: in_flight.request,
                 result_digest,
-                expires_at_ns: in_flight.request.retention_until_ns,
+                expires_at_ns: expires_at_ns,
                 revision: next_revision,
             },
         );
@@ -247,6 +261,7 @@ impl Receiver {
             applied_effects: self.applied_effects.clone(),
             next_nonce: self.next_nonce,
             revision: self.revision,
+            key_retention_ns: self.key_retention_ns,
         }
     }
 
@@ -264,6 +279,7 @@ impl Receiver {
             applied_effects: self.applied_effects.clone(),
             next_nonce: self.next_nonce,
             revision: self.revision,
+            key_retention_ns: self.key_retention_ns,
         }
     }
 
@@ -293,7 +309,6 @@ fn request() -> ReceiverRequest {
         method: "POST",
         request_digest: 303,
         idempotency_key_digest: 404,
-        retention_until_ns: 10_000,
     }
 }
 
@@ -493,11 +508,11 @@ fn an_aborted_owner_token_cannot_be_used_to_commit_later() {
 
 #[test]
 fn duplicate_at_exact_key_expiry_is_rejected() {
-    let mut receiver = Receiver::new();
+    let mut receiver = Receiver::with_retention(100).unwrap();
     let token = acquire(&mut receiver, request(), 100);
     receiver.commit(token, 505).unwrap();
     assert_eq!(
-        receiver.begin(request(), 10_000),
+        receiver.begin(request(), 200),
         Err(ReceiverError::KeyExpired)
     );
     assert_eq!(receiver.effect_count(10), 1);
@@ -702,27 +717,50 @@ fn different_key_same_payload_is_a_distinct_logical_operation() {
 }
 
 #[test]
-fn a_key_cannot_be_used_before_its_declared_retention_deadline() {
-    let mut receiver = Receiver::new();
-    let mut expired = request();
-    expired.retention_until_ns = 100;
+fn the_receiver_rejects_zero_retention_configuration() {
     assert_eq!(
-        receiver.begin(expired, 100),
-        Err(ReceiverError::InvalidRequest)
+        Receiver::with_retention(0).err(),
+        Some(ReceiverError::InvalidRequest)
     );
-    assert_eq!(receiver.effect_count(10), 0);
 }
 
 #[test]
 fn expired_key_is_not_silently_extended_by_a_later_duplicate() {
-    let mut receiver = Receiver::new();
+    let mut receiver = Receiver::with_retention(100).unwrap();
     let token = acquire(&mut receiver, request(), 100);
     receiver.commit(token, 505).unwrap();
-    let mut retry = request();
-    retry.retention_until_ns = 20_000;
     assert_eq!(
-        receiver.begin(retry, 10_000),
+        receiver.begin(request(), 200),
         Err(ReceiverError::KeyExpired)
     );
     assert_eq!(receiver.effect_count(10), 1);
+}
+
+
+#[test]
+fn receiver_owns_key_retention_instead_of_trusting_the_request() {
+    let mut receiver = Receiver::with_retention(100).unwrap();
+    let token = acquire(&mut receiver, request(), 100);
+    receiver.commit(token, 505).unwrap();
+    assert_eq!(
+        receiver.begin(request(), 199),
+        Ok(BeginDecision::Completed {
+            result_digest: 505,
+            revision: 1
+        })
+    );
+    assert_eq!(
+        receiver.begin(request(), 200),
+        Err(ReceiverError::KeyExpired)
+    );
+}
+
+#[test]
+fn key_expiry_deadline_overflow_fails_closed() {
+    let mut receiver = Receiver::new();
+    assert_eq!(
+        receiver.begin(request(), u64::MAX),
+        Err(ReceiverError::CounterOverflow)
+    );
+    assert_eq!(receiver.effect_count(10), 0);
 }
