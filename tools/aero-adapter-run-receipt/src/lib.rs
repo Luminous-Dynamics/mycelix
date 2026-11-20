@@ -113,8 +113,8 @@ pub struct AdapterIdentityV1 {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InvocationV1 {
-    pub arguments_sha256: String,
-    pub environment_profile_sha256: String,
+    pub arguments: ContentArtifactV1,
+    pub environment_profile: ContentArtifactV1,
     pub configuration_sha256: String,
     pub locale: String,
     pub timezone: String,
@@ -342,15 +342,27 @@ pub fn parse_receipt_json(bytes: &[u8]) -> Result<AdapterRunReceiptV1, ReceiptEr
         invocation,
         "receipt.invocation",
         &[
-            "arguments_sha256", "environment_profile_sha256", "configuration_sha256",
+            "arguments", "environment_profile", "configuration_sha256",
             "locale", "timezone", "network_policy", "declared_egress",
             "observed_egress", "timeout_ms",
         ],
         &[
-            "arguments_sha256", "environment_profile_sha256", "configuration_sha256",
+            "arguments", "environment_profile", "configuration_sha256",
             "locale", "timezone", "network_policy", "declared_egress",
             "observed_egress", "timeout_ms",
         ],
+    )?;
+    check_content_artifact(
+        invocation.get("arguments").ok_or_else(|| ReceiptError::MissingField {
+            scope: "receipt.invocation".into(), field: "arguments".into()
+        })?,
+        "receipt.invocation.arguments",
+    )?;
+    check_content_artifact(
+        invocation.get("environment_profile").ok_or_else(|| ReceiptError::MissingField {
+            scope: "receipt.invocation".into(), field: "environment_profile".into()
+        })?,
+        "receipt.invocation.environment_profile",
     )?;
 
     let outputs = value.get("outputs").and_then(Value::as_array)
@@ -461,8 +473,10 @@ pub fn validate_receipt(receipt: &AdapterRunReceiptV1) -> Result<(), ReceiptErro
             return Err(ReceiptError::InvalidArtifact(provenance.id.clone()));
         }
     }
-    if !valid_sha256(&receipt.invocation.arguments_sha256)
-        || !valid_sha256(&receipt.invocation.environment_profile_sha256)
+    validate_content_artifact(&receipt.invocation.arguments)?;
+    validate_content_artifact(&receipt.invocation.environment_profile)?;
+    if receipt.invocation.arguments.reference.kind != "adapter_arguments"
+        || receipt.invocation.environment_profile.reference.kind != "environment_profile"
         || !valid_sha256(&receipt.invocation.configuration_sha256)
         || receipt.invocation.timeout_ms == 0
         || receipt.elapsed_ms == 0
@@ -493,6 +507,8 @@ pub fn validate_receipt(receipt: &AdapterRunReceiptV1) -> Result<(), ReceiptErro
         Ok(())
     };
     check_unique(&receipt.adapter.executable)?;
+    check_unique(&receipt.invocation.arguments)?;
+    check_unique(&receipt.invocation.environment_profile)?;
     for input in &receipt.inputs {
         check_unique(&input.artifact)?;
         if !input.rights_status.admitted() {
@@ -579,7 +595,11 @@ pub fn verify_artifact_payloads(
     payloads: &[(&ArtifactRef, &[u8])],
 ) -> Result<ReceiptVerificationReport, ReceiptError> {
     validate_receipt(receipt)?;
-    let mut expected = vec![&receipt.adapter.executable];
+    let mut expected = vec![
+        &receipt.adapter.executable,
+        &receipt.invocation.arguments,
+        &receipt.invocation.environment_profile,
+    ];
     expected.extend(receipt.inputs.iter().map(|input| &input.artifact));
     expected.extend(receipt.outputs.iter().map(|output| &output.artifact));
 
@@ -642,6 +662,10 @@ mod tests {
         vec![
             (ArtifactRef { id: "sha256:2c78684bbce9e4a714c337d848eb938a5ce64fe85d052f53adb7e617eeffa6c0".into(), kind: "adapter_executable".into() },
              include_bytes!("../fixtures/adapter-run/adapter.bin").to_vec()),
+            (ArtifactRef { id: "sha256:6c0ef43428d609b7a9518e8f2a06bc48886d1bbc2160734ded4fc83679e1a98a".into(), kind: "adapter_arguments".into() },
+             include_bytes!("../fixtures/adapter-run/arguments.json").to_vec()),
+            (ArtifactRef { id: "sha256:56fb082d5fbdcb4ada57fda4c31c3c7c16507393cda0bee55a8c67a8db9ec0ea".into(), kind: "environment_profile".into() },
+             include_bytes!("../fixtures/adapter-run/environment-profile.json").to_vec()),
             (ArtifactRef { id: "sha256:8362e44d47f7f89da4a972ecd585d851f6ca3abcf5735294bc7737d3554c1d33".into(), kind: "step_file".into() },
              include_bytes!("../fixtures/adapter-run/source.step").to_vec()),
             (ArtifactRef { id: "sha256:2118dab37365c4e792db91933d0f12c6f3c0acb1bdb734b5c0fa4a85f95902fd".into(), kind: "adapter_config".into() },
@@ -662,7 +686,7 @@ mod tests {
         assert_eq!(report.disposition, ReceiptDisposition::IntegrityChecked);
         assert_eq!(report.run_status, RunStatus::Succeeded);
         assert!(report.semantic_output_eligible);
-        assert_eq!(report.checked_artifacts, 5);
+        assert_eq!(report.checked_artifacts, 7);
         assert_eq!(report.receipt_sha256, receipt.receipt_sha256);
     }
 
@@ -670,7 +694,7 @@ mod tests {
     fn input_payload_mutation_is_rejected() {
         let receipt = fixture();
         let mut bytes = payloads();
-        bytes[1].1.push(b'X');
+        bytes[3].1.push(b'X');
         let borrowed: Vec<_> = bytes.iter().map(|(reference, payload)| (reference, payload.as_slice())).collect();
         assert!(matches!(verify_artifact_payloads(&receipt, &borrowed), Err(ReceiptError::ArtifactByteLengthMismatch(_))));
     }
@@ -679,7 +703,7 @@ mod tests {
     fn output_payload_mutation_is_rejected() {
         let receipt = fixture();
         let mut bytes = payloads();
-        bytes[3].1[0] = b'!';
+        bytes[5].1[0] = b'!';
         let borrowed: Vec<_> = bytes.iter().map(|(reference, payload)| (reference, payload.as_slice())).collect();
         assert!(matches!(verify_artifact_payloads(&receipt, &borrowed), Err(ReceiptError::ArtifactDigestMismatch(_))));
     }
@@ -739,12 +763,12 @@ mod tests {
         assert!(validate_receipt(&receipt).is_ok());
 
         let mut bytes = payloads();
-        bytes.truncate(3);
+        bytes.truncate(5);
         let borrowed: Vec<_> = bytes.iter().map(|(reference, payload)| (reference, payload.as_slice())).collect();
         let report = verify_artifact_payloads(&receipt, &borrowed).expect("timeout receipt bytes verify");
         assert_eq!(report.run_status, RunStatus::TimedOut);
         assert!(!report.semantic_output_eligible);
-        assert_eq!(report.checked_artifacts, 3);
+        assert_eq!(report.checked_artifacts, 5);
     }
 
     #[test]
