@@ -62,8 +62,11 @@ transitive dependency resolution is not yet frozen.
 ## Explicit non-goals and limitations
 
 This prototype does **not**:
-- implement the complete JSON Schema Draft 2020-12 specification;
-- validate every schema constraint or reject every unknown JSON property;
+- implement the JSON Schema Draft 2020-12 engine itself; it delegates schema
+  validation to the pinned `jsonschema` crate, whose Draft 2020-12 keyword
+  compliance is not assumed to be universal;
+- independently establish that schema keywords beyond the checked-in schemas'
+  exercised subset are correctly implemented by the selected engine;
 - verify signatures, hashes of external artifacts, capability grants, Holochain
   source-chain lineage, DHT validation, cryptographic protocol correctness, or
   transport truth;
