@@ -182,7 +182,7 @@ impl Receiver {
     /// result. No partial effect is visible in this reference model.
     fn commit(
         &mut self,
-        token: OwnerToken,
+        token: &OwnerToken,
         result_digest: u64,
     ) -> Result<u64, ReceiverError> {
         if result_digest == 0 {
@@ -233,7 +233,7 @@ impl Receiver {
         Ok(next_revision)
     }
 
-    fn abort(&mut self, token: OwnerToken) -> Result<(), ReceiverError> {
+    fn abort(&mut self, token: &OwnerToken) -> Result<(), ReceiverError> {
         let in_flight = self
             .in_flight
             .get(&token.key)
@@ -324,7 +324,7 @@ fn first_request_atomically_commits_effect_and_idempotency_result() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
     assert_eq!(receiver.effect_count(10), 0);
-    assert_eq!(receiver.commit(token, 505), Ok(1));
+    assert_eq!(receiver.commit(&token, 505), Ok(1));
     assert_eq!(receiver.effect_count(10), 1);
     assert_eq!(receiver.completed_count(), 1);
     assert_eq!(receiver.in_flight_count(), 0);
@@ -334,7 +334,7 @@ fn first_request_atomically_commits_effect_and_idempotency_result() {
 fn completed_duplicate_returns_cached_result_without_second_effect() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     let duplicate = receiver.begin(request(), 101).unwrap();
     assert_eq!(
         duplicate,
@@ -355,7 +355,7 @@ fn concurrent_same_key_duplicate_is_rejected_while_original_is_in_progress() {
         Ok(BeginDecision::ConflictInProgress)
     );
     assert_eq!(receiver.effect_count(10), 0);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     assert_eq!(receiver.effect_count(10), 1);
 }
 
@@ -369,7 +369,7 @@ fn same_key_with_different_request_fingerprint_is_rejected() {
         receiver.begin(changed, 101).err(),
         Some(ReceiverError::KeyReuseMismatch)
     );
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     assert_eq!(receiver.effect_count(10), 1);
 }
 
@@ -377,19 +377,19 @@ fn same_key_with_different_request_fingerprint_is_rejected() {
 fn crash_before_atomic_commit_discards_reservation_without_effect() {
     let mut receiver = Receiver::new();
     let _token = acquire(&mut receiver, request(), 100);
-    let recovered = receiver.recover_after_crash();
+    let mut recovered = receiver.recover_after_crash();
     assert_eq!(recovered.in_flight_count(), 0);
     assert_eq!(recovered.effect_count(10), 0);
     assert_eq!(recovered.completed_count(), 0);
-    let retry = acquire(&mut recovered.clone(), request(), 101);
-    assert_eq!(retry.logical_operation_id, 10);
+    let retry = acquire(&mut recovered, request(), 101);
+    recovered.commit(&retry, 505).unwrap();
+    assert_eq!(recovered.effect_count(10), 1);
 }
-
 #[test]
 fn crash_after_commit_before_response_replays_completion_without_duplicate_effect() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     let recovered = receiver.recover_after_crash();
     assert_eq!(
         recovered.begin(request(), 101),
@@ -405,7 +405,7 @@ fn crash_after_commit_before_response_replays_completion_without_duplicate_effec
 fn durable_failover_preserves_deduplication_and_effect() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     let replica = receiver.failover_durable();
     assert_eq!(
         replica.begin(request(), 101),
@@ -421,10 +421,10 @@ fn durable_failover_preserves_deduplication_and_effect() {
 fn losing_idempotency_state_on_failover_is_an_explicit_unsafe_control() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     let mut unsafe_replica = receiver.failover_losing_dedup_state();
     let duplicate_token = acquire(&mut unsafe_replica, request(), 101);
-    unsafe_replica.commit(duplicate_token, 606).unwrap();
+    unsafe_replica.commit(&duplicate_token, 606).unwrap();
     assert_eq!(unsafe_replica.effect_count(10), 2);
 }
 
@@ -432,11 +432,11 @@ fn losing_idempotency_state_on_failover_is_an_explicit_unsafe_control() {
 fn abort_releases_reservation_without_applying_effect() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.abort(token).unwrap();
+    receiver.abort(&token).unwrap();
     assert_eq!(receiver.in_flight_count(), 0);
     assert_eq!(receiver.effect_count(10), 0);
     let retry = acquire(&mut receiver, request(), 101);
-    receiver.commit(retry, 505).unwrap();
+    receiver.commit(&retry, 505).unwrap();
     assert_eq!(receiver.effect_count(10), 1);
 }
 
@@ -447,7 +447,7 @@ fn commit_token_for_another_attempt_is_rejected() {
     let mut changed = token;
     changed.attempt_id += 1;
     assert_eq!(
-        receiver.commit(changed, 505),
+        receiver.commit(&changed, 505),
         Err(ReceiverError::InvalidToken)
     );
     assert_eq!(receiver.effect_count(10), 0);
@@ -460,7 +460,7 @@ fn commit_token_for_another_request_digest_is_rejected() {
     let mut changed = token;
     changed.request_digest += 1;
     assert_eq!(
-        receiver.commit(changed, 505),
+        receiver.commit(&changed, 505),
         Err(ReceiverError::InvalidToken)
     );
     assert_eq!(receiver.effect_count(10), 0);
@@ -470,47 +470,29 @@ fn commit_token_for_another_request_digest_is_rejected() {
 fn a_committed_owner_token_cannot_be_used_twice() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     assert_eq!(
-        receiver.commit(
-            OwnerToken {
-                key: request().key(),
-                logical_operation_id: 10,
-                attempt_id: 11,
-                request_digest: 303,
-                nonce: 1,
-            },
-            606,
-        ),
+        receiver.commit(&token, 606),
         Err(ReceiverError::UnknownReservation)
     );
     assert_eq!(receiver.effect_count(10), 1);
 }
-
 #[test]
 fn an_aborted_owner_token_cannot_be_used_to_commit_later() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
-    let stale = OwnerToken {
-        key: token.key,
-        logical_operation_id: token.logical_operation_id,
-        attempt_id: token.attempt_id,
-        request_digest: token.request_digest,
-        nonce: token.nonce,
-    };
-    receiver.abort(token).unwrap();
+    receiver.abort(&token).unwrap();
     assert_eq!(
-        receiver.commit(stale, 505),
+        receiver.commit(&token, 505),
         Err(ReceiverError::UnknownReservation)
     );
     assert_eq!(receiver.effect_count(10), 0);
 }
-
 #[test]
 fn duplicate_at_exact_key_expiry_is_rejected() {
     let mut receiver = Receiver::with_retention(100).unwrap();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     assert_eq!(
         receiver.begin(request(), 200),
         Err(ReceiverError::KeyExpired)
@@ -522,13 +504,13 @@ fn duplicate_at_exact_key_expiry_is_rejected() {
 fn same_raw_key_in_another_principal_namespace_is_independent() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     let mut other_principal = request();
     other_principal.logical_operation_id = 20;
     other_principal.attempt_id = 21;
     other_principal.principal_digest = 999;
     let other = acquire(&mut receiver, other_principal, 101);
-    receiver.commit(other, 606).unwrap();
+    receiver.commit(&other, 606).unwrap();
     assert_eq!(receiver.effect_count(10), 1);
     assert_eq!(receiver.effect_count(20), 1);
 }
@@ -537,13 +519,13 @@ fn same_raw_key_in_another_principal_namespace_is_independent() {
 fn same_raw_key_in_another_workload_namespace_is_independent() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     let mut other_workload = request();
     other_workload.logical_operation_id = 20;
     other_workload.attempt_id = 21;
     other_workload.workload_id = 8;
     let other = acquire(&mut receiver, other_workload, 101);
-    receiver.commit(other, 606).unwrap();
+    receiver.commit(&other, 606).unwrap();
     assert_eq!(receiver.effect_count(10), 1);
     assert_eq!(receiver.effect_count(20), 1);
 }
@@ -552,13 +534,13 @@ fn same_raw_key_in_another_workload_namespace_is_independent() {
 fn same_raw_key_at_another_origin_namespace_is_independent() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     let mut other_origin = request();
     other_origin.logical_operation_id = 20;
     other_origin.attempt_id = 21;
     other_origin.origin_digest = 999;
     let other = acquire(&mut receiver, other_origin, 101);
-    receiver.commit(other, 606).unwrap();
+    receiver.commit(&other, 606).unwrap();
     assert_eq!(receiver.effect_count(10), 1);
     assert_eq!(receiver.effect_count(20), 1);
 }
@@ -573,7 +555,7 @@ fn same_key_with_different_http_method_is_rejected() {
         receiver.begin(changed, 101).err(),
         Some(ReceiverError::KeyReuseMismatch)
     );
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
 }
 
 #[test]
@@ -587,14 +569,14 @@ fn same_key_cannot_be_reassigned_to_another_logical_operation() {
         receiver.begin(changed, 101).err(),
         Some(ReceiverError::KeyReuseMismatch)
     );
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
 }
 
 #[test]
 fn retry_with_new_attempt_id_returns_the_original_completion() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     let mut retry = request();
     retry.attempt_id = 99;
     assert_eq!(
@@ -618,7 +600,7 @@ fn many_concurrent_duplicates_do_not_apply_effect_before_owner_commit() {
         );
     }
     assert_eq!(receiver.effect_count(10), 0);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     assert_eq!(receiver.effect_count(10), 1);
     assert_eq!(receiver.completed_count(), 1);
 }
@@ -627,7 +609,7 @@ fn many_concurrent_duplicates_do_not_apply_effect_before_owner_commit() {
 fn generated_sequential_replays_always_return_one_cached_result() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     for attempt_id in 12..=139 {
         let mut retry = request();
         retry.attempt_id = attempt_id;
@@ -646,23 +628,15 @@ fn generated_sequential_replays_always_return_one_cached_result() {
 fn zero_result_digest_does_not_commit_or_release_reservation() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
-    let retry_token = OwnerToken {
-        key: token.key,
-        logical_operation_id: token.logical_operation_id,
-        attempt_id: token.attempt_id,
-        request_digest: token.request_digest,
-        nonce: token.nonce,
-    };
     assert_eq!(
-        receiver.commit(token, 0),
+        receiver.commit(&token, 0),
         Err(ReceiverError::InvalidResult)
     );
     assert_eq!(receiver.effect_count(10), 0);
     assert_eq!(receiver.in_flight_count(), 1);
-    receiver.commit(retry_token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     assert_eq!(receiver.effect_count(10), 1);
 }
-
 #[test]
 fn forged_owner_nonce_cannot_commit_effect() {
     let mut receiver = Receiver::new();
@@ -670,7 +644,7 @@ fn forged_owner_nonce_cannot_commit_effect() {
     let mut forged = token;
     forged.nonce += 1;
     assert_eq!(
-        receiver.commit(forged, 505),
+        receiver.commit(&forged, 505),
         Err(ReceiverError::InvalidToken)
     );
     assert_eq!(receiver.effect_count(10), 0);
@@ -690,7 +664,7 @@ fn crash_clears_uncommitted_in_flight_owner_without_effect() {
 fn failover_preserves_the_cached_result_digest_and_revision() {
     let mut receiver = Receiver::new();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.commit(token, 0xabc).unwrap();
+    receiver.commit(&token, 0xabc).unwrap();
     let replica = receiver.failover_durable();
     assert_eq!(
         replica.begin(request(), 101),
@@ -705,13 +679,13 @@ fn failover_preserves_the_cached_result_digest_and_revision() {
 fn different_key_same_payload_is_a_distinct_logical_operation() {
     let mut receiver = Receiver::new();
     let first = acquire(&mut receiver, request(), 100);
-    receiver.commit(first, 505).unwrap();
+    receiver.commit(&first, 505).unwrap();
     let mut second_request = request();
     second_request.logical_operation_id = 20;
     second_request.attempt_id = 21;
     second_request.idempotency_key_digest = 405;
     let second = acquire(&mut receiver, second_request, 101);
-    receiver.commit(second, 606).unwrap();
+    receiver.commit(&second, 606).unwrap();
     assert_eq!(receiver.effect_count(10), 1);
     assert_eq!(receiver.effect_count(20), 1);
 }
@@ -728,7 +702,7 @@ fn the_receiver_rejects_zero_retention_configuration() {
 fn expired_key_is_not_silently_extended_by_a_later_duplicate() {
     let mut receiver = Receiver::with_retention(100).unwrap();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     assert_eq!(
         receiver.begin(request(), 200),
         Err(ReceiverError::KeyExpired)
@@ -741,7 +715,7 @@ fn expired_key_is_not_silently_extended_by_a_later_duplicate() {
 fn receiver_owns_key_retention_instead_of_trusting_the_request() {
     let mut receiver = Receiver::with_retention(100).unwrap();
     let token = acquire(&mut receiver, request(), 100);
-    receiver.commit(token, 505).unwrap();
+    receiver.commit(&token, 505).unwrap();
     assert_eq!(
         receiver.begin(request(), 199),
         Ok(BeginDecision::Completed {
