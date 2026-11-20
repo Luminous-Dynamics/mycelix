@@ -653,10 +653,13 @@ pub fn get_maneuvers_for_event(event_id: String) -> ExternResult<Vec<AvoidanceMa
     Ok(maneuvers)
 }
 
-/// Screen a primary object against secondaries using SGP4 propagation
+/// Screen a primary object against secondaries using SGP4 propagation.
 ///
-/// Fetches TLEs from the DHT, propagates all objects to the screening time,
-/// and returns assessments for pairs exceeding the Pc threshold.
+/// Fetches current TLE metadata, requires the exact requested object set to be
+/// present and qualified, and propagates from one captured UTC screening start
+/// through the requested future horizon. The legacy vector result is returned
+/// only when all configured propagation samples succeed; it does not certify
+/// that the fixed sampling schedule is a continuous-time miss-proof search.
 ///
 /// Max 100 secondaries per call (SGP4 in WASM is expensive).
 #[hdk_extern]
@@ -691,9 +694,11 @@ pub struct ScreenWithStalenessInput {
 
 /// Screen for conjunctions with TLE staleness metadata.
 ///
-/// Like `screen_conjunction` but uses `get_tles_with_metadata` to include
-/// staleness assessments. Each returned assessment includes per-TLE
-/// staleness info and a combined confidence score.
+/// Requires exact requested-set coverage and rejects stale, future-dated or
+/// below-quality-floor TLEs because this legacy vector API cannot represent an
+/// indeterminate negative result. All pairs are propagated over a horizon that
+/// starts at one captured UTC screening time. The 10-minute coarse / 10-second
+/// local refinement schedule is not a proof of continuous-time encounter coverage.
 #[hdk_extern]
 pub fn screen_conjunction_with_staleness(
     input: ScreenWithStalenessInput,
@@ -985,6 +990,10 @@ pub fn screen_conjunction_from_tles(
     let fine_step_secs: i64 = 10; // 10 seconds for refinement
     let num_coarse_steps = ((total_seconds + coarse_step_secs - 1) / coarse_step_secs).max(1);
 
+    // Capture once so every pair is assessed over the same absolute time window.
+    // TLE epochs may be older than now; the caller's hours_ahead is future time
+    // from this screening start, not from the primary TLE epoch.
+    let screening_start = chrono::Utc::now();
     let analyzer = ConjunctionAnalyzer::new();
     let mut results: Vec<ConjunctionAssessment> = Vec::new();
 
@@ -996,7 +1005,7 @@ pub fn screen_conjunction_from_tles(
         for i in 0..=num_coarse_steps {
             // Clamp the last coarse sample to the declared window endpoint.
             let offset_secs = (i * coarse_step_secs).min(total_seconds);
-            let t = primary_tle.epoch + chrono::Duration::seconds(offset_secs);
+            let t = screening_start + chrono::Duration::seconds(offset_secs);
             let p_state = primary_prop.propagate_to(t).map_err(|error| {
                 SpaceError::new(
                     SpaceErrorCode::InvalidInput,
@@ -1046,7 +1055,7 @@ pub fn screen_conjunction_from_tles(
         }
 
         for t_secs in fine_offsets {
-            let t = primary_tle.epoch + chrono::Duration::seconds(t_secs);
+            let t = screening_start + chrono::Duration::seconds(t_secs);
             let p_state = primary_prop.propagate_to(t).map_err(|error| {
                 SpaceError::new(
                     SpaceErrorCode::InvalidInput,
@@ -1076,7 +1085,7 @@ pub fn screen_conjunction_from_tles(
         }
 
         // Assess at TCA
-        let tca_time = primary_tle.epoch + chrono::Duration::seconds(tca_offset);
+        let tca_time = screening_start + chrono::Duration::seconds(tca_offset);
         if !best_distance.is_finite() || best_distance == f64::MAX {
             return Err(SpaceError::new(
                 SpaceErrorCode::InvalidInput,
