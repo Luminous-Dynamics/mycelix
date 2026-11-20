@@ -573,7 +573,8 @@
         "outcome_ledger_entry_count",
         "outcome_attestation_count",
         "outcome_ledger",
-        "outcome_trust_policy"
+        "outcome_trust_policy",
+        "asserted_outcome_samples"
       ],
       "properties": {
         "status": {
@@ -714,31 +715,38 @@
         },
         "classified_outcomes": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Verified outcome-ledger count only. Must remain zero while outcome_evidence_status is not verified."
         },
         "qualified_successes": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Verified QualifiedSuccess outcomes only; caller-supplied labels are excluded. Must be zero until a VerifiedOutcomeLedger is integrated."
         },
         "correct_denials": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Verified outcome-ledger count only. Must remain zero while outcome_evidence_status is not verified."
         },
         "unexpected_denials": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Verified outcome-ledger count only. Must remain zero while outcome_evidence_status is not verified."
         },
         "known_failures": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Verified outcome-ledger count only. Must remain zero while outcome_evidence_status is not verified."
         },
         "unknown_outcomes": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Verified outcome-ledger count only. Must remain zero while outcome_evidence_status is not verified."
         },
         "duplicate_external_effects": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Verified outcome-ledger count only. Must remain zero while outcome_evidence_status is not verified."
         },
         "missing_outcomes": {
           "type": "integer",
@@ -1146,6 +1154,50 @@
               "type": "boolean"
             }
           }
+        },
+        "asserted_outcome_samples": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Unverified labels supplied by the workload caller. Diagnostic only; never QOPS facts or the success numerator.",
+          "required": [
+            "classified_samples",
+            "qualified_success_labels",
+            "correct_denial_labels",
+            "unexpected_denial_labels",
+            "failure_labels",
+            "unknown_labels",
+            "duplicate_effect_labels"
+          ],
+          "properties": {
+            "classified_samples": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "qualified_success_labels": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "correct_denial_labels": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unexpected_denial_labels": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failure_labels": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unknown_labels": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "duplicate_effect_labels": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
         }
       },
       "allOf": [
@@ -1455,6 +1507,53 @@
               "cross_host_status",
               "cross_host_aggregate_eligible"
             ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "qops": {
+            "properties": {
+              "status": {
+                "const": "eligible"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "qops"
+        ]
+      },
+      "then": {
+        "properties": {
+          "qops": {
+            "properties": {
+              "outcome_evidence_status": {
+                "const": "verified"
+              },
+              "outcome_ledger": {
+                "properties": {
+                  "verification_status": {
+                    "const": "verified"
+                  }
+                }
+              },
+              "outcome_trust_policy": {
+                "properties": {
+                  "verification_status": {
+                    "const": "verified"
+                  },
+                  "dependency_closure_complete": {
+                    "const": true
+                  }
+                }
+              }
+            }
           }
         }
       }
