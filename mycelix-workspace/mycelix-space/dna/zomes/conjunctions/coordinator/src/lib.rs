@@ -172,7 +172,13 @@ pub fn create_conjunction_event(input: CreateEventInput) -> ExternResult<ActionH
             .into_wasm_error()
         })?;
 
-        let tca_dt = input.tca.to_datetime();
+        let tca_dt = input.tca.try_to_datetime().ok_or_else(|| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "TCA timestamp is outside the representable UTC range",
+            )
+            .into_wasm_error()
+        })?;
         let primary_state = primary_prop.propagate_to(tca_dt).map_err(|e| {
             SpaceError::new(
                 SpaceErrorCode::InvalidInput,
@@ -407,6 +413,16 @@ pub fn announce_maneuver(input: AnnounceManeuverInput) -> ExternResult<ActionHas
             .into_wasm_error());
         }
     }
+    // Validate the timestamp before creating the maneuver record. Invalid source
+    // time must not be replaced with the current wall clock after a mutation.
+    let execution_time = input.burn_time.try_to_datetime().ok_or_else(|| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "Burn-time timestamp is outside the representable UTC range",
+        )
+        .into_wasm_error()
+    })?;
+
     let agent = agent_info()?.agent_initial_pubkey;
 
     let maneuver = AvoidanceManeuver {
@@ -440,7 +456,7 @@ pub fn announce_maneuver(input: AnnounceManeuverInput) -> ExternResult<ActionHas
         conjunction_secondary: None,
         maneuver_type: SharedManeuverType::Combined, // Determine from direction
         delta_v_ms: input.delta_v_ms,
-        execution_time: input.burn_time.to_datetime(),
+        execution_time,
         generated_at: chrono::Utc::now(),
         message: Some(format!(
             "Avoidance maneuver announced for event {}",
