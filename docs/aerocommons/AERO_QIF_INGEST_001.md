@@ -98,6 +98,8 @@ This separation avoids rewriting source evidence just because an offline runner 
 - all seven stage results exactly once, including NotRun and Blocked;
 - stage/tool-type compatibility and prerequisite ordering;
 - extraction accounting identity: mapped + unresolved + ambiguous + unsupported + dropped = total required;
+- unique source locators, source QPId/document membership, valid Results-local external-reference binding and target/reason-code consistency for each mapping row;
+- recomputed canonical source-mapping-manifest bytes and SHA-256 must match the declared manifest artifact exactly;
 - no Passed extraction with unresolved, ambiguous, unsupported or dropped mappings;
 - exact byte verification for every document, schema, stylesheet dependency, runtime, tool, policy/runner reference, stage report and extraction output;
 - deterministic SHA-256 receipt over a versioned canonical JSON profile.
@@ -109,7 +111,9 @@ Targets, not achieved results:
 - zero network and zero host-path access in hostile-input containment tests;
 - 100% rejection of URI traversal, absolute path, symlink, archive bomb, cyclic-link and recursion-limit controls;
 - zero source-to-normalized silent drops;
-- 100% accounting of every required source mapping as mapped/unresolved/ambiguous/unsupported/dropped;
+- 100% one-to-one accounting of every required source field as a unique source-locator row classified mapped/unresolved/ambiguous/unsupported/dropped;
+- 100% agreement between typed mapping rows, declared disposition counts and the exact source-mapping-manifest bytes;
+- zero duplicate source locators, invalid external-reference joins or mapped rows lacking normalized targets;
 - zero false Passed extraction when any mapping is unresolved, ambiguous, unsupported or dropped;
 - zero downstream Passed stages with an unpassed prerequisite;
 - 100% XSD and normative XSLT outcome capture, warnings included;
