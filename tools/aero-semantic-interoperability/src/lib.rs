@@ -345,11 +345,27 @@ pub fn apply_mutation(
         MutationOperation::ChangeDatum => {
             observed[index].value = serde_json::json!({"datum": "B", "order": 2});
         }
-        MutationOperation::ChangeSubjectId
-        | MutationOperation::DuplicatePersistentId
-        | MutationOperation::StaleRevision => {
+        MutationOperation::ChangeSubjectId => {
             let mutated_id = format!("mutated:{}", observed[index].subject.id);
             observed[index].subject.id = mutated_id;
+        }
+        MutationOperation::StaleRevision => {
+            let mutated_id = format!("{}:stale-revision", observed[index].subject.id);
+            observed[index].subject.id = mutated_id;
+        }
+        MutationOperation::DuplicatePersistentId => {
+            let duplicate_id = observed[index].subject.id.clone();
+            let duplicate_kind = observed[index].subject.kind.clone();
+            let Some(other) = observed.iter_mut().enumerate()
+                .find(|(other_index, item)| *other_index != index && item.subject.id != duplicate_id)
+                .map(|(_, item)| item)
+            else {
+                return Err(EvaluationError::MutationTargetNotFound(
+                    "no second subject available for duplicate persistent-ID injection".into(),
+                ));
+            };
+            other.subject.id = duplicate_id;
+            other.subject.kind = duplicate_kind;
         }
         MutationOperation::ShiftEventTime => {
             observed[index].value = match observed[index].value.as_i64() {
@@ -639,6 +655,26 @@ mod tests {
         assert!(matches!(validate_case(&case), Err(EvaluationError::SourceRightsNotAdmitted(_))));
         case.source_manifest[0].rights_status = RightsStatus::ClearedForTesting;
         assert_eq!(validate_case(&case), Ok(()));
+    }
+
+    #[test]
+    fn duplicate_persistent_id_mutation_creates_a_real_cross_assertion_collision() {
+        let case = fixture_case();
+        let mutation = case.mutations.iter()
+            .find(|item| item.operation == MutationOperation::DuplicatePersistentId)
+            .expect("duplicate-id mutation");
+        let (observed, unsupported) = apply_mutation(&case.assertions, mutation).unwrap();
+        let first_subject = observed.iter().find(|item| item.assertion_id == "A-UNIT-001").unwrap().subject.clone();
+        let second_subject = observed.iter().find(|item| item.assertion_id == "A-REQ-001").unwrap().subject.clone();
+        assert_eq!(first_subject, second_subject);
+        let report = evaluate_assertions(
+            &case.benchmark_id,
+            &case.case_id,
+            &case.assertions,
+            &observed,
+            &unsupported,
+        ).unwrap();
+        assert_eq!(report.disposition, AssertionStatus::WrongSubjectJoin);
     }
 
     #[test]
