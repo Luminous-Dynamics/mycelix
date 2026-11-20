@@ -1420,7 +1420,7 @@
     "sequence_start": 1,
     "sequence_policy": "contiguous-increasing-no-reordering",
     "operation_id_policy": "unique-within-run-and-scenario",
-    "idempotency_policy": "unique-when-present-and-required-for-external-effects",
+    "idempotency_policy": "Unique domain-separated SHA-256 commitment when present; required for external effects; raw key is never serialized; algorithm id MYCELIX-MCRB-IDEMPOTENCY-KEY-v0.1.",
     "qops_denominator_source": "verified-offer-ledger-entry-count",
     "outcome_policy": "Exactly one authenticated terminal outcome or explicit Unknown per offer; Unknown remains in the denominator and suppresses QOPS until reconciled.",
     "measurement_clock": "monotonic-clock-id-and-epoch-bound-ticks",
