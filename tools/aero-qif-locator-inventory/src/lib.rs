@@ -446,11 +446,13 @@ fn parsed_numeric_attribute(value: &str, path: &str) -> Result<u32, InventoryErr
 
 fn attribute_values(
     start: &quick_xml::events::BytesStart<'_>,
+    resolver: &quick_xml::name::NamespaceResolver,
     max_attributes: u32,
     path: &str,
-) -> Result<(Option<u32>, Option<u32>, u32), InventoryError> {
+) -> Result<(Option<u32>, Option<u32>, BTreeMap<String, String>, u32), InventoryError> {
     let mut element_id = None;
     let mut external_xid = None;
+    let mut attributes = BTreeMap::new();
     let mut count = 0u32;
     for attribute in start.attributes().with_checks(true) {
         let attribute = attribute.map_err(|_| InventoryError::InvalidAttribute)?;
@@ -458,21 +460,23 @@ fn attribute_values(
         if count > max_attributes {
             return Err(InventoryError::AttributeLimitExceeded);
         }
-        let key = attribute.key.as_ref();
-        if key.contains(':') {
+        let (namespace, local_name) = resolver.resolve_attribute(attribute.key);
+        let expanded = expanded_name(namespace, local_name.as_ref())?;
+        // Namespace declarations are parser control metadata, not QIF fields.
+        if expanded.starts_with("{http://www.w3.org/2000/xmlns/}") {
             continue;
         }
-        if key == "id" || key == "xId" {
-            let value = unescape(attribute.value.as_ref())
-                .map_err(|_| InventoryError::InvalidAttribute)?;
-            if key == "id" {
-                element_id = Some(parsed_numeric_attribute(&value, path)?);
-            } else {
-                external_xid = Some(parsed_numeric_attribute(&value, path)?);
-            }
+        let value = unescape(attribute.value.as_ref())
+            .map_err(|_| InventoryError::InvalidAttribute)?
+            .into_owned();
+        if expanded == "{}id" {
+            element_id = Some(parsed_numeric_attribute(&value, path)?);
+        } else if expanded == "{}xId" {
+            external_xid = Some(parsed_numeric_attribute(&value, path)?);
         }
+        attributes.insert(expanded, value);
     }
-    Ok((element_id, external_xid, count))
+    Ok((element_id, external_xid, attributes, count))
 }
 
 fn append_locator(
@@ -484,6 +488,7 @@ fn append_locator(
     external_reference_id: Option<u32>,
     external_xid: Option<u32>,
     field_value: Option<&str>,
+    captured_attributes: &BTreeMap<String, String>,
     max_locators: u64,
 ) -> Result<(), InventoryError> {
     if locators.len() as u64 >= max_locators {
@@ -502,6 +507,7 @@ fn append_locator(
         capture: rule.capture,
         locator,
         field_value_sha256,
+        captured_attributes: captured_attributes.clone(),
     });
     Ok(())
 }
@@ -526,6 +532,7 @@ fn finalize_frame(
                     None,
                     None,
                     None,
+                    &frame.captured_attributes,
                     profile.limits.max_locators,
                 )?;
             }
@@ -541,6 +548,7 @@ fn finalize_frame(
                     None,
                     None,
                     Some(&element_id.to_string()),
+                    &frame.captured_attributes,
                     profile.limits.max_locators,
                 )?;
                 if rule.declares_external_document_reference {
@@ -557,6 +565,7 @@ fn finalize_frame(
                     None,
                     None,
                     Some(&frame.direct_text),
+                    &frame.captured_attributes,
                     profile.limits.max_locators,
                 )?;
             }
@@ -623,8 +632,9 @@ fn scan_document(
                 let local = start.local_name();
                 let local_name = local.as_ref();
                 let expanded = expanded_name(resolution, local_name)?;
-                let (element_id, external_xid, _) = attribute_values(
+                let (element_id, external_xid, raw_attributes, _) = attribute_values(
                     &start,
+                    reader.resolver(),
                     profile.limits.max_attributes_per_element,
                     &expanded,
                 )?;
@@ -661,6 +671,14 @@ fn scan_document(
                             .then_some(index)
                     })
                     .collect::<Vec<_>>();
+                let mut captured_attributes = BTreeMap::new();
+                for rule_index in &matching_rules {
+                    for attribute_name in &profile.rules[*rule_index].capture_attributes {
+                        if let Some(value) = raw_attributes.get(attribute_name) {
+                            captured_attributes.insert(attribute_name.clone(), value.clone());
+                        }
+                    }
+                }
 
                 let frame = ElementFrame {
                     expanded_name: expanded,
@@ -670,6 +688,7 @@ fn scan_document(
                     matching_rules,
                     element_id,
                     external_xid,
+                    captured_attributes,
                     direct_text: String::new(),
                     has_child_element: false,
                 };
