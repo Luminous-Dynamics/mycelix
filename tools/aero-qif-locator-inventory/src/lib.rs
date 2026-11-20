@@ -541,6 +541,12 @@ fn attribute_values(
     Ok((element_id, external_xid, attributes, count))
 }
 
+fn parent_element_path(source_path: &str) -> Option<&str> {
+    let without_text_selector = source_path.split('#').next().unwrap_or(source_path);
+    let without_attribute_selector = without_text_selector.strip_suffix("@id").unwrap_or(without_text_selector);
+    without_attribute_selector.rsplit_once('/').map(|(parent, _)| parent)
+}
+
 fn append_locator(
     locators: &mut Vec<TraceLocatorRecordV1>,
     rule: &TraceLocatorRuleV1,
@@ -1028,23 +1034,18 @@ pub fn derive_trace_locator_inventory(
     if results.len() != 1 {
         return Err(InventoryError::InvalidIdentity("results_document_cardinality".into()));
     }
-    let results_measurements = results[0].locators.iter()
+    let measurement_records: Vec<_> = results[0].locators.iter()
         .filter(|record| record.rule_id == "results.characteristic_measurement")
-        .count();
-    let results_item_references = results[0].locators.iter()
+        .collect();
+    let measurement_paths: BTreeSet<_> = measurement_records.iter()
+        .filter_map(|record| record.locator.source_path.strip_suffix("@id"))
+        .collect();
+    let item_reference_records: Vec<_> = results[0].locators.iter()
         .filter(|record| record.rule_id == "results.characteristic_item_external_reference")
-        .count();
-    let mut measurement_paths = BTreeSet::new();
-    for record in results[0].locators.iter()
-        .filter(|record| record.rule_id == "results.characteristic_measurement")
-    {
-        let measurement_path = record.locator.source_path.strip_suffix("@id")
-            .ok_or_else(|| InventoryError::SourceRuleCoverageMismatch(
-                "CharacteristicMeasurement source locator has no @id selector".into()
-            ))?;
-        measurement_paths.insert(measurement_path.to_owned());
-    }
-    let mut status_parent_paths = BTreeSet::new();
+        .collect();
+    let item_reference_parent_paths: BTreeSet<_> = item_reference_records.iter()
+        .filter_map(|record| parent_element_path(&record.locator.source_path))
+        .collect();
     let status_records: Vec<_> = results[0].locators.iter()
         .filter(|record| matches!(
             record.rule_id.as_str(),
@@ -1052,22 +1053,30 @@ pub fn derive_trace_locator_inventory(
                 | "results.characteristic_measurement_other_status"
         ))
         .collect();
+    let mut status_parent_paths = BTreeSet::new();
     for record in &status_records {
-        let parent = record.locator.source_path.split("/Status[").next()
+        let status_path = parent_element_path(&record.locator.source_path)
             .ok_or_else(|| InventoryError::SourceRuleCoverageMismatch(
                 "CharacteristicMeasurement Status locator has no Status parent".into()
             ))?;
-        if !status_parent_paths.insert(parent.to_owned()) {
+        let measurement_path = status_path.rsplit_once('/')
+            .map(|(parent, _)| parent)
+            .ok_or_else(|| InventoryError::SourceRuleCoverageMismatch(
+                "Status locator has no CharacteristicMeasurement parent".into()
+            ))?;
+        if !status_parent_paths.insert(measurement_path) {
             return Err(InventoryError::SourceRuleCoverageMismatch(
                 "CharacteristicMeasurement has more than one status choice".into()
             ));
         }
     }
-    if results_measurements != results_item_references
+    if measurement_paths.len() != measurement_records.len()
+        || item_reference_parent_paths.len() != item_reference_records.len()
+        || measurement_paths != item_reference_parent_paths
         || measurement_paths != status_parent_paths
     {
         return Err(InventoryError::SourceRuleCoverageMismatch(
-            "Results characteristic measurement/status/item-reference".into()
+            "each CharacteristicMeasurement must have exactly one Status and CharacteristicItemId".into()
         ));
     }
 
@@ -1197,20 +1206,27 @@ pub fn derive_trace_locator_inventory(
         }
     }
 
-    let plan_items = scanned.iter()
-        .filter(|document| document.source.role == QifDocumentRole::Plan)
-        .map(|document| document.locators.iter()
-            .filter(|record| record.rule_id == "plan.characteristic_item").count())
-        .sum::<usize>();
-    let plan_nominal_references = scanned.iter()
-        .filter(|document| document.source.role == QifDocumentRole::Plan)
-        .map(|document| document.locators.iter()
-            .filter(|record| record.rule_id == "plan.characteristic_item_nominal_reference").count())
-        .sum::<usize>();
-    if plan_items != plan_nominal_references {
-        return Err(InventoryError::SourceRuleCoverageMismatch(
-            "Plan characteristic-item/nominal-reference".into()
-        ));
+    for plan in scanned.iter().filter(|document| document.source.role == QifDocumentRole::Plan) {
+        let item_records: Vec<_> = plan.locators.iter()
+            .filter(|record| record.rule_id == "plan.characteristic_item")
+            .collect();
+        let item_paths: BTreeSet<_> = item_records.iter()
+            .filter_map(|record| record.locator.source_path.strip_suffix("@id"))
+            .collect();
+        let nominal_reference_records: Vec<_> = plan.locators.iter()
+            .filter(|record| record.rule_id == "plan.characteristic_item_nominal_reference")
+            .collect();
+        let nominal_reference_parent_paths: BTreeSet<_> = nominal_reference_records.iter()
+            .filter_map(|record| parent_element_path(&record.locator.source_path))
+            .collect();
+        if item_paths.len() != item_records.len()
+            || nominal_reference_parent_paths.len() != nominal_reference_records.len()
+            || item_paths != nominal_reference_parent_paths
+        {
+            return Err(InventoryError::SourceRuleCoverageMismatch(
+                "each Plan CharacteristicItem must have exactly one CharacteristicNominalId".into()
+            ));
+        }
     }
 
     let mut source_documents = scanned.iter().map(|document| document.source.clone()).collect::<Vec<_>>();
