@@ -254,6 +254,7 @@ pub struct ExtractionEvidenceV1 {
 pub struct QifIngestQualificationBodyV1 {
     pub qualification_id: String,
     pub benchmark_case_id: String,
+    pub qif_standard_version: String,
     pub qif_profile: QifValidationProfile,
     pub documents: Vec<QifDocumentInputV1>,
     pub external_document_bindings: Vec<ExternalDocumentBindingV1>,
@@ -342,6 +343,10 @@ pub enum IngestError {
     InvalidSandboxLimit,
     #[error("runtime or tool artifact is invalid: {0}")]
     InvalidArtifact(String),
+    #[error("unsupported .NET Core 3.1 runtime must be explicitly marked legacy")]
+    LegacyRuntimeMisclassified,
+    #[error("remote or non-relative QIF URI is not admitted by the offline profile: {0}")]
+    UnsafeSourceUri(String),
     #[error("extraction evidence is missing or inconsistent")]
     InvalidExtractionEvidence,
     #[error("extraction stage Passed despite unresolved, ambiguous, unsupported or dropped mappings")]
@@ -489,6 +494,7 @@ pub fn validate_ingest_qualification(
     }
     if qualification.body.qualification_id.trim().is_empty()
         || qualification.body.benchmark_case_id.trim().is_empty()
+        || qualification.body.qif_standard_version != "3.0.0"
     {
         return Err(IngestError::InvalidIdentity("qualification_id/benchmark_case_id".into()));
     }
@@ -502,6 +508,9 @@ pub fn validate_ingest_qualification(
     let mut results_docs = Vec::new();
     let mut plan_docs = BTreeSet::new();
     for document in &body.documents {
+        if document.source_uri.as_ref().is_some_and(|uri| !safe_relative_path(uri)) {
+            return Err(IngestError::UnsafeSourceUri(document.source_uri.clone().unwrap_or_default()));
+        }
         if !valid_uuid(&document.qpid) {
             return Err(IngestError::InvalidQpid(document.qpid.clone()));
         }
@@ -539,8 +548,14 @@ pub fn validate_ingest_qualification(
         if plan.role != QifDocumentRole::Plan {
             return Err(IngestError::MissingPlanDocument(binding.target_plan_qpid.clone()));
         }
-        if binding.source_uri.trim().is_empty() || !safe_relative_path(&binding.staged_relative_path) {
+        if !safe_relative_path(&binding.source_uri) {
+            return Err(IngestError::UnsafeSourceUri(binding.source_uri.clone()));
+        }
+        if !safe_relative_path(&binding.staged_relative_path) {
             return Err(IngestError::UnsafeStagedPath(binding.staged_relative_path.clone()));
+        }
+        if binding.source_uri != binding.staged_relative_path {
+            return Err(IngestError::UnsafeSourceUri(binding.source_uri.clone()));
         }
         if !staged_paths.insert(binding.staged_relative_path.clone()) {
             return Err(IngestError::DuplicateStagedPath(binding.staged_relative_path.clone()));
@@ -555,6 +570,16 @@ pub fn validate_ingest_qualification(
     validate_bundle_files(&body.bundles.xsd.entrypoint, &body.bundles.xsd.files)?;
     validate_bundle_files(&body.bundles.xslt.root_stylesheet, &body.bundles.xslt.files)?;
     validate_content_artifact(&body.bundles.xslt.check_parameters)?;
+    let expected_xslt_format = match body.qif_profile {
+        QifValidationProfile::Qif3Normative => "QIF_3.0_XSLT",
+        QifValidationProfile::Qif3PlusPreview => "QIF3PLUS_PREVIEW_XSLT",
+    };
+    if body.bundles.xsd.entrypoint.format_id != "QIF_3.0_XSD"
+        || body.bundles.xslt.root_stylesheet.format_id != expected_xslt_format
+        || body.bundles.xslt.check_parameters.format_id != "QIF_CHECK_PARAMETERS_V1"
+    {
+        return Err(IngestError::BundleProfileMismatch);
+    }
     if body.bundles.xslt.profile != body.qif_profile {
         return Err(IngestError::BundleProfileMismatch);
     }
@@ -562,6 +587,12 @@ pub fn validate_ingest_qualification(
     validate_content_artifact(&body.runtime.runtime_image)?;
     if body.runtime.runtime_name.trim().is_empty() || body.runtime.runtime_version.trim().is_empty() {
         return Err(IngestError::InvalidIdentity("runtime".into()));
+    }
+    if body.runtime.runtime_name.eq_ignore_ascii_case("dotnet")
+        && body.runtime.runtime_version.starts_with("3.1")
+        && body.runtime.support != RuntimeSupport::UnsupportedLegacy
+    {
+        return Err(IngestError::LegacyRuntimeMisclassified);
     }
 
     let mut tools = BTreeMap::new();
@@ -593,13 +624,13 @@ pub fn validate_ingest_qualification(
     {
         return Err(IngestError::UnsafeSandboxProfile);
     }
-    if body.sandbox.cpu_limit_seconds == 0
-        || body.sandbox.memory_limit_bytes == 0
-        || body.sandbox.wall_time_limit_ms == 0
-        || body.sandbox.max_document_bytes == 0
-        || body.sandbox.max_total_input_bytes == 0
-        || body.sandbox.max_document_count == 0
-        || body.sandbox.max_link_recursion_depth == 0
+    if body.sandbox.cpu_limit_seconds == 0 || body.sandbox.cpu_limit_seconds > 600
+        || body.sandbox.memory_limit_bytes == 0 || body.sandbox.memory_limit_bytes > 8 * 1024 * 1024 * 1024
+        || body.sandbox.wall_time_limit_ms == 0 || body.sandbox.wall_time_limit_ms > 600_000
+        || body.sandbox.max_document_bytes == 0 || body.sandbox.max_document_bytes > 100 * 1024 * 1024
+        || body.sandbox.max_total_input_bytes == 0 || body.sandbox.max_total_input_bytes > 1024 * 1024 * 1024
+        || body.sandbox.max_document_count == 0 || body.sandbox.max_document_count > 128
+        || body.sandbox.max_link_recursion_depth == 0 || body.sandbox.max_link_recursion_depth > 8
     {
         return Err(IngestError::InvalidSandboxLimit);
     }
@@ -816,9 +847,9 @@ mod tests {
         ];
         let results = artifact("qif_results", "QIF_3.0", results_bytes);
         let plan = artifact("qif_plan", "QIF_3.0", plan_bytes);
-        let xsd = artifact("xsd_schema", "QIF3_XSD", xsd_bytes);
-        let xslt = artifact("xslt_root", "QIF3_XSLT", xslt_bytes);
-        let parameters = artifact("xslt_parameters", "QIF_CHECK_PARAMETERS", params_bytes);
+        let xsd = artifact("xsd_schema", "QIF_3.0_XSD", xsd_bytes);
+        let xslt = artifact("xslt_root", "QIF_3.0_XSLT", xslt_bytes);
+        let parameters = artifact("xslt_parameters", "QIF_CHECK_PARAMETERS_V1", params_bytes);
         let runtime = artifact("runtime_image", "DOTNET_10_LTS", runtime_bytes);
         let policy = artifact("sandbox_policy", "QIF_OFFLINE_SANDBOX_V1", policy_bytes);
         let runner = artifact("runner_attestation", "HOST_RUNNER_ATTESTATION_V1", runner_bytes);
@@ -865,6 +896,7 @@ mod tests {
         let body = QifIngestQualificationBodyV1 {
             qualification_id: "qualification-001".into(),
             benchmark_case_id: "case-test8-synthetic".into(),
+            qif_standard_version: "3.0.0".into(),
             qif_profile: QifValidationProfile::Qif3Normative,
             documents: vec![
                 QifDocumentInputV1 { qpid: "10000000-0000-4000-8000-000000000001".into(), role: QifDocumentRole::Results, artifact: results.clone(), source_uri: None },
