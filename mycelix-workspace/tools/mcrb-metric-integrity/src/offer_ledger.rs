@@ -640,6 +640,62 @@ mod tests {
     }
 
     #[test]
+    fn operation_contract_registry_digest_is_bound_into_the_offer_envelope() {
+        let mut envelope = valid_envelope();
+        envelope.operation_contract_registry_digest_sha256 = digest("different-contract-registry");
+        envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
+        let issues = verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err();
+        assert!(issues.iter().any(|issue| matches!(
+            issue,
+            OfferLedgerIssue::OperationContractRegistryDigestMismatch { .. }
+        )));
+    }
+
+    #[test]
+    fn unknown_operation_contract_is_rejected_even_when_offer_digest_is_valid() {
+        let mut envelope = valid_envelope();
+        envelope.entries[0].operation_contract_id = "unregistered-contract".to_string();
+        envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry())
+            .unwrap_err()
+            .contains(&OfferLedgerIssue::UnknownOperationContract(0)));
+    }
+
+    #[test]
+    fn operation_contract_digest_mismatch_is_rejected_even_when_offer_digest_is_recomputed() {
+        let mut envelope = valid_envelope();
+        envelope.entries[0].operation_contract_digest_sha256 = digest("tampered-contract");
+        envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry())
+            .unwrap_err()
+            .contains(&OfferLedgerIssue::OperationContractDigestMismatch(0)));
+    }
+
+    #[test]
+    fn operation_contract_class_cannot_be_changed_after_offer_creation() {
+        let mut envelope = valid_envelope();
+        envelope.entries[0].operation_class = "external-provider-effect".to_string();
+        envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry())
+            .unwrap_err()
+            .contains(&OfferLedgerIssue::OperationContractContextMismatch(0)));
+    }
+
+    #[test]
+    fn raw_idempotency_key_values_are_rejected_and_never_serialized() {
+        let mut envelope = valid_envelope();
+        envelope.entries[0].idempotency_key_digest_sha256 = Some("not-a-sha256-digest".to_string());
+        envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
+        assert!(verify_offer_ledger(&envelope, &embedded_contract_registry())
+            .unwrap_err()
+            .contains(&OfferLedgerIssue::InvalidIdempotencyKeyDigest(0)));
+
+        let encoded = serde_json::to_string(&valid_envelope()).unwrap();
+        assert!(!encoded.contains("\\\"idempotency_key\\\":"));
+        assert!(encoded.contains("\\\"idempotency_key_digest_sha256\\\":"));
+    }
+
+    #[test]
     fn reordered_sequence_is_rejected_even_when_digest_is_recomputed() {
         let mut envelope = valid_envelope();
         envelope.entries.swap(0, 1);
