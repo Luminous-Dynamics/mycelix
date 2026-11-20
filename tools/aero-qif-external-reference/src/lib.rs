@@ -24,15 +24,6 @@ pub enum MeasurementStatus {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum PlanObjectKind {
-    CharacteristicItem,
-    FeatureItem,
-    DatumDefinition,
-    Other,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum StepEntityKind {
     Characteristic,
     GeometricFeature,
@@ -208,8 +199,6 @@ pub enum TraceError {
     MissingEntityExternalIds { nominal_id: u32 },
     #[error("EntityExternalId {entity_id} missing in DigitalModel map for Plan {qpid}")]
     MissingDigitalModelEntity { qpid: String, entity_id: u32 },
-    #[error("xId {xid} in QPId {qpid} resolved to a non-CharacteristicItem")]
-    WrongExternalObjectKind { qpid: String, xid: u32 },
     #[error("missing STEP document for Plan {0}")]
     MissingStepDocument(String),
     #[error("STEP document artifact does not exactly match Plan reference for {0}")]
@@ -220,8 +209,6 @@ pub enum TraceError {
     MissingStepEntity { document: String, uuid: String },
     #[error("STEP UUID {uuid} has a kind mismatch in document {document}")]
     StepEntityKindMismatch { document: String, uuid: String },
-    #[error("Plan {qpid} uses uppercase UUID {uuid}; UUID comparison requires canonical lowercase")]
-    NonCanonicalUuid { qpid: String, uuid: String },
     #[error("invalid content artifact {0}")]
     InvalidArtifact(String),
     #[error("duplicate artifact reference {0}")]
