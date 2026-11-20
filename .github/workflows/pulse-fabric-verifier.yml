@@ -37,9 +37,19 @@ jobs:
         with:
           workspaces: |
             mycelix-workspace/mycelix-pulse/tools/fabric-verifier -> target
+      - name: Generate and freeze dependency resolution for this run
+        run: cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.toml
       - name: Format
         run: cargo fmt --manifest-path mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.toml -- --check
       - name: Unit tests
-        run: cargo test --manifest-path mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.toml
+        run: cargo test --locked --manifest-path mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.toml
       - name: Clippy
-        run: cargo clippy --manifest-path mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.toml --all-targets -- -D warnings
+        run: cargo clippy --locked --manifest-path mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.toml --all-targets -- -D warnings
+      - name: Preserve generated Cargo.lock for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-fabric-verifier-cargo-lock
+          path: mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.lock
+          if-no-files-found: warn
+          retention-days: 14
