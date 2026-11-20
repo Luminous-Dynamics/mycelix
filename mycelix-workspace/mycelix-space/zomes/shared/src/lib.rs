@@ -315,6 +315,92 @@ pub struct ScreenInput {
     pub pc_threshold: f64,
 }
 
+/// Deterministic resolution of TLE records associated with one NORAD anchor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TleLatestDecision {
+    Insert,
+    KeepExisting,
+    ReplaceExisting,
+}
+
+/// A same-epoch TLE ambiguity or DHT anchor/entry identity mismatch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TleLatestConflict {
+    WrongAnchor { expected_norad_id: u32, actual_norad_id: u32 },
+    SameEpochOrbitConflict { norad_id: u32 },
+    SameEpochMetadataConflict { norad_id: u32 },
+}
+
+/// Minimal view of a TLE record used by the deterministic latest-record resolver.
+#[derive(Clone, Copy, Debug)]
+pub struct TleLatestCandidate<'a> {
+    pub norad_id: u32,
+    pub epoch_micros: i64,
+    pub line1: &'a str,
+    pub line2: &'a str,
+    pub source: &'a DataSourceType,
+    pub quality: &'a QualityScore,
+    pub submitted_at_micros: i64,
+}
+
+/// Select the latest TLE independently of DHT link iteration order.
+///
+/// A strictly newer epoch wins. Older epochs cannot replace it. Equal-epoch
+/// records must contain identical orbit-line bytes. When `compare_metadata`
+/// is true, source and quality must also agree; otherwise-identical records
+/// use the greatest submission timestamp. Equal emitted fields are
+/// interchangeable, so either record yields the same output projection.
+pub fn select_latest_tle_candidate(
+    expected_norad_id: u32,
+    current: Option<TleLatestCandidate<'_>>,
+    candidate: TleLatestCandidate<'_>,
+    compare_metadata: bool,
+) -> Result<TleLatestDecision, TleLatestConflict> {
+    if candidate.norad_id != expected_norad_id {
+        return Err(TleLatestConflict::WrongAnchor {
+            expected_norad_id,
+            actual_norad_id: candidate.norad_id,
+        });
+    }
+
+    let Some(current) = current else {
+        return Ok(TleLatestDecision::Insert);
+    };
+    if current.norad_id != expected_norad_id {
+        return Err(TleLatestConflict::WrongAnchor {
+            expected_norad_id,
+            actual_norad_id: current.norad_id,
+        });
+    }
+
+    if candidate.epoch_micros > current.epoch_micros {
+        return Ok(TleLatestDecision::ReplaceExisting);
+    }
+    if candidate.epoch_micros < current.epoch_micros {
+        return Ok(TleLatestDecision::KeepExisting);
+    }
+
+    if candidate.line1 != current.line1 || candidate.line2 != current.line2 {
+        return Err(TleLatestConflict::SameEpochOrbitConflict {
+            norad_id: expected_norad_id,
+        });
+    }
+
+    if compare_metadata
+        && (candidate.source != current.source || candidate.quality != current.quality)
+    {
+        return Err(TleLatestConflict::SameEpochMetadataConflict {
+            norad_id: expected_norad_id,
+        });
+    }
+
+    if compare_metadata && candidate.submitted_at_micros > current.submitted_at_micros {
+        Ok(TleLatestDecision::ReplaceExisting)
+    } else {
+        Ok(TleLatestDecision::KeepExisting)
+    }
+}
+
 /// Conjunction screening request
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ScreeningRequest {
