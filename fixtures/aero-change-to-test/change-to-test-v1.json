@@ -12,7 +12,7 @@
   },
   "change_set": {
     "change_id": "change:process-plan-rev-002",
-    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "sha256": "cb140867713ba7e0874d5c8f5bca86e39a912730a827f11014f6543ada657229",
     "changed_artifacts": [
       {
         "id": "artifact:process-plan-r2",
