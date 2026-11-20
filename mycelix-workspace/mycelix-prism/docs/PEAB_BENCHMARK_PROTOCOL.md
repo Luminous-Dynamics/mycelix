@@ -632,7 +632,7 @@ These are target thresholds and benchmark hypotheses, not measured results. Do n
 
 ## 15. Durable dispatch journal crash qualification
 
-The dependency-free reference model at prism-egress/tests/durable_journal_model.rs contains 25 source-level tests. It models append-only ordered records, a durable-prefix watermark, process-crash truncation of the volatile suffix, scope-bound dispatch tokens, and a one-use transport adapter gate. Its 64-bit deterministic checksum is only a model checksum, not a production cryptographic digest.
+The dependency-free reference model at prism-egress/tests/durable_journal_model.rs contains 32 source-level tests. It models append-only ordered records, a durable-prefix watermark, process-crash truncation of the volatile suffix, scope-bound dispatch tokens, and a one-use transport adapter gate. Its 64-bit deterministic checksum is only a model checksum, not a production cryptographic digest.
 
 ### Hard write-ahead rule
 
@@ -654,3 +654,10 @@ Measure fsync/fdatasync p50/p95/p99, marker-to-token latency, token-to-first-byt
 Provisional performance objective after a real baseline exists: target no more than 10% throughput loss and no more than 15% p99 latency overhead versus an otherwise-identical no-journal transport under a healthy supported-storage profile. Treat these as research targets, not acceptance gates or achieved measurements; publish the durability/latency/throughput Pareto curve when the target cannot be met.
 
 Hard security gates are independent of performance: zero writes without a durable token; zero token reconstruction after replay; zero automatic retry from dispatched unknown state; zero silent acceptance of a corrupt durable prefix.
+
+
+### Logical-operation attempt lineage
+
+The journal reference model now binds every attempt to a stable logical-operation ID and records whether remote reconciliation resolved the operation as Applied or DefinitelyNotApplied. A new attempt for the same logical operation is forbidden while the prior attempt is dispatched or otherwise unresolved, and forbidden after Applied. It is allowed only while the prior attempt remained pre-dispatch or after tuple-bound authoritative DefinitelyNotApplied proof. A new attempt must preserve workload, principal, origin, canonical request digest and idempotency-key digest, while receiving a new attempt ID and fresh policy/network generations. Superseded attempts may not append new records.
+
+PEAB WAL-028 through WAL-034 cover unresolved-attempt blocking, Applied replay denial, authoritative absence with fresh attempt identity, request-digest/key/principal mismatch, superseded attempts and attempt-ID reuse. All are source-present model cases, still not_run_exact_head.
