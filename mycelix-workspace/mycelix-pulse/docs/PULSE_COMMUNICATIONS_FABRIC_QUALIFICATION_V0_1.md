@@ -273,7 +273,15 @@ Every run binds:
 
 The verifier must be independent of the candidate's decision code. It checks schema, identity binding, digest binding, causal references, role separation, state transitions and terminal disposition. It must refuse an unsupported inference. Do not upload plaintext or publicize stable identity/relationship metadata merely to make a benchmark easy to inspect.
 
-## 8. Phased execution
+## 8. Group fan-out boundary
+
+The v0.1 replay verifier qualifies a recipient-level logical delivery operation. It does **not** prove that a group message reached every member, every required device, or any policy-defined quorum. One recipient receipt must never be promoted to a group-level completion claim.
+
+Group fan-out is split into [PULSE-GROUP-FANOUT-QUAL-001 / #6401](https://github.com/Luminous-Dynamics/mycelix/issues/6401): a parent fanout identity and a committed membership/recipient-set snapshot, with one stable child logical operation per required recipient and independent receipts. COMPLETE_VERIFIED is an aggregate derived only when all recipients required by the committed snapshot have verified receipts under the declared policy/deadline. PARTIAL, UNKNOWN and INCOMPLETE remain visible. Any quorum override must be explicit, user-visible and bound to an authenticated policy snapshot.
+
+The benchmark profile now includes per-recipient VDR, complete-group delivery, partial coverage distribution, worst-member latency, epoch update cost, and post-removal/late-join negative controls. Those are preregistered targets; the current v0.1 verifier does not yet implement parent/child fan-out aggregation.
+
+## 9. Phased execution
 
 | Phase | Work | Exit criterion |
 |---|---|---|
@@ -286,7 +294,7 @@ The verifier must be independent of the candidate's decision code. It checks sch
 
 CI queue state is not evidence. A skipped, queued, cancelled, stale-head or superseded run is not a pass. A synthetic fixture pass is not a real-conductor result.
 
-## 9. Existing work to compose
+## 10. Existing work to compose
 
 This workstream coordinates rather than duplicates:
 - #5110 / #5111 — industry/security/recovery benchmark.
@@ -294,16 +302,17 @@ This workstream coordinates rather than duplicates:
 - #5122 — session ratchet, forward secrecy and post-compromise recovery.
 - #5062 / #5135 / #5148 — durable delivery, idempotent receipt and truthful Delivered state.
 - #5718 / #5719 — Holochain 0.7.1 migration profile and qualification.
-- #5771 / #5772 / #5917 / #5924 — authorization models, runtime histories, cell scope and revocation ordering.
+- #5771 / #5772 / #5773 / #5917 / #5924 — authorization models, runtime histories, legacy capability-secret retirement, cell scope and revocation ordering.
 - #5863 / #5942 — signed evidence and transparency anti-equivocation.
 - #5905 — public source-chain restoration.
 - #6337 — Wind Tunnel compatibility with the exact 0.7.1 stack.
+- #6401 — group fan-out recipient ledger and aggregate group outcome qualification.
 
-## 10. Claim ceiling
+## 11. Claim ceiling
 
 A passing profile validator establishes only manifest/schema correctness. A passing synthetic replay establishes only the encoded fixtures and independent verifier. A finite model check establishes only its bounded model. A real conductor run establishes only the exact source, package tuple, topology, fault schedule and scenarios. A performance result applies only to the named hardware/workload. None alone establishes universal Byzantine safety, anonymity, cryptographic correctness without independent review, production readiness or general superiority to an industry comparator.
 
-## 11. Research references checked 20 November 2026
+## 12. Research references checked 20 November 2026
 
 - [Signal PQXDH specification](https://signal.org/docs/specifications/pqxdh/)
 - [Signal ML-KEM Braid specification](https://signal.org/docs/specifications/mlkembraid/)
