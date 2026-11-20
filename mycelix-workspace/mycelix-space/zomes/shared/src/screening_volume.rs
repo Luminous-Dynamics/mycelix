@@ -97,6 +97,7 @@ pub enum ScreeningVolumeDisposition {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ScreeningVolumeError {
     EmptyProfileId,
+    EmptySourceUrl,
     EmptySourceRevision,
     MissingRegime { regime: OrbitRegime },
     NonFiniteRicOffset,
@@ -181,7 +182,7 @@ pub fn nasa_cara_march_2026_profile() -> ScreeningVolumeProfile {
     ScreeningVolumeProfile {
         profile_id: "nasa-cara-screening-volume-2026-03".to_string(),
         source_url: "https://www.nasa.gov/cara/unique-conjunction-events/".to_string(),
-        source_revision: "NASA CARA Unique Conjunction Events page; accessed 2026-11-20"
+        source_revision: "NASA CARA Unique Conjunction Events page; updated 2026-11-02; accessed 2026-11-20"
             .to_string(),
         capture_target: Some(ScreeningVolumeCaptureTarget {
             pc_threshold_exclusive: 1.0e-4,
@@ -274,7 +275,7 @@ pub fn nasa_cara_pre_march_2026_profile() -> ScreeningVolumeProfile {
     ScreeningVolumeProfile {
         profile_id: "nasa-cara-screening-volume-through-2026-02".to_string(),
         source_url: "https://www.nasa.gov/cara/unique-conjunction-events/".to_string(),
-        source_revision: "NASA CARA Unique Conjunction Events page; accessed 2026-11-20"
+        source_revision: "NASA CARA Unique Conjunction Events page; updated 2026-11-02; accessed 2026-11-20"
             .to_string(),
         capture_target: None,
         volumes,
@@ -288,7 +289,7 @@ impl ScreeningVolumeProfile {
             return Err(ScreeningVolumeError::EmptyProfileId);
         }
         if self.source_url.trim().is_empty() {
-            return Err(ScreeningVolumeError::EmptySourceRevision);
+            return Err(ScreeningVolumeError::EmptySourceUrl);
         }
         if self.source_revision.trim().is_empty() {
             return Err(ScreeningVolumeError::EmptySourceRevision);
