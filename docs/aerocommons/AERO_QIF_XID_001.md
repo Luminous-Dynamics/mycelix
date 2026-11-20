@@ -17,10 +17,10 @@ The normalized trace distinguishes:
 1. Results QPId — UUID identifying the QIF Results document.
 2. ExternalQIFDocumentReference local id — positive local QIF id in the Results document.
 3. ExternalQIFDocumentReference QPId — UUID identifying the external Plan document.
-4. CharacteristicItemId simple-content value — local reference id identifying the ExternalQIFDocumentReference in Results.
-5. CharacteristicItemId/@xId — positive external QIF object id selecting a CharacteristicItem in the referenced Plan.
-6. CharacteristicItem/CharacteristicNominalId — local Plan id selecting that CharacteristicNominal.
-7. CharacteristicNominal/EntityExternalIds/Id — local id selecting an entry in the Plan's DigitalModel external-entity table.
+4. CharacteristicItemId simple-content value — numeric QIF ID identifying the ExternalQIFDocumentReference in Results.
+5. CharacteristicItemId/@xId — positive numeric external QIF object id selecting a CharacteristicItem in the referenced Plan.
+6. CharacteristicItem/CharacteristicNominalId — numeric local Plan ID selecting that CharacteristicNominal.
+7. CharacteristicNominal/EntityExternalIds/Id — numeric local Plan ID selecting an entry in the Plan's DigitalModel external-entity table.
 8. DigitalModel/Entities/Entity/EntityId — STEP persistent UUID for the external STEP entity.
 9. STEP source artifact — exact AP242 source whose UUID namespace is being referenced.
 
@@ -43,12 +43,12 @@ The xId is not the STEP UUID. It selects a QIF object inside the external Plan. 
 
 This intermediate mapping is important. Comparing xId directly to a STEP UUID, or assuming a CharacteristicItem directly contains a STEP UUID, skips a real namespace boundary and can generate false trace joins.
 
-QPIds are UUIDs and are compared case-insensitively. QIF local ids are positive integers scoped to their own QIF document. The same xId or EntityExternalId integer in two different Plan documents is not the same object.
+QPIds are UUIDs and are compared case-insensitively. QIF object IDs, including MeasurementResultsSet and CharacteristicMeasurement IDs, are positive integers scoped to their own QIF document. The same xId or EntityExternalId integer in two different Plan documents is not the same object.
 
 ## Implementation scope
 
 The Rust crate consumes a normalized model containing:
-- Results QPId, exact Results artifact, local external-document references and measurement records;
+- Results QPId, exact Results artifact, declared MeasurementResultsSet IDs, local external-document references and measurement records;
 - each measurement's MeasurementResultsSet id, status, CharacteristicItemId simple-content local reference id and xId;
 - exact Plan QPId and content artifact;
 - Plan CharacteristicItems and their required CharacteristicNominalId;
@@ -58,14 +58,14 @@ The Rust crate consumes a normalized model containing:
 
 It verifies:
 - QPId syntax, canonical case-insensitive equality and uniqueness;
-- local external-reference IDs, measurement IDs, Plan object IDs and DigitalModel Entity IDs are positive and unique within their document scope;
+- local external-reference IDs, MeasurementResultsSet IDs, CharacteristicMeasurement IDs, Plan object IDs and DigitalModel Entity IDs are positive and unique within their document scope;
 - external reference QPId and exact Plan artifact agree;
 - xId resolves to a CharacteristicItem in the exact selected Plan;
 - CharacteristicItem's CharacteristicNominalId resolves in the same Plan;
 - every nominal's EntityExternalIds value resolves through that Plan's DigitalModel entity mapping;
 - each mapped UUID resolves in the exact pinned STEP document with the declared entity kind;
 - Plan STEP-source artifact metadata exactly matches the pinned STEP document;
-- every measurement is traced, including failed, not-evaluated and unknown outcomes;
+- every measurement belongs to a declared MeasurementResultsSet and is traced, including failed, not-evaluated and unknown outcomes;
 - all Results, Plan and STEP source bytes match their declared content artifacts;
 - normalized trace output is deterministic under measurement ordering changes.
 
