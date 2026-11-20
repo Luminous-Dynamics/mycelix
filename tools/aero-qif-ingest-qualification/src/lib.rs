@@ -254,6 +254,16 @@ pub enum SourceMappingDisposition {
     Dropped,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceFieldLocatorV1 {
+    pub document_qpid: String,
+    pub source_path: String,
+    pub source_element_id: Option<u32>,
+    pub external_document_reference_id: Option<u32>,
+    pub external_xid: Option<u32>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SourceMappingRecordV1 {
@@ -279,6 +289,8 @@ pub struct SourceMappingRecordV1 {
 #[serde(deny_unknown_fields)]
 pub struct SourceMappingManifestV1 {
     pub schema: String,
+    /// Expected source fields, frozen independently from the mapping outcomes.
+    pub required_locators: Vec<SourceFieldLocatorV1>,
     pub mappings: Vec<SourceMappingRecordV1>,
 }
 
@@ -287,6 +299,7 @@ pub struct SourceMappingManifestV1 {
 pub struct ExtractionEvidenceV1 {
     pub normalized_trace_artifact: ContentArtifactV1,
     pub source_mapping_manifest: ContentArtifactV1,
+    pub required_locators: Vec<SourceFieldLocatorV1>,
     pub mappings: Vec<SourceMappingRecordV1>,
     pub mapping_counts: ExtractionMappingCountsV1,
 }
@@ -411,6 +424,8 @@ pub enum IngestError {
     InvalidSourceMappingRecord(String),
     #[error("source mapping records do not match the declared disposition counts")]
     SourceMappingCountMismatch,
+    #[error("mapping rows do not exactly cover the frozen required source locator inventory")]
+    SourceMappingInventoryMismatch,
     #[error("source mapping records do not match the pinned manifest artifact bytes")]
     SourceMappingManifestMismatch,
     #[error("extraction stage Passed despite unresolved, ambiguous, unsupported or dropped mappings")]
