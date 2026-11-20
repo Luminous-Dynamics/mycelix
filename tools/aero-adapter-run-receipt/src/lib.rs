@@ -183,6 +183,8 @@ pub enum ReceiptError {
     InvalidArtifact(String),
     #[error("duplicate artifact reference {0}")]
     DuplicateArtifact(String),
+    #[error("artifact kind or format does not match declared role at {0}")]
+    RoleArtifactMismatch(String),
     #[error("input rights are not admitted for {0}")]
     RightsNotAdmitted(String),
     #[error("adapter configuration digest does not match its input artifact")]
@@ -466,6 +468,9 @@ pub fn validate_receipt(receipt: &AdapterRunReceiptV1) -> Result<(), ReceiptErro
     }
 
     validate_content_artifact(&receipt.adapter.executable)?;
+    if receipt.adapter.executable.reference.kind != "adapter_executable" {
+        return Err(ReceiptError::RoleArtifactMismatch("adapter.executable".into()));
+    }
     if let Some(provenance) = &receipt.adapter.build_provenance {
         if !provenance.id.strip_prefix("sha256:").is_some_and(valid_sha256)
             || provenance.kind != "slsa_build_provenance"
@@ -476,7 +481,9 @@ pub fn validate_receipt(receipt: &AdapterRunReceiptV1) -> Result<(), ReceiptErro
     validate_content_artifact(&receipt.invocation.arguments)?;
     validate_content_artifact(&receipt.invocation.environment_profile)?;
     if receipt.invocation.arguments.reference.kind != "adapter_arguments"
+        || receipt.invocation.arguments.format_id != "AERO_ARGUMENT_VECTOR_V1"
         || receipt.invocation.environment_profile.reference.kind != "environment_profile"
+        || receipt.invocation.environment_profile.format_id != "AERO_ENVIRONMENT_PROFILE_V1"
         || !valid_sha256(&receipt.invocation.configuration_sha256)
         || receipt.invocation.timeout_ms == 0
         || receipt.elapsed_ms == 0
@@ -511,12 +518,39 @@ pub fn validate_receipt(receipt: &AdapterRunReceiptV1) -> Result<(), ReceiptErro
     check_unique(&receipt.invocation.environment_profile)?;
     for input in &receipt.inputs {
         check_unique(&input.artifact)?;
+        let role_matches = match input.role {
+            InputRole::Ap242ProductDefinition => {
+                input.artifact.reference.kind == "step_file"
+                    && input.artifact.format_id.starts_with("ISO_10303_242:")
+            }
+            InputRole::QifInput => {
+                input.artifact.reference.kind == "qif_file"
+                    && input.artifact.format_id.starts_with("ISO_23952:")
+            }
+            InputRole::NcProgram => input.artifact.reference.kind == "nc_program",
+            InputRole::MetrologyPlan => input.artifact.reference.kind == "metrology_plan",
+            InputRole::AdapterConfiguration => {
+                input.artifact.reference.kind == "adapter_config"
+                    && input.artifact.format_id == "AERO_ADAPTER_CONFIG_V1"
+            }
+            InputRole::Auxiliary => true,
+        };
+        if !role_matches {
+            return Err(ReceiptError::RoleArtifactMismatch(input.artifact.reference.id.clone()));
+        }
         if !input.rights_status.admitted() {
             return Err(ReceiptError::RightsNotAdmitted(input.artifact.reference.id.clone()));
         }
     }
     for output in &receipt.outputs {
         check_unique(&output.artifact)?;
+        if output.role == OutputRole::NormalizedAssertions
+            && (output.artifact.reference.kind != "semantic_assertions"
+                || output.artifact.format_id != "AeroSemanticAssertionV1"
+                || output.artifact.media_type != "application/json")
+        {
+            return Err(ReceiptError::RoleArtifactMismatch(output.artifact.reference.id.clone()));
+        }
         if !output.rights_status.admitted() {
             return Err(ReceiptError::RightsNotAdmitted(output.artifact.reference.id.clone()));
         }
@@ -743,6 +777,14 @@ mod tests {
         receipt.invocation.observed_egress = vec!["https://unexpected.example".into()];
         receipt.receipt_sha256 = compute_receipt_digest(&receipt).unwrap();
         assert!(matches!(validate_receipt(&receipt), Err(ReceiptError::UndeclaredEgress(_))));
+    }
+
+    #[test]
+    fn role_and_format_disagreement_is_rejected() {
+        let mut receipt = fixture();
+        receipt.inputs[0].role = InputRole::QifInput;
+        receipt.receipt_sha256 = compute_receipt_digest(&receipt).unwrap();
+        assert!(matches!(validate_receipt(&receipt), Err(ReceiptError::RoleArtifactMismatch(_))));
     }
 
     #[test]
