@@ -777,7 +777,10 @@ mod tests {
         let digest = Sha256::digest(bytes);
         let sha256 = digest.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
         ContentArtifactV1 {
-            reference: ArtifactRef { id: format!("sha256:{sha256}"), kind: kind.into() },
+            reference: ArtifactRef {
+                id: format!("sha256:{sha256}"),
+                kind: kind.into(),
+            },
             sha256,
             byte_length: bytes.len() as u64,
             media_type: media.into(),
@@ -787,11 +790,82 @@ mod tests {
 
     fn fixture() -> (QifExternalReferenceTraceCaseV1, Vec<(ArtifactRef, Vec<u8>)>) {
         let results_bytes = b"<QIFDocument kind=\"Results\">synthetic</QIFDocument>";
-        let plan_bytes = b"<QIFDocument kind=\"Plan\">synthetic</QIFDocument>";
+        let plan_a_bytes = b"<QIFDocument kind=\"Plan\">synthetic A</QIFDocument>";
+        let plan_b_bytes = b"<QIFDocument kind=\"Plan\">synthetic B</QIFDocument>";
         let step_bytes = b"ISO-10303-21; synthetic STEP source";
         let results_artifact = artifact("qif_results", "QIF_3.0", "application/xml", results_bytes);
-        let plan_artifact = artifact("qif_plan", "QIF_3.0", "application/xml", plan_bytes);
+        let plan_a_artifact = artifact("qif_plan", "QIF_3.0", "application/xml", plan_a_bytes);
+        let plan_b_artifact = artifact("qif_plan", "QIF_3.0", "application/xml", plan_b_bytes);
         let step_artifact = artifact("step_file", "ISO_10303_242:2025", "application/step", step_bytes);
+
+        let plan_a = QifPlanDocumentV1 {
+            qpid: "20000000-0000-4000-8000-000000000002".into(),
+            artifact: plan_a_artifact.clone(),
+            step_document: step_artifact.clone(),
+            digital_model_entities: vec![
+                DigitalModelExternalEntityV1 {
+                    entity_id: 9991,
+                    step_uuid: "40000000-0000-4000-8000-000000000004".into(),
+                    step_entity_kind: StepEntityKind::Characteristic,
+                },
+                DigitalModelExternalEntityV1 {
+                    entity_id: 9992,
+                    step_uuid: "50000000-0000-4000-8000-000000000005".into(),
+                    step_entity_kind: StepEntityKind::GeometricFeature,
+                },
+                DigitalModelExternalEntityV1 {
+                    entity_id: 9993,
+                    step_uuid: "70000000-0000-4000-8000-000000000007".into(),
+                    step_entity_kind: StepEntityKind::Datum,
+                },
+            ],
+            characteristic_items: vec![
+                PlanCharacteristicItemV1 { object_id: 301, characteristic_nominal_id: 401 },
+                PlanCharacteristicItemV1 { object_id: 302, characteristic_nominal_id: 402 },
+                PlanCharacteristicItemV1 { object_id: 303, characteristic_nominal_id: 403 },
+            ],
+            characteristic_nominals: vec![
+                PlanCharacteristicNominalV1 {
+                    object_id: 401,
+                    characteristic_id: "characteristic:hole-dia".into(),
+                    entity_external_ids: vec![9991],
+                },
+                PlanCharacteristicNominalV1 {
+                    object_id: 402,
+                    characteristic_id: "characteristic:surface".into(),
+                    entity_external_ids: vec![9992],
+                },
+                PlanCharacteristicNominalV1 {
+                    object_id: 403,
+                    characteristic_id: "characteristic:composite".into(),
+                    entity_external_ids: vec![9991, 9993],
+                },
+            ],
+        };
+
+        let plan_b = QifPlanDocumentV1 {
+            qpid: "30000000-0000-4000-8000-000000000003".into(),
+            artifact: plan_b_artifact.clone(),
+            step_document: step_artifact.clone(),
+            digital_model_entities: vec![
+                DigitalModelExternalEntityV1 {
+                    entity_id: 9991,
+                    step_uuid: "60000000-0000-4000-8000-000000000006".into(),
+                    step_entity_kind: StepEntityKind::Datum,
+                },
+            ],
+            characteristic_items: vec![
+                PlanCharacteristicItemV1 { object_id: 301, characteristic_nominal_id: 401 },
+            ],
+            characteristic_nominals: vec![
+                PlanCharacteristicNominalV1 {
+                    object_id: 401,
+                    characteristic_id: "characteristic:flatness".into(),
+                    entity_external_ids: vec![9991],
+                },
+            ],
+        };
+
         let case = QifExternalReferenceTraceCaseV1 {
             schema: TRACE_SCHEMA.into(),
             benchmark_id: "AERO-QIF-XID-001".into(),
@@ -802,75 +876,49 @@ mod tests {
                 external_documents: vec![
                     ExternalQifDocumentReferenceV1 {
                         local_reference_id: 7,
-                        plan_qpid: "20000000-0000-4000-8000-000000000002".into(),
-                        plan_artifact: plan_artifact.clone(),
+                        plan_qpid: plan_a.qpid.clone(),
+                        plan_artifact: plan_a_artifact.clone(),
                         uri: Some("synthetic://plan-a".into()),
                     },
                     ExternalQifDocumentReferenceV1 {
                         local_reference_id: 8,
-                        plan_qpid: "30000000-0000-4000-8000-000000000003".into(),
-                        plan_artifact: artifact("qif_plan", "QIF_3.0", "application/xml", b"<PlanB/>"),
+                        plan_qpid: plan_b.qpid.clone(),
+                        plan_artifact: plan_b_artifact.clone(),
                         uri: Some("synthetic://plan-b".into()),
                     },
                 ],
                 measurements: vec![
                     CharacteristicMeasurementReferenceV1 {
                         measurement_id: "measurement:pass".into(),
+                        result_set_id: "result-set:1".into(),
                         external_document_reference_id: 7,
                         xid: 301,
                         status: MeasurementStatus::Passed,
                     },
                     CharacteristicMeasurementReferenceV1 {
                         measurement_id: "measurement:fail".into(),
+                        result_set_id: "result-set:1".into(),
                         external_document_reference_id: 7,
                         xid: 302,
                         status: MeasurementStatus::Failed,
                     },
                     CharacteristicMeasurementReferenceV1 {
                         measurement_id: "measurement:second-plan".into(),
+                        result_set_id: "result-set:2".into(),
                         external_document_reference_id: 8,
                         xid: 301,
                         status: MeasurementStatus::NotEvaluated,
                     },
+                    CharacteristicMeasurementReferenceV1 {
+                        measurement_id: "measurement:multi-entity".into(),
+                        result_set_id: "result-set:3".into(),
+                        external_document_reference_id: 7,
+                        xid: 303,
+                        status: MeasurementStatus::Unknown,
+                    },
                 ],
             },
-            plans: vec![
-                QifPlanDocumentV1 {
-                    qpid: "20000000-0000-4000-8000-000000000002".into(),
-                    artifact: plan_artifact.clone(),
-                    step_document: step_artifact.clone(),
-                    objects: vec![
-                        PlanCharacteristicObjectV1 {
-                            object_id: 301,
-                            kind: PlanObjectKind::CharacteristicItem,
-                            characteristic_id: "characteristic:hole-dia".into(),
-                            step_uuid: "40000000-0000-4000-8000-000000000004".into(),
-                            step_entity_kind: StepEntityKind::Characteristic,
-                        },
-                        PlanCharacteristicObjectV1 {
-                            object_id: 302,
-                            kind: PlanObjectKind::CharacteristicItem,
-                            characteristic_id: "characteristic:surface".into(),
-                            step_uuid: "50000000-0000-4000-8000-000000000005".into(),
-                            step_entity_kind: StepEntityKind::GeometricFeature,
-                        },
-                    ],
-                },
-                QifPlanDocumentV1 {
-                    qpid: "30000000-0000-4000-8000-000000000003".into(),
-                    artifact: artifact("qif_plan", "QIF_3.0", "application/xml", b"<PlanB/>"),
-                    step_document: step_artifact.clone(),
-                    objects: vec![
-                        PlanCharacteristicObjectV1 {
-                            object_id: 301,
-                            kind: PlanObjectKind::CharacteristicItem,
-                            characteristic_id: "characteristic:flatness".into(),
-                            step_uuid: "60000000-0000-4000-8000-000000000006".into(),
-                            step_entity_kind: StepEntityKind::Datum,
-                        },
-                    ],
-                },
-            ],
+            plans: vec![plan_a, plan_b],
             step_documents: vec![
                 StepDocumentV1 {
                     artifact: step_artifact.clone(),
@@ -887,14 +935,18 @@ mod tests {
                             uuid: "60000000-0000-4000-8000-000000000006".into(),
                             kind: StepEntityKind::Datum,
                         },
+                        StepEntityV1 {
+                            uuid: "70000000-0000-4000-8000-000000000007".into(),
+                            kind: StepEntityKind::Datum,
+                        },
                     ],
                 },
             ],
         };
         let payloads = vec![
             (results_artifact.reference.clone(), results_bytes.to_vec()),
-            (plan_artifact.reference.clone(), plan_bytes.to_vec()),
-            (case.plans[1].artifact.reference.clone(), b"<PlanB/>".to_vec()),
+            (plan_a_artifact.reference.clone(), plan_a_bytes.to_vec()),
+            (plan_b_artifact.reference.clone(), plan_b_bytes.to_vec()),
             (step_artifact.reference.clone(), step_bytes.to_vec()),
         ];
         (case, payloads)
@@ -904,77 +956,61 @@ mod tests {
         payloads.iter().map(|(reference, bytes)| (reference, bytes.as_slice())).collect()
     }
 
-    #[test]
-    fn checked_in_normalized_test8_fixture_replays_exact_bytes() {
-        let case = parse_trace_case_json(
-            include_bytes!("../fixtures/test8-normalized-trace-v1.json")
-        ).expect("checked-in normalized trace fixture parses");
-        let payloads = [
-            (&case.results.artifact.reference, include_bytes!("../fixtures/results.qif").as_slice()),
-            (&case.plans[0].artifact.reference, include_bytes!("../fixtures/plan-a.qif").as_slice()),
-            (&case.plans[1].artifact.reference, include_bytes!("../fixtures/plan-b.qif").as_slice()),
-            (&case.step_documents[0].artifact.reference, include_bytes!("../fixtures/source.step").as_slice()),
-        ];
-        let report = verify_and_resolve_trace_case(&case, &payloads)
-            .expect("all checked-in source bytes and trace links match");
-        assert_eq!(report.resolved_measurements.len(), 3);
-        assert_eq!(report.checked_artifacts, 4);
-        assert_eq!(
-            report.resolved_measurements.iter()
-                .find(|item| item.measurement_id == 902)
-                .expect("failed measurement retained").status,
-            MeasurementStatus::Failed
-        );
+    fn resolved<'a>(
+        report: &'a TraceVerificationReport,
+        measurement_id: &str,
+    ) -> &'a ResolvedMeasurementTraceV1 {
+        report.resolved_measurements.iter()
+            .find(|item| item.measurement_id == measurement_id)
+            .expect("measurement trace exists")
     }
 
     #[test]
-    fn external_plan_qpid_mismatch_is_rejected() {
-        let (mut case, _) = fixture();
-        case.results.external_documents[0].plan_qpid = "70000000-0000-4000-8000-000000000007".into();
-        assert!(matches!(validate_trace_case(&case), Err(TraceError::MissingPlan(_))));
-    }
-
-    #[test]
-    fn plan_step_artifact_must_match_exact_step_document_metadata() {
-        let (mut case, _) = fixture();
-        case.plans[0].step_document.byte_length += 1;
-        assert!(matches!(validate_trace_case(&case), Err(TraceError::StepDocumentReferenceMismatch(_))));
-    }
-
-    #[test]
-    fn resolves_two_external_plans_without_xid_namespace_collision() {
+    fn normalized_test8_fixture_replays_exact_payload_bytes() {
         let (case, payloads) = fixture();
         let report = verify_and_resolve_trace_case(&case, &refs_and_bytes(&payloads)).unwrap();
+        assert_eq!(report.resolved_measurements.len(), 4);
+        assert_eq!(report.checked_artifacts, 4);
         assert_eq!(report.disposition, TraceDisposition::AllMeasurementReferencesResolved);
-        assert_eq!(report.resolved_measurements.len(), 3);
-        assert_eq!(
-            report.resolved_measurements.iter()
-                .find(|item| item.measurement_id == 901)
-                .expect("passed measurement retained").status,
-            MeasurementStatus::Passed
-        );
-        assert_eq!(
-            report.resolved_measurements.iter()
-                .find(|item| item.measurement_id == 902)
-                .expect("failed measurement retained").status,
-            MeasurementStatus::Failed
-        );
-        assert_eq!(report.resolved_measurements[2].plan_object_id, 301);
-        assert_eq!(report.resolved_measurements[2].plan_qpid, "30000000-0000-4000-8000-000000000003");
-        assert_eq!(report.checked_artifacts, 4);
     }
 
     #[test]
-    fn failed_measurements_remain_traceable() {
+    fn resolves_xid_through_item_nominal_external_id_and_step_uuid() {
         let (case, payloads) = fixture();
         let report = verify_and_resolve_trace_case(&case, &refs_and_bytes(&payloads)).unwrap();
-        let failed = report.resolved_measurements.iter().find(|item| item.status == MeasurementStatus::Failed).unwrap();
-        assert_eq!(failed.characteristic_id, "characteristic:surface");
-        assert_eq!(failed.step_uuid, "50000000-0000-4000-8000-000000000005");
+        let trace = resolved(&report, "measurement:pass");
+        assert_eq!(trace.plan_characteristic_item_id, 301);
+        assert_eq!(trace.characteristic_nominal_id, 401);
+        assert_eq!(trace.characteristic_id, "characteristic:hole-dia");
+        assert_eq!(trace.step_entities.len(), 1);
+        assert_eq!(trace.step_entities[0].entity_external_id, 9991);
+        assert_eq!(trace.step_entities[0].step_uuid, "40000000-0000-4000-8000-000000000004");
     }
 
     #[test]
-    fn local_reference_id_and_external_xid_are_not_collapsed() {
+    fn failed_measurement_remains_traceable_to_its_nominal_and_step_entity() {
+        let (case, payloads) = fixture();
+        let report = verify_and_resolve_trace_case(&case, &refs_and_bytes(&payloads)).unwrap();
+        let trace = resolved(&report, "measurement:fail");
+        assert_eq!(trace.status, MeasurementStatus::Failed);
+        assert_eq!(trace.characteristic_id, "characteristic:surface");
+        assert_eq!(trace.step_entities[0].step_uuid, "50000000-0000-4000-8000-000000000005");
+    }
+
+    #[test]
+    fn same_xid_in_two_plans_resolves_in_the_selected_plan_namespace() {
+        let (case, payloads) = fixture();
+        let report = verify_and_resolve_trace_case(&case, &refs_and_bytes(&payloads)).unwrap();
+        let first = resolved(&report, "measurement:pass");
+        let second = resolved(&report, "measurement:second-plan");
+        assert_eq!(first.plan_characteristic_item_id, 301);
+        assert_eq!(second.plan_characteristic_item_id, 301);
+        assert_ne!(first.plan_qpid, second.plan_qpid);
+        assert_ne!(first.step_entities[0].step_uuid, second.step_entities[0].step_uuid);
+    }
+
+    #[test]
+    fn local_external_reference_id_is_not_collapsed_into_xid() {
         let (mut case, _) = fixture();
         case.results.external_documents[0].local_reference_id = 301;
         case.results.measurements[0].external_document_reference_id = 301;
@@ -983,51 +1019,90 @@ mod tests {
     }
 
     #[test]
-    fn same_xid_in_two_plans_resolves_within_exact_plan_namespace() {
-        let (case, _) = fixture();
-        let report = resolve_without_bytes(&case).unwrap();
-        let first = report.1.iter().find(|item| item.external_document_reference_id == 7).unwrap();
-        let second = report.1.iter().find(|item| item.external_document_reference_id == 8).unwrap();
-        assert_ne!(first.step_uuid, second.step_uuid);
+    fn multiple_entity_external_ids_preserve_all_step_mappings() {
+        let (case, payloads) = fixture();
+        let report = verify_and_resolve_trace_case(&case, &refs_and_bytes(&payloads)).unwrap();
+        let trace = resolved(&report, "measurement:multi-entity");
+        assert_eq!(trace.step_entities.len(), 2);
+        assert_eq!(
+            trace.step_entities.iter().map(|item| item.entity_external_id).collect::<Vec<_>>(),
+            vec![9991, 9993]
+        );
     }
 
     #[test]
     fn wrong_local_external_reference_is_rejected() {
         let (mut case, _) = fixture();
         case.results.measurements[0].external_document_reference_id = 999;
-        assert_eq!(validate_trace_case(&case), Err(TraceError::MissingExternalDocumentReference(999)));
+        assert_eq!(
+            validate_trace_case(&case),
+            Err(TraceError::MissingExternalDocumentReference(999))
+        );
     }
 
     #[test]
-    fn external_plan_qpid_and_artifact_must_match_exactly() {
+    fn missing_external_plan_qpid_is_rejected() {
+        let (mut case, _) = fixture();
+        case.results.external_documents[0].plan_qpid = "70000000-0000-4000-8000-000000000007".into();
+        assert!(matches!(validate_trace_case(&case), Err(TraceError::MissingPlan(_))));
+    }
+
+    #[test]
+    fn exact_plan_artifact_must_match_external_reference() {
         let (mut case, _) = fixture();
         case.results.external_documents[0].plan_artifact.byte_length += 1;
         assert_eq!(validate_trace_case(&case), Err(TraceError::PlanReferenceMismatch(7)));
     }
 
     #[test]
-    fn missing_external_xid_is_rejected() {
+    fn missing_xid_in_the_selected_plan_is_rejected() {
         let (mut case, _) = fixture();
         case.results.measurements[0].xid = 999;
-        assert!(matches!(validate_trace_case(&case), Err(TraceError::MissingExternalObject { xid: 999, .. })));
+        assert!(matches!(
+            validate_trace_case(&case),
+            Err(TraceError::MissingExternalObject { xid: 999, .. })
+        ));
     }
 
     #[test]
-    fn xid_resolving_to_wrong_qif_object_kind_is_rejected() {
+    fn missing_characteristic_nominal_is_rejected() {
         let (mut case, _) = fixture();
-        case.plans[0].objects[0].kind = PlanObjectKind::DatumDefinition;
-        assert!(matches!(validate_trace_case(&case), Err(TraceError::WrongExternalObjectKind { xid: 301, .. })));
+        case.plans[0].characteristic_items[0].characteristic_nominal_id = 777;
+        assert!(matches!(
+            validate_trace_case(&case),
+            Err(TraceError::MissingCharacteristicNominal { nominal_id: 777, .. })
+        ));
     }
 
     #[test]
-    fn duplicate_plan_object_id_is_rejected_within_document() {
+    fn missing_entity_external_id_mapping_is_rejected() {
         let (mut case, _) = fixture();
-        case.plans[0].objects[1].object_id = 301;
+        case.plans[0].characteristic_nominals[0].entity_external_ids = vec![12345];
+        assert!(matches!(
+            validate_trace_case(&case),
+            Err(TraceError::MissingDigitalModelEntity { entity_id: 12345, .. })
+        ));
+    }
+
+    #[test]
+    fn nominal_without_entity_external_ids_is_rejected() {
+        let (mut case, _) = fixture();
+        case.plans[0].characteristic_nominals[0].entity_external_ids.clear();
+        assert_eq!(
+            validate_trace_case(&case),
+            Err(TraceError::MissingEntityExternalIds { nominal_id: 401 })
+        );
+    }
+
+    #[test]
+    fn duplicate_qif_ids_across_plan_tables_are_rejected() {
+        let (mut case, _) = fixture();
+        case.plans[0].characteristic_items[0].object_id = 401;
         assert!(matches!(validate_trace_case(&case), Err(TraceError::DuplicateIdentifier(_))));
     }
 
     #[test]
-    fn duplicate_step_uuid_is_rejected_within_step_document() {
+    fn duplicate_step_uuid_is_rejected() {
         let (mut case, _) = fixture();
         case.step_documents[0].entities[1].uuid = case.step_documents[0].entities[0].uuid.clone();
         assert!(matches!(validate_trace_case(&case), Err(TraceError::DuplicateIdentifier(_))));
@@ -1036,43 +1111,64 @@ mod tests {
     #[test]
     fn step_uuid_does_not_accept_an_xid_integer() {
         let (mut case, _) = fixture();
-        case.plans[0].objects[0].step_uuid = "301".into();
+        case.plans[0].digital_model_entities[0].step_uuid = "301".into();
         assert!(matches!(validate_trace_case(&case), Err(TraceError::InvalidUuid(_))));
     }
 
     #[test]
     fn missing_step_mapping_is_rejected() {
         let (mut case, _) = fixture();
-        case.plans[0].objects[0].step_uuid = "70000000-0000-4000-8000-000000000007".into();
+        case.plans[0].digital_model_entities[0].step_uuid =
+            "80000000-0000-4000-8000-000000000008".into();
         assert!(matches!(validate_trace_case(&case), Err(TraceError::MissingStepEntity { .. })));
     }
 
     #[test]
     fn step_entity_kind_mismatch_is_rejected() {
         let (mut case, _) = fixture();
-        case.plans[0].objects[0].step_entity_kind = StepEntityKind::Datum;
+        case.plans[0].digital_model_entities[0].step_entity_kind = StepEntityKind::Datum;
         assert!(matches!(validate_trace_case(&case), Err(TraceError::StepEntityKindMismatch { .. })));
     }
 
     #[test]
-    fn field_order_is_irrelevant_after_normalized_parse() {
-        let (case, _) = fixture();
-        let mut value = serde_json::to_value(&case).unwrap();
-        value["results"]["measurements"].as_array_mut().unwrap().reverse();
-        let bytes = serde_json::to_vec(&value).unwrap();
-        let parsed = parse_trace_case_json(&bytes).unwrap();
-        let base = resolve_without_bytes(&case).unwrap();
-        let reversed = resolve_without_bytes(&parsed).unwrap();
-        assert_eq!(base, reversed);
+    fn qpid_and_step_uuid_comparison_is_case_insensitive() {
+        let (mut case, _) = fixture();
+        case.plans[0].qpid = case.plans[0].qpid.to_ascii_uppercase();
+        case.results.external_documents[0].plan_qpid = case.results.external_documents[0].plan_qpid.to_ascii_uppercase();
+        case.plans[0].digital_model_entities[0].step_uuid =
+            case.plans[0].digital_model_entities[0].step_uuid.to_ascii_uppercase();
+        case.step_documents[0].entities[0].uuid =
+            case.step_documents[0].entities[0].uuid.to_ascii_uppercase();
+        assert!(validate_trace_case(&case).is_ok());
     }
 
     #[test]
-    fn unknown_nested_artifact_ref_field_is_rejected() {
+    fn duplicate_qpid_with_case_variation_is_rejected() {
+        let (mut case, _) = fixture();
+        case.plans[1].qpid = case.plans[0].qpid.to_ascii_uppercase();
+        assert!(matches!(validate_trace_case(&case), Err(TraceError::DuplicateIdentifier(_))));
+    }
+
+    #[test]
+    fn result_set_and_measurement_order_do_not_change_normalized_trace() {
+        let (case, _) = fixture();
+        let original = resolve_without_bytes(&case).unwrap();
+        let mut permuted = case.clone();
+        permuted.results.measurements.reverse();
+        let reversed = resolve_without_bytes(&permuted).unwrap();
+        assert_eq!(original, reversed);
+    }
+
+    #[test]
+    fn unknown_nested_artifact_field_is_rejected() {
         let (case, _) = fixture();
         let mut value = serde_json::to_value(&case).unwrap();
         value["plans"][0]["artifact"]["reference"]["trust"] = json!("trusted");
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(matches!(parse_trace_case_json(&bytes), Err(TraceError::UnknownField { .. })));
+        assert!(matches!(
+            parse_trace_case_json(&bytes),
+            Err(TraceError::UnknownField { .. })
+        ));
     }
 
     #[test]
@@ -1093,5 +1189,13 @@ mod tests {
             verify_and_resolve_trace_case(&case, &refs_and_bytes(&payloads)),
             Err(TraceError::ArtifactPayloadSetMismatch)
         );
+    }
+
+    #[test]
+    fn result_set_identity_is_preserved() {
+        let (case, payloads) = fixture();
+        let report = verify_and_resolve_trace_case(&case, &refs_and_bytes(&payloads)).unwrap();
+        let trace = resolved(&report, "measurement:second-plan");
+        assert_eq!(trace.result_set_id, "result-set:2");
     }
 }
