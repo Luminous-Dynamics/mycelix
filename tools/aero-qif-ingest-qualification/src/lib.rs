@@ -1689,6 +1689,54 @@ mod tests {
     }
 
     #[test]
+    fn external_qif_metadata_uses_parent_reference_identity_not_target_id() {
+        let (mut qualification, _) = fixture();
+        let extraction = qualification.body.extraction.as_mut().unwrap();
+        extraction.required_locators[0].source_path =
+            "/QIFDocument/ExternalQIFReferences/ExternalQIFDocument[1]/QPId#qpid".into();
+        extraction.required_locators[0].local_reference_id = None;
+        extraction.required_locators[0].parent_external_document_reference_id = Some(7);
+        extraction.required_locators[0].external_document_reference_id = None;
+        extraction.required_locators[0].external_xid = None;
+
+        extraction.mappings[0].source_path =
+            "/QIFDocument/ExternalQIFReferences/ExternalQIFDocument[1]/QPId#qpid".into();
+        extraction.mappings[0].local_reference_id = None;
+        extraction.mappings[0].parent_external_document_reference_id = Some(7);
+        extraction.mappings[0].external_document_reference_id = None;
+        extraction.mappings[0].external_xid = None;
+        extraction.mappings[0].mapping_rule_id = "qif.external_reference.qpid".into();
+        refresh_mapping_manifest(extraction);
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(validate_ingest_qualification(&qualification).is_ok());
+    }
+
+    #[test]
+    fn external_qif_metadata_parent_reference_must_be_declared() {
+        let (mut qualification, _) = fixture();
+        let extraction = qualification.body.extraction.as_mut().unwrap();
+        extraction.required_locators[0].source_path =
+            "/QIFDocument/ExternalQIFReferences/ExternalQIFDocument[1]/URI#uri".into();
+        extraction.required_locators[0].local_reference_id = None;
+        extraction.required_locators[0].parent_external_document_reference_id = Some(8);
+        extraction.required_locators[0].external_document_reference_id = None;
+        extraction.required_locators[0].external_xid = None;
+
+        extraction.mappings[0].source_path =
+            "/QIFDocument/ExternalQIFReferences/ExternalQIFDocument[1]/URI#uri".into();
+        extraction.mappings[0].local_reference_id = None;
+        extraction.mappings[0].parent_external_document_reference_id = Some(8);
+        extraction.mappings[0].external_document_reference_id = None;
+        extraction.mappings[0].external_xid = None;
+        refresh_mapping_manifest(extraction);
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(matches!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::InvalidSourceMappingLocator(_))
+        ));
+    }
+
+    #[test]
     fn local_qif_reference_without_xid_is_admitted_as_local_reference() {
         let (mut qualification, _) = fixture();
         let extraction = qualification.body.extraction.as_mut().unwrap();
