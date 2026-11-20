@@ -237,6 +237,8 @@ pub enum InventoryError {
     DuplicateExternalReferenceId(u32),
     #[error("trace-critical child locator counts disagree at {0}")]
     SourceRuleCoverageMismatch(String),
+    #[error("assembly-path-qualified QIF references are outside this bounded profile at {0}")]
+    UnsupportedAssemblyPathReference(String),
     #[error("a supplied Plan document is not linked by any Results external reference: {0}")]
     UnlinkedPlanDocument(String),
     #[error("duplicate Results external-document reference id {0}")]
@@ -622,6 +624,11 @@ fn finalize_frame(
             LocatorCaptureMode::LocalQifReference => {
                 if frame.has_child_element || frame.external_xid.is_some() {
                     return Err(InventoryError::InvalidQifReference(frame.locator_path.clone()));
+                }
+                if frame.captured_attributes.contains_key("{}asmPathId")
+                    || frame.captured_attributes.contains_key("{}asmPathXId")
+                {
+                    return Err(InventoryError::UnsupportedAssemblyPathReference(frame.locator_path.clone()));
                 }
                 let value = parsed_numeric_attribute(&frame.direct_text, &frame.locator_path)
                     .map_err(|_| InventoryError::InvalidQifReference(frame.locator_path.clone()))?;
@@ -1436,8 +1443,47 @@ mod tests {
                         expanded("EntityExternalIds"),
                         expanded("Id"),
                     ],
+                    capture: LocatorCaptureMode::LocalQifReference,
+                    min_occurrences: 1,
+                    max_occurrences: None,
+                    capture_attributes: vec!["{}asmPathId".into(), "{}asmPathXId".into()],
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.digital_model_external_entity".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Product"),
+                        expanded("PartSet"),
+                        expanded("*"),
+                        expanded("DefinitionExternal"),
+                        expanded("DigitalModel"),
+                        expanded("Entities"),
+                        expanded("Entity"),
+                    ],
+                    capture: LocatorCaptureMode::ElementId,
+                    min_occurrences: 1,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.external_entity_persistent_id".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Product"),
+                        expanded("PartSet"),
+                        expanded("*"),
+                        expanded("DefinitionExternal"),
+                        expanded("DigitalModel"),
+                        expanded("Entities"),
+                        expanded("Entity"),
+                        expanded("EntityId"),
+                    ],
                     capture: LocatorCaptureMode::Text,
-                    min_occurrences: 0,
+                    min_occurrences: 1,
                     max_occurrences: None,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
