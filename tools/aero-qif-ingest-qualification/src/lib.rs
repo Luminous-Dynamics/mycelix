@@ -1668,10 +1668,14 @@ mod tests {
     }
 
     #[test]
-    fn local_external_document_reference_without_optional_xid_is_admitted() {
+    fn local_qif_reference_without_xid_is_admitted_as_local_reference() {
         let (mut qualification, _) = fixture();
         let extraction = qualification.body.extraction.as_mut().unwrap();
+        extraction.required_locators[0].local_reference_id = Some(7);
+        extraction.required_locators[0].external_document_reference_id = None;
         extraction.required_locators[0].external_xid = None;
+        extraction.mappings[0].local_reference_id = Some(7);
+        extraction.mappings[0].external_document_reference_id = None;
         extraction.mappings[0].external_xid = None;
         refresh_mapping_manifest(extraction);
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
@@ -1684,6 +1688,20 @@ mod tests {
         let extraction = qualification.body.extraction.as_mut().unwrap();
         extraction.required_locators[0].external_document_reference_id = None;
         extraction.mappings[0].external_document_reference_id = None;
+        refresh_mapping_manifest(extraction);
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(matches!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::InvalidSourceMappingLocator(_))
+        ));
+    }
+
+    #[test]
+    fn local_and_external_reference_namespaces_cannot_be_combined() {
+        let (mut qualification, _) = fixture();
+        let extraction = qualification.body.extraction.as_mut().unwrap();
+        extraction.required_locators[0].local_reference_id = Some(55);
+        extraction.mappings[0].local_reference_id = Some(55);
         refresh_mapping_manifest(extraction);
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
         assert!(matches!(
