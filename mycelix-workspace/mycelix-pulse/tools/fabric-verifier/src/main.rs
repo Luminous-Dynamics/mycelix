@@ -1,4 +1,4 @@
-use pulse_fabric_verifier::verify_trace;
+use pulse_fabric_verifier::{validate_against_schema, verify_trace};
 use serde_json::json;
 use std::env;
 use std::fs;
@@ -6,20 +6,53 @@ use std::process;
 
 fn usage() -> ! {
     eprintln!(
-        "usage: pulse-fabric-verifier verify TRACE.json [--expected-source-sha <40-hex-sha>]"
+        "usage: pulse-fabric-verifier verify TRACE.json --schema TRACE.schema.json [--expected-source-sha <40-hex-sha>]"
     );
     process::exit(64);
 }
 
+fn read_json(path: &str, failure_status: &str) -> serde_json::Value {
+    let source = match fs::read_to_string(path) {
+        Ok(source) => source,
+        Err(error) => {
+            println!(
+                "{}",
+                json!({
+                    "status": failure_status,
+                    "path": path,
+                    "error": error.to_string()
+                })
+            );
+            process::exit(66);
+        }
+    };
+
+    match serde_json::from_str(&source) {
+        Ok(value) => value,
+        Err(error) => {
+            println!(
+                "{}",
+                json!({
+                    "status": "INVALID_JSON",
+                    "path": path,
+                    "error": error.to_string()
+                })
+            );
+            process::exit(2);
+        }
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
-    if args.len() < 2 || args[0] != "verify" {
+    if args.len() < 4 || args[0] != "verify" || args[2] != "--schema" {
         usage();
     }
 
     let trace_path = &args[1];
+    let schema_path = &args[3];
     let mut expected_source_sha: Option<String> = None;
-    let mut index = 2;
+    let mut index = 4;
 
     while index < args.len() {
         match args[index].as_str() {
@@ -35,35 +68,21 @@ fn main() {
         index += 1;
     }
 
-    let source = match fs::read_to_string(trace_path) {
-        Ok(source) => source,
-        Err(error) => {
-            println!(
-                "{}",
-                json!({
-                    "status": "INPUT_ERROR",
-                    "path": trace_path,
-                    "error": error.to_string()
-                })
-            );
-            process::exit(66);
-        }
-    };
+    let schema = read_json(schema_path, "SCHEMA_INPUT_ERROR");
+    let trace = read_json(trace_path, "TRACE_INPUT_ERROR");
 
-    let trace: serde_json::Value = match serde_json::from_str(&source) {
-        Ok(trace) => trace,
-        Err(error) => {
-            println!(
-                "{}",
-                json!({
-                    "status": "INVALID_JSON",
-                    "path": trace_path,
-                    "error": error.to_string()
-                })
-            );
-            process::exit(2);
-        }
-    };
+    if let Err(errors) = validate_against_schema(&trace, &schema) {
+        println!(
+            "{}",
+            json!({
+                "status": "SCHEMA_VALIDATION_FAILED",
+                "schema_path": schema_path,
+                "finding_count": errors.len(),
+                "findings": errors
+            })
+        );
+        process::exit(2);
+    }
 
     match verify_trace(&trace, expected_source_sha.as_deref()) {
         Ok(summary) => {
@@ -78,6 +97,7 @@ fn main() {
                     "event_count": summary.event_count,
                     "operation_count": summary.operation_count,
                     "causal_edge_count": summary.causal_edge_count,
+                    "schema_validation": "DRAFT_2020_12_PASS",
                     "claim_ceiling": "structural and causal consistency only"
                 })
             );
@@ -92,7 +112,8 @@ fn main() {
                 json!({
                     "status": "INVALID_EVIDENCE_TRACE",
                     "finding_count": output_findings.len(),
-                    "findings": output_findings
+                    "findings": output_findings,
+                    "schema_validation": "DRAFT_2020_12_PASS"
                 })
             );
             process::exit(2);
