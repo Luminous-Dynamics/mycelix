@@ -49,21 +49,31 @@
     "measurements": [
       {
         "measurement_id": "measurement:pass",
+        "result_set_id": "result-set:1",
         "external_document_reference_id": 7,
         "xid": 301,
         "status": "passed"
       },
       {
         "measurement_id": "measurement:fail",
+        "result_set_id": "result-set:1",
         "external_document_reference_id": 7,
         "xid": 302,
         "status": "failed"
       },
       {
         "measurement_id": "measurement:second-plan",
+        "result_set_id": "result-set:2",
         "external_document_reference_id": 8,
         "xid": 301,
         "status": "not_evaluated"
+      },
+      {
+        "measurement_id": "measurement:multi-entity",
+        "result_set_id": "result-set:3",
+        "external_document_reference_id": 7,
+        "xid": 303,
+        "status": "unknown"
       }
     ]
   },
@@ -90,20 +100,59 @@
         "media_type": "application/step",
         "format_id": "ISO_10303_242:2025"
       },
-      "objects": [
+      "digital_model_entities": [
         {
-          "object_id": 301,
-          "kind": "characteristic_item",
-          "characteristic_id": "characteristic:hole-dia",
+          "entity_id": 9991,
           "step_uuid": "40000000-0000-4000-8000-000000000004",
           "step_entity_kind": "characteristic"
         },
         {
-          "object_id": 302,
-          "kind": "characteristic_item",
-          "characteristic_id": "characteristic:surface",
+          "entity_id": 9992,
           "step_uuid": "50000000-0000-4000-8000-000000000005",
           "step_entity_kind": "geometric_feature"
+        },
+        {
+          "entity_id": 9993,
+          "step_uuid": "60000000-0000-4000-8000-000000000006",
+          "step_entity_kind": "datum"
+        }
+      ],
+      "characteristic_items": [
+        {
+          "object_id": 301,
+          "characteristic_nominal_id": 401
+        },
+        {
+          "object_id": 302,
+          "characteristic_nominal_id": 402
+        },
+        {
+          "object_id": 303,
+          "characteristic_nominal_id": 403
+        }
+      ],
+      "characteristic_nominals": [
+        {
+          "object_id": 401,
+          "characteristic_id": "characteristic:hole-dia",
+          "entity_external_ids": [
+            9991
+          ]
+        },
+        {
+          "object_id": 402,
+          "characteristic_id": "characteristic:surface",
+          "entity_external_ids": [
+            9992
+          ]
+        },
+        {
+          "object_id": 403,
+          "characteristic_id": "characteristic:composite",
+          "entity_external_ids": [
+            9991,
+            9993
+          ]
         }
       ]
     },
@@ -129,13 +178,26 @@
         "media_type": "application/step",
         "format_id": "ISO_10303_242:2025"
       },
-      "objects": [
+      "digital_model_entities": [
         {
-          "object_id": 301,
-          "kind": "characteristic_item",
-          "characteristic_id": "characteristic:flatness",
+          "entity_id": 9991,
           "step_uuid": "60000000-0000-4000-8000-000000000006",
           "step_entity_kind": "datum"
+        }
+      ],
+      "characteristic_items": [
+        {
+          "object_id": 301,
+          "characteristic_nominal_id": 401
+        }
+      ],
+      "characteristic_nominals": [
+        {
+          "object_id": 401,
+          "characteristic_id": "characteristic:flatness",
+          "entity_external_ids": [
+            9991
+          ]
         }
       ]
     }
