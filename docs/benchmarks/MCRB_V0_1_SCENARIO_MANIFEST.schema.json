@@ -246,15 +246,6 @@
             },
             "minItems": 1
           },
-          "required": [
-            "raw_monotonic_tick_derived_count",
-            "monotonic_clock_id_mismatch_count",
-            "clock_epoch_mismatch_count",
-            "reversed_monotonic_tick_count",
-            "invalid_ticks_per_second_count",
-            "cross_host_latency_lower_bound_ms",
-            "cross_host_latency_upper_bound_ms"
-          ],
           "upstream_references": {
             "type": "array",
             "items": {
@@ -268,6 +259,10 @@
           },
           "qops_requires_cross_host_visibility": {
             "type": "boolean"
+          },
+          "related_issue": {
+            "type": "string",
+            "pattern": "^#[1-9][0-9]*$"
           }
         }
       }
