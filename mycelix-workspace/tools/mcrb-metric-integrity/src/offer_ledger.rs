@@ -143,6 +143,7 @@ pub struct VerifiedOfferedOperation {
     contract_version: String,
     contract_digest_sha256: String,
     expected_qops_outcome: OperationOutcomeClass,
+    contract_profile: ValidatedOperationContract,
 }
 
 impl VerifiedOfferedOperation {
@@ -154,6 +155,9 @@ impl VerifiedOfferedOperation {
     pub fn contract_version(&self) -> &str { &self.contract_version }
     pub fn contract_digest_sha256(&self) -> &str { &self.contract_digest_sha256 }
     pub fn expected_qops_outcome(&self) -> OperationOutcomeClass { self.expected_qops_outcome }
+    /// The exact validated pre-dispatch profile bound by this offer.
+    /// The profile is immutable and cannot be replaced by a later registry read.
+    pub fn contract_profile(&self) -> &ValidatedOperationContract { &self.contract_profile }
 }
 
 impl VerifiedOfferLedger {
@@ -407,11 +411,12 @@ pub fn verify_offer_ledger(
                     sequence: entry.sequence,
                     operation_id: entry.operation_id.clone(),
                     request_digest_sha256: entry.request_digest_sha256.clone(),
-                    idempotency_key_digest_sha256: entry.idempotency_key_digest_sha256.as_deref().map(idempotency_key_digest),
+                    idempotency_key_digest_sha256: entry.idempotency_key_digest_sha256.clone(),
                     contract_id: entry.operation_contract_id.clone(),
                     contract_version: entry.operation_contract_version.clone(),
                     contract_digest_sha256: entry.operation_contract_digest_sha256.clone(),
                     expected_qops_outcome: contract.expected_qops_outcome(),
+                    contract_profile: contract.clone(),
                 });
             }
         } else {
