@@ -1,0 +1,231 @@
+{
+  "schema_version": "0.1.0",
+  "profile_id": "PULSE-FABRIC-QUAL-001",
+  "status": "synthetic_scenario_catalog_not_executed",
+  "scenarios": [
+    {
+      "scenario_id": "PFC-DELIVERY-001",
+      "family": "delivery",
+      "title": "Healthy recipient commit and verified receipt",
+      "expected_disposition": "SUCCESS_VERIFIED",
+      "required_invariants": [
+        "Delivered requires independently verified recipient receipt",
+        "receipt binds exact logical message and recipient"
+      ],
+      "mutations": []
+    },
+    {
+      "scenario_id": "PFC-DELIVERY-002",
+      "family": "delivery",
+      "title": "Transport ACK without recipient commit",
+      "expected_disposition": "UNKNOWN",
+      "required_invariants": [
+        "transport ACK is not recipient delivery"
+      ],
+      "mutations": [
+        "promote_transport_ack_to_delivered"
+      ]
+    },
+    {
+      "scenario_id": "PFC-DELIVERY-003",
+      "family": "delivery",
+      "title": "Duplicate transport delivery across two routes",
+      "expected_disposition": "SUCCESS_VERIFIED",
+      "required_invariants": [
+        "one logical inbox effect",
+        "preserve distinct attempt evidence"
+      ],
+      "mutations": [
+        "disable_receiver_deduplication"
+      ]
+    },
+    {
+      "scenario_id": "PFC-DELIVERY-004",
+      "family": "delivery",
+      "title": "Commit succeeds but acknowledgement is lost; retry after restart",
+      "expected_disposition": "SUCCESS_VERIFIED",
+      "required_invariants": [
+        "reconcile before retry",
+        "return original logical receipt/effect"
+      ],
+      "mutations": [
+        "retry_without_reconciliation"
+      ]
+    },
+    {
+      "scenario_id": "PFC-DELIVERY-005",
+      "family": "delivery",
+      "title": "Same idempotency key reused for altered content commitment",
+      "expected_disposition": "FAILED",
+      "required_invariants": [
+        "conflicting logical operation identity is rejected"
+      ],
+      "mutations": [
+        "ignore_content_commitment_conflict"
+      ]
+    },
+    {
+      "scenario_id": "PFC-DELIVERY-006",
+      "family": "delivery",
+      "title": "Receipt from wrong recipient or wrong message",
+      "expected_disposition": "FAILED",
+      "required_invariants": [
+        "receipt recipient and message binding are exact"
+      ],
+      "mutations": [
+        "skip_receipt_subject_binding"
+      ]
+    },
+    {
+      "scenario_id": "PFC-AUTH-001",
+      "family": "authority",
+      "title": "Revocation commits before a new protected call",
+      "expected_disposition": "REVOKED",
+      "required_invariants": [
+        "host denies new call after actual grant revoke"
+      ],
+      "mutations": [
+        "skip_host_grant_delete"
+      ]
+    },
+    {
+      "scenario_id": "PFC-AUTH-002",
+      "family": "authority",
+      "title": "Protected call admitted before revoke and commits afterward",
+      "expected_disposition": "SUCCESS_VERIFIED",
+      "required_invariants": [
+        "preserve observed admission-before-revoke ordering",
+        "do not fabricate a cancellation guarantee"
+      ],
+      "mutations": [
+        "order_by_wall_clock_only"
+      ]
+    },
+    {
+      "scenario_id": "PFC-AUTH-003",
+      "family": "authority",
+      "title": "Grant for cell A reused against cell B",
+      "expected_disposition": "FAILED",
+      "required_invariants": [
+        "exact CellId binding"
+      ],
+      "mutations": [
+        "ignore_cell_identity"
+      ]
+    },
+    {
+      "scenario_id": "PFC-AUTH-004",
+      "family": "authority",
+      "title": "Correct cell but unlisted zome/function",
+      "expected_disposition": "FAILED",
+      "required_invariants": [
+        "exact function attenuation"
+      ],
+      "mutations": [
+        "widen_function_allowlist"
+      ]
+    },
+    {
+      "scenario_id": "PFC-CRYPTO-001",
+      "family": "crypto",
+      "title": "Unknown or weaker protocol version presented as fallback",
+      "expected_disposition": "FAILED",
+      "required_invariants": [
+        "no silent crypto downgrade"
+      ],
+      "mutations": [
+        "enable_automatic_legacy_fallback"
+      ]
+    },
+    {
+      "scenario_id": "PFC-CRYPTO-002",
+      "family": "crypto",
+      "title": "Signature validly shaped but cryptographically invalid",
+      "expected_disposition": "FAILED",
+      "required_invariants": [
+        "verify cryptographic signature, not only size"
+      ],
+      "mutations": [
+        "length_check_only"
+      ]
+    },
+    {
+      "scenario_id": "PFC-PRIVACY-001",
+      "family": "privacy",
+      "title": "DHT observer correlates public author, recipient link and thread metadata",
+      "expected_disposition": "SUCCESS_VERIFIED",
+      "required_invariants": [
+        "report actual observable metadata",
+        "do not claim anonymity from ciphertext"
+      ],
+      "mutations": [
+        "claim_e2ee_implies_metadata_privacy"
+      ]
+    },
+    {
+      "scenario_id": "PFC-RECOVERY-001",
+      "family": "recovery",
+      "title": "Public source chain partially restored but private keys/data unavailable",
+      "expected_disposition": "INCOMPLETE",
+      "required_invariants": [
+        "do not claim private data or capabilities restored",
+        "do not enable as fully recovered"
+      ],
+      "mutations": [
+        "treat_public_chain_restore_as_full_device_restore"
+      ]
+    },
+    {
+      "scenario_id": "PFC-RECOVERY-002",
+      "family": "recovery",
+      "title": "Restore attempted with stale or revoked device state",
+      "expected_disposition": "FAILED",
+      "required_invariants": [
+        "device trust and key lifecycle revalidated",
+        "no rollback to revoked state"
+      ],
+      "mutations": [
+        "accept_stale_backup_state"
+      ]
+    },
+    {
+      "scenario_id": "PFC-RESILIENCE-001",
+      "family": "resilience",
+      "title": "Two adapters share a carrier/gateway failure domain",
+      "expected_disposition": "UNKNOWN",
+      "required_invariants": [
+        "do not count shared failure domain as independent redundancy"
+      ],
+      "mutations": [
+        "assume_adapter_names_imply_independence"
+      ]
+    },
+    {
+      "scenario_id": "PFC-EVIDENCE-001",
+      "family": "evidence",
+      "title": "Missing causal predecessor or foreign source-chain lineage",
+      "expected_disposition": "INCOMPLETE",
+      "required_invariants": [
+        "causal edge endpoints resolve",
+        "source-chain lineage is exact"
+      ],
+      "mutations": [
+        "accept_unresolved_or_foreign_causal_edge"
+      ]
+    },
+    {
+      "scenario_id": "PFC-EVIDENCE-002",
+      "family": "evidence",
+      "title": "Untrusted trust policy or transparency split-view",
+      "expected_disposition": "INCOMPLETE",
+      "required_invariants": [
+        "trust policy authenticates out of band",
+        "conflicting transparency roots remain unaccepted"
+      ],
+      "mutations": [
+        "trust_caller_supplied_root_label",
+        "accept_split_view"
+      ]
+    }
+  ]
+}
