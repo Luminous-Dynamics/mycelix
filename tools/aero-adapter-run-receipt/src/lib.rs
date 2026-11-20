@@ -159,6 +159,8 @@ pub enum ReceiptDisposition {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReceiptVerificationReport {
     pub disposition: ReceiptDisposition,
+    pub run_status: RunStatus,
+    pub semantic_output_eligible: bool,
     pub receipt_sha256: String,
     pub checked_artifacts: usize,
 }
@@ -453,7 +455,9 @@ pub fn validate_receipt(receipt: &AdapterRunReceiptV1) -> Result<(), ReceiptErro
 
     validate_content_artifact(&receipt.adapter.executable)?;
     if let Some(provenance) = &receipt.adapter.build_provenance {
-        if provenance.id.trim().is_empty() || provenance.kind != "slsa_build_provenance" {
+        if !provenance.id.strip_prefix("sha256:").is_some_and(valid_sha256)
+            || provenance.kind != "slsa_build_provenance"
+        {
             return Err(ReceiptError::InvalidArtifact(provenance.id.clone()));
         }
     }
@@ -507,8 +511,8 @@ pub fn validate_receipt(receipt: &AdapterRunReceiptV1) -> Result<(), ReceiptErro
     {
         return Err(ReceiptError::InvalidInvocation);
     }
-    let declared: BTreeSet<_> = receipt.invocation.declared_egress.iter().collect();
-    let observed: BTreeSet<_> = receipt.invocation.observed_egress.iter().collect();
+    let declared: BTreeSet<&str> = receipt.invocation.declared_egress.iter().map(String::as_str).collect();
+    let observed: BTreeSet<&str> = receipt.invocation.observed_egress.iter().map(String::as_str).collect();
     if declared.len() != receipt.invocation.declared_egress.len()
         || observed.len() != receipt.invocation.observed_egress.len()
     {
@@ -524,8 +528,8 @@ pub fn validate_receipt(receipt: &AdapterRunReceiptV1) -> Result<(), ReceiptErro
         _ => {}
     }
     for origin in &observed {
-        if !declared.contains(origin) {
-            return Err(ReceiptError::UndeclaredEgress((*origin).clone()));
+        if !declared.contains(*origin) {
+            return Err(ReceiptError::UndeclaredEgress((*origin).to_owned()));
         }
     }
 
@@ -590,7 +594,7 @@ pub fn verify_artifact_payloads(
         if !seen.insert(key.clone()) {
             return Err(ReceiptError::DuplicateArtifactPayload(key.0));
         }
-        let Some(artifact) = expected.iter().find(|item| item.reference == **reference) else {
+        let Some(artifact) = expected.iter().find(|item| &item.reference == *reference) else {
             return Err(ReceiptError::UnexpectedArtifactPayload(key.0));
         };
         verify_artifact_bytes(artifact, bytes)?;
@@ -604,6 +608,8 @@ pub fn verify_artifact_payloads(
 
     Ok(ReceiptVerificationReport {
         disposition: ReceiptDisposition::IntegrityChecked,
+        run_status: receipt.status,
+        semantic_output_eligible: receipt.status == RunStatus::Succeeded,
         receipt_sha256: receipt.receipt_sha256.clone(),
         checked_artifacts: expected.len(),
     })
@@ -654,6 +660,8 @@ mod tests {
         let borrowed: Vec<_> = bytes.iter().map(|(reference, payload)| (reference, payload.as_slice())).collect();
         let report = verify_artifact_payloads(&receipt, &borrowed).expect("all bytes match");
         assert_eq!(report.disposition, ReceiptDisposition::IntegrityChecked);
+        assert_eq!(report.run_status, RunStatus::Succeeded);
+        assert!(report.semantic_output_eligible);
         assert_eq!(report.checked_artifacts, 5);
         assert_eq!(report.receipt_sha256, receipt.receipt_sha256);
     }
@@ -722,12 +730,29 @@ mod tests {
     }
 
     #[test]
-    fn failed_or_timed_out_runs_cannot_look_successful() {
+    fn timed_out_run_is_recordable_but_not_semantically_eligible() {
         let mut receipt = fixture();
         receipt.status = RunStatus::TimedOut;
         receipt.exit_code = None;
+        receipt.outputs.clear();
         receipt.receipt_sha256 = compute_receipt_digest(&receipt).unwrap();
-        assert!(matches!(validate_receipt(&receipt), Err(ReceiptError::MissingNormalizedAssertions)));
+        assert!(validate_receipt(&receipt).is_ok());
+
+        let mut bytes = payloads();
+        bytes.truncate(3);
+        let borrowed: Vec<_> = bytes.iter().map(|(reference, payload)| (reference, payload.as_slice())).collect();
+        let report = verify_artifact_payloads(&receipt, &borrowed).expect("timeout receipt bytes verify");
+        assert_eq!(report.run_status, RunStatus::TimedOut);
+        assert!(!report.semantic_output_eligible);
+        assert_eq!(report.checked_artifacts, 3);
+    }
+
+    #[test]
+    fn successful_run_without_normalized_assertions_is_rejected() {
+        let mut receipt = fixture();
+        receipt.outputs.retain(|output| output.role != OutputRole::NormalizedAssertions);
+        receipt.receipt_sha256 = compute_receipt_digest(&receipt).unwrap();
+        assert_eq!(validate_receipt(&receipt), Err(ReceiptError::MissingNormalizedAssertions));
     }
 
     #[test]
