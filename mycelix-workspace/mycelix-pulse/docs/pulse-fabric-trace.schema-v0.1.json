@@ -1,0 +1,471 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pulse-fabric-trace-v0.1.json",
+  "title": "Pulse Fabric Evidence Trace v0.1",
+  "description": "Redacted evidence-only run envelope. Plaintext, raw keys, capability secrets, recovery material and raw private identifiers are prohibited by contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "run",
+    "scenario",
+    "events",
+    "terminal_disposition",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "profile_id": {
+      "const": "PULSE-FABRIC-QUAL-001"
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "source_sha",
+        "toolchain_digest",
+        "workload_digest",
+        "verifier"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "source_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "source_lineage_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "toolchain_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "cargo_lock_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "nix_lock_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "javascript_lock_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "holochain_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "hdk_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "hdi_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dna_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "happ_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "topology_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "workload_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "verifier": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "version",
+            "implementation_digest"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "implementation_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "raw_artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "artifact_id",
+              "sha256",
+              "media_type"
+            ],
+            "properties": {
+              "artifact_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "media_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "family",
+        "seed",
+        "observation_vantage"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^PFC-[A-Z0-9-]+$"
+        },
+        "family": {
+          "enum": [
+            "delivery",
+            "authority",
+            "crypto",
+            "privacy",
+            "recovery",
+            "resilience",
+            "evidence"
+          ]
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "observation_vantage": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "sender_client",
+              "recipient_client",
+              "authoring_conductor",
+              "receiving_conductor",
+              "dht_observer",
+              "relay",
+              "network_observer",
+              "independent_verifier"
+            ]
+          }
+        },
+        "fault_profile_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "environment_profile": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "logical_operation_id",
+          "attempt_id",
+          "event_type",
+          "evidence_role",
+          "actor_ref",
+          "observed_at",
+          "causal_predecessors",
+          "evidence_refs",
+          "redaction_profile"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "logical_operation_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "attempt_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "event_type": {
+            "enum": [
+              "intent_recorded",
+              "crypto_profile_selected",
+              "session_state_advanced",
+              "authority_host_admitted",
+              "authority_host_denied",
+              "domain_authorized",
+              "domain_denied",
+              "source_action_authored",
+              "integrity_validation_accepted",
+              "integrity_validation_rejected",
+              "dht_projection_observed",
+              "outbox_committed",
+              "transport_attempt_started",
+              "transport_attempt_outcome_unknown",
+              "transport_ack_observed",
+              "recipient_admitted",
+              "recipient_inbox_committed",
+              "recipient_decryption_verified",
+              "receipt_created",
+              "receipt_verified",
+              "receipt_rejected",
+              "revocation_committed",
+              "recovery_started",
+              "recovery_partial",
+              "recovery_completed",
+              "ui_projection_emitted",
+              "terminal_failure",
+              "terminal_expiry"
+            ]
+          },
+          "evidence_role": {
+            "enum": [
+              "client",
+              "host_conductor",
+              "domain_coordinator",
+              "source_chain_author",
+              "integrity_validator",
+              "dht_observer",
+              "transport_adapter",
+              "recipient",
+              "receipt_verifier",
+              "recovery_verifier",
+              "ui_projection",
+              "independent_auditor"
+            ]
+          },
+          "actor_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "device_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 256
+          },
+          "cell_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 256
+          },
+          "operation_profile": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "content_commitment": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "observed_at": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "clock_domain",
+              "monotonic_ns"
+            ],
+            "properties": {
+              "clock_domain": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "monotonic_ns": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "wall_time_utc": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "clock_uncertainty_ns": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              }
+            }
+          },
+          "causal_predecessors": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "sha256",
+                "scope"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "signed_statement",
+                    "action_hash",
+                    "grant_action_hash",
+                    "validation_receipt",
+                    "transport_receipt",
+                    "recipient_receipt",
+                    "source_checkpoint",
+                    "artifact",
+                    "model_counterexample",
+                    "other"
+                  ]
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "scope": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              }
+            }
+          },
+          "redaction_profile": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "disposition": {
+            "enum": [
+              "accepted",
+              "rejected",
+              "unknown",
+              "incomplete",
+              "not_applicable"
+            ]
+          },
+          "reason_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    "terminal_disposition": {
+      "enum": [
+        "SUCCESS_VERIFIED",
+        "FAILED",
+        "EXPIRED",
+        "REVOKED",
+        "UNKNOWN",
+        "INCOMPLETE",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "terminal_event_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "claim_ceiling": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
