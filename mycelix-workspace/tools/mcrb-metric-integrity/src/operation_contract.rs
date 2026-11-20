@@ -219,6 +219,8 @@ pub enum OperationContractIssue {
     ExpectedEffectNotAllowed { contract_id: String, state: EffectState },
     RequiredEvidenceNotAllowed { contract_id: String, kind: EvidenceKind },
     IndependentObserverPolicyIncomplete { contract_id: String },
+    IndependentObserverSourceRoleMissing { contract_id: String },
+    DenialEvidenceNotAllowed { contract_id: String, kind: EvidenceKind },
     UnknownPolicyMustFailClosed { contract_id: String },
     PartialPolicyMustFailClosed { contract_id: String },
     DispositionOutcomeMismatch { contract_id: String },
@@ -497,6 +499,26 @@ fn validate_contract(
             contract_id: id.clone(),
         });
     }
+    if document.evidence_policy.requires_independent_observer
+        && !document.evidence_policy.allowed_source_roles.contains(&EvidenceSourceRole::IndependentObserver)
+    {
+        issues.push(OperationContractIssue::IndependentObserverSourceRoleMissing {
+            contract_id: id.clone(),
+        });
+    }
+    for kind in document
+        .correct_denial_policy
+        .required_evidence_kinds
+        .iter()
+        .chain(document.unexpected_denial_policy.required_evidence_kinds.iter())
+    {
+        if !document.evidence_policy.allowed_evidence_kinds.contains(kind) {
+            issues.push(OperationContractIssue::DenialEvidenceNotAllowed {
+                contract_id: id.clone(),
+                kind: *kind,
+            });
+        }
+    }
 
     if !document.unknown_policy.blocks_qops
         || !document.unknown_policy.requires_reconciliation
@@ -541,6 +563,11 @@ fn validate_contract(
             }
         }
         OperationOutcomeClass::CorrectDenial => {
+            if document.effect_state_policy.expected_effect_states.contains(&EffectState::Applied) {
+                issues.push(OperationContractIssue::DispositionOutcomeMismatch {
+                    contract_id: id.clone(),
+                });
+            }
             if !document.effect_state_policy.expected_effect_states.contains(&EffectState::ConfirmedNotApplied) {
                 issues.push(OperationContractIssue::CorrectDenialRequiresConfirmedNoEffect {
                     contract_id: id.clone(),
@@ -740,12 +767,89 @@ mod tests {
         assert!(matches!(error[0], OperationContractIssue::SourceManifestGitBlobMismatch { .. }));
     }
 
+    fn mutate_registry(mutator: impl FnOnce(&mut Value)) -> Vec<u8> {
+        let mut value: Value = serde_json::from_str(EMBEDDED_OPERATION_CONTRACTS).unwrap();
+        mutator(&mut value);
+        serde_json::to_vec(&value).unwrap()
+    }
+
+    fn validate_mutated(raw: &[u8]) -> Result<ValidatedOperationContractRegistry, Vec<OperationContractIssue>> {
+        let digest = sha256_hex(raw);
+        validate_operation_contract_registry(
+            raw,
+            &digest,
+            EXPECTED_SCENARIO_MANIFEST_GIT_BLOB_SHA,
+        )
+    }
+
     #[test]
-    fn rejects_unknown_scenarios_and_weakened_cross_host_policy() {
-        let registry = embedded_registry();
-        let contract = registry
-            .find("MCRB-OP-REMOTE-DHT-PUBLICATION", "0.1.0")
-            .unwrap();
-        assert!(contract.requires_cross_host_visibility());
+    fn rejects_a_registry_that_weakens_scenario_cross_host_visibility() {
+        let raw = mutate_registry(|value| {
+            let contracts = value["contracts"].as_array_mut().unwrap();
+            let contract = contracts.iter_mut().find(|item| {
+                item["contract_id"] == "MCRB-OP-REMOTE-DHT-PUBLICATION"
+            }).unwrap();
+            contract["evidence_policy"]["requires_cross_host_visibility"] = Value::Bool(false);
+        });
+        let issues = validate_mutated(&raw).unwrap_err();
+        assert!(issues.iter().any(|issue| matches!(
+            issue,
+            OperationContractIssue::ScenarioVisibilityWeakened { scenario_id }
+                if scenario_id == "MCRB-03"
+        )));
+    }
+
+    #[test]
+    fn rejects_relabeling_expected_revocation_denial_as_qualified_success() {
+        let raw = mutate_registry(|value| {
+            let contracts = value["contracts"].as_array_mut().unwrap();
+            let contract = contracts.iter_mut().find(|item| {
+                item["contract_id"] == "MCRB-OP-CAPABILITY-REVOCATION"
+            }).unwrap();
+            contract["expected_qops_outcome"] = Value::String("QualifiedSuccess".to_string());
+        });
+        let issues = validate_mutated(&raw).unwrap_err();
+        assert!(issues.iter().any(|issue| matches!(
+            issue,
+            OperationContractIssue::DispositionOutcomeMismatch { contract_id }
+                if contract_id == "MCRB-OP-CAPABILITY-REVOCATION"
+        )));
+        assert!(issues.iter().any(|issue| matches!(
+            issue,
+            OperationContractIssue::QualifiedSuccessRequiresAppliedEffect { contract_id }
+                if contract_id == "MCRB-OP-CAPABILITY-REVOCATION"
+        )));
+    }
+
+    #[test]
+    fn rejects_fail_open_unknown_policy() {
+        let raw = mutate_registry(|value| {
+            let contracts = value["contracts"].as_array_mut().unwrap();
+            let contract = contracts.iter_mut().find(|item| {
+                item["contract_id"] == "MCRB-OP-REMOTE-DHT-PUBLICATION"
+            }).unwrap();
+            contract["unknown_policy"]["blocks_qops"] = Value::Bool(false);
+        });
+        let issues = validate_mutated(&raw).unwrap_err();
+        assert!(issues.iter().any(|issue| matches!(
+            issue,
+            OperationContractIssue::UnknownPolicyMustFailClosed { contract_id }
+                if contract_id == "MCRB-OP-REMOTE-DHT-PUBLICATION"
+        )));
+    }
+
+    #[test]
+    fn rejects_duplicate_contract_id_and_version() {
+        let raw = mutate_registry(|value| {
+            let contracts = value["contracts"].as_array_mut().unwrap();
+            let duplicate = contracts[0].clone();
+            contracts.push(duplicate);
+        });
+        let issues = validate_mutated(&raw).unwrap_err();
+        assert!(issues.iter().any(|issue| matches!(
+            issue,
+            OperationContractIssue::DuplicateContractId(contract_id)
+                if contract_id == "MCRB-OP-LOCAL-APPEND-READ"
+        )));
     }
 }
