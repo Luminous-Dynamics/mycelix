@@ -66,6 +66,20 @@ pub enum QopsIssue {
     DuplicateExternalEffect(String),
 }
 
+/// Caller-supplied outcome labels are unverified diagnostics until #6357
+/// produces an opaque VerifiedOutcomeLedger. These counts must never be used
+/// as QOPS numerator, terminal-outcome facts, or correctness evidence.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct AssertedOutcomeSamples {
+    pub classified_samples: usize,
+    pub qualified_success_labels: usize,
+    pub correct_denial_labels: usize,
+    pub unexpected_denial_labels: usize,
+    pub failure_labels: usize,
+    pub unknown_labels: usize,
+    pub duplicate_effect_labels: usize,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct QopsReport {
     pub status: QopsStatus,
@@ -89,7 +103,11 @@ pub struct QopsReport {
     pub outcome_ledger_digest_sha256: Option<String>,
     pub outcome_ledger_entry_count: usize,
     pub outcome_attestation_count: usize,
+    /// Diagnostic labels supplied by the caller; never eligible outcome facts.
+    pub asserted_outcome_samples: AssertedOutcomeSamples,
     pub offered_operations: usize,
+    /// Counts from VerifiedOutcomeLedger only. Remain zero while outcome
+    /// attestation is NotImplemented.
     pub classified_outcomes: usize,
     pub qualified_successes: usize,
     pub correct_denials: usize,
@@ -227,12 +245,29 @@ pub fn compute_qops(
         }
     }
 
-    let qualified_successes = counts.get(&OperationOutcome::QualifiedSuccess).copied().unwrap_or(0);
-    let correct_denials = counts.get(&OperationOutcome::CorrectDenial).copied().unwrap_or(0);
-    let unexpected_denials = counts.get(&OperationOutcome::UnexpectedDenial).copied().unwrap_or(0);
-    let known_failures = counts.get(&OperationOutcome::Failed).copied().unwrap_or(0);
-    let unknown_outcomes = counts.get(&OperationOutcome::Unknown).copied().unwrap_or(0);
-    let duplicate_external_effects = counts.get(&OperationOutcome::DuplicateEffect).copied().unwrap_or(0);
+    // Preserve caller labels for diagnostics, but do not publish them as
+    // observed terminal outcomes. Only a VerifiedOutcomeLedger may populate
+    // the authoritative counters used by receipts and QOPS.
+    let asserted_outcome_samples = AssertedOutcomeSamples {
+        classified_samples: seen.len(),
+        qualified_success_labels: counts.get(&OperationOutcome::QualifiedSuccess).copied().unwrap_or(0),
+        correct_denial_labels: counts.get(&OperationOutcome::CorrectDenial).copied().unwrap_or(0),
+        unexpected_denial_labels: counts.get(&OperationOutcome::UnexpectedDenial).copied().unwrap_or(0),
+        failure_labels: counts.get(&OperationOutcome::Failed).copied().unwrap_or(0),
+        unknown_labels: counts.get(&OperationOutcome::Unknown).copied().unwrap_or(0),
+        duplicate_effect_labels: counts.get(&OperationOutcome::DuplicateEffect).copied().unwrap_or(0),
+    };
+
+    // Outcome authentication is not implemented yet: keep all authoritative
+    // terminal-outcome counters at zero until the verifier creates a
+    // VerifiedOutcomeLedger bound to this exact VerifiedOfferLedger.
+    let classified_outcomes = 0;
+    let qualified_successes = 0;
+    let correct_denials = 0;
+    let unexpected_denials = 0;
+    let known_failures = 0;
+    let unknown_outcomes = 0;
+    let duplicate_external_effects = 0;
 
     let is_incomplete = issues.iter().any(|issue| {
         matches!(
@@ -307,6 +342,7 @@ pub fn compute_qops(
         outcome_ledger_digest_sha256: None,
         outcome_ledger_entry_count: 0,
         outcome_attestation_count: 0,
+        asserted_outcome_samples,
         offered_operations,
         classified_outcomes,
         qualified_successes,
@@ -448,11 +484,16 @@ mod tests {
         assert!(report.offered_operations_per_second.is_none());
         assert!(report.qualified_operations_per_second.is_none());
         assert_eq!(report.offered_operations, 5);
-        assert_eq!(report.classified_outcomes, 5);
-        assert_eq!(report.qualified_successes, 2);
-        assert_eq!(report.correct_denials, 1);
-        assert_eq!(report.known_failures, 1);
-        assert_eq!(report.unexpected_denials, 1);
+        assert_eq!(report.classified_outcomes, 0);
+        assert_eq!(report.qualified_successes, 0);
+        assert_eq!(report.correct_denials, 0);
+        assert_eq!(report.known_failures, 0);
+        assert_eq!(report.unexpected_denials, 0);
+        assert_eq!(report.asserted_outcome_samples.classified_samples, 5);
+        assert_eq!(report.asserted_outcome_samples.qualified_success_labels, 2);
+        assert_eq!(report.asserted_outcome_samples.correct_denial_labels, 1);
+        assert_eq!(report.asserted_outcome_samples.failure_labels, 1);
+        assert_eq!(report.asserted_outcome_samples.unexpected_denial_labels, 1);
         assert!(report.offered_operations_per_second.is_none());
         assert!(report.qualified_operations_per_second.is_none());
         assert!(report.qualified_success_fraction.is_none());
@@ -508,7 +549,8 @@ mod tests {
         input.outcomes[0].outcome = OperationOutcome::DuplicateEffect;
         let report = compute_qops(&ledger, &input, &valid_integrity(), &valid_gate_set(&ledger));
         assert_eq!(report.status, QopsStatus::Invalid);
-        assert_eq!(report.duplicate_external_effects, 1);
+        assert_eq!(report.duplicate_external_effects, 0);
+        assert_eq!(report.asserted_outcome_samples.duplicate_effect_labels, 1);
         assert!(report.qualified_operations_per_second.is_none());
     }
 
@@ -520,6 +562,8 @@ mod tests {
         let report = compute_qops(&ledger, &input, &valid_integrity(), &valid_gate_set(&ledger));
         assert_eq!(report.status, QopsStatus::Incomplete);
         assert!(report.issues.contains(&QopsIssue::UnresolvedUnknownOutcome("op-5".into())));
+        assert_eq!(report.unknown_outcomes, 0);
+        assert_eq!(report.asserted_outcome_samples.unknown_labels, 1);
         assert!(report.qualified_operations_per_second.is_none());
     }
 
