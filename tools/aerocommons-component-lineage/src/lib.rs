@@ -73,6 +73,7 @@ pub struct ValidationReport {
     pub evidence_records: usize,
     pub content_artifacts: usize,
     pub required_references: usize,
+    pub artifact_payloads_verified: bool,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -121,6 +122,12 @@ pub enum PacketError {
     UnknownField { scope: String, field: String },
     #[error("malformed JSON value at {0}")]
     MalformedPacketField(String),
+    #[error("missing payload for artifact: {0}")]
+    MissingArtifactPayload(String),
+    #[error("duplicate payload for artifact: {0}")]
+    DuplicateArtifactPayload(String),
+    #[error("unexpected artifact payload: {0}")]
+    UnexpectedArtifactPayload(String),
 }
 
 fn check_object_fields(
@@ -643,7 +650,63 @@ pub fn validate_packet(
         evidence_records: evidence_records.len(),
         content_artifacts: 4,
         required_references,
+        artifact_payloads_verified: false,
     })
+}
+
+/// Validate the packet and verify the exact bytes for all four referenced artifacts.
+///
+/// The caller is responsible for obtaining payloads from an authorized source.
+/// This function verifies byte length and SHA-256, not source authenticity,
+/// licensing, or the truth of the engineering content.
+pub fn verify_packet_artifact_payloads(
+    packet: &ComponentBuildPacketV1,
+    payloads: &[(&ContentArtifactV1, &[u8])],
+) -> Result<ValidationReport, PacketError> {
+    let mut report = validate_packet(packet)?;
+    let expected = [
+        &packet.design_definition,
+        &packet.process_plan,
+        &packet.inspection_result,
+        &packet.test_result,
+    ];
+
+    if payloads.len() != expected.len() {
+        return Err(PacketError::MissingArtifactPayload(
+            "packet must contain exactly four artifact payloads".to_owned(),
+        ));
+    }
+
+    let mut seen = std::collections::BTreeSet::new();
+    for (provided_artifact, bytes) in payloads {
+        let key = (
+            provided_artifact.reference.id.clone(),
+            provided_artifact.reference.kind.clone(),
+        );
+        if !seen.insert(key.clone()) {
+            return Err(PacketError::DuplicateArtifactPayload(key.0));
+        }
+        let Some(expected_artifact) = expected.iter().find(|item| {
+            item.reference == provided_artifact.reference
+        }) else {
+            return Err(PacketError::UnexpectedArtifactPayload(key.0));
+        };
+        verify_artifact_bytes(expected_artifact, bytes)?;
+    }
+
+    for artifact in expected {
+        if !seen.contains(&(
+            artifact.reference.id.clone(),
+            artifact.reference.kind.clone(),
+        )) {
+            return Err(PacketError::MissingArtifactPayload(
+                artifact.reference.id.clone(),
+            ));
+        }
+    }
+
+    report.artifact_payloads_verified = true;
+    Ok(report)
 }
 
 #[cfg(test)]
@@ -976,6 +1039,84 @@ mod tests {
         assert!(matches!(
             verify_artifact_bytes(&artifact, b"short"),
             Err(PacketError::ArtifactByteLengthMismatch(_))
+        ));
+    }
+
+    fn set_artifact_payload(artifact: &mut ContentArtifactV1, bytes: &[u8]) {
+        let digest = Sha256::digest(bytes)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        artifact.sha256 = digest.clone();
+        artifact.reference.id = format!("sha256:{digest}");
+        artifact.byte_length = bytes.len() as u64;
+    }
+
+    #[test]
+    fn whole_packet_artifact_verification_checks_every_payload() {
+        let mut packet = fixture();
+        let design = b"synthetic STEP AP242 document";
+        let process = b"synthetic process plan";
+        let inspection = b"synthetic QIF result";
+        let test = b"synthetic test result";
+        set_artifact_payload(&mut packet.design_definition, design);
+        set_artifact_payload(&mut packet.process_plan, process);
+        set_artifact_payload(&mut packet.inspection_result, inspection);
+        set_artifact_payload(&mut packet.test_result, test);
+
+        let payloads = [
+            (&packet.design_definition, design.as_slice()),
+            (&packet.process_plan, process.as_slice()),
+            (&packet.inspection_result, inspection.as_slice()),
+            (&packet.test_result, test.as_slice()),
+        ];
+        let report = verify_packet_artifact_payloads(&packet, &payloads).expect("verified bytes");
+        assert!(report.artifact_payloads_verified);
+        assert_eq!(report.disposition, PacketDisposition::StructurallyComplete);
+
+        let mutated = b"synthetic QIF resulT";
+        let bad_payloads = [
+            (&packet.design_definition, design.as_slice()),
+            (&packet.process_plan, process.as_slice()),
+            (&packet.inspection_result, mutated.as_slice()),
+            (&packet.test_result, test.as_slice()),
+        ];
+        assert!(matches!(
+            verify_packet_artifact_payloads(&packet, &bad_payloads),
+            Err(PacketError::ArtifactDigestMismatch(_))
+        ));
+    }
+
+    #[test]
+    fn whole_packet_artifact_verification_rejects_missing_and_duplicate_payloads() {
+        let mut packet = fixture();
+        let design = b"design";
+        let process = b"process";
+        let inspection = b"inspection";
+        let test = b"test";
+        set_artifact_payload(&mut packet.design_definition, design);
+        set_artifact_payload(&mut packet.process_plan, process);
+        set_artifact_payload(&mut packet.inspection_result, inspection);
+        set_artifact_payload(&mut packet.test_result, test);
+        let payloads = [
+            (&packet.design_definition, design.as_slice()),
+            (&packet.process_plan, process.as_slice()),
+            (&packet.inspection_result, inspection.as_slice()),
+            (&packet.test_result, test.as_slice()),
+        ];
+        assert!(matches!(
+            verify_packet_artifact_payloads(&packet, &payloads[..3]),
+            Err(PacketError::MissingArtifactPayload(_))
+        ));
+        let duplicated = [
+            (&packet.design_definition, design.as_slice()),
+            (&packet.process_plan, process.as_slice()),
+            (&packet.inspection_result, inspection.as_slice()),
+            (&packet.inspection_result, inspection.as_slice()),
+        ];
+        assert!(matches!(
+            verify_packet_artifact_payloads(&packet, &duplicated),
+            Err(PacketError::DuplicateArtifactPayload(_))
         ));
     }
 
