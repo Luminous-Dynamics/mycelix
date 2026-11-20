@@ -1,0 +1,1081 @@
+//! Evidence envelope for sandboxed QIF 3.0 validation and extraction.
+//!
+//! This crate verifies declared inputs, validator/check bundles, stage reports,
+//! sandbox profile, and extraction outputs. It does not run validators, verify
+//! a runner signature, enforce a sandbox, parse QIF XML, or authenticate tools.
+
+use aero_adapter_run_receipt::{verify_artifact_bytes, ContentArtifactV1, ReceiptError};
+use aero_evidence_types::ArtifactRef;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, BTreeSet};
+use thiserror::Error;
+
+pub const INGEST_SCHEMA: &str = "AeroQifIngestQualificationV1";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QifValidationProfile {
+    Qif3Normative,
+    Qif3PlusPreview,
+}
+
+impl QifValidationProfile {
+    pub fn is_normative(self) -> bool {
+        self == Self::Qif3Normative
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QifDocumentRole {
+    Results,
+    Plan,
+    Auxiliary,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QifDocumentInputV1 {
+    pub qpid: String,
+    pub role: QifDocumentRole,
+    pub artifact: ContentArtifactV1,
+    pub source_uri: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExternalDocumentBindingV1 {
+    pub results_qpid: String,
+    pub local_reference_id: u32,
+    pub target_plan_qpid: String,
+    /// Original URI from QIF, retained as source metadata.
+    pub source_uri: String,
+    /// Relative path in the sealed, read-only staging root.
+    pub staged_relative_path: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ValidatorKind {
+    XmlSchema,
+    Xslt,
+    Extractor,
+    TraceResolver,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ValidatorToolV1 {
+    pub tool_id: String,
+    pub kind: ValidatorKind,
+    pub name: String,
+    pub version: String,
+    pub source_repository: String,
+    /// Full 40-hex source commit, not a moving branch/tag.
+    pub source_commit_sha: String,
+    pub executable: ContentArtifactV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeSupport {
+    SupportedLts,
+    UnsupportedLegacy,
+    Unverified,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ValidatorRuntimeV1 {
+    pub runtime_name: String,
+    pub runtime_version: String,
+    pub support: RuntimeSupport,
+    pub runtime_image: ContentArtifactV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BundleFileV1 {
+    pub relative_path: String,
+    pub artifact: ContentArtifactV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct XsdBundleV1 {
+    pub entrypoint: ContentArtifactV1,
+    /// Complete transitive include/import set, including the entrypoint.
+    pub files: Vec<BundleFileV1>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct XsltBundleV1 {
+    pub root_stylesheet: ContentArtifactV1,
+    /// Complete transitive import/include and helper stylesheet set.
+    pub files: Vec<BundleFileV1>,
+    pub check_parameters: ContentArtifactV1,
+    pub profile: QifValidationProfile,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ValidationBundlesV1 {
+    pub xsd: XsdBundleV1,
+    pub xslt: XsltBundleV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FilesystemPolicy {
+    StagedInputsReadOnlyOutputsWriteOnly,
+    Unrestricted,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NetworkPolicy {
+    Disabled,
+    Allowlisted,
+    Enabled,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxProfileV1 {
+    pub network: NetworkPolicy,
+    pub filesystem: FilesystemPolicy,
+    pub rootless: bool,
+    pub no_host_secrets: bool,
+    pub cpu_limit_seconds: u64,
+    pub memory_limit_bytes: u64,
+    pub wall_time_limit_ms: u64,
+    pub max_document_bytes: u64,
+    pub max_total_input_bytes: u64,
+    pub max_document_count: u32,
+    pub max_link_recursion_depth: u32,
+    pub policy_artifact: ContentArtifactV1,
+    /// A reference only; this crate does not authenticate the attestation.
+    pub runner_attestation: ContentArtifactV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ValidationStage {
+    XmlWellFormedness,
+    XsdStructure,
+    XsltFormat,
+    XsltQuality,
+    XsltSemantic,
+    ExtractionFidelity,
+    ExternalReferenceResolution,
+}
+
+impl ValidationStage {
+    fn key(self) -> &'static str {
+        match self {
+            Self::XmlWellFormedness => "xml_well_formedness",
+            Self::XsdStructure => "xsd_structure",
+            Self::XsltFormat => "xslt_format",
+            Self::XsltQuality => "xslt_quality",
+            Self::XsltSemantic => "xslt_semantic",
+            Self::ExtractionFidelity => "extraction_fidelity",
+            Self::ExternalReferenceResolution => "external_reference_resolution",
+        }
+    }
+
+    fn expected_tool(self) -> ValidatorKind {
+        match self {
+            Self::XmlWellFormedness | Self::XsdStructure => ValidatorKind::XmlSchema,
+            Self::XsltFormat | Self::XsltQuality | Self::XsltSemantic => ValidatorKind::Xslt,
+            Self::ExtractionFidelity => ValidatorKind::Extractor,
+            Self::ExternalReferenceResolution => ValidatorKind::TraceResolver,
+        }
+    }
+
+    fn all() -> [Self; 7] {
+        [
+            Self::XmlWellFormedness,
+            Self::XsdStructure,
+            Self::XsltFormat,
+            Self::XsltQuality,
+            Self::XsltSemantic,
+            Self::ExtractionFidelity,
+            Self::ExternalReferenceResolution,
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StageDisposition {
+    Passed,
+    Failed,
+    Warning,
+    Unknown,
+    NotRun,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StageResultV1 {
+    pub stage: ValidationStage,
+    pub disposition: StageDisposition,
+    pub validator_tool_id: Option<String>,
+    pub report_artifact: Option<ContentArtifactV1>,
+    pub reason_codes: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExtractionMappingCountsV1 {
+    pub total_required: u64,
+    pub mapped: u64,
+    pub unresolved: u64,
+    pub ambiguous: u64,
+    pub unsupported: u64,
+    pub dropped: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExtractionEvidenceV1 {
+    pub normalized_trace_artifact: ContentArtifactV1,
+    pub source_mapping_manifest: ContentArtifactV1,
+    pub mapping_counts: ExtractionMappingCountsV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QifIngestQualificationBodyV1 {
+    pub qualification_id: String,
+    pub benchmark_case_id: String,
+    pub qif_profile: QifValidationProfile,
+    pub documents: Vec<QifDocumentInputV1>,
+    pub external_document_bindings: Vec<ExternalDocumentBindingV1>,
+    pub bundles: ValidationBundlesV1,
+    pub runtime: ValidatorRuntimeV1,
+    pub tools: Vec<ValidatorToolV1>,
+    pub sandbox: SandboxProfileV1,
+    /// All seven stages appear exactly once, including NotRun.
+    pub stage_results: Vec<StageResultV1>,
+    pub extraction: Option<ExtractionEvidenceV1>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QifIngestQualificationV1 {
+    pub schema: String,
+    pub body: QifIngestQualificationBodyV1,
+    pub receipt_sha256: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IngestDisposition {
+    IntegrityChecked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IngestVerificationReport {
+    pub disposition: IngestDisposition,
+    pub qualification_sha256: String,
+    pub checked_artifacts: usize,
+    pub profile_is_normative: bool,
+    pub legacy_runtime: bool,
+    pub all_stages_passed: bool,
+    pub sandbox_claim_present: bool,
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum IngestError {
+    #[error("invalid qualification JSON: {0}")]
+    InvalidJson(String),
+    #[error("wrong ingest schema")]
+    WrongSchema,
+    #[error("empty identity at {0}")]
+    InvalidIdentity(String),
+    #[error("invalid QPId at {0}")]
+    InvalidQpid(String),
+    #[error("duplicate QPId {0}")]
+    DuplicateQpid(String),
+    #[error("Results document missing or ambiguous")]
+    ResultsDocumentCardinality,
+    #[error("Plan document {0} is not linked from Results")]
+    UnlinkedPlan(String),
+    #[error("external document binding has no matching Results document: {0}")]
+    MissingResultsDocument(String),
+    #[error("external document binding has no matching Plan document: {0}")]
+    MissingPlanDocument(String),
+    #[error("external document binding ID is zero or duplicated: {0}")]
+    DuplicateExternalReference(u32),
+    #[error("staged path is unsafe: {0}")]
+    UnsafeStagedPath(String),
+    #[error("staged paths must be unique: {0}")]
+    DuplicateStagedPath(String),
+    #[error("invalid bundle path: {0}")]
+    InvalidBundlePath(String),
+    #[error("duplicate bundle path: {0}")]
+    DuplicateBundlePath(String),
+    #[error("bundle entrypoint is not in its pinned file manifest")]
+    MissingBundleEntrypoint,
+    #[error("XSLT bundle profile differs from the qualification profile")]
+    BundleProfileMismatch,
+    #[error("validator tool set is incomplete or duplicated")]
+    ValidatorToolCardinality,
+    #[error("invalid validator source commit for {0}")]
+    InvalidToolCommit(String),
+    #[error("stage result set is incomplete or duplicated")]
+    StageSetMismatch,
+    #[error("stage {0} has no validator tool or report artifact")]
+    MissingStageEvidence(String),
+    #[error("stage {stage} references tool {tool_id} of the wrong kind")]
+    WrongStageToolKind { stage: String, tool_id: String },
+    #[error("stage {0} has evidence despite being NotRun")]
+    NotRunHasEvidence(String),
+    #[error("sandbox profile is not fail-closed")]
+    UnsafeSandboxProfile,
+    #[error("sandbox resource limit is zero or invalid")]
+    InvalidSandboxLimit,
+    #[error("runtime or tool artifact is invalid: {0}")]
+    InvalidArtifact(String),
+    #[error("extraction evidence is missing or inconsistent")]
+    InvalidExtractionEvidence,
+    #[error("extraction stage Passed despite unresolved, ambiguous, unsupported or dropped mappings")]
+    FalseExtractionPass,
+    #[error("extraction stage has dropped mappings")]
+    DroppedMappings,
+    #[error("invalid receipt SHA-256")]
+    InvalidReceiptDigest,
+    #[error("receipt SHA-256 does not match the canonical body")]
+    ReceiptDigestMismatch,
+    #[error("conflicting metadata for artifact {0}")]
+    ArtifactMetadataConflict(String),
+    #[error("artifact payload set has missing, duplicate or unexpected entries")]
+    ArtifactPayloadSetMismatch,
+    #[error("duplicate artifact payload {0}")]
+    DuplicateArtifactPayload(String),
+    #[error("unexpected artifact payload {0}")]
+    UnexpectedArtifactPayload(String),
+    #[error("artifact byte verification failed: {0}")]
+    ArtifactVerification(ReceiptError),
+    #[error("canonical JSON serialization failed")]
+    CanonicalizationFailed,
+}
+
+pub fn parse_ingest_qualification_json(
+    bytes: &[u8],
+) -> Result<QifIngestQualificationV1, IngestError> {
+    let qualification: QifIngestQualificationV1 = serde_json::from_slice(bytes)
+        .map_err(|error| IngestError::InvalidJson(error.to_string()))?;
+    validate_ingest_qualification(&qualification)?;
+    Ok(qualification)
+}
+
+fn valid_sha256(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+}
+
+fn valid_uuid(value: &str) -> bool {
+    if value.len() != 36 { return false; }
+    value.bytes().enumerate().all(|(index, byte)| {
+        if matches!(index, 8 | 13 | 18 | 23) { byte == b'-' } else { byte.is_ascii_hexdigit() }
+    })
+}
+
+fn validate_content_artifact(artifact: &ContentArtifactV1) -> Result<(), IngestError> {
+    if artifact.reference.id.trim().is_empty()
+        || artifact.reference.kind.trim().is_empty()
+        || !valid_sha256(&artifact.sha256)
+        || artifact.reference.id != format!("sha256:{}", artifact.sha256)
+        || artifact.byte_length == 0
+        || artifact.media_type.trim().is_empty()
+        || artifact.format_id.trim().is_empty()
+    {
+        return Err(IngestError::InvalidArtifact(artifact.reference.id.clone()));
+    }
+    Ok(())
+}
+
+fn safe_relative_path(value: &str) -> bool {
+    if value.trim().is_empty()
+        || value.starts_with('/')
+        || value.starts_with('\\')
+        || value.contains('\\')
+        || value.contains(':')
+    {
+        return false;
+    }
+    value.split('/').all(|part| !part.is_empty() && part != "." && part != "..")
+}
+
+fn add_artifact(
+    artifacts: &mut BTreeMap<(String, String), ContentArtifactV1>,
+    artifact: &ContentArtifactV1,
+) -> Result<(), IngestError> {
+    validate_content_artifact(artifact)?;
+    let key = (artifact.reference.id.clone(), artifact.reference.kind.clone());
+    if let Some(existing) = artifacts.get(&key) {
+        if existing != artifact {
+            return Err(IngestError::ArtifactMetadataConflict(key.0));
+        }
+    } else {
+        artifacts.insert(key, artifact.clone());
+    }
+    Ok(())
+}
+
+fn canonical_body(body: &QifIngestQualificationBodyV1) -> QifIngestQualificationBodyV1 {
+    let mut canonical = body.clone();
+    canonical.documents.sort_by(|left, right| {
+        left.qpid.to_ascii_lowercase().cmp(&right.qpid.to_ascii_lowercase())
+    });
+    canonical.external_document_bindings.sort_by(|left, right| {
+        (left.results_qpid.to_ascii_lowercase(), left.local_reference_id)
+            .cmp(&(right.results_qpid.to_ascii_lowercase(), right.local_reference_id))
+    });
+    canonical.bundles.xsd.files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+    canonical.bundles.xslt.files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+    canonical.tools.sort_by(|left, right| left.tool_id.cmp(&right.tool_id));
+    canonical.stage_results.sort_by(|left, right| left.stage.key().cmp(right.stage.key()));
+    for stage in &mut canonical.stage_results {
+        stage.reason_codes.sort();
+    }
+    canonical
+}
+
+pub fn compute_ingest_receipt_digest(
+    qualification: &QifIngestQualificationV1,
+) -> Result<String, IngestError> {
+    let body = canonical_body(&qualification.body);
+    let bytes = serde_json::to_vec(&body).map_err(|_| IngestError::CanonicalizationFailed)?;
+    let digest = Sha256::digest(&bytes);
+    Ok(digest.iter().map(|byte| format!("{byte:02x}")).collect())
+}
+
+fn validate_bundle_files(
+    entrypoint: &ContentArtifactV1,
+    files: &[BundleFileV1],
+) -> Result<(), IngestError> {
+    validate_content_artifact(entrypoint)?;
+    let mut paths = BTreeSet::new();
+    let mut entry_found = false;
+    for file in files {
+        if !safe_relative_path(&file.relative_path) {
+            return Err(IngestError::InvalidBundlePath(file.relative_path.clone()));
+        }
+        if !paths.insert(file.relative_path.clone()) {
+            return Err(IngestError::DuplicateBundlePath(file.relative_path.clone()));
+        }
+        validate_content_artifact(&file.artifact)?;
+        if file.artifact == *entrypoint {
+            entry_found = true;
+        }
+    }
+    if !entry_found {
+        return Err(IngestError::MissingBundleEntrypoint);
+    }
+    Ok(())
+}
+
+pub fn validate_ingest_qualification(
+    qualification: &QifIngestQualificationV1,
+) -> Result<(), IngestError> {
+    if qualification.schema != INGEST_SCHEMA {
+        return Err(IngestError::WrongSchema);
+    }
+    if qualification.body.qualification_id.trim().is_empty()
+        || qualification.body.benchmark_case_id.trim().is_empty()
+    {
+        return Err(IngestError::InvalidIdentity("qualification_id/benchmark_case_id".into()));
+    }
+
+    let body = &qualification.body;
+    if body.documents.is_empty() {
+        return Err(IngestError::ResultsDocumentCardinality);
+    }
+
+    let mut documents = BTreeMap::new();
+    let mut results_docs = Vec::new();
+    let mut plan_docs = BTreeSet::new();
+    for document in &body.documents {
+        if !valid_uuid(&document.qpid) {
+            return Err(IngestError::InvalidQpid(document.qpid.clone()));
+        }
+        let key = document.qpid.to_ascii_lowercase();
+        if documents.insert(key.clone(), document).is_some() {
+            return Err(IngestError::DuplicateQpid(document.qpid.clone()));
+        }
+        validate_content_artifact(&document.artifact)?;
+        match document.role {
+            QifDocumentRole::Results => results_docs.push(key),
+            QifDocumentRole::Plan => { plan_docs.insert(key); },
+            QifDocumentRole::Auxiliary => {}
+        }
+    }
+    if results_docs.len() != 1 {
+        return Err(IngestError::ResultsDocumentCardinality);
+    }
+    let results_qpid = results_docs[0].clone();
+
+    let mut reference_ids = BTreeSet::new();
+    let mut staged_paths = BTreeSet::new();
+    let mut linked_plans = BTreeSet::new();
+    for binding in &body.external_document_bindings {
+        if binding.local_reference_id == 0
+            || !reference_ids.insert((binding.results_qpid.to_ascii_lowercase(), binding.local_reference_id))
+        {
+            return Err(IngestError::DuplicateExternalReference(binding.local_reference_id));
+        }
+        if !binding.results_qpid.eq_ignore_ascii_case(&results_qpid) {
+            return Err(IngestError::MissingResultsDocument(binding.results_qpid.clone()));
+        }
+        let Some(plan) = documents.get(&binding.target_plan_qpid.to_ascii_lowercase()) else {
+            return Err(IngestError::MissingPlanDocument(binding.target_plan_qpid.clone()));
+        };
+        if plan.role != QifDocumentRole::Plan {
+            return Err(IngestError::MissingPlanDocument(binding.target_plan_qpid.clone()));
+        }
+        if binding.source_uri.trim().is_empty() || !safe_relative_path(&binding.staged_relative_path) {
+            return Err(IngestError::UnsafeStagedPath(binding.staged_relative_path.clone()));
+        }
+        if !staged_paths.insert(binding.staged_relative_path.clone()) {
+            return Err(IngestError::DuplicateStagedPath(binding.staged_relative_path.clone()));
+        }
+        linked_plans.insert(binding.target_plan_qpid.to_ascii_lowercase());
+    }
+    if linked_plans != plan_docs {
+        let unlinked = plan_docs.difference(&linked_plans).next().cloned().unwrap_or_default();
+        return Err(IngestError::UnlinkedPlan(unlinked));
+    }
+
+    validate_bundle_files(&body.bundles.xsd.entrypoint, &body.bundles.xsd.files)?;
+    validate_bundle_files(&body.bundles.xslt.root_stylesheet, &body.bundles.xslt.files)?;
+    validate_content_artifact(&body.bundles.xslt.check_parameters)?;
+    if body.bundles.xslt.profile != body.qif_profile {
+        return Err(IngestError::BundleProfileMismatch);
+    }
+
+    validate_content_artifact(&body.runtime.runtime_image)?;
+    if body.runtime.runtime_name.trim().is_empty() || body.runtime.runtime_version.trim().is_empty() {
+        return Err(IngestError::InvalidIdentity("runtime".into()));
+    }
+
+    let mut tools = BTreeMap::new();
+    for tool in &body.tools {
+        if tool.tool_id.trim().is_empty()
+            || tool.name.trim().is_empty()
+            || tool.version.trim().is_empty()
+            || tool.source_repository.trim().is_empty()
+            || tool.source_commit_sha.len() != 40
+            || !tool.source_commit_sha.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        {
+            return Err(IngestError::InvalidToolCommit(tool.tool_id.clone()));
+        }
+        validate_content_artifact(&tool.executable)?;
+        if tools.insert(tool.tool_id.clone(), tool).is_some() {
+            return Err(IngestError::ValidatorToolCardinality);
+        }
+    }
+    for kind in [ValidatorKind::XmlSchema, ValidatorKind::Xslt, ValidatorKind::Extractor, ValidatorKind::TraceResolver] {
+        if tools.values().filter(|tool| tool.kind == kind).count() != 1 {
+            return Err(IngestError::ValidatorToolCardinality);
+        }
+    }
+
+    if body.sandbox.network != NetworkPolicy::Disabled
+        || body.sandbox.filesystem != FilesystemPolicy::StagedInputsReadOnlyOutputsWriteOnly
+        || !body.sandbox.rootless
+        || !body.sandbox.no_host_secrets
+    {
+        return Err(IngestError::UnsafeSandboxProfile);
+    }
+    if body.sandbox.cpu_limit_seconds == 0
+        || body.sandbox.memory_limit_bytes == 0
+        || body.sandbox.wall_time_limit_ms == 0
+        || body.sandbox.max_document_bytes == 0
+        || body.sandbox.max_total_input_bytes == 0
+        || body.sandbox.max_document_count == 0
+        || body.sandbox.max_link_recursion_depth == 0
+    {
+        return Err(IngestError::InvalidSandboxLimit);
+    }
+    validate_content_artifact(&body.sandbox.policy_artifact)?;
+    validate_content_artifact(&body.sandbox.runner_attestation)?;
+
+    if body.stage_results.len() != ValidationStage::all().len() {
+        return Err(IngestError::StageSetMismatch);
+    }
+    let mut stages = BTreeMap::new();
+    for stage in &body.stage_results {
+        if stages.insert(stage.stage.key(), stage).is_some() {
+            return Err(IngestError::StageSetMismatch);
+        }
+        match stage.disposition {
+            StageDisposition::NotRun => {
+                if stage.validator_tool_id.is_some() || stage.report_artifact.is_some() {
+                    return Err(IngestError::NotRunHasEvidence(stage.stage.key().into()));
+                }
+            }
+            _ => {
+                let Some(tool_id) = &stage.validator_tool_id else {
+                    return Err(IngestError::MissingStageEvidence(stage.stage.key().into()));
+                };
+                let Some(tool) = tools.get(tool_id) else {
+                    return Err(IngestError::MissingStageEvidence(stage.stage.key().into()));
+                };
+                if tool.kind != stage.stage.expected_tool() {
+                    return Err(IngestError::WrongStageToolKind {
+                        stage: stage.stage.key().into(),
+                        tool_id: tool_id.clone(),
+                    });
+                }
+                let Some(report) = &stage.report_artifact else {
+                    return Err(IngestError::MissingStageEvidence(stage.stage.key().into()));
+                };
+                validate_content_artifact(report)?;
+            }
+        }
+        if stage.reason_codes.iter().any(|code| code.trim().is_empty()) {
+            return Err(IngestError::InvalidIdentity(format!("reason_codes:{}", stage.stage.key())));
+        }
+    }
+    for stage in ValidationStage::all() {
+        if !stages.contains_key(stage.key()) {
+            return Err(IngestError::StageSetMismatch);
+        }
+    }
+
+    match (stages[ValidationStage::ExtractionFidelity.key()].disposition, &body.extraction) {
+        (StageDisposition::NotRun, None) => {}
+        (StageDisposition::NotRun, Some(_)) | (_, None) => {
+            return Err(IngestError::InvalidExtractionEvidence);
+        }
+        (disposition, Some(extraction)) => {
+            validate_content_artifact(&extraction.normalized_trace_artifact)?;
+            validate_content_artifact(&extraction.source_mapping_manifest)?;
+            let counts = &extraction.mapping_counts;
+            let accounted = counts.mapped
+                .checked_add(counts.unresolved)
+                .and_then(|value| value.checked_add(counts.ambiguous))
+                .and_then(|value| value.checked_add(counts.unsupported))
+                .and_then(|value| value.checked_add(counts.dropped))
+                .ok_or(IngestError::InvalidExtractionEvidence)?;
+            if counts.total_required == 0 || accounted != counts.total_required {
+                return Err(IngestError::InvalidExtractionEvidence);
+            }
+            if counts.dropped > 0 && disposition != StageDisposition::Failed {
+                return Err(IngestError::DroppedMappings);
+            }
+            if disposition == StageDisposition::Passed
+                && (counts.mapped != counts.total_required
+                    || counts.unresolved > 0
+                    || counts.ambiguous > 0
+                    || counts.unsupported > 0
+                    || counts.dropped > 0)
+            {
+                return Err(IngestError::FalseExtractionPass);
+            }
+        }
+    }
+
+    if stages[ValidationStage::ExternalReferenceResolution.key()].disposition == StageDisposition::Passed
+        && body.extraction.is_none()
+    {
+        return Err(IngestError::InvalidExtractionEvidence);
+    }
+
+    if !valid_sha256(&qualification.receipt_sha256) {
+        return Err(IngestError::InvalidReceiptDigest);
+    }
+    if compute_ingest_receipt_digest(qualification)? != qualification.receipt_sha256 {
+        return Err(IngestError::ReceiptDigestMismatch);
+    }
+    Ok(())
+}
+
+/// Canonical digest over a fixed-order JSON body with sorted document/link/tool/stage
+/// arrays. The profile is versioned by INGEST_SCHEMA and is not RFC 8785/JCS.
+pub fn compute_ingest_receipt_digest(
+    qualification: &QifIngestQualificationV1,
+) -> Result<String, IngestError> {
+    let body = canonical_body(&qualification.body);
+    let bytes = serde_json::to_vec(&body).map_err(|_| IngestError::CanonicalizationFailed)?;
+    let digest = Sha256::digest(&bytes);
+    Ok(digest.iter().map(|byte| format!("{byte:02x}")).collect())
+}
+
+/// Verify exact bytes for all source documents, schemas, XSLT dependencies,
+/// tools/runtime, sandbox references, stage reports and extraction artifacts.
+pub fn verify_ingest_payloads(
+    qualification: &QifIngestQualificationV1,
+    payloads: &[(&ArtifactRef, &[u8])],
+) -> Result<IngestVerificationReport, IngestError> {
+    validate_ingest_qualification(qualification)?;
+    let mut expected = BTreeMap::new();
+    for document in &qualification.body.documents {
+        add_artifact(&mut expected, &document.artifact)?;
+    }
+    for file in &qualification.body.bundles.xsd.files {
+        add_artifact(&mut expected, &file.artifact)?;
+    }
+    add_artifact(&mut expected, &qualification.body.bundles.xsd.entrypoint)?;
+    for file in &qualification.body.bundles.xslt.files {
+        add_artifact(&mut expected, &file.artifact)?;
+    }
+    add_artifact(&mut expected, &qualification.body.bundles.xslt.root_stylesheet)?;
+    add_artifact(&mut expected, &qualification.body.bundles.xslt.check_parameters)?;
+    add_artifact(&mut expected, &qualification.body.runtime.runtime_image)?;
+    for tool in &qualification.body.tools {
+        add_artifact(&mut expected, &tool.executable)?;
+    }
+    add_artifact(&mut expected, &qualification.body.sandbox.policy_artifact)?;
+    add_artifact(&mut expected, &qualification.body.sandbox.runner_attestation)?;
+    for stage in &qualification.body.stage_results {
+        if let Some(report) = &stage.report_artifact {
+            add_artifact(&mut expected, report)?;
+        }
+    }
+    if let Some(extraction) = &qualification.body.extraction {
+        add_artifact(&mut expected, &extraction.normalized_trace_artifact)?;
+        add_artifact(&mut expected, &extraction.source_mapping_manifest)?;
+    }
+
+    if payloads.len() != expected.len() {
+        return Err(IngestError::ArtifactPayloadSetMismatch);
+    }
+    let mut seen = BTreeSet::new();
+    for (reference, bytes) in payloads {
+        let key = (reference.id.clone(), reference.kind.clone());
+        if !seen.insert(key.clone()) {
+            return Err(IngestError::DuplicateArtifactPayload(key.0));
+        }
+        let Some(artifact) = expected.get(&key) else {
+            return Err(IngestError::UnexpectedArtifactPayload(key.0));
+        };
+        verify_artifact_bytes(artifact, bytes).map_err(IngestError::ArtifactVerification)?;
+    }
+    if seen.len() != expected.len() {
+        return Err(IngestError::ArtifactPayloadSetMismatch);
+    }
+
+    Ok(IngestVerificationReport {
+        disposition: IngestDisposition::IntegrityChecked,
+        qualification_sha256: qualification.receipt_sha256.clone(),
+        checked_artifacts: expected.len(),
+        profile_is_normative: qualification.body.qif_profile.is_normative(),
+        legacy_runtime: qualification.body.runtime.support == RuntimeSupport::UnsupportedLegacy,
+        all_stages_passed: qualification.body.stage_results.iter()
+            .all(|stage| stage.disposition == StageDisposition::Passed),
+        sandbox_claim_present: true,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn artifact(kind: &str, format_id: &str, bytes: &[u8]) -> ContentArtifactV1 {
+        let digest = Sha256::digest(bytes);
+        let sha256 = digest.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+        ContentArtifactV1 {
+            reference: ArtifactRef { id: format!("sha256:{sha256}"), kind: kind.into() },
+            sha256,
+            byte_length: bytes.len() as u64,
+            media_type: "application/octet-stream".into(),
+            format_id: format_id.into(),
+        }
+    }
+
+    fn fixture() -> (QifIngestQualificationV1, Vec<(ArtifactRef, Vec<u8>)>) {
+        let results_bytes = b"<QIFDocument kind=\"Results\"/>";
+        let plan_bytes = b"<QIFDocument kind=\"Plan\"/>";
+        let xsd_bytes = b"<xs:schema/>";
+        let xslt_bytes = b"<xsl:stylesheet/>";
+        let params_bytes = b"<CheckParameters/>";
+        let runtime_bytes = b"runtime image digest fixture";
+        let policy_bytes = b"sandbox policy fixture";
+        let runner_bytes = b"runner attestation fixture";
+        let tool_bytes = [
+            b"xml validator executable".as_slice(),
+            b"xslt validator executable".as_slice(),
+            b"extractor executable".as_slice(),
+            b"trace verifier executable".as_slice(),
+        ];
+        let report_bytes = [
+            b"xml report".as_slice(),
+            b"xsd report".as_slice(),
+            b"xslt format report".as_slice(),
+            b"xslt quality report".as_slice(),
+            b"xslt semantic report".as_slice(),
+            b"extract report".as_slice(),
+            b"trace report".as_slice(),
+        ];
+        let results = artifact("qif_results", "QIF_3.0", results_bytes);
+        let plan = artifact("qif_plan", "QIF_3.0", plan_bytes);
+        let xsd = artifact("xsd_schema", "QIF3_XSD", xsd_bytes);
+        let xslt = artifact("xslt_root", "QIF3_XSLT", xslt_bytes);
+        let parameters = artifact("xslt_parameters", "QIF_CHECK_PARAMETERS", params_bytes);
+        let runtime = artifact("runtime_image", "DOTNET_10_LTS", runtime_bytes);
+        let policy = artifact("sandbox_policy", "QIF_OFFLINE_SANDBOX_V1", policy_bytes);
+        let runner = artifact("runner_attestation", "HOST_RUNNER_ATTESTATION_V1", runner_bytes);
+        let tools = [
+            ValidatorToolV1 {
+                tool_id: "xml".into(), kind: ValidatorKind::XmlSchema, name: "xml-validator".into(),
+                version: "1.0".into(), source_repository: "https://example.invalid/validator".into(),
+                source_commit_sha: "a".repeat(40), executable: artifact("validator_xml", "XML_VALIDATOR", tool_bytes[0]),
+            },
+            ValidatorToolV1 {
+                tool_id: "xslt".into(), kind: ValidatorKind::Xslt, name: "qif-xslt".into(),
+                version: "1.0".into(), source_repository: "https://example.invalid/validator".into(),
+                source_commit_sha: "b".repeat(40), executable: artifact("validator_xslt", "XSLT_VALIDATOR", tool_bytes[1]),
+            },
+            ValidatorToolV1 {
+                tool_id: "extractor".into(), kind: ValidatorKind::Extractor, name: "qif-extractor".into(),
+                version: "1.0".into(), source_repository: "https://example.invalid/extractor".into(),
+                source_commit_sha: "c".repeat(40), executable: artifact("qif_extractor", "QIF_EXTRACTOR", tool_bytes[2]),
+            },
+            ValidatorToolV1 {
+                tool_id: "trace".into(), kind: ValidatorKind::TraceResolver, name: "qif-trace".into(),
+                version: "1.0".into(), source_repository: "https://example.invalid/trace".into(),
+                source_commit_sha: "d".repeat(40), executable: artifact("qif_trace", "QIF_TRACE_RESOLVER", tool_bytes[3]),
+            },
+        ];
+        let stages = ValidationStage::all().into_iter().enumerate().map(|(index, stage)| {
+            let tool_id = match stage {
+                ValidationStage::XmlWellFormedness | ValidationStage::XsdStructure => "xml",
+                ValidationStage::XsltFormat | ValidationStage::XsltQuality | ValidationStage::XsltSemantic => "xslt",
+                ValidationStage::ExtractionFidelity => "extractor",
+                ValidationStage::ExternalReferenceResolution => "trace",
+            };
+            StageResultV1 {
+                stage,
+                disposition: StageDisposition::Passed,
+                validator_tool_id: Some(tool_id.into()),
+                report_artifact: Some(artifact("stage_report", "QIF_STAGE_REPORT", report_bytes[index])),
+                reason_codes: Vec::new(),
+            }
+        }).collect();
+
+        let normalized_trace = artifact("normalized_qif_trace", "AeroQifExternalReferenceTraceV1", b"normalized trace bytes");
+        let mapping_manifest = artifact("source_mapping", "AERO_QIF_SOURCE_MAPPING_V1", b"mapping manifest bytes");
+        let body = QifIngestQualificationBodyV1 {
+            qualification_id: "qualification-001".into(),
+            benchmark_case_id: "case-test8-synthetic".into(),
+            qif_profile: QifValidationProfile::Qif3Normative,
+            documents: vec![
+                QifDocumentInputV1 { qpid: "10000000-0000-4000-8000-000000000001".into(), role: QifDocumentRole::Results, artifact: results.clone(), source_uri: None },
+                QifDocumentInputV1 { qpid: "20000000-0000-4000-8000-000000000002".into(), role: QifDocumentRole::Plan, artifact: plan.clone(), source_uri: Some("Plan.qif".into()) },
+            ],
+            external_document_bindings: vec![
+                ExternalDocumentBindingV1 {
+                    results_qpid: "10000000-0000-4000-8000-000000000001".into(),
+                    local_reference_id: 7,
+                    target_plan_qpid: "20000000-0000-4000-8000-000000000002".into(),
+                    source_uri: "Plan.qif".into(),
+                    staged_relative_path: "Plan.qif".into(),
+                },
+            ],
+            bundles: ValidationBundlesV1 {
+                xsd: XsdBundleV1 {
+                    entrypoint: xsd.clone(),
+                    files: vec![BundleFileV1 { relative_path: "QIFDocument.xsd".into(), artifact: xsd.clone() }],
+                },
+                xslt: XsltBundleV1 {
+                    root_stylesheet: xslt.clone(),
+                    files: vec![BundleFileV1 { relative_path: "Check.xsl".into(), artifact: xslt.clone() }],
+                    check_parameters: parameters.clone(),
+                    profile: QifValidationProfile::Qif3Normative,
+                },
+            },
+            runtime: ValidatorRuntimeV1 {
+                runtime_name: "dotnet".into(), runtime_version: "10.0 LTS".into(),
+                support: RuntimeSupport::SupportedLts, runtime_image: runtime.clone(),
+            },
+            tools: tools.to_vec(),
+            sandbox: SandboxProfileV1 {
+                network: NetworkPolicy::Disabled,
+                filesystem: FilesystemPolicy::StagedInputsReadOnlyOutputsWriteOnly,
+                rootless: true,
+                no_host_secrets: true,
+                cpu_limit_seconds: 120,
+                memory_limit_bytes: 1024 * 1024 * 1024,
+                wall_time_limit_ms: 120_000,
+                max_document_bytes: 10 * 1024 * 1024,
+                max_total_input_bytes: 50 * 1024 * 1024,
+                max_document_count: 32,
+                max_link_recursion_depth: 4,
+                policy_artifact: policy.clone(),
+                runner_attestation: runner.clone(),
+            },
+            stage_results: stages,
+            extraction: Some(ExtractionEvidenceV1 {
+                normalized_trace_artifact: normalized_trace.clone(),
+                source_mapping_manifest: mapping_manifest.clone(),
+                mapping_counts: ExtractionMappingCountsV1 {
+                    total_required: 10, mapped: 10, unresolved: 0, ambiguous: 0, unsupported: 0, dropped: 0,
+                },
+            }),
+        };
+        let mut qualification = QifIngestQualificationV1 {
+            schema: INGEST_SCHEMA.into(),
+            body,
+            receipt_sha256: String::new(),
+        };
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+
+        let mut payloads = vec![
+            (results.reference.clone(), results_bytes.to_vec()),
+            (plan.reference.clone(), plan_bytes.to_vec()),
+            (xsd.reference.clone(), xsd_bytes.to_vec()),
+            (xslt.reference.clone(), xslt_bytes.to_vec()),
+            (parameters.reference.clone(), params_bytes.to_vec()),
+            (runtime.reference.clone(), runtime_bytes.to_vec()),
+            (policy.reference.clone(), policy_bytes.to_vec()),
+            (runner.reference.clone(), runner_bytes.to_vec()),
+        ];
+        for (index, tool) in tools.iter().enumerate() {
+            payloads.push((tool.executable.reference.clone(), tool_bytes[index].to_vec()));
+        }
+        for (index, stage) in qualification.body.stage_results.iter().enumerate() {
+            payloads.push((stage.report_artifact.as_ref().unwrap().reference.clone(), report_bytes[index].to_vec()));
+        }
+        payloads.push((normalized_trace.reference.clone(), b"normalized trace bytes".to_vec()));
+        payloads.push((mapping_manifest.reference.clone(), b"mapping manifest bytes".to_vec()));
+        (qualification, payloads)
+    }
+
+    fn borrowed(payloads: &[(ArtifactRef, Vec<u8>)]) -> Vec<(&ArtifactRef, &[u8])> {
+        payloads.iter().map(|(reference, bytes)| (reference, bytes.as_slice())).collect()
+    }
+
+    #[test]
+    fn synthetic_normative_qualification_verifies_all_artifacts() {
+        let (qualification, payloads) = fixture();
+        let report = verify_ingest_payloads(&qualification, &borrowed(&payloads)).unwrap();
+        assert_eq!(report.disposition, IngestDisposition::IntegrityChecked);
+        assert!(report.profile_is_normative);
+        assert!(report.all_stages_passed);
+        assert!(!report.legacy_runtime);
+        assert_eq!(report.checked_artifacts, payloads.len());
+    }
+
+    #[test]
+    fn network_enabled_worker_is_rejected() {
+        let (mut qualification, _) = fixture();
+        qualification.body.sandbox.network = NetworkPolicy::Enabled;
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::UnsafeSandboxProfile));
+    }
+
+    #[test]
+    fn unrestricted_filesystem_is_rejected() {
+        let (mut qualification, _) = fixture();
+        qualification.body.sandbox.filesystem = FilesystemPolicy::Unrestricted;
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::UnsafeSandboxProfile));
+    }
+
+    #[test]
+    fn staged_path_traversal_is_rejected() {
+        let (mut qualification, _) = fixture();
+        qualification.body.external_document_bindings[0].staged_relative_path = "../outside/Plan.qif".into();
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(matches!(validate_ingest_qualification(&qualification), Err(IngestError::UnsafeStagedPath(_))));
+    }
+
+    #[test]
+    fn xsd_and_xslt_profiles_cannot_be_mixed() {
+        let (mut qualification, _) = fixture();
+        qualification.body.bundles.xslt.profile = QifValidationProfile::Qif3PlusPreview;
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::BundleProfileMismatch));
+    }
+
+    #[test]
+    fn legacy_runtime_is_reported_but_not_misrepresented_as_current() {
+        let (mut qualification, payloads) = fixture();
+        qualification.body.runtime.support = RuntimeSupport::UnsupportedLegacy;
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        let report = verify_ingest_payloads(&qualification, &borrowed(&payloads)).unwrap();
+        assert!(report.legacy_runtime);
+    }
+
+    #[test]
+    fn extraction_cannot_pass_with_unresolved_mappings() {
+        let (mut qualification, _) = fixture();
+        qualification.body.extraction.as_mut().unwrap().mapping_counts.unresolved = 1;
+        qualification.body.extraction.as_mut().unwrap().mapping_counts.mapped = 9;
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::FalseExtractionPass));
+    }
+
+    #[test]
+    fn dropped_extraction_mappings_cannot_be_hidden_in_warning_or_pass() {
+        let (mut qualification, _) = fixture();
+        qualification.body.extraction.as_mut().unwrap().mapping_counts.dropped = 1;
+        qualification.body.extraction.as_mut().unwrap().mapping_counts.mapped = 9;
+        qualification.body.stage_results.iter_mut()
+            .find(|stage| stage.stage == ValidationStage::ExtractionFidelity).unwrap().disposition = StageDisposition::Warning;
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::DroppedMappings));
+    }
+
+    #[test]
+    fn missing_stage_is_rejected_even_when_other_stages_pass() {
+        let (mut qualification, _) = fixture();
+        qualification.body.stage_results.pop();
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::StageSetMismatch));
+    }
+
+    #[test]
+    fn wrong_tool_kind_for_stage_is_rejected() {
+        let (mut qualification, _) = fixture();
+        let stage = qualification.body.stage_results.iter_mut()
+            .find(|stage| stage.stage == ValidationStage::XsltSemantic).unwrap();
+        stage.validator_tool_id = Some("xml".into());
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(matches!(validate_ingest_qualification(&qualification), Err(IngestError::WrongStageToolKind { .. })));
+    }
+
+    #[test]
+    fn receipt_digest_mutation_is_rejected() {
+        let (mut qualification, _) = fixture();
+        qualification.receipt_sha256 = "0".repeat(64);
+        assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::ReceiptDigestMismatch));
+    }
+
+    #[test]
+    fn receipt_digest_is_document_order_invariant() {
+        let (mut qualification, _) = fixture();
+        let before = compute_ingest_receipt_digest(&qualification).unwrap();
+        qualification.body.documents.reverse();
+        qualification.body.external_document_bindings.reverse();
+        qualification.body.tools.reverse();
+        qualification.body.stage_results.reverse();
+        assert_eq!(compute_ingest_receipt_digest(&qualification).unwrap(), before);
+    }
+
+    #[test]
+    fn unknown_nested_fields_are_rejected() {
+        let (qualification, _) = fixture();
+        let mut value = serde_json::to_value(&qualification).unwrap();
+        value["body"]["sandbox"]["network_bypass"] = Value::Bool(true);
+        let bytes = serde_json::to_vec(&value).unwrap();
+        assert!(matches!(parse_ingest_qualification_json(&bytes), Err(IngestError::InvalidJson(_))));
+    }
+
+    #[test]
+    fn payload_byte_mutation_is_rejected() {
+        let (qualification, mut payloads) = fixture();
+        payloads[0].1.push(b'X');
+        assert!(matches!(
+            verify_ingest_payloads(&qualification, &borrowed(&payloads)),
+            Err(IngestError::ArtifactVerification(ReceiptError::ArtifactByteLengthMismatch(_)))
+        ));
+    }
+}
