@@ -327,3 +327,38 @@ fn qops_receipt_keeps_outcome_verification_separate_from_trust_policy() {
     assert!(policy_required.iter().any(|value| value == "policy_digest_sha256"));
     assert!(policy_required.iter().any(|value| value == "dependency_closure_complete"));
 }
+
+#[test]
+fn qops_receipt_labels_caller_outcomes_as_diagnostic_only() {
+    let receipt = load_json("docs/benchmarks/MCRB_V0_1_RUN_RECEIPT.schema.json");
+    let qops = &receipt["properties"]["qops"];
+    assert!(
+        qops["required"].as_array().unwrap().iter().any(|value| value == "asserted_outcome_samples")
+    );
+    assert!(
+        qops["properties"]["asserted_outcome_samples"]["description"]
+            .as_str().unwrap().contains("Diagnostic only")
+    );
+
+    for field in [
+        "classified_outcomes",
+        "qualified_successes",
+        "correct_denials",
+        "unexpected_denials",
+        "known_failures",
+        "unknown_outcomes",
+        "duplicate_external_effects",
+    ] {
+        assert!(
+            qops["properties"][field]["description"]
+                .as_str().unwrap().contains("Verified outcome-ledger count only"),
+            "{field} must describe verified counts only"
+        );
+    }
+
+    let rules = receipt["allOf"].as_array().unwrap();
+    assert!(rules.iter().any(|rule| {
+        rule["if"]["properties"]["qops"]["properties"]["status"] == "eligible"
+            && rule["then"]["properties"]["qops"]["properties"]["outcome_evidence_status"] == "verified"
+    }));
+}
