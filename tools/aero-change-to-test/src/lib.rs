@@ -685,9 +685,9 @@ fn derive_plan(case: &ChangeToTestCaseV1) -> Result<RequalificationPlan, Qualifi
             return Err(QualificationError::ObligationSetMismatch(evidence.evidence_id.clone()));
         }
         match class {
-            ObligationClass::Mandatory => mandatory.push((*declared).clone()),
-            ObligationClass::ConditionalReview => conditional.push((*declared).clone()),
-            ObligationClass::Unknown => unknown.push((*declared).clone()),
+            ObligationClass::Mandatory => mandatory.push((**declared).clone()),
+            ObligationClass::ConditionalReview => conditional.push((**declared).clone()),
+            ObligationClass::Unknown => unknown.push((**declared).clone()),
         }
     }
     if declared_by_evidence.len() != expected_count {
