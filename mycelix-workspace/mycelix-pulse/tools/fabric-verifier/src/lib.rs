@@ -848,6 +848,41 @@ fn validate_run_and_scenario(
     (run_id, source_sha, scenario_id)
 }
 
+/// Validate an instance and its schema with the pinned Draft 2020-12 engine.
+///
+/// Remote reference resolution is disabled by the crate configuration. The
+/// qualification schema must therefore be self-contained and deterministic.
+pub fn validate_against_schema(
+    instance: &Value,
+    schema: &Value,
+) -> Result<(), Vec<String>> {
+    const DRAFT_2020_12: &str = "https://json-schema.org/draft/2020-12/schema";
+    if schema.get("$schema").and_then(Value::as_str) != Some(DRAFT_2020_12) {
+        return Err(vec![
+            "schema must declare JSON Schema Draft 2020-12 explicitly".to_owned(),
+        ]);
+    }
+
+    jsonschema::draft202012::meta::validate(schema)
+        .map_err(|error| vec![format!("invalid Draft 2020-12 schema: {error}")])?;
+
+    let validator = jsonschema::draft202012::options()
+        .should_validate_formats(true)
+        .build(schema)
+        .map_err(|error| vec![format!("could not compile Draft 2020-12 schema: {error}")])?;
+
+    let errors: Vec<String> = validator
+        .iter_errors(instance)
+        .map(|error| format!("{}: {error}", error.instance_path()))
+        .collect();
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
+
 /// Verify one redacted Pulse Fabric trace.
 ///
 /// A successful return means only that the checked structure and causal claims
@@ -1159,6 +1194,27 @@ mod tests {
                 "no cryptographic or runtime qualification implied"
             ]
         })
+    }
+
+    fn trace_schema() -> Value {
+        serde_json::from_str(include_str!("../../../docs/pulse-fabric-trace.schema-v0.1.json"))
+            .expect("checked-in trace schema must parse")
+    }
+
+    #[test]
+    fn embedded_trace_schema_is_valid_draft_2020_12_and_accepts_valid_trace() {
+        let schema = trace_schema();
+        let trace = valid_trace();
+        validate_against_schema(&trace, &schema).expect("trace must satisfy the normative schema");
+    }
+
+    #[test]
+    fn normative_schema_rejects_missing_required_evidence_field() {
+        let schema = trace_schema();
+        let mut trace = valid_trace();
+        trace["events"][4].as_object_mut().unwrap().remove("evidence_refs");
+        let errors = validate_against_schema(&trace, &schema).unwrap_err();
+        assert!(errors.iter().any(|item| item.contains("evidence_refs")));
     }
 
     #[test]
