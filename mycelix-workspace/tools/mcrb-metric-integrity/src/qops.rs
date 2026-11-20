@@ -354,7 +354,7 @@ mod tests {
         attestation::{GateAttestationContext, verified_gate_set_for_test},
         offer_ledger::{
             OfferLedgerEntry, OfferLedgerEnvelope, OFFER_LEDGER_SCHEMA_VERSION,
-            calculate_offer_ledger_digest, embedded_scenario_manifest_digest, verify_offer_ledger,
+            calculate_offer_ledger_digest, embedded_scenario_manifest_digest, idempotency_key_commitment, verify_offer_ledger,
         },
     };
     use sha2::{Digest, Sha256};
@@ -423,7 +423,7 @@ mod tests {
                 scenario_id: scenario_id.clone(),
                 operation_id: format!("op-{}", index + 1),
                 request_digest_sha256: digest(&format!("request-{index}")),
-                idempotency_key_digest_sha256: Some(digest(&format!("idem-{index}"))),
+                idempotency_key_digest_sha256: Some(idempotency_key_commitment(format!("idem-{index}").as_bytes())),
                 scheduled_monotonic_tick: index + 10,
                 monotonic_clock_id: clock_id.clone(),
                 monotonic_clock_epoch: epoch.clone(),
