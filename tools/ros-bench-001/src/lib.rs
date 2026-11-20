@@ -8,8 +8,7 @@
 
 use std::fmt;
 
-pub const CORPUS: &str =
-    include_str!("../../../benchmarks/authorization/ros-bench-001/cases.tsv");
+pub const CORPUS: &str = include_str!("../../../benchmarks/authorization/ros-bench-001/cases.tsv");
 
 const HEADER: &str = concat!(
     "case_id|source_current|authority_known|identity_bound|scope_bound|",
@@ -63,11 +62,23 @@ pub struct Case {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CorpusError {
     MissingHeader,
-    WrongColumnCount { line: usize, found: usize },
-    EmptyCaseId { line: usize },
+    WrongColumnCount {
+        line: usize,
+        found: usize,
+    },
+    EmptyCaseId {
+        line: usize,
+    },
     DuplicateCaseId(String),
-    InvalidBoolean { line: usize, column: &'static str, value: String },
-    InvalidDecision { line: usize, value: String },
+    InvalidBoolean {
+        line: usize,
+        column: &'static str,
+        value: String,
+    },
+    InvalidDecision {
+        line: usize,
+        value: String,
+    },
     EmptyCorpus,
 }
 
