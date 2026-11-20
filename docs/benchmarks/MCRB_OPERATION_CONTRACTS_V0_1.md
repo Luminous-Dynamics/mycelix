@@ -199,7 +199,7 @@ The offer ledger carries an SHA-256 commitment, not the raw idempotency key. Pro
 
 ```text
 SHA256(
-  "MYCELIX-MCRB-IDEMPOTENCY-KEY\\0v0.1\\0"
+  "MYCELIX-MCRB-IDEMPOTENCY-KEY\0v0.1\0"
   || u64_be(raw_key.len())
   || raw_key
 )
