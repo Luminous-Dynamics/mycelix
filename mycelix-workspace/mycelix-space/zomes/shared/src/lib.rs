@@ -62,14 +62,25 @@ impl SpaceTimestamp {
         }
     }
 
-    pub fn to_datetime(&self) -> DateTime<Utc> {
-        DateTime::from_timestamp_micros(self.micros).unwrap_or_else(Utc::now)
+    /// Fallible conversion. Returns None when the serialized microsecond value is
+    /// outside Chrono's representable UTC range.
+    pub fn try_to_datetime(&self) -> Option<DateTime<Utc>> {
+        DateTime::from_timestamp_micros(self.micros)
     }
 
-    /// Age in seconds from now
+    /// Lossy compatibility conversion.
+    ///
+    /// Invalid timestamps historically fell back to the current wall clock. New
+    /// operational code must use `try_to_datetime` and reject an invalid value.
+    #[deprecated(note = "Use try_to_datetime() and handle invalid timestamps explicitly")]
+    pub fn to_datetime(&self) -> DateTime<Utc> {
+        self.try_to_datetime().unwrap_or_else(Utc::now)
+    }
+
+    /// Age in seconds from now. Saturates at the i64 boundary for extreme inputs.
     pub fn age_seconds(&self) -> i64 {
         let now = Self::now();
-        (now.micros - self.micros) / 1_000_000
+        now.micros.saturating_sub(self.micros) / 1_000_000
     }
 }
 
@@ -133,6 +144,9 @@ pub struct TleStaleness {
     pub age_secs: i64,
     /// Whether the TLE exceeds the staleness threshold
     pub is_stale: bool,
+    /// Whether its epoch is in the future relative to the evaluator clock.
+    /// Future-dated records are not treated as fresh.
+    pub future_dated: bool,
     /// Original quality score (as submitted)
     pub original_quality: QualityScore,
     /// Effective quality after age-based degradation
@@ -152,27 +166,37 @@ pub fn compute_staleness(
     config: &StalenessConfig,
 ) -> TleStaleness {
     let age_secs = epoch.age_seconds();
+    let future_dated = age_secs < 0;
 
-    // Quality degrades: ~1 point per day after 7 days of age
-    let grace_period_secs: i64 = 7 * 24 * 3600;
-    let days_past_grace = ((age_secs - grace_period_secs).max(0) as f64) / 86400.0;
-    let degraded = (quality.value() as f64 - days_past_grace).max(0.0) as u8;
-    let effective_quality = QualityScore::new(degraded);
+    // A future epoch indicates a clock, parsing or source-semantics problem.
+    // Do not grant it full freshness confidence or usable effective quality.
+    let effective_quality = if future_dated {
+        QualityScore::new(0)
+    } else {
+        // Quality degrades: ~1 point per day after 7 days of age.
+        let grace_period_secs: i64 = 7 * 24 * 3600;
+        let days_past_grace = ((age_secs - grace_period_secs).max(0) as f64) / 86400.0;
+        let degraded = (quality.value() as f64 - days_past_grace).max(0.0) as u8;
+        QualityScore::new(degraded)
+    };
 
-    // Confidence: 1.0 for fresh TLEs, decays towards 0.1 for very old ones
+    // Confidence: future-dated records are unqualified; otherwise decay with age.
     let threshold = config.stale_threshold_secs as f64;
     let age_f = age_secs.max(0) as f64;
-    let confidence = if threshold <= 0.0 {
+    let confidence = if future_dated {
+        0.0
+    } else if threshold <= 0.0 {
         1.0
     } else {
         (1.0 - 0.7 * (age_f / threshold).min(2.0) / 2.0).max(0.1)
     };
 
-    let is_stale = age_secs > config.stale_threshold_secs;
+    let is_stale = !future_dated && age_secs > config.stale_threshold_secs;
 
     TleStaleness {
         age_secs,
         is_stale,
+        future_dated,
         original_quality: *quality,
         effective_quality,
         confidence,
