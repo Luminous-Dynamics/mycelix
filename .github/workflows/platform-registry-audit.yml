@@ -54,6 +54,9 @@ jobs:
           jq -e '
             .schema_version == "mycelix-otherrole-topology-audit-v0.1" and
             .report_kind == "advisory-static-ast-inventory" and
+            (.source.tree_sha | test("^[0-9a-f]{40}$")) and
+            .scope.source_selection == "git-tracked-files-only-clean-tracked-worktree" and
+            (.scope.excluded_path_components | type == "array") and
             (.call_sites | type == "array") and
             (.scope.nearest_manifest_context_coverage | type == "number")
           ' otherrole-topology-report.json > /dev/null
