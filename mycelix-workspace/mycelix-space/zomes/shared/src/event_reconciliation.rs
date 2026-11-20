@@ -474,9 +474,11 @@ pub fn reconcile_provider_events(
         }
     }
 
-    result
-        .matched
-        .sort_by(|a, b| a.left_event_id.cmp(&b.left_event_id).then_with(|| a.right_event_id.cmp(&b.right_event_id)));
+    result.matched.sort_by(|a, b| {
+        a.left_event_id
+            .cmp(&b.left_event_id)
+            .then_with(|| a.right_event_id.cmp(&b.right_event_id))
+    });
     result.left_only_event_ids.sort();
     result.right_only_event_ids.sort();
     result.ambiguous.sort_by(|a, b| {
@@ -736,6 +738,27 @@ mod tests {
                 provider_side: ProviderSide::Left,
                 expected_provider_id: "provider-a".to_string(),
                 actual_provider_id: "provider-b".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_empty_provider_and_missing_publication_policy() {
+        let mut input = event("empty-provider", 25544, 49863, 1_000);
+        input.provider_id.clear();
+        assert_eq!(
+            reconcile_provider_events(&[input], &[], &config(10)),
+            Err(EventReconciliationError::EmptyProviderId {
+                event_id: "empty-provider".to_string(),
+            })
+        );
+
+        let mut input = event("missing-policy", 25544, 49863, 1_000);
+        input.publication_policy_id.clear();
+        assert_eq!(
+            reconcile_provider_events(&[input], &[], &config(10)),
+            Err(EventReconciliationError::MissingPublicationPolicy {
+                event_id: "missing-policy".to_string(),
             })
         );
     }
