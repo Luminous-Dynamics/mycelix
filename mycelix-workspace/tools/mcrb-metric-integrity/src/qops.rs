@@ -323,12 +323,7 @@ mod tests {
 
     fn verified_ledger(cross_host_required: bool) -> VerifiedOfferLedger {
         let run_id = "run-001".to_string();
-        // OfferLedgerVerifier consumes scenario_id, not the human MCRB-XX label.
-        let scenario_id = if cross_host_required {
-            "dht-convergence"
-        } else {
-            "single-agent-append-read"
-        }.to_string();
+        let scenario_id = if cross_host_required { "MCRB-03" } else { "MCRB-01" }.to_string();
         let generator = digest("generator");
         let manifest = digest("manifest");
         let params = digest("params");
