@@ -10,6 +10,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - ".github/workflows/pulse-fabric-verifier.yml"
       - "mycelix-workspace/mycelix-pulse/tools/fabric-verifier/**"
       - "mycelix-workspace/mycelix-pulse/docs/pulse-fabric-*.json"
   workflow_dispatch:
@@ -17,9 +18,11 @@ on:
 permissions:
   contents: read
 
+# Keep immutable exact-head evidence runs. A newer push must not cancel a run
+# that may still be producing the qualification receipt for its original SHA.
 concurrency:
-  group: pulse-fabric-verifier-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: pulse-fabric-verifier-${{ github.sha }}
+  cancel-in-progress: false
 
 env:
   CARGO_TERM_COLOR: always
