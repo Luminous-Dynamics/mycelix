@@ -540,12 +540,34 @@ fn canonical_body(body: &QifIngestQualificationBodyV1) -> QifIngestQualification
     canonical.tools.sort_by(|left, right| left.tool_id.cmp(&right.tool_id));
     canonical.stage_results.sort_by(|left, right| left.stage.key().cmp(right.stage.key()));
     if let Some(extraction) = &mut canonical.extraction {
+        extraction.required_locators = canonical_source_field_locators(&extraction.required_locators);
         extraction.mappings = canonical_source_mapping_records(&extraction.mappings);
     }
     for stage in &mut canonical.stage_results {
         stage.reason_codes.sort();
     }
     canonical
+}
+
+fn canonical_source_field_locators(
+    locators: &[SourceFieldLocatorV1],
+) -> Vec<SourceFieldLocatorV1> {
+    let mut canonical = locators.to_vec();
+    for locator in &mut canonical {
+        locator.document_qpid = locator.document_qpid.to_ascii_lowercase();
+    }
+    canonical.sort();
+    canonical
+}
+
+fn source_locator_from_mapping(record: &SourceMappingRecordV1) -> SourceFieldLocatorV1 {
+    SourceFieldLocatorV1 {
+        document_qpid: record.document_qpid.to_ascii_lowercase(),
+        source_path: record.source_path.clone(),
+        source_element_id: record.source_element_id,
+        external_document_reference_id: record.external_document_reference_id,
+        external_xid: record.external_xid,
+    }
 }
 
 fn canonical_source_mapping_records(
@@ -572,10 +594,12 @@ fn canonical_source_mapping_records(
 
 /// Canonical serialized source-mapping manifest bytes (not RFC 8785/JCS).
 pub fn source_mapping_manifest_bytes(
+    required_locators: &[SourceFieldLocatorV1],
     records: &[SourceMappingRecordV1],
 ) -> Result<Vec<u8>, IngestError> {
     let manifest = SourceMappingManifestV1 {
         schema: SOURCE_MAPPING_SCHEMA.into(),
+        required_locators: canonical_source_field_locators(required_locators),
         mappings: canonical_source_mapping_records(records),
     };
     serde_json::to_vec(&manifest).map_err(|_| IngestError::CanonicalizationFailed)
@@ -585,57 +609,82 @@ fn digest_hex(bytes: &[u8]) -> String {
     Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
+fn validate_source_field_locator(
+    locator: &SourceFieldLocatorV1,
+    documents: &BTreeMap<String, &QifDocumentInputV1>,
+    reference_ids: &BTreeSet<(String, u32)>,
+) -> Result<SourceFieldLocatorV1, IngestError> {
+    let qpid = locator.document_qpid.to_ascii_lowercase();
+    let Some(document) = documents.get(&qpid) else {
+        return Err(IngestError::InvalidSourceMappingLocator(locator.document_qpid.clone()));
+    };
+    if !valid_uuid(&locator.document_qpid)
+        || !locator.source_path.starts_with("/QIFDocument/")
+        || locator.source_path.chars().any(|character| character.is_control())
+        || locator.source_path.trim().is_empty()
+        || locator.source_element_id == Some(0)
+        || locator.external_document_reference_id.is_some() != locator.external_xid.is_some()
+        || locator.external_document_reference_id == Some(0)
+        || locator.external_xid == Some(0)
+    {
+        return Err(IngestError::InvalidSourceMappingLocator(locator.source_path.clone()));
+    }
+    if let (Some(reference_id), Some(_xid)) =
+        (locator.external_document_reference_id, locator.external_xid)
+    {
+        if document.role != QifDocumentRole::Results
+            || !reference_ids.contains(&(qpid.clone(), reference_id))
+        {
+            return Err(IngestError::InvalidSourceMappingLocator(locator.source_path.clone()));
+        }
+    }
+    Ok(SourceFieldLocatorV1 {
+        document_qpid: qpid,
+        source_path: locator.source_path.clone(),
+        source_element_id: locator.source_element_id,
+        external_document_reference_id: locator.external_document_reference_id,
+        external_xid: locator.external_xid,
+    })
+}
+
 fn validate_source_mapping_records(
+    required_locators: &[SourceFieldLocatorV1],
     records: &[SourceMappingRecordV1],
     counts: &ExtractionMappingCountsV1,
     documents: &BTreeMap<String, &QifDocumentInputV1>,
     reference_ids: &BTreeSet<(String, u32)>,
 ) -> Result<(), IngestError> {
-    if records.is_empty() || records.len() as u64 != counts.total_required {
+    if required_locators.is_empty() || required_locators.len() as u64 != counts.total_required {
         return Err(IngestError::SourceMappingCountMismatch);
     }
-    let mut locators = BTreeSet::new();
+
+    let mut expected = BTreeSet::new();
+    for locator in required_locators {
+        let canonical = validate_source_field_locator(locator, documents, reference_ids)?;
+        if !expected.insert(canonical) {
+            return Err(IngestError::DuplicateSourceMappingLocator(locator.source_path.clone()));
+        }
+    }
+
+    if records.len() != expected.len() {
+        return Err(IngestError::SourceMappingInventoryMismatch);
+    }
+
+    let mut observed = BTreeSet::new();
     let (mut mapped, mut unresolved, mut ambiguous, mut unsupported, mut dropped) =
         (0u64, 0u64, 0u64, 0u64, 0u64);
 
     for record in records {
-        let qpid = record.document_qpid.to_ascii_lowercase();
-        let Some(document) = documents.get(&qpid) else {
-            return Err(IngestError::InvalidSourceMappingLocator(record.document_qpid.clone()));
-        };
-        if !record.source_path.starts_with("/QIFDocument/")
-            || record.source_path.chars().any(|character| character.is_control())
-            || record.source_path.trim().is_empty()
-            || record.source_element_id == Some(0)
-            || record.mapping_rule_id.trim().is_empty()
-            || record.mapping_profile_version.trim().is_empty()
-        {
-            return Err(IngestError::InvalidSourceMappingLocator(record.source_path.clone()));
+        let locator = source_locator_from_mapping(record);
+        let canonical = validate_source_field_locator(&locator, documents, reference_ids)?;
+        if !expected.contains(&canonical) {
+            return Err(IngestError::SourceMappingInventoryMismatch);
         }
-        if record.external_document_reference_id.is_some() != record.external_xid.is_some()
-            || record.external_document_reference_id == Some(0)
-            || record.external_xid == Some(0)
-        {
-            return Err(IngestError::InvalidSourceMappingLocator(record.source_path.clone()));
-        }
-        if let (Some(reference_id), Some(_xid)) =
-            (record.external_document_reference_id, record.external_xid)
-        {
-            if document.role != QifDocumentRole::Results
-                || !reference_ids.contains(&(qpid.clone(), reference_id))
-            {
-                return Err(IngestError::InvalidSourceMappingLocator(record.source_path.clone()));
-            }
-        }
-        let locator = (
-            qpid,
-            record.source_path.clone(),
-            record.source_element_id,
-            record.external_document_reference_id,
-            record.external_xid,
-        );
-        if !locators.insert(locator) {
+        if !observed.insert(canonical) {
             return Err(IngestError::DuplicateSourceMappingLocator(record.source_path.clone()));
+        }
+        if record.mapping_rule_id.trim().is_empty() || record.mapping_profile_version.trim().is_empty() {
+            return Err(IngestError::InvalidSourceMappingRecord(record.source_path.clone()));
         }
 
         match record.disposition {
@@ -669,6 +718,9 @@ fn validate_source_mapping_records(
         }
     }
 
+    if observed != expected {
+        return Err(IngestError::SourceMappingInventoryMismatch);
+    }
     if mapped != counts.mapped
         || unresolved != counts.unresolved
         || ambiguous != counts.ambiguous
@@ -986,6 +1038,7 @@ pub fn validate_ingest_qualification(
             }
             let counts = &extraction.mapping_counts;
             validate_source_mapping_records(
+                &extraction.required_locators,
                 &extraction.mappings,
                 counts,
                 &documents,
@@ -1218,7 +1271,11 @@ mod tests {
                 reason_code: None,
             }
         }).collect();
-        let mapping_manifest_bytes = source_mapping_manifest_bytes(&mapping_records).unwrap();
+        let required_locators: Vec<SourceFieldLocatorV1> = mapping_records.iter()
+            .map(source_locator_from_mapping)
+            .collect();
+        let mapping_manifest_bytes =
+            source_mapping_manifest_bytes(&required_locators, &mapping_records).unwrap();
         let mapping_manifest = artifact(
             "source_mapping",
             "AERO_QIF_SOURCE_MAPPING_V1",
@@ -1278,6 +1335,7 @@ mod tests {
             extraction: Some(ExtractionEvidenceV1 {
                 normalized_trace_artifact: normalized_trace.clone(),
                 source_mapping_manifest: mapping_manifest.clone(),
+                required_locators,
                 mappings: mapping_records,
                 mapping_counts: ExtractionMappingCountsV1 {
                     total_required: 10, mapped: 10, unresolved: 0, ambiguous: 0, unsupported: 0, dropped: 0,
@@ -1317,7 +1375,10 @@ mod tests {
     }
 
     fn refresh_mapping_manifest(extraction: &mut ExtractionEvidenceV1) {
-        let bytes = source_mapping_manifest_bytes(&extraction.mappings).unwrap();
+        let bytes = source_mapping_manifest_bytes(
+            &extraction.required_locators,
+            &extraction.mappings,
+        ).unwrap();
         extraction.source_mapping_manifest = artifact(
             "source_mapping",
             "AERO_QIF_SOURCE_MAPPING_V1",
@@ -1558,11 +1619,16 @@ mod tests {
     #[test]
     fn source_mapping_manifest_bytes_are_order_invariant() {
         let (qualification, _) = fixture();
-        let mappings = &qualification.body.extraction.as_ref().unwrap().mappings;
-        let forward = source_mapping_manifest_bytes(mappings).unwrap();
-        let mut reversed = mappings.clone();
-        reversed.reverse();
-        let backward = source_mapping_manifest_bytes(&reversed).unwrap();
+        let extraction = qualification.body.extraction.as_ref().unwrap();
+        let forward = source_mapping_manifest_bytes(
+            &extraction.required_locators,
+            &extraction.mappings,
+        ).unwrap();
+        let mut reversed_mappings = extraction.mappings.clone();
+        reversed_mappings.reverse();
+        let mut reversed_locators = extraction.required_locators.clone();
+        reversed_locators.reverse();
+        let backward = source_mapping_manifest_bytes(&reversed_locators, &reversed_mappings).unwrap();
         assert_eq!(forward, backward);
     }
 
