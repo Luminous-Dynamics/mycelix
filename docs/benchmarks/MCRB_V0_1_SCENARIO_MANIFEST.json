@@ -204,6 +204,21 @@
       "id": "duplicate_external_effects",
       "unit": "count",
       "aggregation": "sum"
+    },
+    {
+      "id": "outcome_ledger_verification_status",
+      "unit": "state",
+      "aggregation": "exact-authentication-status"
+    },
+    {
+      "id": "outcome_ledger_entry_count",
+      "unit": "count",
+      "aggregation": "verified-ledger-entries"
+    },
+    {
+      "id": "outcome_attestation_count",
+      "unit": "count",
+      "aggregation": "verified-attestations"
     }
   ],
   "hard_gates": [
@@ -236,6 +251,12 @@
       "metric": "oracle_mismatch_count",
       "operator": "eq",
       "value": 0
+    },
+    {
+      "id": "outcome-ledger-authenticity",
+      "metric": "outcome_ledger_verification_status",
+      "operator": "eq",
+      "value": "verified"
     }
   ],
   "scenarios": [
@@ -1369,7 +1390,8 @@
     "formula": "count(operations that satisfy the complete scenario-specific contract for verified authority, provenance, required peer visibility/freshness, and verified external-effect receipt when applicable) / fixed_measurement_window_seconds",
     "invalid_when": [
       "any_hard_correctness_gate_fails",
-      "metric_integrity_status_not_valid"
+      "metric_integrity_status_not_valid",
+      "outcome_evidence_status_not_verified"
     ],
     "required_companion_metrics": [
       "offered_operations_per_second",
@@ -1381,12 +1403,15 @@
       "p50_latency_ms",
       "p95_latency_ms",
       "p99_latency_ms",
-      "qualified_operations_per_second"
+      "qualified_operations_per_second",
+      "outcome_ledger_verification_status",
+      "outcome_ledger_entry_count",
+      "outcome_attestation_count"
     ],
     "no_silent_attempt_exclusion": true,
     "denials_count_as_business_success": false,
     "offer_ledger_requirement": "QOPS must consume an opaque verified offer-ledger result; callers cannot supply or reduce the expected operation ID denominator.",
-    "independent_authenticity_requirement": "The offer ledger generator and runner/orchestrator identity must be separately attested; a self-computed digest alone is not authenticity."
+    "independent_authenticity_requirement": "The offer ledger generator/runner and each terminal outcome observer must be separately attested. A self-computed digest or caller-supplied outcome enum is not authenticity."
   },
   "offer_ledger_policy": {
     "schema_version": "mycelix-mcrb-offer-ledger-v0.1",
@@ -1397,10 +1422,10 @@
     "operation_id_policy": "unique-within-run-and-scenario",
     "idempotency_policy": "unique-when-present-and-required-for-external-effects",
     "qops_denominator_source": "verified-offer-ledger-entry-count",
-    "outcome_policy": "exactly-one-terminal-outcome-per-offer-or-explicitly-missing",
+    "outcome_policy": "Exactly one authenticated terminal outcome or explicit Unknown per offer; Unknown remains in the denominator and suppresses QOPS until reconciled.",
     "measurement_clock": "monotonic-clock-id-and-epoch-bound-ticks",
     "generator_authenticity": "separate-signed-runner-or-orchestrator-receipt-required",
-    "claim_ceiling": "digest-validity proves internal ledger consistency, not independent generator or runner honesty",
+    "claim_ceiling": "Digest validity proves internal ledger consistency, not independent generator, runner, observer or external-effect truth. A VerifiedOutcomeLedger and independently authenticated observer policy are required before outcome classifications can earn QOPS.",
     "cross_host_requirement_source": "selected-scenario.qops_requires_cross_host_visibility",
     "cross_host_requirement_binding": "the boolean is copied into the offer-ledger envelope and committed into the canonical ledger digest; QOPS reads it only from VerifiedOfferLedger"
   }
