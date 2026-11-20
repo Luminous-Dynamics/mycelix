@@ -288,6 +288,54 @@ impl ValidatedOperationContract {
     pub fn allows_attempt_state(&self, state: AttemptState) -> bool {
         self.document.attempt_state_policy.allowed_states.contains(&state)
     }
+
+    pub fn terminal_attempt_states(&self) -> &[AttemptState] {
+        &self.document.attempt_state_policy.terminal_states
+    }
+
+    pub fn expected_effect_states(&self) -> &[EffectState] {
+        &self.document.effect_state_policy.expected_effect_states
+    }
+
+    pub fn requires_reconciliation(&self, state: EffectState) -> bool {
+        self.document.effect_state_policy.requires_reconciliation.contains(&state)
+    }
+
+    pub fn allowed_evidence_kinds(&self) -> &[EvidenceKind] {
+        &self.document.evidence_policy.allowed_evidence_kinds
+    }
+
+    pub fn required_evidence_kinds(&self) -> &[EvidenceKind] {
+        &self.document.evidence_policy.required_evidence_kinds
+    }
+
+    pub fn allows_evidence_kind(&self, kind: EvidenceKind) -> bool {
+        self.document.evidence_policy.allowed_evidence_kinds.contains(&kind)
+    }
+
+    pub fn allowed_source_roles(&self) -> &[EvidenceSourceRole] {
+        &self.document.evidence_policy.allowed_source_roles
+    }
+
+    pub fn allows_source_role(&self, role: EvidenceSourceRole) -> bool {
+        self.document.evidence_policy.allowed_source_roles.contains(&role)
+    }
+
+    pub fn minimum_distinct_observer_sources(&self) -> usize {
+        self.document.evidence_policy.minimum_distinct_observer_sources
+    }
+
+    pub fn requires_complete_coverage(&self) -> bool {
+        self.document.evidence_policy.requires_complete_coverage
+    }
+
+    pub fn correct_denial_required_evidence_kinds(&self) -> &[EvidenceKind] {
+        &self.document.correct_denial_policy.required_evidence_kinds
+    }
+
+    pub fn unexpected_denial_required_evidence_kinds(&self) -> &[EvidenceKind] {
+        &self.document.unexpected_denial_policy.required_evidence_kinds
+    }
 }
 
 /// Opaque, structurally validated registry. This is not a signature/trust
