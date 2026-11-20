@@ -633,9 +633,11 @@ fn finalize_frame(
                 if !valid_qpid(value) || !value.eq_ignore_ascii_case(qpid) {
                     return Err(InventoryError::DocumentQpidMismatch(frame.locator_path.clone()));
                 }
+                let reference_id = frame.external_document_reference_id
+                    .ok_or_else(|| InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()))?;
                 append_locator(
                     locators, rule, qpid, &format!("{}#qpid", frame.locator_path),
-                    None, None, None, None, Some(value), Some(value),
+                    None, Some(reference_id), None, None, Some(value), Some(value),
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
@@ -659,9 +661,11 @@ fn finalize_frame(
                 {
                     return Err(InventoryError::InvalidIdentity(frame.locator_path.clone()));
                 }
+                let reference_id = frame.external_document_reference_id
+                    .ok_or_else(|| InventoryError::InvalidIdentity(frame.locator_path.clone()))?;
                 append_locator(
                     locators, rule, qpid, &format!("{}#uri", frame.locator_path),
-                    None, None, None, None,
+                    None, Some(reference_id), None, None,
                     Some(&frame.direct_text), Some(&frame.direct_text),
                     &frame.captured_attributes, profile.limits.max_locators,
                 )?;
