@@ -39,6 +39,14 @@ pub enum QopsStatus {
     Incomplete,
 }
 
+/// Independent per-operation outcome authentication is deliberately not
+/// implemented yet. QOPS cannot become Eligible until #6357 supplies an
+/// opaque VerifiedOutcomeLedger.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutcomeEvidenceStatus {
+    NotImplemented,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QopsIssue {
     MetricIntegrityNotValid,
@@ -48,6 +56,7 @@ pub enum QopsIssue {
     CorrectnessGateSetNotVerified,
     CorrectnessGateSetIncomplete,
     CorrectnessGateSetContextMismatch,
+    OutcomeEvidenceNotVerified,
     EmptySampleOperationId(usize),
     UnexpectedOperationSample(String),
     DuplicateOutcomeSample(String),
@@ -75,6 +84,7 @@ pub struct QopsReport {
     pub correctness_trust_policy_digest_sha256: Option<String>,
     pub correctness_required_gate_count: usize,
     pub correctness_attestation_count: usize,
+    pub outcome_evidence_status: OutcomeEvidenceStatus,
     pub offered_operations: usize,
     pub classified_outcomes: usize,
     pub qualified_successes: usize,
@@ -106,6 +116,11 @@ pub fn compute_qops(
 ) -> QopsReport {
     let mut issues = Vec::new();
     let expected: BTreeSet<String> = ledger.operation_ids().iter().cloned().collect();
+
+    // Outcome samples are still caller-supplied diagnostic observations. Until
+    // #6357 provides a signed, independently verified outcome ledger, no QOPS
+    // rate may be labelled eligible regardless of the other verified inputs.
+    push_unique(&mut issues, QopsIssue::OutcomeEvidenceNotVerified);
 
     let metric_report = match metric_verification {
         MetricIntegrityVerification::Verified(verified) => Some(verified.report()),
@@ -223,6 +238,7 @@ pub fn compute_qops(
                 | QopsIssue::MetricIntegrityIncomplete
                 | QopsIssue::CrossHostMetricIntegrityIncomplete
                 | QopsIssue::CorrectnessGateSetIncomplete
+                | QopsIssue::OutcomeEvidenceNotVerified
         )
     });
     let is_invalid = issues.iter().any(|issue| {
@@ -282,6 +298,7 @@ pub fn compute_qops(
         correctness_attestation_count: verified_gate_set
             .map(|set| set.attestation_digests_sha256().len())
             .unwrap_or(0),
+        outcome_evidence_status: OutcomeEvidenceStatus::NotImplemented,
         offered_operations,
         classified_outcomes,
         qualified_successes,
@@ -417,7 +434,11 @@ mod tests {
         let metrics = valid_integrity();
         let gates = valid_gate_set(&ledger);
         let report = compute_qops(&ledger, &valid_input(), &metrics, &gates);
-        assert_eq!(report.status, QopsStatus::Eligible);
+        assert_eq!(report.status, QopsStatus::Incomplete);
+        assert_eq!(report.outcome_evidence_status, OutcomeEvidenceStatus::NotImplemented);
+        assert!(report.issues.contains(&QopsIssue::OutcomeEvidenceNotVerified));
+        assert!(report.offered_operations_per_second.is_none());
+        assert!(report.qualified_operations_per_second.is_none());
         assert_eq!(report.offered_operations, 5);
         assert_eq!(report.classified_outcomes, 5);
         assert_eq!(report.qualified_successes, 2);
