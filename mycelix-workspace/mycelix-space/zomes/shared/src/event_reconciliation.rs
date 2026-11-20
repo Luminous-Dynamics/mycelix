@@ -19,11 +19,20 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 /// (including leap-second / time-conversion table revision).
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProviderConjunctionEvent {
+    pub provider_id: String,
     pub event_id: String,
+    /// SHA-256 of the exact source artifact that contains this event.
+    pub source_artifact_sha256: String,
+    /// Explicit source schema/profile identifier, not a guessed media-type label.
+    pub source_profile_id: String,
     pub object_a_norad_id: u32,
     pub object_b_norad_id: u32,
+    /// Microseconds since 1970-01-01T00:00:00 TAI.
     pub tca_tai_micros: i64,
+    /// Canonicalization profile, including time-scale and conversion-table revision.
     pub time_basis_id: String,
+    /// SHA-256 of the time-normalization receipt / conversion parameters.
+    pub time_conversion_receipt_sha256: String,
     pub source_class: String,
     pub publication_policy_id: String,
 }
@@ -35,13 +44,25 @@ pub struct EventReconciliationConfig {
     pub canonical_time_basis_id: String,
     /// Inclusive absolute TCA difference accepted as a candidate identity edge.
     pub tca_tolerance_micros: u64,
+    /// Bound the per-provider working set before building candidate graphs.
+    pub max_events_per_provider: usize,
+    /// Bound candidate edges so pathological dense windows cannot exhaust memory.
+    pub max_candidate_edges: usize,
 }
 
 /// A unique, one-to-one event match.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MatchedProviderEvent {
+    pub left_provider_id: String,
+    pub right_provider_id: String,
     pub left_event_id: String,
     pub right_event_id: String,
+    pub left_source_artifact_sha256: String,
+    pub right_source_artifact_sha256: String,
+    pub left_source_profile_id: String,
+    pub right_source_profile_id: String,
+    pub left_time_conversion_receipt_sha256: String,
+    pub right_time_conversion_receipt_sha256: String,
     /// Signed difference: right TCA minus left TCA.
     pub delta_tca_micros: i64,
     /// True when the two providers assigned object A/B in opposite order.
@@ -76,8 +97,22 @@ pub struct EventReconciliation {
 pub enum EventReconciliationError {
     EmptyCanonicalTimeBasis,
     ToleranceExceedsSupportedRange,
+    ZeroEventLimit,
+    EventCountLimitExceeded {
+        provider_side: ProviderSide,
+        count: usize,
+        limit: usize,
+    },
+    CandidateEdgeLimitExceeded {
+        count: usize,
+        limit: usize,
+    },
+    EmptyProviderId { event_id: String },
     EmptyEventId,
     DuplicateEventId { event_id: String },
+    InvalidSourceArtifactDigest { event_id: String },
+    InvalidSourceProfileId { event_id: String },
+    InvalidTimeConversionReceiptDigest { event_id: String },
     InvalidNoradId { event_id: String, norad_id: u32 },
     SelfPair { event_id: String, norad_id: u32 },
     TimeBasisMismatch {
@@ -89,7 +124,18 @@ pub enum EventReconciliationError {
     MissingPublicationPolicy { event_id: String },
 }
 
+/// Which side of a two-provider reconciliation exceeded its declared input bound.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ProviderSide {
+    Left,
+    Right,
+}
+
 type PairKey = (u32, u32);
+
+fn is_sha256_hex(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
 
 fn pair_key(event: &ProviderConjunctionEvent) -> PairKey {
     if event.object_a_norad_id < event.object_b_norad_id {
@@ -106,11 +152,31 @@ fn validate_feed(
     let mut event_ids = BTreeSet::new();
 
     for event in events {
+        if event.provider_id.trim().is_empty() {
+            return Err(EventReconciliationError::EmptyProviderId {
+                event_id: event.event_id.clone(),
+            });
+        }
         if event.event_id.trim().is_empty() {
             return Err(EventReconciliationError::EmptyEventId);
         }
         if !event_ids.insert(event.event_id.as_str()) {
             return Err(EventReconciliationError::DuplicateEventId {
+                event_id: event.event_id.clone(),
+            });
+        }
+        if !is_sha256_hex(&event.source_artifact_sha256) {
+            return Err(EventReconciliationError::InvalidSourceArtifactDigest {
+                event_id: event.event_id.clone(),
+            });
+        }
+        if event.source_profile_id.trim().is_empty() {
+            return Err(EventReconciliationError::InvalidSourceProfileId {
+                event_id: event.event_id.clone(),
+            });
+        }
+        if !is_sha256_hex(&event.time_conversion_receipt_sha256) {
+            return Err(EventReconciliationError::InvalidTimeConversionReceiptDigest {
                 event_id: event.event_id.clone(),
             });
         }
@@ -175,6 +241,23 @@ pub fn reconcile_provider_events(
     if config.tca_tolerance_micros > i64::MAX as u64 {
         return Err(EventReconciliationError::ToleranceExceedsSupportedRange);
     }
+    if config.max_events_per_provider == 0 || config.max_candidate_edges == 0 {
+        return Err(EventReconciliationError::ZeroEventLimit);
+    }
+    if left.len() > config.max_events_per_provider {
+        return Err(EventReconciliationError::EventCountLimitExceeded {
+            provider_side: ProviderSide::Left,
+            count: left.len(),
+            limit: config.max_events_per_provider,
+        });
+    }
+    if right.len() > config.max_events_per_provider {
+        return Err(EventReconciliationError::EventCountLimitExceeded {
+            provider_side: ProviderSide::Right,
+            count: right.len(),
+            limit: config.max_events_per_provider,
+        });
+    }
 
     validate_feed(left, config)?;
     validate_feed(right, config)?;
@@ -194,6 +277,7 @@ pub fn reconcile_provider_events(
 
     let mut result = EventReconciliation::default();
     let tolerance = config.tca_tolerance_micros as i128;
+    let mut candidate_edge_count = 0usize;
 
     for key in all_pairs {
         let mut left_indices = left_by_pair.remove(&key).unwrap_or_default();
@@ -257,6 +341,13 @@ pub fn reconcile_provider_events(
             }
 
             for right_local in window_start..window_end {
+                candidate_edge_count = candidate_edge_count.saturating_add(1);
+                if candidate_edge_count > config.max_candidate_edges {
+                    return Err(EventReconciliationError::CandidateEdgeLimitExceeded {
+                        count: candidate_edge_count,
+                        limit: config.max_candidate_edges,
+                    });
+                }
                 left_edges[left_local].push(right_local);
                 right_edges[right_local].push(left_local);
             }
@@ -323,8 +414,20 @@ pub fn reconcile_provider_events(
                 let delta = right_event.tca_tai_micros as i128
                     - left_event.tca_tai_micros as i128;
                 result.matched.push(MatchedProviderEvent {
+                    left_provider_id: left_event.provider_id.clone(),
+                    right_provider_id: right_event.provider_id.clone(),
                     left_event_id: left_event.event_id.clone(),
                     right_event_id: right_event.event_id.clone(),
+                    left_source_artifact_sha256: left_event.source_artifact_sha256.clone(),
+                    right_source_artifact_sha256: right_event.source_artifact_sha256.clone(),
+                    left_source_profile_id: left_event.source_profile_id.clone(),
+                    right_source_profile_id: right_event.source_profile_id.clone(),
+                    left_time_conversion_receipt_sha256: left_event
+                        .time_conversion_receipt_sha256
+                        .clone(),
+                    right_time_conversion_receipt_sha256: right_event
+                        .time_conversion_receipt_sha256
+                        .clone(),
                     delta_tca_micros: delta as i64,
                     object_order_swapped: left_event.object_a_norad_id
                         == right_event.object_b_norad_id
@@ -377,16 +480,22 @@ mod tests {
         EventReconciliationConfig {
             canonical_time_basis_id: BASIS.to_string(),
             tca_tolerance_micros: tolerance,
+            max_events_per_provider: 100_000,
+            max_candidate_edges: 1_000_000,
         }
     }
 
     fn event(id: &str, a: u32, b: u32, tca: i64) -> ProviderConjunctionEvent {
         ProviderConjunctionEvent {
+            provider_id: "provider-a".to_string(),
             event_id: id.to_string(),
+            source_artifact_sha256: "a".repeat(64),
+            source_profile_id: "tracss-cdm-v2.1-json".to_string(),
             object_a_norad_id: a,
             object_b_norad_id: b,
             tca_tai_micros: tca,
             time_basis_id: BASIS.to_string(),
+            time_conversion_receipt_sha256: "b".repeat(64),
             source_class: "operator-ephemeris-with-covariance".to_string(),
             publication_policy_id: "policy-v1".to_string(),
         }
@@ -547,6 +656,14 @@ mod tests {
 
         let result =
             reconcile_provider_events(&[left], &[right], &config(0)).unwrap();
+        assert_eq!(result.matched[0].left_provider_id, "provider-a");
+        assert_eq!(result.matched[0].right_provider_id, "provider-a");
+        assert_eq!(result.matched[0].left_source_artifact_sha256, "a".repeat(64));
+        assert_eq!(result.matched[0].left_source_profile_id, "tracss-cdm-v2.1-json");
+        assert_eq!(
+            result.matched[0].left_time_conversion_receipt_sha256,
+            "b".repeat(64)
+        );
         assert_eq!(
             result.matched[0].left_source_class,
             "government-catalog-no-covariance"
@@ -583,6 +700,65 @@ mod tests {
                 &config(i64::MAX as u64 + 1),
             ),
             Err(EventReconciliationError::ToleranceExceedsSupportedRange)
+        );
+    }
+
+    #[test]
+    fn rejects_missing_or_invalid_source_artifact_and_time_receipt_digests() {
+        let mut input = event("bad-source-digest", 25544, 49863, 1_000);
+        input.source_artifact_sha256 = "not-a-digest".to_string();
+        assert_eq!(
+            reconcile_provider_events(&[input], &[], &config(10)),
+            Err(EventReconciliationError::InvalidSourceArtifactDigest {
+                event_id: "bad-source-digest".to_string(),
+            })
+        );
+
+        let mut input = event("bad-time-receipt", 25544, 49863, 1_000);
+        input.time_conversion_receipt_sha256 = "not-a-digest".to_string();
+        assert_eq!(
+            reconcile_provider_events(&[input], &[], &config(10)),
+            Err(EventReconciliationError::InvalidTimeConversionReceiptDigest {
+                event_id: "bad-time-receipt".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_event_and_candidate_graph_resource_limit_exhaustion() {
+        let mut policy = config(10);
+        policy.max_events_per_provider = 1;
+        assert_eq!(
+            reconcile_provider_events(
+                &[
+                    event("left-1", 25544, 49863, 1_000),
+                    event("left-2", 25544, 49863, 1_000),
+                ],
+                &[],
+                &policy,
+            ),
+            Err(EventReconciliationError::EventCountLimitExceeded {
+                provider_side: ProviderSide::Left,
+                count: 2,
+                limit: 1,
+            })
+        );
+
+        let mut policy = config(10);
+        policy.max_candidate_edges = 1;
+        assert_eq!(
+            reconcile_provider_events(
+                &[
+                    event("left-1", 25544, 49863, 1_000),
+                    event("left-2", 25544, 49863, 1_001),
+                ],
+                &[event("right-1", 25544, 49863, 1_000)],
+                &policy,
+            ),
+            Err(EventReconciliationError::CandidateEdgeLimitExceeded {
+                count: 2,
+                limit: 1,
+            })
         );
     }
 
