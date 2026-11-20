@@ -146,6 +146,49 @@ impl ConsentId {
     pub const fn as_bytes(&self) -> &[u8; 32] { &self.0 }
 }
 
+/// Owner-derived, versioned commitments for one content-bound ROS-004 consent.
+///
+/// Fields are private and there is deliberately no public raw-digest
+/// constructor. Obtain this value only from `Consent::commitments_v1()`,
+/// which validates the consent's content-bound identity first.
+///
+/// These commitments bind immutable consent content. They are not a live
+/// consent decision, issuer signature, or permission to execute an operation.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct ConsentCommitmentsV1 {
+    consent_id: ConsentId,
+    consent_profile_digest: [u8; 32],
+    purpose_digest: [u8; 32],
+    data_class_digest: [u8; 32],
+}
+
+impl ConsentCommitmentsV1 {
+    /// The content-bound identity of the consent record used to derive this tuple.
+    pub const fn consent_id(&self) -> ConsentId {
+        self.consent_id
+    }
+
+    /// Digest of the complete immutable consent profile.
+    pub const fn consent_profile_digest(&self) -> &[u8; 32] {
+        &self.consent_profile_digest
+    }
+
+    /// Digest of the exact typed consent purpose.
+    pub const fn purpose_digest(&self) -> &[u8; 32] {
+        &self.purpose_digest
+    }
+
+    /// Digest of the complete canonical data-class set.
+    pub const fn data_class_digest(&self) -> &[u8; 32] {
+        &self.data_class_digest
+    }
+
+    /// Schema version for the canonical commitment tuple.
+    pub const fn schema_version(&self) -> u16 {
+        CONSENT_COMMITMENTS_SCHEMA_VERSION
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Consent {
     pub id: ConsentId,
@@ -172,6 +215,38 @@ pub struct ConsentRequest {
 }
 
 impl Consent {
+    /// Derive the owner-native ROS-004 commitment tuple for this consent.
+    ///
+    /// The exact immutable content-bound identity is validated first. Scope
+    /// sets must also be in the canonical sorted/unique form produced by
+    /// `DisclosureScope::new`. Lifecycle state is deliberately excluded:
+    /// revocation leaves the profile commitments stable, while
+    /// `Consent::authorize` remains the authority for a live request.
+    pub fn commitments_v1(&self) -> Result<ConsentCommitmentsV1, ConsentError> {
+        self.validate_identity()?;
+        validate_canonical_consent_content(self)?;
+
+        let profile_bytes = self.canonical_bytes();
+        let purpose_bytes = canonical_purpose_bytes(&self.purpose);
+        let data_class_bytes = canonical_data_class_bytes(&self.scope.data_classes);
+
+        Ok(ConsentCommitmentsV1 {
+            consent_id: self.id,
+            consent_profile_digest: commitment_digest(
+                b"mycelix.ros004.consent-profile.v1\0",
+                &profile_bytes,
+            ),
+            purpose_digest: commitment_digest(
+                b"mycelix.ros004.purpose.v1\0",
+                &purpose_bytes,
+            ),
+            data_class_digest: commitment_digest(
+                b"mycelix.ros004.data-class-set.v1\0",
+                &data_class_bytes,
+            ),
+        })
+    }
+
     /// Canonical immutable authority content used for identity binding.
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
@@ -310,6 +385,7 @@ pub enum ConsentError {
     Expired,
     StaleAuthorityEpoch,
     IdentityMismatch,
+    NonCanonicalScope,
     AudienceMismatch,
     PurposeMismatch,
     ScopeExceeded,
@@ -330,6 +406,7 @@ impl fmt::Display for ConsentError {
             Self::Expired => "consent had expired at request time",
             Self::StaleAuthorityEpoch => "request authority epoch does not match consent",
             Self::IdentityMismatch => "consent identifier does not match canonical authority content",
+            Self::NonCanonicalScope => "consent scope is not in canonical sorted, unique form",
             Self::AudienceMismatch => "request audience does not match consent audience",
             Self::PurposeMismatch => "request purpose does not match consent purpose",
             Self::ScopeExceeded => "requested scope exceeds granted scope",
@@ -431,6 +508,168 @@ mod tests {
         );
         assert_eq!(consent.id, ConsentId::derive_content_bound(&consent));
         assert_eq!(consent.validate_identity(), Ok(()));
+    }
+
+    #[test]
+    fn consent_commitments_v1_match_known_answer_vectors() {
+        let consent = consent();
+        let commitments = consent.commitments_v1().unwrap();
+
+        assert_eq!(commitments.schema_version(), 1);
+        assert_eq!(commitments.consent_id(), consent.id);
+        assert_eq!(
+            commitments.consent_profile_digest(),
+            &[
+                0x85, 0x04, 0x8e, 0xbd, 0x83, 0xb3, 0x3f, 0xb6,
+                0x71, 0x90, 0x26, 0xd6, 0x89, 0x9d, 0xee, 0xfe,
+                0xa2, 0x58, 0x43, 0xee, 0x25, 0xb1, 0x39, 0xf9,
+                0xe7, 0x23, 0x57, 0xf7, 0x65, 0xaf, 0x85, 0x7a,
+            ]
+        );
+        assert_eq!(
+            commitments.purpose_digest(),
+            &[
+                0x30, 0x95, 0x6c, 0x7b, 0x67, 0x0c, 0xd1, 0x4a,
+                0xea, 0x3b, 0xba, 0x59, 0x4f, 0xc2, 0xd3, 0x70,
+                0x04, 0x1e, 0x9a, 0xf6, 0xf2, 0x98, 0x88, 0x05,
+                0x00, 0x6d, 0x01, 0x93, 0xdb, 0x1b, 0xc9, 0xfa,
+            ]
+        );
+        assert_eq!(
+            commitments.data_class_digest(),
+            &[
+                0xe9, 0xb8, 0x46, 0xaa, 0xb5, 0x04, 0xf8, 0x87,
+                0x78, 0xca, 0x2e, 0xcb, 0xea, 0xf9, 0x6b, 0x55,
+                0x5a, 0xea, 0xb1, 0xea, 0xdc, 0x6e, 0x0e, 0xc7,
+                0xab, 0xce, 0x78, 0xf3, 0x01, 0xc4, 0xb2, 0x95,
+            ]
+        );
+    }
+
+    #[test]
+    fn consent_commitments_reject_content_identity_mismatch() {
+        let mut value = consent();
+        value.purpose = ConsentPurpose::named("marketing").unwrap();
+        assert_eq!(
+            value.commitments_v1(),
+            Err(ConsentError::IdentityMismatch)
+        );
+    }
+
+    #[test]
+    fn consent_commitments_are_immutable_across_revocation_but_live_authority_is_not() {
+        let mut value = consent();
+        let before = value.commitments_v1().unwrap();
+        let grantor = participant("did", "alice");
+
+        value.revoke(&grantor, 150, 7).unwrap();
+
+        let after = value.commitments_v1().unwrap();
+        assert_eq!(before, after);
+        assert_eq!(
+            value.authorize(&request("relationship-support", 160, 7)),
+            Err(ConsentError::NotGranted)
+        );
+    }
+
+    #[test]
+    fn purpose_mutation_changes_profile_and_purpose_commitments_only() {
+        let mut value = consent();
+        let before = value.commitments_v1().unwrap();
+
+        value.purpose = ConsentPurpose::named("incident-response").unwrap();
+        value.id = ConsentId::derive_content_bound(&value);
+        let after = value.commitments_v1().unwrap();
+
+        assert_ne!(before.consent_id(), after.consent_id());
+        assert_ne!(
+            before.consent_profile_digest(),
+            after.consent_profile_digest()
+        );
+        assert_ne!(before.purpose_digest(), after.purpose_digest());
+        assert_eq!(before.data_class_digest(), after.data_class_digest());
+    }
+
+    #[test]
+    fn data_class_commitment_is_order_independent_and_membership_sensitive() {
+        let relationship = RelationshipId::derive("test", b"data-class-order");
+        let grantor = participant("did", "alice");
+        let audience = AudienceRef::principal(participant("did", "bob"));
+        let purpose = ConsentPurpose::named("relationship-support").unwrap();
+
+        let make = |classes: Vec<DataClass>| {
+            Consent::grant(
+                ConsentId([0; 32]),
+                relationship,
+                grantor.clone(),
+                audience.clone(),
+                purpose.clone(),
+                DisclosureScope::new(
+                    AccessMode::Disclose,
+                    classes,
+                    vec!["email".into()],
+                )
+                .unwrap(),
+                100,
+                Some(200),
+                7,
+            )
+            .unwrap()
+        };
+
+        let first = make(vec![DataClass::Contact, DataClass::Identity]);
+        let permuted = make(vec![DataClass::Identity, DataClass::Contact]);
+        let expanded = make(vec![
+            DataClass::Contact,
+            DataClass::Identity,
+            DataClass::Financial,
+        ]);
+
+        let first_commitments = first.commitments_v1().unwrap();
+        let permuted_commitments = permuted.commitments_v1().unwrap();
+        let expanded_commitments = expanded.commitments_v1().unwrap();
+
+        assert_eq!(first.canonical_bytes(), permuted.canonical_bytes());
+        assert_eq!(first_commitments, permuted_commitments);
+        assert_ne!(
+            first_commitments.data_class_digest(),
+            expanded_commitments.data_class_digest()
+        );
+        assert_ne!(
+            first_commitments.consent_profile_digest(),
+            expanded_commitments.consent_profile_digest()
+        );
+        assert_eq!(
+            first_commitments.purpose_digest(),
+            expanded_commitments.purpose_digest()
+        );
+    }
+
+    #[test]
+    fn owner_commitments_reject_empty_custom_data_class_names() {
+        let mut value = consent();
+        value.scope.data_classes = vec![DataClass::Custom("  ".to_string())];
+        value.id = ConsentId::derive_content_bound(&value);
+        assert_eq!(value.commitments_v1(), Err(ConsentError::EmptyScope));
+    }
+
+    #[test]
+    fn owner_commitments_reject_expiry_before_grant_time() {
+        let mut value = consent();
+        value.expires_at = Some(value.granted_at - 1);
+        value.id = ConsentId::derive_content_bound(&value);
+        assert_eq!(value.commitments_v1(), Err(ConsentError::InvalidExpiry));
+    }
+
+    #[test]
+    fn owner_commitments_reject_noncanonical_public_scope_mutation() {
+        let mut value = consent();
+        value.scope.data_classes = vec![DataClass::Contact, DataClass::Identity];
+        value.id = ConsentId::derive_content_bound(&value);
+        assert_eq!(
+            value.commitments_v1(),
+            Err(ConsentError::NonCanonicalScope)
+        );
     }
 
     #[test]
@@ -566,6 +805,60 @@ mod tests {
 }
 
 
+const CONSENT_COMMITMENTS_SCHEMA_VERSION: u16 = 1;
+
+fn commitment_digest(domain: &[u8], payload: &[u8]) -> [u8; 32] {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(domain);
+    hasher.update(&(payload.len() as u64).to_le_bytes());
+    hasher.update(payload);
+    *hasher.finalize().as_bytes()
+}
+
+fn canonical_purpose_bytes(purpose: &ConsentPurpose) -> Vec<u8> {
+    let mut out = Vec::new();
+    canonical_purpose(&mut out, purpose);
+    out
+}
+
+fn canonical_data_class_bytes(data_classes: &[DataClass]) -> Vec<u8> {
+    let mut out = Vec::new();
+    append_canonical_data_classes(&mut out, data_classes);
+    out
+}
+
+fn validate_canonical_consent_content(consent: &Consent) -> Result<(), ConsentError> {
+    if matches!(&consent.purpose, ConsentPurpose::Named(value) if value.trim().is_empty()) {
+        return Err(ConsentError::EmptyPurpose);
+    }
+    if consent
+        .expires_at
+        .is_some_and(|expiry| expiry < consent.granted_at)
+    {
+        return Err(ConsentError::InvalidExpiry);
+    }
+
+    let classes = &consent.scope.data_classes;
+    let fields = &consent.scope.fields;
+    if classes.is_empty()
+        || fields.is_empty()
+        || fields.iter().any(|field| field.trim().is_empty())
+        || classes
+            .iter()
+            .any(|class| matches!(class, DataClass::Custom(value) if value.trim().is_empty()))
+    {
+        return Err(ConsentError::EmptyScope);
+    }
+
+    if classes.windows(2).any(|pair| pair[0] >= pair[1])
+        || fields.windows(2).any(|pair| pair[0] >= pair[1])
+    {
+        return Err(ConsentError::NonCanonicalScope);
+    }
+
+    Ok(())
+}
+
 fn canonical_principal(out: &mut Vec<u8>, principal: &PrincipalRef) {
     write_len_prefixed(out, principal.participant.namespace.as_bytes());
     write_len_prefixed(out, principal.participant.identifier.as_bytes());
@@ -585,8 +878,16 @@ fn canonical_scope(out: &mut Vec<u8>, scope: &DisclosureScope) {
         AccessMode::Read => 0,
         AccessMode::Disclose => 1,
     });
-    out.extend_from_slice(&(scope.data_classes.len() as u64).to_le_bytes());
-    for class in &scope.data_classes {
+    append_canonical_data_classes(out, &scope.data_classes);
+    out.extend_from_slice(&(scope.fields.len() as u64).to_le_bytes());
+    for field in &scope.fields {
+        write_len_prefixed(out, field.as_bytes());
+    }
+}
+
+fn append_canonical_data_classes(out: &mut Vec<u8>, data_classes: &[DataClass]) {
+    out.extend_from_slice(&(data_classes.len() as u64).to_le_bytes());
+    for class in data_classes {
         match class {
             DataClass::Public => out.push(0),
             DataClass::Identity => out.push(1),
@@ -600,10 +901,6 @@ fn canonical_scope(out: &mut Vec<u8>, scope: &DisclosureScope) {
                 write_len_prefixed(out, value.as_bytes());
             }
         }
-    }
-    out.extend_from_slice(&(scope.fields.len() as u64).to_le_bytes());
-    for field in &scope.fields {
-        write_len_prefixed(out, field.as_bytes());
     }
 }
 
