@@ -124,7 +124,10 @@ pub fn parse_cdm_kvn_with_report(input: &str) -> Result<ParsedCdmKvn, CdmParseEr
     };
 
     let get_f64 = |key: &str| -> Result<f64, CdmParseError> {
-        let raw = lines.iter().find(|(k, _)| *k == key).map(|(_, v)| *v)
+        let raw = lines
+            .iter()
+            .find(|(found, _)| *found == key)
+            .map(|(_, value)| *value)
             .ok_or_else(|| CdmParseError::MissingField(key.to_string()))?;
         parse_finite_f64(key, raw)
     };
@@ -208,10 +211,15 @@ pub fn parse_cdm_kvn_with_report(input: &str) -> Result<ParsedCdmKvn, CdmParseEr
             value: collision_probability.to_string(),
         });
     }
-    let collision_probability_method = match lines.iter().find(|(k, _)| *k == "COLLISION_PROBABILITY_METHOD") {
+    let collision_probability_method = match lines
+        .iter()
+        .find(|(key, _)| *key == "COLLISION_PROBABILITY_METHOD")
+    {
         Some((_, value)) => PcMethod::from_str_permissive(strip_units(value)),
         None => {
-            report.absent_optional_fields.push("COLLISION_PROBABILITY_METHOD".to_string());
+            report
+                .absent_optional_fields
+                .push("COLLISION_PROBABILITY_METHOD".to_string());
             PcMethod::Other("UNSPECIFIED".to_string())
         }
     };
@@ -231,26 +239,26 @@ pub fn parse_cdm_kvn_with_report(input: &str) -> Result<ParsedCdmKvn, CdmParseEr
 
     Ok(ParsedCdmKvn {
         message: ConjunctionDataMessage {
-        ccsds_cdm_vers: version,
-        creation_date,
-        originator,
-        message_id,
-        tca,
-        miss_distance,
-        relative_speed,
-        relative_position_r,
-        relative_position_t,
-        relative_position_n,
-        relative_velocity_r,
-        relative_velocity_t,
-        relative_velocity_n,
-        collision_probability,
-        collision_probability_method,
-        object1,
-        object2,
-        screening_entry_time: None,
-        screening_data_source: None,
-        hard_body_radius,
+            ccsds_cdm_vers: version,
+            creation_date,
+            originator,
+            message_id,
+            tca,
+            miss_distance,
+            relative_speed,
+            relative_position_r,
+            relative_position_t,
+            relative_position_n,
+            relative_velocity_r,
+            relative_velocity_t,
+            relative_velocity_n,
+            collision_probability,
+            collision_probability_method,
+            object1,
+            object2,
+            screening_entry_time: None,
+            screening_data_source: None,
+            hard_body_radius,
         },
         report,
     })
@@ -333,10 +341,27 @@ fn parse_object_block(
     // If any covariance term is present, all 21 terms are required. Malformed values
     // are rejected rather than being interpreted as an absent covariance.
     const COV_ELEMENTS: &[&str] = &[
-        "CR_R", "CT_R", "CT_T", "CN_R", "CN_T", "CN_N",
-        "CRDOT_R", "CRDOT_T", "CRDOT_N", "CRDOT_RDOT",
-        "CTDOT_R", "CTDOT_T", "CTDOT_N", "CTDOT_RDOT", "CTDOT_TDOT",
-        "CNDOT_R", "CNDOT_T", "CNDOT_N", "CNDOT_RDOT", "CNDOT_TDOT", "CNDOT_NDOT",
+        "CR_R",
+        "CT_R",
+        "CT_T",
+        "CN_R",
+        "CN_T",
+        "CN_N",
+        "CRDOT_R",
+        "CRDOT_T",
+        "CRDOT_N",
+        "CRDOT_RDOT",
+        "CTDOT_R",
+        "CTDOT_T",
+        "CTDOT_N",
+        "CTDOT_RDOT",
+        "CTDOT_TDOT",
+        "CNDOT_R",
+        "CNDOT_T",
+        "CNDOT_N",
+        "CNDOT_RDOT",
+        "CNDOT_TDOT",
+        "CNDOT_NDOT",
     ];
     let has_any_covariance = COV_ELEMENTS.iter().any(|suffix| {
         let key = format!("{}_{}", prefix, suffix);
@@ -837,11 +862,24 @@ OBJECT2_Z_DOT = 0.0 [km/s]
         assert_eq!(parsed.message.relative_speed, 0.0);
         assert!(parsed.report.has_projection_loss());
         for key in [
-            "RELATIVE_SPEED", "RELATIVE_POSITION_R", "RELATIVE_POSITION_T", "RELATIVE_POSITION_N",
-            "RELATIVE_VELOCITY_R", "RELATIVE_VELOCITY_T", "RELATIVE_VELOCITY_N",
-            "COLLISION_PROBABILITY", "COLLISION_PROBABILITY_METHOD",
+            "RELATIVE_SPEED",
+            "RELATIVE_POSITION_R",
+            "RELATIVE_POSITION_T",
+            "RELATIVE_POSITION_N",
+            "RELATIVE_VELOCITY_R",
+            "RELATIVE_VELOCITY_T",
+            "RELATIVE_VELOCITY_N",
+            "COLLISION_PROBABILITY",
+            "COLLISION_PROBABILITY_METHOD",
         ] {
-            assert!(parsed.report.absent_optional_fields.iter().any(|field| field == key), "missing {key}");
+            assert!(
+                parsed
+                    .report
+                    .absent_optional_fields
+                    .iter()
+                    .any(|field| field == key),
+                "missing {key}"
+            );
         }
     }
 
@@ -856,7 +894,8 @@ OBJECT2_Z_DOT = 0.0 [km/s]
 
     #[test]
     fn unsupported_reference_frame_is_not_coerced() {
-        let unsupported = SAMPLE_CDM.replace("OBJECT1_REF_FRAME = EME2000", "OBJECT1_REF_FRAME = TEME");
+        let unsupported =
+            SAMPLE_CDM.replace("OBJECT1_REF_FRAME = EME2000", "OBJECT1_REF_FRAME = TEME");
         assert!(matches!(
             parse_cdm_kvn(&unsupported),
             Err(CdmParseError::UnsupportedReferenceFrame { field, value })
@@ -866,7 +905,8 @@ OBJECT2_Z_DOT = 0.0 [km/s]
 
     #[test]
     fn mismatched_object_reference_frames_are_rejected() {
-        let mismatched = SAMPLE_CDM.replace("OBJECT2_REF_FRAME = EME2000", "OBJECT2_REF_FRAME = GCRF");
+        let mismatched =
+            SAMPLE_CDM.replace("OBJECT2_REF_FRAME = EME2000", "OBJECT2_REF_FRAME = GCRF");
         assert!(matches!(
             parse_cdm_kvn(&mismatched),
             Err(CdmParseError::MismatchedReferenceFrames { .. })
