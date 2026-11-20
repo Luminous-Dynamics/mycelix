@@ -59,7 +59,6 @@ transitive dependency resolution is not yet frozen.
   DHT projection observation, one transport attempt, recipient admission,
   inbox commit, decryption verification, receipt creation, and separately
   attributed receipt verification.
-- Host admission and domain authorization must reference the same grant hash,
   scope and exact cell. The authored source-action hash must match the DHT
   projection's action hash. Receipt creation and verification must reference
   the same recipient-receipt digest and scope. These are consistency checks on
@@ -90,11 +89,10 @@ This prototype does **not**:
 - establish forward secrecy, post-compromise security, anonymity, availability,
   Byzantine safety, or production readiness.
 
-The `recipient_receipt` / `signed_statement` digest is a reference, not a
-cryptographic verification. The receipt verifier's actor identity and
-independence must be anchored by a separately authenticated trust policy in a
-future qualification layer. This binary checks evidence-graph consistency;
-it is not a trust root.
+The matching `recipient_receipt` digests are references, not cryptographic
+verification. The receipt verifier's actor identity and independence must be
+anchored by a separately authenticated trust policy in a future qualification
+layer. This binary checks evidence-graph consistency; it is not a trust root.
 
 The full Draft 2020-12 schema is supplied at the CLI and checked before the
 semantic verifier runs. The selected engine advertises Draft 2020-12 support,
@@ -111,5 +109,6 @@ role confusion, missing attempt IDs, cross-operation attempt reuse, duplicate
 inbox effects, secret-bearing fields, mismatched commitments, changed recipient
 identity, missing recipient admission, recipient/verifier identity collision, semantically invalid resolved causal
 relations, host/domain grant mismatch, DHT/source-action hash mismatch, and
-recipient receipt mismatch. The benchmark profile and its schema are also
-validated by tests; they remain pre-registered artifacts, not measured results.
+recipient receipt mismatch. The profile, scenario catalog, and benchmark profile
+are validated against their checked-in schemas by tests. The benchmark remains
+a pre-registered artifact, not measured results.
