@@ -293,24 +293,34 @@ fn output_role_key(role: OutputRole) -> &'static str {
 
 fn sorted_inputs(inputs: &[RunInputV1]) -> Vec<&RunInputV1> {
     let mut sorted: Vec<_> = inputs.iter().collect();
-    sorted.sort_by_key(|item| {
+    sorted.sort_by(|left, right| {
         (
-            input_role_key(item.role),
-            item.artifact.reference.id.as_str(),
-            item.artifact.reference.kind.as_str(),
+            input_role_key(left.role),
+            left.artifact.reference.id.as_str(),
+            left.artifact.reference.kind.as_str(),
         )
+            .cmp(&(
+                input_role_key(right.role),
+                right.artifact.reference.id.as_str(),
+                right.artifact.reference.kind.as_str(),
+            ))
     });
     sorted
 }
 
 fn sorted_outputs(outputs: &[RunOutputV1]) -> Vec<&RunOutputV1> {
     let mut sorted: Vec<_> = outputs.iter().collect();
-    sorted.sort_by_key(|item| {
+    sorted.sort_by(|left, right| {
         (
-            output_role_key(item.role),
-            item.artifact.reference.id.as_str(),
-            item.artifact.reference.kind.as_str(),
+            output_role_key(left.role),
+            left.artifact.reference.id.as_str(),
+            left.artifact.reference.kind.as_str(),
         )
+            .cmp(&(
+                output_role_key(right.role),
+                right.artifact.reference.id.as_str(),
+                right.artifact.reference.kind.as_str(),
+            ))
     });
     sorted
 }
