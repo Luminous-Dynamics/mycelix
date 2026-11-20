@@ -1509,8 +1509,14 @@ mod tests {
     #[test]
     fn extraction_cannot_pass_with_unresolved_mappings() {
         let (mut qualification, _) = fixture();
-        qualification.body.extraction.as_mut().unwrap().mapping_counts.unresolved = 1;
-        qualification.body.extraction.as_mut().unwrap().mapping_counts.mapped = 9;
+        let extraction = qualification.body.extraction.as_mut().unwrap();
+        extraction.mapping_counts.unresolved = 1;
+        extraction.mapping_counts.mapped = 9;
+        extraction.mappings[0].disposition = SourceMappingDisposition::Unresolved;
+        extraction.mappings[0].target_object_kind = None;
+        extraction.mappings[0].target_object_id = None;
+        extraction.mappings[0].reason_code = Some("TARGET_NOT_FOUND".into());
+        refresh_mapping_manifest(extraction);
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
         assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::FalseExtractionPass));
     }
@@ -1518,12 +1524,91 @@ mod tests {
     #[test]
     fn dropped_extraction_mappings_cannot_be_hidden_in_warning_or_pass() {
         let (mut qualification, _) = fixture();
-        qualification.body.extraction.as_mut().unwrap().mapping_counts.dropped = 1;
-        qualification.body.extraction.as_mut().unwrap().mapping_counts.mapped = 9;
-        qualification.body.stage_results.iter_mut()
-            .find(|stage| stage.stage == ValidationStage::ExtractionFidelity).unwrap().disposition = StageDisposition::Warning;
+        let extraction = qualification.body.extraction.as_mut().unwrap();
+        extraction.mapping_counts.dropped = 1;
+        extraction.mapping_counts.mapped = 9;
+        extraction.mappings[0].disposition = SourceMappingDisposition::Dropped;
+        extraction.mappings[0].target_object_kind = None;
+        extraction.mappings[0].target_object_id = None;
+        extraction.mappings[0].reason_code = Some("UNMAPPED_SOURCE_FIELD".into());
+        refresh_mapping_manifest(extraction);
+        let stage = qualification.body.stage_results.iter_mut()
+            .find(|stage| stage.stage == ValidationStage::ExtractionFidelity).unwrap();
+        stage.disposition = StageDisposition::Warning;
+        stage.reason_codes.push("DROPPED_SOURCE_FIELDS".into());
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
         assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::DroppedMappings));
+    }
+
+    #[test]
+    fn source_mapping_manifest_bytes_are_order_invariant() {
+        let (qualification, _) = fixture();
+        let mappings = &qualification.body.extraction.as_ref().unwrap().mappings;
+        let forward = source_mapping_manifest_bytes(mappings).unwrap();
+        let mut reversed = mappings.clone();
+        reversed.reverse();
+        let backward = source_mapping_manifest_bytes(&reversed).unwrap();
+        assert_eq!(forward, backward);
+    }
+
+    #[test]
+    fn source_mapping_record_mutation_breaks_pinned_manifest_digest() {
+        let (mut qualification, _) = fixture();
+        qualification.body.extraction.as_mut().unwrap().mappings[0].mapping_rule_id =
+            "unreviewed.rule".into();
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::SourceMappingManifestMismatch)
+        );
+    }
+
+    #[test]
+    fn source_mapping_counts_must_match_declared_rows() {
+        let (mut qualification, _) = fixture();
+        qualification.body.extraction.as_mut().unwrap().mapping_counts.mapped = 9;
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::SourceMappingCountMismatch)
+        );
+    }
+
+    #[test]
+    fn duplicate_source_locator_is_rejected() {
+        let (mut qualification, _) = fixture();
+        let records = &mut qualification.body.extraction.as_mut().unwrap().mappings;
+        records[1].source_path = records[0].source_path.clone();
+        records[1].source_element_id = records[0].source_element_id;
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(matches!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::DuplicateSourceMappingLocator(_))
+        ));
+    }
+
+    #[test]
+    fn mapped_source_record_requires_a_concrete_target() {
+        let (mut qualification, _) = fixture();
+        qualification.body.extraction.as_mut().unwrap().mappings[0].target_object_id = None;
+        refresh_mapping_manifest(qualification.body.extraction.as_mut().unwrap());
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(matches!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::InvalidSourceMappingRecord(_))
+        ));
+    }
+
+    #[test]
+    fn external_source_locator_must_reference_a_declared_results_binding() {
+        let (mut qualification, _) = fixture();
+        qualification.body.extraction.as_mut().unwrap().mappings[0].external_document_reference_id = Some(99);
+        refresh_mapping_manifest(qualification.body.extraction.as_mut().unwrap());
+        qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
+        assert!(matches!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::InvalidSourceMappingLocator(_))
+        ));
     }
 
     #[test]
