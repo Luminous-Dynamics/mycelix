@@ -14,11 +14,11 @@
 //!
 //! # Modules
 //!
-//! - [\`bodies\`] — Celestial body trait + Earth/Moon/Mars implementations
-//! - [\`ranging\`] — Sensor models: RSSI, LoRa ToA, UWB ToF, WiFi RTT
-//! - [\`trilateration\`] — Core positioning: N ranges → position estimate
-//! - [\`coverage\`] — GDOP/PDOP geometric dilution of precision
-//! - [\`kalman\`] — Extended Kalman Filter for continuous tracking
+//! - [bodies] — Celestial body trait + Earth/Moon/Mars implementations
+//! - [ranging] — Sensor models: RSSI, LoRa ToA, UWB ToF, WiFi RTT
+//! - [trilateration] — Core positioning: N ranges → position estimate
+//! - [coverage] — GDOP/PDOP geometric dilution of precision
+//! - [kalman] — Extended Kalman Filter for continuous tracking
 
 pub mod bodies;
 pub mod coverage;
