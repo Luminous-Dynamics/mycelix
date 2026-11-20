@@ -17,14 +17,14 @@
 //! from operator consciousness tiers. Higher-weight objects are screened
 //! first with finer time steps.
 
-use clap::Parser;
 use chrono::{Duration, Utc};
+use clap::Parser;
 use orbital_mechanics::conjunction::ConjunctionAnalyzer;
 use orbital_mechanics::propagator::Propagator;
 use orbital_mechanics::tle::TwoLineElement;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tracing::{debug, error, info, warn};
 
 /// Conjunction screening daemon for mycelix-space
@@ -128,7 +128,9 @@ struct ScreeningSummary {
 ///
 /// Handles both 2-line (line1 + line2) and 3-line (name + line1 + line2) formats,
 /// as well as blank-line separators.
-fn parse_tle_catalog(content: &str) -> Result<HashMap<u32, TwoLineElement>, Box<dyn std::error::Error>> {
+fn parse_tle_catalog(
+    content: &str,
+) -> Result<HashMap<u32, TwoLineElement>, Box<dyn std::error::Error>> {
     let lines: Vec<&str> = content.lines().collect();
     let mut catalog = HashMap::new();
 
@@ -200,11 +202,20 @@ async fn fetch_celestrak_catalog(
     for attempt in 0..max_retries {
         if attempt > 0 {
             let backoff = std::time::Duration::from_secs(1 << (attempt - 1)); // 1s, 2s, 4s, ...
-            info!(attempt, backoff_secs = backoff.as_secs(), "Retrying CelesTrak fetch");
+            info!(
+                attempt,
+                backoff_secs = backoff.as_secs(),
+                "Retrying CelesTrak fetch"
+            );
             tokio::time::sleep(backoff).await;
         }
 
-        info!(url, attempt = attempt + 1, max = max_retries, "Fetching TLE catalog from CelesTrak");
+        info!(
+            url,
+            attempt = attempt + 1,
+            max = max_retries,
+            "Fetching TLE catalog from CelesTrak"
+        );
 
         match client.get(url).send().await {
             Ok(resp) => match resp.text().await {
@@ -423,10 +434,9 @@ fn screen_catalog(
 
             for i in 0..=num_coarse_steps {
                 let t = primary_tle.epoch + Duration::seconds(i * coarse_step_secs);
-                let (Ok(p_state), Ok(s_state)) = (
-                    primary_prop.propagate_to(t),
-                    secondary_prop.propagate_to(t),
-                ) else {
+                let (Ok(p_state), Ok(s_state)) =
+                    (primary_prop.propagate_to(t), secondary_prop.propagate_to(t))
+                else {
                     continue;
                 };
 
@@ -448,10 +458,9 @@ fn screen_catalog(
                 let mut t_secs = fine_start;
                 while t_secs <= fine_end {
                     let t = primary_tle.epoch + Duration::seconds(t_secs);
-                    let (Ok(p_state), Ok(s_state)) = (
-                        primary_prop.propagate_to(t),
-                        secondary_prop.propagate_to(t),
-                    ) else {
+                    let (Ok(p_state), Ok(s_state)) =
+                        (primary_prop.propagate_to(t), secondary_prop.propagate_to(t))
+                    else {
                         t_secs += fine_step_secs;
                         continue;
                     };
@@ -537,7 +546,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("  Hours ahead: {}", args.hours_ahead);
     info!("  Pc threshold: {:.2e}", args.pc_threshold);
     info!("  Miss threshold: {} km", args.miss_threshold_km);
-    info!("  HTTP timeout: {}s, retries: {}", args.http_timeout_secs, args.http_retries);
+    info!(
+        "  HTTP timeout: {}s, retries: {}",
+        args.http_timeout_secs, args.http_retries
+    );
 
     // Graceful shutdown signal
     let shutdown = Arc::new(AtomicBool::new(false));
@@ -546,10 +558,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::spawn(async move {
             let ctrl_c = tokio::signal::ctrl_c();
             #[cfg(unix)]
-            let mut sigterm = tokio::signal::unix::signal(
-                tokio::signal::unix::SignalKind::terminate(),
-            )
-            .expect("failed to register SIGTERM handler");
+            let mut sigterm =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                    .expect("failed to register SIGTERM handler");
 
             #[cfg(unix)]
             tokio::select! {
@@ -643,7 +654,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if cycle_count > 1 && cycle_count % args.refresh_cycles == 1 {
                 if breaker.is_open() {
                     breaker.tick();
-                    debug!(cycle = cycle_count, "CelesTrak fetch skipped (circuit breaker open)");
+                    debug!(
+                        cycle = cycle_count,
+                        "CelesTrak fetch skipped (circuit breaker open)"
+                    );
                 } else {
                     let fetch_start = std::time::Instant::now();
                     match fetch_celestrak_catalog(url, args.http_timeout_secs, args.http_retries)
@@ -679,7 +693,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             freshness.check();
         }
 
-        info!(cycle = cycle_count, catalog_size = catalog.len(), "Starting screening run");
+        info!(
+            cycle = cycle_count,
+            catalog_size = catalog.len(),
+            "Starting screening run"
+        );
 
         let screen_start = std::time::Instant::now();
         let (results, stats) = screen_catalog(
@@ -701,10 +719,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Log screening throughput and propagation failure rate
         info!(
             pairs = stats.pairs_attempted,
-            screen_ms,
-            "Screened {} pairs in {}ms",
-            stats.pairs_attempted,
-            screen_ms,
+            screen_ms, "Screened {} pairs in {}ms", stats.pairs_attempted, screen_ms,
         );
         if stats.assessment_rejections > 0 {
             warn!(
@@ -775,7 +790,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             break;
         }
 
-        info!(next_in_secs = args.interval_seconds, "Waiting for next cycle");
+        info!(
+            next_in_secs = args.interval_seconds,
+            "Waiting for next cycle"
+        );
 
         // Sleep in 1-second increments to allow prompt shutdown
         for _ in 0..args.interval_seconds {
