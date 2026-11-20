@@ -12,6 +12,7 @@ use mycelix_space_shared::{
     AlertPriority, AlertType, ConjunctionAlert, ConjunctionAssessment, ConjunctionDataMessage,
     ManeuverAlert, ManeuverType as SharedManeuverType, PaginatedResponse, PaginationParams,
     QualityScore, ScreenInput, SpaceError, SpaceErrorCode, SpaceSignal, SpaceTimestamp,
+    validate_screening_coverage,
     StalenessAwareAssessment, StalenessConfig, TleWithMetadata, compute_staleness,
     gate_space_operation, requirement_for_conjunction_creation, requirement_for_negotiation,
     requirement_for_risk_update,
@@ -691,7 +692,7 @@ pub fn screen_conjunction(input: ScreenInput) -> ExternResult<Vec<ConjunctionAss
         ZomeName::new("orbital_objects"),
         FunctionName::new("get_latest_tles"),
         None,
-        all_ids,
+        all_ids.clone(),
     )?;
 
     let response_bytes = match response {
@@ -720,7 +721,18 @@ pub fn screen_conjunction(input: ScreenInput) -> ExternResult<Vec<ConjunctionAss
         .into_wasm_error()
     })?;
 
-    // Build a lookup by NORAD ID
+    // The DHT response must account for the exact requested set. A partial or
+    // duplicate response cannot be presented as a complete negative screening.
+    let returned_ids: Vec<u32> = tle_lines.iter().map(|tle| tle.norad_id).collect();
+    validate_screening_coverage(&all_ids, &returned_ids).map_err(|error| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!("Incomplete conjunction TLE coverage: {:?}", error),
+        )
+        .into_wasm_error()
+    })?;
+
+    // Build a lookup only after exact-set validation succeeds.
     let tle_map: std::collections::HashMap<u32, &TleLinesResponse> =
         tle_lines.iter().map(|t| (t.norad_id, t)).collect();
 
@@ -734,12 +746,22 @@ pub fn screen_conjunction(input: ScreenInput) -> ExternResult<Vec<ConjunctionAss
         .into_wasm_error()
     })?;
 
-    // Delegate to the TLE-based screening function
+    // Every requested secondary was validated above; do not silently filter
+    // an absent ID into a smaller screening set.
     let secondary_tles: Vec<(String, String)> = input
         .secondary_norad_ids
         .iter()
-        .filter_map(|id| tle_map.get(id).map(|t| (t.line1.clone(), t.line2.clone())))
-        .collect();
+        .map(|id| {
+            let tle = tle_map.get(id).ok_or_else(|| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Missing secondary TLE after coverage validation: {}", id),
+                )
+                .into_wasm_error()
+            })?;
+            Ok((tle.line1.clone(), tle.line2.clone()))
+        })
+        .collect::<ExternResult<Vec<_>>>()?;
 
     let from_tles_input = ScreenFromTlesInput {
         primary_tle: (
@@ -794,7 +816,7 @@ pub fn screen_conjunction_with_staleness(
         FunctionName::new("get_tles_with_metadata"),
         None,
         GetTlesWithMetadataCallInput {
-            norad_ids: all_ids,
+            norad_ids: all_ids.clone(),
             staleness_config: input.staleness_config.clone(),
         },
     )?;
@@ -818,7 +840,17 @@ pub fn screen_conjunction_with_staleness(
         .into_wasm_error()
     })?;
 
-    // Build a lookup by NORAD ID
+    // The metadata response must cover every requested object exactly once.
+    let returned_ids: Vec<u32> = tle_meta.iter().map(|tle| tle.norad_id).collect();
+    validate_screening_coverage(&all_ids, &returned_ids).map_err(|error| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!("Incomplete staleness-aware TLE coverage: {:?}", error),
+        )
+        .into_wasm_error()
+    })?;
+
+    // Build a lookup only after exact-set validation succeeds.
     let meta_map: std::collections::HashMap<u32, &TleWithMetadata> =
         tle_meta.iter().map(|t| (t.norad_id, t)).collect();
 
@@ -831,12 +863,47 @@ pub fn screen_conjunction_with_staleness(
         .into_wasm_error()
     })?;
 
-    // Build TLE pairs for screening
+    // Enforce the configured quality floor and freshness policy before
+    // propagating. A stale, future-dated or below-floor source cannot support
+    // a complete negative screening result in this legacy Vec-returning API.
+    let all_metadata = std::iter::once(*primary_meta)
+        .chain(input.secondary_norad_ids.iter().filter_map(|id| meta_map.get(id).copied()));
+    for metadata in all_metadata {
+        if metadata.staleness.is_stale
+            || metadata.staleness.age_secs < 0
+            || metadata.staleness.effective_quality.value() < input.staleness_config.min_quality
+        {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!(
+                    "Unqualified TLE for NORAD {}: stale={}, age_secs={}, effective_quality={}, min_quality={}",
+                    metadata.norad_id,
+                    metadata.staleness.is_stale,
+                    metadata.staleness.age_secs,
+                    metadata.staleness.effective_quality.value(),
+                    input.staleness_config.min_quality
+                ),
+            )
+            .into_wasm_error());
+        }
+    }
+
+    // Every requested secondary was validated above; do not silently filter
+    // missing metadata into a smaller screening set.
     let secondary_tles: Vec<(String, String)> = input
         .secondary_norad_ids
         .iter()
-        .filter_map(|id| meta_map.get(id).map(|t| (t.line1.clone(), t.line2.clone())))
-        .collect();
+        .map(|id| {
+            let tle = meta_map.get(id).ok_or_else(|| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Missing secondary TLE metadata after coverage validation: {}", id),
+                )
+                .into_wasm_error()
+            })?;
+            Ok((tle.line1.clone(), tle.line2.clone()))
+        })
+        .collect::<ExternResult<Vec<_>>>()?;
 
     let from_tles_input = ScreenFromTlesInput {
         primary_tle: (primary_meta.line1.clone(), primary_meta.line2.clone()),
@@ -932,20 +999,37 @@ pub fn screen_conjunction_from_tles(
         .into_wasm_error()
     })?;
 
-    // Parse secondary TLEs
+    // Parse every supplied secondary. This legacy API returns a bare vector,
+    // so it must reject the whole request instead of silently returning a
+    // partial result when any requested input is malformed or unusable.
     let mut secondary_props: Vec<(u32, Propagator)> = Vec::new();
+    let mut secondary_ids = Vec::with_capacity(input.secondary_tles.len());
     for (line1, line2) in &input.secondary_tles {
-        match TwoLineElement::parse_lines(None, line1, line2) {
-            Ok(tle) => {
-                let norad_id = tle.norad_id;
-                match Propagator::from_tle(&tle) {
-                    Ok(prop) => secondary_props.push((norad_id, prop)),
-                    Err(_) => continue, // Skip objects that fail to initialize
-                }
-            }
-            Err(_) => continue, // Skip malformed TLEs
-        }
+        let tle = TwoLineElement::parse_lines(None, line1, line2).map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::TleParseError,
+                format!("Invalid secondary TLE: {}", error),
+            )
+            .into_wasm_error()
+        })?;
+        let norad_id = tle.norad_id;
+        secondary_ids.push(norad_id);
+        let prop = Propagator::from_tle(&tle).map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Secondary {} propagation init failed: {}", norad_id, error),
+            )
+            .into_wasm_error()
+        })?;
+        secondary_props.push((norad_id, prop));
     }
+    validate_screening_coverage(&secondary_ids, &secondary_ids).map_err(|error| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!("Invalid secondary screening set: {:?}", error),
+        )
+        .into_wasm_error()
+    })?;
 
     // Sweep the time window to find TCA (time of closest approach) for each pair.
     // Step size: 10 minutes for coarse scan, then refine around the minimum.
@@ -964,14 +1048,20 @@ pub fn screen_conjunction_from_tles(
 
         for i in 0..=num_coarse_steps {
             let t = primary_tle.epoch + chrono::Duration::seconds(i * coarse_step_secs);
-            let p_state = match primary_prop.propagate_to(t) {
-                Ok(s) => s,
-                Err(_) => continue,
-            };
-            let s_state = match sec_prop.propagate_to(t) {
-                Ok(s) => s,
-                Err(_) => continue,
-            };
+            let p_state = primary_prop.propagate_to(t).map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Primary propagation failed at coarse sample {}: {}", i, error),
+                )
+                .into_wasm_error()
+            })?;
+            let s_state = sec_prop.propagate_to(t).map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Secondary propagation failed at coarse sample {}: {}", i, error),
+                )
+                .into_wasm_error()
+            })?;
             let dist = distance_between(&p_state, &s_state);
             if dist < best_distance {
                 best_distance = dist;
@@ -988,20 +1078,20 @@ pub fn screen_conjunction_from_tles(
         let mut t_secs = fine_start;
         while t_secs <= fine_end {
             let t = primary_tle.epoch + chrono::Duration::seconds(t_secs);
-            let p_state = match primary_prop.propagate_to(t) {
-                Ok(s) => s,
-                Err(_) => {
-                    t_secs += fine_step_secs;
-                    continue;
-                }
-            };
-            let s_state = match sec_prop.propagate_to(t) {
-                Ok(s) => s,
-                Err(_) => {
-                    t_secs += fine_step_secs;
-                    continue;
-                }
-            };
+            let p_state = primary_prop.propagate_to(t).map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Primary propagation failed at fine sample {}: {}", t_secs, error),
+                )
+                .into_wasm_error()
+            })?;
+            let s_state = sec_prop.propagate_to(t).map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Secondary propagation failed at fine sample {}: {}", t_secs, error),
+                )
+                .into_wasm_error()
+            })?;
             let dist = distance_between(&p_state, &s_state);
             if dist < tca_distance {
                 tca_distance = dist;
@@ -1012,14 +1102,28 @@ pub fn screen_conjunction_from_tles(
 
         // Assess at TCA
         let tca_time = primary_tle.epoch + chrono::Duration::seconds(tca_offset);
-        let p_state = match primary_prop.propagate_to(tca_time) {
-            Ok(s) => s,
-            Err(_) => continue,
-        };
-        let s_state = match sec_prop.propagate_to(tca_time) {
-            Ok(s) => s,
-            Err(_) => continue,
-        };
+        if !best_distance.is_finite() || best_distance == f64::MAX {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("No valid propagation samples for secondary {}", _norad_id),
+            )
+            .into_wasm_error());
+        }
+
+        let p_state = primary_prop.propagate_to(tca_time).map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Primary propagation failed at final TCA for {}: {}", _norad_id, error),
+            )
+            .into_wasm_error()
+        })?;
+        let s_state = sec_prop.propagate_to(tca_time).map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Secondary propagation failed at final TCA for {}: {}", _norad_id, error),
+            )
+            .into_wasm_error()
+        })?;
 
         let assessment = analyzer.assess(&p_state, &s_state);
 
