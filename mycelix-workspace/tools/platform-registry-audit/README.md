@@ -80,3 +80,16 @@ The advisory AST report format is described by:
 - `docs/architecture/MYCELIX_OTHERROLE_TOPOLOGY_AUDIT_V0_1.schema.json`
 
 CI checks the generated report's minimum structural envelope and uploads it as an artifact. It does not promote the report to a hard topology gate.
+
+
+## OtherRole topology inventory
+
+Run the advisory AST inventory from a committed, clean tracked checkout:
+
+```bash
+cargo run --manifest-path mycelix-workspace/tools/platform-registry-audit/Cargo.toml -- --audit-otherrole > otherrole-topology-report.json
+```
+
+The scanner enumerates Git-index paths with `git ls-files -z`. Untracked local scratch files are excluded. Modified or staged tracked files cause the audit to stop, so the report's `source.commit` and `source.tree_sha` identify the code that was actually scanned. Tracked symlink files are skipped rather than followed.
+
+The report explicitly records excluded path components (including tests, examples, benches, generated output and archives). Its source inventory is an AST-based static candidate list, not proof that a given Rust file is linked into a particular DNA. A nearest `happ.yaml` is only context; source-to-DNA ownership needs independent evidence. Dynamic target expressions and unmatched textual occurrences remain visible for review.
