@@ -55,7 +55,7 @@ A kernel connect hook reports connection establishment attempts. It does not rep
 - Observer loss or detach/reattach gaps invalidate independent coverage.
 - A response on a pooled connection requires a connection-identity bridge and a retained, independently observed connection lease if kernel peer corroboration is required.
 
-The current reference model keeps this limit explicit. It does not invent a request ID in a kernel event, nor equate socket-cookie identity with an HTTP/2 stream ID.
+The current reference model keeps this limit explicit. Its Complete observer variant is assumed to have already passed generation, coverage, and loss checks; a production adapter must prove that before constructing the snapshot. A ProvenNoWrite result must come from a trusted, attempt-bound transport adapter, not a userspace log line or absence of a kernel connect event. The model does not invent a request ID in a kernel event, nor equate socket-cookie identity with an HTTP/2 stream ID.
 
 ## Idempotency and remote reconciliation
 
@@ -80,7 +80,7 @@ This model deliberately does not promise "exactly once" delivery. The strongest 
 
 - **HTTP semantics (RFC 9110 §9.2.2):** safe methods plus PUT and DELETE are defined as idempotent in intended effect; non-idempotent requests should not be automatically retried without a way to establish idempotent semantics or detect that the original was not applied. Prism should enforce this as a typed recovery policy rather than a global retry toggle.
 - **Durable workflow engines:** Temporal documents that an Activity may execute more than once and recommends idempotent Activity code. Its event history makes orchestration durable, but external activity side effects still need application-level idempotency. Prism focuses more narrowly on the network authority and evidence boundary around each outbound attempt.
-- **Service-mesh retries:** Envoy provides mature timeout, retry, circuit-breaker, and upstream connection-pool controls. These optimize availability, but retry policy alone does not prove that an arbitrary remote side effect was not applied. Compare configured behavior and the remote server contract rather than claiming Prism replaces Envoy.
+- **Service-mesh retries:** Envoy provides mature timeout, retry, circuit-breaker, and upstream connection-pool controls. Its v1.40 reset-before-request condition retries only when request headers have not been sent upstream; broad reset/5xx conditions are a different baseline. Retry policy alone does not prove an arbitrary remote side effect was not applied. Compare narrow pre-dispatch retry, broad retry, and retry with an explicit remote idempotency contract rather than claiming Prism replaces Envoy.
 - **Network policy engines:** Cilium supplies workload-level L3/L4/L7 controls and DNS-derived policy. Its DNS policy documentation describes TTL-dependent new-connection behavior and the fact that existing connections can remain allowed. That complements Prism's per-request authority; neither plane should be mistaken for the other.
 
 Primary references:
