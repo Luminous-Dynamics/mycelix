@@ -1,9 +1,13 @@
-# Net Steward Conductor Integration Test Manifest
+# Proposed Net Steward adapter fixture metadata.
+#
+# NOT EXECUTED: the Holochain transport and identity resolver currently fail
+# closed until a real, authenticated client implementation is added.
+# This file does not establish a live conductor, DNA, agent or DHT observation.
 
 dna_path = "crates/net-steward-holochain/dna/dna.yaml"
 role_id = "net_steward"
 zome_name = "net_steward_posture"
-alice_agent = "did:mycelix:alice-test-key"
-bob_agent = "did:mycelix:bob-test-key"
-claim_fixture = "env-test-999"
-expected_claim_id = "claim-test-999"
+alice_agent_label = "fixture-alice"
+bob_agent_label = "fixture-bob"
+claim_fixture = "fixture-only-not-a-live-record"
+expected_claim_id = "fixture-only-not-a-live-claim"
