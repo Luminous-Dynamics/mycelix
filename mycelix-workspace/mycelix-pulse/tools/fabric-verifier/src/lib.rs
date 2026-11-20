@@ -121,7 +121,12 @@ const FORBIDDEN_KEYS: &[&str] = &[
     "plain_text",
     "message_body",
     "message_content",
+    "message_text",
+    "message_subject",
     "raw_message",
+    "raw_message_text",
+    "body",
+    "subject",
     "content",
     "private_key",
     "private_seed",
@@ -279,7 +284,15 @@ fn validate_optional_digest(
 
 fn expected_role(event_type: &str) -> Option<&'static [&'static str]> {
     match event_type {
-        "authority_host_admitted" | "authority_host_denied" => Some(&["host_conductor"]),
+        "intent_recorded"
+        | "crypto_profile_selected"
+        | "session_state_advanced"
+        | "outbox_committed"
+        | "terminal_failure"
+        | "terminal_expiry" => Some(&["client"]),
+        "authority_host_admitted"
+        | "authority_host_denied"
+        | "revocation_committed" => Some(&["host_conductor"]),
         "domain_authorized" | "domain_denied" => Some(&["domain_coordinator"]),
         "source_action_authored" => Some(&["source_chain_author"]),
         "integrity_validation_accepted" | "integrity_validation_rejected" => {
@@ -1439,6 +1452,34 @@ mod tests {
         }));
     }
 
+    fn checked_in_profile_and_schema_satisfy_draft_2020_12() {
+        let profile: Value = serde_json::from_str(include_str!(
+            "../../../docs/pulse-fabric-profile-v0.1.json"
+        ))
+        .expect("profile must parse");
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../../docs/pulse-fabric-profile.schema-v0.1.json"
+        ))
+        .expect("profile schema must parse");
+        validate_against_schema(&profile, &schema)
+            .expect("profile must satisfy its Draft 2020-12 schema");
+    }
+
+    #[test]
+    fn checked_in_scenario_catalog_satisfies_draft_2020_12() {
+        let catalog: Value = serde_json::from_str(include_str!(
+            "../../../docs/pulse-fabric-scenarios-v0.1.json"
+        ))
+        .expect("scenario catalog must parse");
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../../docs/pulse-fabric-scenarios.schema-v0.1.json"
+        ))
+        .expect("scenario schema must parse");
+        validate_against_schema(&catalog, &schema)
+            .expect("scenario catalog must satisfy its Draft 2020-12 schema");
+    }
+
+    #[test]
     #[test]
     fn checked_in_scenario_catalog_has_unique_ids_and_all_families() {
         let catalog: Value = serde_json::from_str(include_str!(
