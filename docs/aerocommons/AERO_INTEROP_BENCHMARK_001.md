@@ -52,7 +52,7 @@ The first Rust increment implements:
 - explicit oracle method/profile version;
 - tool registry with category, version and executable digest;
 - case-level source artifacts and per-claim labels;
-- exact corpus and oracle payload-byte verification before scoring;
+- exact tool executable/argument/environment, corpus input and oracle payload-byte verification before scoring, including for Blocked/NotRun slots;
 - reuse of `AeroAdapterRunReceiptV1` for each executed tool × case;
 - exact receipt binding to benchmark, case, registered tool, pinned invocation profile and exact one-to-one declared input set;
 - complete tool × case grid, including Blocked and NotRun slots;
