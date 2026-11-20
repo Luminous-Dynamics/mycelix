@@ -340,7 +340,49 @@ No single composite score should hide a poor result in one safety-critical categ
 
 The last two are research targets. They become claims only after preregistration, matched hardware/data/coverage, a blind holdout, exact-head CI, independent oracle and external review.
 
-## 10. Delivery gates
+## 10. Interoperability profile matrix and data-fidelity routing
+
+TraCSS publishes multiple related but non-interchangeable space-data profiles. Mycelix must select an adapter by explicit profile/version and declare what downstream calculations the parsed source can support.
+
+| Profile | Content | Encoding / semantics | Intended use and limit |
+|---|---|---|---|
+| CCSDS CDM 508.0-B-1 v1.0 | Conjunction result at TCA | Standards-native KVN object blocks; CCSDS message version 1.0 | Interchange of conjunction assessment results; baseline parser tracked in #6369 |
+| TraCSS CDM Spec 001 Release 2.1 | Conjunction result | KVN, XML, JSON-ST, CSV, JSON-TraCSS; CCSDS message version 2.0 for the KVN/XML profile; ITRF in four profiles and EME2000 in JSON-TraCSS | Provider-specific CDM profile family, tracked in #6383 |
+| TraCSS OMM Spec 004 Release 1.2 | Mean Keplerian elements for one object at one epoch | KVN and JSON; UTC; Earth origin; declared mean-element theory; Alpha-5 support in TLE-related fields | Appropriate for the profile's mean-element / antenna pointing / contact-planning uses; not automatically suitable for high-fidelity conjunction assessment |
+| TraCSS OCM Spec 002 Release 2.1 | Comprehensive object/orbit message | Ordered sections; ephemeris time histories, optional covariance, physical properties, maneuvers, perturbations and orbit-determination data | Candidate high-fidelity orbit input only after section, time-span, frame, covariance and maneuver-suitability checks; tracked in #6384 |
+
+Normative references:
+- TraCSS CDM v2.1: https://space.commerce.gov/wp-content/uploads/2026/01/TraCSS-Spec-001-v2.1_CDM.pdf
+- TraCSS OMM v1.2: https://space.commerce.gov/wp-content/uploads/2026/01/TraCSS-Spec-004-v1.2_OMM.pdf
+- TraCSS OCM v2.1: https://space.commerce.gov/wp-content/uploads/2026/01/TraCSS_SE_SPEC_002_v2.1.pdf
+- January 22, 2026 specification update: https://space.commerce.gov/osc-publishes-updated-tracss-specifications/
+
+### Non-interchangeability rules
+
+- The TraCSS **document release** (for example, CDM specification 2.1) is distinct from the message-internal version (for example, `CCSDS_CDM_VERS=2.0`). Record both.
+- The five TraCSS CDM formats are different source profiles. KVN/XML use the CCSDS representation; JSON-ST/CSV are not perfectly identical to CCSDS; JSON-TraCSS has different keys and an EME2000 state-vector convention. Never infer the profile from one or two field names.
+- The OMM specification describes mean Keplerian elements at a single epoch and expressly says OMM is not recommended for assessing mutual physical interference, collaborative maneuver development or precise orbit propagation. Do not silently promote an OMM into a high-fidelity ephemeris for collision-risk decisions.
+- OCM section order, mandatory/optional/conditional fields, relative-versus-absolute time tags, `EPOCH_TZERO`, usable time span, covariance/Orbit Data section matching and maneuver discontinuities must remain explicit. A flattened state vector is not a lossless OCM representation.
+- OCM with ephemeris and covariance is only a candidate input to a qualified screening path. Parsing success does not validate orbit-determination quality, covariance realism, force-model applicability or Pc.
+- A format, profile, unit, frame, time scale or covariance convention that is unsupported must produce a typed unsupported/indeterminate outcome, never be coerced into the closest available type.
+
+### Paradigm shift: fidelity-aware ingestion
+
+Instead of one generic `orbit_data` type, route by source fidelity and intended calculation:
+
+`raw artifact -> explicit profile -> typed source semantics -> fidelity/suitability assessment -> permitted calculation -> evidence receipt`
+
+The router should distinguish at least:
+- mean elements at an epoch (OMM);
+- TLE/SGP4 elements and their age/quality limitations;
+- state vector at an epoch;
+- ephemeris time history with declared interpolation/usable span;
+- ephemeris plus compatible covariance;
+- pre-/post-maneuver or otherwise discontinuous trajectory segments.
+
+This prevents a format that is adequate for one purpose from being treated as evidence for a more demanding calculation.
+
+## 11. Delivery gates
 
 - **P0 — contract freeze:** envelope, authority matrix, rights model, time/frame semantics, reason codes and claim ceilings.
 - **P1 — corpus:** 30+ synthetic cases, independent oracle, positive/negative controls.
@@ -350,7 +392,7 @@ The last two are research targets. They become claims only after preregistration
 - **P5 — independent review:** security, privacy, orbital-safety, governance and standards review.
 - **P6 — consented shadow pilot:** read-only exchange with operators; no command or maneuver execution path.
 
-## 11. Non-claims
+## 12. Non-claims
 
 A passing synthetic corpus does not establish sensor accuracy, physical truth, orbit determination quality, calibrated probability of collision, maneuver safety, flight qualification, cybersecurity certification, legal authority, spacecraft control or readiness for operational deployment.
 
