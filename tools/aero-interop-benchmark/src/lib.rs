@@ -89,6 +89,16 @@ pub struct BenchmarkInputV1 {
     pub rights_status: RightsStatus,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OracleMethod {
+    IndependentHandEnumeration,
+    DualReviewAdjudication,
+    IndependentToolAndReview,
+    ExternalPublishedReference,
+    Unadjudicated,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BenchmarkCaseV1 {
@@ -98,7 +108,7 @@ pub struct BenchmarkCaseV1 {
     /// Independently authored/adjudicated oracle record, not tool output.
     pub oracle_artifact: ContentArtifactV1,
     pub oracle_rights_status: RightsStatus,
-    pub oracle_method: String,
+    pub oracle_method: OracleMethod,
     pub oracle_profile_version: String,
     pub claims: Vec<OracleClaimV1>,
 }
@@ -429,8 +439,17 @@ pub fn validate_benchmark_manifest(
         if case.inputs.is_empty() {
             return Err(BenchmarkError::InvalidIdentity(format!("case.inputs:{}", case.case_id)));
         }
+        let mut input_identities = BTreeSet::new();
         for input in &case.inputs {
             validate_artifact(&input.artifact)?;
+            let input_identity = (
+                format!("{:?}", input.role),
+                input.artifact.reference.id.clone(),
+                input.artifact.reference.kind.clone(),
+            );
+            if !input_identities.insert(input_identity) {
+                return Err(BenchmarkError::InvalidIdentity(format!("duplicate input:{}", case.case_id)));
+            }
             if !matches!(
                 input.rights_status,
                 RightsStatus::ClearedForTesting | RightsStatus::ClearedForRedistribution
@@ -439,8 +458,18 @@ pub fn validate_benchmark_manifest(
             }
         }
         validate_artifact(&case.oracle_artifact)?;
-        if case.oracle_method.trim().is_empty() || case.oracle_profile_version.trim().is_empty() {
-            return Err(BenchmarkError::InvalidIdentity(format!("oracle_method/profile:{}", case.case_id)));
+        if case.oracle_profile_version.trim().is_empty() {
+            return Err(BenchmarkError::InvalidIdentity(format!("oracle_profile_version:{}", case.case_id)));
+        }
+        if case.oracle_method == OracleMethod::Unadjudicated
+            && case.claims.iter().any(|claim| claim.expectation != OracleExpectation::Unadjudicated)
+        {
+            return Err(BenchmarkError::InvalidOracleClaim(format!("oracle_method:{}", case.case_id)));
+        }
+        if case.inputs.iter().any(|input| {
+            input.artifact.reference == case.oracle_artifact.reference
+        }) {
+            return Err(BenchmarkError::InvalidOracleClaim(format!("oracle aliases source input:{}", case.case_id)));
         }
         if !matches!(
             case.oracle_rights_status,
@@ -584,18 +613,28 @@ fn validate_one_run(
             {
                 return Err(BenchmarkError::InvocationProfileMismatch);
             }
-            if receipt.inputs.len() != case.inputs.len() {
+            let expected_inputs: BTreeSet<_> = case.inputs.iter()
+                .map(|input| (
+                    format!("{:?}", input.role),
+                    input.artifact.reference.id.clone(),
+                    input.artifact.reference.kind.clone(),
+                    input.artifact.sha256.clone(),
+                    input.artifact.byte_length,
+                    input.rights_status,
+                ))
+                .collect();
+            let receipt_inputs: BTreeSet<_> = receipt.inputs.iter()
+                .map(|input| (
+                    format!("{:?}", input.role),
+                    input.artifact.reference.id.clone(),
+                    input.artifact.reference.kind.clone(),
+                    input.artifact.sha256.clone(),
+                    input.artifact.byte_length,
+                    input.rights_status,
+                ))
+                .collect();
+            if receipt_inputs != expected_inputs || receipt.inputs.len() != case.inputs.len() {
                 return Err(BenchmarkError::ReceiptInputMismatch);
-            }
-            for expected_input in &case.inputs {
-                let matched = receipt.inputs.iter().any(|input| {
-                    input.role == expected_input.role
-                        && input.artifact == expected_input.artifact
-                        && input.rights_status == expected_input.rights_status
-                });
-                if !matched {
-                    return Err(BenchmarkError::ReceiptInputMismatch);
-                }
             }
             let expected_status = match run.attempt {
                 ToolAttemptDisposition::Succeeded => RunStatus::Succeeded,
@@ -832,7 +871,7 @@ mod tests {
             }).collect(),
             oracle_artifact: artifact("oracle_record", "AERO_ORACLE_RECORD_V1", ORACLE_BYTES),
             oracle_rights_status: RightsStatus::ClearedForTesting,
-            oracle_method: "independent_hand_enumeration".into(),
+            oracle_method: OracleMethod::IndependentHandEnumeration,
             oracle_profile_version: "AERO_ORACLE_PROFILE_V1".into(),
             claims: vec![
                 OracleClaimV1 {
