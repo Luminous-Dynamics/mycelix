@@ -1893,15 +1893,21 @@ mod tests {
     }
 
     #[test]
-    fn missing_external_xid_remains_a_locator_because_qif_xid_is_optional() {
-        let results = RESULTS.replace(" xId=\"301\"", "");
-        let docs = docs(results.as_bytes(), PLAN.as_bytes());
-        let (inventory, _) = derive_trace_locator_inventory("optional-xid", &profile(), &docs).unwrap();
-        let refs: Vec<_> = inventory.body.locators.iter()
-            .filter(|record| record.rule_id == "results.characteristic_item_external_reference")
-            .collect();
-        assert_eq!(refs[0].locator.external_document_reference_id, Some(7));
-        assert_eq!(refs[0].locator.external_xid, None);
+    fn missing_external_xid_becomes_a_local_reference_and_resolves_locally() {
+        let results = RESULTS.replacen(
+            "<CharacteristicItemId xId=\"301\">7</CharacteristicItemId>",
+            "<CharacteristicItemId>777</CharacteristicItemId>",
+            1
+        );
+        let documents = docs(results.as_bytes(), PLAN.as_bytes());
+        let (inventory, _) = derive_trace_locator_inventory("local-reference", &profile(), &documents).unwrap();
+        let row = inventory.body.locators.iter()
+            .find(|record| record.rule_id == "results.characteristic_item_external_reference"
+                && record.locator.local_reference_id == Some(777))
+            .expect("local Results reference must be inventoried");
+        assert_eq!(row.locator.local_reference_id, Some(777));
+        assert_eq!(row.locator.external_document_reference_id, None);
+        assert_eq!(row.locator.external_xid, None);
     }
 
     #[test]
