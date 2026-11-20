@@ -650,7 +650,7 @@ fn verify_success_projection(
         let projection_ancestors = ancestors(projection, by_id, events);
         let mut supported = false;
 
-        for (receipt_index, receipt) in events.iter().enumerate() {
+        for receipt in events.iter() {
             if receipt.event_type != "receipt_verified"
                 || receipt.logical_operation_id != projection.logical_operation_id
                 || !projection_ancestors.contains(&receipt.event_id)
@@ -714,7 +714,6 @@ fn verify_success_projection(
             }
 
             supported = true;
-            let _receipt_position = receipt_index;
             break;
         }
 
@@ -1006,7 +1005,7 @@ pub fn verify_trace(
     let mut by_id = HashMap::new();
     let mut operations = BTreeSet::new();
     let mut attempt_operations: HashMap<String, String> = HashMap::new();
-    let mut commit_counts: HashMap<String, usize> = HashMap::new();
+    let mut commit_counts: HashMap<(String, String), usize> = HashMap::new();
 
     for (index, event) in events.iter().enumerate() {
         if by_id.insert(event.event_id.clone(), index).is_some() {
@@ -1037,18 +1036,21 @@ pub fn verify_trace(
 
         if event.event_type == "recipient_inbox_committed" {
             *commit_counts
-                .entry(event.logical_operation_id.clone())
+                .entry((
+                    event.logical_operation_id.clone(),
+                    event.actor_ref.clone(),
+                ))
                 .or_insert(0) += 1;
         }
     }
 
-    for (operation_id, count) in commit_counts {
+    for ((operation_id, recipient_actor), count) in commit_counts {
         if count > 1 {
             finding(
                 &mut findings,
                 "$.events",
                 format!(
-                    "logical operation {operation_id} has {count} recipient inbox commits; duplicate logical effects are not permitted"
+                    "logical operation {operation_id} has {count} recipient inbox commits for recipient {recipient_actor}; duplicate logical effects are not permitted"
                 ),
             );
         }
@@ -1383,6 +1385,99 @@ mod tests {
     fn rejects_success_when_receipt_verifier_is_recipient() {
         let mut trace = valid_trace();
         trace["events"][5]["actor_ref"] = json!("recipient");
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+    }
+    #[test]
+    fn rejects_success_when_decryption_commitment_differs() {
+        let mut trace = valid_trace();
+        trace["events"][3]["content_commitment"] = json!("b".repeat(64));
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().iter().any(|item| {
+            item.message.contains("not causally supported")
+        }));
+    }
+
+    #[test]
+    fn rejects_success_when_recipient_identity_changes_mid_lifecycle() {
+        let mut trace = valid_trace();
+        trace["events"][3]["actor_ref"] = json!("different-recipient");
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rejects_success_without_recipient_admission() {
+        let mut trace = valid_trace();
+        trace["events"].as_array_mut().unwrap().remove(1);
+        trace["events"][1]["causal_predecessors"] =
+            json!([{"event_id": "intent", "relation": "verifies"}]);
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rejects_causal_predecessor_after_child_on_same_clock() {
+        let mut trace = valid_trace();
+        trace["events"][2]["observed_at"]["monotonic_ns"] = json!(0);
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().iter().any(|item| {
+            item.message.contains("later monotonic timestamp")
+        }));
+    }
+
+    #[test]
+    fn rejects_attempt_id_reuse_across_logical_operations() {
+        let mut trace = valid_trace();
+        trace["events"][2]["logical_operation_id"] = json!("logical-2");
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().iter().any(|item| {
+            item.message.contains("reused across different logical operations")
+        }));
+    }
+
+    #[test]
+    fn checked_in_scenario_catalog_has_unique_ids_and_all_families() {
+        let catalog: Value = serde_json::from_str(include_str!(
+            "../../../docs/pulse-fabric-scenarios-v0.1.json"
+        ))
+        .expect("scenario catalog must parse");
+
+        assert_eq!(
+            catalog["profile_id"].as_str(),
+            Some("PULSE-FABRIC-QUAL-001")
+        );
+        let scenarios = catalog["scenarios"].as_array().expect("scenarios array");
+        assert_eq!(scenarios.len(), 18);
+
+        let mut ids = BTreeSet::new();
+        let mut families = BTreeSet::new();
+        for scenario in scenarios {
+            let id = scenario["scenario_id"].as_str().expect("scenario id");
+            assert!(ids.insert(id.to_owned()), "duplicate scenario id: {id}");
+            families.insert(
+                scenario["family"]
+                    .as_str()
+                    .expect("scenario family")
+                    .to_owned(),
+            );
+            assert!(
+                scenario["required_invariants"]
+                    .as_array()
+                    .is_some_and(|items| !items.is_empty()),
+                "scenario {id} requires invariants"
+            );
+        }
+        assert_eq!(families.len(), 7);
+    }
+
+    #[test]
+    fn rejects_secret_aliases_in_trace_extensions() {
+        let mut trace = valid_trace();
+        trace["events"][0]["message_body"] = json!("plain text");
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
     }
