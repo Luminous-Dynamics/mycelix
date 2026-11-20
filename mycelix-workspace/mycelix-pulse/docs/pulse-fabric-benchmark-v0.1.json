@@ -1,0 +1,389 @@
+{
+  "schema_version": "0.1.0",
+  "benchmark_id": "PULSE-FABRIC-BENCH-001",
+  "status": "pre_registered_not_executed",
+  "checked_at": "2026-11-20",
+  "source_snapshot": {
+    "main_sha": "b42b5af299d575864ab3649ceaad8c8e963020ec",
+    "qualification_branch": "research/pulse-fabric-qualification-v0-1"
+  },
+  "primary_outcome": {
+    "name": "verified_delivery_rate_by_deadline",
+    "symbol": "VDR_D",
+    "numerator": "unique logical operations with an independently verified recipient receipt within deadline D",
+    "denominator": "all logical message intents admitted to the benchmark",
+    "unknown_counts_as_success": false,
+    "duplicate_effect_counts_as_success": false,
+    "deadline_ms": [
+      1000,
+      5000,
+      30000
+    ]
+  },
+  "comparison_layers": [
+    {
+      "id": "primitive_protocol",
+      "name": "cryptographic protocol",
+      "purpose": "Compare session establishment, per-message protection, key evolution, group epochs and compromise behavior without transport or Holochain effects."
+    },
+    {
+      "id": "delivery_semantics",
+      "name": "delivery lifecycle",
+      "purpose": "Compare durable intent, retry/idempotency, recipient commit, verified receipts and terminal outcome semantics under identical fault schedules."
+    },
+    {
+      "id": "end_to_end_system",
+      "name": "deployed end-to-end system",
+      "purpose": "Compare full client, runtime, persistence, relay/network and recovery costs on matched hardware and topology."
+    }
+  ],
+  "candidate_profiles": [
+    {
+      "id": "pulse_v2",
+      "class": "implemented_baseline",
+      "role": "current Pulse stateless hybrid envelope",
+      "known_limitations": [
+        "no PQ ratchet claim",
+        "no forward-secrecy claim against later static endpoint compromise",
+        "no post-compromise recovery claim"
+      ],
+      "comparability": "baseline"
+    },
+    {
+      "id": "vodozemac_0_11_2",
+      "class": "mature_rust_reference",
+      "role": "Olm/Megolm ratchet reference",
+      "version": "0.11.2",
+      "known_limitations": [
+        "classical ratchet profile, not Signal ML-KEM Braid/SPQR",
+        "Matrix protocol semantics, not Pulse delivery semantics"
+      ],
+      "comparability": "1:1 and group cryptographic reference; require a Pulse lifecycle adapter for end-to-end comparison"
+    },
+    {
+      "id": "libsignal_protocol",
+      "class": "mature_protocol_reference",
+      "role": "official Signal Rust protocol implementation reference",
+      "version": "pinned commit required at benchmark time",
+      "known_limitations": [
+        "platform-facing APIs documented as Java, Swift and TypeScript",
+        "external integration and persistence contract require audit"
+      ],
+      "comparability": "protocol reference; no unsupported stable public Rust API assumption"
+    },
+    {
+      "id": "openmls_0_9_2",
+      "class": "mature_rust_group_reference",
+      "role": "RFC 9420 MLS group protocol reference",
+      "version": "0.9.2",
+      "known_limitations": [
+        "documented suites at benchmark freeze are classical",
+        "WASM target is built in CI but is not listed among tested targets"
+      ],
+      "comparability": "group protocol reference; compare only supported suite and platform combinations"
+    },
+    {
+      "id": "mls_pq_ciphersuites_draft_08",
+      "class": "standards_track_specification",
+      "role": "PQ MLS suite research target",
+      "version": "draft-ietf-mls-pq-ciphersuites-08",
+      "known_limitations": [
+        "active Internet-Draft, not RFC",
+        "runtime candidate requires an independently reviewed implementation and interoperability vectors"
+      ],
+      "comparability": "protocol-design review only; exclude from runtime rankings until implementation is independently qualified"
+    }
+  ],
+  "platforms": [
+    {
+      "id": "linux_x86_64",
+      "purpose": "reproducible reference client and conductor benchmark"
+    },
+    {
+      "id": "android_arm64",
+      "purpose": "mobile power, thermal and intermittent-network behavior"
+    },
+    {
+      "id": "wasm_browser",
+      "purpose": "Pulse supported browser client and storage behavior"
+    },
+    {
+      "id": "linux_arm64",
+      "purpose": "low-power/edge reference where all candidate adapters are available"
+    }
+  ],
+  "workload": {
+    "payload_bytes": [
+      1024,
+      16384,
+      262144,
+      1048576
+    ],
+    "rtt_ms": [
+      20,
+      100,
+      500
+    ],
+    "packet_loss_percent": [
+      0,
+      1,
+      5,
+      20
+    ],
+    "peer_counts": [
+      1,
+      2,
+      5,
+      10
+    ],
+    "group_sizes": [
+      2,
+      10,
+      100,
+      1000
+    ],
+    "offline_windows_seconds": [
+      0,
+      60,
+      3600,
+      86400
+    ],
+    "delivery_deadlines_ms": [
+      1000,
+      5000,
+      30000
+    ],
+    "failure_classes": [
+      "single_route_drop",
+      "relay_restart",
+      "carrier_gateway_common_cause",
+      "dns_or_discovery_common_cause",
+      "power_loss",
+      "process_crash_before_persist",
+      "process_crash_after_persist_before_send",
+      "recipient_commit_ack_loss",
+      "partition_and_heal",
+      "duplicate_and_reorder",
+      "stale_or_revoked_device",
+      "backup_loss_or_corruption",
+      "key_directory_rollback",
+      "crypto_downgrade_attempt"
+    ],
+    "crypto_experiments": [
+      "initial_key_establishment",
+      "steady_state_message",
+      "skipped_or_out_of_order_messages",
+      "device_add_remove",
+      "key_rotation",
+      "recorded_transcript_later_static_key_compromise",
+      "current_session_state_compromise_then_recovery",
+      "restart_and_backup_rollback"
+    ],
+    "metadata_observer_vantages": [
+      "sender_client",
+      "recipient_client",
+      "relay",
+      "network_observer",
+      "authoring_conductor",
+      "receiving_conductor",
+      "dht_observer",
+      "infrastructure_operator"
+    ]
+  },
+  "experimental_protocol": {
+    "independent_replicates_per_condition": 30,
+    "minimum_logical_intents_per_replicate": 1000,
+    "warmup_seconds": 60,
+    "measured_runs_must_use_same_seeded_fault_schedule": true,
+    "randomize_candidate_order": true,
+    "use_fresh_state_between_replicates": true,
+    "publish_all_exclusions_and_failed_runs": true,
+    "confidence_interval_level": 0.95,
+    "paired_interval_method": "bootstrap independent replicate pairs; publish resampling seed and interval method",
+    "quantiles": [
+      "p50",
+      "p95",
+      "p99"
+    ],
+    "energy_measurement": "measure physical energy using a documented device/rail or external instrument; CPU time is not a substitute",
+    "candidate_environment_must_bind": [
+      "source_commit",
+      "dependency_lock_digest",
+      "protocol_suite_and_version",
+      "runtime_and_toolchain",
+      "client_and_conductor_build_digests",
+      "hardware_model_and_firmware",
+      "operating_system_and_power_mode",
+      "network_emulator_version",
+      "topology_and_failure_domains",
+      "scenario_corpus_digest",
+      "random_seed",
+      "verifier_digest"
+    ]
+  },
+  "metrics": [
+    {
+      "id": "vdr_by_deadline",
+      "unit": "fraction",
+      "required": true
+    },
+    {
+      "id": "false_verified_rate",
+      "unit": "fraction",
+      "required": true
+    },
+    {
+      "id": "duplicate_logical_effect_rate",
+      "unit": "fraction",
+      "required": true
+    },
+    {
+      "id": "acknowledged_outbox_loss_rate",
+      "unit": "fraction",
+      "required": true
+    },
+    {
+      "id": "latency_to_verified_receipt",
+      "unit": "milliseconds",
+      "quantiles": [
+        "p50",
+        "p95",
+        "p99"
+      ],
+      "required": true
+    },
+    {
+      "id": "initial_key_establishment",
+      "unit": "milliseconds",
+      "quantiles": [
+        "p50",
+        "p95",
+        "p99"
+      ],
+      "required": true
+    },
+    {
+      "id": "per_message_crypto",
+      "unit": "microseconds",
+      "quantiles": [
+        "p50",
+        "p95",
+        "p99"
+      ],
+      "required": true
+    },
+    {
+      "id": "ciphertext_expansion",
+      "unit": "bytes_per_message",
+      "required": true
+    },
+    {
+      "id": "network_bytes_per_verified_delivery",
+      "unit": "bytes",
+      "required": true
+    },
+    {
+      "id": "retry_amplification",
+      "unit": "attempts_per_logical_intent",
+      "required": true
+    },
+    {
+      "id": "cpu_time_per_verified_delivery",
+      "unit": "milliseconds",
+      "required": true
+    },
+    {
+      "id": "peak_rss",
+      "unit": "bytes",
+      "required": true
+    },
+    {
+      "id": "persistent_storage_growth",
+      "unit": "bytes_per_1000_messages",
+      "required": true
+    },
+    {
+      "id": "storage_write_amplification",
+      "unit": "bytes_written_per_payload_byte",
+      "required": true
+    },
+    {
+      "id": "energy_per_verified_delivery",
+      "unit": "joules",
+      "required": true
+    },
+    {
+      "id": "recovery_time",
+      "unit": "seconds",
+      "required": true
+    },
+    {
+      "id": "recovery_completeness",
+      "unit": "fraction_of_declared_artifacts_and_keys",
+      "required": true
+    },
+    {
+      "id": "metadata_inference_auc",
+      "unit": "auc_per_observer_vantage",
+      "required": true
+    },
+    {
+      "id": "per_peer_relay_burden",
+      "unit": "bytes_per_peer",
+      "required": true
+    }
+  ],
+  "non_compensable_gates": [
+    "zero false SUCCESS_VERIFIED claims in the frozen in-domain corpus",
+    "zero duplicate recipient logical effects for one idempotency key",
+    "zero silent loss of an acknowledged durable outbox state within the declared storage model",
+    "zero host authorization widening across cell, grantee, function or capability kind",
+    "zero post-revocation host admission in non-overlapping tests",
+    "zero silent downgrade to a weaker or unqualified cryptographic profile",
+    "zero plaintext, raw secret or capability secret in telemetry",
+    "every unresolved outcome remains UNKNOWN or INCOMPLETE"
+  ],
+  "proposed_targets_not_measurements": {
+    "healthy_deadline_delivery_regression_max_percentage_points": 2,
+    "correlated_outage_verified_delivery_relative_improvement_min_percent": 20,
+    "healthy_energy_overhead_max_percent": 10,
+    "critical_mutant_detection_rate_percent": 100,
+    "critical_false_verified_rate_percent": 0,
+    "critical_duplicate_logical_effect_rate_percent": 0
+  },
+  "reporting_rules": [
+    "Do not combine hard safety gates with performance in a weighted score.",
+    "Do not equate transport ACK, server acceptance, DHT publication or relay receipt with recipient delivery.",
+    "Report capability unsupported, not implemented, unmeasured and failed as distinct statuses; never encode unsupported as zero cost or zero leakage.",
+    "Compare candidates only where protocol semantics, security guarantees and receipt semantics are matched.",
+    "Publish per-platform, per-workload and per-failure-domain results; do not hide regressions in averages.",
+    "A finite corpus result is limited to that corpus, environment, candidate build and stated threat model."
+  ],
+  "sources": [
+    {
+      "id": "signal_mlkem_braid",
+      "url": "https://signal.org/docs/specifications/mlkembraid/",
+      "checked_at": "2026-11-20"
+    },
+    {
+      "id": "signal_libsignal",
+      "url": "https://github.com/signalapp/libsignal",
+      "checked_at": "2026-11-20"
+    },
+    {
+      "id": "vodozemac_0_11_2",
+      "url": "https://docs.rs/crate/vodozemac/0.11.2",
+      "checked_at": "2026-11-20"
+    },
+    {
+      "id": "openmls_0_9_2",
+      "url": "https://docs.rs/crate/openmls/0.9.2",
+      "checked_at": "2026-11-20"
+    },
+    {
+      "id": "mls_pq_ciphersuites_08",
+      "url": "https://datatracker.ietf.org/doc/draft-ietf-mls-pq-ciphersuites/",
+      "checked_at": "2026-11-20"
+    }
+  ]
+}
