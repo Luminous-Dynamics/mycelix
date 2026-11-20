@@ -661,3 +661,46 @@ Hard security gates are independent of performance: zero writes without a durabl
 The journal reference model now binds every attempt to a stable logical-operation ID and records whether remote reconciliation resolved the operation as Applied or DefinitelyNotApplied. A new attempt for the same logical operation is forbidden while the prior attempt is dispatched or otherwise unresolved, and forbidden after Applied. It is allowed only while the prior attempt remained pre-dispatch or after tuple-bound authoritative DefinitelyNotApplied proof. A new attempt must preserve workload, principal, origin, canonical request digest and idempotency-key digest, while receiving a new attempt ID and fresh policy/network generations. Superseded attempts may not append new records.
 
 PEAB WAL-028 through WAL-034 cover unresolved-attempt blocking, Applied replay denial, authoritative absence with fresh attempt identity, request-digest/key/principal mismatch, superseded attempts and attempt-ID reuse. All are source-present model cases, still not_run_exact_head.
+
+
+### Reproducible workload matrix
+
+Use an identical deterministic request corpus and seed across baselines. At minimum cross these dimensions:
+
+| Dimension | Required levels |
+|---|---|
+| HTTP protocol | HTTP/1.1 with connection close; HTTP/1.1 keep-alive; HTTP/2 single stream; HTTP/2 multiplexed at 16 and 64 concurrent streams |
+| Client concurrency | 1, 16, 64, 256, and 512 logical operations |
+| Request body | 0 B, 1 KiB, 64 KiB, 1 MiB |
+| Response body | 0 B, 4 KiB, 64 KiB, 1 MiB (respect each implementation's configured bound) |
+| Controlled network RTT | 0 ms loopback baseline; 10 ms; 50 ms |
+| DNS behavior | stable answer; 1 s and 5 s TTL; A/AAAA dual stack; multi-hop CNAME; address-set rotation; NXDOMAIN/SERVFAIL |
+| Address churn | no change; rotation at TTL boundary; one address removed; mixed permitted/denied address set |
+| Fault rate | 0%; deterministic 1% and 10% resets/timeouts; separately inject response loss after server commit |
+| Observer integrity | complete; event-loss counter increment; sequence gap; detach/reattach generation gap |
+| Journal storage | one durable flush per record; bounded group commit; injected flush delay/error; full disk; torn tail |
+
+Use at least three independent repetitions per cell after warm-up, publish raw observations and confidence intervals, and report cold and warm paths separately. Randomized fault placement must use a recorded seed and be matched across all baselines.
+
+### Matched comparisons
+
+1. Current Prism fresh-client path with implicit retries disabled (the production reference).
+2. Prism authority-scoped connection-pool prototype only after the scope contract is enforced.
+3. Hardened Reqwest reference with the same DNS, TLS, parser, body and timeout bounds.
+4. Envoy reset-before-request retry profile.
+5. Envoy broader retry profile with explicit retry budget.
+6. Envoy plus Cilium/network firewall policy.
+7. Durable workflow activity plus a receiver implementing the same idempotency/status contract.
+
+Publish configuration hashes, versions, CPU/memory limits, kernel, filesystem/mount options, storage device, TLS settings, receiver build, route/retry policy, DNS fixture, cgroup/network policy and benchmark seed. Do not compare a pooled Envoy path to fresh-client Prism and attribute the full difference to authority checks; report fresh/warm transport costs separately.
+
+### Provisional healthy-path performance objectives
+
+Once the journal and pool prototype exist and a matched baseline is measured, use these as initial engineering objectives—not current claims:
+- throughput loss no greater than 10% versus the same transport without the journal;
+- p50 latency overhead no greater than 5%;
+- p99 latency overhead no greater than 15%;
+- zero increase in duplicate remote effects or false no-effect classifications;
+- bounded journal memory and a recovery scan whose time/space growth is measured as durable history scales.
+
+A profile that misses the performance objectives is a reason to optimize buffering, group commit, memory layout or transport reuse, not a reason to issue writes before durability, reuse a token, weaken policy checks or auto-retry Unknown. Publish the throughput/durability/tail-latency Pareto curve and the exact hardware/OS conditions.
