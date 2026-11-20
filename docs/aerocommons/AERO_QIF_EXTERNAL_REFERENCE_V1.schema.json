@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/aero-qif-external-reference-trace-v1.json",
+  "title": "AeroCommons QIF External Reference Trace V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "benchmark_id", "case_id", "results", "plans", "step_documents"],
+  "properties": {
+    "schema": { "const": "AeroQifExternalReferenceTraceV1" },
+    "benchmark_id": { "type": "string", "minLength": 1 },
+    "case_id": { "type": "string", "minLength": 1 },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["qpid", "artifact", "external_documents", "measurements"],
+      "properties": {
+        "qpid": { "$ref": "#/$defs/uuid" },
+        "artifact": { "$ref": "#/$defs/contentArtifact" },
+        "external_documents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["local_reference_id", "plan_qpid", "plan_artifact", "uri"],
+            "properties": {
+              "local_reference_id": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+              "plan_qpid": { "$ref": "#/$defs/uuid" },
+              "plan_artifact": { "$ref": "#/$defs/contentArtifact" },
+              "uri": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "measurements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["measurement_id", "external_document_reference_id", "xid", "status"],
+            "properties": {
+              "measurement_id": { "type": "string", "minLength": 1 },
+              "external_document_reference_id": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+              "xid": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+              "status": { "enum": ["passed", "failed", "not_evaluated", "unknown"] }
+            }
+          }
+        }
+      }
+    },
+    "plans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["qpid", "artifact", "step_document", "objects"],
+        "properties": {
+          "qpid": { "$ref": "#/$defs/uuid" },
+          "artifact": { "$ref": "#/$defs/contentArtifact" },
+          "step_document": { "$ref": "#/$defs/contentArtifact" },
+          "objects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["object_id", "kind", "characteristic_id", "step_uuid", "step_entity_kind"],
+              "properties": {
+                "object_id": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+                "kind": { "enum": ["characteristic_item", "feature_item", "datum_definition", "other"] },
+                "characteristic_id": { "type": "string", "minLength": 1 },
+                "step_uuid": { "$ref": "#/$defs/uuid" },
+                "step_entity_kind": { "enum": ["characteristic", "geometric_feature", "datum", "product_definition", "other"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "step_documents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact", "entities"],
+        "properties": {
+          "artifact": { "$ref": "#/$defs/contentArtifact" },
+          "entities": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["uuid", "kind"],
+              "properties": {
+                "uuid": { "$ref": "#/$defs/uuid" },
+                "kind": { "enum": ["characteristic", "geometric_feature", "datum", "product_definition", "other"] }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind"],
+      "properties": { "id": { "type": "string", "minLength": 1 }, "kind": { "type": "string", "minLength": 1 } }
+    },
+    "contentArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "sha256", "byte_length", "media_type", "format_id"],
+      "properties": {
+        "reference": { "$ref": "#/$defs/artifactRef" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "byte_length": { "type": "integer", "minimum": 1 },
+        "media_type": { "type": "string", "minLength": 1 },
+        "format_id": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
