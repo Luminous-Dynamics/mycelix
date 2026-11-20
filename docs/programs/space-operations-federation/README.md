@@ -344,6 +344,35 @@ References:
 
 Tracked in #6395; time-domain search and continuous-time candidate follow-through remains in #6381.
 
+### 9.3 Finite-horizon risk, shared uncertainty and collision consequence
+
+NASA CARA's public reference inventory shows why event-by-event Pc is not the complete frontier. It publishes or references 3D Pc, 2D Foster/Elrod, brute-force Monte Carlo, single-covariance maximum Pc, covariance realism, cross-correlation of orbital errors, repeating-conjunction aggregation, Pc uncertainty and collision consequence. Its research list includes:
+- **Total Probability of Collision for finite conjunction assessment** — group risk rather than handling every conjunction discretely;
+- **Repeating conjunction Monte Carlo** — a durable aggregate Pc for object pairs with recurring encounters;
+- **Cross-correlation of orbital error** — shared atmospheric-density forecast error can correlate primary/secondary orbit errors;
+- **Multistep Pc algorithms** — curvilinear trajectories and time-varying covariance;
+- **Covariance realism and uncertainty** — the quality of the distribution must be evaluated, not inferred from positive definiteness;
+- **Collision consequence** — the potential debris-fragment outcome is a separate dimension from collision likelihood.
+
+References:
+- NASA CARA publications: https://www.nasa.gov/cara/cara-publications/
+- NASA public software / SDK inventory: https://www.nasa.gov/cara/publicly-available-cara-software/
+- NASA CARA R&D themes: https://www.nasa.gov/cara/research-and-development/
+
+**Programme shift:** move from a list of independent-looking event Pc values to a finite-horizon event dependency graph. Events may share an object, trajectory, covariance source, estimator, atmospheric-density forecast, sensor network, ephemeris update or maneuver. Their joint risk is:
+
+`P(\bigcup_i C_i \mid D,M)`
+
+where `D` is the evidence set and `M` the explicit joint uncertainty/dynamics model. Do not simply sum marginal Pc or multiply complements unless the required independence assumptions are established.
+
+The first safe mathematical output for marginals alone is a dependence-agnostic interval:
+- lower bound = `max_i p_i`;
+- upper bound = `min(1, sum_i p_i)`.
+
+The conditional-independence product can be displayed as a comparator, not as a fact. The new shared-crate implementation is in #6399; its input requires a complete coverage receipt and preserves the event-set/source-model identities. It does not infer dependence, compute Pc, or authenticate the supplied receipt.
+
+The next research stage (#6398) is shared-latent-variable / trajectory-level Monte Carlo with repeated events, common-cause source errors, time-varying covariance, maneuver counterfactuals and collision consequence kept as separate outputs. NASA's repeating-conjunction and shared-error work is the independent baseline, not a novelty claim for the concept. The current Mycelix screening still uses a narrowly gated 2D Gaussian small-disk approximation, so do not describe the present stack as a finite-horizon joint-risk engine.
+
 ### Fair comparative protocol
 
 For any performance comparison, freeze the same input artifacts and evaluation budget across systems. Bind:
