@@ -4,6 +4,7 @@
 //! a second change-impact classifier or an experiment-design optimizer.
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
@@ -60,6 +61,52 @@ pub struct ChangeSetManifest {
     pub changed_requirements: Vec<ArtifactRef>,
     pub changed_methods: Vec<ArtifactRef>,
     pub changed_toolchains: Vec<ArtifactRef>,
+}
+
+#[derive(Serialize)]
+struct CanonicalChangeSetPayload {
+    schema: &'static str,
+    change_id: String,
+    changed_artifacts: Vec<ArtifactRef>,
+    changed_inputs: Vec<ArtifactRef>,
+    changed_requirements: Vec<ArtifactRef>,
+    changed_methods: Vec<ArtifactRef>,
+    changed_toolchains: Vec<ArtifactRef>,
+}
+
+/// Canonical SHA-256 over the typed ChangeSet body, excluding its own digest.
+/// Reference arrays are sorted so equivalent permutations have one identity.
+pub fn compute_change_set_digest(change: &ChangeSetManifest) -> String {
+    let mut changed_artifacts = change.changed_artifacts.clone();
+    let mut changed_inputs = change.changed_inputs.clone();
+    let mut changed_requirements = change.changed_requirements.clone();
+    let mut changed_methods = change.changed_methods.clone();
+    let mut changed_toolchains = change.changed_toolchains.clone();
+
+    for references in [
+        &mut changed_artifacts,
+        &mut changed_inputs,
+        &mut changed_requirements,
+        &mut changed_methods,
+        &mut changed_toolchains,
+    ] {
+        references.sort();
+    }
+
+    let payload = CanonicalChangeSetPayload {
+        schema: "AeroChangeSetDigestV1",
+        change_id: change.change_id.clone(),
+        changed_artifacts,
+        changed_inputs,
+        changed_requirements,
+        changed_methods,
+        changed_toolchains,
+    };
+    let bytes = serde_json::to_vec(&payload).expect("typed ChangeSet digest payload serializes");
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -243,6 +290,8 @@ pub enum QualificationError {
     InvalidIdentity(String),
     #[error("invalid or malformed SHA-256 for ChangeSet {0}")]
     InvalidChangeDigest(String),
+    #[error("ChangeSet SHA-256 does not match its canonical payload: {0}")]
+    ChangeDigestMismatch(String),
     #[error("duplicate evidence identity: {0}")]
     DuplicateEvidence(String),
     #[error("duplicate obligation identity: {0}")]
@@ -543,6 +592,9 @@ fn validate_case(case: &ChangeToTestCaseV1) -> Result<(), QualificationError> {
     }
     if !is_sha256(&case.change_set.sha256) {
         return Err(QualificationError::InvalidChangeDigest(case.change_set.change_id.clone()));
+    }
+    if compute_change_set_digest(&case.change_set) != case.change_set.sha256 {
+        return Err(QualificationError::ChangeDigestMismatch(case.change_set.change_id.clone()));
     }
     for reference in case
         .change_set
@@ -982,6 +1034,26 @@ mod tests {
             }),
         });
         assert!(matches!(evaluate_case(&case), Err(QualificationError::UnknownImpactCannotBeClosed(_))));
+    }
+
+    #[test]
+    fn change_set_digest_is_canonical_and_permutation_invariant() {
+        let mut case = fixture();
+        let expected = compute_change_set_digest(&case.change_set);
+        case.change_set.sha256 = expected.clone();
+        case.change_set.changed_artifacts.reverse();
+        case.change_set.changed_inputs.reverse();
+        case.change_set.changed_toolchains.reverse();
+        assert_eq!(compute_change_set_digest(&case.change_set), expected);
+    }
+
+    #[test]
+    fn change_set_digest_must_match_exact_canonical_payload() {
+        let mut case = fixture();
+        case.change_set.sha256 = compute_change_set_digest(&case.change_set);
+        assert_eq!(evaluate_case(&case).unwrap().plan.mandatory_obligations.len(), 3);
+        case.change_set.changed_inputs[0].id.push_str("-mutated");
+        assert!(matches!(evaluate_case(&case), Err(QualificationError::ChangeDigestMismatch(_))));
     }
 
     #[test]
