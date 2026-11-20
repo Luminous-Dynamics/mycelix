@@ -431,6 +431,13 @@ mod tests {
             covariance_intersection_3d(&non_finite_mean, &valid, 0.5),
             Err(FusionError::NonFiniteMean { axis: 0 })
         );
+
+        let non_finite_covariance =
+            GaussianEstimate3D::new([0.0; 3], [f64::NAN, 1.0, 1.0]);
+        assert_eq!(
+            covariance_intersection_3d(&non_finite_covariance, &valid, 0.5),
+            Err(FusionError::NonFiniteCovariance { axis: 0 })
+        );
     }
 
     #[test]
@@ -469,4 +476,12 @@ mod tests {
         assert_eq!(fusion.peer_count(), 0);
         assert_eq!(fusion.fuse().unwrap(), None);
     }
+    #[test]
+    fn serialization_emits_only_the_canonical_covariance_field() {
+        let estimate = GaussianEstimate3D::new([1.0, 2.0, 3.0], [4.0, 5.0, 6.0]);
+        let encoded = serde_json::to_string(&estimate).unwrap();
+        assert!(encoded.contains("\"covariance_diag\""));
+        assert!(!encoded.contains("\"covariance\""));
+    }
+
 }
