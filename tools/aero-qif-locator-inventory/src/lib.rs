@@ -1322,6 +1322,26 @@ mod tests {
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
+                    rule_id: "results.characteristic_measurement_status".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                        expanded("MeasuredCharacteristics"),
+                        expanded("CharacteristicMeasurements"),
+                        expanded("*"),
+                        expanded("Status"),
+                        expanded("CharacteristicStatusEnum"),
+                    ],
+                    capture: LocatorCaptureMode::Text,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
                     rule_id: "plan.characteristic_item".into(),
                     document_role: QifDocumentRole::Plan,
                     expanded_path: vec![
@@ -1428,12 +1448,15 @@ mod tests {
         <MeasuredCharacteristics>
           <CharacteristicMeasurements n="3">
             <LinearCharacteristicMeasurement id="901">
+              <Status><CharacteristicStatusEnum>PASS</CharacteristicStatusEnum></Status>
               <CharacteristicItemId xId="301">7</CharacteristicItemId>
             </LinearCharacteristicMeasurement>
             <LinearCharacteristicMeasurement id="902">
+              <Status><CharacteristicStatusEnum>FAIL</CharacteristicStatusEnum></Status>
               <CharacteristicItemId xId="302">7</CharacteristicItemId>
             </LinearCharacteristicMeasurement>
             <LinearCharacteristicMeasurement id="903">
+              <Status><CharacteristicStatusEnum>NOT_EVALUATED</CharacteristicStatusEnum></Status>
               <CharacteristicItemId xId="301">7</CharacteristicItemId>
             </LinearCharacteristicMeasurement>
           </CharacteristicMeasurements>
@@ -1544,11 +1567,25 @@ mod tests {
         assert_eq!(report.disposition, InventoryDisposition::Complete);
         assert_eq!(report.source_document_count, 2);
         assert_eq!(report.declared_external_reference_count, 1);
-        assert_eq!(report.locator_count, 19);
+        assert_eq!(report.locator_count, 22);
         assert_eq!(
             inventory_required_locators(&inventory).unwrap().len(),
-            19
+            22
         );
+    }
+
+    #[test]
+    fn characteristic_measurement_statuses_are_preserved_as_source_fields() {
+        let (inventory, _) = derive_trace_locator_inventory(
+            "measurement-statuses",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+        ).unwrap();
+        let statuses: Vec<_> = inventory.body.locators.iter()
+            .filter(|record| record.rule_id == "results.characteristic_measurement_status")
+            .filter_map(|record| record.captured_value.as_deref())
+            .collect();
+        assert_eq!(statuses, vec!["PASS", "FAIL", "NOT_EVALUATED"]);
     }
 
     #[test]
