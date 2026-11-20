@@ -255,3 +255,21 @@ The signature proves that a key signed an attestation. It does not prove that th
 4. Add independent-verifier diversity and explicit quorum policy before using high-impact correctness gates for public qualification.
 5. Add SLSA provenance and transparency-log verification as separate, versioned controls.
 6. Only after these steps and exact runtime evidence may any QOPS receipt be labelled eligible for an external performance claim.
+
+
+## 12. Per-operation outcome authenticity remains a separate hard gate
+
+The current QOPS outcome list is still diagnostic caller input; it is not an independently verified event ledger. This matters because a frozen denominator and signed scenario-gate set do not authenticate the numerator.
+
+A caller could otherwise classify every offered operation as `QualifiedSuccess` without proving the operation's terminal effect or the applicable denial/failure proposition.
+
+To prevent that from becoming a public performance claim:
+
+- `QopsReport` now records `outcome_evidence_status = NotImplemented` and has no outcome-ledger digest/count yet.
+- `compute_qops` always includes `OutcomeEvidenceNotVerified`; the report remains `Incomplete` and every QOPS rate is withheld.
+- The run receipt schema requires `outcome_evidence_status = verified`, an outcome-ledger digest, positive outcome-ledger entry count and positive outcome-attestation count before `qops.status = eligible` can validate.
+- The follow-on contract is tracked in [#6357 — MCRB-OUTCOME-ATTEST-001](https://github.com/Luminous-Dynamics/mycelix/issues/6357).
+
+The next implementation must replace `QopsInput.outcomes` with an opaque `VerifiedOutcomeLedger` produced from exact offer-correlated outcome records and independent evidence. Provider acknowledgement, application API success, local Holochain commit and remote DHT observation are different propositions; the scenario's success contract must state which one is required. For external effects, compose #6140's evidence-kind, source-relationship, independence and expected-coverage rules.
+
+**Until #6357 is implemented and qualified, this MCRB code must not emit an eligible QOPS rate.** This ceiling is deliberate even where the offer ledger, timing batch and correctness-gate attestations individually verify.
