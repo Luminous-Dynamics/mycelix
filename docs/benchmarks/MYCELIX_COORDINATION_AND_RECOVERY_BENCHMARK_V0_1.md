@@ -651,3 +651,19 @@ References:
 - Hyperledger Fabric releases: https://github.com/hyperledger/fabric/releases
 - Hyperledger Caliper current README: https://github.com/hyperledger-caliper/caliper/blob/main/README.md
 
+
+
+## 15. Outcome authenticity is distinct from gate correctness
+
+The offer ledger authenticates the frozen workload denominator's internal structure; the metric verifier checks timing arithmetic and coverage; scenario-gate attestations bind required correctness propositions. None of these alone authenticates the per-operation outcome labels supplied to QOPS.
+
+The current reducer therefore has a deliberate qualification ceiling:
+
+- raw `OperationOutcomeSample` values remain diagnostic observations, not independent proof;
+- QOPS reports `outcome_evidence_status = NotImplemented`;
+- QOPS remains `Incomplete` and withholds offered-rate, qualified-rate and success-fraction outputs;
+- the receipt schema rejects `eligible` unless an outcome-ledger digest and attestation count are present with status `verified`.
+
+The follow-on requirement is tracked in [#6357 — MCRB-OUTCOME-ATTEST-001](https://github.com/Luminous-Dynamics/mycelix/issues/6357), composed with #6342 (offer denominator), #6335 (timing evidence), #6346 (correctness gates) and #6140 (independent external-effect observations).
+
+This means the benchmark can currently qualify pieces of its measurement machinery, but it cannot honestly publish a QOPS performance result. A future `VerifiedOutcomeLedger` must reconcile every offered operation to one authenticated terminal outcome or an explicit unresolved state, and must bind any claimed success to the evidence required by the operation's declared semantics.
