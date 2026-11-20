@@ -2053,6 +2053,45 @@
       "execution_status": "not_run_exact_head",
       "negative_control_required": true,
       "execution_evidence": null
+    },
+    {
+      "id": "RECOV-022",
+      "family": "contradictory_evidence",
+      "title": "Remote applied proof conflicts with transport no-write proof",
+      "setup": "server status says applied while the bound transport adapter says no request bytes were written",
+      "expected_decision": "contradiction",
+      "oracle": "incompatible evidence cannot authorize a retry or be silently prioritized",
+      "source_coverage": "present",
+      "source_test": "remote_applied_proof_conflicts_with_transport_no_write_proof",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "RECOV-023",
+      "family": "contradictory_evidence",
+      "title": "Remote applied proof conflicts with pre-dispatch journal",
+      "setup": "authoritative server proof claims applied for an attempt whose durable state never crossed dispatch",
+      "expected_decision": "contradiction",
+      "oracle": "write-ahead boundary and remote effect evidence must be reconciled, never averaged",
+      "source_coverage": "present",
+      "source_test": "remote_applied_proof_conflicts_with_pre_dispatch_journal_state",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "RECOV-024",
+      "family": "idempotency_reconciliation",
+      "title": "Authoritative absence resolves a response-bearing attempt",
+      "setup": "a response was observed, but a tuple-bound linearizable operation record proves no side effect was applied",
+      "expected_decision": "fresh_attempt_same_logical_key",
+      "oracle": "replay is permitted only after authoritative absence and requires a fresh attempt/capability",
+      "source_coverage": "present",
+      "source_test": "authoritative_absence_can_resolve_a_response_without_repeating_the_effect",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
     }
   ]
 }
