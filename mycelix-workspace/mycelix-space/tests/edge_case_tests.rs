@@ -119,7 +119,7 @@ fn test_future_dated_tle_is_not_fresh() {
     );
 
     assert!(assessment.future_dated);
-    assert!(!assessment.is_stale);
+    assert!(assessment.is_stale, "legacy consumers must reject future-dated TLEs");
     assert_eq!(assessment.confidence, 0.0);
     assert_eq!(assessment.effective_quality.value(), 0);
 }
