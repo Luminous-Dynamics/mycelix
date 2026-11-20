@@ -84,7 +84,7 @@ This model deliberately does not promise "exactly once" delivery. The strongest 
 - **Network policy engines:** Cilium supplies workload-level L3/L4/L7 controls and DNS-derived policy. Its DNS policy documentation describes TTL-dependent new-connection behavior and the fact that existing connections can remain allowed. That complements Prism's per-request authority; neither plane should be mistaken for the other.
 
 Primary references:
-- RFC 9110 §9.2.2: https://www.rfc-editor.org/rfc/r9110.html#section-9.2.2
+- RFC 9110 §9.2.2: https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2
 - Temporal Activities: https://docs.temporal.io/activities
 - Temporal Activity idempotency guidance: https://docs.temporal.io/activity-definition
 - Envoy v1.40 retry policy: https://www.envoyproxy.io/docs/envoy/v1.40.0/configuration/http/http_filters/router_filter
