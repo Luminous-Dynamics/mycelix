@@ -5,14 +5,11 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "payload_type",
+    "payloadType",
     "payload",
     "signatures"
   ],
   "properties": {
-    "payload_type": {
-      "const": "application/vnd.in-toto+json"
-    },
     "payload": {
       "type": "string",
       "contentEncoding": "base64",
@@ -41,7 +38,10 @@
           }
         }
       }
+    },
+    "payloadType": {
+      "const": "application/vnd.in-toto+json"
     }
   },
-  "description": "DSSE v1 envelope whose payload is an in-toto Statement v1. The Statement predicate is the MCRB gate predicate. Each v0.1 envelope contains exactly one Ed25519 signature; multiple gate attestations are separate envelopes."
+  "description": "DSSE v1 JSON envelope using the standard payloadType wire field. The payload is an in-toto Statement v1. The Statement predicate is the MCRB gate predicate. Each v0.1 envelope contains exactly one Ed25519 signature; multiple gate attestations are separate envelopes."
 }
