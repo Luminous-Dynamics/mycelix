@@ -83,6 +83,33 @@ fn test_norad_id_hash_equality() {
 // Timestamp Edge Case Tests
 // =============================================================================
 
+/// An out-of-range serialized timestamp remains invalid rather than becoming wall-clock now.
+#[test]
+fn test_timestamp_out_of_range_is_not_substituted() {
+    assert!(SpaceTimestamp { micros: i64::MAX }.try_to_datetime().is_none());
+    assert!(SpaceTimestamp { micros: i64::MIN }.try_to_datetime().is_none());
+
+    // Extreme age arithmetic must saturate rather than overflow.
+    assert!(SpaceTimestamp { micros: i64::MIN }.age_seconds() > 0);
+}
+
+/// Future-dated TLEs are explicitly unqualified rather than treated as fresh.
+#[test]
+fn test_future_dated_tle_is_not_fresh() {
+    let future = Utc::now() + Duration::hours(1);
+    let epoch = SpaceTimestamp::from_datetime(future);
+    let assessment = compute_staleness(
+        &epoch,
+        &QualityScore::new(100),
+        &StalenessConfig::default(),
+    );
+
+    assert!(assessment.future_dated);
+    assert!(!assessment.is_stale);
+    assert_eq!(assessment.confidence, 0.0);
+    assert_eq!(assessment.effective_quality.value(), 0);
+}
+
 /// Test SpaceTimestamp with very old date (Unix epoch)
 #[test]
 fn test_timestamp_unix_epoch() {
@@ -91,7 +118,7 @@ fn test_timestamp_unix_epoch() {
     let ts = SpaceTimestamp::from_datetime(epoch);
 
     assert_eq!(ts.micros, 0);
-    let reconstructed = ts.to_datetime();
+    let reconstructed = ts.try_to_datetime().expect("valid test timestamp");
     assert_eq!(reconstructed.timestamp(), 0);
 }
 
@@ -103,7 +130,7 @@ fn test_timestamp_before_epoch() {
     let ts = SpaceTimestamp::from_datetime(before_epoch);
 
     assert!(ts.micros < 0);
-    let reconstructed = ts.to_datetime();
+    let reconstructed = ts.try_to_datetime().expect("valid test timestamp");
     assert!(reconstructed.year() == 1960);
 }
 
@@ -113,7 +140,7 @@ fn test_timestamp_future_date() {
     let future = Utc::now() + Duration::days(365 * 100); // 100 years in future
     let ts = SpaceTimestamp::from_datetime(future);
 
-    let reconstructed = ts.to_datetime();
+    let reconstructed = ts.try_to_datetime().expect("valid test timestamp");
     assert!(reconstructed > Utc::now());
 }
 
@@ -152,7 +179,7 @@ fn test_timestamp_future_age_negative() {
 fn test_timestamp_microsecond_precision() {
     let now = Utc::now();
     let ts = SpaceTimestamp::from_datetime(now);
-    let reconstructed = ts.to_datetime();
+    let reconstructed = ts.try_to_datetime().expect("valid test timestamp");
 
     // Difference should be less than 1 microsecond
     let diff = (now - reconstructed).num_microseconds().unwrap_or(i64::MAX);
