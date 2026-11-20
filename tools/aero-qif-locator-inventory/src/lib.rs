@@ -1861,15 +1861,29 @@ mod tests {
     }
 
     #[test]
-    fn same_numeric_xid_in_other_plan_document_does_not_change_source_inventory() {
-        let plan2 = PLAN
-            .replace("20000000-0000-4000-8000-000000000002", "30000000-0000-4000-8000-000000000003")
-            .replace("id=\"301\"", "id=\"301\"");
+    fn same_numeric_xid_is_resolved_inside_the_selected_external_plan_only() {
+        let mut results = RESULTS
+            .replace(
+                "<ExternalQIFReferences n=\"1\">",
+                "<ExternalQIFReferences n=\"2\">"
+            )
+            .replace(
+                "</ExternalQIFReferences>",
+                "<ExternalQIFDocument id=\"8\"><QPId>30000000-0000-4000-8000-000000000003</QPId><URI>Plan-B.qif</URI></ExternalQIFDocument></ExternalQIFReferences>"
+            );
+        results = results.replace(
+            "<LinearCharacteristicMeasurement id=\"903\">\n              <Status><OtherCharacteristicStatus>Sensor timeout - result not evaluated</OtherCharacteristicStatus></Status>\n              <CharacteristicItemId xId=\"301\">7</CharacteristicItemId>",
+            "<LinearCharacteristicMeasurement id=\"903\">\n              <Status><OtherCharacteristicStatus>Sensor timeout - result not evaluated</OtherCharacteristicStatus></Status>\n              <CharacteristicItemId xId=\"301\">8</CharacteristicItemId>"
+        );
+        let plan2 = PLAN.replace(
+            "20000000-0000-4000-8000-000000000002",
+            "30000000-0000-4000-8000-000000000003"
+        );
         let documents = vec![
             RawQifDocument {
                 qpid: "10000000-0000-4000-8000-000000000001",
                 role: QifDocumentRole::Results,
-                bytes: RESULTS.as_bytes(),
+                bytes: results.as_bytes(),
             },
             RawQifDocument {
                 qpid: "20000000-0000-4000-8000-000000000002",
@@ -1890,6 +1904,20 @@ mod tests {
             .collect();
         assert_eq!(duplicate_item_ids.len(), 2);
         assert_ne!(duplicate_item_ids[0].0, duplicate_item_ids[1].0);
+        let second_reference = inventory.body.external_document_references.iter()
+            .find(|reference| reference.local_reference_id == 8)
+            .expect("second ExternalQIFDocument reference should be present");
+        assert_eq!(
+            second_reference.plan_qpid,
+            "30000000-0000-4000-8000-000000000003"
+        );
+        let external_item_ref = inventory.body.locators.iter()
+            .find(|record| {
+                record.rule_id == "results.characteristic_item_external_reference"
+                    && record.locator.external_document_reference_id == Some(8)
+            })
+            .expect("third measurement must reference the second Plan");
+        assert_eq!(external_item_ref.locator.external_xid, Some(301));
     }
 
     #[test]
@@ -1966,6 +1994,33 @@ mod tests {
         assert_eq!(
             derive_trace_locator_inventory("depth-limit", &shallow, &docs(deep.as_bytes(), PLAN.as_bytes())),
             Err(InventoryError::DepthLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn qif_root_id_max_must_equal_largest_id_in_document() {
+        let results = RESULTS.replace("idMax=\"903\"", "idMax=\"904\"");
+        assert_eq!(
+            derive_trace_locator_inventory("bad-id-max", &profile(), &docs(results.as_bytes(), PLAN.as_bytes())),
+            Err(InventoryError::IdMaxMismatch)
+        );
+    }
+
+    #[test]
+    fn qif_root_version_is_pinned_to_qif_3() {
+        let results = RESULTS.replace("versionQIF=\"3.0.0\"", "versionQIF=\"3.1.0\"");
+        assert_eq!(
+            derive_trace_locator_inventory("wrong-version", &profile(), &docs(results.as_bytes(), PLAN.as_bytes())),
+            Err(InventoryError::QifVersionMismatch)
+        );
+    }
+
+    #[test]
+    fn qif_root_metadata_is_required() {
+        let results = RESULTS.replace(" idMax=\"903\"", "");
+        assert_eq!(
+            derive_trace_locator_inventory("missing-root-metadata", &profile(), &docs(results.as_bytes(), PLAN.as_bytes())),
+            Err(InventoryError::InvalidRootMetadata)
         );
     }
 
