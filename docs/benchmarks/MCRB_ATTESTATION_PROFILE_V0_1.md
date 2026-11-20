@@ -273,3 +273,16 @@ To prevent that from becoming a public performance claim:
 The next implementation must replace `QopsInput.outcomes` with an opaque `VerifiedOutcomeLedger` produced from exact offer-correlated outcome records and independent evidence. Provider acknowledgement, application API success, local Holochain commit and remote DHT observation are different propositions; the scenario's success contract must state which one is required. For external effects, compose #6140's evidence-kind, source-relationship, independence and expected-coverage rules.
 
 **Until #6357 is implemented and qualified, this MCRB code must not emit an eligible QOPS rate.** This ceiling is deliberate even where the offer ledger, timing batch and correctness-gate attestations individually verify.
+
+
+## 13. Outcome authenticity is now a frozen global hard gate
+
+The scenario manifest now includes the global gate:
+
+- ID: `outcome-ledger-authenticity`
+- Metric: `outcome_ledger_verification_status`
+- Required value: `verified`
+
+This is separate from each scenario's domain-specific correctness invariants and separate from the timing/offer-ledger checks. The gate verifier derives it automatically from the embedded scenario manifest, so every scenario's required signed gate set includes it.
+
+The current outcome ledger implementation is intentionally not present yet. Consequently, the MCRB reducer records `OutcomeEvidenceStatus::NotImplemented`, emits `OutcomeEvidenceNotVerified`, stays `Incomplete` and withholds rates. This is not a waived gate or a provisional PASS. #6357 owns the missing `VerifiedOutcomeLedger` that must eventually supply the evidence for this gate.
