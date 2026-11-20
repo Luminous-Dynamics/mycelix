@@ -196,6 +196,15 @@ We welcome documentation improvements! To contribute:
 - **Discussions**: [GitHub Discussions](https://github.com/luminous-dynamics/mycelix-mail/discussions)
 - **Contributing**: [CONTRIBUTING.md](/CONTRIBUTING.md)
 
+## Research and qualification
+
+- **[Pulse Communications Fabric Qualification v0.1](PULSE_COMMUNICATIONS_FABRIC_QUALIFICATION_V0_1.md)** — cross-layer contract for cryptographic sessions, host authority, durable delivery, metadata privacy, recovery and independent evidence replay.
+- **[Machine-readable qualification profile](pulse-fabric-profile-v0.1.json)** — protocol references, scenario dimensions, release-blocking invariants and research targets.
+- **[Evidence trace schema](pulse-fabric-trace.schema-v0.1.json)** — redacted JSON Schema for role-separated events and causal predecessors.
+- **[Initial adversarial scenarios](pulse-fabric-scenarios-v0.1.json)** — synthetic positive, negative and UNKNOWN/INCOMPLETE cases.
+
+These artifacts define a research and qualification contract only. The scenario catalog is not executed evidence, and none of these files qualifies the current runtime or promotes a product security claim.
+
 ## License
 
 Mycelix Pulse is licensed under the MIT License. See [LICENSE](/LICENSE) for details.
