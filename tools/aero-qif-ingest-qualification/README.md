@@ -41,6 +41,14 @@ The QIF community publishes QIF 3.0 language bindings and sample instances. Its 
 
 The pinned compatibility baseline and security analysis are in `docs/aerocommons/AERO_QIF_INGEST_001.md`. The upstream helper projects target .NET Core 3.1, which is unsupported; use it only in a disposable compatibility worker. A supported-runtime port must be compared against the pinned implementation before promotion.
 
+## Source-to-normalized mapping
+
+Every required field is represented by a typed mapping row containing the source document QPId, stable QIF path, optional local source ID / external-reference ID / xId, mapping rule and profile versions, disposition, and either a normalized target or a reason code.
+
+The crate recomputes the disposition counts from the rows, rejects duplicate source locators and nonexistent Results external-reference IDs, and serializes a canonical `AeroQifSourceMappingManifestV1`. The resulting manifest bytes must match the declared content-artifact length and SHA-256. Therefore a changed mapping rule, locator, target or disposition cannot hide behind a stale manifest digest.
+
+`Mapped`, `Unresolved`, `Ambiguous`, `Unsupported` and `Dropped` remain distinct. Only `Mapped` rows may carry normalized targets. All non-mapped rows must carry explicit reason codes. No Passed extraction is possible with any non-mapped row.
+
 ## Receipt
 
 `AeroQifIngestQualificationV1` binds a fixed schema version, all input and linked-document artifacts, XSD/XSLT dependency manifests, validator source commits and executable digests, runtime image, sandbox policy, runner attestation, individual stage reports and extraction mapping/trace outputs.
