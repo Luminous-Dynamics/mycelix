@@ -1,0 +1,128 @@
+{
+  "schema": "AeroAdapterReplayPanelV1",
+  "benchmark_id": "AERO-ADAPTER-REPLAY-001",
+  "version": "1.0.0",
+  "status": "synthetic_test_plan",
+  "scenarios": [
+    {
+      "scenario_id": "AARP-001",
+      "description": "Exact same toolchain, arguments, environment, inputs and output bytes",
+      "expected_disposition": "EXACT_BYTE_REPLAY",
+      "class": "positive"
+    },
+    {
+      "scenario_id": "AARP-002",
+      "description": "Input and output list order changes without semantic/content change",
+      "expected_disposition": "EXACT_BYTE_REPLAY",
+      "class": "metamorphic"
+    },
+    {
+      "scenario_id": "AARP-003",
+      "description": "Raw QIF bytes differ but normalized assertion bytes match",
+      "expected_disposition": "ASSERTIONS_BYTE_STABLE_RAW_OUTPUT_DRIFT",
+      "class": "positive"
+    },
+    {
+      "scenario_id": "AARP-004",
+      "description": "Normalized assertion bytes differ while raw QIF bytes match",
+      "expected_disposition": "NORMALIZED_ASSERTIONS_BYTE_DRIFT",
+      "class": "negative"
+    },
+    {
+      "scenario_id": "AARP-005",
+      "description": "Both raw and normalized output bytes differ under same declared context",
+      "expected_disposition": "NORMALIZED_ASSERTIONS_BYTE_DRIFT",
+      "class": "negative"
+    },
+    {
+      "scenario_id": "AARP-006",
+      "description": "Adapter executable digest changes",
+      "expected_disposition": "INCOMPARABLE_CONTEXT",
+      "class": "negative"
+    },
+    {
+      "scenario_id": "AARP-007",
+      "description": "Adapter version changes while binary metadata remains otherwise equal",
+      "expected_disposition": "INCOMPARABLE_CONTEXT",
+      "class": "negative"
+    },
+    {
+      "scenario_id": "AARP-008",
+      "description": "Source AP242 input bytes change",
+      "expected_disposition": "INCOMPARABLE_CONTEXT",
+      "class": "negative"
+    },
+    {
+      "scenario_id": "AARP-009",
+      "description": "Adapter argument vector changes",
+      "expected_disposition": "INCOMPARABLE_CONTEXT",
+      "class": "negative"
+    },
+    {
+      "scenario_id": "AARP-010",
+      "description": "Environment-profile bytes or locale/timezone change",
+      "expected_disposition": "INCOMPARABLE_CONTEXT",
+      "class": "negative"
+    },
+    {
+      "scenario_id": "AARP-011",
+      "description": "Configuration bytes change",
+      "expected_disposition": "INCOMPARABLE_CONTEXT",
+      "class": "negative"
+    },
+    {
+      "scenario_id": "AARP-012",
+      "description": "Input/output rights declaration changes",
+      "expected_disposition": "INCOMPARABLE_CONTEXT",
+      "class": "negative"
+    },
+    {
+      "scenario_id": "AARP-013",
+      "description": "Network policy or declared/observed egress changes",
+      "expected_disposition": "INCOMPARABLE_CONTEXT",
+      "class": "negative"
+    },
+    {
+      "scenario_id": "AARP-014",
+      "description": "One run failed",
+      "expected_disposition": "RUN_NOT_ELIGIBLE",
+      "class": "unknown"
+    },
+    {
+      "scenario_id": "AARP-015",
+      "description": "One run timed out after invocation",
+      "expected_disposition": "RUN_NOT_ELIGIBLE",
+      "class": "unknown"
+    },
+    {
+      "scenario_id": "AARP-016",
+      "description": "Same run ID is reused for a replay",
+      "expected_disposition": "REJECT_INVALID_RECEIPT",
+      "class": "negative"
+    },
+    {
+      "scenario_id": "AARP-017",
+      "description": "Receipt digest is mutated",
+      "expected_disposition": "REJECT_INVALID_RECEIPT",
+      "class": "negative"
+    },
+    {
+      "scenario_id": "AARP-018",
+      "description": "An input/output/executable payload is missing",
+      "expected_disposition": "REJECT_INVALID_RECEIPT",
+      "class": "negative"
+    },
+    {
+      "scenario_id": "AARP-019",
+      "description": "An unexpected or duplicate payload is supplied",
+      "expected_disposition": "REJECT_INVALID_RECEIPT",
+      "class": "negative"
+    },
+    {
+      "scenario_id": "AARP-020",
+      "description": "Two different adapters agree on the assertion corpus",
+      "expected_disposition": "INCOMPARABLE_CONTEXT",
+      "class": "positive"
+    }
+  ]
+}
