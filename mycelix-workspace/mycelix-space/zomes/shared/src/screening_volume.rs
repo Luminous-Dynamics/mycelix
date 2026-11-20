@@ -3,7 +3,8 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Versioned, orbit-regime-specific conjunction screening volumes.
 //!
-//! This module evaluates broad-phase candidate-volume geometry only. It does
+//! This module evaluates broad-phase candidate-volume geometry only.
+//! It intentionally keeps regime classification and frame transformation upstream. It does
 //! not classify an orbit regime, propagate trajectories, detect a TCA, compute
 //! Pc, or establish that an excluded pair is safe. Regime selection and RIC
 //! frame conversion must be supplied by a separately qualified caller.
