@@ -64,6 +64,12 @@ If probabilities are uncalibrated, label the estimate as a proxy and do not desc
 
 Mandatory requalification remains a hard gate and must be completed before an optional acquisition policy can claim a new configuration is adequately evidenced.
 
+## Executable adapter
+
+The isolated Rust crate at `tools/aero-change-to-test` consumes canonical impact classifications and checks that declared obligations match them; it does not implement another dependency classifier. It requires non-demotable obligations, explicit dependency coverage and reason paths. Optional candidates are filtered by all five admissibility gates. Only candidates with calibrated value bounds are scored by conservative lower bound per total cost, and only after obligation closure is structurally recorded.
+
+The synthetic fixture includes four evidence records, three OPEN mandatory obligations and two optional candidates. All optional candidates remain blocked in the checked-in baseline. The 15 authored Rust tests cover mandatory preservation, unknown impact, closure receipts, candidate admissibility, calibrated ranking, mutation resistance and input-order invariance. These are authored tests; they are not evidence of an executed Rust pass.
+
 ## Benchmark protocol
 
 Compare:
