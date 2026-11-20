@@ -198,6 +198,24 @@ fn push_optional_string(bytes: &mut Vec<u8>, value: Option<&str>) {
     }
 }
 
+const IDEMPOTENCY_KEY_COMMITMENT_DOMAIN: &[u8] =
+    b"MYCELIX-MCRB-IDEMPOTENCY-KEY\\0v0.1\\0";
+
+/// Create the public commitment for an idempotency key without exposing the
+/// raw key in offer-ledger artifacts. The caller retains the raw key for the
+/// execution adapter; only this digest should cross the benchmark boundary.
+pub fn idempotency_key_commitment(raw_key: &[u8]) -> String {
+    let mut material = IDEMPOTENCY_KEY_COMMITMENT_DOMAIN.to_vec();
+    push_bytes(&mut material, raw_key);
+    let digest = Sha256::digest(material);
+    let mut hex = String::with_capacity(64);
+    for byte in digest {
+        use std::fmt::Write as _;
+        let _ = write!(&mut hex, "{byte:02x}");
+    }
+    hex
+}
+
 fn canonical_offer_ledger_bytes(envelope: &OfferLedgerEnvelope) -> Vec<u8> {
     let mut bytes = Vec::new();
     bytes.extend_from_slice(DOMAIN_SEPARATOR);
@@ -516,7 +534,7 @@ mod tests {
                 scenario_id: scenario_id.clone(),
                 operation_id: format!("op-{}", index + 1),
                 request_digest_sha256: digest(&format!("request-{index}")),
-                idempotency_key_digest_sha256: Some(digest(&format!("idem-{index}"))),
+                idempotency_key_digest_sha256: Some(idempotency_key_commitment(format!("idem-{index}").as_bytes())),
                 scheduled_monotonic_tick: 2_000 + index * 1_000,
                 monotonic_clock_id: clock_id.clone(),
                 monotonic_clock_epoch: clock_epoch.clone(),
@@ -631,12 +649,21 @@ mod tests {
     }
 
     #[test]
+    fn idempotency_commitment_is_stable_and_domain_separated() {
+        let first = idempotency_key_commitment(b"idem-test");
+        let second = idempotency_key_commitment(b"idem-test");
+        assert_eq!(first, second);
+        assert_ne!(first, digest("idem-test"));
+        assert_ne!(first, idempotency_key_commitment(b"idem-test-2"));
+    }
+
+    #[test]
     fn duplicate_idempotency_key_is_rejected() {
         let mut envelope = valid_envelope();
         envelope.entries[1].idempotency_key_digest_sha256 = envelope.entries[0].idempotency_key_digest_sha256.clone();
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
         assert!(verify_offer_ledger(&envelope, &embedded_contract_registry()).unwrap_err()
-            .contains(&OfferLedgerIssue::DuplicateIdempotencyKey(digest("idem-0"))));
+            .contains(&OfferLedgerIssue::DuplicateIdempotencyKey(idempotency_key_commitment(b"idem-0"))));
     }
 
     #[test]
