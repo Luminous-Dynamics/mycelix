@@ -524,10 +524,145 @@ fn canonical_body(body: &QifIngestQualificationBodyV1) -> QifIngestQualification
     canonical.bundles.xslt.files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
     canonical.tools.sort_by(|left, right| left.tool_id.cmp(&right.tool_id));
     canonical.stage_results.sort_by(|left, right| left.stage.key().cmp(right.stage.key()));
+    if let Some(extraction) = &mut canonical.extraction {
+        extraction.mappings = canonical_source_mapping_records(&extraction.mappings);
+    }
     for stage in &mut canonical.stage_results {
         stage.reason_codes.sort();
     }
     canonical
+}
+
+fn canonical_source_mapping_records(
+    records: &[SourceMappingRecordV1],
+) -> Vec<SourceMappingRecordV1> {
+    let mut canonical = records.to_vec();
+    canonical.sort_by(|left, right| {
+        (
+            left.document_qpid.to_ascii_lowercase(),
+            left.source_path.clone(),
+            left.source_element_id,
+            left.external_document_reference_id,
+            left.external_xid,
+        ).cmp(&(
+            right.document_qpid.to_ascii_lowercase(),
+            right.source_path.clone(),
+            right.source_element_id,
+            right.external_document_reference_id,
+            right.external_xid,
+        ))
+    });
+    canonical
+}
+
+/// Canonical serialized source-mapping manifest bytes (not RFC 8785/JCS).
+pub fn source_mapping_manifest_bytes(
+    records: &[SourceMappingRecordV1],
+) -> Result<Vec<u8>, IngestError> {
+    let manifest = SourceMappingManifestV1 {
+        schema: SOURCE_MAPPING_SCHEMA.into(),
+        mappings: canonical_source_mapping_records(records),
+    };
+    serde_json::to_vec(&manifest).map_err(|_| IngestError::CanonicalizationFailed)
+}
+
+fn digest_hex(bytes: &[u8]) -> String {
+    Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn validate_source_mapping_records(
+    records: &[SourceMappingRecordV1],
+    counts: &ExtractionMappingCountsV1,
+    documents: &BTreeMap<String, &QifDocumentInputV1>,
+    reference_ids: &BTreeSet<(String, u32)>,
+) -> Result<(), IngestError> {
+    if records.is_empty() || records.len() as u64 != counts.total_required {
+        return Err(IngestError::SourceMappingCountMismatch);
+    }
+    let mut locators = BTreeSet::new();
+    let (mut mapped, mut unresolved, mut ambiguous, mut unsupported, mut dropped) =
+        (0u64, 0u64, 0u64, 0u64, 0u64);
+
+    for record in records {
+        let qpid = record.document_qpid.to_ascii_lowercase();
+        let Some(document) = documents.get(&qpid) else {
+            return Err(IngestError::InvalidSourceMappingLocator(record.document_qpid.clone()));
+        };
+        if !record.source_path.starts_with("/QIFDocument/")
+            || record.source_path.chars().any(|character| character.is_control())
+            || record.source_path.trim().is_empty()
+            || record.source_element_id == Some(0)
+            || record.mapping_rule_id.trim().is_empty()
+            || record.mapping_profile_version.trim().is_empty()
+        {
+            return Err(IngestError::InvalidSourceMappingLocator(record.source_path.clone()));
+        }
+        if record.external_document_reference_id.is_some() != record.external_xid.is_some()
+            || record.external_document_reference_id == Some(0)
+            || record.external_xid == Some(0)
+        {
+            return Err(IngestError::InvalidSourceMappingLocator(record.source_path.clone()));
+        }
+        if let (Some(reference_id), Some(_xid)) =
+            (record.external_document_reference_id, record.external_xid)
+        {
+            if document.role != QifDocumentRole::Results
+                || !reference_ids.contains(&(qpid.clone(), reference_id))
+            {
+                return Err(IngestError::InvalidSourceMappingLocator(record.source_path.clone()));
+            }
+        }
+        let locator = (
+            qpid,
+            record.source_path.clone(),
+            record.source_element_id,
+            record.external_document_reference_id,
+            record.external_xid,
+        );
+        if !locators.insert(locator) {
+            return Err(IngestError::DuplicateSourceMappingLocator(record.source_path.clone()));
+        }
+
+        match record.disposition {
+            SourceMappingDisposition::Mapped => {
+                mapped += 1;
+                if record.target_object_kind.as_ref().is_none_or(|value| value.trim().is_empty())
+                    || record.target_object_id.as_ref().is_none_or(|value| value.trim().is_empty())
+                    || record.reason_code.is_some()
+                {
+                    return Err(IngestError::InvalidSourceMappingRecord(record.source_path.clone()));
+                }
+            }
+            SourceMappingDisposition::Unresolved
+            | SourceMappingDisposition::Ambiguous
+            | SourceMappingDisposition::Unsupported
+            | SourceMappingDisposition::Dropped => {
+                match record.disposition {
+                    SourceMappingDisposition::Unresolved => unresolved += 1,
+                    SourceMappingDisposition::Ambiguous => ambiguous += 1,
+                    SourceMappingDisposition::Unsupported => unsupported += 1,
+                    SourceMappingDisposition::Dropped => dropped += 1,
+                    SourceMappingDisposition::Mapped => unreachable!(),
+                }
+                if record.target_object_kind.is_some()
+                    || record.target_object_id.is_some()
+                    || record.reason_code.as_ref().is_none_or(|value| value.trim().is_empty())
+                {
+                    return Err(IngestError::InvalidSourceMappingRecord(record.source_path.clone()));
+                }
+            }
+        }
+    }
+
+    if mapped != counts.mapped
+        || unresolved != counts.unresolved
+        || ambiguous != counts.ambiguous
+        || unsupported != counts.unsupported
+        || dropped != counts.dropped
+    {
+        return Err(IngestError::SourceMappingCountMismatch);
+    }
+    Ok(())
 }
 
 pub fn compute_ingest_receipt_digest(
