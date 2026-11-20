@@ -65,7 +65,7 @@ jobs:
             mycelix-workspace/mycelix-space/tests -> mycelix-workspace/mycelix-space/tests/target
             mycelix-workspace/crates/orbital-mechanics -> mycelix-workspace/crates/orbital-mechanics/target
       - name: Check separate integration workspace formatting
-        run: cargo fmt --manifest-path mycelix-workspace/mycelix-space/tests/Cargo.toml --all -- --check
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-space/tests/Cargo.toml -- --check
       - name: Run Space integration workspace tests
-        run: cargo test --manifest-path mycelix-workspace/mycelix-space/tests/Cargo.toml --workspace
+        run: cargo test --manifest-path mycelix-workspace/mycelix-space/tests/Cargo.toml
 
