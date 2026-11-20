@@ -146,6 +146,7 @@ pub struct TleStaleness {
     pub is_stale: bool,
     /// Whether its epoch is in the future relative to the evaluator clock.
     /// Future-dated records are not treated as fresh.
+    #[serde(default)]
     pub future_dated: bool,
     /// Original quality score (as submitted)
     pub original_quality: QualityScore,
@@ -165,8 +166,10 @@ pub fn compute_staleness(
     quality: &QualityScore,
     config: &StalenessConfig,
 ) -> TleStaleness {
-    let age_secs = epoch.age_seconds();
-    let future_dated = age_secs < 0;
+    let now = SpaceTimestamp::now();
+    let age_micros = now.micros.saturating_sub(epoch.micros);
+    let age_secs = age_micros / 1_000_000;
+    let future_dated = age_micros < 0;
 
     // A future epoch indicates a clock, parsing or source-semantics problem.
     // Do not grant it full freshness confidence or usable effective quality.
