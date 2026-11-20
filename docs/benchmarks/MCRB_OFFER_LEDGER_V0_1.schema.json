@@ -22,7 +22,8 @@
     "ticks_per_second",
     "entry_count",
     "entries",
-    "ledger_digest_sha256"
+    "ledger_digest_sha256",
+    "operation_contract_registry_digest_sha256"
   ],
   "properties": {
     "schema_version": {
@@ -92,7 +93,7 @@
           "scenario_id",
           "operation_id",
           "request_digest_sha256",
-          "idempotency_key",
+          "idempotency_key_digest_sha256",
           "scheduled_monotonic_tick",
           "monotonic_clock_id",
           "monotonic_clock_epoch",
@@ -100,7 +101,10 @@
           "requires_idempotency_key",
           "generator_digest_sha256",
           "workload_manifest_digest_sha256",
-          "parameter_set_digest_sha256"
+          "parameter_set_digest_sha256",
+          "operation_contract_id",
+          "operation_contract_version",
+          "operation_contract_digest_sha256"
         ],
         "properties": {
           "sequence": {
@@ -122,12 +126,6 @@
           "request_digest_sha256": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
-          },
-          "idempotency_key": {
-            "type": [
-              "string",
-              "null"
-            ]
           },
           "scheduled_monotonic_tick": {
             "type": "integer",
@@ -159,6 +157,29 @@
           "parameter_set_digest_sha256": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
+          },
+          "idempotency_key_digest_sha256": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation_contract_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_contract_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_contract_digest_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           }
         }
       }
@@ -171,6 +192,10 @@
       "type": "boolean"
     },
     "scenario_contract_digest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "operation_contract_registry_digest_sha256": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
     }
