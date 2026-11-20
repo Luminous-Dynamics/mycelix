@@ -154,22 +154,6 @@ fn extract_role_literal(
     }
 }
 
-fn is_ignored_component(component: &str) -> bool {
-    matches!(
-        component,
-        ".git"
-            | "target"
-            | "node_modules"
-            | "vendor"
-            | ".cache"
-            | "build"
-            | "dist"
-            | "archive"
-            | "archives"
-            | "kosmic-lab-workspace-migration-2026-05-31"
-    )
-}
-
 const EXCLUDED_SOURCE_COMPONENTS: &[&str] = &[
     ".git",
     "target",
@@ -493,20 +477,18 @@ pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
     ensure_tracked_worktree_clean(root)?;
     let tracked = tracked_paths(root)?;
     let (manifests, manifest_errors) = discover_manifests(root)?;
-    let source_sha = Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .current_dir(root)
-        .output()?
-        .status
-        .success();
-    if !source_sha {
-        return Err("unable to resolve Git HEAD for topology audit".into());
-    }
-    let source_commit = Command::new("git")
+    let commit_output = Command::new("git")
         .args(["rev-parse", "HEAD"])
         .current_dir(root)
         .output()?;
-    let source_commit = String::from_utf8(source_commit.stdout)?.trim().to_string();
+    if !commit_output.status.success() {
+        return Err(format!(
+            "unable to resolve Git HEAD for topology audit: {}",
+            String::from_utf8_lossy(&commit_output.stderr).trim()
+        )
+        .into());
+    }
+    let source_commit = String::from_utf8(commit_output.stdout)?.trim().to_string();
     let tree_output = Command::new("git")
         .args(["rev-parse", "HEAD^{tree}"])
         .current_dir(root)
