@@ -1,0 +1,92 @@
+{
+  "schema_version": "0.1.0",
+  "profile_id": "PULSE-FABRIC-QUAL-001",
+  "run": {
+    "run_id": "cli-false-success",
+    "source_sha": "1111111111111111111111111111111111111111",
+    "toolchain_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "workload_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "topology_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+    "verifier": {
+      "name": "pulse-fabric-verifier",
+      "version": "0.1.0",
+      "implementation_digest": "5555555555555555555555555555555555555555555555555555555555555555"
+    }
+  },
+  "scenario": {
+    "scenario_id": "PFC-DELIVERY-002",
+    "family": "delivery",
+    "seed": 9,
+    "observation_vantage": [
+      "sender_client",
+      "relay"
+    ]
+  },
+  "events": [
+    {
+      "event_id": "intent",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": null,
+      "event_type": "intent_recorded",
+      "evidence_role": "client",
+      "actor_ref": "sender",
+      "cell_ref": null,
+      "content_commitment": null,
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 1
+      },
+      "causal_predecessors": [],
+      "evidence_refs": [],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "ack",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": "attempt-1",
+      "event_type": "transport_ack_observed",
+      "evidence_role": "transport_adapter",
+      "actor_ref": "relay",
+      "cell_ref": null,
+      "content_commitment": null,
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 2
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "intent",
+          "relation": "derived_from"
+        }
+      ],
+      "evidence_refs": [],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "projection",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": null,
+      "event_type": "ui_projection_emitted",
+      "evidence_role": "ui_projection",
+      "actor_ref": "sender-ui",
+      "cell_ref": null,
+      "content_commitment": null,
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 3
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "ack",
+          "relation": "derived_from"
+        }
+      ],
+      "evidence_refs": [],
+      "redaction_profile": "pfc-redacted-v0"
+    }
+  ],
+  "terminal_disposition": "SUCCESS_VERIFIED",
+  "claim_ceiling": [
+    "Intentionally invalid mutation: transport ACK incorrectly promoted to verified delivery"
+  ]
+}
