@@ -75,6 +75,11 @@
         "xid": 303,
         "status": "unknown"
       }
+    ],
+    "result_set_ids": [
+      "result-set:1",
+      "result-set:2",
+      "result-set:3"
     ]
   },
   "plans": [
@@ -154,6 +159,12 @@
             9993
           ]
         }
+      ],
+      "other_objects": [
+        {
+          "object_id": 304,
+          "object_kind": "FeatureItem"
+        }
       ]
     },
     {
@@ -199,7 +210,8 @@
             9991
           ]
         }
-      ]
+      ],
+      "other_objects": []
     }
   ],
   "step_documents": [
