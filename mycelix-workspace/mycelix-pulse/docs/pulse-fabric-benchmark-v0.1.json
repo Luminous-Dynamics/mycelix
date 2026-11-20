@@ -331,6 +331,61 @@
       "id": "per_peer_relay_burden",
       "unit": "bytes_per_peer",
       "required": true
+    },
+    {
+      "id": "per_recipient_verified_delivery_rate_by_deadline",
+      "unit": "fraction",
+      "required": true
+    },
+    {
+      "id": "complete_group_delivery_rate_by_deadline",
+      "unit": "fraction",
+      "required": true
+    },
+    {
+      "id": "partial_fanout_coverage",
+      "unit": "fraction_of_required_recipients",
+      "quantiles": [
+        "p50",
+        "p95",
+        "p99"
+      ],
+      "required": true
+    },
+    {
+      "id": "worst_required_recipient_latency",
+      "unit": "milliseconds",
+      "quantiles": [
+        "p50",
+        "p95",
+        "p99"
+      ],
+      "required": true
+    },
+    {
+      "id": "group_epoch_commit_latency",
+      "unit": "milliseconds",
+      "quantiles": [
+        "p50",
+        "p95",
+        "p99"
+      ],
+      "required": true
+    },
+    {
+      "id": "group_epoch_update_bytes",
+      "unit": "bytes",
+      "required": true
+    },
+    {
+      "id": "post_removal_new_message_acceptance_rate",
+      "unit": "fraction",
+      "required": true
+    },
+    {
+      "id": "late_joiner_historical_decrypt_acceptance_rate",
+      "unit": "fraction",
+      "required": true
     }
   ],
   "non_compensable_gates": [
@@ -357,7 +412,8 @@
     "Report capability unsupported, not implemented, unmeasured and failed as distinct statuses; never encode unsupported as zero cost or zero leakage.",
     "Compare candidates only where protocol semantics, security guarantees and receipt semantics are matched.",
     "Publish per-platform, per-workload and per-failure-domain results; do not hide regressions in averages.",
-    "A finite corpus result is limited to that corpus, environment, candidate build and stated threat model."
+    "A finite corpus result is limited to that corpus, environment, candidate build and stated threat model.",
+    "Group fan-out is reported per recipient and as an explicit aggregate; one recipient receipt cannot establish complete group delivery."
   ],
   "sources": [
     {
@@ -385,5 +441,16 @@
       "url": "https://datatracker.ietf.org/doc/draft-ietf-mls-pq-ciphersuites/",
       "checked_at": "2026-11-20"
     }
-  ]
+  ],
+  "group_fanout_semantics": {
+    "parent_fanout_identity": "stable per group send; not a delivery receipt or bearer credential",
+    "recipient_child_identity": "one stable logical_operation_id per required recipient; multiple transport attempt IDs may exist for retries/routes",
+    "recipient_set_binding": "versioned membership/epoch snapshot plus redacted recipient-set commitment; no raw roster in public qualification traces",
+    "child_success": "recipient admission, inbox commit, decryption verification and matching recipient-specific receipt are independently established",
+    "aggregate_complete": "COMPLETE_VERIFIED only when every required recipient in the committed membership snapshot has a verified child receipt by the declared deadline",
+    "partial_and_unknown": "PARTIAL, UNKNOWN, INCOMPLETE, EXPIRED and FAILED remain distinct; unknown child outcomes never count as successful delivery",
+    "threshold_policy": "all_required_recipients by default; any quorum/threshold override must be explicit, user-visible and bound to a separately authenticated policy snapshot",
+    "device_semantics": "declare whether the child outcome is per account, per device or for a required device set; one device receipt never implies all-device sync",
+    "membership_semantics": "predeclare removal, late-join and historical-decrypt policy by membership epoch; evaluate each separately"
+  }
 }
