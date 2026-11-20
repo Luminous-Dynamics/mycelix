@@ -741,3 +741,37 @@ Use 1/16/64/256 concurrency and 0/1/10% deterministic failure rates. Inject rece
 Report false-safe retry classifications, duplicate remote effects per logical operation, non-idempotent unknown retries/hedges, correct holds, valid retry operations incorrectly quarantined, key collision/mismatch/expiry behavior, retry/hedge amplification, cancelled-but-still-running requests, receiver IOPS, CPU/RSS/allocations, p50/p95/p99 latency, success/availability and journal flush overhead.
 
 Hard targets: zero false allows; zero duplicate effects under the declared server contract; zero non-idempotent retries or hedges from unknown state. Also target at least 99.9% correct allow/hold classification on the declared test corpus, reporting false-allow and false-deny separately. A throughput or latency improvement cannot compensate for an unsafe duplicate effect. These remain targets, not measured results.
+
+
+## 17. Receiver-side idempotency atomicity and failover
+
+The test-only receiver at prism-egress/tests/idempotency_receiver_model.rs contains 31 deterministic tests. It models a receiver-owned key namespace (workload, principal, origin, key digest), exact request fingerprint, conflict-on-in-progress, cached completion and receiver-controlled retention. Its commit operation treats the business effect and durable replay result as one atomic transaction.
+
+### Hard receiver invariants
+
+- The server, not the client, owns key retention and expiry.
+- A same-key/different-fingerprint request is rejected.
+- A concurrent same-key duplicate is conflict/pending unless the server separately guarantees atomic coalescing.
+- The completed key result and the business effect must commit atomically.
+- Crash before commit rolls back both; crash after commit but before response preserves both.
+- Failover/restore preserves the idempotency record for the full published retention period.
+- A same-key duplicate after commit returns a completion-consistent result and does not re-apply the effect.
+- For side effects outside the database transaction, use an outbox plus downstream inbox/idempotency contract. A local transaction cannot atomically commit an independent remote side effect.
+
+The model includes an explicit unsafe failover control: preserve the business effect but lose the idempotency row. A replay then increments the effect count to two. This is a negative control, not intended production behavior.
+
+### PEAB real-system qualification
+
+IDEMP-032..034 remain planned until a real database/HTTP receiver, replication/failover and external side-effect sink are tested. Inject crashes before reservation, after reservation, before commit, after commit before response, and during failover/snapshot restore. Verify the receiver's actual isolation/unique-index behavior for concurrent duplicates, same-key payload mismatch, retention expiry and key namespace separation.
+
+Measure:
+- duplicate effects per logical operation (target 0 within the published retention period);
+- completion replay correctness and cached result stability;
+- concurrent conflict and coalescing rates;
+- key-record commit/lookup latency p50/p95/p99;
+- database lock and unique-index contention;
+- WAL/fsync/storage IOPS, replication lag, failover and restore recovery time;
+- retention storage growth, expiration/compaction cost and availability during failover;
+- downstream outbox delivery, consumer inbox dedup and duplicate external effects.
+
+Hard acceptance: zero business-effect commits without the matching durable idempotency record; zero cached result leaks across principal/workload/origin namespaces; zero second effects during key retention; and no retry success inferred from an in-progress conflict. No exactly-once claim may be made for external side effects without a downstream idempotency or inbox/outbox guarantee.
