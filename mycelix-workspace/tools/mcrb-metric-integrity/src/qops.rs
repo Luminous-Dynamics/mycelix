@@ -62,8 +62,6 @@ pub enum QopsIssue {
     UnexpectedOperationSample(String),
     DuplicateOutcomeSample(String),
     MissingOutcomeSample(String),
-    UnresolvedUnknownOutcome(String),
-    DuplicateExternalEffect(String),
 }
 
 /// Caller-supplied outcome labels are unverified diagnostics until #6357
@@ -127,9 +125,10 @@ fn push_unique(issues: &mut Vec<QopsIssue>, issue: QopsIssue) {
     }
 }
 
-/// Compute QOPS only from opaque verifier outputs. The offer ledger supplies
-/// the frozen denominator and duration; metric integrity is derived from raw
-/// tick samples; correctness gates must be independently signed and verified.
+/// Compute a fail-closed QOPS report from verified denominator/timing/gate
+/// capabilities. Caller outcome labels are retained as diagnostics only; until
+/// #6357 supplies a VerifiedOutcomeLedger, authoritative outcome counts stay
+/// zero and no offered/qualified performance rate is emitted.
 pub fn compute_qops(
     ledger: &VerifiedOfferLedger,
     input: &QopsInput,
@@ -223,17 +222,6 @@ pub fn compute_qops(
         }
 
         *counts.entry(sample.outcome).or_default() += 1;
-        match sample.outcome {
-            OperationOutcome::DuplicateEffect => push_unique(
-                &mut issues,
-                QopsIssue::DuplicateExternalEffect(sample.operation_id.clone()),
-            ),
-            OperationOutcome::Unknown => push_unique(
-                &mut issues,
-                QopsIssue::UnresolvedUnknownOutcome(sample.operation_id.clone()),
-            ),
-            _ => {}
-        }
     }
 
     for operation_id in &expected {
@@ -273,7 +261,6 @@ pub fn compute_qops(
         matches!(
             issue,
             QopsIssue::MissingOutcomeSample(_)
-                | QopsIssue::UnresolvedUnknownOutcome(_)
                 | QopsIssue::MetricIntegrityIncomplete
                 | QopsIssue::CrossHostMetricIntegrityIncomplete
                 | QopsIssue::CorrectnessGateSetIncomplete
@@ -284,7 +271,6 @@ pub fn compute_qops(
         !matches!(
             issue,
             QopsIssue::MissingOutcomeSample(_)
-                | QopsIssue::UnresolvedUnknownOutcome(_)
                 | QopsIssue::MetricIntegrityIncomplete
                 | QopsIssue::CrossHostMetricIntegrityIncomplete
                 | QopsIssue::CorrectnessGateSetIncomplete
@@ -543,25 +529,24 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_external_effect_is_non_compensatory() {
+    fn duplicate_effect_label_is_diagnostic_until_independently_verified() {
         let ledger = verified_ledger(false);
         let mut input = valid_input();
         input.outcomes[0].outcome = OperationOutcome::DuplicateEffect;
         let report = compute_qops(&ledger, &input, &valid_integrity(), &valid_gate_set(&ledger));
-        assert_eq!(report.status, QopsStatus::Invalid);
+        assert_eq!(report.status, QopsStatus::Incomplete);
         assert_eq!(report.duplicate_external_effects, 0);
         assert_eq!(report.asserted_outcome_samples.duplicate_effect_labels, 1);
         assert!(report.qualified_operations_per_second.is_none());
     }
 
     #[test]
-    fn unresolved_unknown_outcome_withholds_performance_rates() {
+    fn unknown_label_is_diagnostic_until_independently_verified() {
         let ledger = verified_ledger(false);
         let mut input = valid_input();
         input.outcomes[4].outcome = OperationOutcome::Unknown;
         let report = compute_qops(&ledger, &input, &valid_integrity(), &valid_gate_set(&ledger));
         assert_eq!(report.status, QopsStatus::Incomplete);
-        assert!(report.issues.contains(&QopsIssue::UnresolvedUnknownOutcome("op-5".into())));
         assert_eq!(report.unknown_outcomes, 0);
         assert_eq!(report.asserted_outcome_samples.unknown_labels, 1);
         assert!(report.qualified_operations_per_second.is_none());
