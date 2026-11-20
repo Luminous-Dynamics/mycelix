@@ -218,6 +218,7 @@ pub enum StageDisposition {
     Warning,
     Unknown,
     NotRun,
+    Blocked,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -288,7 +289,7 @@ pub struct IngestVerificationReport {
     pub profile_is_normative: bool,
     pub legacy_runtime: bool,
     pub all_stages_passed: bool,
-    pub sandbox_claim_present: bool,
+    pub sandbox_profile_declared: bool,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -345,8 +346,14 @@ pub enum IngestError {
     InvalidArtifact(String),
     #[error("unsupported .NET Core 3.1 runtime must be explicitly marked legacy")]
     LegacyRuntimeMisclassified,
-    #[error("remote or non-relative QIF URI is not admitted by the offline profile: {0}")]
-    UnsafeSourceUri(String),
+    #[error("source URI is empty or contains control characters: {0}")]
+    InvalidSourceUri(String),
+    #[error("blocked stage {0} has evidence or no reason code")]
+    InvalidBlockedStage(String),
+    #[error("stage {stage} passed while prerequisite {prerequisite} did not pass")]
+    PrerequisiteNotPassed { stage: String, prerequisite: String },
+    #[error("Plan document source URI conflicts with its external reference: {0}")]
+    SourceUriMismatch(String),
     #[error("extraction evidence is missing or inconsistent")]
     InvalidExtractionEvidence,
     #[error("extraction stage Passed despite unresolved, ambiguous, unsupported or dropped mappings")]
@@ -405,16 +412,30 @@ fn validate_content_artifact(artifact: &ContentArtifactV1) -> Result<(), IngestE
     Ok(())
 }
 
+fn valid_source_uri(value: &str) -> bool {
+    !value.trim().is_empty()
+        && !value.chars().any(|character| character.is_control())
+}
+
 fn safe_relative_path(value: &str) -> bool {
     if value.trim().is_empty()
         || value.starts_with('/')
         || value.starts_with('\\')
         || value.contains('\\')
         || value.contains(':')
+        || value.contains('%')
+        || value.chars().any(|character| character.is_control())
     {
         return false;
     }
-    value.split('/').all(|part| !part.is_empty() && part != "." && part != "..")
+    value.split('/').all(|part| {
+        !part.is_empty()
+            && part != "."
+            && part != ".."
+            && part.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-')
+            })
+    })
 }
 
 fn add_artifact(
@@ -508,8 +529,8 @@ pub fn validate_ingest_qualification(
     let mut results_docs = Vec::new();
     let mut plan_docs = BTreeSet::new();
     for document in &body.documents {
-        if document.source_uri.as_ref().is_some_and(|uri| !safe_relative_path(uri)) {
-            return Err(IngestError::UnsafeSourceUri(document.source_uri.clone().unwrap_or_default()));
+        if document.source_uri.as_ref().is_some_and(|uri| !valid_source_uri(uri)) {
+            return Err(IngestError::InvalidSourceUri(document.source_uri.clone().unwrap_or_default()));
         }
         if !valid_uuid(&document.qpid) {
             return Err(IngestError::InvalidQpid(document.qpid.clone()));
@@ -531,7 +552,7 @@ pub fn validate_ingest_qualification(
     let results_qpid = results_docs[0].clone();
 
     let mut reference_ids = BTreeSet::new();
-    let mut staged_paths = BTreeSet::new();
+    let mut staged_paths = BTreeMap::new();
     let mut linked_plans = BTreeSet::new();
     for binding in &body.external_document_bindings {
         if binding.local_reference_id == 0
@@ -548,17 +569,24 @@ pub fn validate_ingest_qualification(
         if plan.role != QifDocumentRole::Plan {
             return Err(IngestError::MissingPlanDocument(binding.target_plan_qpid.clone()));
         }
-        if !safe_relative_path(&binding.source_uri) {
-            return Err(IngestError::UnsafeSourceUri(binding.source_uri.clone()));
+        if !valid_source_uri(&binding.source_uri) {
+            return Err(IngestError::InvalidSourceUri(binding.source_uri.clone()));
         }
         if !safe_relative_path(&binding.staged_relative_path) {
             return Err(IngestError::UnsafeStagedPath(binding.staged_relative_path.clone()));
         }
-        if binding.source_uri != binding.staged_relative_path {
-            return Err(IngestError::UnsafeSourceUri(binding.source_uri.clone()));
+        if let Some(existing) = staged_paths.get(&binding.staged_relative_path) {
+            if existing != &binding.target_plan_qpid.to_ascii_lowercase() {
+                return Err(IngestError::DuplicateStagedPath(binding.staged_relative_path.clone()));
+            }
+        } else {
+            staged_paths.insert(
+                binding.staged_relative_path.clone(),
+                binding.target_plan_qpid.to_ascii_lowercase(),
+            );
         }
-        if !staged_paths.insert(binding.staged_relative_path.clone()) {
-            return Err(IngestError::DuplicateStagedPath(binding.staged_relative_path.clone()));
+        if plan.source_uri.as_ref().is_some_and(|uri| uri != &binding.source_uri) {
+            return Err(IngestError::SourceUriMismatch(binding.target_plan_qpid.clone()));
         }
         linked_plans.insert(binding.target_plan_qpid.to_ascii_lowercase());
     }
@@ -651,6 +679,14 @@ pub fn validate_ingest_qualification(
                     return Err(IngestError::NotRunHasEvidence(stage.stage.key().into()));
                 }
             }
+            StageDisposition::Blocked => {
+                if stage.validator_tool_id.is_some()
+                    || stage.report_artifact.is_some()
+                    || stage.reason_codes.is_empty()
+                {
+                    return Err(IngestError::InvalidBlockedStage(stage.stage.key().into()));
+                }
+            }
             _ => {
                 let Some(tool_id) = &stage.validator_tool_id else {
                     return Err(IngestError::MissingStageEvidence(stage.stage.key().into()));
@@ -677,6 +713,25 @@ pub fn validate_ingest_qualification(
     for stage in ValidationStage::all() {
         if !stages.contains_key(stage.key()) {
             return Err(IngestError::StageSetMismatch);
+        }
+    }
+
+    let prerequisite_pairs = [
+        (ValidationStage::XsdStructure, ValidationStage::XmlWellFormedness),
+        (ValidationStage::XsltFormat, ValidationStage::XsdStructure),
+        (ValidationStage::XsltQuality, ValidationStage::XsdStructure),
+        (ValidationStage::XsltSemantic, ValidationStage::XsdStructure),
+        (ValidationStage::ExtractionFidelity, ValidationStage::XsltSemantic),
+        (ValidationStage::ExternalReferenceResolution, ValidationStage::ExtractionFidelity),
+    ];
+    for (stage, prerequisite) in prerequisite_pairs {
+        if stages[stage.key()].disposition == StageDisposition::Passed
+            && stages[prerequisite.key()].disposition != StageDisposition::Passed
+        {
+            return Err(IngestError::PrerequisiteNotPassed {
+                stage: stage.key().into(),
+                prerequisite: prerequisite.key().into(),
+            });
         }
     }
 
@@ -801,7 +856,7 @@ pub fn verify_ingest_payloads(
         legacy_runtime: qualification.body.runtime.support == RuntimeSupport::UnsupportedLegacy,
         all_stages_passed: qualification.body.stage_results.iter()
             .all(|stage| stage.disposition == StageDisposition::Passed),
-        sandbox_claim_present: true,
+        sandbox_profile_declared: true,
     })
 }
 
