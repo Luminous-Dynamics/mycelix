@@ -12,7 +12,7 @@ use mycelix_space_shared::{
     AlertPriority, AlertType, ConjunctionAlert, ConjunctionAssessment, ConjunctionDataMessage,
     ManeuverAlert, ManeuverType as SharedManeuverType, PaginatedResponse, PaginationParams,
     ScreenInput, SpaceError, SpaceErrorCode, SpaceSignal, SpaceTimestamp,
-    validate_screening_coverage,
+    inclusive_time_offsets, validate_screening_coverage,
     StalenessAwareAssessment, StalenessConfig, TleWithMetadata, gate_space_operation,
     requirement_for_conjunction_creation, requirement_for_negotiation,
     requirement_for_risk_update,
@@ -988,7 +988,14 @@ pub fn screen_conjunction_from_tles(
     }
     let coarse_step_secs: i64 = 600; // 10 minutes
     let fine_step_secs: i64 = 10; // 10 seconds for refinement
-    let num_coarse_steps = ((total_seconds + coarse_step_secs - 1) / coarse_step_secs).max(1);
+    let coarse_offsets =
+        inclusive_time_offsets(0, total_seconds, coarse_step_secs).map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Invalid coarse screening schedule: {:?}", error),
+            )
+            .into_wasm_error()
+        })?;
 
     // Capture once so every pair is assessed over the same absolute time window.
     // TLE epochs may be older than now; the caller's hours_ahead is future time
@@ -1002,21 +1009,19 @@ pub fn screen_conjunction_from_tles(
         let mut best_distance = f64::MAX;
         let mut best_step: i64 = 0;
 
-        for i in 0..=num_coarse_steps {
-            // Clamp the last coarse sample to the declared window endpoint.
-            let offset_secs = (i * coarse_step_secs).min(total_seconds);
-            let t = screening_start + chrono::Duration::seconds(offset_secs);
+        for offset_secs in &coarse_offsets {
+            let t = screening_start + chrono::Duration::seconds(*offset_secs);
             let p_state = primary_prop.propagate_to(t).map_err(|error| {
                 SpaceError::new(
                     SpaceErrorCode::InvalidInput,
-                    format!("Primary propagation failed at coarse sample {}: {}", i, error),
+                    format!("Primary propagation failed at coarse sample {}s: {}", offset_secs, error),
                 )
                 .into_wasm_error()
             })?;
             let s_state = sec_prop.propagate_to(t).map_err(|error| {
                 SpaceError::new(
                     SpaceErrorCode::InvalidInput,
-                    format!("Secondary propagation failed at coarse sample {}: {}", i, error),
+                    format!("Secondary propagation failed at coarse sample {}s: {}", offset_secs, error),
                 )
                 .into_wasm_error()
             })?;
@@ -1024,13 +1029,13 @@ pub fn screen_conjunction_from_tles(
             if !dist.is_finite() || dist < 0.0 {
                 return Err(SpaceError::new(
                     SpaceErrorCode::InvalidInput,
-                    format!("Invalid coarse miss distance at sample {}", i),
+                    format!("Invalid coarse miss distance at sample {}s", offset_secs),
                 )
                 .into_wasm_error());
             }
             if dist < best_distance {
                 best_distance = dist;
-                best_step = offset_secs;
+                best_step = *offset_secs;
             }
         }
 
@@ -1040,19 +1045,14 @@ pub fn screen_conjunction_from_tles(
         let mut tca_offset = best_step;
         let mut tca_distance = best_distance;
 
-        let mut fine_offsets = Vec::new();
-        let mut t_secs = fine_start;
-        while t_secs < fine_end {
-            fine_offsets.push(t_secs);
-            let next = t_secs.saturating_add(fine_step_secs);
-            if next >= fine_end {
-                break;
-            }
-            t_secs = next;
-        }
-        if fine_offsets.last().copied() != Some(fine_end) {
-            fine_offsets.push(fine_end);
-        }
+        let fine_offsets =
+            inclusive_time_offsets(fine_start, fine_end, fine_step_secs).map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Invalid fine screening schedule: {:?}", error),
+                )
+                .into_wasm_error()
+            })?;
 
         for t_secs in fine_offsets {
             let t = screening_start + chrono::Duration::seconds(t_secs);
