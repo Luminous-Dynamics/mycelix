@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mcrb-transparency-proof-bundle-v0.1.json",
+  "title": "MCRB Transparency Proof Bundle v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "log_id",
+    "entry_digest_sha256",
+    "log_index",
+    "tree_size",
+    "root_hash_sha256",
+    "checkpoint",
+    "inclusion_proof",
+    "consistency_proofs",
+    "verification_status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mcrb-transparency-proof-bundle-v0.1"
+    },
+    "log_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "entry_digest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "log_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tree_size": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "root_hash_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tree_size",
+        "root_hash_sha256",
+        "timestamp_unix_ms",
+        "key_id",
+        "signature"
+      ],
+      "properties": {
+        "tree_size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "root_hash_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "timestamp_unix_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signature": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "inclusion_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hashes_sha256"
+      ],
+      "properties": {
+        "hashes_sha256": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "consistency_proofs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_tree_size",
+          "from_root_hash_sha256",
+          "to_tree_size",
+          "to_root_hash_sha256",
+          "proof_hashes_sha256"
+        ],
+        "properties": {
+          "from_tree_size": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "from_root_hash_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "to_tree_size": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "to_root_hash_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "proof_hashes_sha256": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "signed_entry_timestamp": {
+      "type": "string"
+    },
+    "verification_status": {
+      "enum": [
+        "not-verified",
+        "inclusion-valid",
+        "consistency-valid",
+        "invalid",
+        "incomplete"
+      ]
+    },
+    "previous_checkpoint_digest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
