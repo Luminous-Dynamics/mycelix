@@ -85,10 +85,7 @@ fn operation_contract_registry_artifact_is_bound_to_exact_scenario_manifest() {
         registry["source_scenario_manifest_git_blob_sha"],
         "11f3383ba9c2f5a37b9d5fcce01fc4dbbfc44a3c"
     );
-    assert_eq!(
-        registry["source_scenario_manifest_git_blob_sha"],
-        "11f3383ba9c2f5a37b9d5fcce01fc4dbbfc44a3c"
-    );
+
     assert!(
         schema["required"].as_array().unwrap().iter().any(|value| value == "source_scenario_manifest_git_blob_sha")
     );
