@@ -87,8 +87,9 @@
             ],
             "properties": {
               "measurement_id": {
-                "type": "string",
-                "minLength": 1
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4294967295
               },
               "external_document_reference_id": {
                 "type": "integer",
@@ -109,8 +110,9 @@
                 ]
               },
               "result_set_id": {
-                "type": "string",
-                "minLength": 1
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4294967295
               }
             }
           }
@@ -120,8 +122,9 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "type": "string",
-            "minLength": 1
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
           }
         }
       }
