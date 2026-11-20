@@ -70,6 +70,8 @@ The evidence graph is a **partial order**. Causal predecessors, ActionHash linea
 
 The v0.1 trace schema represents each causal predecessor as an event reference plus a typed relation (for example, local program order, source-chain successor, request/response, transport-for, commits, receipt-for, verifies, revokes, checkpoint-descendant-of or recovered-from). The independent verifier must resolve both endpoints, check the relation against the evidence roles and exact identities/lineage, and reject cycles or unsupported edges. JSON Schema can check shape; it cannot prove that a claimed causal edge is true.
 
+The logical operation ID is stable across retries and routes. The attempt ID is null only for operation-scoped events that occur before an attempt exists (for example, recording durable intent); execution, transport, recipient and receipt events require a concrete attempt ID. An attempt is not a new logical message.
+
 ## 4. Architecture direction
 
 ### 4.1 Cryptographic protocol adapters, not bespoke cryptography
