@@ -325,6 +325,7 @@ pub enum ScreeningCoverageError {
     MissingRequestedObject { norad_id: u32 },
 }
 
+/// This contract is intentionally exact-set: a partial DHT response is not a negative screen.
 /// Validate that a screening response contains exactly one result for every
 /// requested NORAD ID, with no duplicates or unsolicited objects.
 ///
