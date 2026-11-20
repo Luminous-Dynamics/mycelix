@@ -344,6 +344,7 @@ pub struct TleLatestCandidate<'a> {
     pub submitted_at_micros: i64,
 }
 
+/// Provider authority is not inferred here; only epoch, payload and declared metadata are compared.
 /// Select the latest TLE independently of DHT link iteration order.
 ///
 /// A strictly newer epoch wins. Older epochs cannot replace it. Equal-epoch
