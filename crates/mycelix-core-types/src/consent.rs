@@ -511,6 +511,152 @@ mod tests {
     }
 
     #[test]
+    fn consent_commitments_v1_match_known_answer_vectors() {
+        let consent = consent();
+        let commitments = consent.commitments_v1().unwrap();
+
+        assert_eq!(commitments.schema_version(), 1);
+        assert_eq!(commitments.consent_id(), consent.id);
+        assert_eq!(
+            commitments.consent_profile_digest(),
+            &[
+                0x85, 0x04, 0x8e, 0xbd, 0x83, 0xb3, 0x3f, 0xb6,
+                0x71, 0x90, 0x26, 0xd6, 0x89, 0x9d, 0xee, 0xfe,
+                0xa2, 0x58, 0x43, 0xee, 0x25, 0xb1, 0x39, 0xf9,
+                0xe7, 0x23, 0x57, 0xf7, 0x65, 0xaf, 0x85, 0x7a,
+            ]
+        );
+        assert_eq!(
+            commitments.purpose_digest(),
+            &[
+                0x30, 0x95, 0x6c, 0x7b, 0x67, 0x0c, 0xd1, 0x4a,
+                0xea, 0x3b, 0xba, 0x59, 0x4f, 0xc2, 0xd3, 0x70,
+                0x04, 0x1e, 0x9a, 0xf6, 0xf2, 0x98, 0x88, 0x05,
+                0x00, 0x6d, 0x01, 0x93, 0xdb, 0x1b, 0xc9, 0xfa,
+            ]
+        );
+        assert_eq!(
+            commitments.data_class_digest(),
+            &[
+                0xe9, 0xb8, 0x46, 0xaa, 0xb5, 0x04, 0xf8, 0x87,
+                0x78, 0xca, 0x2e, 0xcb, 0xea, 0xf9, 0x6b, 0x55,
+                0x5a, 0xea, 0xb1, 0xea, 0xdc, 0x6e, 0x0e, 0xc7,
+                0xab, 0xce, 0x78, 0xf3, 0x01, 0xc4, 0xb2, 0x95,
+            ]
+        );
+    }
+
+    #[test]
+    fn consent_commitments_reject_content_identity_mismatch() {
+        let mut value = consent();
+        value.purpose = ConsentPurpose::named("marketing").unwrap();
+        assert_eq!(
+            value.commitments_v1(),
+            Err(ConsentError::IdentityMismatch)
+        );
+    }
+
+    #[test]
+    fn consent_commitments_are_immutable_across_revocation_but_live_authority_is_not() {
+        let mut value = consent();
+        let before = value.commitments_v1().unwrap();
+        let grantor = participant("did", "alice");
+
+        value.revoke(&grantor, 150, 7).unwrap();
+
+        let after = value.commitments_v1().unwrap();
+        assert_eq!(before, after);
+        assert_eq!(
+            value.authorize(&request("relationship-support", 160, 7)),
+            Err(ConsentError::NotGranted)
+        );
+    }
+
+    #[test]
+    fn purpose_mutation_changes_profile_and_purpose_commitments_only() {
+        let mut value = consent();
+        let before = value.commitments_v1().unwrap();
+
+        value.purpose = ConsentPurpose::named("incident-response").unwrap();
+        value.id = ConsentId::derive_content_bound(&value);
+        let after = value.commitments_v1().unwrap();
+
+        assert_ne!(before.consent_id(), after.consent_id());
+        assert_ne!(
+            before.consent_profile_digest(),
+            after.consent_profile_digest()
+        );
+        assert_ne!(before.purpose_digest(), after.purpose_digest());
+        assert_eq!(before.data_class_digest(), after.data_class_digest());
+    }
+
+    #[test]
+    fn data_class_commitment_is_order_independent_and_membership_sensitive() {
+        let relationship = RelationshipId::derive("test", b"data-class-order");
+        let grantor = participant("did", "alice");
+        let audience = AudienceRef::principal(participant("did", "bob"));
+        let purpose = ConsentPurpose::named("relationship-support").unwrap();
+
+        let make = |classes: Vec<DataClass>| {
+            Consent::grant(
+                ConsentId([0; 32]),
+                relationship,
+                grantor.clone(),
+                audience.clone(),
+                purpose.clone(),
+                DisclosureScope::new(
+                    AccessMode::Disclose,
+                    classes,
+                    vec!["email".into()],
+                )
+                .unwrap(),
+                100,
+                Some(200),
+                7,
+            )
+            .unwrap()
+        };
+
+        let first = make(vec![DataClass::Contact, DataClass::Identity]);
+        let permuted = make(vec![DataClass::Identity, DataClass::Contact]);
+        let expanded = make(vec![
+            DataClass::Contact,
+            DataClass::Identity,
+            DataClass::Financial,
+        ]);
+
+        let first_commitments = first.commitments_v1().unwrap();
+        let permuted_commitments = permuted.commitments_v1().unwrap();
+        let expanded_commitments = expanded.commitments_v1().unwrap();
+
+        assert_eq!(first.canonical_bytes(), permuted.canonical_bytes());
+        assert_eq!(first_commitments, permuted_commitments);
+        assert_ne!(
+            first_commitments.data_class_digest(),
+            expanded_commitments.data_class_digest()
+        );
+        assert_ne!(
+            first_commitments.consent_profile_digest(),
+            expanded_commitments.consent_profile_digest()
+        );
+        assert_eq!(
+            first_commitments.purpose_digest(),
+            expanded_commitments.purpose_digest()
+        );
+    }
+
+    #[test]
+    fn owner_commitments_reject_noncanonical_public_scope_mutation() {
+        let mut value = consent();
+        value.scope.data_classes = vec![DataClass::Contact, DataClass::Identity];
+        value.id = ConsentId::derive_content_bound(&value);
+        assert_eq!(
+            value.commitments_v1(),
+            Err(ConsentError::NonCanonicalScope)
+        );
+    }
+
+    #[test]
     fn content_bound_identity_is_deterministic() {
         let c = consent();
         assert_eq!(c.id, ConsentId::derive_content_bound(&c));
