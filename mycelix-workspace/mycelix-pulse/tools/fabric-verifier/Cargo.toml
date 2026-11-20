@@ -10,3 +10,4 @@ description = "Independent structural and causal-consistency verifier for Pulse 
 
 [dependencies]
 serde_json = "1.0"
+jsonschema = { version = "=0.61.2", default-features = false }
