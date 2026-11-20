@@ -124,6 +124,14 @@ pub struct InvocationV1 {
     pub timeout_ms: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EnvironmentProfileV1 {
+    locale: String,
+    timezone: String,
+    network_policy: NetworkPolicy,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RunStatus {
@@ -191,6 +199,8 @@ pub enum ReceiptError {
     ConfigurationDigestMismatch,
     #[error("invalid invocation profile")]
     InvalidInvocation,
+    #[error("environment profile bytes disagree with invocation metadata")]
+    EnvironmentProfileMismatch,
     #[error("undeclared network egress: {0}")]
     UndeclaredEgress(String),
     #[error("run status and exit code disagree")]
@@ -652,6 +662,20 @@ pub fn verify_artifact_payloads(
             return Err(ReceiptError::UnexpectedArtifactPayload(key.0));
         };
         verify_artifact_bytes(artifact, bytes)?;
+        if artifact.reference == receipt.invocation.arguments.reference {
+            let _arguments: Vec<String> = serde_json::from_slice(bytes)
+                .map_err(|_| ReceiptError::InvalidInvocation)?;
+        }
+        if artifact.reference == receipt.invocation.environment_profile.reference {
+            let profile: EnvironmentProfileV1 = serde_json::from_slice(bytes)
+                .map_err(|_| ReceiptError::InvalidInvocation)?;
+            if profile.locale != receipt.invocation.locale
+                || profile.timezone != receipt.invocation.timezone
+                || profile.network_policy != receipt.invocation.network_policy
+            {
+                return Err(ReceiptError::EnvironmentProfileMismatch);
+            }
+        }
     }
     for artifact in &expected {
         let key = (artifact.reference.id.clone(), artifact.reference.kind.clone());
@@ -795,6 +819,20 @@ mod tests {
         receipt.invocation.observed_egress = vec!["https://unexpected.example".into()];
         receipt.receipt_sha256 = compute_receipt_digest(&receipt).unwrap();
         assert!(matches!(validate_receipt(&receipt), Err(ReceiptError::UndeclaredEgress(_))));
+    }
+
+    #[test]
+    fn environment_profile_must_match_invocation_metadata() {
+        let mut receipt = fixture();
+        receipt.invocation.network_policy = NetworkPolicy::Allowlisted;
+        receipt.invocation.declared_egress = vec!["https://approved.example".into()];
+        receipt.receipt_sha256 = compute_receipt_digest(&receipt).unwrap();
+        let bytes = payloads();
+        let borrowed: Vec<_> = bytes.iter().map(|(reference, payload)| (reference, payload.as_slice())).collect();
+        assert_eq!(
+            verify_artifact_payloads(&receipt, &borrowed),
+            Err(ReceiptError::EnvironmentProfileMismatch)
+        );
     }
 
     #[test]
