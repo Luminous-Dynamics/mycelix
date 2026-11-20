@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/AeroSemanticAssertionV1.json",
+  "title": "AeroSemanticAssertionV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "benchmark_id",
+    "case_id",
+    "source_class",
+    "case_kind",
+    "configuration",
+    "assertions",
+    "mutations",
+    "expected_disposition"
+  ],
+  "properties": {
+    "schema": {
+      "const": "AeroSemanticAssertionV1"
+    },
+    "benchmark_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_class": {
+      "enum": [
+        "authored_synthetic",
+        "external_reference"
+      ]
+    },
+    "case_kind": {
+      "enum": [
+        "positive_control",
+        "negative_control",
+        "round_trip",
+        "interoperability_reference"
+      ]
+    },
+    "configuration": {
+      "$ref": "#/$defs/ref"
+    },
+    "source_manifest": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "assertions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/assertion"
+      }
+    },
+    "mutations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mutation"
+      }
+    },
+    "expected_disposition": {
+      "enum": [
+        "PRESERVED",
+        "SEMANTIC_LOSS",
+        "WRONG_SUBJECT_JOIN",
+        "UNSUPPORTED",
+        "AMBIGUOUS",
+        "NOT_RUN"
+      ]
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "publisher",
+        "url",
+        "version",
+        "acquired_at",
+        "rights_status",
+        "sha256"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "publisher": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acquired_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "rights_status": {
+          "enum": [
+            "NOT_REVIEWED",
+            "RESTRICTED",
+            "CLEARED_FOR_TESTING",
+            "CLEARED_FOR_REDISTRIBUTION",
+            "REJECTED"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assertion_id",
+        "semantic_type",
+        "subject",
+        "requirement",
+        "value",
+        "unit",
+        "source_locator",
+        "required"
+      ],
+      "properties": {
+        "assertion_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "semantic_type": {
+          "enum": [
+            "persistent_identity",
+            "requirement_link",
+            "feature_association",
+            "nominal_dimension",
+            "tolerance",
+            "datum_reference",
+            "unit",
+            "coordinate_frame",
+            "material_property",
+            "composite_layup",
+            "process_operation",
+            "execution_interval",
+            "measurement_result",
+            "calibration_validity"
+          ]
+        },
+        "subject": {
+          "$ref": "#/$defs/ref"
+        },
+        "requirement": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ref"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "value": {},
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_locator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mutation_id",
+        "target_assertion_id",
+        "operation",
+        "expected_disposition"
+      ],
+      "properties": {
+        "mutation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_assertion_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation": {
+          "enum": [
+            "drop_field",
+            "change_value",
+            "change_unit",
+            "change_tolerance_type",
+            "change_datum",
+            "change_subject_id",
+            "duplicate_persistent_id",
+            "stale_revision",
+            "shift_event_time",
+            "drop_trace_edge",
+            "replace_semantic_with_graphic_only",
+            "omit_unsupported_field"
+          ]
+        },
+        "expected_disposition": {
+          "enum": [
+            "SEMANTIC_LOSS",
+            "WRONG_SUBJECT_JOIN",
+            "UNSUPPORTED",
+            "AMBIGUOUS"
+          ]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_class": {
+            "const": "external_reference"
+          }
+        },
+        "required": [
+          "source_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source_manifest": {
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "rights_status": {
+                  "enum": [
+                    "CLEARED_FOR_TESTING",
+                    "CLEARED_FOR_REDISTRIBUTION"
+                  ]
+                }
+              },
+              "required": [
+                "rights_status"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "case_kind": {
+            "const": "interoperability_reference"
+          }
+        },
+        "required": [
+          "case_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source_class": {
+            "const": "external_reference"
+          }
+        }
+      }
+    }
+  ]
+}
