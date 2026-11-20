@@ -31,7 +31,7 @@ A receipt carries:
 - typed input roles and immutable AeroEvidence ArtifactRef references;
 - SHA-256, byte length, media type and format profile for every input, output and adapter executable;
 - adapter identifier/version and an optional reference to SLSA build provenance;
-- hashes for the exact argument vector, environment profile and configuration bytes;
+- content-addressed, byte-verifiable argument-vector and non-secret environment-profile artifacts, plus configuration bytes bound to the exact configuration input;
 - locale, timezone, timeout, declared network policy and observed egress;
 - raw output and normalized assertion-set artifacts;
 - exit outcome, elapsed-time metadata, warnings and explicit unsupported assertion IDs;
