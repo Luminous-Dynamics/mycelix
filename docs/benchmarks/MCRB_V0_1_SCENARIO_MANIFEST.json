@@ -1427,6 +1427,16 @@
     "generator_authenticity": "separate-signed-runner-or-orchestrator-receipt-required",
     "claim_ceiling": "Digest validity proves internal ledger consistency, not independent generator, runner, observer or external-effect truth. A VerifiedOutcomeLedger and independently authenticated observer policy are required before outcome classifications can earn QOPS.",
     "cross_host_requirement_source": "selected-scenario.qops_requires_cross_host_visibility",
-    "cross_host_requirement_binding": "the boolean is copied into the offer-ledger envelope and committed into the canonical ledger digest; QOPS reads it only from VerifiedOfferLedger"
+    "cross_host_requirement_binding": "the boolean is copied into the offer-ledger envelope and committed into the canonical ledger digest; QOPS reads it only from VerifiedOfferLedger",
+    "operation_contract_registry": {
+      "schema_version": "mycelix-mcrb-operation-contract-registry-v0.1",
+      "registry_path": "docs/benchmarks/MCRB_OPERATION_CONTRACTS_V0_1.json",
+      "registry_schema_path": "docs/benchmarks/MCRB_OPERATION_CONTRACT_REGISTRY_V0_1.schema.json",
+      "offer_ledger_schema_path": "docs/benchmarks/MCRB_OFFER_LEDGER_V0_1.schema.json",
+      "digest_policy": "SHA-256 of the exact committed registry artifact bytes; expected digest supplied by protected run configuration",
+      "source_manifest_binding": "registry.source_scenario_manifest_git_blob_sha must equal the Git blob SHA of this exact scenario manifest",
+      "per_operation_binding": "every offer binds contract_id, contract_version and domain-separated contract_digest_sha256 before dispatch",
+      "claim_ceiling": "structural validation and digest binding do not authenticate registry governance, runner, signer or outcome evidence"
+    }
   }
 }
