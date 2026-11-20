@@ -12,10 +12,12 @@ The crate consumes the typed AeroEvidence primitives from the stacked AeroCommon
 
 ## Result semantics
 
-A successful report is STRUCTURALLY_COMPLETE only. It means that required artifact references and evidence records are present, internally cross-linked, bound to the same serialized physical unit and configuration where required, and active under the declared record lifecycle. Calibration validity must cover each declared measurement timestamp.
+`parse_packet_json` is the strict admission boundary: it rejects unknown and missing fields at the packet, reference, artifact, calibration and nested evidence levels. `validate_packet` then checks structural identity, edge roles, exact serialized-unit/configuration binding, lifecycle, calibration validity windows and event chronology. Its result is STRUCTURALLY_COMPLETE only; calibration timestamps are declared replay metadata, not proof of clock accuracy.
+
+`verify_artifact_bytes` recomputes byte length and SHA-256. `verify_packet_artifact_payloads` requires the exact four artifact payloads and verifies each against its content-addressed reference. A full-packet result reports `artifact_payloads_verified = true` only after these byte checks succeed.
 
 It does not retrieve artifact bytes, verify their SHA-256 values against remote storage, authenticate signatures, establish independent review, qualify a process/material/instrument, decide whether a part passed inspection or test, establish conformity or airworthiness, or authorize fabrication/use/flight.
 
 ## Interoperability
 
-The packet references STEP AP242 for the product definition and QIF for the inspection result. These are opaque external artefact references in this increment; the crate does not parse those formats or claim standards conformance.
+The packet references STEP AP242 for the product definition and QIF for the inspection result. The checked-in payloads are deliberately tiny synthetic text/XML samples; they are not normative AP242 or QIF documents. The verifier checks identity, byte length and SHA-256 only. It does not parse, schema-validate, semantically validate or claim conformance to those standards.
