@@ -150,7 +150,29 @@ fn check_object_fields(
 }
 
 fn check_ref_value(value: &serde_json::Value, scope: &str) -> Result<(), PacketError> {
-    check_object_fields(value, &["id", "kind"], scope)
+    check_object_fields(value, &["id", "kind"], scope)?;
+    check_required_fields(value, &["id", "kind"], scope)
+}
+
+fn check_required_fields(
+    value: &serde_json::Value,
+    required: &[&str],
+    scope: &str,
+) -> Result<(), PacketError> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| PacketError::MalformedPacketField(scope.to_owned()))?;
+    for field in required {
+        if !object.contains_key(*field) {
+            return Err(PacketError::MalformedPacketField(format!("{scope}.{field}")));
+        }
+    }
+    Ok(())
+}
+
+fn check_ref_value(value: &serde_json::Value, scope: &str) -> Result<(), PacketError> {
+    check_object_fields(value, &["id", "kind"], scope)?;
+    check_required_fields(value, &["id", "kind"], scope)
 }
 
 fn check_ref_array(value: &serde_json::Value, scope: &str) -> Result<(), PacketError> {
@@ -169,6 +191,7 @@ fn check_content_value(value: &serde_json::Value, scope: &str) -> Result<(), Pac
         &["reference", "sha256", "byte_length", "media_type", "format_id"],
         scope,
     )?;
+    check_required_fields(value, &["reference", "sha256", "byte_length", "media_type", "format_id"], scope)?;
     let reference = value
         .get("reference")
         .ok_or_else(|| PacketError::MalformedPacketField(format!("{scope}.reference")))?;
@@ -184,6 +207,7 @@ fn check_calibration_validity_value(
         &["evidence", "valid_from_unix_ms", "valid_until_unix_ms", "used_at_unix_ms"],
         scope,
     )?;
+    check_required_fields(value, &["evidence", "valid_from_unix_ms", "valid_until_unix_ms", "used_at_unix_ms"], scope)?;
     let evidence = value
         .get("evidence")
         .ok_or_else(|| PacketError::MalformedPacketField(format!("{scope}.evidence")))?;
@@ -214,6 +238,15 @@ fn check_evidence_value(value: &serde_json::Value, scope: &str) -> Result<(), Pa
         ],
         scope,
     )?;
+    check_required_fields(
+        value,
+        &[
+            "evidence_id", "schema", "claim", "claim_kind", "configuration", "subject",
+            "basis", "method", "inputs", "toolchain", "result", "uncertainty",
+            "validity_domain", "producer", "review", "lifecycle", "provenance",
+        ],
+        scope,
+    )?;
     for field in ["configuration", "subject"] {
         let nested = value
             .get(field)
@@ -239,12 +272,18 @@ fn check_evidence_value(value: &serde_json::Value, scope: &str) -> Result<(), Pa
                 &["representation", "value", "unit"],
                 &format!("{scope}.uncertainty"),
             )?;
+            check_required_fields(
+                uncertainty,
+                &["representation", "value", "unit"],
+                &format!("{scope}.uncertainty"),
+            )?;
         }
     }
     let validity = value
         .get("validity_domain")
         .ok_or_else(|| PacketError::MalformedPacketField(format!("{scope}.validity_domain")))?;
     check_object_fields(validity, &["conditions"], &format!("{scope}.validity_domain"))?;
+    check_required_fields(validity, &["conditions"], &format!("{scope}.validity_domain"))?;
     let conditions = validity
         .get("conditions")
         .ok_or_else(|| PacketError::MalformedPacketField(format!("{scope}.validity_domain.conditions")))?;
@@ -257,6 +296,11 @@ fn check_evidence_value(value: &serde_json::Value, scope: &str) -> Result<(), Pa
         .get("lifecycle")
         .ok_or_else(|| PacketError::MalformedPacketField(format!("{scope}.lifecycle")))?;
     check_object_fields(
+        lifecycle,
+        &["state", "reason", "predecessor"],
+        &format!("{scope}.lifecycle"),
+    )?;
+    check_required_fields(
         lifecycle,
         &["state", "reason", "predecessor"],
         &format!("{scope}.lifecycle"),
@@ -275,6 +319,7 @@ fn check_packet_json_contract(value: &serde_json::Value) -> Result<(), PacketErr
         "test_evidence",
     ];
     check_object_fields(value, ROOT_FIELDS, "packet")?;
+    check_required_fields(value, ROOT_FIELDS, "packet")?;
 
     for field in [
         "component", "physical_unit", "configuration", "material_batch", "machine",
@@ -1130,6 +1175,19 @@ mod tests {
         assert!(matches!(
             parse_packet_json(&bytes),
             Err(PacketError::UnknownField { .. })
+        ));
+    }
+
+    #[test]
+    fn strict_parser_requires_optional_evidence_fields_to_be_explicit() {
+        let mut value: serde_json::Value =
+            serde_json::from_slice(include_bytes!("../fixtures/nonflight_coupon_packet_v1.json"))
+                .expect("fixture JSON");
+        value["build_evidence"].as_object_mut().unwrap().remove("method");
+        let bytes = serde_json::to_vec(&value).expect("serialize mutated fixture");
+        assert!(matches!(
+            parse_packet_json(&bytes),
+            Err(PacketError::MalformedPacketField(_))
         ));
     }
 
