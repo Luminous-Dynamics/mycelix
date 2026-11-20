@@ -153,9 +153,13 @@ impl RiskLevel {
     pub fn description(&self) -> &'static str {
         match self {
             RiskLevel::Negligible => "Below the lowest Pc screening band; not a safety finding",
-            RiskLevel::Low => "Low Pc-only screening band; interpret with data quality and uncertainty",
+            RiskLevel::Low => {
+                "Low Pc-only screening band; interpret with data quality and uncertainty"
+            }
             RiskLevel::Medium => "Medium Pc-only screening band; independent assessment required",
-            RiskLevel::High => "High Pc-only screening band; independent operational review required",
+            RiskLevel::High => {
+                "High Pc-only screening band; independent operational review required"
+            }
             RiskLevel::Emergency => "Highest Pc-only screening band; not a maneuver command",
         }
     }
@@ -171,7 +175,9 @@ pub enum ConjunctionAssessmentError {
         primary: ReferenceFrame,
         secondary: ReferenceFrame,
     },
-    #[error("reference-frame label {frame:?} is too generic for checked assessment; provide a qualified frame realization or use TEME")]
+    #[error(
+        "reference-frame label {frame:?} is too generic for checked assessment; provide a qualified frame realization or use TEME"
+    )]
     UnsupportedFrameConvention { frame: ReferenceFrame },
     #[error("{object} state contains a non-finite position or velocity component")]
     NonFiniteState { object: &'static str },
@@ -183,7 +189,9 @@ pub enum ConjunctionAssessmentError {
         state: ReferenceFrame,
         covariance: CovarianceFrame,
     },
-    #[error("{object} covariance is non-finite, invalid, or singular for the collision calculation")]
+    #[error(
+        "{object} covariance is non-finite, invalid, or singular for the collision calculation"
+    )]
     InvalidCovariance { object: &'static str },
     #[error("{object} covariance source is unknown")]
     UnknownCovarianceProvenance { object: &'static str },
@@ -315,11 +323,23 @@ impl ConjunctionAnalyzer {
             });
         }
 
-        if !primary.state.to_array().iter().all(|value| value.is_finite()) {
+        if !primary
+            .state
+            .to_array()
+            .iter()
+            .all(|value| value.is_finite())
+        {
             return Err(ConjunctionAssessmentError::NonFiniteState { object: "primary" });
         }
-        if !secondary.state.to_array().iter().all(|value| value.is_finite()) {
-            return Err(ConjunctionAssessmentError::NonFiniteState { object: "secondary" });
+        if !secondary
+            .state
+            .to_array()
+            .iter()
+            .all(|value| value.is_finite())
+        {
+            return Err(ConjunctionAssessmentError::NonFiniteState {
+                object: "secondary",
+            });
         }
 
         if !self.default_hbr_m.is_finite() || self.default_hbr_m <= 0.0 {
@@ -345,10 +365,13 @@ impl ConjunctionAnalyzer {
             .covariance
             .as_ref()
             .ok_or(ConjunctionAssessmentError::MissingCovariance { object: "primary" })?;
-        let secondary_covariance = secondary
-            .covariance
-            .as_ref()
-            .ok_or(ConjunctionAssessmentError::MissingCovariance { object: "secondary" })?;
+        let secondary_covariance =
+            secondary
+                .covariance
+                .as_ref()
+                .ok_or(ConjunctionAssessmentError::MissingCovariance {
+                    object: "secondary",
+                })?;
         let combined_position_covariance =
             primary_covariance.position_covariance() + secondary_covariance.position_covariance();
         let miss_vector = secondary.state.position() - primary.state.position();
@@ -682,8 +705,7 @@ mod tests {
     use nalgebra::Matrix6;
 
     fn checked_test_state(norad_id: u32, epoch: chrono::DateTime<chrono::Utc>) -> OrbitalState {
-        let mut covariance =
-            CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.01, 0.01, 0.01]);
+        let mut covariance = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.01, 0.01, 0.01]);
         covariance.frame = CovarianceFrame::TEME;
         covariance.source = CovarianceSource::Estimated { tle_age_hours: 0.0 };
         OrbitalState::new(
@@ -747,9 +769,7 @@ mod tests {
             let radius_km = radius / 1000.0;
             assert!(
                 ConjunctionAnalyzer::within_small_disk_reference_envelope(
-                    miss,
-                    covariance,
-                    radius_km
+                    miss, covariance, radius_km
                 ),
                 "{name}: selected reference case should be within the empirical small-disk eligibility envelope"
             );
@@ -783,11 +803,7 @@ mod tests {
             "fixture must continue to demonstrate the approximation's out-of-domain error"
         );
         assert!(
-            !ConjunctionAnalyzer::within_small_disk_reference_envelope(
-                miss,
-                covariance,
-                radius_km
-            ),
+            !ConjunctionAnalyzer::within_small_disk_reference_envelope(miss, covariance, radius_km),
             "large hard-body radius vs narrow uncertainty must be rejected"
         );
     }
@@ -860,7 +876,9 @@ mod tests {
         let primary = checked_test_state(25544, epoch);
         let secondary = checked_test_state(12345, epoch + chrono::Duration::seconds(1));
         assert_eq!(
-            ConjunctionAnalyzer::new().try_assess(&primary, &secondary).unwrap_err(),
+            ConjunctionAnalyzer::new()
+                .try_assess(&primary, &secondary)
+                .unwrap_err(),
             ConjunctionAssessmentError::EpochMismatch
         );
     }
@@ -876,7 +894,9 @@ mod tests {
         secondary.covariance.as_mut().unwrap().frame = CovarianceFrame::ECI;
 
         assert_eq!(
-            ConjunctionAnalyzer::new().try_assess(&primary, &secondary).unwrap_err(),
+            ConjunctionAnalyzer::new()
+                .try_assess(&primary, &secondary)
+                .unwrap_err(),
             ConjunctionAssessmentError::UnsupportedFrameConvention {
                 frame: ReferenceFrame::ECI
             }
@@ -906,7 +926,10 @@ mod tests {
         let secondary = checked_test_state(12345, epoch);
         assert!(matches!(
             ConjunctionAnalyzer::new().try_assess(&primary, &secondary),
-            Err(ConjunctionAssessmentError::CovarianceFrameMismatch { object: "primary", .. })
+            Err(ConjunctionAssessmentError::CovarianceFrameMismatch {
+                object: "primary",
+                ..
+            })
         ));
     }
 
@@ -917,7 +940,9 @@ mod tests {
         primary.covariance.as_mut().unwrap().source = CovarianceSource::Unknown;
         let secondary = checked_test_state(12345, epoch);
         assert_eq!(
-            ConjunctionAnalyzer::new().try_assess(&primary, &secondary).unwrap_err(),
+            ConjunctionAnalyzer::new()
+                .try_assess(&primary, &secondary)
+                .unwrap_err(),
             ConjunctionAssessmentError::UnknownCovarianceProvenance { object: "primary" }
         );
     }
@@ -926,11 +951,14 @@ mod tests {
     fn checked_assessment_rejects_invalid_covariance_source_metadata() {
         let epoch = Utc::now();
         let mut primary = checked_test_state(25544, epoch);
-        primary.covariance.as_mut().unwrap().source =
-            CovarianceSource::Estimated { tle_age_hours: f64::NAN };
+        primary.covariance.as_mut().unwrap().source = CovarianceSource::Estimated {
+            tle_age_hours: f64::NAN,
+        };
         let secondary = checked_test_state(12345, epoch);
         assert_eq!(
-            ConjunctionAnalyzer::new().try_assess(&primary, &secondary).unwrap_err(),
+            ConjunctionAnalyzer::new()
+                .try_assess(&primary, &secondary)
+                .unwrap_err(),
             ConjunctionAssessmentError::InvalidCovarianceProvenance { object: "primary" }
         );
     }
@@ -946,7 +974,9 @@ mod tests {
         );
         let secondary = checked_test_state(12345, epoch);
         assert_eq!(
-            ConjunctionAnalyzer::new().try_assess(&primary, &secondary).unwrap_err(),
+            ConjunctionAnalyzer::new()
+                .try_assess(&primary, &secondary)
+                .unwrap_err(),
             ConjunctionAssessmentError::MissingCovariance { object: "primary" }
         );
     }
@@ -958,7 +988,9 @@ mod tests {
         primary.state.vz = f64::INFINITY;
         let secondary = checked_test_state(12345, epoch);
         assert_eq!(
-            ConjunctionAnalyzer::new().try_assess(&primary, &secondary).unwrap_err(),
+            ConjunctionAnalyzer::new()
+                .try_assess(&primary, &secondary)
+                .unwrap_err(),
             ConjunctionAssessmentError::NonFiniteState { object: "primary" }
         );
 
@@ -969,7 +1001,9 @@ mod tests {
         covariance.frame = CovarianceFrame::TEME;
         primary.covariance = Some(covariance);
         assert_eq!(
-            ConjunctionAnalyzer::new().try_assess(&primary, &secondary).unwrap_err(),
+            ConjunctionAnalyzer::new()
+                .try_assess(&primary, &secondary)
+                .unwrap_err(),
             ConjunctionAssessmentError::InvalidCovariance { object: "primary" }
         );
     }
@@ -987,7 +1021,9 @@ mod tests {
         secondary.state.vz = 0.0;
 
         assert_eq!(
-            ConjunctionAnalyzer::new().try_assess(&primary, &secondary).unwrap_err(),
+            ConjunctionAnalyzer::new()
+                .try_assess(&primary, &secondary)
+                .unwrap_err(),
             ConjunctionAssessmentError::DegenerateEncounterGeometry
         );
     }
@@ -1008,10 +1044,13 @@ mod tests {
         ));
 
         assert_eq!(
-            ConjunctionAnalyzer::new().with_hbr(f64::NAN).try_assess(
-                &checked_test_state(25544, epoch),
-                &checked_test_state(12345, epoch)
-            ).unwrap_err(),
+            ConjunctionAnalyzer::new()
+                .with_hbr(f64::NAN)
+                .try_assess(
+                    &checked_test_state(25544, epoch),
+                    &checked_test_state(12345, epoch)
+                )
+                .unwrap_err(),
             ConjunctionAssessmentError::InvalidHardBodyRadius
         );
     }
