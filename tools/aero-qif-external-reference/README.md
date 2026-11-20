@@ -11,7 +11,7 @@ Fail-closed normalized resolver for the QIF 3.0 Results â†’ external Plan xId â†
 ## Entry points
 
 - parse_trace_case_json: strict nested JSON parsing.
-- validate_trace_case: normalized QPId/local-reference/xId/CharacteristicItem/CharacteristicNominal/EntityExternalId/STEP UUID graph checks.
+- validate_trace_case: normalized QPId, numeric QIF ID, ResultSet membership, local-reference/xId/CharacteristicItem/CharacteristicNominal/EntityExternalId/STEP UUID graph checks.
 - verify_and_resolve_trace_case: exact Results, Plan and STEP payload byte verification followed by trace resolution.
 
 ## Identifier path
