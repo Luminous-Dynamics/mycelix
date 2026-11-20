@@ -552,7 +552,7 @@ pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
                 call_sites.extend(sites);
             }
             Err(error) => parse_errors.push(json!({
-                "path": relative_path(root, entry.path()),
+                "path": relative_path(root, &source_path),
                 "error": error.to_string()
             })),
         }
