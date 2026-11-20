@@ -310,6 +310,26 @@ pub enum BenchmarkError {
     CanonicalizationFailed,
 }
 
+fn input_role_key(role: InputRole) -> &'static str {
+    match role {
+        InputRole::Ap242ProductDefinition => "ap242_product_definition",
+        InputRole::QifInput => "qif_input",
+        InputRole::NcProgram => "nc_program",
+        InputRole::MetrologyPlan => "metrology_plan",
+        InputRole::AdapterConfiguration => "adapter_configuration",
+        InputRole::Auxiliary => "auxiliary",
+    }
+}
+
+fn rights_status_key(status: RightsStatus) -> &'static str {
+    match status {
+        RightsStatus::ClearedForTesting => "CLEARED_FOR_TESTING",
+        RightsStatus::ClearedForRedistribution => "CLEARED_FOR_REDISTRIBUTION",
+        RightsStatus::NotReviewed => "NOT_REVIEWED",
+        RightsStatus::Restricted => "RESTRICTED",
+    }
+}
+
 fn valid_sha256(value: &str) -> bool {
     value.len() == 64
         && value
@@ -353,12 +373,12 @@ fn canonical_manifest_body(body: &BenchmarkManifestBodyV1) -> BenchmarkManifestB
     for case in &mut canonical.cases {
         case.inputs.sort_by(|left, right| {
             (
-                format!("{:?}", left.role),
+                input_role_key(left.role),
                 left.artifact.reference.id.as_str(),
                 left.artifact.reference.kind.as_str(),
             )
                 .cmp(&(
-                    format!("{:?}", right.role),
+                    input_role_key(right.role),
                     right.artifact.reference.id.as_str(),
                     right.artifact.reference.kind.as_str(),
                 ))
@@ -447,7 +467,7 @@ pub fn validate_benchmark_manifest(
         for input in &case.inputs {
             validate_artifact(&input.artifact)?;
             let input_identity = (
-                format!("{:?}", input.role),
+                input_role_key(input.role),
                 input.artifact.reference.id.clone(),
                 input.artifact.reference.kind.clone(),
             );
@@ -624,7 +644,9 @@ fn validate_one_run(
                     input.artifact.reference.kind.clone(),
                     input.artifact.sha256.clone(),
                     input.artifact.byte_length,
-                    format!("{:?}", input.rights_status),
+                    input.artifact.media_type.clone(),
+                    input.artifact.format_id.clone(),
+                    rights_status_key(input.rights_status),
                 ))
                 .collect();
             let receipt_inputs: BTreeSet<_> = receipt.inputs.iter()
