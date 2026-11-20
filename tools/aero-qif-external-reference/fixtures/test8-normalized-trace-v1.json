@@ -1,0 +1,171 @@
+{
+  "schema": "AeroQifExternalReferenceTraceV1",
+  "benchmark_id": "AERO-QIF-XID-001",
+  "case_id": "synthetic-test8-001",
+  "results": {
+    "qpid": "10000000-0000-4000-8000-000000000001",
+    "artifact": {
+      "reference": {
+        "id": "sha256:f6eb6aae2fdb632e8b93e02c29975bab238734fe6f6892edd485f561daf65e8a",
+        "kind": "qif_results"
+      },
+      "sha256": "f6eb6aae2fdb632e8b93e02c29975bab238734fe6f6892edd485f561daf65e8a",
+      "byte_length": 51,
+      "media_type": "application/xml",
+      "format_id": "QIF_3.0"
+    },
+    "external_documents": [
+      {
+        "local_reference_id": 7,
+        "plan_qpid": "20000000-0000-4000-8000-000000000002",
+        "plan_artifact": {
+          "reference": {
+            "id": "sha256:5c0155d51d904c0dd989e2d2407ad957ef956ed81a89b978a26e27bdac66c120",
+            "kind": "qif_plan"
+          },
+          "sha256": "5c0155d51d904c0dd989e2d2407ad957ef956ed81a89b978a26e27bdac66c120",
+          "byte_length": 48,
+          "media_type": "application/xml",
+          "format_id": "QIF_3.0"
+        },
+        "uri": "synthetic://plan-a"
+      },
+      {
+        "local_reference_id": 8,
+        "plan_qpid": "30000000-0000-4000-8000-000000000003",
+        "plan_artifact": {
+          "reference": {
+            "id": "sha256:7bb0ca362e01e0456c18a37be3e6ee015ea59ee463eac263781b3128b924b344",
+            "kind": "qif_plan"
+          },
+          "sha256": "7bb0ca362e01e0456c18a37be3e6ee015ea59ee463eac263781b3128b924b344",
+          "byte_length": 8,
+          "media_type": "application/xml",
+          "format_id": "QIF_3.0"
+        },
+        "uri": "synthetic://plan-b"
+      }
+    ],
+    "measurements": [
+      {
+        "measurement_id": "measurement:pass",
+        "external_document_reference_id": 7,
+        "xid": 301,
+        "status": "passed"
+      },
+      {
+        "measurement_id": "measurement:fail",
+        "external_document_reference_id": 7,
+        "xid": 302,
+        "status": "failed"
+      },
+      {
+        "measurement_id": "measurement:second-plan",
+        "external_document_reference_id": 8,
+        "xid": 301,
+        "status": "not_evaluated"
+      }
+    ]
+  },
+  "plans": [
+    {
+      "qpid": "20000000-0000-4000-8000-000000000002",
+      "artifact": {
+        "reference": {
+          "id": "sha256:5c0155d51d904c0dd989e2d2407ad957ef956ed81a89b978a26e27bdac66c120",
+          "kind": "qif_plan"
+        },
+        "sha256": "5c0155d51d904c0dd989e2d2407ad957ef956ed81a89b978a26e27bdac66c120",
+        "byte_length": 48,
+        "media_type": "application/xml",
+        "format_id": "QIF_3.0"
+      },
+      "step_document": {
+        "reference": {
+          "id": "sha256:590a19e66ec2f1c173707cc3263488d055310911d453f1c58d94e881bd44b8a3",
+          "kind": "step_file"
+        },
+        "sha256": "590a19e66ec2f1c173707cc3263488d055310911d453f1c58d94e881bd44b8a3",
+        "byte_length": 35,
+        "media_type": "application/step",
+        "format_id": "ISO_10303_242:2025"
+      },
+      "objects": [
+        {
+          "object_id": 301,
+          "kind": "characteristic_item",
+          "characteristic_id": "characteristic:hole-dia",
+          "step_uuid": "40000000-0000-4000-8000-000000000004",
+          "step_entity_kind": "characteristic"
+        },
+        {
+          "object_id": 302,
+          "kind": "characteristic_item",
+          "characteristic_id": "characteristic:surface",
+          "step_uuid": "50000000-0000-4000-8000-000000000005",
+          "step_entity_kind": "geometric_feature"
+        }
+      ]
+    },
+    {
+      "qpid": "30000000-0000-4000-8000-000000000003",
+      "artifact": {
+        "reference": {
+          "id": "sha256:7bb0ca362e01e0456c18a37be3e6ee015ea59ee463eac263781b3128b924b344",
+          "kind": "qif_plan"
+        },
+        "sha256": "7bb0ca362e01e0456c18a37be3e6ee015ea59ee463eac263781b3128b924b344",
+        "byte_length": 8,
+        "media_type": "application/xml",
+        "format_id": "QIF_3.0"
+      },
+      "step_document": {
+        "reference": {
+          "id": "sha256:590a19e66ec2f1c173707cc3263488d055310911d453f1c58d94e881bd44b8a3",
+          "kind": "step_file"
+        },
+        "sha256": "590a19e66ec2f1c173707cc3263488d055310911d453f1c58d94e881bd44b8a3",
+        "byte_length": 35,
+        "media_type": "application/step",
+        "format_id": "ISO_10303_242:2025"
+      },
+      "objects": [
+        {
+          "object_id": 301,
+          "kind": "characteristic_item",
+          "characteristic_id": "characteristic:flatness",
+          "step_uuid": "60000000-0000-4000-8000-000000000006",
+          "step_entity_kind": "datum"
+        }
+      ]
+    }
+  ],
+  "step_documents": [
+    {
+      "artifact": {
+        "reference": {
+          "id": "sha256:590a19e66ec2f1c173707cc3263488d055310911d453f1c58d94e881bd44b8a3",
+          "kind": "step_file"
+        },
+        "sha256": "590a19e66ec2f1c173707cc3263488d055310911d453f1c58d94e881bd44b8a3",
+        "byte_length": 35,
+        "media_type": "application/step",
+        "format_id": "ISO_10303_242:2025"
+      },
+      "entities": [
+        {
+          "uuid": "40000000-0000-4000-8000-000000000004",
+          "kind": "characteristic"
+        },
+        {
+          "uuid": "50000000-0000-4000-8000-000000000005",
+          "kind": "geometric_feature"
+        },
+        {
+          "uuid": "60000000-0000-4000-8000-000000000006",
+          "kind": "datum"
+        }
+      ]
+    }
+  ]
+}
