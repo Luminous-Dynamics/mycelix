@@ -180,6 +180,18 @@ fn path_has_excluded_component(path: &Path) -> bool {
 
 /// Return only paths recorded in the Git index. An untracked local scratch
 /// file must never silently change a report attributed to HEAD.
+fn parse_tracked_paths(bytes: &[u8]) -> Result<Vec<PathBuf>, Box<dyn Error>> {
+    bytes
+        .split(|byte| *byte == 0)
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            let path = std::str::from_utf8(value)
+                .map_err(|error| format!("tracked path is not UTF-8: {error}"))?;
+            Ok(PathBuf::from(path))
+        })
+        .collect()
+}
+
 fn tracked_paths(root: &Path) -> Result<Vec<PathBuf>, Box<dyn Error>> {
     let output = Command::new("git")
         .args(["ls-files", "-z"])
@@ -192,17 +204,7 @@ fn tracked_paths(root: &Path) -> Result<Vec<PathBuf>, Box<dyn Error>> {
         )
         .into());
     }
-
-    output
-        .stdout
-        .split(|byte| *byte == 0)
-        .filter(|value| !value.is_empty())
-        .map(|value| {
-            let path = std::str::from_utf8(value)
-                .map_err(|error| format!("tracked path is not UTF-8: {error}"))?;
-            Ok(PathBuf::from(path))
-        })
-        .collect()
+    parse_tracked_paths(&output.stdout)
 }
 
 /// Refuse to attribute modified working-tree source to the committed HEAD.
@@ -625,6 +627,32 @@ mod tests {
             dna_paths,
             git_blob_sha: None,
         }
+    }
+
+    #[test]
+    fn tracked_path_parser_preserves_spaces_and_nested_paths() {
+        let paths = parse_tracked_paths(
+            b"mycelix-workspace/a.rs\0mycelix-workspace/path with spaces/b.rs\0",
+        )
+        .unwrap();
+        assert_eq!(paths.len(), 2);
+        assert_eq!(
+            paths[1],
+            PathBuf::from("mycelix-workspace/path with spaces/b.rs")
+        );
+    }
+
+    #[test]
+    fn excluded_components_are_exact_path_segments() {
+        assert!(path_has_excluded_component(Path::new(
+            "mycelix-workspace/crate/tests/bridge.rs"
+        )));
+        assert!(path_has_excluded_component(Path::new(
+            "mycelix-workspace/crate/target/generated.rs"
+        )));
+        assert!(!path_has_excluded_component(Path::new(
+            "mycelix-workspace/crate/contest/bridge.rs"
+        )));
     }
 
     #[test]
