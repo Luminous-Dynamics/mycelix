@@ -319,6 +319,31 @@ The operational implications are important:
 
 The published study's scope and numbers are not universal. They must not be turned into a vendor ranking or generalized false-negative rate. The dedicated comparison protocol is tracked in #6388.
 
+### 9.2 Regime-specific screening-volume baseline (NASA CARA, March 2026)
+
+NASA CARA's public *Unique Conjunction Events* page (last updated November 2, 2026) states that screening volumes designed before megaconstellations no longer fully and consistently satisfied the capture-rate requirement. The page describes revised volumes implemented since March 2026 as designed to capture **99% of conjunctions with Pc > 1e-4 in the current orbital environment**.
+
+| Orbit regime | Perigee / regime | Radial (km) | In-track (km) | Cross-track (km) |
+|---|---|---:|---:|---:|
+| LEO-1 | < 500 km | ±1 | ±50 | ±55 |
+| LEO-2 | 500–750 km | ±1 | ±30 | ±30 |
+| LEO-3 | 750–1200 km | ±1 | ±30 | ±25 |
+| LEO-4 | 1200–2000 km | ±0.5 | ±5 | ±5 |
+| MEO | > 2000 km | ±15 spherical | — | — |
+| GEO / DS | geosynchronous / disposal | ±5 | ±25 | ±15 |
+| HEO | eccentricity > 0.25 | ±30 | ±85 | ±85 |
+
+These current dimensions are materially different from NASA's pre-March-2026 table (for example, LEO-2 changed from ±0.5 / ±17 / ±20 km to ±1 / ±30 / ±30 km). Preserve historic and current profiles as separate versioned fixtures; do not average their dimensions or claim the 99% capture design target as a universal theorem.
+
+**Benchmark consequence:** compare candidate-generation capture and compute burden by orbit regime, source class and profile revision. A hit in a screening volume is only a broad-phase candidate; it is not a collision warning or a Pc result. The matcher and event search must run afterward, with their own miss/abstention metrics. NASA's process explicitly separates event prediction from risk assessment and mitigation.
+
+References:
+- NASA CARA unique conjunction events and March-2026 volume table: https://www.nasa.gov/cara/unique-conjunction-events/
+- NASA CARA screening description: https://www.nasa.gov/cara/step-1-conjunction-event-prediction/
+- NASA CARA risk assessment: https://www.nasa.gov/cara/step-2-close-approach-risk-assessment/
+
+Tracked in #6395; time-domain search and continuous-time candidate follow-through remains in #6381.
+
 ### Fair comparative protocol
 
 For any performance comparison, freeze the same input artifacts and evaluation budget across systems. Bind:
