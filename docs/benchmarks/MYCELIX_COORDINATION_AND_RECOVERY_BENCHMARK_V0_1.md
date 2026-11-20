@@ -594,3 +594,60 @@ The requirement for cross-host observation is part of the frozen scenario contra
 A local/offline-first scenario can therefore legitimately report cross-host timing as NotEvaluated when the frozen contract says remote visibility is not required. A DHT convergence, remote-signal, partition/rejoin or other peer-observation scenario must have complete, valid cross-host event-pair evidence before QOPS is eligible. Changing this flag after generating the ledger changes its digest and invalidates the prior commitment.
 
 This protects against accidental or caller-driven policy downgrade inside the reducer. It does not prove that the selected scenario manifest, workload generator or runner is honest; those identities still require independent attestation and artifact custody.
+
+
+## 20. Comparator refresh — PostgreSQL 19.0 and Fabric 3.1.5 (20 November 2026)
+
+The comparator set must be version-current without silently replacing historical baselines.
+
+### PostgreSQL
+
+PostgreSQL 19.0 was released on 19 November 2026 and is listed as supported. It adds concurrent table repacking, plan-advice extensions, improvements to foreign-key checks and query execution, and read-your-writes consistency on standbys. PostgreSQL 18.7 remains a supported patch release on the mature 18 branch.
+
+Use three separate profiles:
+
+| Profile | Role | Comparison rule |
+|---|---|---|
+| PostgreSQL 18.6 | Frozen historical ADR baseline | Preserve exact prior workload and artifact identity |
+| PostgreSQL 18.7 | Mature supported baseline | Same custom transaction/outbox workload and pinned image/binary digest |
+| PostgreSQL 19.0 | Latest-major challenger | Same logical operation contract; separately record version-specific features and exact binary/image digest |
+
+Do not interpret PostgreSQL 19.0 features as evidence that a centralized SQL authority has the same semantics as peer-authored Holochain records. The comparison is about the cost and reliability of equivalent intent slices: append + projection, authorization service + transaction, or workflow + outbox. Keep authority and consistency differences visible.
+
+Use custom `pgbench` transaction scripts for the actual Mycelix-shaped workload. Report default pgbench/TPC-B-like output only as a database microbenchmark, not as the application result. Pin the SQL schema, transaction script, connection pool, isolation level, WAL/checkpoint policy, storage, replication mode, failover policy, hardware and exact build/image digest.
+
+### Hyperledger Fabric
+
+The official Fabric release list identifies v3.1.5 as the latest release surfaced for this review. Fabric 3.1 documents chaincode write batching that reduces chaincode-to-peer write communication in the endorsement phase; it does not eliminate transaction validation or commit, so these phases must remain in the end-to-end latency measurements.
+
+Keep two distinct profiles:
+
+- **Fabric v2.x + Caliper:** use only a connector path that is actually supported and verified by the selected Caliper commit. The current Caliper README lists Fabric v2.X and marks the Network SDK and Gateway SDK integrations deprecated. This profile must report its exact connector, SDK and endorsement/orderer configuration.
+- **Fabric 3.1.5 native adapter:** a separate benchmark candidate using a version-pinned official Fabric Gateway/client path and a custom workload driver. Do not label this a Caliper benchmark unless Caliper has an independently verified compatible connector.
+
+For both profiles, record organization count, peer count, orderer topology, endorsement policy, block size/timeout, state database, private-data configuration, chaincode version, batching settings, commit wait semantics and validation policy. Measure proposal/endorsement, ordering, validation, commit and client-observed completion separately, alongside end-to-end p50/p95/p99.
+
+### Fairness and claim ceiling
+
+Neither database TPS nor ledger TPS can be used as a universal score. A result is comparable only on an operation slice with matched payload, offered workload, success/denial contract, authorization rules, durability expectation, privacy class, observable completion condition and failure schedule.
+
+Publish, for every comparison:
+
+- offered operations and retries, not just successful responses;
+- all-attempt and qualified-completion latency distributions;
+- p50/p95/p99 per peer/organization where applicable;
+- CPU, RSS, storage, network and energy per qualified operation;
+- failover, recovery and replay behavior;
+- correctness and privacy negative-control results;
+- exact source/runtime/client/configuration digests.
+
+The 18.6 baseline stays in the historical series; 18.7 is the mature 18-series baseline; 19.0 is the new major challenger. Fabric 3.1.5 is a native-adapter candidate, not a currently verified Caliper target. These profiles are proposed comparators, not executed benchmarks or evidence of Mycelix superiority.
+
+References:
+- PostgreSQL 19 release: https://www.postgresql.org/about/news/postgresql-19-released-3449/
+- PostgreSQL 19 release notes: https://www.postgresql.org/docs/19/release-19.html
+- PostgreSQL supported-version table: https://www.postgresql.org/support/versioning/
+- Hyperledger Fabric 3.1 feature notes: https://hyperledger-fabric.readthedocs.io/en/latest/whatsnew.html
+- Hyperledger Fabric releases: https://github.com/hyperledger/fabric/releases
+- Hyperledger Caliper current README: https://github.com/hyperledger-caliper/caliper/blob/main/README.md
+
