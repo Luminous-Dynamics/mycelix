@@ -356,6 +356,21 @@ mod tests {
         },
     };
     use sha2::{Digest, Sha256};
+    use crate::operation_contract::{
+        sha256_hex, validate_operation_contract_registry, ValidatedOperationContractRegistry,
+    };
+
+    const EMBEDDED_OPERATION_CONTRACTS: &str =
+        include_str!("../../../../docs/benchmarks/MCRB_OPERATION_CONTRACTS_V0_1.json");
+    const EXPECTED_SCENARIO_MANIFEST_GIT_BLOB_SHA: &str =
+        "3135aa6c0aff8e20814f151faa4f85d931980004";
+
+    fn embedded_contract_registry() -> ValidatedOperationContractRegistry {
+        let raw = EMBEDDED_OPERATION_CONTRACTS.as_bytes();
+        let digest = sha256_hex(raw);
+        validate_operation_contract_registry(raw, &digest, EXPECTED_SCENARIO_MANIFEST_GIT_BLOB_SHA)
+            .expect("embedded operation-contract registry should validate")
+    }
 
     fn digest(seed: &str) -> String {
         let result = Sha256::digest(seed.as_bytes());
@@ -375,12 +390,20 @@ mod tests {
         let params = digest("params");
         let clock_id = "clock-a".to_string();
         let epoch = "boot-1".to_string();
+        let contracts = embedded_contract_registry();
+        let contract_id = if cross_host_required {
+            "MCRB-OP-REMOTE-DHT-PUBLICATION"
+        } else {
+            "MCRB-OP-LOCAL-APPEND-READ"
+        };
+        let contract = contracts.find(contract_id, "0.1.0").unwrap();
         let mut envelope = OfferLedgerEnvelope {
             schema_version: OFFER_LEDGER_SCHEMA_VERSION.to_string(),
             run_id: run_id.clone(),
             scenario_id: scenario_id.clone(),
             measurement_window_id: "window-1".to_string(),
             scenario_contract_digest_sha256: embedded_scenario_manifest_digest(),
+            operation_contract_registry_digest_sha256: contracts.registry_digest_sha256().to_string(),
             requires_cross_host_visibility: cross_host_required,
             workload_manifest_digest_sha256: manifest.clone(),
             generator_digest_sha256: generator.clone(),
@@ -402,7 +425,10 @@ mod tests {
                 scheduled_monotonic_tick: index + 10,
                 monotonic_clock_id: clock_id.clone(),
                 monotonic_clock_epoch: epoch.clone(),
-                operation_class: "workflow".to_string(),
+                operation_class: contract.operation_class().to_string(),
+                operation_contract_id: contract.contract_id().to_string(),
+                operation_contract_version: contract.contract_version().to_string(),
+                operation_contract_digest_sha256: contract.digest_sha256().to_string(),
                 requires_idempotency_key: false,
                 generator_digest_sha256: generator.clone(),
                 workload_manifest_digest_sha256: manifest.clone(),
@@ -411,7 +437,7 @@ mod tests {
             ledger_digest_sha256: String::new(),
         };
         envelope.ledger_digest_sha256 = calculate_offer_ledger_digest(&envelope);
-        verify_offer_ledger(&envelope).unwrap()
+        verify_offer_ledger(&envelope, &contracts).unwrap()
     }
 
     fn sample(id: &str, outcome: OperationOutcome) -> OperationOutcomeSample {
