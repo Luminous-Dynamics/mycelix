@@ -1212,5 +1212,14 @@ mod tests {
             validate_packet(&packet).expect("valid fixture").disposition,
             PacketDisposition::StructurallyComplete
         );
+        let payloads = [
+            (&packet.design_definition, include_bytes!("../fixtures/artifacts/design.step").as_slice()),
+            (&packet.process_plan, include_bytes!("../fixtures/artifacts/process-plan.json").as_slice()),
+            (&packet.inspection_result, include_bytes!("../fixtures/artifacts/inspection.qif").as_slice()),
+            (&packet.test_result, include_bytes!("../fixtures/artifacts/test-result.json").as_slice()),
+        ];
+        let report = verify_packet_artifact_payloads(&packet, &payloads)
+            .expect("all checked-in fixture bytes match their SHA-256 references");
+        assert!(report.artifact_payloads_verified);
     }
 }
