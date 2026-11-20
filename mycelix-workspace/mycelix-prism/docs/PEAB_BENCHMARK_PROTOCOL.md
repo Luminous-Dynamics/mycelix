@@ -704,3 +704,40 @@ Once the journal and pool prototype exist and a matched baseline is measured, us
 - bounded journal memory and a recovery scan whose time/space growth is measured as durable history scales.
 
 A profile that misses the performance objectives is a reason to optimize buffering, group commit, memory layout or transport reuse, not a reason to issue writes before durability, reuse a token, weaken policy checks or auto-retry Unknown. Publish the throughput/durability/tail-latency Pareto curve and the exact hardware/OS conditions.
+
+
+## 16. Operation-semantics-aware retries and hedging
+
+The test-only classifier at prism-egress/tests/retry_semantics_model.rs contains 39 deterministic tests. It distinguishes ReadOnly, IdempotentEffect, KeyedDeduplication and NonIdempotent operations. The operation contract binds logical operation, workload, principal, exact origin, method, request digest and expiry. A bare HTTP verb or Idempotency-Key header is not a self-authenticating retry authorization.
+
+### Required decision policy
+
+- Proven no-write for the exact attempt: a fresh attempt is permitted, with fresh attempt ID and authority.
+- Unknown dispatched ReadOnly/IdempotentEffect: sequential retry only while the exact resource contract remains live. Hedging additionally requires explicit contract permission.
+- Unknown dispatched KeyedDeduplication: a fresh transport attempt may replay only the same key and exact fingerprint under a current resource contract with atomic deduplication, durable failover semantics, documented retention, and completion-consistent duplicate response behavior.
+- Concurrent duplicate rejection (e.g. resource conflict while the original is in progress) does not prove completion. It must remain pending/reconcilable. It does not authorize a hedge.
+- Coalescing hedges require a stronger receiver contract that joins the duplicate to the in-flight original under one logical effect.
+- NonIdempotent unknown: hold; do not retry or hedge unless an exact authoritative status proof says DefinitelyNotApplied.
+
+### Standards baseline
+
+RFC 9110 §9.2.2 defines idempotence by intended effect and allows retry of idempotent methods after communication failure, while warning against automatic retry of non-idempotent operations without known idempotent semantics or evidence the request was not applied. It allows incidental logs/revision history even for idempotent methods.
+
+The current Idempotency-Key document discovered on 20 November 2026 is draft-ietf-httpapi-idempotency-key-header-08 (22 October 2026). It remains an active Internet-Draft, not a published RFC. It says a general client cannot assume the server respects the header; resources publish their contract and expiry; keys are not reused with different payloads; completed duplicates should receive a completion-consistent response; concurrent duplicates should receive a conflict. Prism's stronger local profile adds atomicity, failover durability and exact scope/digest binding.
+
+Envoy v1.40 provides retry budgets, jittered retry backoff, reset-before-request, broad reset/5xx retries, and timeout hedging that leaves multiple upstream requests in flight. PEAB must compare these independently and measure duplicate side effects and extra upstream work.
+
+References:
+- https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2
+- https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header-08 (work in progress)
+- https://www.envoyproxy.io/docs/envoy/v1.40.0/configuration/http/http_filters/router_filter
+
+### Matched fault and load matrix
+
+Cross operation class (read-only, idempotent, keyed, non-idempotent), methods (GET/HEAD/PUT/DELETE/POST/PATCH), trusted route declarations, pre-write/partial-write/post-commit failures, server duplicate behavior (coalesce/conflict/completion replay/unknown), key/payload permutations, key expiry, regional failover, sequential retries, and hedges at 1/2/4 in-flight copies.
+
+Use 1/16/64/256 concurrency and 0/1/10% deterministic failure rates. Inject receiver crash between key reservation, side-effect commit and result persistence. Test key record survival across leader/region failover and same-key/different-fingerprint rejection.
+
+Report false-safe retry classifications, duplicate remote effects per logical operation, non-idempotent unknown retries/hedges, correct holds, valid retry operations incorrectly quarantined, key collision/mismatch/expiry behavior, retry/hedge amplification, cancelled-but-still-running requests, receiver IOPS, CPU/RSS/allocations, p50/p95/p99 latency, success/availability and journal flush overhead.
+
+Hard targets: zero false allows; zero duplicate effects under the declared server contract; zero non-idempotent retries or hedges from unknown state. Also target at least 99.9% correct allow/hold classification on the declared test corpus, reporting false-allow and false-deny separately. A throughput or latency improvement cannot compensate for an unsafe duplicate effect. These remain targets, not measured results.
