@@ -36,6 +36,7 @@ pub enum LocatorCaptureMode {
     DocumentQpid,
     ExternalPlanQpid,
     ExternalPlanUri,
+    DocumentMetadata,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -101,6 +102,9 @@ pub struct TraceLocatorSourceDocumentV1 {
     pub sha256: String,
     pub byte_length: u64,
     pub root_expanded_name: String,
+    pub version_qif: String,
+    pub id_max: u32,
+    pub max_element_id_observed: u32,
     pub element_count: u64,
     pub max_observed_depth: u32,
     pub text_bytes: u64,
@@ -235,6 +239,12 @@ pub enum InventoryError {
     InvalidExternalPlanQpid(String),
     #[error("source document QPId element does not match the supplied document identity: {0}")]
     DocumentQpidMismatch(String),
+    #[error("required QIFDocument root metadata idMax/versionQIF is missing or invalid")]
+    InvalidRootMetadata,
+    #[error("QIFDocument versionQIF does not match the pinned QIF profile")]
+    QifVersionMismatch,
+    #[error("QIFDocument idMax differs from the largest id attribute in source bytes")]
+    IdMaxMismatch,
     #[error("external Plan QPId at {0} does not match any supplied Plan document")]
     UnknownExternalPlanQpid(String),
     #[error("duplicate Results external-document reference ID {0}")]
@@ -395,7 +405,8 @@ pub fn validate_profile(profile: &TraceLocatorProfileV1) -> Result<(), Inventory
     let mut selectors = BTreeSet::new();
     for rule in &profile.rules {
         if rule.rule_id.trim().is_empty()
-            || rule.expanded_path.len() < 2
+            || rule.expanded_path.is_empty()
+            || (rule.expanded_path.len() < 2 && rule.capture != LocatorCaptureMode::DocumentMetadata)
             || rule.expanded_path.first().is_none_or(|root| !root.ends_with("}QIFDocument"))
             || rule.expanded_path.iter().enumerate().any(|(index, name)| {
                 !name.starts_with('{')
