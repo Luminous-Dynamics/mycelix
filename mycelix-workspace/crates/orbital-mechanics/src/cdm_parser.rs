@@ -760,7 +760,7 @@ OBJECT2_Z_DOT = 0.0 [km/s]
             .filter(|line| !line.starts_with("COLLISION_PROBABILITY = "))
             .filter(|line| !line.starts_with("COLLISION_PROBABILITY_METHOD = "))
             .collect::<Vec<_>>()
-            .join("\\n");
+            .join("\n");
         let parsed = parse_cdm_kvn_with_report(&minimal).unwrap();
         assert_eq!(parsed.message.relative_speed, 0.0);
         assert!(parsed.report.has_projection_loss());
@@ -775,7 +775,7 @@ OBJECT2_Z_DOT = 0.0 [km/s]
 
     #[test]
     fn required_reference_frame_is_not_defaulted() {
-        let missing = SAMPLE_CDM.replace("OBJECT1_REF_FRAME = EME2000\\n", "");
+        let missing = SAMPLE_CDM.replace("OBJECT1_REF_FRAME = EME2000\n", "");
         assert!(matches!(
             parse_cdm_kvn(&missing),
             Err(CdmParseError::MissingField(field)) if field == "OBJECT1_REF_FRAME"
@@ -816,7 +816,7 @@ OBJECT2_Z_DOT = 0.0 [km/s]
     #[test]
     fn malformed_first_covariance_term_is_not_treated_as_absent_covariance() {
         let bad_cov = format!(
-            "{}\\n{}",
+            "{}\n{}",
             SAMPLE_CDM,
             full_covariance_kvn("OBJECT1").replacen("1.0e-04", "NaN", 1)
         );
