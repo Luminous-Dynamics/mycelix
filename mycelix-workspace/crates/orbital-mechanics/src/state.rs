@@ -14,10 +14,12 @@ use serde::{Deserialize, Serialize};
 /// Reference frame for state vectors
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum ReferenceFrame {
-    /// True Equator Mean Equinox (J2000)
+    /// True Equator, Mean Equinox frame convention used by the SGP4 propagator.
+    /// This is not an alias for a generic J2000 inertial frame.
     #[default]
     TEME,
-    /// Earth-Centered Inertial (J2000)
+    /// Generic Earth-Centered Inertial frame. The exact realization and epoch
+    /// convention must be established by the producer and consumer.
     ECI,
     /// Earth-Centered Earth-Fixed
     ECEF,

@@ -16,13 +16,13 @@ Transform space situational awareness from a government monopoly into a global c
 
 ```
 mycelix-space/
-├── lib/orbital-mechanics/     Core orbital math (no Holochain deps, ~2,800 LOC)
-│   ├── tle.rs                 TLE parsing and checksum validation
-│   ├── state.rs               State vectors with 6x6 covariance
-│   ├── covariance.rs          Uncertainty matrix operations
-│   ├── propagator.rs          SGP4/SDP4 orbital propagation
-│   ├── conjunction.rs         Alfano 2D collision probability
-│   └── coordinates.rs         TEME ↔ ECEF ↔ geodetic, look angles
+├── ../crates/orbital-mechanics/  Shared native Rust crate (outside both Cargo workspaces)
+│   ├── tle.rs                    TLE parsing and checksum validation
+│   ├── state.rs                  State vectors with 6x6 covariance
+│   ├── covariance.rs             Uncertainty matrix operations
+│   ├── propagator.rs             SGP4/SDP4 orbital propagation
+│   ├── conjunction.rs            Alfano 2D collision probability
+│   └── coordinates.rs            TEME ↔ ECEF ↔ geodetic, look angles
 │
 ├── zomes/shared/              Shared types (~1,100 LOC)
 │   └── lib.rs                 SpaceTimestamp, SpaceError, RiskLevel, pagination, signals
@@ -88,9 +88,16 @@ Bilateral negotiation between operators for maneuver coordination.
 - Cryptographic cosigning of agreements
 - Operator session indexing
 
-## Why Covariance Matters
+## Covariance and Evidence Limits
 
-**This network tracks probability clouds, not points.**
+The propagator attaches a TLE-age-based covariance heuristic in the same TEME frame
+as its SGP4 output. The heuristic is deliberately marked as estimated: it is not a
+calibrated orbit-determination product, and a mathematically valid covariance matrix
+is not, by itself, evidence of a calibrated collision probability. Operational
+collision-risk claims require verified source provenance, an appropriate covariance
+model, and independent validation.
+
+**This network must track uncertainty, not points alone.**
 
 Every orbital state includes a 6x6 covariance matrix representing uncertainty. This enables:
 - Meaningful collision probability (miss distance alone is meaningless)
@@ -110,11 +117,11 @@ Every orbital state includes a 6x6 covariance matrix representing uncertainty. T
 # Enter dev shell (Rust + WASM target + Holochain tools)
 nix develop
 
-# Check all 12 crates compile
+# Check the Holochain workspace members
 cargo check --workspace
 
-# Run orbital mechanics unit tests (25 tests)
-cargo test -p orbital-mechanics
+# Run the shared orbital-mechanics crate's unit tests separately
+cargo test --manifest-path ../crates/orbital-mechanics/Cargo.toml
 
 # Run integration tests (separate workspace)
 cd tests && cargo test

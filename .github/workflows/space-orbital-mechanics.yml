@@ -1,0 +1,44 @@
+name: Space orbital mechanics
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/crates/orbital-mechanics/**"
+      - "mycelix-workspace/mycelix-space/**"
+      - ".github/workflows/space-orbital-mechanics.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/crates/orbital-mechanics/**"
+      - "mycelix-workspace/mycelix-space/**"
+      - ".github/workflows/space-orbital-mechanics.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: space-orbital-mechanics-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  orbital-mechanics:
+    name: Test standalone orbital-mechanics crate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/crates/orbital-mechanics
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/crates/orbital-mechanics/Cargo.toml -- --check
+
+      - name: Run orbital-mechanics unit tests
+        run: cargo test --manifest-path mycelix-workspace/crates/orbital-mechanics/Cargo.toml

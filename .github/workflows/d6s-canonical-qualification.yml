@@ -18,6 +18,13 @@ on:
       - "docs/integral/d6s-canon-*"
       - "scripts/integral/verify_d6s_canon_*.py"
     types: [opened, synchronize, reopened, ready_for_review]
+    # D6S qualification is intentionally scoped to its own source and
+    # reference artifacts. Space/orbital-mechanics PRs must not be blocked by
+    # unrelated D6S fixtures that are not part of their changed surface.
+    paths:
+      - 'mycelix-manufacturing/**'
+      - 'docs/integral/**'
+      - 'scripts/integral/**'
   workflow_dispatch:
 
 permissions:
