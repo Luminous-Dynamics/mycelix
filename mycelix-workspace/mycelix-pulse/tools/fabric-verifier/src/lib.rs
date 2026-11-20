@@ -164,6 +164,13 @@ struct Predecessor {
 }
 
 #[derive(Debug, Clone)]
+struct EvidenceReference {
+    kind: String,
+    sha256: String,
+    scope: String,
+}
+
+#[derive(Debug, Clone)]
 struct EventRecord {
     event_id: String,
     logical_operation_id: String,
@@ -176,7 +183,7 @@ struct EventRecord {
     clock_domain: String,
     monotonic_ns: u64,
     predecessors: Vec<Predecessor>,
-    evidence_kinds: Vec<String>,
+    evidence_refs: Vec<EvidenceReference>,
 }
 
 fn finding(findings: &mut Vec<Finding>, path: impl Into<String>, message: impl Into<String>) {
@@ -499,7 +506,7 @@ fn parse_event(
         }
     }
 
-    let mut evidence_kinds = Vec::new();
+    let mut evidence_refs = Vec::new();
     if let Some(items) = array_field(object, "evidence_refs", &path, findings) {
         for (evidence_index, evidence) in items.iter().enumerate() {
             let evidence_path = format!("{path}.evidence_refs[{evidence_index}]");
@@ -512,24 +519,26 @@ fn parse_event(
             };
             let kind = string_field(evidence_object, "kind", &evidence_path, findings);
             let digest = string_field(evidence_object, "sha256", &evidence_path, findings);
-            let _scope = string_field(evidence_object, "scope", &evidence_path, findings);
-            if let Some(kind) = kind {
-                if !EVIDENCE_KINDS.contains(&kind.as_str()) {
+            let scope = string_field(evidence_object, "scope", &evidence_path, findings);
+            if let Some(kind) = kind.as_deref() {
+                if !EVIDENCE_KINDS.contains(&kind) {
                     finding(
                         findings,
                         format!("{evidence_path}.kind"),
                         format!("unknown evidence kind: {kind}"),
                     );
                 }
-                evidence_kinds.push(kind);
             }
-            if let Some(digest) = digest {
+            if let Some(digest) = digest.as_deref() {
                 validate_digest(
-                    Some(&digest),
+                    Some(digest),
                     64,
                     &format!("{evidence_path}.sha256"),
                     findings,
                 );
+            }
+            if let (Some(kind), Some(digest), Some(scope)) = (kind, digest, scope) {
+                evidence_refs.push(EvidenceReference { kind, sha256: digest, scope });
             }
         }
     }
@@ -546,7 +555,7 @@ fn parse_event(
         clock_domain,
         monotonic_ns,
         predecessors,
-        evidence_kinds,
+        evidence_refs,
     })
 }
 
@@ -730,8 +739,8 @@ fn causal_relation_error(
             }
         }
         "checkpoint_descendant_of" => {
-            if !predecessor.evidence_kinds.iter().any(|kind| kind == "source_checkpoint")
-                || !child.evidence_kinds.iter().any(|kind| kind == "source_checkpoint")
+            if !predecessor.evidence_refs.iter().any(|reference| reference.kind == "source_checkpoint")
+                || !child.evidence_refs.iter().any(|reference| reference.kind == "source_checkpoint")
             {
                 Some(
                     "checkpoint_descendant_of requires source-checkpoint evidence on both events",
@@ -856,6 +865,10 @@ fn verify_acyclic_graph(
     }
 }
 
+fn evidence_reference(event: &EventRecord, kind: &str) -> Option<&EvidenceReference> {
+    event.evidence_refs.iter().find(|reference| reference.kind == kind)
+}
+
 fn verify_success_projection(
     events: &[EventRecord],
     by_id: &HashMap<String, usize>,
@@ -951,6 +964,44 @@ fn verify_success_projection(
                 continue;
             }
 
+            let source_action = events.iter().find(|event| {
+                event.event_type == "source_action_authored"
+                    && event.logical_operation_id == receipt.logical_operation_id
+                    && event.attempt_id.as_deref() == Some(attempt_id)
+                    && receipt_ancestors.contains(&event.event_id)
+            });
+            let dht_projection = events.iter().find(|event| {
+                event.event_type == "dht_projection_observed"
+                    && event.logical_operation_id == receipt.logical_operation_id
+                    && receipt_ancestors.contains(&event.event_id)
+            });
+            let integrity_acceptance = events.iter().find(|event| {
+                event.event_type == "integrity_validation_accepted"
+                    && event.logical_operation_id == receipt.logical_operation_id
+                    && event.attempt_id.as_deref() == Some(attempt_id)
+                    && receipt_ancestors.contains(&event.event_id)
+            });
+            let action_hashes_match = match (source_action, dht_projection) {
+                (Some(source), Some(observed)) => {
+                    match (
+                        evidence_reference(source, "action_hash"),
+                        evidence_reference(observed, "action_hash"),
+                    ) {
+                        (Some(authored), Some(projected)) => {
+                            authored.sha256 == projected.sha256
+                                && authored.scope == projected.scope
+                        }
+                        _ => false,
+                    }
+                }
+                _ => false,
+            };
+            let validation_receipt_present = integrity_acceptance
+                .is_some_and(|event| evidence_reference(event, "validation_receipt").is_some());
+            if !action_hashes_match || !validation_receipt_present {
+                continue;
+            }
+
             let admitted = events.iter().find(|event| {
                 event.event_type == "recipient_admitted"
                     && event.logical_operation_id == receipt.logical_operation_id
@@ -1012,9 +1063,9 @@ fn verify_success_projection(
                 continue;
             }
             if !receipt
-                .evidence_kinds
+                .evidence_refs
                 .iter()
-                .any(|kind| kind == "recipient_receipt" || kind == "signed_statement")
+                .any(|reference| reference.kind == "recipient_receipt" || reference.kind == "signed_statement")
             {
                 continue;
             }
@@ -1416,14 +1467,28 @@ mod tests {
             "causal_predecessors": predecessors.into_iter().map(|(event_id, relation)| {
                 json!({"event_id": event_id, "relation": relation})
             }).collect::<Vec<_>>(),
-            "evidence_refs": if event_type == "receipt_verified" {
-                vec![json!({
+            "evidence_refs": match event_type {
+                "authority_host_admitted" => vec![json!({
+                    "kind": "grant_action_hash",
+                    "sha256": "6".repeat(64),
+                    "scope": "cell-grant"
+                })],
+                "source_action_authored" | "dht_projection_observed" => vec![json!({
+                    "kind": "action_hash",
+                    "sha256": "7".repeat(64),
+                    "scope": "same-source-action"
+                })],
+                "integrity_validation_accepted" => vec![json!({
+                    "kind": "validation_receipt",
+                    "sha256": "8".repeat(64),
+                    "scope": "integrity-acceptance"
+                })],
+                "receipt_verified" => vec![json!({
                     "kind": "recipient_receipt",
                     "sha256": "f".repeat(64),
                     "scope": "recipient-commitment"
-                })]
-            } else {
-                Vec::<Value>::new()
+                })],
+                _ => Vec::<Value>::new()
             },
             "redaction_profile": "pfc-redacted-v0"
         })
@@ -1864,6 +1929,18 @@ mod tests {
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
     }
+    #[test]
+    fn rejects_dht_projection_for_a_different_source_action_hash() {
+        let mut trace = valid_trace();
+        let dht = event_index(&trace, "dht-projection");
+        trace["events"][dht]["evidence_refs"][0]["sha256"] = json!("9".repeat(64));
+        let result = verify_trace(&trace, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().iter().any(|item| {
+            item.message.contains("lacks a causally connected")
+        }));
+    }
+
     #[test]
     fn rejects_success_when_decryption_commitment_differs() {
         let mut trace = valid_trace();
