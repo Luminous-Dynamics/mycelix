@@ -20,7 +20,8 @@
     "non_compensable_gates",
     "proposed_targets_not_measurements",
     "reporting_rules",
-    "sources"
+    "sources",
+    "group_fanout_semantics"
   ],
   "properties": {
     "schema_version": {
@@ -443,6 +444,59 @@
             "type": "string",
             "format": "date"
           }
+        }
+      }
+    },
+    "group_fanout_semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parent_fanout_identity",
+        "recipient_child_identity",
+        "recipient_set_binding",
+        "child_success",
+        "aggregate_complete",
+        "partial_and_unknown",
+        "threshold_policy",
+        "device_semantics",
+        "membership_semantics"
+      ],
+      "properties": {
+        "parent_fanout_identity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recipient_child_identity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recipient_set_binding": {
+          "type": "string",
+          "minLength": 1
+        },
+        "child_success": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregate_complete": {
+          "type": "string",
+          "minLength": 1
+        },
+        "partial_and_unknown": {
+          "type": "string",
+          "minLength": 1
+        },
+        "threshold_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "device_semantics": {
+          "type": "string",
+          "minLength": 1
+        },
+        "membership_semantics": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }
