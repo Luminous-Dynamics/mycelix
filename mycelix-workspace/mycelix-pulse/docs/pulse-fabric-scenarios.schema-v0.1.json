@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pulse-fabric-scenarios-v0.1.json",
+  "title": "Pulse Fabric Synthetic Scenario Catalog v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "status",
+    "scenarios"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "profile_id": {
+      "const": "PULSE-FABRIC-QUAL-001"
+    },
+    "status": {
+      "const": "synthetic_scenario_catalog_not_executed"
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "family",
+          "title",
+          "expected_disposition",
+          "required_invariants",
+          "mutations"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^PFC-[A-Z0-9-]+$"
+          },
+          "family": {
+            "enum": [
+              "delivery",
+              "authority",
+              "crypto",
+              "privacy",
+              "recovery",
+              "resilience",
+              "evidence"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "expected_disposition": {
+            "enum": [
+              "SUCCESS_VERIFIED",
+              "FAILED",
+              "EXPIRED",
+              "REVOKED",
+              "UNKNOWN",
+              "INCOMPLETE",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "required_invariants": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "mutations": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        }
+      }
+    }
+  }
+}
