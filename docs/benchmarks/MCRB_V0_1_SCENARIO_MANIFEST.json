@@ -44,13 +44,13 @@
       "id": "postgresql-single-writer-outbox",
       "class": "centralized-architecture-baseline",
       "direct_comparison": "same-intent-slice-only",
-      "notes": "Generic semantics profile; instantiate as the frozen PostgreSQL 18.6 or current 18.7 pgbench profile below. Report centralized authority and consistency semantics; do not imply peer-authority equivalence."
+      "notes": "Generic semantics profile. Compare the frozen PostgreSQL 18.6 baseline, the maintained PostgreSQL 18.7 line, and the latest-major PostgreSQL 19.0 challenger using pinned images/binary digests and custom pgbench transaction scripts. Report centralized authority and consistency semantics; do not imply peer-authority equivalence."
     },
     {
       "id": "hyperledger-fabric-caliper",
       "class": "permissioned-ledger-baseline",
       "direct_comparison": "same-intent-slice-only",
-      "notes": "Pin Fabric version, Caliper version, connector and endorsement/orderer policy. Current Caliper project docs list Fabric v2.x, but README marks the Network SDK and Gateway SDK integrations deprecated; verify supported connector path before using the result."
+      "notes": "Caliper's current README lists Fabric v2.X; its Network SDK and Gateway SDK integrations are marked deprecated. Use only a pinned and verified v2.X connector path for this profile. Do not imply that Caliper currently supports Fabric 3.1.x."
     },
     {
       "id": "libp2p-iroh-ipfs",
@@ -75,6 +75,18 @@
       "class": "current-centralized-architecture-candidate",
       "direct_comparison": "same-intent-slice-only",
       "notes": "PostgreSQL 18.7 was released 12 November 2026. Pin exact image/binary digest and use custom transaction scripts for the workflow; do not treat default TPC-B-like output as application equivalence."
+    },
+    {
+      "id": "postgresql-19.0-pgbench",
+      "class": "latest-major-centralized-architecture-candidate",
+      "direct_comparison": "same-intent-slice-only",
+      "notes": "PostgreSQL 19.0 was released 2026-11-19 and is listed as supported. Pin exact image/binary digest. Include custom transactional outbox and workflow scripts plus planner/maintenance settings; record release-specific features separately from generic OLTP. Never infer decentralized authority equivalence."
+    },
+    {
+      "id": "hyperledger-fabric-3.1.5-native",
+      "class": "permissioned-ledger-current-release-candidate",
+      "direct_comparison": "same-intent-slice-only",
+      "notes": "Fabric 3.1.5 is the latest release identified in the official release list. Use an independently version-pinned native Gateway/SDK workload adapter and publish endorsement/orderer/commit policy. This is not a Caliper profile: the current Caliper README lists Fabric v2.X and deprecated Network/Gateway SDK integrations."
     }
   ],
   "metrics": [
