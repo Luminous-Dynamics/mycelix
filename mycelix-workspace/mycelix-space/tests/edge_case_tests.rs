@@ -83,6 +83,20 @@ fn test_norad_id_hash_equality() {
 // Timestamp Edge Case Tests
 // =============================================================================
 
+/// Older serialized staleness records default the newly-added future flag to false.
+#[test]
+fn test_tle_staleness_backward_compatible_deserialization() {
+    let legacy = r#"{
+        "age_secs": 30,
+        "is_stale": false,
+        "original_quality": 80,
+        "effective_quality": 80,
+        "confidence": 1.0
+    }"#;
+    let decoded: TleStaleness = serde_json::from_str(legacy).unwrap();
+    assert!(!decoded.future_dated);
+}
+
 /// An out-of-range serialized timestamp remains invalid rather than becoming wall-clock now.
 #[test]
 fn test_timestamp_out_of_range_is_not_substituted() {
