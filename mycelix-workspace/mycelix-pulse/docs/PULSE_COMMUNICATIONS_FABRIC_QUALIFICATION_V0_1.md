@@ -68,6 +68,8 @@ Each arrow is a distinct event. A transport ACK, Holochain remote signal, DHT li
 
 The evidence graph is a **partial order**. Causal predecessors, ActionHash lineage and per-source-chain frontiers establish order. Do not compare wall clocks across conductors to invent causality; do not collapse independent Holochain chains into one scalar sequence. Missing, stale, conflicting or unverifiable evidence remains UNKNOWN or INCOMPLETE.
 
+The v0.1 trace schema represents each causal predecessor as an event reference plus a typed relation (for example, local program order, source-chain successor, request/response, transport-for, commits, receipt-for, verifies, revokes, checkpoint-descendant-of or recovered-from). The independent verifier must resolve both endpoints, check the relation against the evidence roles and exact identities/lineage, and reject cycles or unsupported edges. JSON Schema can check shape; it cannot prove that a claimed causal edge is true.
+
 ## 4. Architecture direction
 
 ### 4.1 Cryptographic protocol adapters, not bespoke cryptography
