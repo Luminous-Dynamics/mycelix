@@ -178,6 +178,10 @@ pub enum TraceError {
     WrongExternalObjectKind { qpid: String, xid: u32 },
     #[error("missing STEP document for Plan {0}")]
     MissingStepDocument(String),
+    #[error("STEP document artifact does not exactly match Plan reference for {0}")]
+    StepDocumentReferenceMismatch(String),
+    #[error("Results document contains no CharacteristicMeasurement references")]
+    EmptyMeasurementSet,
     #[error("missing STEP UUID {uuid} in document {document}")]
     MissingStepEntity { document: String, uuid: String },
     #[error("STEP UUID {uuid} has a kind mismatch in document {document}")]
@@ -356,6 +360,9 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
     {
         return Err(TraceError::InvalidArtifact(case.results.artifact.reference.id.clone()));
     }
+    if case.results.measurements.is_empty() {
+        return Err(TraceError::EmptyMeasurementSet);
+    }
 
     let mut all_artifacts: BTreeSet<(String, String)> = BTreeSet::new();
     let mut add_artifact = |artifact: &ContentArtifactV1| -> Result<(), TraceError> {
@@ -416,6 +423,14 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         }
     }
 
+    for external in refs_by_id.values() {
+        let plan = plans_by_qpid.get(&external.plan_qpid)
+            .ok_or_else(|| TraceError::MissingPlan(external.plan_qpid.clone()))?;
+        if external.plan_artifact != plan.artifact {
+            return Err(TraceError::PlanReferenceMismatch(external.local_reference_id));
+        }
+    }
+
     let mut step_by_artifact = BTreeMap::new();
     for document in &case.step_documents {
         add_artifact(&document.artifact)?;
@@ -439,8 +454,11 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
     }
 
     for plan in &case.plans {
-        if !step_by_artifact.contains_key(&plan.step_document.reference) {
+        let Some(step_document) = step_by_artifact.get(&plan.step_document.reference) else {
             return Err(TraceError::MissingStepDocument(plan.qpid.clone()));
+        };
+        if step_document.artifact != plan.step_document {
+            return Err(TraceError::StepDocumentReferenceMismatch(plan.qpid.clone()));
         }
         let mut object_ids = BTreeSet::new();
         for object in &plan.objects {
@@ -457,7 +475,6 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
     }
 
     let mut measurement_ids = BTreeSet::new();
-    let mut resolved = Vec::new();
     for measurement in &case.results.measurements {
         if measurement.measurement_id.trim().is_empty() {
             return Err(TraceError::InvalidIdentity("measurement_id".into()));
@@ -496,21 +513,7 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
             });
         }
 
-        resolved.push(ResolvedMeasurementTraceV1 {
-            measurement_id: measurement.measurement_id.clone(),
-            status: measurement.status,
-            results_qpid: case.results.qpid.clone(),
-            external_document_reference_id: external.local_reference_id,
-            plan_qpid: plan.qpid.clone(),
-            plan_artifact: plan.artifact.clone(),
-            plan_object_id: object.object_id,
-            characteristic_id: object.characteristic_id.clone(),
-            step_document: step_document.artifact.clone(),
-            step_uuid: object.step_uuid.clone(),
-            step_entity_kind: entity.kind,
-        });
     }
-    resolved.sort_by(|left, right| left.measurement_id.cmp(&right.measurement_id));
     Ok(())
 }
 
@@ -533,7 +536,7 @@ pub fn verify_and_resolve_trace_case(
         if !seen.insert(key.clone()) {
             return Err(TraceError::DuplicateArtifactPayload(key.0));
         }
-        let artifact = expected.iter().find(|item| item.reference == **reference)
+        let artifact = expected.iter().find(|item| &item.reference == *reference)
             .ok_or_else(|| TraceError::UnexpectedArtifactPayload(key.0))?;
         verify_artifact_bytes(artifact, bytes).map_err(TraceError::ArtifactVerification)?;
     }
