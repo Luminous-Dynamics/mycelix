@@ -286,7 +286,6 @@ pub fn compute_qops(
     };
 
     let offered_operations = ledger.entry_count();
-    let classified_outcomes = seen.len();
     let (offered_rate, qualified_rate, success_fraction) =
         if status == QopsStatus::Eligible && offered_operations > 0 {
             let window_seconds = ledger.measurement_window_ns() as f64 / 1_000_000_000.0;
