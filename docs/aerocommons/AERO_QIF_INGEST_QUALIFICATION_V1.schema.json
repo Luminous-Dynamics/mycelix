@@ -95,7 +95,6 @@
               "results_qpid",
               "local_reference_id",
               "target_plan_qpid",
-              "source_uri",
               "staged_relative_path"
             ],
             "properties": {
@@ -111,7 +110,10 @@
                 "$ref": "#/$defs/uuid"
               },
               "source_uri": {
-                "type": "string",
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "minLength": 1
               },
               "staged_relative_path": {
