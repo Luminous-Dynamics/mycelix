@@ -396,10 +396,8 @@ fn normalized_assertion_bytes_equal(
 mod tests {
     use super::*;
     use aero_adapter_run_receipt::{
-        compute_receipt_digest, AdapterIdentityV1, ContentArtifactV1, InvocationV1,
-        RightsStatus, RunInputV1, RunOutputV1,
+        compute_receipt_digest, AdapterIdentityV1, InvocationV1, RightsStatus,
     };
-    use serde_json::json;
     use sha2::{Digest, Sha256};
 
     struct Fixture {
