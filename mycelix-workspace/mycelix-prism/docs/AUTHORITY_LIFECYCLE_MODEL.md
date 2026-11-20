@@ -73,7 +73,7 @@ The dependency-free integration test `prism-egress/tests/authority_lifecycle_mod
 - DNS address-set, TLS identity, policy-generation and network-generation invalidation;
 - implicit cross-origin HTTP/2 coalescing rejection;
 - fresh authority for retries;
-- maximum concurrent and total exchange budgets;
+- maximum concurrent and total exchange budgets; exact connect, exchange, lease-expiry and drain-deadline boundaries;
 - explicit expiry, drain, revoke and exact deadline transitions;
 - generated replay sequences across 128 distinct capability IDs.
 

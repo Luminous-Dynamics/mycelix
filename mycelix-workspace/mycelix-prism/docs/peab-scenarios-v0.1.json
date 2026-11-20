@@ -1754,6 +1754,32 @@
       "execution_status": "not_run_exact_head",
       "negative_control_required": true,
       "execution_evidence": null
+    },
+    {
+      "id": "LIFE-029",
+      "family": "connect_capability",
+      "title": "connection establishment at exact deadline is denied",
+      "setup": "Advance the deterministic monotonic clock to the exact capability deadline.",
+      "expected_decision": "deny_at_deadline",
+      "oracle": "The exact-deadline operation is rejected by the state-machine invariant in connect_establishment_at_exact_deadline_is_rejected.",
+      "source_coverage": "partial",
+      "source_test": "connect_establishment_at_exact_deadline_is_rejected",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
+    },
+    {
+      "id": "LIFE-030",
+      "family": "exchange_capability",
+      "title": "exchange capability at exact expiry is denied",
+      "setup": "Advance the deterministic monotonic clock to the exact capability deadline.",
+      "expected_decision": "deny_at_deadline",
+      "oracle": "The exact-deadline operation is rejected by the state-machine invariant in exchange_capability_at_exact_expiry_is_rejected.",
+      "source_coverage": "partial",
+      "source_test": "exchange_capability_at_exact_expiry_is_rejected",
+      "execution_status": "not_run_exact_head",
+      "negative_control_required": true,
+      "execution_evidence": null
     }
   ]
 }

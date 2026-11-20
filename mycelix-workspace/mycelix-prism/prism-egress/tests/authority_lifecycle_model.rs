@@ -698,3 +698,21 @@ fn drain_deadline_transitions_lease_to_revoked() {
     let mut cap = exchange_capability(8, 55, 777, 170);
     assert_eq!(admit(&mut lease, &mut cap, 126).err(), Some(AuthorityError::ConnectionNotActive));
 }
+
+
+#[test]
+fn connect_establishment_at_exact_deadline_is_rejected() {
+    let mut cap = connect_capability(1, 200);
+    let grant = cap.consume(120, 17, Peer { ip_last_octet: 10, port: 443 }).unwrap();
+    assert_eq!(
+        grant.establish(160, 303, 55, 180, 190, 50, 4, 2).err(),
+        Some(AuthorityError::ConnectTimedOut)
+    );
+}
+
+#[test]
+fn exchange_capability_at_exact_expiry_is_rejected() {
+    let mut lease = established_lease(4, 2);
+    let mut cap = exchange_capability(8, 55, 777, 120);
+    assert_eq!(admit(&mut lease, &mut cap, 120).err(), Some(AuthorityError::Expired));
+}
