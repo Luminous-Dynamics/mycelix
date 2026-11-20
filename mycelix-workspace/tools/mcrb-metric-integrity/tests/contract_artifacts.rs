@@ -311,6 +311,14 @@ fn outcome_attestation_schemas_preserve_evidence_and_dependency_dimensions() {
     let predicate = load_json("docs/benchmarks/MCRB_OUTCOME_ATTESTATION_V0_1.schema.json");
     let trust = load_json("docs/benchmarks/MCRB_OUTCOME_TRUST_POLICY_V0_1.schema.json");
 
+    let ledger_root_required = ledger["required"].as_array().unwrap();
+    assert!(
+        ledger_root_required
+            .iter()
+            .any(|value| value == "operation_contract_registry_digest_sha256"),
+        "outcome ledger root must bind the operation-contract registry digest"
+    );
+
     for field in [
         "offer_ledger_digest_sha256",
         "operation_id",
