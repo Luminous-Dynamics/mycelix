@@ -46,6 +46,9 @@ pub struct TraceLocatorRuleV1 {
     /// Prefix-independent Clark names, including the QIFDocument root.
     pub expanded_path: Vec<String>,
     pub capture: LocatorCaptureMode,
+    /// Per-document occurrence bounds for this profile selector.
+    pub min_occurrences: u64,
+    pub max_occurrences: Option<u64>,
     /// Expanded attribute names captured as inert source metadata, e.g. "{}QPId" and "{}URI".
     pub capture_attributes: Vec<String>,
     /// This rule captures the Results document's ExternalQIFDocumentReference/@id.
@@ -176,6 +179,10 @@ pub enum InventoryError {
     InvalidRule(String),
     #[error("duplicate selector for {0}")]
     DuplicateSelector(String),
+    #[error("profile rule {0} occurred fewer times than its declared minimum")]
+    RuleMinimumNotMet(String),
+    #[error("profile rule {0} exceeded its declared maximum")]
+    RuleMaximumExceeded(String),
     #[error("source document exceeds maximum bytes")]
     SourceTooLarge,
     #[error("source document is not UTF-8 under the declared profile")]
@@ -399,6 +406,12 @@ pub fn validate_profile(profile: &TraceLocatorProfileV1) -> Result<(), Inventory
         );
         if !selectors.insert(selector) {
             return Err(InventoryError::DuplicateSelector(rule.rule_id.clone()));
+        }
+        if rule.max_occurrences.is_some_and(|maximum| maximum < rule.min_occurrences)
+            || rule.max_occurrences.is_some_and(|maximum| maximum > 2_000_000)
+            || rule.min_occurrences > 2_000_000
+        {
+            return Err(InventoryError::InvalidRule(rule.rule_id.clone()));
         }
         if rule.capture_attributes.iter().any(|name| !name.starts_with("{}") || name.len() <= 2) {
             return Err(InventoryError::InvalidRule(rule.rule_id.clone()));
@@ -994,6 +1007,16 @@ fn scan_document(
         }
     }
 
+    for rule in profile.rules.iter().filter(|rule| rule.document_role == role) {
+        let observed = locator_rows.iter().filter(|record| record.rule_id == rule.rule_id).count() as u64;
+        if observed < rule.min_occurrences {
+            return Err(InventoryError::RuleMinimumNotMet(rule.rule_id.clone()));
+        }
+        if rule.max_occurrences.is_some_and(|maximum| observed > maximum) {
+            return Err(InventoryError::RuleMaximumExceeded(rule.rule_id.clone()));
+        }
+    }
+
     Ok(ScannedDocument {
         source: TraceLocatorSourceDocumentV1 {
             qpid: qpid.to_ascii_lowercase(),
@@ -1173,6 +1196,8 @@ mod tests {
                     document_role: QifDocumentRole::Results,
                     expanded_path: vec![expanded("QIFDocument"), expanded("QPId")],
                     capture: LocatorCaptureMode::DocumentQpid,
+                    min_occurrences: 1,
+                    max_occurrences: Some(1),
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
                 },
@@ -1193,6 +1218,8 @@ mod tests {
                         expanded("ExternalQIFDocument"),
                     ],
                     capture: LocatorCaptureMode::ElementId,
+                    min_occurrences: 0,
+                    max_occurrences: None,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: true,
                 },
@@ -1206,6 +1233,8 @@ mod tests {
                         expanded("QPId"),
                     ],
                     capture: LocatorCaptureMode::ExternalPlanQpid,
+                    min_occurrences: 0,
+                    max_occurrences: None,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
                 },
@@ -1219,6 +1248,8 @@ mod tests {
                         expanded("URI"),
                     ],
                     capture: LocatorCaptureMode::ExternalPlanUri,
+                    min_occurrences: 0,
+                    max_occurrences: None,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
                 },
@@ -1231,6 +1262,8 @@ mod tests {
                         expanded("MeasurementResultsSet"),
                     ],
                     capture: LocatorCaptureMode::Element,
+                    min_occurrences: 0,
+                    max_occurrences: None,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
                 },
@@ -1277,6 +1310,8 @@ mod tests {
                         expanded("CharacteristicItemId"),
                     ],
                     capture: LocatorCaptureMode::QifReference,
+                    min_occurrences: 0,
+                    max_occurrences: None,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
                 },
@@ -1304,6 +1339,8 @@ mod tests {
                         expanded("CharacteristicNominalId"),
                     ],
                     capture: LocatorCaptureMode::LocalQifReference,
+                    min_occurrences: 0,
+                    max_occurrences: None,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
                 },
@@ -1332,6 +1369,8 @@ mod tests {
                         expanded("Id"),
                     ],
                     capture: LocatorCaptureMode::Text,
+                    min_occurrences: 0,
+                    max_occurrences: None,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
                 },
