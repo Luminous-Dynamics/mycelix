@@ -1047,7 +1047,7 @@ pub fn inventory_required_locators(
 mod tests {
     use super::*;
 
-    const NS: &str = "urn:qif-test-v3";
+    const NS: &str = "http://qifstandards.org/xsd/qif3";
 
     fn expanded(local: &str) -> String {
         format!("{{{NS}}}{local}")
@@ -1061,17 +1061,80 @@ mod tests {
             qif_standard_version: "3.0.0".into(),
             rules: vec![
                 TraceLocatorRuleV1 {
+                    rule_id: "results.document_qpid".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![expanded("QIFDocument"), expanded("QPId")],
+                    capture: LocatorCaptureMode::DocumentQpid,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.document_qpid".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![expanded("QIFDocument"), expanded("QPId")],
+                    capture: LocatorCaptureMode::DocumentQpid,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
                     rule_id: "results.external_document_reference".into(),
                     document_role: QifDocumentRole::Results,
-                    expanded_path: vec![expanded("QIFDocument"), expanded("Results"), expanded("ExternalQIFDocumentReference")],
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("ExternalQIFReferences"),
+                        expanded("ExternalQIFDocument"),
+                    ],
                     capture: LocatorCaptureMode::ElementId,
-                    capture_attributes: vec!["{}QPId".into(), "{}URI".into()],
+                    capture_attributes: Vec::new(),
                     declares_external_document_reference: true,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.external_document_plan_qpid".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("ExternalQIFReferences"),
+                        expanded("ExternalQIFDocument"),
+                        expanded("QPId"),
+                    ],
+                    capture: LocatorCaptureMode::ExternalPlanQpid,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.external_document_uri".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("ExternalQIFReferences"),
+                        expanded("ExternalQIFDocument"),
+                        expanded("URI"),
+                    ],
+                    capture: LocatorCaptureMode::ExternalPlanUri,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
                     rule_id: "results.measurement_results_set".into(),
                     document_role: QifDocumentRole::Results,
-                    expanded_path: vec![expanded("QIFDocument"), expanded("Results"), expanded("MeasurementResultsSet")],
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                    ],
+                    capture: LocatorCaptureMode::Element,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.measurement_results".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                    ],
                     capture: LocatorCaptureMode::ElementId,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
@@ -1079,14 +1142,32 @@ mod tests {
                 TraceLocatorRuleV1 {
                     rule_id: "results.characteristic_measurement".into(),
                     document_role: QifDocumentRole::Results,
-                    expanded_path: vec![expanded("QIFDocument"), expanded("Results"), expanded("MeasurementResultsSet"), expanded("CharacteristicMeasurement")],
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                        expanded("MeasuredCharacteristics"),
+                        expanded("CharacteristicMeasurements"),
+                        expanded("*"),
+                    ],
                     capture: LocatorCaptureMode::ElementId,
+                    capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
                     rule_id: "results.characteristic_item_external_reference".into(),
                     document_role: QifDocumentRole::Results,
-                    expanded_path: vec![expanded("QIFDocument"), expanded("Results"), expanded("MeasurementResultsSet"), expanded("CharacteristicMeasurement"), expanded("CharacteristicItemId")],
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                        expanded("MeasuredCharacteristics"),
+                        expanded("CharacteristicMeasurements"),
+                        expanded("*"),
+                        expanded("CharacteristicItemId"),
+                    ],
                     capture: LocatorCaptureMode::QifReference,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
@@ -1094,21 +1175,54 @@ mod tests {
                 TraceLocatorRuleV1 {
                     rule_id: "plan.characteristic_item".into(),
                     document_role: QifDocumentRole::Plan,
-                    expanded_path: vec![expanded("QIFDocument"), expanded("Plan"), expanded("CharacteristicItem")],
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Characteristics"),
+                        expanded("CharacteristicItems"),
+                        expanded("*"),
+                    ],
                     capture: LocatorCaptureMode::ElementId,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.characteristic_item_nominal_reference".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Characteristics"),
+                        expanded("CharacteristicItems"),
+                        expanded("*"),
+                        expanded("CharacteristicNominalId"),
+                    ],
+                    capture: LocatorCaptureMode::QifReference,
+                    capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
                     rule_id: "plan.characteristic_nominal".into(),
                     document_role: QifDocumentRole::Plan,
-                    expanded_path: vec![expanded("QIFDocument"), expanded("Plan"), expanded("CharacteristicNominal")],
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Characteristics"),
+                        expanded("CharacteristicNominals"),
+                        expanded("*"),
+                    ],
                     capture: LocatorCaptureMode::ElementId,
+                    capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
                     rule_id: "plan.entity_external_id".into(),
                     document_role: QifDocumentRole::Plan,
-                    expanded_path: vec![expanded("QIFDocument"), expanded("Plan"), expanded("CharacteristicNominal"), expanded("EntityExternalIds"), expanded("Id")],
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Characteristics"),
+                        expanded("CharacteristicNominals"),
+                        expanded("*"),
+                        expanded("EntityExternalIds"),
+                        expanded("Id"),
+                    ],
                     capture: LocatorCaptureMode::Text,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
