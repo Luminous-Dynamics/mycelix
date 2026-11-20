@@ -5,8 +5,8 @@
 //! does not infer semantic preservation from byte equality or output drift.
 
 use aero_adapter_run_receipt::{
-    verify_artifact_payloads, AdapterRunReceiptV1, ContentArtifactV1, InputRole,
-    NetworkPolicy, OutputRole, ReceiptError, RunInputV1, RunOutputV1, RunStatus,
+    verify_artifact_payloads, AdapterRunReceiptV1, InputRole, OutputRole, ReceiptError,
+    RunInputV1, RunOutputV1, RunStatus,
 };
 use aero_evidence_types::ArtifactRef;
 use thiserror::Error;
@@ -417,7 +417,8 @@ fn normalized_assertion_bytes_equal(
 mod tests {
     use super::*;
     use aero_adapter_run_receipt::{
-        compute_receipt_digest, AdapterIdentityV1, InvocationV1, RightsStatus,
+        compute_receipt_digest, AdapterIdentityV1, ContentArtifactV1, InvocationV1,
+        NetworkPolicy, RightsStatus,
     };
     use sha2::{Digest, Sha256};
 
@@ -685,6 +686,25 @@ mod tests {
         );
         let report = compare(&first, &second).unwrap();
         assert_eq!(report.disposition, ReplayDisposition::IncomparableContext);
+        assert!(report.context_differences.contains(&ContextDifference::InputArtifacts));
+    }
+
+    #[test]
+    fn changed_configuration_is_incomparable() {
+        let first = base("run-a");
+        let second = fixture(
+            "run-b",
+            b"adapter-executable-v1",
+            b"ISO-10303-21; synthetic product definition",
+            b"{\\"profile\\":\\"changed\\"}\\n",
+            b"<QIFDocument schemaVersion=\\"3.0\\"><Results/></QIFDocument>",
+            br#"{\"schema\":\"AeroSemanticAssertionV1\",\"assertions\":[]}"#,
+            RightsStatus::ClearedForTesting,
+            RunStatus::Succeeded,
+        );
+        let report = compare(&first, &second).unwrap();
+        assert_eq!(report.disposition, ReplayDisposition::IncomparableContext);
+        assert!(report.context_differences.contains(&ContextDifference::Configuration));
         assert!(report.context_differences.contains(&ContextDifference::InputArtifacts));
     }
 
