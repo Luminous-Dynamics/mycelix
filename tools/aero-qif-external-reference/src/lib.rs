@@ -539,8 +539,9 @@ pub fn verify_and_resolve_trace_case(
         if !seen.insert(key.clone()) {
             return Err(TraceError::DuplicateArtifactPayload(key.0));
         }
-        let artifact = expected.iter().find(|item| &item.reference == *reference)
-            .ok_or_else(|| TraceError::UnexpectedArtifactPayload(key.0))?;
+        let artifact = expected.iter().copied().find(|item| {
+            item.reference.id == reference.id && item.reference.kind == reference.kind
+        }).ok_or_else(|| TraceError::UnexpectedArtifactPayload(key.0))?;
         verify_artifact_bytes(artifact, bytes).map_err(TraceError::ArtifactVerification)?;
     }
     for artifact in &expected {
