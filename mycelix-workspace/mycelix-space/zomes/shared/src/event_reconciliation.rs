@@ -108,6 +108,11 @@ pub enum EventReconciliationError {
         limit: usize,
     },
     EmptyProviderId { event_id: String },
+    MixedProviderFeed {
+        provider_side: ProviderSide,
+        expected_provider_id: String,
+        actual_provider_id: String,
+    },
     EmptyEventId,
     DuplicateEventId { event_id: String },
     InvalidSourceArtifactDigest { event_id: String },
@@ -148,14 +153,27 @@ fn pair_key(event: &ProviderConjunctionEvent) -> PairKey {
 fn validate_feed(
     events: &[ProviderConjunctionEvent],
     config: &EventReconciliationConfig,
+    provider_side: ProviderSide,
 ) -> Result<(), EventReconciliationError> {
     let mut event_ids = BTreeSet::new();
+    let mut provider_id: Option<&str> = None;
 
     for event in events {
         if event.provider_id.trim().is_empty() {
             return Err(EventReconciliationError::EmptyProviderId {
                 event_id: event.event_id.clone(),
             });
+        }
+        if let Some(expected) = provider_id {
+            if expected != event.provider_id {
+                return Err(EventReconciliationError::MixedProviderFeed {
+                    provider_side,
+                    expected_provider_id: expected.to_string(),
+                    actual_provider_id: event.provider_id.clone(),
+                });
+            }
+        } else {
+            provider_id = Some(&event.provider_id);
         }
         if event.event_id.trim().is_empty() {
             return Err(EventReconciliationError::EmptyEventId);
@@ -259,8 +277,8 @@ pub fn reconcile_provider_events(
         });
     }
 
-    validate_feed(left, config)?;
-    validate_feed(right, config)?;
+    validate_feed(left, config, ProviderSide::Left)?;
+    validate_feed(right, config, ProviderSide::Right)?;
 
     let mut left_by_pair: BTreeMap<PairKey, Vec<usize>> = BTreeMap::new();
     let mut right_by_pair: BTreeMap<PairKey, Vec<usize>> = BTreeMap::new();
@@ -474,7 +492,7 @@ pub fn reconcile_provider_events(
 mod tests {
     use super::*;
 
-    const BASIS: &str = "TAI-us-leap-table-2026-01";
+    const BASIS: &str = "TAI-unix-epoch-micros+UTC-conversion-table-2026-01";
 
     fn config(tolerance: u64) -> EventReconciliationConfig {
         EventReconciliationConfig {
@@ -649,6 +667,7 @@ mod tests {
     fn preserves_source_class_and_publication_policy_on_matches() {
         let mut left = event("left", 25544, 49863, 1_000);
         let mut right = event("right", 25544, 49863, 1_000);
+        right.provider_id = "provider-b".to_string();
         left.source_class = "government-catalog-no-covariance".to_string();
         left.publication_policy_id = "policy-actionable-only".to_string();
         right.source_class = "operator-ephemeris-with-covariance".to_string();
@@ -657,7 +676,7 @@ mod tests {
         let result =
             reconcile_provider_events(&[left], &[right], &config(0)).unwrap();
         assert_eq!(result.matched[0].left_provider_id, "provider-a");
-        assert_eq!(result.matched[0].right_provider_id, "provider-a");
+        assert_eq!(result.matched[0].right_provider_id, "provider-b");
         assert_eq!(result.matched[0].left_source_artifact_sha256, "a".repeat(64));
         assert_eq!(result.matched[0].left_source_profile_id, "tracss-cdm-v2.1-json");
         assert_eq!(
@@ -700,6 +719,24 @@ mod tests {
                 &config(i64::MAX as u64 + 1),
             ),
             Err(EventReconciliationError::ToleranceExceedsSupportedRange)
+        );
+    }
+
+    #[test]
+    fn rejects_mixed_provider_ids_within_one_input_feed() {
+        let mut second_left_event = event("left-2", 25544, 49863, 1_010);
+        second_left_event.provider_id = "provider-b".to_string();
+        assert_eq!(
+            reconcile_provider_events(
+                &[event("left-1", 25544, 49863, 1_000), second_left_event],
+                &[],
+                &config(10),
+            ),
+            Err(EventReconciliationError::MixedProviderFeed {
+                provider_side: ProviderSide::Left,
+                expected_provider_id: "provider-a".to_string(),
+                actual_provider_id: "provider-b".to_string(),
+            })
         );
     }
 
