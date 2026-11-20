@@ -7,6 +7,7 @@ use aero_evidence_types::{
     validate_evidence, AeroEvidenceV1, ArtifactRef, ClaimKind, EvidenceLifecycle,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 pub const PACKET_SCHEMA: &str = "AeroComponentBuildPacketV1";
@@ -110,6 +111,211 @@ pub enum PacketError {
     CalibrationWindowInvalid(String),
     #[error("test event precedes the inspection event")]
     NonMonotonicTestTime,
+    #[error("artifact byte length does not match declared length: {0}")]
+    ArtifactByteLengthMismatch(String),
+    #[error("artifact bytes do not match declared SHA-256: {0}")]
+    ArtifactDigestMismatch(String),
+    #[error("invalid packet JSON: {0}")]
+    InvalidPacketJson(String),
+    #[error("unknown field in {scope}: {field}")]
+    UnknownField { scope: String, field: String },
+    #[error("malformed JSON value at {0}")]
+    MalformedPacketField(String),
+}
+
+fn check_object_fields(
+    value: &serde_json::Value,
+    allowed: &[&str],
+    scope: &str,
+) -> Result<(), PacketError> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| PacketError::MalformedPacketField(scope.to_owned()))?;
+    for field in object.keys() {
+        if !allowed.contains(&field.as_str()) {
+            return Err(PacketError::UnknownField {
+                scope: scope.to_owned(),
+                field: field.clone(),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn check_ref_value(value: &serde_json::Value, scope: &str) -> Result<(), PacketError> {
+    check_object_fields(value, &["id", "kind"], scope)
+}
+
+fn check_ref_array(value: &serde_json::Value, scope: &str) -> Result<(), PacketError> {
+    let array = value
+        .as_array()
+        .ok_or_else(|| PacketError::MalformedPacketField(scope.to_owned()))?;
+    for (index, item) in array.iter().enumerate() {
+        check_ref_value(item, &format!("{scope}[{index}]"))?;
+    }
+    Ok(())
+}
+
+fn check_content_value(value: &serde_json::Value, scope: &str) -> Result<(), PacketError> {
+    check_object_fields(
+        value,
+        &["reference", "sha256", "byte_length", "media_type", "format_id"],
+        scope,
+    )?;
+    let reference = value
+        .get("reference")
+        .ok_or_else(|| PacketError::MalformedPacketField(format!("{scope}.reference")))?;
+    check_ref_value(reference, &format!("{scope}.reference"))
+}
+
+fn check_calibration_validity_value(
+    value: &serde_json::Value,
+    scope: &str,
+) -> Result<(), PacketError> {
+    check_object_fields(
+        value,
+        &["evidence", "valid_from_unix_ms", "valid_until_unix_ms", "used_at_unix_ms"],
+        scope,
+    )?;
+    let evidence = value
+        .get("evidence")
+        .ok_or_else(|| PacketError::MalformedPacketField(format!("{scope}.evidence")))?;
+    check_ref_value(evidence, &format!("{scope}.evidence"))
+}
+
+fn check_evidence_value(value: &serde_json::Value, scope: &str) -> Result<(), PacketError> {
+    check_object_fields(
+        value,
+        &[
+            "evidence_id",
+            "schema",
+            "claim",
+            "claim_kind",
+            "configuration",
+            "subject",
+            "basis",
+            "method",
+            "inputs",
+            "toolchain",
+            "result",
+            "uncertainty",
+            "validity_domain",
+            "producer",
+            "review",
+            "lifecycle",
+            "provenance",
+        ],
+        scope,
+    )?;
+    for field in ["configuration", "subject"] {
+        let nested = value
+            .get(field)
+            .ok_or_else(|| PacketError::MalformedPacketField(format!("{scope}.{field}")))?;
+        check_ref_value(nested, &format!("{scope}.{field}"))?;
+    }
+    if let Some(method) = value.get("method") {
+        if !method.is_null() {
+            check_ref_value(method, &format!("{scope}.method"))?;
+        }
+    }
+    for field in ["basis", "inputs", "toolchain", "review", "provenance"] {
+        let nested = value
+            .get(field)
+            .ok_or_else(|| PacketError::MalformedPacketField(format!("{scope}.{field}")))?;
+        check_ref_array(nested, &format!("{scope}.{field}"))?;
+    }
+
+    if let Some(uncertainty) = value.get("uncertainty") {
+        if !uncertainty.is_null() {
+            check_object_fields(
+                uncertainty,
+                &["representation", "value", "unit"],
+                &format!("{scope}.uncertainty"),
+            )?;
+        }
+    }
+    let validity = value
+        .get("validity_domain")
+        .ok_or_else(|| PacketError::MalformedPacketField(format!("{scope}.validity_domain")))?;
+    check_object_fields(validity, &["conditions"], &format!("{scope}.validity_domain"))?;
+    let conditions = validity
+        .get("conditions")
+        .ok_or_else(|| PacketError::MalformedPacketField(format!("{scope}.validity_domain.conditions")))?;
+    if !conditions.is_object() {
+        return Err(PacketError::MalformedPacketField(format!(
+            "{scope}.validity_domain.conditions"
+        )));
+    }
+    let lifecycle = value
+        .get("lifecycle")
+        .ok_or_else(|| PacketError::MalformedPacketField(format!("{scope}.lifecycle")))?;
+    check_object_fields(
+        lifecycle,
+        &["state", "reason", "predecessor"],
+        &format!("{scope}.lifecycle"),
+    )
+}
+
+fn check_packet_json_contract(value: &serde_json::Value) -> Result<(), PacketError> {
+    const ROOT_FIELDS: &[&str] = &[
+        "schema", "packet_id", "component", "physical_unit", "configuration",
+        "design_definition", "requirements", "process_plan", "material_batch",
+        "machine", "tooling", "build_evidence", "inspection_plan",
+        "inspection_instrument", "inspection_calibration",
+        "inspection_calibration_validity", "inspection_result",
+        "inspection_evidence", "test_plan", "test_instrument",
+        "test_calibration", "test_calibration_validity", "test_result",
+        "test_evidence",
+    ];
+    check_object_fields(value, ROOT_FIELDS, "packet")?;
+
+    for field in [
+        "component", "physical_unit", "configuration", "material_batch", "machine",
+        "inspection_plan", "inspection_instrument", "test_plan", "test_instrument",
+    ] {
+        let nested = value
+            .get(field)
+            .ok_or_else(|| PacketError::MalformedPacketField(format!("packet.{field}")))?;
+        check_ref_value(nested, &format!("packet.{field}"))?;
+    }
+    for field in ["requirements", "tooling"] {
+        let nested = value
+            .get(field)
+            .ok_or_else(|| PacketError::MalformedPacketField(format!("packet.{field}")))?;
+        check_ref_array(nested, &format!("packet.{field}"))?;
+    }
+    for field in ["design_definition", "process_plan", "inspection_result", "test_result"] {
+        let nested = value
+            .get(field)
+            .ok_or_else(|| PacketError::MalformedPacketField(format!("packet.{field}")))?;
+        check_content_value(nested, &format!("packet.{field}"))?;
+    }
+    for field in [
+        "build_evidence", "inspection_calibration", "inspection_evidence",
+        "test_calibration", "test_evidence",
+    ] {
+        let nested = value
+            .get(field)
+            .ok_or_else(|| PacketError::MalformedPacketField(format!("packet.{field}")))?;
+        check_evidence_value(nested, &format!("packet.{field}"))?;
+    }
+    for field in ["inspection_calibration_validity", "test_calibration_validity"] {
+        let nested = value
+            .get(field)
+            .ok_or_else(|| PacketError::MalformedPacketField(format!("packet.{field}")))?;
+        check_calibration_validity_value(nested, &format!("packet.{field}"))?;
+    }
+    Ok(())
+}
+
+/// Strict JSON admission: rejects unknown fields, including nested fields in
+/// the upstream AeroEvidenceV1 type which intentionally remains reusable.
+pub fn parse_packet_json(bytes: &[u8]) -> Result<ComponentBuildPacketV1, PacketError> {
+    let value: serde_json::Value = serde_json::from_slice(bytes)
+        .map_err(|error| PacketError::InvalidPacketJson(error.to_string()))?;
+    check_packet_json_contract(&value)?;
+    serde_json::from_value(value)
+        .map_err(|error| PacketError::InvalidPacketJson(error.to_string()))
 }
 
 fn valid_ref(reference: &ArtifactRef) -> bool {
@@ -142,6 +348,29 @@ fn require_basis(evidence: &AeroEvidenceV1, required: &ArtifactRef) -> Result<()
 
 fn require_toolchain(evidence: &AeroEvidenceV1, required: &ArtifactRef) -> Result<(), PacketError> {
     require_member(&evidence.toolchain, &evidence.evidence_id, required)
+}
+
+/// Verify an artifact's declared length and SHA-256 against its exact bytes.
+///
+/// This is separate from packet structure validation because artifact payloads
+/// are stored outside the packet and must be fetched by an explicit caller.
+pub fn verify_artifact_bytes(
+    artifact: &ContentArtifactV1,
+    bytes: &[u8],
+) -> Result<(), PacketError> {
+    if bytes.len() as u64 != artifact.byte_length {
+        return Err(PacketError::ArtifactByteLengthMismatch(
+            artifact.reference.id.clone(),
+        ));
+    }
+    let digest = Sha256::digest(bytes);
+    let actual = digest.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+    if actual != artifact.sha256 || artifact.reference.id != format!("sha256:{actual}") {
+        return Err(PacketError::ArtifactDigestMismatch(
+            artifact.reference.id.clone(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_content_artifact(
@@ -726,8 +955,63 @@ mod tests {
     }
 
     #[test]
+    fn artifact_byte_verification_checks_length_and_sha256() {
+        let bytes = b"synthetic AP242 payload";
+        let digest = Sha256::digest(bytes)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        let artifact = ContentArtifactV1 {
+            reference: reference(&format!("sha256:{digest}"), "design_definition"),
+            sha256: digest,
+            byte_length: bytes.len() as u64,
+            media_type: "application/step".into(),
+            format_id: "ISO_10303_242:2025".into(),
+        };
+        assert_eq!(verify_artifact_bytes(&artifact, bytes), Ok(()));
+        assert!(matches!(
+            verify_artifact_bytes(&artifact, b"changed AP242 payload"),
+            Err(PacketError::ArtifactDigestMismatch(_))
+        ));
+        assert!(matches!(
+            verify_artifact_bytes(&artifact, b"short"),
+            Err(PacketError::ArtifactByteLengthMismatch(_))
+        ));
+    }
+
+    #[test]
+    fn strict_parser_rejects_unknown_evidence_fields() {
+        let mut value: serde_json::Value =
+            serde_json::from_slice(include_bytes!("../fixtures/nonflight_coupon_packet_v1.json"))
+                .expect("fixture JSON");
+        value["build_evidence"]["hidden_authority"] = json!(true);
+        let bytes = serde_json::to_vec(&value).expect("serialize mutated fixture");
+        assert!(matches!(
+            parse_packet_json(&bytes),
+            Err(PacketError::UnknownField { .. })
+        ));
+    }
+
+    #[test]
+    fn strict_parser_rejects_unknown_artifact_reference_fields() {
+        let mut value: serde_json::Value =
+            serde_json::from_slice(include_bytes!("../fixtures/nonflight_coupon_packet_v1.json"))
+                .expect("fixture JSON");
+        value["physical_unit"]["release_status"] = json!("approved");
+        let bytes = serde_json::to_vec(&value).expect("serialize mutated fixture");
+        assert!(matches!(
+            parse_packet_json(&bytes),
+            Err(PacketError::UnknownField { .. })
+        ));
+    }
+
+    #[test]
     fn checked_in_fixture_replays() {
-        let packet: ComponentBuildPacketV1 = serde_json::from_str(include_str!("../fixtures/nonflight_coupon_packet_v1.json")).expect("fixture JSON");
-        assert_eq!(validate_packet(&packet).expect("valid fixture").disposition, PacketDisposition::StructurallyComplete);
+        let packet = parse_packet_json(include_bytes!("../fixtures/nonflight_coupon_packet_v1.json"))
+            .expect("fixture JSON");
+        assert_eq!(
+            validate_packet(&packet).expect("valid fixture").disposition,
+            PacketDisposition::StructurallyComplete
+        );
     }
 }
