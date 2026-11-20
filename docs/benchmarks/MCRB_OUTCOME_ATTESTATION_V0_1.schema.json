@@ -73,7 +73,13 @@
         "builder_identity",
         "trust_policy_id",
         "trust_policy_digest_sha256",
-        "issued_at_unix_ms"
+        "issued_at_unix_ms",
+        "operation_contract_registry_digest_sha256",
+        "operation_contract_id",
+        "operation_contract_version",
+        "operation_contract_digest_sha256",
+        "attempt_state",
+        "outcome_class"
       ],
       "properties": {
         "schema_version": {
@@ -269,6 +275,42 @@
         "issued_at_unix_ms": {
           "type": "integer",
           "minimum": 0
+        },
+        "operation_contract_registry_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "operation_contract_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation_contract_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation_contract_digest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "attempt_state": {
+          "enum": [
+            "not-dispatched",
+            "dispatched",
+            "accepted-at-local-boundary",
+            "timed-out",
+            "reconciled",
+            "unsupported"
+          ]
+        },
+        "outcome_class": {
+          "enum": [
+            "QualifiedSuccess",
+            "CorrectDenial",
+            "UnexpectedDenial",
+            "Failed",
+            "Unknown",
+            "DuplicateEffect"
+          ]
         }
       }
     }
