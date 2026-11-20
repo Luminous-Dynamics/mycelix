@@ -57,8 +57,6 @@ jobs:
             (.source.tree_sha | test("^[0-9a-f]{40}$")) and
             .scope.source_selection == "git-tracked-files-only-clean-tracked-worktree" and
             (.scope.excluded_path_components | type == "array") and
-            .scope.source_selection == "git-tracked-files-only-clean-tracked-worktree" and
-            (.scope.excluded_path_components | type == "array") and
             (.call_sites | type == "array") and
             (.scope.nearest_manifest_context_coverage | type == "number")
           ' otherrole-topology-report.json > /dev/null
