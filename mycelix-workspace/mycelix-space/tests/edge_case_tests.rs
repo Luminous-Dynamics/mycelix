@@ -83,6 +83,58 @@ fn test_norad_id_hash_equality() {
 // Timestamp Edge Case Tests
 // =============================================================================
 
+/// Freeze the legacy TLE freshness multiplier semantics; this is not a calibration claim.
+#[test]
+fn test_tle_legacy_freshness_multiplier_boundaries() {
+    let now = Utc::now();
+    let quality = QualityScore::new(90);
+    let threshold = 30 * 24 * 3600;
+    let config = StalenessConfig {
+        stale_threshold_secs: threshold,
+        min_quality: 20,
+    };
+
+    let fresh = compute_staleness(
+        &SpaceTimestamp::from_datetime(now),
+        &quality,
+        &config,
+    );
+    assert!((fresh.confidence - 1.0).abs() < 1e-9);
+
+    let at_threshold = compute_staleness(
+        &SpaceTimestamp::from_datetime(now - Duration::seconds(threshold)),
+        &quality,
+        &config,
+    );
+    assert!((at_threshold.confidence - 0.65).abs() < 1e-6);
+    assert!(at_threshold.is_stale);
+
+    let twice_threshold = compute_staleness(
+        &SpaceTimestamp::from_datetime(now - Duration::seconds(2 * threshold)),
+        &quality,
+        &config,
+    );
+    assert!((twice_threshold.confidence - 0.3).abs() < 1e-6);
+    assert!(twice_threshold.is_stale);
+}
+
+/// The quality floor is policy input for callers; this function reports but does not enforce it.
+#[test]
+fn test_tle_min_quality_is_caller_policy_not_implicit_gate() {
+    let now = Utc::now();
+    let below_floor = compute_staleness(
+        &SpaceTimestamp::from_datetime(now),
+        &QualityScore::new(10),
+        &StalenessConfig {
+            stale_threshold_secs: 30 * 24 * 3600,
+            min_quality: 20,
+        },
+    );
+    assert_eq!(below_floor.effective_quality.value(), 10);
+    assert!(!below_floor.is_stale);
+    assert!(!below_floor.future_dated);
+}
+
 /// Older serialized staleness records default the newly-added future flag to false.
 #[test]
 fn test_tle_staleness_backward_compatible_deserialization() {
