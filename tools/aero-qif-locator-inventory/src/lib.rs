@@ -235,6 +235,10 @@ pub enum InventoryError {
     UnknownExternalPlanQpid(String),
     #[error("duplicate Results external-document reference ID {0}")]
     DuplicateExternalReferenceId(u32),
+    #[error("trace-critical child locator counts disagree at {0}")]
+    SourceRuleCoverageMismatch(String),
+    #[error("a supplied Plan document is not linked by any Results external reference: {0}")]
+    UnlinkedPlanDocument(String),
     #[error("duplicate Results external-document reference id {0}")]
     DuplicateExternalReferenceId(u32),
     #[error("inventory canonicalization failed")]
@@ -616,7 +620,7 @@ fn finalize_frame(
                 )?;
             }
             LocatorCaptureMode::LocalQifReference => {
-                if frame.has_child_element {
+                if frame.has_child_element || frame.external_xid.is_some() {
                     return Err(InventoryError::InvalidQifReference(frame.locator_path.clone()));
                 }
                 let value = parsed_numeric_attribute(&frame.direct_text, &frame.locator_path)
@@ -1065,6 +1069,23 @@ pub fn derive_trace_locator_inventory(
     if results.len() != 1 {
         return Err(InventoryError::InvalidIdentity("results_document_cardinality".into()));
     }
+    let results_measurements = results[0].locators.iter()
+        .filter(|record| record.rule_id == "results.characteristic_measurement")
+        .count();
+    let results_item_references = results[0].locators.iter()
+        .filter(|record| record.rule_id == "results.characteristic_item_external_reference")
+        .count();
+    let results_measurement_statuses = results[0].locators.iter()
+        .filter(|record| record.rule_id == "results.characteristic_measurement_status")
+        .count();
+    if results_measurements != results_item_references
+        || results_measurements != results_measurement_statuses
+    {
+        return Err(InventoryError::SourceRuleCoverageMismatch(
+            "Results characteristic measurement/status/item-reference".into()
+        ));
+    }
+
     let declared_external_document_reference_ids = results[0]
         .declared_external_ids.iter().copied().collect::<Vec<_>>();
     let plan_qpids: BTreeSet<_> = scanned.iter()
@@ -1116,6 +1137,29 @@ pub fn derive_trace_locator_inventory(
         });
     }
     external_document_references.sort_by(|left, right| left.local_reference_id.cmp(&right.local_reference_id));
+    let linked_plan_qpids: BTreeSet<_> = external_document_references.iter()
+        .map(|reference| reference.plan_qpid.to_ascii_lowercase())
+        .collect();
+    if linked_plan_qpids != plan_qpids {
+        let unlinked = plan_qpids.difference(&linked_plan_qpids).next().cloned().unwrap_or_default();
+        return Err(InventoryError::UnlinkedPlanDocument(unlinked));
+    }
+
+    let plan_items = scanned.iter()
+        .filter(|document| document.source.role == QifDocumentRole::Plan)
+        .map(|document| document.locators.iter()
+            .filter(|record| record.rule_id == "plan.characteristic_item").count())
+        .sum::<usize>();
+    let plan_nominal_references = scanned.iter()
+        .filter(|document| document.source.role == QifDocumentRole::Plan)
+        .map(|document| document.locators.iter()
+            .filter(|record| record.rule_id == "plan.characteristic_item_nominal_reference").count())
+        .sum::<usize>();
+    if plan_items != plan_nominal_references {
+        return Err(InventoryError::SourceRuleCoverageMismatch(
+            "Plan characteristic-item/nominal-reference".into()
+        ));
+    }
 
     let mut source_documents = scanned.iter().map(|document| document.source.clone()).collect::<Vec<_>>();
     source_documents.sort_by(|left, right| left.qpid.cmp(&right.qpid));
