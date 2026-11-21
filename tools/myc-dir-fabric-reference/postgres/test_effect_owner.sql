@@ -31,7 +31,9 @@ BEGIN
         decode(repeat('11', 32), 'hex'), 'logical-op-1',
         decode(repeat('22', 32), 'hex'), decode(repeat('33', 32), 'hex'),
         decode(repeat('44', 32), 'hex'), 125
-    );
+    , 'postgres-db-clock-v1',
+        clock_timestamp() - interval '1 minute',
+        clock_timestamp() + interval '1 minute');
 
     IF v_first.replayed OR v_first.accepted_generation <> 1 THEN
         RAISE EXCEPTION 'first effect was not recorded as a new generation-1 effect';
@@ -44,7 +46,9 @@ BEGIN
         decode(repeat('11', 32), 'hex'), 'logical-op-1',
         decode(repeat('22', 32), 'hex'), decode(repeat('33', 32), 'hex'),
         decode(repeat('44', 32), 'hex'), 125
-    );
+    , 'postgres-db-clock-v1',
+        clock_timestamp() - interval '1 minute',
+        clock_timestamp() + interval '1 minute');
 
     IF NOT v_replay.replayed OR v_replay.effect_id <> v_first.effect_id THEN
         RAISE EXCEPTION 'exact retry did not return the original effect receipt';
@@ -59,7 +63,9 @@ BEGIN
             decode(repeat('11', 32), 'hex'), 'logical-op-1',
             decode(repeat('22', 32), 'hex'), decode(repeat('33', 32), 'hex'),
             decode(repeat('55', 32), 'hex'), 125
-        );
+        , 'postgres-db-clock-v1',
+        clock_timestamp() - interval '1 minute',
+        clock_timestamp() + interval '1 minute');
     EXCEPTION WHEN SQLSTATE 'P0001' THEN
         v_failed := TRUE;
     END;
@@ -76,7 +82,9 @@ BEGIN
             decode(repeat('66', 32), 'hex'), 'logical-op-1',
             decode(repeat('77', 32), 'hex'), decode(repeat('33', 32), 'hex'),
             decode(repeat('88', 32), 'hex'), 500
-        );
+        , 'postgres-db-clock-v1',
+        clock_timestamp() - interval '1 minute',
+        clock_timestamp() + interval '1 minute');
     EXCEPTION WHEN SQLSTATE 'P0001' THEN
         v_failed := TRUE;
     END;
@@ -107,7 +115,9 @@ BEGIN
         decode(repeat('11', 32), 'hex'), 'logical-op-1',
         decode(repeat('22', 32), 'hex'), decode(repeat('33', 32), 'hex'),
         decode(repeat('44', 32), 'hex'), 125
-    );
+    , 'postgres-db-clock-v1',
+        clock_timestamp() - interval '1 minute',
+        clock_timestamp() + interval '1 minute');
     IF NOT v_replay.replayed OR v_replay.effect_id <> v_first.effect_id THEN
         RAISE EXCEPTION 'stale-token exact replay failed to resolve original receipt';
     END IF;
@@ -121,7 +131,9 @@ BEGIN
             decode(repeat('aa', 32), 'hex'), 'logical-op-2',
             decode(repeat('bb', 32), 'hex'), decode(repeat('cc', 32), 'hex'),
             decode(repeat('dd', 32), 'hex'), 500
-        );
+        , 'postgres-db-clock-v1',
+        clock_timestamp() - interval '1 minute',
+        clock_timestamp() + interval '1 minute');
     EXCEPTION WHEN SQLSTATE 'P0001' THEN
         v_failed := TRUE;
     END;
