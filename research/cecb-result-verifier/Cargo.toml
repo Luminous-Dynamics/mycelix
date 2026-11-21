@@ -1,0 +1,17 @@
+[package]
+name = "cecb-result-verifier"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Fail-closed verifier for Capability-Economy Comparative Benchmark policy-result bundles"
+
+[workspace]
+
+[dependencies]
+serde = "=1.0.229"
+serde_json = "=1.0.154"
+serde_json_canonicalizer = "=0.4.1"
+sha2 = "=0.10.9"
+
+[build-dependencies]
+sha2 = "=0.10.9"
