@@ -1,7 +1,8 @@
 use space_defensive_importance_sampling::{
     CollisionObservation, DefensiveGaussianMixture, EvaluationEvidence, GaussianComponent,
     MultifidelityResidualObservation, MultifidelityResidualParameters,
-    MultifidelitySurrogateEvidence, WhiteningTransform, estimate_collision_probability,
+    MultifidelitySurrogateEvidence, ResidualSupportContract, WhiteningTransform,
+    estimate_collision_probability,
     estimate_multifidelity_residual_probability, exact_standard_normal_2d_disk_probability,
 };
 use std::process;
@@ -200,6 +201,11 @@ fn run_multifidelity_replicate(
             surrogate_probability,
             surrogate_probability_absolute_error_bound: 0.0,
             confidence_delta: DELTA,
+            residual_support_contract:
+                ResidualSupportContract::VerifiedCenteredGaussianDiskSuperset {
+                    high_fidelity_radius,
+                    surrogate_radius,
+                },
         },
         &evaluation,
         &surrogate,
