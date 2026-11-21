@@ -57,7 +57,8 @@
             "pedotransfer_product",
             "spectral_dataset",
             "historical_survey",
-            "other"
+            "other",
+            "spectral_estimate_dataset"
           ]
         },
         "title": {
@@ -766,6 +767,38 @@
                   "local_validation",
                   "field_plot_inference"
                 ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_record": {
+            "properties": {
+              "source_type": {
+                "const": "spectral_estimate_dataset"
+              }
+            },
+            "required": [
+              "source_type"
+            ]
+          }
+        },
+        "required": [
+          "source_record"
+        ]
+      },
+      "then": {
+        "properties": {
+          "variables": {
+            "items": {
+              "properties": {
+                "value_semantics": {
+                  "const": "spectral_prediction"
+                }
               }
             }
           }
