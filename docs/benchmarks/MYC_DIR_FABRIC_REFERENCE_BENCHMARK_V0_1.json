@@ -1,0 +1,355 @@
+{
+  "profile": "MYC-DIR-FABRIC-REFERENCE-BENCHMARK-0.1",
+  "version": "0.1.0",
+  "status": "preregistered_not_executed",
+  "claim_ceiling": "Provisional target profile only. No latency, scale, revocation, privacy, Holochain runtime or superiority result is measured or established.",
+  "source_binding": {
+    "required_at_execution": [
+      "benchmark_profile_digest",
+      "repository",
+      "commit_sha",
+      "tree_sha",
+      "Cargo.lock_digest_or_explicit_no_lockfile",
+      "rustc_version",
+      "cargo_version",
+      "target_triple",
+      "build_profile",
+      "benchmark_binary_digest",
+      "policy_and_schema_digests",
+      "adversarial_corpus_digest",
+      "clock_profile_and_uncertainty",
+      "hardware_description",
+      "topology_and_failure_schedule",
+      "dataset_generator_version_and_seed",
+      "comparator_versions_and_configurations"
+    ],
+    "bind_each_sample_to_exact_commit": true,
+    "no_moving_branch_references": true
+  },
+  "repetition_protocol": {
+    "independent_repetitions_minimum": 10,
+    "load_generation": "open_loop",
+    "report_per_run": [
+      "p50",
+      "p95",
+      "p99",
+      "maximum",
+      "offered_rate",
+      "accepted_rate",
+      "error_rate"
+    ],
+    "raw_samples_required": true,
+    "do_not_average_percentiles_across_runs": true,
+    "separate_real_and_simulated_peers": true,
+    "include_warm_and_cold_cache_profiles": true,
+    "include_overload_and_recovery": true
+  },
+  "corpus_binding": {
+    "path": "docs/benchmarks/MYC_DIR_FABRIC_V0_1.json",
+    "schema_path": "docs/benchmarks/MYC_DIR_FABRIC_V0_1.schema.json",
+    "declared_scenario_count": 30,
+    "expected_decision_counts": {
+      "ALLOW": 5,
+      "DENY": 14,
+      "INDETERMINATE": 11
+    },
+    "held_out_corpus_required": true,
+    "independent_oracle_required": true
+  },
+  "workload_profiles": [
+    {
+      "id": "smoke",
+      "principals": 1000,
+      "relationship_edges": 10000,
+      "real_conductors_min": 3,
+      "real_conductors_max": 5,
+      "purpose": "Basic multi-agent correctness and smoke performance"
+    },
+    {
+      "id": "development",
+      "principals": 10000,
+      "relationship_edges": 100000,
+      "real_conductors_min": 20,
+      "real_conductors_max": 20,
+      "purpose": "Group churn, cache behaviour and cursor recovery"
+    },
+    {
+      "id": "qualification",
+      "principals": 100000,
+      "relationship_edges": 1000000,
+      "real_conductors_min": 100,
+      "real_conductors_max": 100,
+      "purpose": "Real-conductor scale, partition and revocation qualification"
+    },
+    {
+      "id": "stress",
+      "principals": 1000000,
+      "relationship_edges": 10000000,
+      "real_conductors_min": 500,
+      "real_conductors_max": null,
+      "purpose": "Capacity and failure-domain study; not an initial release gate"
+    }
+  ],
+  "metrics": [
+    {
+      "id": "local_pep_warm_p95_ms",
+      "layer": "local_enforcement",
+      "metric": "Warm local PEP decision latency excluding external authentication and MFA",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "all",
+      "target": {
+        "operator": "<=",
+        "value": 10
+      },
+      "gate": "performance_target",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "local_pep_warm_p99_ms",
+      "layer": "local_enforcement",
+      "metric": "Warm local PEP decision latency excluding external authentication and MFA",
+      "unit": "ms",
+      "statistic": "p99",
+      "workload_profile": "all",
+      "target": {
+        "operator": "<=",
+        "value": 25
+      },
+      "gate": "performance_target",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "frontier_compare_p95_us_at_64_authorities",
+      "layer": "reference_model",
+      "metric": "Pure frontier comparison latency with up to 64 authority components",
+      "unit": "us",
+      "statistic": "p95",
+      "workload_profile": "all",
+      "target": {
+        "operator": "<=",
+        "value": 250
+      },
+      "gate": "performance_target",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "offline_lease_check_p99_us",
+      "layer": "reference_model",
+      "metric": "Pure offline lease precondition evaluation, including exact scope, epoch, digest, frontier and clock-profile checks",
+      "unit": "us",
+      "statistic": "p99",
+      "workload_profile": "all",
+      "target": {
+        "operator": "<=",
+        "value": 50
+      },
+      "gate": "performance_target",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "known_answer_agreement_pct",
+      "layer": "correctness",
+      "metric": "Agreement with an independently authored decision oracle on frozen and held-out fixtures",
+      "unit": "percent",
+      "statistic": "all_cases",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 100
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "false_allow_count",
+      "layer": "correctness",
+      "metric": "False ALLOW decisions across frozen and held-out adversarial cases",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "private_disclosure_count",
+      "layer": "privacy",
+      "metric": "Prohibited private-attribute disclosures through public DHT payloads, links, indexes, logs, telemetry or receipts",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "high_risk_offline_admit_count_after_expiry",
+      "layer": "revocation_and_leases",
+      "metric": "High-risk or write operations admitted after required freshness or lease expiry",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "frontier_fork_false_fresh_count",
+      "layer": "correctness",
+      "metric": "Same-sequence fork or unproven descendant incorrectly classified as sufficiently fresh",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "group_graph_partial_result_count",
+      "layer": "correctness",
+      "metric": "Partial group expansion results returned after cycle or depth/node/edge budget failure",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "healthy_mesh_revocation_to_last_allow_p95_ms",
+      "layer": "revocation_and_leases",
+      "metric": "Effective revocation time to last accepted protected effect across all observed PEP/session/token/worker surfaces",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "<=",
+        "value": 5000
+      },
+      "gate": "performance_target",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "healthy_mesh_revocation_to_last_allow_p99_ms",
+      "layer": "revocation_and_leases",
+      "metric": "Effective revocation time to last accepted protected effect across all observed PEP/session/token/worker surfaces",
+      "unit": "ms",
+      "statistic": "p99",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "<=",
+        "value": 30000
+      },
+      "gate": "performance_target",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "group_expansion_latency_by_graph_shape",
+      "layer": "reference_model",
+      "metric": "Group expansion latency and allocations by node count, edge count, depth and branching factor",
+      "unit": "ns",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "scim_deprovision_to_effective_deny_ms",
+      "layer": "provisioning",
+      "metric": "SCIM deprovision event to last accepted session/token/worker/PEP effect",
+      "unit": "ms",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "conductor_restart_first_ready_ms",
+      "layer": "distributed_runtime",
+      "metric": "Conductor restart to first successful zome call for the first and last app/cell",
+      "unit": "ms",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "dht_convergence_after_partition_ms",
+      "layer": "distributed_runtime",
+      "metric": "Partition heal to verified convergence of the exact required authority operation set",
+      "unit": "ms",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    }
+  ],
+  "fault_schedules": [
+    "Two-way partition with independently authored authority updates and revocations",
+    "Large divergent DHT op sets bracketing the upstream reported gossip boundary",
+    "Revoked single-function and multi-function host capability grants",
+    "Lair inventories around 1, 40, 41, 100 and 120 keys with existing-agent-key install",
+    "Conductor restart and idle operation around 10k, 20k and 100k DHT ops",
+    "Clock uncertainty that straddles not-before and expiry boundaries",
+    "Concurrent incomparable realm and issuer authority frontiers",
+    "Group cycles, alternate long paths, and node/edge/depth budget exhaustion",
+    "SCIM duplicate, delayed, replayed and out-of-order deprovision/security events"
+  ],
+  "comparators": [
+    {
+      "name": "SpiceDB",
+      "scope": "Relationship authorization and per-request at_least_as_fresh / fully_consistent behaviour",
+      "consistency_profile": "Use ZedToken at_least_as_fresh for matched read-after-write; separately report fully_consistent cache-bypass results"
+    },
+    {
+      "name": "OpenFGA",
+      "scope": "Relationship authorization",
+      "consistency_profile": "Compare matched HIGHER_CONSISTENCY and MINIMIZE_LATENCY query modes"
+    },
+    {
+      "name": "Cedar",
+      "scope": "Local policy evaluation",
+      "consistency_profile": "Same policy/request semantics and context; do not compare unmatched policy expressiveness"
+    },
+    {
+      "name": "OPA",
+      "scope": "Local policy evaluation and distribution",
+      "consistency_profile": "Same input corpus, policy distribution and cache conditions"
+    },
+    {
+      "name": "AD DS / Entra ID / FreeIPA",
+      "scope": "End-to-end enterprise lifecycle and incumbent integration",
+      "consistency_profile": "Compare only equivalent service surfaces; report identity, session, group, recovery and administration paths separately"
+    },
+    {
+      "name": "SPIRE / SPIFFE",
+      "scope": "Workload identity issuance, rotation and trust-domain federation",
+      "consistency_profile": "Compare shared workload identity responsibilities only"
+    },
+    {
+      "name": "Holochain",
+      "scope": "Distributed substrate runtime",
+      "consistency_profile": "Exact conductor/HDK/HDI/Lair/Kitsune2 tuple and real conductors; report simulated peers separately"
+    }
+  ]
+}
