@@ -221,7 +221,7 @@ fn run_model(fixture: &Fixture, fixed_interface: bool) -> Result<ModelResult, St
     let mut signed_total = 0.0;
     let mut macro_to_matrix_total = 0.0;
     let mut matrix_to_macro_total = 0.0;
-    let mut maximum_rate = 0.0;
+    let mut maximum_rate: f64 = 0.0;
     let mut intervals = 0;
 
     for pair in fixture.points.windows(2) {
