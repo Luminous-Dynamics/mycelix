@@ -1020,6 +1020,38 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn fanout_rejects_account_device_unit_mismatch() {
+        let recipient = "b".repeat(64);
+        let set_commitment = recipient_set_commitment(std::slice::from_ref(&recipient));
+        let mut child_value: Value = serde_json::from_slice(&grouped_success_trace(
+            "logical-1",
+            &recipient,
+            &set_commitment,
+        ))
+        .expect("child JSON");
+        child_value["group_fanout"]["recipient_unit"] = json!("DEVICE");
+        let child = serde_json::to_vec(&child_value).expect("child JSON");
+        let manifest = manifest_for(&[("logical-1".to_owned(), recipient, child.clone())]);
+        let manifest_sha = sha256_hex(&manifest);
+        let (manifest_schema, trace_schema) = schemas();
+
+        let result = verify_fanout(
+            &manifest,
+            &manifest_sha,
+            &manifest_schema,
+            &trace_schema,
+            &[("unit-mismatch-child.json".to_owned(), child)],
+            None,
+        );
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().iter().any(|finding| {
+            finding.message.contains("recipient_unit")
+        }));
+    }
+
     #[test]
     fn fanout_rejects_a_wrong_external_manifest_pin() {
         let recipient = "b".repeat(64);
